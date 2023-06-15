@@ -4,7 +4,7 @@
 
 //===----- NonMaxSuppression.cpp - Lowering NonMaxSuppression Op ----------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -162,17 +162,16 @@ static void suppressByScores(ConversionPatternRewriter &rewriter, Location loc,
 /// BoundingBoxes: [num_of_batch, spatial_dimension, 4]
 static Value tryToUnflip(
     ConversionPatternRewriter &rewriter, Location loc, Value boundingBoxes) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+      create(rewriter, loc);
   SmallVector<IndexExpr, 4> ubs;
   create.krnlIE.getShapeAsDims(boundingBoxes, ubs);
   IndexExpr bs = ubs[0]; // batch size.
   IndexExpr ss = ubs[1]; // spatial size.
   LiteralIndexExpr zeroIE(0), oneIE(1), twoIE(2), threeIE(3);
 
-  Value resMemRef = insertAllocAndDeallocSimple(rewriter, nullptr,
-      boundingBoxes.getType().cast<MemRefType>(), loc, ubs,
-      /*insertDealloc=*/false);
+  Value resMemRef =
+      create.mem.alignedAlloc(boundingBoxes.getType().cast<MemRefType>(), ubs);
 
   ValueRange loopDef = create.krnl.defineLoops(2);
   create.krnl.iterateIE(loopDef, loopDef, {zeroIE, zeroIE}, {bs, ss},
@@ -204,19 +203,19 @@ static Value tryToUnflip(
   return resMemRef;
 }
 
-struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
+struct ONNXNonMaxSuppressionOpLowering
+    : public OpConversionPattern<ONNXNonMaxSuppressionOp> {
   ONNXNonMaxSuppressionOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            ONNXNonMaxSuppressionOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   /// To understand how code is generated for NonMaxSuppression, look at the
   /// python implementation at the end of this file.
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXNonMaxSuppressionOp nmsOp,
+      ONNXNonMaxSuppressionOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXNonMaxSuppressionOp nmsOp = llvm::cast<ONNXNonMaxSuppressionOp>(op);
-    ONNXNonMaxSuppressionOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = nmsOp.getOperation();
+    Location loc = ONNXLoc<ONNXNonMaxSuppressionOp>(op);
 
     // Builder helper.
     IndexExprScope mainScope(&rewriter, loc);
@@ -238,21 +237,21 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
 
     // Operation's operands.
     // Bounding boxes.
-    Value boxes = operandAdaptor.boxes();
+    Value boxes = adaptor.getBoxes();
     // Scores.
-    Value scores = operandAdaptor.scores();
+    Value scores = adaptor.getScores();
     // Maximum number of output boxes per class.
     Value maxOutputBoxPerClass = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.max_output_boxes_per_class(), i64Type, 0);
+        rewriter, loc, adaptor.getMaxOutputBoxesPerClass(), i64Type, 0);
     // Score threshold.
     Type scoreType = scores.getType().cast<MemRefType>().getElementType();
     Value scoreTH = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.score_threshold(), scoreType, 0);
+        rewriter, loc, adaptor.getScoreThreshold(), scoreType, 0);
     // IOU threshold.
     Value iouTH = getOptionalScalarValue(
-        rewriter, loc, operandAdaptor.iou_threshold(), scoreType, 0);
+        rewriter, loc, adaptor.getIouThreshold(), scoreType, 0);
     // Mode: diagonal corners or center point.
-    int64_t centerPointBox = nmsOp.center_point_box();
+    int64_t centerPointBox = nmsOp.getCenterPointBox();
 
     // boxes: [num_of_batch, spatial_dimension, 4]
     // scores: [num_of_batch, num_of_class, spatial_dimension]
@@ -303,11 +302,10 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     if (numSelectedIndicesIE.isLiteral())
       outputShape.emplace_back(numSelectedIndicesIE.getLiteral());
     else
-      outputShape.emplace_back(-1);
+      outputShape.emplace_back(ShapedType::kDynamic);
     outputShape.emplace_back(3);
-    Value selectedMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get(outputShape, indexType), loc, outputDims,
-        /*insertDealloc=*/true);
+    Value selectedMemRef = create.mem.alignedAlloc(
+        MemRefType::get(outputShape, indexType), outputDims);
     // Initialize with value -1.
     create.krnl.memset(selectedMemRef, create.math.constantIndex(-1));
 
@@ -333,12 +331,11 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
           // Keep trace of removed indices per class.
           DimIndexExpr ssIE(ss);
           SmallVector<IndexExpr, 1> dims = {ssIE};
-          SmallVector<int64_t, 1> shapes = {-1};
+          SmallVector<int64_t, 1> shapes = {ShapedType::kDynamic};
           if (ssIE.isLiteral())
             shapes[0] = ssIE.getLiteral();
-          Value removedIndices = insertAllocAndDeallocSimple(rewriter, nullptr,
-              MemRefType::get(shapes, boolType), loc, dims,
-              /*insertDealloc=*/true);
+          Value removedIndices =
+              create.mem.alignedAlloc(MemRefType::get(shapes, boolType), dims);
           create.krnl.memset(removedIndices, falseVal);
 
           // Iterate in the descending order of scores.
@@ -444,10 +441,8 @@ struct ONNXNonMaxSuppressionOpLowering : public ConversionPattern {
     Value effectiveNSI = create.krnl.load(effectiveNumSelectedIndices, {});
     SmallVector<IndexExpr, 2> resDims = {
         DimIndexExpr(effectiveNSI), LiteralIndexExpr(3)};
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef = insertAllocAndDeallocSimple(rewriter, op,
-        MemRefType::get({-1, 3}, elementType), loc, resDims,
-        /*insertDealloc=*/insertDealloc);
+    Value resMemRef = create.mem.alignedAlloc(
+        MemRefType::get({ShapedType::kDynamic, 3}, elementType), resDims);
 
     // Copy data to the final ouput.
     ValueRange resLoopDef = create.krnl.defineLoops(2);

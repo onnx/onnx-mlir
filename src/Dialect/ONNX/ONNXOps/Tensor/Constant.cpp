@@ -29,10 +29,10 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
   ONNXConstantOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
 
   ElementsAttr valAttr;
-  if (operandAdaptor.sparse_value().has_value())
-    valAttr = operandAdaptor.sparse_valueAttr().cast<SparseElementsAttr>();
+  if (operandAdaptor.getSparseValue().has_value())
+    valAttr = operandAdaptor.getSparseValueAttr().cast<SparseElementsAttr>();
   else
-    valAttr = operandAdaptor.valueAttr().cast<ElementsAttr>();
+    valAttr = operandAdaptor.getValueAttr().cast<ElementsAttr>();
   return setOutputDimsFromTypeWithConstantShape(valAttr.getType());
 }
 
@@ -48,15 +48,15 @@ LogicalResult ONNXConstantOpShapeHelper::computeShape() {
 
 LogicalResult ONNXConstantOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if ((sparse_value().has_value() && value().has_value()) ||
-      (!sparse_value().has_value() && !value().has_value()))
+  if ((getSparseValue().has_value() && getValue().has_value()) ||
+      (!getSparseValue().has_value() && !getValue().has_value()))
     return emitError("Require exactly one of the two attributes, "
                      "either value or sparse_value");
   ElementsAttr valAttr;
-  if (sparse_value().has_value())
-    valAttr = sparse_valueAttr().cast<SparseElementsAttr>();
+  if (getSparseValue().has_value())
+    valAttr = getSparseValueAttr().cast<SparseElementsAttr>();
   else
-    valAttr = valueAttr().cast<ElementsAttr>();
+    valAttr = getValueAttr().cast<ElementsAttr>();
   Type elementType =
       valAttr.getType().cast<RankedTensorType>().getElementType();
   ONNXConstantOpShapeHelper shapeHelper(getOperation(), {});
@@ -70,3 +70,28 @@ LogicalResult ONNXConstantOp::inferShapes(
 namespace onnx_mlir {
 template struct ONNXNonSpecificOpShapeHelper<ONNXConstantOp>;
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+
+OpFoldResult ONNXConstantOp::fold(FoldAdaptor adaptor) {
+  if (auto sparseValue = getSparseValueAttr())
+    return sparseValue;
+  if (auto value = getValueAttr())
+    return value;
+  else if (auto valueFloat = getValueFloatAttr())
+    return valueFloat;
+  else if (auto valueInt = getValueIntAttr())
+    return valueInt;
+  else if (auto valueInts = getValueIntsAttr())
+    return valueInts;
+  else if (auto valueFloats = getValueFloatsAttr())
+    return valueFloats;
+  else if (auto valueString = getValueStringAttr())
+    return valueString;
+  else if (auto valueStrings = getValueStringsAttr())
+    return valueStrings;
+  else
+    llvm_unreachable("ONNXConstantOp does not have a valid attribute");
+}

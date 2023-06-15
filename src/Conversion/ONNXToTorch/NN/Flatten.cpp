@@ -77,15 +77,15 @@ public:
     Location loc = op.getLoc();
     MLIRContext *context = op.getContext();
 
-    Value input = op.input();
-    int64_t axisValue = op.axis();
+    Value input = op.getInput();
+    int64_t axisValue = op.getAxis();
 
     TensorType resultTensorType = op.getResult().getType().cast<TensorType>();
     auto resultType = Torch::ValueTensorType::get(context,
         resultTensorType.getShape(), resultTensorType.getElementType());
 
     TensorType inputTensorType = input.getType().cast<TensorType>();
-    Value inputValue = adaptor.input();
+    Value inputValue = adaptor.getInput();
     Value tmpValue;
 
     // if axisValue is negative
@@ -132,7 +132,7 @@ public:
       intermShape.insert(
           intermShape.end(), remainingDims.begin(), remainingDims.end());
       auto intermType = Torch::ValueTensorType::get(context,
-          llvm::makeArrayRef(intermShape), inputTensorType.getElementType());
+          llvm::ArrayRef(intermShape), inputTensorType.getElementType());
       // 1) Flatten the region from 0 position to axis - 1.
       tmpValue = createAtenFlattenOp(rewriter, loc, inputValue, intermType,
           /*start=*/0, /*start=*/axisValue - 1, op);

@@ -18,15 +18,14 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXIdentityOpLowering : public ConversionPattern {
+struct ONNXIdentityOpLowering : public OpConversionPattern<ONNXIdentityOp> {
   ONNXIdentityOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXIdentityOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXIdentityOp identityOp,
+      ONNXIdentityOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXIdentityOpAdaptor operandAdaptor(operands);
-    rewriter.replaceOp(op, operandAdaptor.input());
+    rewriter.replaceOp(identityOp, adaptor.getInput());
     return success();
   }
 };

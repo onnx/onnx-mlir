@@ -39,8 +39,8 @@ def ONNX_Dialect : Dialect {
   let cppNamespace = "::mlir";
   let useDefaultTypePrinterParser = 1;
   let useDefaultAttributePrinterParser = 0;
-  let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
   let dependentDialects = ["func::FuncDialect"];
+  let hasConstantMaterializer = 1;
   let extraClassDeclaration = [{
   private:
     // Register the builtin Attributes.
@@ -217,13 +217,7 @@ class OptOf<Type type> :
                 "$_self.cast<OptType>().getElementType()", "OptType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
-  "onnx_mlir::createONNXConstantOpWithDenseAttr($_builder, $_loc, $0)">;
-
-def createNoneIntegerConstant : NativeCodeCall<
-  "onnx_mlir::createNoneIntegerConstant($_builder, $0.getDefiningOp()->getLoc())">;
-
-def createNoneFloatConstant : NativeCodeCall<
-  "onnx_mlir::createNoneFloatConstant($_builder, $0.getDefiningOp()->getLoc())">;
+  "onnx_mlir::OnnxBuilder($_builder, $_loc).constant($0)">;
 
 //===----------------------------------------------------------------------===//
 // ONNX Operations

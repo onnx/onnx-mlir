@@ -29,8 +29,8 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
   DimsExpr outputDims;
 
   // Get operands.
-  Value X = operandAdaptor.X();
-  Value Y = operandAdaptor.Y();
+  Value X = operandAdaptor.getX();
+  Value Y = operandAdaptor.getY();
 
   // Get bounds
   SmallVector<IndexExpr, 4> XDims, YDims;
@@ -95,7 +95,7 @@ LogicalResult ZHighMatMulOpShapeHelper::computeShape() {
 
 LogicalResult ZHighMatMulOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(X()) || !hasRankedType(Y()))
+  if (!hasRankedType(getX()) || !hasRankedType(getY()))
     return success();
 
   ZHighMatMulOpShapeHelper shapeHelper(getOperation());
@@ -119,9 +119,9 @@ LogicalResult ZHighMatMulOp::inferShapes(
 LogicalResult ZHighMatMulOp::verify() {
   ZHighMatMulOpAdaptor operandAdaptor(*this);
   // Get operands.
-  Value X = operandAdaptor.X();
-  Value Y = operandAdaptor.Y();
-  Value B = operandAdaptor.B();
+  Value X = operandAdaptor.getX();
+  Value Y = operandAdaptor.getY();
+  Value B = operandAdaptor.getB();
 
   // Get layouts.
   ZTensorEncodingAttr::DataLayout xLayout = getZTensorLayout(X.getType());

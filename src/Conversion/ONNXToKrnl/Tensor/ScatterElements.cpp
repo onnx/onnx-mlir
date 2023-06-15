@@ -4,7 +4,7 @@
 
 //===--------- ScatterElements.cpp - Lowering ScatterElements Op ----------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,29 +19,30 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXScatterElementsOpLowering : public ConversionPattern {
+struct ONNXScatterElementsOpLowering
+    : public OpConversionPattern<ONNXScatterElementsOp> {
   ONNXScatterElementsOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXScatterElementsOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXScatterElementsOp scatterElementsOp,
+      ONNXScatterElementsOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXScatterElementsOpAdaptor operandAdaptor(operands);
-    ONNXScatterElementsOp scatterElements = cast<ONNXScatterElementsOp>(op);
-    Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    Operation *op = scatterElementsOp.getOperation();
+    Location loc = ONNXLoc<ONNXScatterElementsOp>(op);
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Operands and attributes.
-    Value data = operandAdaptor.data();
-    Value updates = operandAdaptor.updates();
-    Value indices = operandAdaptor.indices();
-    int64_t axis = scatterElements.axis();
+    Value data = adaptor.getData();
+    Value updates = adaptor.getUpdates();
+    Value indices = adaptor.getIndices();
+    int64_t axis = adaptor.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t updatesRank = updates.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
     assert(updatesRank == dataRank && indicesRank == dataRank &&
-           "All input tenstors must have the same rank");
+           "All input tensors must have the same rank");
 
     // Determine whether indices may be negative.
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);
@@ -61,12 +62,11 @@ struct ONNXScatterElementsOpLowering : public ConversionPattern {
     IndexExprScope indexScope(create.krnl);
     DimsExpr dataDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
-    Value output = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, dataDims);
+    Value output = create.mem.alignedAlloc(outputMemRefType, dataDims);
 
     // Step1: copy the data array into the output array.
-    Value sizeInBytes = getDynamicMemRefSizeInBytes(rewriter, loc, data);
-    create.krnl.memcpy(output, data, sizeInBytes);
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, data);
+    create.krnl.memcpy(output, data, numOfElements);
 
     // Step2: scatter the updates array into the output array.
     //   index = indices[i][j]...[n]

@@ -25,17 +25,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-namespace {
-
-struct IsFloat {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only support float types");
-    }
-    return success();
-  }
+template <>
+struct TOSADialectOp<ONNXNegOp> {
+  using Op = mlir::tosa::NegateOp;
 };
 
 struct IsIntOrFloat {
@@ -53,10 +45,10 @@ template <typename OpAdaptorT>
 LogicalResult checkBasicTosaRequirementsForBinaryOps(
     ConversionPatternRewriter &rewriter, Operation *op, OpAdaptorT adaptor,
     Type resultType) {
-  Value lhs = adaptor.A();
+  Value lhs = adaptor.getA();
   auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
-  Value rhs = adaptor.B();
+  Value rhs = adaptor.getB();
   auto rhsType = rhs.getType().dyn_cast<TensorType>();
 
   auto resultTensorType = resultType.dyn_cast<TensorType>();
@@ -122,8 +114,8 @@ public:
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
-    Value lhs = adaptor.A();
-    Value rhs = adaptor.B();
+    Value lhs = adaptor.getA();
+    Value rhs = adaptor.getB();
 
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
 
@@ -140,8 +132,8 @@ public:
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
-    Value lhs = adaptor.A();
-    Value rhs = adaptor.B();
+    Value lhs = adaptor.getA();
+    Value rhs = adaptor.getB();
 
     rewriter.replaceOpWithNewOp<mlir::tosa::MulOp>(
         op, op.getType(), lhs, rhs, /*shift =*/0);
@@ -156,7 +148,7 @@ public:
   LogicalResult matchAndRewrite(ONNXReluOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    Value input = adaptor.X();
+    Value input = adaptor.getX();
 
     // Quantized types are not supported right now (in type conversion).
     // Once they are, the input should be rescaled for quantized types. (TBD)
@@ -176,10 +168,10 @@ static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
     TensorType outputType) {
   auto loc = op->getLoc();
   TosaBuilder tosaBuilder(rewriter, loc);
-  Value constZero = tosaBuilder.getConst(0.0, outputType.getShape());
+  Value constZero = tosaBuilder.getSplattedConst(0.0, outputType.getShape());
 
   auto mul = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, op->getLoc(),
-      outputType, input, tosaBuilder.getConst(alpha, outputType.getShape()),
+      outputType, input, tosaBuilder.getSplattedConst(alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =
@@ -208,17 +200,15 @@ public:
 
     // ONNX docs: alpha : float (default 0.01)
     float alpha = 0.01;
-    FloatAttr alphaAttr = adaptor.alphaAttr();
+    FloatAttr alphaAttr = adaptor.getAlphaAttr();
     if (alphaAttr) {
       // No easy interface in MLIR to get value as float
       alpha = alphaAttr.getValueAsDouble();
     }
     return LegalizeFloatingPointPrelu(
-        op, rewriter, adaptor.X(), alpha, outputType);
+        op, rewriter, adaptor.getX(), alpha, outputType);
   }
 };
-
-} // namespace
 
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
@@ -235,19 +225,19 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp,
                       mlir::tosa::NegateOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCeilOp, mlir::tosa::CeilOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXFloorOp, mlir::tosa::FloorOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXExpOp, mlir::tosa::ExpOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXLogOp, mlir::tosa::LogOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXReciprocalOp,
-          mlir::tosa::ReciprocalOp, IsFloat, IsFloat>,
+          mlir::tosa::ReciprocalOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXTanhOp, mlir::tosa::TanhOp,
-          IsFloat, IsFloat>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXSigmoidOp, mlir::tosa::SigmoidOp,
-          IsFloat, IsFloat>>(typeConverter, ctx);
+          IsIntOrFloat, IsIntOrFloat>>(typeConverter, ctx);
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,

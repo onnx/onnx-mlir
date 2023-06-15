@@ -25,7 +25,7 @@ namespace zhigh {
 
 LogicalResult ZHighMeanReduce2DOpShapeHelper::computeShape() {
   ZHighMeanReduce2DOp::Adaptor operandAdaptor(operands);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
 
   // Output dims of result.
   DimsExpr outputDims;
@@ -53,10 +53,10 @@ LogicalResult ZHighMeanReduce2DOpShapeHelper::computeShape() {
 
 LogicalResult ZHighMeanReduce2DOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(input()))
+  if (!hasRankedType(getInput()))
     return success();
 
-  auto inputType = input().getType().cast<RankedTensorType>();
+  auto inputType = getInput().getType().cast<RankedTensorType>();
   ZHighMeanReduce2DOpShapeHelper shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());

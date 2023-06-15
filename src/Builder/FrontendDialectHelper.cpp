@@ -222,7 +222,7 @@ mlir::ElementsAttr createStringElmAttr(
   assert(!tp.has_raw_data() && "string TensorProto cannot be raw data");
   auto data = tp.string_data();
   llvm::SmallVector<llvm::StringRef> copy(data.begin(), data.end());
-  return mlir::DenseElementsAttr::get(tensorType, llvm::makeArrayRef(copy));
+  return mlir::DenseElementsAttr::get(tensorType, llvm::ArrayRef(copy));
 }
 
 } // namespace
@@ -236,8 +236,7 @@ mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
   llvm::ArrayRef<int64_t> tensorDims(
       initializer.dims().data(), initializer.dims().size());
   if (tensorDims.size() == 1 && tensorDims[0] == 0)
-    return builder.create<mlir::ONNXNoneOp>(
-        loc, builder.getNoneType(), builder.getUnitAttr());
+    return builder.create<mlir::ONNXNoneOp>(loc);
 
   mlir::ElementsAttr elmAttr =
       onnxTensorProtoToElmAttr(builder, externalDataDir, initializer);

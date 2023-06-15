@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXGatherElementsOpShapeHelper::computeShape() {
   ONNXGatherElementsOpAdaptor operandAdaptor(operands);
-  return setOutputDimsFromOperand(operandAdaptor.indices());
+  return setOutputDimsFromOperand(operandAdaptor.getIndices());
 }
 
 } // namespace onnx_mlir
@@ -42,13 +42,13 @@ LogicalResult ONNXGatherElementsOp::verify() {
     return success();
 
   // Get operands and attributes.
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
   auto dataType = data.getType().cast<ShapedType>();
   auto indicesType = indices.getType().cast<ShapedType>();
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
-  int64_t axis = this->axis();
+  int64_t axis = this->getAxis();
 
   // All inputs must have the same rank, and the rank must be strictly greater
   // than zero.
@@ -97,7 +97,7 @@ LogicalResult ONNXGatherElementsOp::inferShapes(
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXGatherElementsOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -122,9 +122,9 @@ public:
 
   LogicalResult rewriteToAtenLinear(ONNXGemmOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const {
-    Value A = adaptor.A();
-    Value B = adaptor.B();
-    Value C = adaptor.C();
+    Value A = adaptor.getA();
+    Value B = adaptor.getB();
+    Value C = adaptor.getC();
 
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
 
@@ -148,9 +148,9 @@ public:
   /// Input B must be of rank 2 (weights)
   /// Input C must be of rank 1 (bias)
   static bool checkLegalAtenLinearOp(ONNXGemmOp op, OpAdaptor adaptor) {
-    Value A = op.A();
-    Value B = op.B();
-    Value C = op.C();
+    Value A = op.getA();
+    Value B = op.getB();
+    Value C = op.getC();
 
     auto AType = A.getType().cast<RankedTensorType>();
     auto BType = B.getType().cast<RankedTensorType>();
@@ -168,12 +168,12 @@ public:
       return false;
     }
     // Both alpha and beta must be 1
-    if ((adaptor.alpha().convertToFloat() != 1.0F) ||
-        (adaptor.beta().convertToFloat() != 1.0F)) {
+    if ((adaptor.getAlpha().convertToFloat() != 1.0F) ||
+        (adaptor.getBeta().convertToFloat() != 1.0F)) {
       return false;
     }
     // Only Transpose B must be enabled
-    if (adaptor.transA() != 0 || adaptor.transB() != 1) {
+    if (adaptor.getTransA() != 0 || adaptor.getTransB() != 1) {
       return false;
     }
     return true;
@@ -185,9 +185,9 @@ public:
     Location loc = op.getLoc();
     MLIRContext *context = op.getContext();
 
-    Value A = op.A();
-    Value B = op.B();
-    Value C = op.C();
+    Value A = op.getA();
+    Value B = op.getB();
+    Value C = op.getC();
 
     if (checkLegalAtenLinearOp(op, adaptor)) {
       return rewriteToAtenLinear(op, adaptor, rewriter);
@@ -206,7 +206,7 @@ public:
     // so for now we arrange the broadcast here. When this is fixed in XTen we
     // will remove the explicit broadcasting from here. The fix is only applied
     // to constant ops and will not work in a generalized case.
-    Value cTensor = adaptor.C();
+    Value cTensor = adaptor.getC();
 
     if (IsCPresent && C.getDefiningOp<ONNXConstantOp>() &&
         C.getDefiningOp()->hasAttr("value")) {
@@ -245,34 +245,34 @@ public:
 
     auto aShapedType = A.getType().dyn_cast<ShapedType>();
     auto bShapedType = B.getType().dyn_cast<ShapedType>();
-    int64_t transA = adaptor.transA();
+    int64_t transA = adaptor.getTransA();
     ::mlir::Type transposeAType =
         (transA != 0)
             ? Torch::ValueTensorType::get(context,
                   ArrayRef<int64_t>(getTransposedShape2D(aShapedType)),
                   aShapedType.getElementType())
-            : adaptor.A().getType();
-    int64_t transB = adaptor.transB();
+            : adaptor.getA().getType();
+    int64_t transB = adaptor.getTransB();
     mlir::Type transposeBType =
         (transB != 0)
             ? Torch::ValueTensorType::get(context,
                   ArrayRef<int64_t>(getTransposedShape2D(bShapedType)),
                   bShapedType.getElementType())
-            : adaptor.B().getType();
+            : adaptor.getB().getType();
 
     Value transposeAVal = (transA != 0) ? rewriter.create<AtenTOp>(
-                                              loc, transposeAType, adaptor.A())
-                                        : adaptor.A();
+                                              loc, transposeAType, adaptor.getA())
+                                        : adaptor.getA();
     Value transposeBVal = (transB != 0) ? rewriter.create<AtenTOp>(
-                                              loc, transposeBType, adaptor.B())
-                                        : adaptor.B();
+                                              loc, transposeBType, adaptor.getB())
+                                        : adaptor.getB();
     setLayerNameAttr(op, transposeAVal.getDefiningOp());
     setLayerNameAttr(op, transposeBVal.getDefiningOp());
 
     // Compute Y = alpha * A' * B' + beta * C
     // Scalar multiplication with alpha(alpha * A')
     // and beta(beta * C) values.
-    FloatAttr alpha = adaptor.alphaAttr();
+    FloatAttr alpha = adaptor.getAlphaAttr();
     Value alphaMulResult = NULL, betaMulResult = NULL;
     if (alpha && alpha.getValueAsDouble() != 1.) {
       Value alpha3v = getFloatValue(alpha, rewriter, loc);
@@ -281,7 +281,7 @@ public:
       setLayerNameAttr(op, alphaMulResult.getDefiningOp());
     }
 
-    FloatAttr beta = adaptor.betaAttr();
+    FloatAttr beta = adaptor.getBetaAttr();
     if (beta && beta.getValueAsDouble() != 1. && IsCPresent) {
       Value beta3v = getFloatValue(beta, rewriter, loc);
       betaMulResult = rewriter.create<AtenMulScalarOp>(

@@ -24,12 +24,12 @@ using namespace onnx_mlir;
 
 LogicalResult ONNXHardmaxOp::verify() {
   ONNXHardmaxOpAdaptor operandAdaptor(*this);
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input))
     return success(); // Won't be able to do any checking at this stage.
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
-  int64_t axisValue = axis();
+  int64_t axisValue = getAxis();
   int64_t inputRank = input.getType().cast<ShapedType>().getRank();
   if (axisValue < -inputRank || axisValue >= inputRank)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
@@ -45,12 +45,12 @@ LogicalResult ONNXHardmaxOp::verify() {
 
 LogicalResult ONNXHardmaxOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = input().getType().cast<ShapedType>();
+  auto inputType = getInput().getType().cast<ShapedType>();
   int64_t inputRank = inputType.getRank();
-  int64_t axisValue = axis();
+  int64_t axisValue = getAxis();
 
   // axis attribute must be in the range [-r,r], where r = rank(input).
   if (axisValue < -inputRank || axisValue > inputRank)

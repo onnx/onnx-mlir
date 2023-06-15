@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------------- Constant.cpp - Const Op --------------------===//
+//===---------------- Constant.cpp - Const Op -----------------------------===//
 //
 // Copyright (c) 2022 Advanced Micro Devices, Inc.
 //
@@ -29,22 +29,21 @@ public:
   using OpAdaptor = typename ONNXConstantOp::Adaptor;
   LogicalResult matchAndRewrite(ONNXConstantOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    auto valueAttr = adaptor.value();
-    auto sparseAttr = adaptor.sparse_value();
-    // Only one of the attributes can be present and one must be present. If
+    llvm::Optional<Attribute> valueAttr = adaptor.getValue();
+    llvm::Optional<Attribute> sparseAttr = adaptor.getSparseValue();
+    // Only one of the attributes can/must be present. If
     // sparse is there, value is not present. Currently sparse doesn't seem to
     // be supported by TOSA.
     if (sparseAttr.has_value()) {
       return rewriter.notifyMatchFailure(
           op, "tosa.const does not support sparse value");
     }
-    ::mlir::Attribute currentAttr = valueAttr.value();
-    mlir::Type resultType =
-        getTypeConverter()->convertType(op.getResult().getType());
+    Attribute currentAttr = valueAttr.value();
     if (!currentAttr.isa<ElementsAttr>()) {
       return rewriter.notifyMatchFailure(
           op, "tosa.const does not support non-tensor types");
     }
+    Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     rewriter.replaceOpWithNewOp<mlir::tosa::ConstOp>(
         op, resultType, currentAttr);
     return success();

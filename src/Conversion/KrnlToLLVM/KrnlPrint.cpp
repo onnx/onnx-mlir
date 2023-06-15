@@ -39,8 +39,8 @@ public:
     KrnlPrintOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
-    Value input = operandAdaptor.input();
-    StringRef format = printOp.format();
+    Value input = operandAdaptor.getInput();
+    StringRef format = printOp.getFormat();
     ModuleOp module = printOp->getParentOfType<ModuleOp>();
 
     // Get a symbol reference to the runtime function to use, creating one if

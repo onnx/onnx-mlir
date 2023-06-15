@@ -4,7 +4,7 @@
 
 //===--------------- RNNBase.hpp - Lowering RNN Ops -----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,23 +31,18 @@ struct RNNActivation {
   llvm::Optional<mlir::FloatAttr> beta;
 };
 
-/// Check a mlir::Value's type is none or not.
-bool isNoneType(mlir::Value val);
-
 /// Get a dimension of the tensor's shape.
 int64_t dimAt(mlir::Value val, int index);
 
 /// Insert Allocate and Deallocate for the all hidden output.
 mlir::Value allocAllHidden(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
-    mlir::Value W, mlir::Value R, mlir::Value output,
-    bool insertDealloc = false);
+    mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
-    mlir::Value W, mlir::Value R, mlir::Value output,
-    bool insertDealloc = false);
+    mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Initialize the hidden and cell states.
 void initializeHiddenAndCell(mlir::ConversionPatternRewriter &rewriter,
@@ -130,19 +125,17 @@ void stateToOutput(mlir::ConversionPatternRewriter &rewriter,
 
 // A common template for lowering an RNN operation.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
-struct ONNXRNNOpLowering : public mlir::ConversionPattern {
+struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
+  using OpAdaptor = typename RNNOp::Adaptor;
+
   ONNXRNNOpLowering(mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx)
-      : mlir::ConversionPattern(
-            typeConverter, RNNOp::getOperationName(), 1, ctx) {}
+      : mlir::OpConversionPattern<RNNOp>(typeConverter, ctx) {}
 
-  mlir::LogicalResult matchAndRewrite(mlir::Operation *op,
-      llvm::ArrayRef<mlir::Value> operands,
+  mlir::LogicalResult matchAndRewrite(RNNOp rnnOp, OpAdaptor adaptor,
       mlir::ConversionPatternRewriter &rewriter) const final {
-    mlir::Location loc = op->getLoc();
-
-    RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
-    typename RNNOp::Adaptor operandAdaptor(operands);
-    mlir::Value X = operandAdaptor.X();
+    mlir::Operation *op = rnnOp.getOperation();
+    mlir::Location loc = ONNXLoc<RNNOp>(op);
+    mlir::Value X = adaptor.getX();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -151,7 +144,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
 
     // Initialize output states.
     S state = allocAndInitializeStates<RNNOp, S>(
-        rewriter, loc, typeConverter, &rnnOp, operandAdaptor);
+        rewriter, loc, this->typeConverter, &rnnOp, adaptor);
 
     // Activation functions.
     A activationForward, activationReverse;
@@ -168,8 +161,8 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
     std::tie(biasForward, biasReverse) =
         getBiasPack<RNNOp, B>(rewriter, loc, &rnnOp);
 
-    int64_t sequenceDimSize = dimAt(rnnOp.X(), 0);
-    auto direction = rnnOp.direction();
+    int64_t sequenceDimSize = dimAt(rnnOp.getX(), 0);
+    auto direction = rnnOp.getDirection();
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>

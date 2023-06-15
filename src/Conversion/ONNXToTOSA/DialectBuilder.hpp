@@ -4,12 +4,12 @@
 
 //====------ DialectBuilder.hpp - TOSA dialect builder --------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
 // This file contains the dialect build for the TOSA dialect. Uses the same
-// implementation as MHLO with minor differences.
+// implementation as ONNXToMhlo with minor differences.
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,7 +27,7 @@
 namespace onnx_mlir {
 
 // =============================================================================
-// IndexExpr Builder for Shape lowering
+// TOSA Builder
 // =============================================================================
 
 struct TosaBuilder : DialectBuilder {
@@ -37,13 +37,15 @@ struct TosaBuilder : DialectBuilder {
   TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~TosaBuilder() {}
 
-  mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
-  mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
-  mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
-      llvm::ArrayRef<int64_t> start);
   llvm::Optional<mlir::Value> gather(mlir::Value resultValue,
       mlir::Value inputValue, mlir::Value indicesValue, int32_t batchDims,
       int32_t axis);
+  mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift = 0);
+
+  mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
+  mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
+      llvm::ArrayRef<int64_t> start);
+  mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
 
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
@@ -54,9 +56,9 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value getConst(
       llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
   // Create a 32-bit float constant operator from a float
-  // The tensor will have the same rank as shape but with axis 1 (differs from
-  // tensorflow impl.)
-  mlir::Value getConst(float val, llvm::ArrayRef<int64_t> shape = {});
+  // The tensor will have the same rank as shape but all dimensions will
+  // have size 1 (differs from tensorflow impl.)
+  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
   
   // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set to
   // `value`.
@@ -70,11 +72,18 @@ struct TosaBuilder : DialectBuilder {
     return getConst(zpVec, tmpTensor);
   }
 
-
 protected:
+  template <typename T>
+  bool testNumberOfElementsMatch(
+      llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape);
   template <typename T>
   mlir::Value createConstFromRankedTensorAndVec(
       llvm::ArrayRef<T> vec, mlir::RankedTensorType &constType);
+  template <typename T>
+  mlir::Value createConst(
+      llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
+
+  mlir::Value expandRank(mlir::Value input, int64_t rank);
 
   // Private getters of builder (concise version).
   mlir::PatternRewriter &rewriter() const {
@@ -85,6 +94,10 @@ protected:
 private:
   mlir::PatternRewriter *patternRewriter;
 };
+
+// =============================================================================
+// IndexExpr Builder for Shape lowering
+// =============================================================================
 
 struct IndexExprBuilderForTosa : IndexExprBuilder {
   IndexExprBuilderForTosa(mlir::Location loc) : IndexExprBuilder(loc) {}

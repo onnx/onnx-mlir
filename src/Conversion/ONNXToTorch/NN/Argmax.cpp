@@ -63,11 +63,11 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
-    mlir::IntegerAttr axis = op.axisAttr();
-    int64_t keepdims = op.keepdims();
-    mlir::IntegerAttr select_last_index = op.select_last_indexAttr();
+    mlir::IntegerAttr axis = op.getAxisAttr();
+    int64_t keepdims = op.getKeepdims();
+    mlir::IntegerAttr select_last_index = op.getSelectLastIndexAttr();
 
-    if (select_last_index && op.select_last_index() != 0)
+    if (select_last_index && op.getSelectLastIndex() != 0)
       return op.emitError("select_last_index is currently not supported");
 
     Value dim = rewriter.create<Torch::ConstantIntOp>(loc, axis);
@@ -78,7 +78,7 @@ public:
     else
       keepDimVal = rewriter.create<Torch::ConstantBoolOp>(loc, true);
     auto newOp = rewriter.replaceOpWithNewOp<Torch::AtenArgmaxOp>(
-        op, resultTy, adaptor.data(), dim, keepDimVal);
+        op, resultTy, adaptor.getData(), dim, keepDimVal);
     setLayerNameAttr(op, newOp);
     return success();
   }

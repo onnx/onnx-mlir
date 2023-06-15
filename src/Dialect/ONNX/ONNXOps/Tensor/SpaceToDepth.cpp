@@ -30,8 +30,8 @@ template <>
 LogicalResult ONNXSpaceToDepthOpShapeHelper::computeShape() {
   // Get info about input data operand and blocksize.
   ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value input = operandAdaptor.input();
-  int64_t blocksize = operandAdaptor.blocksize();
+  Value input = operandAdaptor.getInput();
+  int64_t blocksize = operandAdaptor.getBlocksize();
   assert(blocksize > 0 && "blocksize should be strictly positive");
 
   int64_t inputRank = createIE->getShapedTypeRank(input);
@@ -68,7 +68,7 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
   ONNXSpaceToDepthOpAdaptor operandAdaptor(*this);
 
   // Check input.
-  Value input = operandAdaptor.input();
+  Value input = operandAdaptor.getInput();
   if (!hasShapeAndRank(input)) {
     // Won't be able to do any checking at this stage.
     return success();
@@ -79,7 +79,7 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
     return emitOpError("Input should have a rank of four");
 
   // Check blocksize.
-  int64_t blocksize = operandAdaptor.blocksize();
+  int64_t blocksize = operandAdaptor.getBlocksize();
   if (blocksize < 0)
     return emitOpError("Blocksize should be non negative");
 
@@ -103,10 +103,10 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
 LogicalResult ONNXSpaceToDepthOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no input shape exists.
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = input().getType().cast<ShapedType>().getElementType();
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXSpaceToDepthOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

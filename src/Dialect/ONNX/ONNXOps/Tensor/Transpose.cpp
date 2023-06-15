@@ -29,12 +29,12 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
   ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
   ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
 
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   auto rank = createIE->getShapedTypeRank(data);
 
   // Transposition which handles the default case of
   // reversing the shape of the tensor (similar to numpy.transpose).
-  ArrayAttr permAttr = operandAdaptor.permAttr();
+  ArrayAttr permAttr = operandAdaptor.getPermAttr();
   if (!permAttr) {
     // Generate reverse order for default transpose operation.
     SmallVector<int64_t, 4> defaultVals;
@@ -43,8 +43,8 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
       defaultVals.emplace_back(i);
     // Set default attribute.
     ArrayRef<int64_t> defaultRefs(defaultVals);
-    transposeOp.permAttr(builder.getI64ArrayAttr(defaultRefs));
-    permAttr = transposeOp.permAttr();
+    transposeOp.setPermAttr(builder.getI64ArrayAttr(defaultRefs));
+    permAttr = transposeOp.getPermAttr();
   }
 
   // Perform transposition according to perm attribute.
@@ -71,10 +71,10 @@ LogicalResult ONNXTransposeOpShapeHelper::computeShape() {
 LogicalResult ONNXTransposeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -44,7 +44,7 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.data();
+    Value input = adaptor.getData();
 
     auto inputType = input.getType().dyn_cast<TensorType>();
 
@@ -64,7 +64,7 @@ public:
     if (!outputType)
       return rewriter.notifyMatchFailure(op, "output not a ranked tensor");
 
-    auto permVector = extractFromI64ArrayAttr(op.permAttr());
+    auto permVector = extractFromI64ArrayAttr(op.getPermAttr());
     // TOSA needs a I32 array
     llvm::SmallVector<int32_t, 4> permVectorI32;
     permVectorI32.clear();

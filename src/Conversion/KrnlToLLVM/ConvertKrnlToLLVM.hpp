@@ -30,6 +30,10 @@ void populateAffineAndKrnlToLLVMConversion(mlir::RewritePatternSet &patterns,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
     bool verifyInputTensors);
 
 void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
@@ -38,6 +42,10 @@ void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
     bool verifyInputTensors);
 
 void populateLoweringKrnlCallOpPattern(mlir::TypeConverter &typeConverter,
@@ -49,6 +57,10 @@ void populateLoweringKrnlEntryPointOpPattern(mlir::TypeConverter &typeConverter,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &inSigGlobalOps,
     llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
     bool verifyInputTensors);
 
 void populateLoweringKrnlFindIndexOpPattern(mlir::TypeConverter &typeConverter,

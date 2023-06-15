@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUniqueOp::verify() {
-  Optional<int64_t> optionalSorted = sorted();
+  Optional<int64_t> optionalSorted = getSorted();
   if (optionalSorted.has_value()) {
     // optional sorted attribute must be zero or one.
     int64_t sorted = optionalSorted.value();
@@ -33,12 +33,12 @@ LogicalResult ONNXUniqueOp::verify() {
           onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
   }
   ONNXUniqueOpAdaptor operandAdaptor(*this);
-  Value X = operandAdaptor.X();
+  Value X = operandAdaptor.getX();
   if (!hasShapeAndRank(X))
     return success(); // Too early to verify.
 
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = axis();
+  Optional<int64_t> optionalAxis = getAxis();
 
   if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(X).

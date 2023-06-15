@@ -50,17 +50,17 @@ public:
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
-    StringRef opNameStr = instrumentOp.opName();
+    StringRef opNameStr = instrumentOp.getOpName();
     LLVM::GlobalOp globalOpNameStr =
         krnl::getOrCreateGlobalString(opNameStr, loc, rewriter, parentModule,
             static_cast<LLVMTypeConverter *>(getTypeConverter()));
     Value opNamePtr =
         krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
     Value tag = create.llvm.constant(
-        IntegerType::get(context, 64), (int64_t)instrumentOp.tag());
+        IntegerType::get(context, 64), (int64_t)instrumentOp.getTag());
     StringRef nodeName;
-    if (instrumentOp.nodeName().has_value())
-      nodeName = instrumentOp.nodeName().value();
+    if (instrumentOp.getNodeName().has_value())
+      nodeName = instrumentOp.getNodeName().value();
     else
       nodeName = StringRef("NOTSET");
     LLVM::GlobalOp globalStr =

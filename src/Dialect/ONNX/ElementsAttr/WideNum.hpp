@@ -21,7 +21,11 @@
 namespace onnx_mlir {
 
 // Union of 64-bit integers and double precision floating point numbers.
-// It is tagless and should always be used in a conjunction with a BType.
+//
+// It is tagless and should always be used in a conjunction with a BType,
+// or a type t with implied BType btypeOfMlirType(t)
+// or a shaped type s with implied BType btypeOfMlirType(s.getElementType()).
+//
 // The btype tags which field of the union is populated:
 // dbl if isFloat(btype), i64 or u64 if isSigned/UnsignedInt(btype).
 //
@@ -37,17 +41,26 @@ union WideNum {
   int64_t i64;  // Signed ints up to bitwidth 64.
   uint64_t u64; // Unsigned ints up to bitwidth 64, including bool.
 
+  // Converts dbl to an APFloat with the floating point semantics
+  // corresponding to tag.
+  // Precondition: tag must be a floating point type.
   llvm::APFloat toAPFloat(BType tag) const;
 
-  static WideNum fromAPFloat(BType tag, llvm::APFloat x);
+  // Returns WideNum with dbl set to the value of x.
+  static WideNum fromAPFloat(llvm::APFloat x);
 
+  // Converts i64 or u64, corresponding to the sign of tag, to an APInt with
+  // bitwidth and sign corresponding to tag.
+  // Precondition: tag must be a (signed or unsigned) integer type.
   llvm::APInt toAPInt(BType tag) const;
 
-  static WideNum fromAPInt(BType tag, llvm::APInt x);
+  // Returns WideNum with i64 or u64, corresponding to isSigned, set to the
+  // value of x.
+  static WideNum fromAPInt(llvm::APInt x, bool isSigned);
 
   template <typename T>
-  constexpr T to(BType dtag) const {
-    switch (dtag) {
+  constexpr T to(BType tag) const {
+    switch (tag) {
     case BType::BOOL:
     case BType::UINT8:
     case BType::UINT16:
@@ -70,8 +83,8 @@ union WideNum {
   }
 
   template <typename T>
-  static constexpr WideNum from(BType dtag, T x) {
-    switch (dtag) {
+  static constexpr WideNum from(BType tag, T x) {
+    switch (tag) {
     case BType::BOOL:
     case BType::UINT8:
     case BType::UINT16:
@@ -140,19 +153,63 @@ template <class Function>
 using WideNumWrappedFunction =
     detail::FunctionWrapper<decltype(Function::eval), Function>;
 
-// If FunctionTemplate<OP, T> is a Function class, like the argument to
+// If TemplateFunction<OP, T> is a Function class, like the argument to
 // WrappedFunction, then getWideNumWrappedTemplateFunction instantiates it with
 // the T corresponding to the given mlir type (promotes to the nearest among the
 // 4 types double, int64_t, uint64_t, bool) and returns a function pointer to
 // the instantiated static eval function, wrapped to take WideNum args and
 // return WideNum result. See ConstProp.cpp for example uses.
 //
-// NOTE: Although we only pass two type arguments to FunctionTemplate is
+// NOTE: Although we only pass two type arguments TemplateFunction is
 //       declared with a variadic second argument typename... T
 //       to support an extra 'Enable' type argument for enable_if stuff;
 //       see ElementWiseBinaryOpImpl, ElementWiseUnaryOpImpl in ConstProp.cpp.
-template <template <class OP, typename... T> class FunctionTemplate, class OP>
-constexpr auto getWideNumWrappedTemplateFunction(mlir::Type type);
+template <template <class OP, typename... T> class TemplateFunction, class OP>
+auto getWideNumWrappedTemplateFunction(mlir::Type type);
+
+// Returns a wrapped function with WideNum argument and return type.
+// It unpacks the argument to the arument type Arg, calls the lambda, and
+// takes the result of type Res and returns it packed as a WideNum.
+// Types Res and Arg must be double, int64_t, uint64_t, or bool.
+template <typename Res, typename Arg>
+std::function<WideNum(WideNum)> widenumWrapped(std::function<Res(Arg)> lambda);
+
+// Calls act with a zero of the C++ type corresponding to the given mlir type
+// (promotes to the nearest among the 4 types double, int64_t, uint64_t, bool).
+// The zero argument is a token which can be used to find the C++ type.
+// Use it similarly to dispatchByBType: call it with a generic lambda which
+// can read the C++ type of the argument with decltype. For instance, given
+// a signed integer factor and a WideNum packed according to an mlir type
+// you can multiply the WideNum with:
+//
+//   WideNum multiplyBy(int factor, WideNum n, Type type) {
+//     return wideZeroDispatch(type, [factor, n](auto wideZero) {
+//       constexpr BType TAG = toBType<decltype(wideZero)>;
+//       return WideNum::widen<TAG>(factor * n.narrow<TAG>());
+//     });
+//   }
+//
+template <typename Action>
+auto wideZeroDispatch(mlir::Type type, Action &&act);
+
+template <typename Action>
+auto wideZeroDispatchNonBool(mlir::Type type, Action &&act) {
+  if (type.isa<mlir::FloatType>())
+    return act(static_cast<double>(0));
+  auto itype = type.cast<mlir::IntegerType>();
+  if (itype.isUnsigned())
+    return act(static_cast<uint64_t>(0));
+  else
+    return act(static_cast<int64_t>(0));
+}
+
+template <typename Action>
+inline auto wideZeroDispatch(mlir::Type type, Action &&act) {
+  if (type.isInteger(1))
+    return act(static_cast<bool>(0));
+  else
+    return wideZeroDispatchNonBool(type, act);
+}
 
 // Include template implementations.
 #include "WideNum.hpp.inc"

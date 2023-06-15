@@ -34,7 +34,7 @@ namespace tosa {
 static int64_t multiplyDims(llvm::ArrayRef<int64_t> dims, int64_t res = 1) {
   for (auto dim : dims) {
     if (ShapedType::isDynamic(dim)) {
-      return ShapedType::kDynamicSize;
+      return ShapedType::kDynamic;
     }
     res = res * dim;
   }
@@ -62,7 +62,7 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
   auto indicesType = indicesValue.getType().dyn_cast<RankedTensorType>();
 
   if (!resultType || !inputType || !indicesType)
-    return llvm::None;
+    return std::nullopt;
 
   // batchDims indicates the number of batch dimensions in input and
   // indices axis indicates the axis at which the gather indexing is
@@ -131,13 +131,13 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
   if (!((size_t)batchDims <= indicesRank)) {
     (void)rewriter.notifyMatchFailure(
         loc, "batch_dims must be <= indices_rank for a valid gather op");
-    return llvm::None;
+    return std::nullopt;
   }
 
   if (!(axis >= batchDims)) {
     (void)rewriter.notifyMatchFailure(
         loc, "axis must be >= batch_dims for a valid gather op");
-    return llvm::None;
+    return std::nullopt;
   }
 
   // onnx allows i64 indices, but tosa does not.
@@ -253,7 +253,7 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
     return (void)rewriter.notifyMatchFailure(loc,
                "only one dynamic dimension allowed when reshaping indices "
                "values."),
-           llvm::None;
+           std::nullopt;
   }
 
   auto tosaValuesReshapeOp =
@@ -262,22 +262,21 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
   if (countDynamicDims(tosaIndicesShape) > 1) {
     return (void)rewriter.notifyMatchFailure(loc,
                "only one dynamic dimension allowed when reshaping indices"),
-           llvm::None;
+           std::nullopt;
   }
 
   auto tosaIndicesReshapeOp =
       tosaBuilder.reshape(indicesValue, tosaIndicesShape);
 
   Value tosaGatherOp = CreateOpAndInfer<mlir::tosa::GatherOp>(rewriter, loc,
-      RankedTensorType::get(
-          llvm::SmallVector<int64_t>(3, ShapedType::kDynamicSize),
+      RankedTensorType::get(llvm::SmallVector<int64_t>(3, ShapedType::kDynamic),
           resultType.getElementType()),
       tosaValuesReshapeOp, tosaIndicesReshapeOp);
 
   if (countDynamicDims(resultReshapeShape) > 1) {
     return (void)rewriter.notifyMatchFailure(loc,
                "only one dynamic dimension allowed when reshaping result."),
-           llvm::None;
+           std::nullopt;
   }
 
   Value tosaResultReshapeOp =
@@ -296,7 +295,7 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
   RankedTensorType input_type =
       input_value.getType().dyn_cast<RankedTensorType>();
   if (!input_type)
-    return llvm::None;
+    return std::nullopt;
 
   ArrayRef<int64_t> input_shape = input_type.getShape();
   ArrayRef<int64_t> output_shape = output_type.getShape();
@@ -343,7 +342,7 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
     if (!keep_dims) {
       auto reshape_op =
           CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
-              output_type, val, rewriter.getI64ArrayAttr(output_shape));
+              output_type, val, rewriter.getDenseI64ArrayAttr(output_shape));
       val = reshape_op.getResult();
     }
   }
@@ -362,7 +361,7 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
   RankedTensorType input_type =
       input_value.getType().dyn_cast<RankedTensorType>();
   if (!input_type)
-    return llvm::None;
+    return std::nullopt;
 
   bool input_is_qtype =
       input_type.getElementType().isa<mlir::quant::UniformQuantizedType>();
@@ -372,7 +371,7 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
   if (input_is_qtype != output_is_qtype) {
     op->emitOpError("ConvertReduceSumOp: input/output tensor should "
                     "be all quantized or all floating-point.");
-    return llvm::None;
+    return std::nullopt;
   }
 
   // Only supports float type mean() if it's non-quantized
@@ -380,7 +379,7 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
     op->emitWarning(
         "Failed convertReduceMean: input unquantized type but output element "
         "not FloatType!");
-    return llvm::None;
+    return std::nullopt;
   }
 
   int64_t input_rank = input_type.getRank();
@@ -418,10 +417,10 @@ llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
       input_is_qtype, input_scale, input_zp, output_scale, output_zp);
 
   if (!val.has_value())
-    return llvm::None;
+    return std::nullopt;
 
   if (!input_is_qtype) {
-    Value div_const = tosaBuilder.getConst(div_scale);
+    Value div_const = tosaBuilder.getSplattedConst(div_scale);
     return CreateOpAndInfer<mlir::tosa::MulOp>(
         rewriter, op->getLoc(), output_type, val.value(), div_const, 0)
         .getResult();

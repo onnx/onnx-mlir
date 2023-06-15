@@ -3,7 +3,7 @@
 # Installation of ONNX-MLIR on Linux / OSX
 
 We provide here directions to install ONNX-MLIR on Linux and OSX.
-On Mac, there are a couple of commands that are different. 
+On Mac, there are a couple of commands that are different.
 These differences will be listed in the explanation below, when relevant.
 
 ## MLIR
@@ -14,7 +14,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout e864ac694540342d5e59f59c525c5082f2594fb8 && cd ..
+cd llvm-project && git checkout 3abae1c88416858cf2e9a7ed9417bc52033933b4 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)

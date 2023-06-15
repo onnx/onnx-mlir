@@ -27,7 +27,7 @@ namespace onnx_mlir {
 template <>
 LogicalResult ONNXIdentityOpShapeHelper::computeShape() {
   ONNXIdentityOpAdaptor operandAdaptor(operands);
-  return setOutputDimsFromOperand(operandAdaptor.input());
+  return setOutputDimsFromOperand(operandAdaptor.getInput());
 }
 } // namespace onnx_mlir
 
@@ -41,13 +41,13 @@ LogicalResult ONNXIdentityOpShapeHelper::computeShape() {
 
 LogicalResult ONNXIdentityOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(input()))
+  if (!hasShapeAndRank(getInput()))
     return success();
 
   // Since identity set the output to the same as the input, don't use the shape
   // helper infrastructure here, especially because we may have to deal with Opt
   // or Seq types.
-  getResult().setType(input().getType());
+  getResult().setType(getInput().getType());
   return success();
 }
 

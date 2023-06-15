@@ -38,6 +38,10 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createONNXHybridTransformPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createShapeInferencePass();
   });
 
@@ -73,12 +77,13 @@ void initOMPasses(int optLevel) {
   });
 
   mlir::registerPass([optLevel]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToKrnlPass(optLevel, /* enableParallel */ false);
+    return createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
+        /*enableSIMD, should consider disableSimdOption*/ optLevel >= 3,
+        /*enableParallel*/ false);
   });
 
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToTorchPass();
-  });
+  mlir::registerPass(
+      []() -> std::unique_ptr<mlir::Pass> { return createLowerToTorchPass(); });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createElideConstGlobalValuePass();
@@ -114,10 +119,6 @@ void initOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createConvertONNXToTOSAPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLayerNameToLocationPass();
   });
 
 #ifdef ONNX_MLIR_ENABLE_MHLO

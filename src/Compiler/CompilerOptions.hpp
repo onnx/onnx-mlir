@@ -72,11 +72,10 @@ extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<bool> onnxConstPropReport;
 extern llvm::cl::opt<bool> enableParallel;
+extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
-
-/* FlexML Start */
-extern llvm::cl::opt<bool> layerNameToLocation;
-/* FlexML End */
+extern llvm::cl::opt<bool> enablePatternShapeInference;
+extern llvm::cl::opt<bool> enableONNXHybridPass;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

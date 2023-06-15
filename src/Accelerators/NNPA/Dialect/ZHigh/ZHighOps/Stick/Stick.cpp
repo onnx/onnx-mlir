@@ -72,7 +72,7 @@ void ZHighStickOp::build(
 LogicalResult ZHighStickOpShapeHelper::computeShape() {
   auto stickOp = llvm::dyn_cast<ZHighStickOp>(op);
   ZHighStickOp::Adaptor operandAdaptor(operands);
-  Value input = operandAdaptor.In();
+  Value input = operandAdaptor.getIn();
 
   // Output dims of result.
   DimsExpr outputDims;
@@ -86,7 +86,7 @@ LogicalResult ZHighStickOpShapeHelper::computeShape() {
     outputDims.emplace_back(inputDims[i]);
 
   // Direct stickify from NCHW to NHWC.
-  if (isNHWCLayout(stickOp.layoutAttr())) {
+  if (isNHWCLayout(stickOp.getLayoutAttr())) {
     assert((rank == 4) && "Stickify input must have rank 4");
     // NCHW -> NHWC
     outputDims[0] = inputDims[0];
@@ -106,12 +106,12 @@ LogicalResult ZHighStickOpShapeHelper::computeShape() {
 
 LogicalResult ZHighStickOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  Value input = In();
+  Value input = getIn();
   if (!hasRankedType(input))
     return success();
 
   auto inputType = input.getType().cast<RankedTensorType>();
-  StringAttr layout = layoutAttr();
+  StringAttr layout = getLayoutAttr();
   int64_t rank = inputType.getRank();
 
   ZTensorEncodingAttr::DataLayout dataLayout;
@@ -133,9 +133,12 @@ LogicalResult ZHighStickOp::inferShapes(
 void ZHighStickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NoneTypeStickRemovalPattern>(context);
-  results.insert<ReplaceONNXLeakyReluPattern>(context);
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
+  results.insert<ReplaceONNXLeakyReluPattern>(context);
+  results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
+  results.insert<ReshapeTransposeReshape2DTo3DSPattern>(context);
+  results.insert<ReshapeTransposeReshape3DSTo2DPattern>(context);
 }
 
 } // namespace zhigh

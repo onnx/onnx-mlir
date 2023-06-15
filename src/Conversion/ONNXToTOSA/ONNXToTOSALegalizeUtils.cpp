@@ -5,7 +5,7 @@
 //==== ONNXToTosaLegalizeUtils.cpp - ONNX dialects to TOSA lowering Utils-===//
 //
 // Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -15,8 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/Utils/QuantUtils.h"
-#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h"   // from @llvm-project
-#include "mlir/IR/BuiltinAttributes.h"            // from @llvm-project
+#include "mlir/Dialect/Tosa/Utils/ShapeUtils.h" // from @llvm-project
+#include "mlir/IR/BuiltinAttributes.h"          // from @llvm-project
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"                 // from @llvm-project
 #include "mlir/IR/PatternMatch.h"                 // from @llvm-project
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
@@ -45,13 +46,13 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
   return axis;
 }
 
-llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
-    llvm::ArrayRef<IndexExpr> indexVector) {
-  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
-  llvm::transform(indexVector, literalVector.begin(),
-      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
-  return literalVector;
-}
+llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(                      
+    llvm::ArrayRef<IndexExpr> indexVector) {                                    
+  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());              
+  llvm::transform(indexVector, literalVector.begin(),                           
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });            
+  return literalVector;                                                         
+} 
 
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding) {
@@ -61,8 +62,8 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {
     if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
-      if (source.value())
-        return source.value().value(); 
+      if (source.getValue())
+        return source.getValue().value(); 
     }
     // if the constant is not an onnx.const it has to be a tosa.const
     assert(val.getDefiningOp<mlir::tosa::ConstOp>());
@@ -85,7 +86,7 @@ Value buildRescale(PatternRewriter &rewriter, Operation *op,
       op->getLoc(), output_type, input_val,
       rewriter.getI32IntegerAttr(static_cast<int32_t>(input_zp)),
       rewriter.getI32IntegerAttr(static_cast<int32_t>(output_zp)),
-      rewriter.getI32ArrayAttr({multiplier}), rewriter.getI32ArrayAttr({shift}),
+      rewriter.getDenseI32ArrayAttr({multiplier}), rewriter.getDenseI32ArrayAttr({shift}),
       rewriter.getBoolAttr(scale32), rewriter.getBoolAttr(double_round),
       rewriter.getBoolAttr(false));
 

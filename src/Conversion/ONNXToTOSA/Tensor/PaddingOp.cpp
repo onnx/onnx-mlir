@@ -38,11 +38,11 @@ public:
 
     Location loc = op.getLoc();
 
-    Value data = adaptor.data();
-    Value pads = adaptor.pads();
-    Value constValue = adaptor.constant_value();
+    Value data = adaptor.getData();
+    Value pads = adaptor.getPads();
+    Value constValue = adaptor.getConstantValue();
 
-    if (!(adaptor.mode() == "constant")) {
+    if (!(adaptor.getMode() == "constant")) {
       return rewriter.notifyMatchFailure(
           op, "only 'constant' mode is supported");
     }
@@ -76,6 +76,7 @@ public:
     mlir::Type resultType =
         getTypeConverter()->convertType(op.getResult().getType());
 
+    float valueFloat = 0.0F;
     if (!constValue.getType().dyn_cast<NoneType>()) {
       auto valueAttr =
           tosa::getValueFromTosaConst<ElementsAttr>(constValue);
@@ -85,13 +86,18 @@ public:
 
       TosaBuilder tosaBuilder(rewriter, loc);
       Value constTosaTensor =
-          tosaBuilder.getConst(valueFloat);
+          tosaBuilder.getSplattedConst(valueFloat);
 
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);
     } else {
-      rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
-          op, resultType, data, padsList1);
+        auto constType = RankedTensorType::get({}, rewriter.getF32Type());
+        auto constAttr = DenseElementsAttr::get(constType, valueFloat);
+        Value constTosaTensor = rewriter.create<mlir::tosa::ConstOp>(
+            op->getLoc(), constType, constAttr);
+
+        rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
+            op, resultType, data, padsList1, constTosaTensor);
     }
 
     return success();

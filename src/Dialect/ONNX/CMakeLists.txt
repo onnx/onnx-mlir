@@ -19,6 +19,7 @@ add_onnx_mlir_library(OMONNXOps
   OnnxElementsAttrBuilder.cpp
   ONNXAttributes.cpp
   ONNXDialect.cpp
+  ONNXDimAnalysis.cpp
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/ShapeHelper.cpp
@@ -33,13 +34,13 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/EntryPoint.cpp
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
+  ONNXOps/Additional/ShapeTransform.cpp
   ONNXOps/ControlFlow/If.cpp
   ONNXOps/ControlFlow/Loop.cpp
   ONNXOps/ControlFlow/Scan.cpp
   ONNXOps/ML/CategoryMapper.cpp
   ONNXOps/ML/OneHotEncoder.cpp
   ONNXOps/Math/Bernoulli.cpp
-  ONNXOps/Math/Clip.cpp
   ONNXOps/Math/DFT.cpp
   ONNXOps/Math/Einsum.cpp
   ONNXOps/Math/EinsumHelper.cpp
@@ -47,6 +48,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Math/ElementwiseUnary.cpp
   ONNXOps/Math/Gemm.cpp
   ONNXOps/Math/HardMax.cpp
+  ONNXOps/Math/IsInf.cpp
   ONNXOps/Math/IsNan.cpp
   ONNXOps/Math/LRN.cpp
   ONNXOps/Math/MatMul.cpp
@@ -100,7 +102,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/Unique.cpp
   ONNXOps/Tensor/Unsqueeze.cpp
   ONNXOps/Tensor/Upsample.cpp
-
+  
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
@@ -114,9 +116,11 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
+  OMShapeHelperOpInterface
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
+  MLIRMemRefTransforms
   )
 
 configure_file(ONNXOps.td.inc.dc.in

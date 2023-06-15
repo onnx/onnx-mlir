@@ -55,10 +55,10 @@ public:
   LogicalResult matchAndRewrite(Softmax op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Value inputTensor = adaptor.input();
+    Value inputTensor = adaptor.getInput();
     auto inputType = op.getType().template cast<TensorType>();
     int64_t inputRank = inputType.getRank();
-    int64_t axis = adaptor.axis();
+    int64_t axis = adaptor.getAxis();
     if (axis < 0) {
       axis += inputRank;
     }
@@ -68,7 +68,7 @@ public:
           op, "axis attribute must match last axis");
     }
 
-    Value constAxisValue = rewriter.create<ConstantIntOp>(loc, op.axisAttr());
+    Value constAxisValue = rewriter.create<ConstantIntOp>(loc, op.getAxisAttr());
 
     mlir::Type resultType =
         this->getTypeConverter()->convertType(op.getResult().getType());

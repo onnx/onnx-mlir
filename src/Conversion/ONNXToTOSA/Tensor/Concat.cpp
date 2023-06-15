@@ -30,8 +30,8 @@ public:
   LogicalResult matchAndRewrite(ONNXConcatOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    ValueRange inputs = adaptor.inputs();
-    int64_t axis = adaptor.axis();
+    ValueRange inputs = adaptor.getInputs();
+    int64_t axis = adaptor.getAxis();
     auto resultType = op.getResult().getType();
 
     for (const auto &input : inputs) {
@@ -45,7 +45,7 @@ public:
     axis = tosa::convertNegativeAxis(axis, inputRank);
 
     Type newConcatOutputType =
-        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, -1),
+        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
             resultType.cast<ShapedType>().getElementType());
 
     tosa::CreateReplaceOpAndInfer<mlir::tosa::ConcatOp>(

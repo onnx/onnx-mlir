@@ -13,10 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 
 #include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/STLExtras.h"
 
 //===----------------------------------------------------------------------===//
 // Unsupported Operations
@@ -28,9 +30,9 @@
 // Followed by the implementation of lowering to Krnl and
 // Enable the corresponding node test in check-onnx-backend
 
-#define NOT_IMPLEMENTED_INFER_SHAPES(T)                                        \
+#define UNSUPPORTED_OPS(OP_TYPE)                                               \
   /* shape inference interface method */                                       \
-  mlir::LogicalResult mlir::T::inferShapes(                                    \
+  mlir::LogicalResult mlir::OP_TYPE::inferShapes(                              \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
     return emitOpError(                                                        \
         "op is not supported at this time. Please open an issue on "           \
@@ -39,65 +41,13 @@
         "Error encountered in shape inference.");                              \
   }
 
-// Listed alphabetically.
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXAdagradOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXAdamOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXArrayFeatureExtractorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXBatchNormalizationOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXBinarizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXBlackmanWindowOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXCastMapOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXCenterCropPadOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV11Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV12Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXClipV6Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXCol2ImOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXConcatFromSequenceOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXDetOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXDictVectorizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXFeatureVectorizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXGradientOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXGridSampleOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXGroupNormalizationOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXHammingWindowOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXHannWindowOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXImputerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXIsInfOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLabelEncoderOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLayerNormalizationOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLinearClassifierOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLinearRegressorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXLpPoolOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMaxPoolOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMaxUnpoolOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMelWeightMatrixOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMishOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMomentumOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXMultinomialOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXNegativeLogLikelihoodLossOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXNormalizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXPadV11Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXPadV2Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXRandomUniformLikeOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXRandomUniformOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXResizeV10Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXResizeV11Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSequenceMapOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSVMClassifierOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSVMRegressorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSoftmaxCrossEntropyLossOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXSTFTOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXStringNormalizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXTfIdfVectorizerOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXTreeEnsembleClassifierOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXTreeEnsembleRegressorOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXUniqueOp)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXUpsampleV7Op)
-NOT_IMPLEMENTED_INFER_SHAPES(ONNXZipMapOp)
+#include "src/Dialect/ONNX/ONNXUnsupportedOps.hpp"
+#undef UNSUPPORTED_OPS
 
 namespace {
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
 // Get a broadcasted type for RankedTensorType and MemRefType.
@@ -135,6 +85,49 @@ Type getBroadcastedRankedType(
 
 using namespace mlir;
 
+namespace {
+
+//===----------------------------------------------------------------------===//
+// Helpers adapted from corresponding methods in mlir/lib/AsmParser/Parser.cpp
+//===----------------------------------------------------------------------===//
+
+// Print DisposableElementsAttr as a DenseElementsAttr, because
+// DisposableElementsAttr is an internal representation, so we hide it
+// in this way.
+void printAttribute(OpAsmPrinter &printer, Attribute attr) {
+  if (auto disposable = attr.dyn_cast<DisposableElementsAttr>())
+    disposable.printAsDenseElementsAttr(printer);
+  else
+    printer.printAttribute(attr);
+}
+
+void printNamedAttribute(OpAsmPrinter &printer, NamedAttribute namedAttr) {
+  // Print the name without quotes if possible.
+  printer.printKeywordOrString(namedAttr.getName().strref());
+
+  // Pretty printing elides the attribute value for unit attributes.
+  if (namedAttr.getValue().isa<UnitAttr>())
+    return;
+
+  printer << " = ";
+  printAttribute(printer, namedAttr.getValue());
+}
+
+void printOptionalAttrDict(
+    OpAsmPrinter &printer, ArrayRef<NamedAttribute> attrs) {
+  // If there are no attributes, then there is nothing to be done.
+  if (attrs.empty())
+    return;
+
+  // Otherwise, print them all out in braces.
+  printer << " {";
+  llvm::interleaveComma(attrs, printer.getStream(),
+      [&](NamedAttribute attr) { printNamedAttribute(printer, attr); });
+  printer << '}';
+}
+
+} // namespace
+
 //===----------------------------------------------------------------------===//
 // ONNXConstantOp custom assembly format print and parse.
 // If the op has a sparse_value attr, it just prints its SparseElementsAttr:
@@ -162,40 +155,34 @@ using namespace mlir;
 //
 //===----------------------------------------------------------------------===//
 
-void ONNXConstantOp::print(OpAsmPrinter &odsPrinter) {
+void ONNXConstantOp::print(OpAsmPrinter &printer) {
   // If the result type is dynamic then it won't match the attribute type and
   // we fall back to printing as attribute dictionary at the end.
   Type resultType = getResult().getType();
-  if (auto attr = value()) {
+  if (auto attr = getValue()) {
     // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
     auto elements = attr->cast<ElementsAttr>();
     assert(!elements.isa<SparseElementsAttr>() &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
-      odsPrinter << ' ';
-      // Print DisposableElementsAttr as a DenseElementsAttr, because
-      // DisposableElementsAttr is an internal representation, so we hide it
-      // in this way.
-      if (auto disposable = elements.dyn_cast<DisposableElementsAttr>())
-        disposable.printAsDenseElementsAttr(odsPrinter);
-      else
-        odsPrinter.printAttribute(elements);
+      printer << ' ';
+      printAttribute(printer, elements);
       return;
     }
   }
-  if (auto attr = sparse_value()) {
+  if (auto attr = getSparseValue()) {
     // ONNXConstantOp sparse_value must be SparseElementsAttr.
     auto sparseElements = attr->cast<SparseElementsAttr>();
     if (sparseElements.getType() == resultType) {
-      odsPrinter << ' ';
-      odsPrinter.printAttribute(sparseElements);
+      printer << ' ';
+      printer.printAttribute(sparseElements);
       return;
     }
   }
   // Fallback if there's something funny: no value or sparse_value attribute,
   // or types mismatch.
-  odsPrinter.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{});
-  odsPrinter << " : " << resultType;
+  printOptionalAttrDict(printer, (*this)->getAttrs());
+  printer << " : " << resultType;
 }
 
 ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
@@ -224,4 +211,47 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
     return failure();
   result.addTypes({type});
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXConstantOfShapeOp custom assembly format print and parse.
+// Same as the generic format except that any DisposableElementsAttr is
+// printed with disposable.printAsDenseElementsAttr().
+//===----------------------------------------------------------------------===//
+
+void ONNXConstantOfShapeOp::print(OpAsmPrinter &printer) {
+  printer << "(";
+  printer.printOperand(getInput());
+  printer << ")";
+  printOptionalAttrDict(printer, (*this)->getAttrs());
+  printer << " : ";
+  printer.printFunctionalType(*this);
+}
+
+ParseResult ONNXConstantOfShapeOp::parse(
+    OpAsmParser &parser, OperationState &result) {
+  OpAsmParser::UnresolvedOperand input;
+  Type arg, res;
+  if (parser.parseLParen() || parser.parseOperand(input) ||
+      parser.parseRParen() || parser.parseOptionalAttrDict(result.attributes) ||
+      parser.parseColon() || parser.parseLParen() || parser.parseType(arg) ||
+      parser.resolveOperand(input, arg, result.operands) ||
+      parser.parseRParen() || parser.parseArrow() || parser.parseType(res))
+    return failure();
+  result.addTypes({res});
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Constant Materializer for ONNX Dialect
+//===----------------------------------------------------------------------===//
+Operation *ONNXDialect::materializeConstant(
+    OpBuilder &builder, Attribute value, Type type, Location loc) {
+  // The atrribute could be either a UnitAttr or DenseElementsAttr, IntAttr,
+  // FloatAttr and etc.
+  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or ONNXContantOp.
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  Value result =
+      isa<UnitAttr>(value) ? create.onnx.none() : create.onnx.constant(value);
+  return result.getDefiningOp();
 }

@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "ONNXOps"
 
 using namespace mlir;
 using namespace mlir::OpTrait::util;
@@ -24,12 +28,14 @@ using namespace onnx_mlir;
 
 namespace {
 
-// Returns known length if ty is a non-scalar 1-D vector, otherwise -1.
+// Returns known length if ty is a non-scalar 1-D vector, otherwise
+// ShapedType::kDynamic.
 int64_t nonScalar1DLen(ShapedType ty) {
   if (!ty.hasRank() || ty.getRank() != 1 || ty.isDynamicDim(0))
-    return -1;
+    return ShapedType::kDynamic;
   int64_t d = ty.getDimSize(0);
-  return d == 1 ? -1 : d; // If dim size is 1 then it's considered a scalar.
+  return d == 1 ? ShapedType::kDynamic
+                : d; // If dim size is 1 then it's considered a scalar.
 }
 
 } // namespace
@@ -41,21 +47,22 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
   ONNXDequantizeLinearOpAdaptor operandAdaptor(
       operands, op->getAttrDictionary());
   RankedTensorType xTy =
-      operandAdaptor.x().getType().dyn_cast<RankedTensorType>();
+      operandAdaptor.getX().getType().dyn_cast<RankedTensorType>();
   DimsExpr outputDims;
-  createIE->getShapeAsDims(operandAdaptor.x(), outputDims);
+  createIE->getShapeAsDims(operandAdaptor.getX(), outputDims);
 
   // Get d.
   int64_t d =
-      nonScalar1DLen(operandAdaptor.x_scale().getType().cast<ShapedType>());
-  if (d == -1 && !isFromNone(operandAdaptor.x_zero_point())) {
+      nonScalar1DLen(operandAdaptor.getXScale().getType().cast<ShapedType>());
+  if (d == ShapedType::kDynamic &&
+      !isNoneValue(operandAdaptor.getXZeroPoint())) {
     d = nonScalar1DLen(
-        operandAdaptor.x_zero_point().getType().cast<ShapedType>());
+        operandAdaptor.getXZeroPoint().getType().cast<ShapedType>());
   }
 
-  if (d != -1) {
+  if (d != ShapedType::kDynamic) {
     int64_t r = xTy.getRank();
-    int64_t a = operandAdaptor.axis();
+    int64_t a = operandAdaptor.getAxis();
     // Checked in verify:
     assert(-r <= a && a < r && "axis out of range");
     if (a < 0)
@@ -63,6 +70,8 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
     if (!outputDims[a].isLiteral()) {
       outputDims[a] = LiteralIndexExpr(d);
     }
+    LLVM_DEBUG(llvm::dbgs() << "literal: " << outputDims[a].getLiteral()
+                            << " d = " << d << "\n");
     // Checked in verify.
     assert(outputDims[a].getLiteral() == d &&
            "x_scale and x_zero_point 1-D tensor length must match the input "
@@ -87,23 +96,24 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     return t.getRank() == 0 || (t.getRank() == 1 && t.getDimSize(0) == 1);
   };
 
-  Value scale = x_scale();
+  Value scale = getXScale();
   auto scaleTy = scale.getType().cast<ShapedType>();
   if (scaleTy.hasRank() && scaleTy.getRank() > 1)
     return emitOpError("x_scale must be a scalar or 1-D tensor");
   int64_t scaleLen = nonScalar1DLen(scaleTy);
 
-  Value zero = x_zero_point();
-  int64_t zeroLen = -1;
-  if (!isFromNone(zero)) {
+  Value zero = getXZeroPoint();
+  int64_t zeroLen = ShapedType::kDynamic;
+  if (!isNoneValue(zero)) {
     if (auto zeroTy = zero.getType().dyn_cast<RankedTensorType>()) {
       if (zeroTy.getRank() > 1)
         return emitOpError("x_zero_point must be a scalar or 1-D tensor");
       zeroLen = nonScalar1DLen(zeroTy);
       if (auto scaleTy = scale.getType().dyn_cast<RankedTensorType>()) {
-        if ((isScalar(scaleTy) && scaleLen != -1) ||
-            (zeroLen != -1 && isScalar(zeroTy)) ||
-            (zeroLen != -1 && scaleLen != -1 && zeroLen != scaleLen))
+        if ((isScalar(scaleTy) && scaleLen != ShapedType::kDynamic) ||
+            (zeroLen != ShapedType::kDynamic && isScalar(zeroTy)) ||
+            (zeroLen != ShapedType::kDynamic &&
+                scaleLen != ShapedType::kDynamic && zeroLen != scaleLen))
           return emitOpError(
               "x_scale and x_zero_point must have the same shape");
       }
@@ -113,7 +123,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     // spec ("'x_zero_point' and 'x' must have same type"). It is violated in
     // in the resnet50-v1-12-qdq model where x, x_zero_point are i8, ui8.
     //
-    // if (getElementType(x().getType()) != getElementType(zero.getType()))
+    // if (getElementType(getX().getType()) != getElementType(zero.getType()))
     //   return emitOpError("x and x_zero_point must have the same data type");
 
     if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
@@ -122,18 +132,18 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
           return emitOpError("x_zero_point must be 0 for data type int32");
   }
 
-  if (scaleLen == -1 && zeroLen == -1) {
+  if (scaleLen == ShapedType::kDynamic && zeroLen == ShapedType::kDynamic) {
     // Either x_scale or x_zero_point is scalar, so quantization is per-tensor /
     // per layer and axis is ignored and there is nothing more to verify, or
     // their 1-D rank is unknown and we cannot verify more until they are known.
   } else {
     // If x_scale or x_zero_point is a non-scalar 1-D tensor then quantization
     // is per-axis.
-    int64_t d = scaleLen != -1 ? scaleLen : zeroLen;
-    if (auto xTy = x().getType().dyn_cast<RankedTensorType>()) {
+    int64_t d = scaleLen != ShapedType::kDynamic ? scaleLen : zeroLen;
+    if (auto xTy = getX().getType().dyn_cast<RankedTensorType>()) {
       int64_t r = xTy.getRank();
-      // axis attribute must be in the range [-r,r-1].
-      int64_t a = axis();
+      // axis attribute must be in the range [-r,rShapedType::kDynamic].
+      int64_t a = getAxis();
       if (a < -r || a >= r)
         return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
             *this->getOperation(), "axis", a,
@@ -157,9 +167,9 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!x().getType().dyn_cast<RankedTensorType>())
+  if (!getX().getType().dyn_cast<RankedTensorType>())
     return success();
-  Type elementType = y().getType().cast<ShapedType>().getElementType();
+  Type elementType = getY().getType().cast<ShapedType>().getElementType();
   ONNXDequantizeLinearOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

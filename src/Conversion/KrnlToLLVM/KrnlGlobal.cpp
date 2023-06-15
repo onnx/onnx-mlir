@@ -50,7 +50,7 @@ public:
     Type globalType = constantElementType;
 
     // The llvm type of the global (example: [2 x [8 x float]]).
-    const auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
+    const auto shape = (krnlGlobalOp.getShape()).dyn_cast<ArrayAttr>();
     if (shape.empty())
       globalType = LLVM::LLVMArrayType::get(globalType.cast<Type>(), 1);
     else {
@@ -60,9 +60,9 @@ public:
     }
 
     // Create the global at the entry of the module.
-    assert(krnlGlobalOp.value().has_value() &&
+    assert(krnlGlobalOp.getValue().has_value() &&
            "Krnl Global must always have a value");
-    auto value = krnlGlobalOp.value().value();
+    auto value = krnlGlobalOp.getValue().value();
     LLVM::GlobalOp global;
     TypeSwitch<Attribute>(value)
         .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
@@ -78,7 +78,7 @@ public:
 
     // Set the global alignment based on the alignment attribute if it exists,
     // otherwise use the module datalayout info.
-    krnl::setAlignment(global, krnlGlobalOp.alignmentAttr(),
+    krnl::setAlignment(global, krnlGlobalOp.getAlignmentAttr(),
         krnlGlobalOp->getParentOfType<ModuleOp>(), rewriter,
         *getTypeConverter());
 
@@ -99,9 +99,9 @@ private:
 
   LLVM::GlobalOp lowerDenseResourceConstant(KrnlGlobalOp &krnlGlobalOp,
       Type globalType, ConversionPatternRewriter &rewriter) const {
-    assert(krnlGlobalOp.value().has_value() &&
+    assert(krnlGlobalOp.getValue().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.value().value().isa<DenseResourceElementsAttr>() &&
+    assert(krnlGlobalOp.getValue().value().isa<DenseResourceElementsAttr>() &&
            "Expecting a global with an dense resource elements attribute");
 
     MLIRContext *context = krnlGlobalOp.getContext();
@@ -112,7 +112,7 @@ private:
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    auto blob = krnlGlobalOp.value()
+    auto blob = krnlGlobalOp.getValue()
                     .value()
                     .cast<DenseResourceElementsAttr>()
                     .getRawHandle()
@@ -129,7 +129,7 @@ private:
     auto llvmArrayI8Ty =
         LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
     LLVM::GlobalOp global = create.llvm.globalOp(llvmArrayI8Ty,
-        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
         llvmStringAttr);
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
@@ -138,9 +138,9 @@ private:
 
   LLVM::GlobalOp lowerDenseConstant(KrnlGlobalOp &krnlGlobalOp, Type globalType,
       ConversionPatternRewriter &rewriter) const {
-    assert(krnlGlobalOp.value().has_value() &&
+    assert(krnlGlobalOp.getValue().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.value().value().isa<DenseElementsAttr>() &&
+    assert(krnlGlobalOp.getValue().value().isa<DenseElementsAttr>() &&
            "Expecting a global with an dense elements attribute");
 
     MLIRContext *context = krnlGlobalOp.getContext();
@@ -152,11 +152,12 @@ private:
     rewriter.setInsertionPointToStart(module.getBody());
 
     DenseElementsAttr denseAttr =
-        krnlGlobalOp.value().value().cast<DenseElementsAttr>();
+        krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
     int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
-    if ((!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
+    if ((!denseAttr.getElementType().isa<StringType>()) &&
+        (!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
       assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
@@ -165,15 +166,15 @@ private:
       auto llvmArrayI8Ty =
           LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
       global = create.llvm.globalOp(llvmArrayI8Ty,
-          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+          /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
           llvmStringAttr);
     } else {
       if (denseAttr.getElementType().isa<StringType>())
         global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
       else
         global = create.llvm.globalOp(globalType,
-            /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
-            krnlGlobalOp.value().value());
+            /*isConstant=*/true, LLVM::Linkage::Internal,
+            krnlGlobalOp.getName(), krnlGlobalOp.getValue().value());
     }
 
     LLVM_DEBUG(llvm::dbgs() << "global: " << global << "\n";);
@@ -182,7 +183,7 @@ private:
 
   int64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
     // Compute total number of elements.
-    const auto shape = (krnlGlobalOp.shape()).dyn_cast<ArrayAttr>();
+    const auto shape = (krnlGlobalOp.getShape()).dyn_cast<ArrayAttr>();
     int64_t numElements = 1;
     for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
@@ -214,7 +215,7 @@ private:
   // the address of the global strings into an array. Return the array address.
   LLVM::GlobalOp lowerStringLiteral(
       KrnlGlobalOp &krnlGlobalOp, Type globalType, OpBuilder &builder) const {
-    assert(krnlGlobalOp.value().value().isa<DenseElementsAttr>() &&
+    assert(krnlGlobalOp.getValue().value().isa<DenseElementsAttr>() &&
            "Expecting a dense value");
 
     Location loc = krnlGlobalOp.getLoc();
@@ -222,7 +223,7 @@ private:
 
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
     DenseElementsAttr denseAttr =
-        krnlGlobalOp.value().value().cast<DenseElementsAttr>();
+        krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
     Type i8Type = IntegerType::get(builder.getContext(), 8);
     Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
@@ -240,7 +241,7 @@ private:
     // block.
     auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, globalOps.size());
     auto global = create.llvm.globalOp(arrayType,
-        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.name(),
+        /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
         Attribute());
     Region &region = global.getInitializerRegion();
     Block *block = builder.createBlock(&region);

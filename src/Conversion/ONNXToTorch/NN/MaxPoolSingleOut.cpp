@@ -49,13 +49,13 @@ public:
     Location loc = op.getLoc();
     MLIRContext *context = op.getContext();
 
-    Value x = adaptor.X();
-    ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
-    ArrayAttr dilations = adaptor.dilationsAttr();
-    ArrayAttr pads = adaptor.padsAttr();
-    ArrayAttr strides = adaptor.stridesAttr();
-    int64_t ceilingMode = adaptor.ceil_mode();
-    IntegerAttr ceilingModeAttr = adaptor.ceil_modeAttr();
+    Value x = adaptor.getX();
+    ArrayAttr kernelShape = adaptor.getKernelShapeAttr();
+    ArrayAttr dilations = adaptor.getDilationsAttr();
+    ArrayAttr pads = adaptor.getPadsAttr();
+    ArrayAttr strides = adaptor.getStridesAttr();
+    int64_t ceilingMode = adaptor.getCeilMode();
+    IntegerAttr ceilingModeAttr = adaptor.getCeilModeAttr();
     IntegerType intType = IntegerType::get(context, 64);
     mlir::FloatType floatType = mlir::FloatType::getF64(context);
 
@@ -132,7 +132,7 @@ public:
         padShape[i + 2] += (startDim + endDim).getZExtValue();
       }
       auto padType =
-          Torch::ValueTensorType::get(context, llvm::makeArrayRef(padShape),
+          Torch::ValueTensorType::get(context, llvm::ArrayRef(padShape),
               x.getType().cast<Torch::ValueTensorType>().getDtype());
 
       // Construct zero padding op since `torch` does not support asymmetric

@@ -49,17 +49,17 @@ public:
     mlir::Location loc = op.getLoc();
     mlir::MLIRContext *context = op.getContext();
 
-    Value x = adaptor.X();
-    Value w = adaptor.W();
-    Value b = adaptor.B();
+    Value x = adaptor.getX();
+    Value w = adaptor.getW();
+    Value b = adaptor.getB();
     bool biasIsNone = b.getType().isa<mlir::NoneType>();
 
-    mlir::StringAttr autopad = adaptor.auto_padAttr();
-    mlir::ArrayAttr dilations = adaptor.dilationsAttr();
-    mlir::IntegerAttr group = adaptor.groupAttr();
-    mlir::ArrayAttr kernal_shape = adaptor.kernel_shapeAttr();
-    mlir::ArrayAttr pads = adaptor.padsAttr();
-    mlir::ArrayAttr strides = adaptor.stridesAttr();
+    mlir::StringAttr autopad = adaptor.getAutoPadAttr();
+    mlir::ArrayAttr dilations = adaptor.getDilationsAttr();
+    mlir::IntegerAttr group = adaptor.getGroupAttr();
+    mlir::ArrayAttr kernal_shape = adaptor.getKernelShapeAttr();
+    mlir::ArrayAttr pads = adaptor.getPadsAttr();
+    mlir::ArrayAttr strides = adaptor.getStridesAttr();
 
     // NOTE: we would like if inferShapes() had filled in explicit padding
     // but currently inferShapes() does not do this for ConvOp (it does for

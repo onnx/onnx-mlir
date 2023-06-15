@@ -4,7 +4,7 @@
 
 //===------------------ SqueezeUnsqueeze.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -41,7 +41,7 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     DimsExpr &squeezedDims, bool axesFromShape) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   DimsExpr outputDims;
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   int64_t dataRank = createIE->getShapedTypeRank(data);
 
   // Init state.
@@ -59,7 +59,8 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
         return op->emitError(
             "Can not squeeze from dynamic dimensions at this time");
       int64_t shape = dataShape[i].getLiteral();
-      assert(shape >= 0 && "Compile time shape should be nonnegative");
+      assert(shape != ShapedType::kDynamic &&
+             "Compile time shape should be nonnegative");
       if (shape == 1) {
         // We will squeeze dim i as its shape is 1.
         squeezedAxes.emplace_back(i);
@@ -108,22 +109,22 @@ void ONNXSqueezeOpShapeHelper::saveAxes() {
   // should never encounter a "saveAxles" situation during lowering.
 
   ONNXSqueezeOp squeezeOp = llvm::cast<ONNXSqueezeOp>(op);
-  SaveOnnxConstInOp(op, squeezeOp.axesMutable(), squeezedAxes);
+  SaveOnnxConstInOp(op, squeezeOp.getAxesMutable(), squeezedAxes);
 }
 
 template <>
 void ONNXSqueezeV11OpShapeHelper::saveAxes() {
   SaveOnnxAttrInOp<ONNXSqueezeV11Op>(op, squeezedAxes,
-      [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.axesAttr(attr); });
+      [](ONNXSqueezeV11Op op, ArrayAttr attr) { op.setAxesAttr(attr); });
 }
 
 template <>
 LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
   ONNXSqueezeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  Value axes = operandAdaptor.axes();
+  Value axes = operandAdaptor.getAxes();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;
-  if (axes.getType().template isa<NoneType>())
+  if (isNoneValue(axes))
     squeezeFromShape = true;
   else
     createIE->getIntFromArrayAsSymbols(axes, squeezedDims);
@@ -133,7 +134,7 @@ LogicalResult ONNXSqueezeOpShapeHelper::computeShape() {
 template <>
 LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
   ONNXSqueezeV11OpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-  auto axesAttr = operandAdaptor.axesAttr();
+  auto axesAttr = operandAdaptor.getAxesAttr();
   SmallVector<IndexExpr, 4> squeezedDims;
   bool squeezeFromShape = false;
   if (axesAttr)
@@ -155,7 +156,7 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
 
 LogicalResult ONNXSqueezeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
@@ -166,7 +167,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = data().getType().dyn_cast<RankedTensorType>();
+  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
   if (!dataType)
     return success();
 
@@ -183,3 +184,44 @@ namespace onnx_mlir {
 template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeOp>;
 template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 } // namespace onnx_mlir
+
+//===----------------------------------------------------------------------===//
+// Folder
+//===----------------------------------------------------------------------===//
+OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
+  // Fold type
+  if (failed(inferShapes(nullptr)))
+    return nullptr;
+
+  // Fold value
+  if (!adaptor.getData() || !adaptor.getAxes()) {
+    // Use original Op if Data or Axes is not constant
+    return nullptr;
+  }
+
+  assert(hasStaticShape(getSqueezed().getType()) &&
+         "Shape should be static when the inputs are constant");
+
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getSqueezed().getType()));
+}
+
+OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
+  // Fold the type of tensor
+  if (failed(inferShapes(nullptr)))
+    return nullptr;
+
+  // Fold the value in tensor
+  if (!adaptor.getData()) {
+    // Use original Op if Data is not constant
+    return nullptr;
+  }
+
+  assert(hasStaticShape(getSqueezed().getType()) &&
+         "Shape should be static when the inputs are constant");
+
+  OnnxElementsAttrBuilder elementsBuilder(getContext());
+  return elementsBuilder.reshape(
+      adaptor.getData(), getShape(getSqueezed().getType()));
+}

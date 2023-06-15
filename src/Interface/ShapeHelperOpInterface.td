@@ -19,7 +19,7 @@
 include "mlir/IR/OpBase.td"
 #endif // OP_BASE
 
-def ShapeHelperOpInterface : OpInterface<"ShapeHelper"> {
+def ShapeHelperOpInterface : OpInterface<"ShapeHelperOpInterface"> {
   let description = [{
     Interface to access a registered method to infer the return shapes for an
     operation that can be used during type inference. The shape inference
@@ -42,7 +42,7 @@ def ShapeHelperOpInterface : OpInterface<"ShapeHelper"> {
                     "the output shape for the current operation.",
                     "onnx_mlir::ONNXOpShapeHelper *", "getShapeHelper",
                     (ins "mlir::Operation *":$op,
-                         "mlir::ArrayRef<mlir::Value>":$operands,
+                         "llvm::ArrayRef<mlir::Value>":$operands,
                          "onnx_mlir::IndexExprBuilder *":$ieBuilder,
                          "onnx_mlir::IndexExprScope *":$scope)>
   ];

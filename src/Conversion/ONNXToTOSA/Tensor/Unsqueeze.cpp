@@ -42,10 +42,11 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.data();
+    Value input = adaptor.getData();
 
     DimsExpr outputDims = shapeHelper.getOutputDims();
-    auto outputDimsVec = tosa::createInt64VectorFromIndexExpr(outputDims);
+    llvm::SmallVector<int64_t, 4> outputDimsVec;
+    IndexExpr::getLiteral(outputDims, outputDimsVec);
 
     Value newUnsqueezeOp = tosaBuilder.reshape(input, outputDimsVec);
 

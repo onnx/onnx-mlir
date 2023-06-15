@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Support/FileUtilities.h"
+#include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/IR/Constants.h"
@@ -66,7 +67,7 @@ std::string getVendorName() {
 llvm::Optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
     return std::string(envVerbose);
-  return llvm::None;
+  return std::nullopt;
 }
 
 // Make a function that forces preserving all files using the runtime arguments
@@ -231,8 +232,8 @@ int Command::exec(std::string wdir) const {
                  << ": " << llvm::join(argsRef, " ") << "\n";
 
   std::string errMsg;
-  int rc = llvm::sys::ExecuteAndWait(_path, llvm::makeArrayRef(argsRef),
-      /*Env=*/llvm::None, /*Redirects=*/llvm::None,
+  int rc = llvm::sys::ExecuteAndWait(_path, llvm::ArrayRef(argsRef),
+      /*Env=*/std::nullopt, /*Redirects=*/std::nullopt,
       /*SecondsToWait=*/0, /*MemoryLimit=*/0, &errMsg);
 
   if (rc != 0) {
@@ -402,6 +403,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   }
 
   llvm::LLVMContext llvmContext;
+  mlir::registerBuiltinDialectTranslation(*(module.get().getContext()));
   mlir::registerLLVMDialectTranslation(*(module.get().getContext()));
   std::unique_ptr<llvm::Module> llvmModule =
       mlir::translateModuleToLLVMIR(*module, llvmContext);
@@ -836,7 +838,7 @@ static std::string getDataLayout(const Location &loc) {
   llvm::TargetOptions ops;
   auto targetMachine =
       std::unique_ptr<llvm::TargetMachine>{LLVMTarget.createTargetMachine(
-          targetTriple, targetCpu, "" /*features*/, ops, None)};
+          targetTriple, targetCpu, "" /*features*/, ops, std::nullopt)};
   if (!targetMachine) {
     emitError(loc, "failed to create target machine");
     return nullptr;
@@ -910,7 +912,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
-  mlir::PassManager pm(&context, mlir::OpPassManager::Nesting::Implicit);
+  mlir::PassManager pm(
+      module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
   // TODO(tung): Revise adding passes. The current mechanism does not work if
   // there are multiple accelerators enabled at the same time. It's because
   // each `accel->addPasses` is independent and controls the whole compilation
@@ -928,7 +931,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     pm.addInstrumentation(std::make_unique<HeapReporter>(
         heapLogFileame, reportHeapBefore, reportHeapAfter));
   }
-  mlir::applyPassManagerCLOptions(pm);
+  (void)mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
   if (mlir::failed(pm.run(*module)))

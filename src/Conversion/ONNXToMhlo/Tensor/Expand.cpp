@@ -31,8 +31,8 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     // Get shape.
     ONNXExpandOpAdaptor operandAdaptor(operands);
     ONNXExpandOp expandOp = llvm::dyn_cast<ONNXExpandOp>(op);
-    Value input = expandOp.input();
-    Value shape = expandOp.shape();
+    Value input = expandOp.getInput();
+    Value shape = expandOp.getShape();
     Location loc = op->getLoc();
 
     // Cannot be used because ExpandOp Shape helper scans for onnx ops in the
@@ -43,7 +43,6 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     // LogicalResult shapeComputed = shapeHelper.computeShape();
     // assert(succeeded(shapeComputed) && "Failed to compute shape");
 
-    // Convert the output type to MemRefType.
     Type inputType = input.getType();
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(inputType) && "Expected Ranked ShapedType");
@@ -53,24 +52,28 @@ struct ONNXExpandOpLoweringToMhlo : public ConversionPattern {
     int64_t outputRank = outputShapedType.getRank();
 
     Operation *shapeDefOp = shape.getDefiningOp();
-    Value ones = rewriter.create<mhlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elementType, 1.0));
+    Value ones;
+    if (elementType.isa<IntegerType>())
+      ones = rewriter.create<mhlo::ConstantOp>(
+          loc, rewriter.getIntegerAttr(elementType, 1));
+    else
+      ones = rewriter.create<mhlo::ConstantOp>(
+          loc, rewriter.getFloatAttr(elementType, 1.0));
     Value broadcastedOnes;
     if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
-      assert(shapeOp.data().getType().isa<ShapedType>() &&
+      assert(shapeOp.getData().getType().isa<ShapedType>() &&
              "ShapeOp's input data should be of ShapedType");
-      int64_t shapeRank = shapeOp.data().getType().cast<ShapedType>().getRank();
-      SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamicSize);
+      int64_t shapeRank =
+          shapeOp.getData().getType().cast<ShapedType>().getRank();
+      SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamic);
       RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
       broadcastedOnes = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
           loc, onesType, ones, shape, rewriter.getI64TensorAttr({}));
     } else if (ONNXConstantOp shapeOp =
                    dyn_cast_or_null<ONNXConstantOp>(shapeDefOp)) {
       llvm::SmallVector<int64_t, 4> shapeValues;
-      mlir::DenseElementsAttr constShape =
-          getONNXConstantOp(shapeOp)
-              .valueAttr()
-              .dyn_cast_or_null<mlir::DenseElementsAttr>();
+      mlir::ElementsAttr constShape =
+          shapeOp.getValueAttr().cast<ElementsAttr>();
       for (mlir::IntegerAttr element : constShape.getValues<IntegerAttr>())
         shapeValues.push_back(element.getInt());
       RankedTensorType broadcastedType =

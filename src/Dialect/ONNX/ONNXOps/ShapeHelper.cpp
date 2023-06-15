@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -50,11 +51,20 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
-    // existingDim is dynamic, nothing to do.
-    if (existingDims[i] == -1)
+    // Safety checks for old convention of using -1 for dynamic.
+    assert(existingDims[i] != -1 && "dynamic use kDynamic now");
+    if (inferredDims[i].isLiteral()) {
+      // Index expressions should not use the ShapedType::kDynamic ever to
+      // signal dynamic shape. Questionmarks are used for that.
+      assert(inferredDims[i].getLiteral() != -1 && "dynamic use questionmark");
+      assert(inferredDims[i].getLiteral() != ShapedType::kDynamic &&
+             "dynamic use questionmark");
+    }
+    // ExistingDim is dynamic, nothing to learn from.
+    if (existingDims[i] == ShapedType::kDynamic)
       continue;
 
-    // inferredDim is unknown at shape inference: update it.
+    // InferredDim is unknown at shape inference: update it.
     if (inferredDims[i].isQuestionmark()) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
@@ -65,8 +75,8 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       continue;
     }
     // inferredDim is different from existingDim. Believe in existingDim.
-    if (inferredDims[i].isLiteral() &&
-        (existingDims[i] != inferredDims[i].getLiteral())) {
+    assert(inferredDims[i].isLiteral() && "isLiteral failed");
+    if (existingDims[i] != inferredDims[i].getLiteral()) {
       // Warning for users.
       llvm::outs() << "Warning: [Shape inference, dim " << i
                    << "] the inferred dim (" << inferredDims[i].getLiteral()
@@ -82,7 +92,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 //===----------------------------------------------------------------------===//
 
 ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
-    ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
+    ValueRange inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
       scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr),
@@ -104,7 +114,7 @@ ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
     // could not find one at this time.
     privateOperandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
-    operands = ArrayRef<Value>(privateOperandsCache);
+    operands = ValueRange(privateOperandsCache);
   }
 }
 
@@ -142,8 +152,8 @@ LogicalResult ONNXOpShapeHelper::setOutputDimsFromOperand(
 
 LogicalResult ONNXOpShapeHelper::setOutputDimsFromLiterals(
     SmallVector<int64_t, 4> shape, int n, bool refineShape) {
-  // Output has the shape given by the vector of integer numbers. Number -1 is
-  // transformed into a questionmark.
+  // Output has the shape given by the vector of integer numbers. Number
+  // ShapedType::kDynamic is transformed into a questionmark.
   DimsExpr outputDims;
   getIndexExprListFromShape(shape, outputDims);
   setOutputDims(outputDims, n, refineShape);
@@ -217,7 +227,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
-    ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
+    ValueRange initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
@@ -276,8 +286,9 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
       IndexExpr nextDimExpr = inputsDims[i][j];
       // Case: 1 - *.
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!hasUniBroadcasting && !hasNoBroadcasting)
+        if (!hasUniBroadcasting) {
           dimsExpr[j] = nextDimExpr;
+        }
         continue;
       }
       // Case: LiteralNot1 - *.
@@ -316,16 +327,77 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
+bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
+  // Must be called after computeShape.
+
+  bool hasNoBroadcast = true;
+
+  // First use static analysis to rule out broadcast. If we cannot rule out
+  // broadcasting for any reasons, hasNoBroadcast is set to false.
+  for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
+    bool hasOne, hasOtherThanOne;
+    hasOne = hasOtherThanOne = false;
+    for (DimsExpr dims : inputsDims) {
+      if (!dims[r].isLiteral()) {
+        // Has dynamic values.. possible broadcast, assume the worst.
+        hasNoBroadcast = false;
+        break;
+      }
+      int64_t lit = dims[r].getLiteral();
+      if (lit == 1)
+        hasOne = true;
+      else
+        hasOtherThanOne = true;
+    }
+    if (hasOne && hasOtherThanOne)
+      // Has a known broadcast situation. No need for further analysis,
+      // broadcasting has been detected.
+      return false;
+  }
+
+  // Using the most conservative analysis, we did not detect any broadcasting,
+  // we are good.
+  if (hasNoBroadcast)
+    return true;
+
+  // We have dynamic dimensions that prevented us to rule out broadcasting, try
+  // the more expensive dimAnalysis approach now, if available.
+  if (!dimAnalysis)
+    return false;
+  // In some cases, we can have more inputDims than operands (custom broadcast
+  // operators, e.g. ONNXExtendOp). Dismiss such cases as we need here the
+  // values of each of the inputs.
+  int64_t inputNum = inputsDims.size();
+  if ((int64_t)operands.size() != inputNum)
+    return false;
+  // Check if we can prove that each operand has the same shape.
+  for (int i = 1; i < inputNum; ++i)
+    if (!dimAnalysis->sameShape(operands[0], operands[i]))
+      return false;
+  // All have the same shape.
+  return true;
+}
+
 LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
     uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
-    SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool hasNoBroadcast) {
+  // Emtpy the access expr, just in case.
+  operandAccessExprs.clear();
+  // There is this case where we have no broadcast per se, but we have mixtures
+  // of 1xTYPE vs TYPE scalars. Handle this case properly here.
+  uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
+  if (operandRank == 0)
+    return success();
+
+  // The hasNoBroadcast pattern can be established by shape inference using
+  // DimAnalysis. If that is available, and broadcasting was ruled out, then
+  // more efficient code can be generated.
+  if (hasNoBroadcast || (hasUniBroadcasting && operandIndex == 0)) {
     for (IndexExpr ie : outputAccessExprs)
       operandAccessExprs.emplace_back(ie);
     return success();
   }
 
-  uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
   for (uint64_t i = 0; i < operandRank; ++i) {
     // Shape helper may pretend 1s, thus adjust dimension index accordingly.
     uint64_t dimIndex = outputRank - operandRank + i;
@@ -389,16 +461,21 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     IndexExprScope scope(nullptr, val.getLoc());
     DimsExpr inferredDims;
     for (int64_t d : shape) {
-      if (ShapedType::isDynamic(d))
-        inferredDims.emplace_back(QuestionmarkIndexExpr());
+      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
+      // an `onnx.Reshape` op?
+      if (ShapedType::isDynamic(d) || d == -1)
+        inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else
         inferredDims.emplace_back(LiteralIndexExpr(d));
     }
     refineDims(inferredDims, val);
     IndexExpr::getShape(inferredDims, inferredShape);
   } else {
-    for (int i = 0; i < shape.size(); ++i)
-      inferredShape.emplace_back(shape[i]);
+    // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
+    // an `onnx.Reshape` op?
+    for (size_t i = 0; i < shape.size(); ++i)
+      inferredShape.emplace_back(
+          shape[i] != -1 ? shape[i] : ShapedType::kDynamic);
   }
 
   // Get element type.
@@ -426,7 +503,7 @@ static void resetTypeShapeToQuestionmarks(Value val) {
   if (!valType)
     return;
   // Reset any compile time literal to unknown (aka question marks).
-  SmallVector<int64_t, 4> newShape(valType.getRank(), -1);
+  SmallVector<int64_t, 4> newShape(valType.getRank(), ShapedType::kDynamic);
   auto resType = RankedTensorType::Builder(valType).setShape(newShape);
   // Reset type
   val.setType(resType);

@@ -4,7 +4,7 @@
 
 //====-- TestScan.cpp - test Scan code -======================================//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,7 +29,7 @@ void *omTensorGetAllocatedPtr(OMTensor *tensor);
 template <typename TYPE>
 void omPrintAsPython(OMTensor *tensor, std::string name) {
   int rank = omTensorGetRank(tensor);
-  int64_t *shape = omTensorGetShape(tensor);
+  const int64_t *shape = omTensorGetShape(tensor);
   if (false) {
     printf("# tensor 0x%llx, allocated addr 0x%llx, data addr 0x%llx\n",
         (long long)tensor, (long long)omTensorGetAllocatedPtr(tensor),

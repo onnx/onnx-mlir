@@ -38,11 +38,11 @@ LogicalResult ONNXDimOpShapeHelper::computeShape() {
 
 LogicalResult ONNXDimOp::verify() {
   // Input data must be ranked.
-  if (!hasShapeAndRank(this->data()))
+  if (!hasShapeAndRank(this->getData()))
     return failure();
   // Axis must be in [0, rank -1].
-  int64_t axis = this->axis();
-  return failure((axis < 0) || (axis >= getRank(this->data().getType())));
+  int64_t axis = this->getAxis();
+  return failure((axis < 0) || (axis >= getRank(this->getData().getType())));
 }
 
 //===----------------------------------------------------------------------===//

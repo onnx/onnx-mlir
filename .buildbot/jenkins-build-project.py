@@ -25,10 +25,10 @@ logging.basicConfig(
 # cc/c++ processes is going to quickly exhaust the memory.
 #
 # Algorithm: NPROC = min(2, # of CPUs) if memory < 8GB, otherwise
-#            NPROC = min(memory / 4, # of CPUs)
+#            NPROC = min(memory / 8, # of CPUs)
 MEMORY_IN_GB                = (os.sysconf('SC_PAGE_SIZE') *
                                os.sysconf('SC_PHYS_PAGES') / (1024.**3))
-NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/4), os.cpu_count())))
+NPROC                       = str(math.ceil(min(max(2, MEMORY_IN_GB/8), os.cpu_count())))
 
 READ_CHUNK_SIZE             = 1024*1024
 BASE_BRANCH                 = 'main'

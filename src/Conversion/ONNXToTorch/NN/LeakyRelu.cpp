@@ -55,8 +55,8 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
-    Value x = adaptor.X();
-    FloatAttr alpha = adaptor.alphaAttr();
+    Value x = adaptor.getX();
+    FloatAttr alpha = adaptor.getAlphaAttr();
     FloatAttr negSlopeFloatAttr = convertToIEEEDouble(alpha);
     Value negSlopeConstFloat =
         rewriter.create<Torch::ConstantFloatOp>(loc, negSlopeFloatAttr);

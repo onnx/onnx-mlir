@@ -4,7 +4,8 @@
 
 //====------ ONNXToTOSACommon.hpp - ONNX dialects to TOSA lowering --------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright 2020 The TensorFlow Authors. All Rights Reserved.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -15,6 +16,8 @@
 
 #pragma once
 
+#include "DialectBuilder.hpp"
+#include "ONNXToTOSALegalizeUtils.hpp"
 #include "mlir/Dialect/Quant/QuantTypes.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 
@@ -51,19 +54,19 @@ llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
 // simulate the ceil mode
 template <typename ShapeHelperType>
 llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
-    const ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
     int64_t ceilMode) {
   // This avoids having more if statements when creating the padding const.
   if (ceilMode == 0)
     return llvm::SmallVector<int64_t>{0, 0};
 
-  llvm::SmallVector<int64_t, 2> kernelShapeVec =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.kernelShape);
+  llvm::SmallVector<int64_t, 2> kernelShapeVec;
+  IndexExpr::getLiteral(shapeHelper.kernelShape, kernelShapeVec);
 
   // Get stride and pad vectors.
   llvm::SmallVector<int64_t, 2> stridesVec = shapeHelper.strides;
-  llvm::SmallVector<int64_t, 4> padsVec =
-      tosa::createInt64VectorFromIndexExpr(shapeHelper.pads);
+  llvm::SmallVector<int64_t, 4> padsVec;
+  IndexExpr::getLiteral(shapeHelper.pads, padsVec);
 
   // Check if the idiv_check for the output dimentions in
   // https://www.mlplatform.org/tosa/tosa_spec.html#_max_pool2d has no
@@ -88,7 +91,7 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
 template <typename ShapeHelperType>
 mlir::ArrayAttr createOrderedPadAttr(mlir::PatternRewriter &rewriter,
     const llvm::ArrayRef<int64_t> inputShape,
-    const ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
     const int64_t ceilMode, const llvm::ArrayRef<int64_t> padIndexOrder) {
 
   // When ceil mode is 1, we need to add values to the padding
@@ -124,32 +127,54 @@ llvm::Optional<mlir::Value> convertPoolOp(
 
   TosaBuilder tosaBuilder(rewriter, loc);
 
-  mlir::Value input = adaptor.X();
+  mlir::Value input = adaptor.getX();
   auto inputType = input.getType().cast<mlir::TensorType>();
   if (inputType.getShape().size() != 4) {
     (void)rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
-    return llvm::None;
+    return std::nullopt;
   }
 
-  mlir::ArrayAttr kernelShape = adaptor.kernel_shapeAttr();
+  auto kernelShape = adaptor.getKernelShapeAttr();
+
+  const int64_t ceilMode = adaptor.getCeilMode();
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), -1),
+      llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), mlir::ShapedType::kDynamic),
       inputType.getElementType());
 
   // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
   // transpose to change the format
   input = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
-  // reorder padding values
-  mlir::ArrayAttr newPads = createOrderedPadAttr(rewriter,
-      inputType.getShape(), shapeHelper, adaptor.ceil_mode(), {0, 2, 1, 3});
+  if (!IndexExpr::isLiteral(shapeHelper.pads)) {
+    (void)rewriter.notifyMatchFailure(op, "could not determine pad values");
+    return std::nullopt;
+  }
+  if (!IndexExpr::isLiteral(shapeHelper.kernelShape)) {
+    (void)rewriter.notifyMatchFailure(
+        op, "could not determine kernel_shape values");
+    return std::nullopt;
+  }
 
-  mlir::ArrayAttr strides = rewriter.getI64ArrayAttr(shapeHelper.strides);
+  // When ceil mode is 1, we need to add values to the padding
+  const llvm::SmallVector<int64_t, 4> ceilConstants =
+      getCeilConstants<ONNXPoolOp>(inputType.getShape(), shapeHelper, ceilMode);
+
+  llvm::SmallVector<int64_t, 4> pads;
+  IndexExpr::getLiteral(shapeHelper.pads, pads);
+
+  // reorder padding values
+  auto newPads = rewriter.getDenseI64ArrayAttr({pads[0],
+      pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
+
+  auto strides = rewriter.getDenseI64ArrayAttr(shapeHelper.strides);
+
+  auto newKernelShape =
+      rewriter.getDenseI64ArrayAttr(mlir::extractFromI64ArrayAttr(kernelShape));
 
   input = tosa::CreateOpAndInfer<TOSAPoolOp>(
-      rewriter, loc, newResultType, input, kernelShape, strides, newPads);
+      rewriter, loc, newResultType, input, newKernelShape, strides, newPads);
 
   // Revert to original shape (NCHW)
   // Construct the old result shape out of the new one
@@ -161,6 +186,58 @@ llvm::Optional<mlir::Value> convertPoolOp(
 } // namespace onnx_mlir
 
 namespace onnx_mlir {
+namespace tosa {
+
+// Common function for lowering reduce operations to TOSA ops.
+// Modified from TensorFlow
+template <typename T>
+llvm::Optional<mlir::Value> convertReduceOpCommon(
+    mlir::PatternRewriter &rewriter, mlir::Operation *op,
+    mlir::RankedTensorType outputType, mlir::Value inputValue,
+    mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {
+  TosaBuilder tosaBuilder(rewriter, op->getLoc());
+  mlir::RankedTensorType inputType =
+      inputValue.getType().dyn_cast<mlir::RankedTensorType>();
+  if (!inputType)
+    return std::nullopt;
+
+  llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
+  llvm::ArrayRef<int64_t> outputShape = outputType.getShape();
+  auto inputRank = inputShape.size();
+
+  if (axesElems.getNumElements() == 0) {
+    // No axes means return the original tensor.
+    auto identityOp = onnx_mlir::tosa::CreateOpAndInfer<mlir::tosa::IdentityOp>(
+        rewriter, op->getLoc(), outputType, inputValue);
+    return identityOp.getResult();
+  }
+  // Reduce along each axis
+  llvm::SmallVector<int64_t> shapeVec(inputShape.begin(), inputShape.end());
+  mlir::Value newValue = inputValue;
+  for (int i = 0; i < axesElems.getNumElements(); i++) {
+    int64_t axisVal = axesElems.getValues<mlir::IntegerAttr>()[i].getInt();
+    if (axisVal < 0)
+      axisVal += inputRank;
+    auto axisAttr = rewriter.getI64IntegerAttr(axisVal);
+
+    shapeVec[axisVal] = 1;
+    mlir::RankedTensorType reduceType =
+        mlir::RankedTensorType::get(shapeVec, reduceElementType);
+
+    auto reduceOp = CreateOpAndInfer<T>(
+        rewriter, op->getLoc(), reduceType, newValue, axisAttr);
+
+    newValue = reduceOp.getResult();
+  }
+
+  // Optionally squeeze out the reduced axes.
+  if (!keepDims) {
+    newValue = tosaBuilder.reshape(newValue, outputShape);
+  }
+  return newValue;
+}
+
+} // namespace tosa
 
 //===----------------------------------------------------------------------===//
 // Check for valid TOSA types.
@@ -191,9 +268,11 @@ using TOSAOp = typename TOSADialectOp<Op>::Op;
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGemmOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSoftmaxOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXGemmOpToTOSAPattern(mlir::ConversionTarget &,
+void populateLoweringONNXReduceMeanOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConvOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

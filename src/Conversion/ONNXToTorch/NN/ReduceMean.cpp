@@ -45,14 +45,14 @@ using namespace mlir::torch;
 //  		of bfloat16 type values or memref of any type values
 //
 class ONNXReduceMeanOpToTorchLowering
-    : public OpConversionPattern<ONNXReduceMeanOp> {
+    : public OpConversionPattern<ONNXReduceMeanV13Op> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXReduceMeanOp op, OpAdaptor adaptor,
+  LogicalResult matchAndRewrite(ONNXReduceMeanV13Op op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op.getLoc();
-    auto axis = mlir::extractFromI64ArrayAttr(op.axesAttr());
+    auto axis = mlir::extractFromI64ArrayAttr(adaptor.getAxes().value());
     if (!(axis.size() == 2 && axis[0] == 2 && axis[1] == 3))
       op.emitError("Not implemented yet for general axis sizes");
 
@@ -61,7 +61,7 @@ public:
 
     IntegerType sintType = rewriter.getIntegerType(64, true);
     std::vector<Value> axisVal =
-        createArrayAttribute(op.axesAttr(), sintType, loc, rewriter, 1);
+        createArrayAttribute(adaptor.getAxes().value(), sintType, loc, rewriter, 1);
     Value axisList = rewriter.create<PrimListConstructOp>(loc,
         Torch::ListType::get(rewriter.getType<Torch::IntType>()),
         ValueRange{axisVal});
@@ -69,7 +69,7 @@ public:
     Value dtype = rewriter.create<ConstantNoneOp>(loc);
     Type resultType = typeConverter->convertType(op.getResult().getType());
     auto newOp = rewriter.replaceOpWithNewOp<Torch::AtenMeanDimOp>(
-        op, resultType, adaptor.data(), axisList, keepDimsVal, dtype);
+        op, resultType, adaptor.getData(), axisList, keepDimsVal, dtype);
     setLayerNameAttr(op, newOp);
     return success();
   }

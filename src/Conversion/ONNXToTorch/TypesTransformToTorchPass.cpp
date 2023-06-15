@@ -13,7 +13,6 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -53,7 +52,7 @@ class ONNXToAtenModifyMainFunctionPass
     ConversionTarget target(*context);
 
     module.walk([&](ONNXEntryPointOp op) {
-      auto functionName = op.func().getRootReference().getValue();
+      auto functionName = op.getFunc().getRootReference().getValue();
       auto mainFuncOp   = module.lookupSymbol<func::FuncOp>(functionName);
       if (mainFuncOp) {
         StringRef forwardRef = "forward";

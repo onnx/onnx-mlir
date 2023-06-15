@@ -80,7 +80,7 @@ inline onnx_mlir::ArrayBuffer<X> DisposableElementsAttr::getArray() const {
     return onnx_mlir::castArrayRef<X>(getBufferBytes());
   typename onnx_mlir::ArrayBuffer<X>::Vector dst;
   dst.resize_for_overwrite(getNumElements());
-  readRawBytes(onnx_mlir::castMutableArrayRef<char>(makeMutableArrayRef(dst)));
+  readRawBytes(onnx_mlir::castMutableArrayRef<char>(MutableArrayRef(dst)));
   return std::move(dst);
 }
 

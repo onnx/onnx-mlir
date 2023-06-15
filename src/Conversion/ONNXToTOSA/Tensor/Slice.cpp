@@ -41,7 +41,7 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.data();
+    Value input = adaptor.getData();
     if (!(IndexExpr::isLiteral(shapeHelper.starts)))
       return rewriter.notifyMatchFailure(op, "starts has no literals.");
     if (!(IndexExpr::isLiteral(shapeHelper.ends)))
@@ -49,12 +49,12 @@ public:
     if (!(IndexExpr::isLiteral(shapeHelper.steps)))
       return rewriter.notifyMatchFailure(op, "steps has no literals.");
 
-    llvm::SmallVector<int64_t, 4> starts =
-        tosa::createInt64VectorFromIndexExpr(shapeHelper.starts);
-    llvm::SmallVector<int64_t, 4> ends =
-        tosa::createInt64VectorFromIndexExpr(shapeHelper.ends);
-    llvm::SmallVector<int64_t, 4> steps =
-        tosa::createInt64VectorFromIndexExpr(shapeHelper.steps);
+    llvm::SmallVector<int64_t, 4> starts;
+    IndexExpr::getLiteral(shapeHelper.starts, starts);
+    llvm::SmallVector<int64_t, 4> ends;
+    IndexExpr::getLiteral(shapeHelper.ends, ends);
+    llvm::SmallVector<int64_t, 4> steps;
+    IndexExpr::getLiteral(shapeHelper.steps, steps);
 
     for (const int64_t step : steps) {
       if (step != 1)

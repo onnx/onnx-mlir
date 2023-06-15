@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,25 +20,26 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConcatOpLowering : public ConversionPattern {
+struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
   ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConcatOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
+      ONNXConcatOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    // Gather info.
-    Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    Operation *op = concatOp.getOperation();
+    Location loc = ONNXLoc<ONNXConcatOp>(op);
+    ValueRange operands = adaptor.getOperands();
 
-    ONNXConcatOpAdaptor operandAdaptor(operands);
-    ONNXConcatOp concatOp = llvm::cast<ONNXConcatOp>(op);
+    // Gather info.
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
+
     // Get shape.
     ONNXConcatOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    auto axis = concatOp.axis();
+    auto axis = concatOp.getAxis();
     assert(axis >= 0 && "negative axis is supposed to have been normalized");
     unsigned int inputNum = operands.size();
 
@@ -54,12 +55,12 @@ struct ONNXConcatOpLowering : public ConversionPattern {
     // Alloc and dealloc.
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    Value alloc = insertAllocAndDeallocSimple(rewriter, op, outputMemRefType,
-        loc, shapeHelper.getOutputDims(), alignment);
+    Value alloc = create.mem.alignedAlloc(
+        outputMemRefType, shapeHelper.getOutputDims(), alignment);
 
     // Creates loops, one for each input.
     // Since the each input should have same size for each dimension(except
-    // axis), we will try to make the loop upper bound the same for futher
+    // axis), we will try to make the loop upper bound the same for further
     // optimization. Difference may come from constant vs. dynamic, or dynamic
     // dim of different inputs.
     SmallVector<IndexExpr, 4> commonUB(shapeHelper.getOutputDims());

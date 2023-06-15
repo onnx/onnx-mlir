@@ -4,7 +4,7 @@
 
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -234,48 +234,44 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
 }
 
 template <typename SoftmaxOp>
-struct ONNXSoftmaxLowering : public ConversionPattern {
+struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
   ONNXSoftmaxLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, SoftmaxOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx) {}
   using OpAdaptor = typename SoftmaxOp::Adaptor;
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+
+  LogicalResult matchAndRewrite(SoftmaxOp softmaxOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // softmax(x) = let max_x = max(x) in
     //                let exp_x = exp(x - max_x) in
     //                  let sum = sum(exp_x) in
     //                    exp_x / sum
 
+    Operation *op = softmaxOp.getOperation();
+    Location loc = ONNXLoc<SoftmaxOp>(op);
+    Value input = adaptor.getInput();
+
     // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
+    Type convertedType =
+        this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
     int64_t rank = memRefType.getRank();
-    int64_t axis = llvm::dyn_cast<SoftmaxOp>(op).axis();
+    int64_t axis = adaptor.getAxis();
     axis = axis >= 0 ? axis : rank + axis;
     assert(axis >= -rank && axis <= rank - 1);
 
-    Location loc = op->getLoc();
-    OpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.input();
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
-
-    bool insertDealloc = checkInsertDealloc(op);
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, input);
+    MultiDialectBuilder<MemRefBuilder, MathBuilder> create(rewriter, loc);
+    Value alloc = create.mem.alignedAlloc(input, memRefType);
 
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
-    Value sumOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
-    Value maxOp = insertAllocAndDealloc(scalarMemRefType, loc, rewriter, true);
+    Value sumOp = create.mem.alignedAlloc(scalarMemRefType);
+    Value maxOp = create.mem.alignedAlloc(scalarMemRefType);
 
-    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
     Value zero = create.math.constant(elementType, 0);
     Value negInfinity = create.math.constant(
         elementType, -std::numeric_limits<float>::infinity());

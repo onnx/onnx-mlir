@@ -28,13 +28,13 @@ namespace onnx_mlir {
 LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   // Get info about input data operand.
   ONNXSliceOpAdaptor operandAdaptor(operands);
-  Value data = operandAdaptor.data();
+  Value data = operandAdaptor.getData();
   uint64_t dataRank = data.getType().cast<ShapedType>().getShape().size();
 
   // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 4> axesIntLit;
-  Value axes = operandAdaptor.axes();
-  if (axes.getType().isa<NoneType>()) {
+  Value axes = operandAdaptor.getAxes();
+  if (isNoneValue(axes)) {
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (uint64_t i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
@@ -68,17 +68,17 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
     // Get start, end, step, and dim index expressions.
     // Get start.
     SymbolIndexExpr startInput =
-        createIE->getIntFromArrayAsSymbol(operandAdaptor.starts(), i);
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.getStarts(), i);
     if (startInput.isUndefined())
       return op->emitError("start input parameter could not be processed");
     // Get end.
     SymbolIndexExpr endInput =
-        createIE->getIntFromArrayAsSymbol(operandAdaptor.ends(), i);
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.getEnds(), i);
     if (endInput.isUndefined())
       return op->emitError("end input parameter could not be processed");
     // Get step.
     SymbolIndexExpr stepInput =
-        createIE->getIntFromArrayAsSymbol(operandAdaptor.steps(), i);
+        createIE->getIntFromArrayAsSymbol(operandAdaptor.getSteps(), i);
     if (stepInput.isUndefined())
       return op->emitError("step input parameter could not be processed");
     if (stepInput.isLiteral() && stepInput.getLiteral() == 0)
@@ -152,7 +152,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
 LogicalResult ONNXSliceOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Cannot infer shape if no shape exists.
-  if (!hasShapeAndRank(data()))
+  if (!hasShapeAndRank(getData()))
     return success();
 
   const auto startsType =
@@ -165,16 +165,16 @@ LogicalResult ONNXSliceOp::inferShapes(
     const auto tensorType = RankedTensorType::get({startsDim}, elementType);
 
     // If axes is not specified, default to [0, ..., ndim-1]
-    if (this->getOperand(3).getType().isa<NoneType>()) {
+    if (isNoneValue(this->getOperand(3))) {
       SmallVector<int64_t, 1> vals = {};
       for (size_t s = 0; s < (size_t)startsDim; ++s)
         vals.emplace_back(s);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
       builder.setInsertionPoint(*this);
       auto constantOp = builder.create<ONNXConstantOp>(
           this->getLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = constantOp.output();
+      Value constantResult = constantOp.getOutput();
       this->setOperand(3, constantResult);
     }
 
@@ -182,16 +182,16 @@ LogicalResult ONNXSliceOp::inferShapes(
     if (this->getOperand(4).getType().isa<NoneType>()) {
       SmallVector<int64_t, 1> vals(startsDim, 1);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(vals));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
       builder.setInsertionPoint(*this);
       auto constantOp = builder.create<ONNXConstantOp>(
           this->getLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = constantOp.output();
+      Value constantResult = constantOp.getOutput();
       this->setOperand(4, constantResult);
     }
   }
 
-  Type elementType = data().getType().cast<ShapedType>().getElementType();
+  Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXSliceOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

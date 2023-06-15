@@ -4,7 +4,7 @@
 
 //====-------------- DialectBuilder.cpp - Krnl Dialect Builder ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -231,8 +231,16 @@ Value KrnlBuilder::constant(MemRefType type, StringRef name,
       alignment.value_or(nullptr));
 }
 
-void KrnlBuilder::memcpy(Value dest, Value src, Value size) const {
-  b().create<KrnlMemcpyOp>(loc(), dest, src, size);
+void KrnlBuilder::memcpy(Value dest, Value src, Value numElems) const {
+  MultiDialectBuilder<MathBuilder> create(*this);
+  Value zero = create.math.constantIndex(0);
+  b().create<KrnlMemcpyOp>(
+      loc(), dest, src, numElems, /*dest_offset=*/zero, /*src_offset=*/zero);
+}
+
+void KrnlBuilder::memcpy(Value dest, Value src, Value numElems,
+    Value destOffset, Value srcOffset) const {
+  b().create<KrnlMemcpyOp>(loc(), dest, src, numElems, destOffset, srcOffset);
 }
 
 void KrnlBuilder::memset(Value dest, Value val, bool delayed) const {
@@ -288,12 +296,12 @@ void KrnlBuilder::printf(Value input, Type inputType) const {
 ElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (globalOp.getValue().has_value())
+      return globalOp.getValueAttr().dyn_cast<ElementsAttr>();
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
-    if (globalOp.value().has_value())
-      return globalOp.valueAttr().dyn_cast<ElementsAttr>();
+    if (globalOp.getValue().has_value())
+      return globalOp.getValueAttr().dyn_cast<ElementsAttr>();
   }
   return nullptr;
 }

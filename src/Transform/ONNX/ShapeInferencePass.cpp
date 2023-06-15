@@ -4,7 +4,7 @@
 
 //===------- ShapeInferencePass.cpp - Shape Inference ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,33 +13,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <regex>
-
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 namespace {
-
-static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
-    ModuleOp module, std::regex pattern) {
-  SmallVector<func::FuncOp, 4> matchedFuncs;
-  module.walk([&](func::FuncOp funcOp) {
-    if (std::regex_search(funcOp.getName().str(), pattern))
-      matchedFuncs.emplace_back(funcOp);
-  });
-  return matchedFuncs;
-}
 
 /*!
  *  Function pass that performs shape inference by iterating over a list of
@@ -51,7 +42,7 @@ static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
  * operation is associated with a different (sub) computation graph in the forms
  * of mlir functions, and the operation's output shape and type depends on the
  * shape and type of that (sub) graph outputs. In such scenarios, operations can
- * initiate shape inference on its dependent (sub) graph, and resume infering
+ * initiate shape inference on its dependent (sub) graph, and resume inferring
  * its output shape only after shape inference completes for the associated
  * (sub) graph.
  *
@@ -60,15 +51,9 @@ static SmallVector<func::FuncOp, 4> lookUpFuncsMatching(
  * purposes.
  */
 class ShapeInferencePass
-    : public PassWrapper<ShapeInferencePass, OperationPass<ModuleOp>> {
-private:
-  bool analyzeAllFunctions;
-
+    : public PassWrapper<ShapeInferencePass, OperationPass<func::FuncOp>> {
 public:
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ShapeInferencePass)
-
-  ShapeInferencePass(bool analyzeAllFunctions)
-      : analyzeAllFunctions(analyzeAllFunctions) {}
 
   StringRef getArgument() const override { return "shape-inference"; }
 
@@ -76,25 +61,30 @@ public:
     return "Shape inference for frontend dialects.";
   }
 
+  LogicalResult initialize(MLIRContext *context) override {
+    RewritePatternSet cumulativePatterns(context);
+    getShapeInferencePatterns(cumulativePatterns);
+    patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
+    return success();
+  }
+
   void runOnOperation() override {
-    auto module = getOperation();
-    if (!analyzeAllFunctions) {
-      auto matchedFuncs =
-          lookUpFuncsMatching(module, std::regex("[a-zA-Z0-9_]*main_graph"));
-      if (!matchedFuncs.empty()) {
-        for (auto func : matchedFuncs) {
-          if (failed(runShapeInferenceOn(func)))
-            signalPassFailure();
-        }
+    func::FuncOp f = getOperation();
+    auto &body = f.getBody();
+    if (enablePatternShapeInference) {
+      GreedyRewriteConfig config;
+      config.useTopDownTraversal = true;
+      (void)applyPatternsAndFoldGreedily(body, patterns, config);
+    } else {
+      if (failed(runShapeInferenceOnRegion(body))) {
+        signalPassFailure();
         return;
       }
     }
-    auto result = module.walk([&](func::FuncOp funcOp) -> WalkResult {
-      return runShapeInferenceOn(funcOp);
-    });
-    if (result.wasInterrupted())
-      signalPassFailure();
+    inferFunctionReturnShapes(f);
   }
+
+  FrozenRewritePatternSet patterns;
 
   static LogicalResult runShapeInferenceOnRegion(Region &r) {
     std::function<void(Region &)> doShapeInference = [](Region &region) {
@@ -112,7 +102,7 @@ public:
           !returnsDynamicOrUnknownShape(op))
         continue;
 
-      if (auto shape_op = llvm::dyn_cast<ShapeInference>(op)) {
+      if (auto shape_op = llvm::dyn_cast<ShapeInferenceOpInterface>(op)) {
         // Verify the operation before attempting to infer the shape of the
         // produced output(s).
         Optional<RegisteredOperationName> registeredInfo =
@@ -127,25 +117,6 @@ public:
         return op.emitError("unable to infer shape of operation without shape "
                             "inference interface");
     }
-    return success();
-  }
-
-  static LogicalResult runShapeInferenceOn(func::FuncOp f) {
-    // Iterate on the operations that need shape inference i.e the operations
-    // that return a dynamic shape or followed by a return op.
-    auto &funcBody = f.getBody();
-    if (failed(runShapeInferenceOnRegion(funcBody)))
-      return failure();
-
-    // Check if a terminator op exists for function.
-    if (!funcBody.empty() && !funcBody.back().empty() &&
-        funcBody.back().back().hasTrait<OpTrait::IsTerminator>())
-      if (auto returnOp = f.getBody().back().getTerminator()) {
-        auto results = returnOp->getOperandTypes();
-        f.setType(
-            FunctionType::get(f.getContext(), f.getFunctionType().getInputs(),
-                std::vector<Type>(results.begin(), results.end())));
-      }
     return success();
   }
 
@@ -176,8 +147,8 @@ public:
 /*!
  * Create a Shape Inference pass.
  */
-std::unique_ptr<Pass> createShapeInferencePass(bool analyzeAllFunctions) {
-  return std::make_unique<ShapeInferencePass>(analyzeAllFunctions);
+std::unique_ptr<Pass> createShapeInferencePass() {
+  return std::make_unique<ShapeInferencePass>();
 }
 
 } // namespace onnx_mlir

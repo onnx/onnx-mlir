@@ -20,6 +20,7 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
@@ -105,7 +106,18 @@ private:
 
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
-  Value none() { return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult(); }
+  Location ImportLoc(const onnx::NodeProto &node) {
+    if (node.has_name()) {
+      // Use the the node name as Location.
+      return NameLoc::get(builder_.getStringAttr(node.name()));
+    } else {
+      return UnknownLoc();
+    }
+  }
+
+  Value createNoneValue() {
+    return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
+  }
 
   // onnx_type_map: a map from ONNX tensor name to ONNX TypeProto.
   SymbolToOnnxTypeMapping onnx_type_map;
@@ -137,8 +149,10 @@ private:
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
+    // Use the tensor name as Location.
     return EmitInitializerForInputTensor(
-        UnknownLoc(), builder_, options_.externalDataDir, tensor);
+        NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name())),
+        builder_, options_.externalDataDir, tensor);
   }
 
   /*!
@@ -163,13 +177,12 @@ private:
                "Parsed an tensor with a dimension size of zero");
         if (dim_numeric_size > 0) {
           dims.push_back(dim_numeric_size);
-        } else { // If dim_value < 0, then dim is parametric.
-                 // TODO Verify the unknown dim size in MLIR
-          dims.push_back(-1);
+        } else {
+          // If dim_value < 0, then dim is parametric.
+          dims.push_back(ShapedType::kDynamic);
         }
       } else {
-        // TODO How to represent variable length
-        dims.push_back(-1);
+        dims.push_back(ShapedType::kDynamic);
       }
     }
 
@@ -246,11 +259,11 @@ private:
       break;
     case onnx::AttributeProto::FLOATS:
       mlirAttr = builder_.getF32ArrayAttr(
-          llvm::makeArrayRef(attr.floats().data(), attr.floats().size()));
+          llvm::ArrayRef(attr.floats().data(), attr.floats().size()));
       break;
     case onnx::AttributeProto::INTS:
       mlirAttr = builder_.getI64ArrayAttr(
-          llvm::makeArrayRef(attr.ints().data(), attr.ints().size()));
+          llvm::ArrayRef(attr.ints().data(), attr.ints().size()));
       break;
     case onnx::AttributeProto::TENSOR:
       mlirAttr = onnxTensorProtoToElmAttr(
@@ -261,7 +274,7 @@ private:
       for (const auto &item : attr.strings()) {
         vectorStringRef.push_back(llvm::StringRef(item));
       }
-      mlirAttr = builder_.getStrArrayAttr(llvm::makeArrayRef(vectorStringRef));
+      mlirAttr = builder_.getStrArrayAttr(llvm::ArrayRef(vectorStringRef));
     } break;
     case onnx::AttributeProto::TYPE_PROTO:
       mlirAttr = TypeAttr::get(ImportType(attr.tp()));
@@ -428,42 +441,88 @@ private:
 
   static constexpr int MAX_TYPE = 20;
 
-  // itblgen_types = ('I1', 'I8', 'I16', 'I32', 'I64', 'BF16', 'F16', 'F32',
-  // 'F64', 'Complex<F32>', 'Complex<F64>' )
+  // Get these indices from TensorProto in
+  // https://github.com/onnx/onnx/blob/main/onnx/onnx.in.proto#L481.
+  // enum DataType {
+  //     UNDEFINED = 0;
+  //     // Basic types.
+  //     FLOAT = 1;   // float
+  //     UINT8 = 2;   // uint8_t
+  //     INT8 = 3;    // int8_t
+  //     UINT16 = 4;  // uint16_t
+  //     INT16 = 5;   // int16_t
+  //     INT32 = 6;   // int32_t
+  //     INT64 = 7;   // int64_t
+  //     STRING = 8;  // string
+  //     BOOL = 9;    // bool
+  //
+  //     // IEEE754 half-precision floating-point format (16 bits wide).
+  //     // This format has 1 sign bit, 5 exponent bits, and 10 mantissa bits.
+  //     FLOAT16 = 10;
+  //
+  //     DOUBLE = 11;
+  //     UINT32 = 12;
+  //     UINT64 = 13;
+  //     COMPLEX64 = 14;     // complex with float32 real and imaginary
+  //     components COMPLEX128 = 15;    // complex with float64 real and
+  //     imaginary components
+  //
+  //     // Non-IEEE floating-point format based on IEEE754 single-precision
+  //     // floating-point number truncated to 16 bits.
+  //     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
+  //     BFLOAT16 = 16;
+  //
+  //     // Future extensions go here.
+  //   }
+  //
+  // They must be consistent witn onnx_types in utils/gen_onnx_mlir.py
+  // onnx_types = (
+  //     'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32',
+  //     'int64', 'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
+  //     'complex64', 'complex128', 'bfloat16'
+  // )
   Type buildTypeFromIndex(int index) {
     switch (index) {
-    case 0:
-      return builder_.getI1Type();
     case 1:
-      return builder_.getIntegerType(8);
-    case 2:
-      return builder_.getIntegerType(16);
-    case 3:
-      return builder_.getIntegerType(32);
-    case 4:
-      return builder_.getIntegerType(64);
-    case 5:
-      return builder_.getBF16Type();
-    case 6:
-      return builder_.getF16Type();
-    case 7:
       return builder_.getF32Type();
+    case 2:
+      return builder_.getIntegerType(8, /*isSigned=*/false);
+    case 3:
+      return builder_.getIntegerType(8);
+    case 4:
+      return builder_.getIntegerType(16, /*isSigned=*/false);
+    case 5:
+      return builder_.getIntegerType(16);
+    case 6:
+      return builder_.getIntegerType(32);
+    case 7:
+      return builder_.getIntegerType(64);
     case 8:
-      return builder_.getF64Type();
-    case 9: {
-      std::vector<Type> typeTuple(2);
-      typeTuple.push_back(builder_.getF32Type());
-      typeTuple.push_back(builder_.getF32Type());
-      return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
-    }
-    case 10: {
-      std::vector<Type> typeTuple(2);
-      typeTuple.push_back(builder_.getF64Type());
-      typeTuple.push_back(builder_.getF64Type());
-      return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
-    }
-    case 11:
       return mlir::ONNXStringType::get(builder_.getContext());
+    case 9:
+      return builder_.getI1Type();
+    case 10:
+      return builder_.getF16Type();
+    case 11:
+      return builder_.getF64Type();
+    case 12:
+      return builder_.getIntegerType(32, /*isSigned=*/false);
+    case 13:
+      return builder_.getIntegerType(64, /*isSigned=*/false);
+    case 14: {
+      std::vector<Type> typeTuple(2);
+      typeTuple.push_back(builder_.getF32Type());
+      typeTuple.push_back(builder_.getF32Type());
+      return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
+    }
+    case 15: {
+      std::vector<Type> typeTuple(2);
+      typeTuple.push_back(builder_.getF64Type());
+      typeTuple.push_back(builder_.getF64Type());
+      return builder_.getTupleType(llvm::ArrayRef<Type>(typeTuple));
+    }
+    case 16:
+      return builder_.getBF16Type();
     default:
       assert(false && "Unsupported type index encountered.");
       return nullptr;
@@ -474,7 +533,8 @@ private:
   void buildOutputAndOperation(const onnx::NodeProto &node,
       std::vector<Value> inputs, int expectedNumOperands,
       int expectedNumResults, const std::vector<NamedAttribute> &attributes,
-      std::vector<Type> givenOutputTypes = std::vector<Type>()) {
+      std::vector<Type> givenOutputTypes = std::vector<Type>(),
+      int num_use_inference_outputs = -1) {
     bool variadicIn = expectedNumOperands == -1;
     bool variadicOut = expectedNumResults == -1;
 
@@ -488,7 +548,7 @@ private:
     // Trailing optional inputs.
     if (!variadicIn)
       for (int i = (int)inputs.size(); i < expectedNumOperands; i++) {
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       }
 
     std::vector<Type> outputTypes;
@@ -536,7 +596,8 @@ private:
         outputTypes.emplace_back(builder_.getNoneType());
 
     // TODO: Handle optional inputs.
-    auto op = builder_.create<T>(UnknownLoc(), outputTypes, inputs, attributes);
+    auto op =
+        builder_.create<T>(ImportLoc(node), outputTypes, inputs, attributes);
     Operation *genericOp = op.getOperation();
     // Type inference for results.
     for (const auto &attr : node.attribute()) {
@@ -553,7 +614,15 @@ private:
           // Use type info from graph to reset type of output for current op
           for (int i = 0; i < node.output().size(); i++) {
             Type type = funcType.getResults()[i];
-            genericOp->getOpResult(i).setType(type);
+            if ((num_use_inference_outputs < 0) ||
+                (i < num_use_inference_outputs)) {
+              genericOp->getOpResult(i).setType(type);
+            } else {
+              TensorType tensorType = type.cast<TensorType>();
+              Type extendedType =
+                  UnrankedTensorType::get(tensorType.getElementType());
+              genericOp->getOpResult(i).setType(extendedType);
+            }
           }
         } else {
           llvm_unreachable("Op contains subgraph attributes but does not "
@@ -584,7 +653,7 @@ private:
   void getNodeInputs(const onnx::NodeProto &node, std::vector<Value> &inputs) {
     for (const auto &item : node.input()) {
       if (item.empty()) {
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -625,6 +694,33 @@ private:
         expectedNumOperands, expectedNumResults, attributes, outputTypes);
   }
 
+  // The output type of Scan needs special handling
+  // The final_stete_and_scan_outputs of Scan shows final values of loop's
+  // N state variables followed by K scan_outputs.
+  void ImportScan(const onnx::NodeProto &node) {
+    int expectedNumOperands = ONNXScanOp::getNumberOfOperands();
+    int expectedNumResults = ONNXScanOp::getNumberOfResults();
+    std::vector<Value> inputs;
+    getNodeInputs(node, inputs);
+    auto attributes = ImportNodeAttributes(node);
+    int num_scan_inputs = -1;
+    int i;
+    for (i = 0; i < node.attribute_size(); ++i) {
+      auto attr = node.attribute(i);
+      if (attr.name() == "num_scan_inputs") {
+        num_scan_inputs = attr.i();
+        break;
+      }
+    }
+    assert((i < node.attribute_size()) &&
+           "mandatory num_scan_inputs attr not in onnx.Scan");
+    buildOutputAndOperation<ONNXScanOp>(node, inputs, expectedNumOperands,
+        expectedNumResults, attributes,
+        /*givenOutputTypes=*/std::vector<Type>(),
+        /*num_use_inference_outputs=*/num_scan_inputs);
+    return;
+  }
+
   std::vector<NamedAttribute> ImportCastAttributes(
       const onnx::NodeProto &node) {
     std::vector<NamedAttribute> attributes;
@@ -654,7 +750,7 @@ private:
     for (const auto &item : node.input())
       if (item.empty()) {
         // Optional inputs using empty string will be imported as NoneType.
-        inputs.emplace_back(none());
+        inputs.emplace_back(createNoneValue());
       } else {
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(item)) {
           inputs.push_back(*valuePtr);
@@ -722,7 +818,7 @@ private:
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
       auto constantOp = builder_.create<ONNXConstantOp>(
           UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
@@ -739,7 +835,7 @@ private:
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
       auto constantOp = builder_.create<ONNXConstantOp>(
           UnknownLoc(), Attribute(), constantDenseAttribute);
       Value constantResult = *(constantOp.getODSResults(0).begin());
@@ -770,7 +866,7 @@ private:
       llvm::ArrayRef<int64_t> tensorDims(dims.data(), dims.size());
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
-          DenseElementsAttr::get(tensorType, llvm::makeArrayRef(values));
+          DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
 
       // Use the special builder defined in ONNXOp.td.inc.
       auto constantOp = builder_.create<ONNXConstantOp>(
@@ -813,7 +909,7 @@ private:
             DenseElementsAttr::get(tensorType, arrayAttr.getValue());
         auto constantOp = builder_.create<ONNXConstantOp>(
             UnknownLoc(), Attribute(), constantDenseAttribute);
-        Value constantValue = constantOp.output();
+        Value constantValue = constantOp.getOutput();
 
         // Map from ONNX attributes to indices, which are
         // matched with ONNXSliceOp::build ordering.
@@ -833,8 +929,8 @@ private:
 
     assert(inVals[1] != nullptr && "Slice requires a starts attribute");
     assert(inVals[2] != nullptr && "Slice requires an ends attribute");
-    inVals[3] = inVals[3] == nullptr ? none() : inVals[3];
-    inVals[4] = inVals[4] == nullptr ? none() : inVals[4];
+    inVals[3] = inVals[3] == nullptr ? createNoneValue() : inVals[3];
+    inVals[4] = inVals[4] == nullptr ? createNoneValue() : inVals[4];
 
     int nIn = ONNXSliceOp::getNumberOfOperands();
     int nOut = ONNXSliceOp::getNumberOfResults();
@@ -971,9 +1067,7 @@ private:
       if (v.empty()) {
         // Missing (optional) parameter.
         operandOnnxTypes.push_back(unspecifiedType);
-        auto no_value = builder_.create<ONNXNoneOp>(UnknownLoc());
-
-        operands.push_back(no_value);
+        operands.push_back(createNoneValue());
         operandTypes.push_back(builder_.getNoneType());
         continue;
       }

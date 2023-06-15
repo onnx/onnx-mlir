@@ -42,9 +42,9 @@ public:
     KrnlStoreOpAdaptor operandAdaptor(storeOp);
 
     // Prepare inputs.
-    Value value = operandAdaptor.value();
-    Value memref = operandAdaptor.memref();
-    SmallVector<Value, 4> indices = operandAdaptor.indices();
+    Value value = operandAdaptor.getValue();
+    Value memref = operandAdaptor.getMemref();
+    SmallVector<Value, 4> indices = operandAdaptor.getIndices();
 
     // Check whether all indices are affine maps or not.
     bool affineIndices =

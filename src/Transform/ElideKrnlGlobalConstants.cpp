@@ -40,37 +40,39 @@ mlir::LogicalResult KrnlConstGlobalValueElision::matchAndRewrite(
   Location loc = op.getLoc();
 
   // Only elide if value is available.
-  if (!op.value().has_value())
+  if (!op.getValue().has_value())
     return success();
 
   // Only elide dense and dense resource attributes.
-  if (!(op.value()->isa<DenseElementsAttr>() ||
-          op.value()->isa<DenseResourceElementsAttr>()))
+  if (!(op.getValue()->isa<DenseElementsAttr>() ||
+          op.getValue()->isa<DenseResourceElementsAttr>()))
     return success();
 
   MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
   bool elide = false;
 
-  if (op.value()->isa<DenseElementsAttr>()) {
-    const auto &valAttr = op.valueAttr().dyn_cast_or_null<DenseElementsAttr>();
+  if (op.getValue()->isa<DenseElementsAttr>()) {
+    const auto &valAttr =
+        op.getValueAttr().dyn_cast_or_null<DenseElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold && !valAttr.isSplat()) {
       elide = true;
     }
   } else {
     const auto &valAttr =
-        op.valueAttr().dyn_cast_or_null<DenseResourceElementsAttr>();
+        op.getValueAttr().dyn_cast_or_null<DenseResourceElementsAttr>();
     if (valAttr.getNumElements() > elisionThreshold) {
       elide = true;
     }
   }
 
   if (elide) {
-    IntegerAttr offsetAttr = op.offset() ? op.offsetAttr() : nullptr;
-    IntegerAttr alignmentAttr = op.alignment() ? op.alignmentAttr() : nullptr;
+    IntegerAttr offsetAttr = op.getOffset() ? op.getOffsetAttr() : nullptr;
+    IntegerAttr alignmentAttr =
+        op.getAlignment() ? op.getAlignmentAttr() : nullptr;
     auto newGlobalOp =
         create.krnl.constant(op.getResult().getType().cast<MemRefType>(),
-            op.name(), None, offsetAttr, alignmentAttr);
+            op.getName(), std::nullopt, offsetAttr, alignmentAttr);
     rewriter.replaceOp(op, newGlobalOp);
   }
 

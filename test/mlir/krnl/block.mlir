@@ -2,8 +2,6 @@
 
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0)>
 // CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 2)>
-// CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 4, 10)>
-// CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (d1 + 2, d0 + 4, 10)>
 
 func.func @simple_block() {
   // CHECK-LABEL: simple_block
@@ -22,6 +20,10 @@ func.func @simple_block() {
   return
 }
 
+// -----
+
+// CHECK-DAG: #{{.*}} = affine_map<(d0) -> (d0 + 4, 10)>
+// CHECK-DAG: #{{.*}} = affine_map<(d0, d1) -> (d1 + 2, d0 + 4, 10)>
 func.func @block_nested() {
   // CHECK-LABEL: block_nested
   // CHECK-NEXT: affine.for [[OUTER_LOOP:%.+]] = 0 to 10 step 4 {

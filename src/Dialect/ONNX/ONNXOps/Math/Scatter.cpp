@@ -4,7 +4,7 @@
 
 //===------------------ Scatter.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -37,16 +37,16 @@ LogicalResult ONNXScatterElementsOp::verify() {
     return success();
 
   // Get operands and attributes.
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
-  Value updates = operandAdaptor.updates();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
+  Value updates = operandAdaptor.getUpdates();
   auto dataType = data.getType().cast<ShapedType>();
   auto indicesType = indices.getType().cast<ShapedType>();
   auto updatesType = updates.getType().cast<ShapedType>();
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t updatesRank = updatesType.getRank();
-  int64_t axis = this->axis();
+  int64_t axis = this->getAxis();
 
   // All inputs must have the same rank, and the rank must be strictly greater
   // than zero.
@@ -107,9 +107,9 @@ LogicalResult ONNXScatterNDOp::verify() {
     return success();
 
   // Get operands and attributes.
-  Value data = operandAdaptor.data();
-  Value indices = operandAdaptor.indices();
-  Value updates = operandAdaptor.updates();
+  Value data = operandAdaptor.getData();
+  Value indices = operandAdaptor.getIndices();
+  Value updates = operandAdaptor.getUpdates();
   auto dataType = data.getType().cast<ShapedType>();
   auto indicesType = indices.getType().cast<ShapedType>();
   auto updatesType = updates.getType().cast<ShapedType>();
@@ -149,9 +149,11 @@ LogicalResult ONNXScatterNDOp::verify() {
 
   // The constraints check following this point requires the input tensors shape
   // dimensions to be known, if they aren't delay the checks.
-  if (llvm::any_of(indicesShape, [](int64_t idx) { return (idx < 0); }))
+  if (llvm::any_of(indicesShape,
+          [](int64_t idx) { return (idx == ShapedType::kDynamic); }))
     return success();
-  if (llvm::any_of(updatesShape, [](int64_t idx) { return (idx < 0); }))
+  if (llvm::any_of(updatesShape,
+          [](int64_t idx) { return (idx == ShapedType::kDynamic); }))
     return success();
 
   // Let q = rank(indices). The first (q-1) dimensions of the 'updates' shape
@@ -164,7 +166,8 @@ LogicalResult ONNXScatterNDOp::verify() {
           std::to_string(indicesShape[i]));
   }
 
-  if (llvm::any_of(dataShape, [](int64_t idx) { return (idx < 0); }))
+  if (llvm::any_of(
+          dataShape, [](int64_t idx) { return (idx == ShapedType::kDynamic); }))
     return success();
 
   // Let k = indices.shape[-1], r = rank(data), q = rank(indices). Check that

@@ -40,7 +40,6 @@
 
 #define DEBUG_TYPE "NNPACompilerUtils"
 
-using namespace std;
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -63,7 +62,7 @@ void addONNXToZHighPasses(
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
         instrumentOps, instrumentControlBits.getBits()));
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
-  pm.addPass(onnx_mlir::createShapeInferencePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
   pm.addNestedPass<func::FuncOp>(
@@ -72,7 +71,7 @@ void addONNXToZHighPasses(
   // Layout propagation at ZHighIR.
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
-  pm.addPass(onnx_mlir::createShapeInferencePass());
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
@@ -141,12 +140,15 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else {
         // Partially lower Krnl ops to Affine dialect.
         addKrnlToAffinePasses(pm);
+        // Optimizations at ZLow that needs affine map in MemRef.
+        pm.addPass(zlow::createZLowRewritePass());
+        pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
         // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);
-        // Optimizations at ZLow.
+        // Optimizations at ZLow after normalizing MemRefs.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());
         // Constant folding for std.alloc.

@@ -7,6 +7,9 @@ add_onnx_mlir_library(OMONNXToTOSA
   DialectBuilder.cpp
 
   Math/Elementwise.cpp
+  Math/Gemm.cpp
+  Math/Softmax.cpp
+  Math/ReduceMean.cpp
   Math/Conv2D.cpp
   Math/Softmax.cpp
   Math/Gemm.cpp

@@ -4,7 +4,7 @@
 
 //===-----------------------Pad.cpp - Lowering Pad Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,23 +20,24 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXPadOpLowering : public ConversionPattern {
+struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
   ONNXPadOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXPadOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXPadOp padOp, ONNXPadOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    ONNXPadOp padOp = llvm::dyn_cast<ONNXPadOp>(op);
-    ONNXPadOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.data();
-    Value constantValue = operandAdaptor.constant_value();
-    StringRef padMode = padOp.mode();
+    Operation *op = padOp.getOperation();
+    Location loc = ONNXLoc<ONNXPadOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getData();
+    Value constantValue = adaptor.getConstantValue();
+
+    StringRef padMode = adaptor.getMode();
 
     // Builder helper.
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
 
     // Shape helper.
@@ -51,8 +52,8 @@ struct ONNXPadOpLowering : public ConversionPattern {
     Type resElementType = resMemRefType.getElementType();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value resMemRef = insertAllocAndDeallocSimple(
-        rewriter, op, resMemRefType, loc, shapeHelper.getOutputDims());
+    Value resMemRef =
+        create.mem.alignedAlloc(resMemRefType, shapeHelper.getOutputDims());
 
     // Bounds.
     uint64_t rank = create.krnlIE.getShapedTypeRank(data);

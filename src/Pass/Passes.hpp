@@ -4,7 +4,7 @@
 
 //===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -43,8 +43,7 @@ std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt = false);
 
-std::unique_ptr<mlir::Pass> createShapeInferencePass(
-    bool analyzeAllFunctions = false);
+std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 
@@ -61,7 +60,11 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
     bool report = false);
 
-/// Pass for analysing unknown dimension in ONNX operations.
+/// Pass that combines multiple ONNX dialect transformations,
+/// including shape inference.
+std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
+
+/// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
@@ -70,9 +73,7 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    int optLevel, bool enableParallel);
-std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool emitDealloc, bool enableTiling, bool enableParallel);
+    bool enableTiling, bool enableSIMD, bool enableParallel);
 
 /// Add pass for lowering to Torch IR.
 std::unique_ptr<mlir::Pass> createLowerToTorchPass();
@@ -123,8 +124,4 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(
 
 /// Pass for lowering Onnx ops to TOSA dialect
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
-
-/// Pass for extending location info with layer name information
-std::unique_ptr<mlir::Pass> createLayerNameToLocationPass();
-
 } // namespace onnx_mlir

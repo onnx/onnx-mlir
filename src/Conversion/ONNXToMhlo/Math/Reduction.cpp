@@ -24,50 +24,48 @@ namespace {
 
 template <typename Op>
 Value getIdentityValue(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return nullptr;
 }
 
 template <>
-Value getIdentityValue<ONNXReduceMaxOp>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+Value getIdentityValue<ONNXReduceMaxV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+  MathBuilder createMath(rewriter, loc);
   return rewriter.create<mhlo::ConstantOp>(
-      loc, rewriter.getFloatAttr(
-               elemType, APFloat::getInf(elemType.getFloatSemantics(),
-                             /*isNegative=*/true)));
+      loc, createMath.negativeInfAttr(elemType));
 }
 
 template <>
-Value getIdentityValue<ONNXReduceMinOp>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+Value getIdentityValue<ONNXReduceMinV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+  MathBuilder createMath(rewriter, loc);
   return rewriter.create<mhlo::ConstantOp>(
-      loc, rewriter.getFloatAttr(
-               elemType, APFloat::getInf(elemType.getFloatSemantics(),
-                             /*isNegative=*/false)));
+      loc, createMath.positiveInfAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumOp>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
 Value getIdentityValue<ONNXReduceSumV11Op>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <>
-Value getIdentityValue<ONNXReduceMeanOp>(
-    ConversionPatternRewriter &rewriter, Location loc, FloatType elemType) {
+Value getIdentityValue<ONNXReduceMeanV13Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return rewriter.create<mhlo::ConstantOp>(loc, rewriter.getZeroAttr(elemType));
 }
 
 template <typename ONNXReductionOp>
 llvm::SmallVector<int64_t, 4> getDefinedAxes(Operation *op) {
   llvm::SmallVector<int64_t, 4> definedAxes;
-  ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).axesAttr();
+  ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).getAxesAttr();
   if (axisAttrs) {
     for (Attribute axisAttr : axisAttrs.getValue()) {
       int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
@@ -81,20 +79,19 @@ template <>
 llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
   llvm::SmallVector<int64_t, 4> definedAxes;
   ONNXReduceSumOp reduceSumOp = cast<ONNXReduceSumOp>(op);
-  Value axesValue = reduceSumOp.axes();
+  Value axesValue = reduceSumOp.getAxes();
 
   // Assume it is verified that axes are known. Convert DenseElementsAttr to
   // ArrayAttr.
-  if (!isFromNone(axesValue) && getONNXConstantOp(axesValue)) {
-    mlir::DenseElementsAttr constAxes =
-        getONNXConstantOp(axesValue)
-            .valueAttr()
-            .dyn_cast_or_null<mlir::DenseElementsAttr>();
+  if (!isNoneValue(axesValue) && getONNXConstantOp(axesValue)) {
+    mlir::ElementsAttr constAxes = getONNXConstantOp(axesValue)
+                                       .getValueAttr()
+                                       .dyn_cast_or_null<mlir::ElementsAttr>();
     for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
       definedAxes.push_back(element.getInt());
     return definedAxes;
   }
-  if (isFromNone(axesValue))
+  if (isNoneValue(axesValue))
     return definedAxes;
   // Dynamic axes
   RankedTensorType inputType =
@@ -104,7 +101,7 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceSumOp>(Operation *op) {
   assert(inputType != nullptr && outputType != nullptr &&
          "not implemented for dynamic axes when either input or output is not "
          "ranked");
-  bool keepDims = reduceSumOp.keepdims() == 1;
+  bool keepDims = reduceSumOp.getKeepdims() == 1;
   int64_t inputRank = inputType.getRank();
   int64_t outputRank = outputType.getRank();
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -134,17 +131,17 @@ struct BlockReduceOp {
 };
 
 template <>
-struct BlockReduceOp<ONNXReduceMaxOp> {
+struct BlockReduceOp<ONNXReduceMaxV13Op> {
   using Op = mhlo::MaxOp;
 };
 
 template <>
-struct BlockReduceOp<ONNXReduceMinOp> {
+struct BlockReduceOp<ONNXReduceMinV13Op> {
   using Op = mhlo::MinOp;
 };
 
 template <>
-struct BlockReduceOp<ONNXReduceMeanOp> {
+struct BlockReduceOp<ONNXReduceMeanV13Op> {
   using Op = mhlo::AddOp;
 };
 
@@ -185,6 +182,34 @@ SmallVector<int64_t> getReductionShape(ShapedType inputType,
   return reduceShape;
 }
 
+Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
+    Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
+  int64_t rank = operand.getType().cast<RankedTensorType>().getRank();
+  // Mark reduction axes.
+  llvm::SmallVector<bool, 4> isReductionAxis;
+  for (int64_t i = 0; i < rank; ++i) {
+    if (std::find(axes.begin(), axes.end(), i) != axes.end())
+      isReductionAxis.push_back(true);
+    else
+      isReductionAxis.push_back(false);
+  }
+  Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, operand);
+  SmallVector<Value> dims;
+  for (int64_t i = 0; i < rank; i++) {
+    if (!isReductionAxis[i]) {
+      Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
+      dims.push_back(dim);
+    } else if (keepDims) {
+      Value dim = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      dims.push_back(dim);
+    }
+  }
+  Value reduceShapeValue = rewriter.create<shape::FromExtentsOp>(loc, dims);
+  reduceShapeValue = rewriter.create<shape::ToExtentTensorOp>(loc,
+      RankedTensorType::get({rank}, rewriter.getIndexType()), reduceShapeValue);
+  return reduceShapeValue;
+}
+
 int64_t getReductionFactor(
     ShapedType inputType, const llvm::SmallVector<int64_t, 4> &axes) {
   SmallVector<int64_t> reduceShape;
@@ -213,7 +238,7 @@ int64_t getReductionFactor(
 template <typename BlockReduceOp>
 Value createReduce(Location loc, Value operand, Value identity,
     SmallVector<int64_t> &reduceShape, llvm::SmallVector<int64_t, 4> axes,
-    PatternRewriter &rewriter, bool keepDims) {
+    PatternRewriter &rewriter, bool keepDims, ShapedType outputType) {
   RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
@@ -238,14 +263,10 @@ Value createReduce(Location loc, Value operand, Value identity,
   }
   Value result = reduce.getResult(0);
   if (keepDims) {
-    SmallVector<int64_t> resultShape =
-        getReductionShape(operandType, axes, true);
-    Type resultType =
-        RankedTensorType::get(resultShape, operandType.getElementType());
-    Value shape = rewriter.create<mhlo::ConstantOp>(
-        loc, rewriter.getI64TensorAttr(resultShape));
-    result =
-        rewriter.create<mhlo::DynamicReshapeOp>(loc, resultType, result, shape);
+    Value reduceShapeValue =
+        getReductionShapeValue(loc, rewriter, operand, axes, true);
+    result = rewriter.create<mhlo::DynamicReshapeOp>(
+        loc, outputType, result, reduceShapeValue);
   }
   return result;
 }
@@ -273,7 +294,7 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
     ShapedType outputType = resultType.cast<ShapedType>();
     if (outputType == nullptr)
       return failure();
-    FloatType elemType = inputType.getElementType().cast<FloatType>();
+    Type elemType = inputType.getElementType();
     Value identity = getIdentityValue<ONNXReductionOp>(rewriter, loc, elemType);
     int64_t inRank = inputType.getRank();
 
@@ -295,13 +316,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         axes.push_back(i);
 
     // KeepDims
-    int64_t keepdims = llvm::dyn_cast<ONNXReductionOp>(op).keepdims();
+    int64_t keepdims = llvm::dyn_cast<ONNXReductionOp>(op).getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
     SmallVector<int64_t> reducedShape =
         getReductionShape(inputType, axes, false);
-    Value reduceResult = createReduce<BlockOp<ONNXReductionOp>>(
-        loc, input, identity, reducedShape, axes, rewriter, isKeepdims);
+    Value reduceResult = createReduce<BlockOp<ONNXReductionOp>>(loc, input,
+        identity, reducedShape, axes, rewriter, isKeepdims, outputType);
     if (computeMean) {
       // TODO: support dynamic shape
       if (inputType.hasStaticShape()) {
@@ -311,13 +332,13 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
         reduceResult =
             rewriter.create<mhlo::DivOp>(loc, reduceResult, reduceFactorValue);
       } else {
-        Value ones = rewriter.create<mhlo::ConstantOp>(
-            loc, rewriter.getFloatAttr(elemType, 1.0));
-        Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, input);
-        Value broadcastedOne = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-            loc, inputType, ones, inputShape, rewriter.getI64TensorAttr({}));
-        Value reduceSum = createReduce<mhlo::AddOp>(loc, broadcastedOne,
-            identity, reducedShape, axes, rewriter, isKeepdims);
+        Value ones;
+        if (elemType.isa<IntegerType>())
+          ones = getShapedInt(loc, rewriter, 1, input);
+        else
+          ones = getShapedFloat(loc, rewriter, 1.0, input);
+        Value reduceSum = createReduce<mhlo::AddOp>(loc, ones, identity,
+            reducedShape, axes, rewriter, isKeepdims, outputType);
         reduceResult = rewriter.create<mhlo::DivOp>(
             loc, outputType, reduceResult, reduceSum);
       }
@@ -331,11 +352,11 @@ struct ONNXReductionOpLoweringToMhlo : public ConversionPattern {
 
 void populateLoweringONNXReductionOpToMhloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMaxOp>,
-      ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMinOp>,
+  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMaxV13Op>,
+      ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMinV13Op>,
       ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceSumOp>,
       ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceSumV11Op>>(ctx);
-  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMeanOp>>(
+  patterns.insert<ONNXReductionOpLoweringToMhlo<mlir::ONNXReduceMeanV13Op>>(
       ctx, /*computeMean=*/true);
 }
 

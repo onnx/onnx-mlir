@@ -37,24 +37,24 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto loc = op.getLoc();
     TosaBuilder tosaBuilder(rewriter, loc);
-    Value input = adaptor.data();
+    Value input = adaptor.getData();
 
     auto outputType = op.getResult().getType().dyn_cast<TensorType>();
 
     if (!outputType) {
       return rewriter.notifyMatchFailure(op, "not a ranked tensor");
     }
-    
+
     if (!outputType.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           op, "only static shapes are supported");
     }
 
-    if (adaptor.allowzero() != 0) {
+    if (adaptor.getAllowzero() != 0) {
       return rewriter.notifyMatchFailure(op, "only allowZero = 0 is supported");
     }
 
-    if (!adaptor.shape().getDefiningOp<mlir::tosa::ConstOp>()) {
+    if (!adaptor.getShape().getDefiningOp<mlir::tosa::ConstOp>()) {
       return rewriter.notifyMatchFailure(
           op, "only tosa.const operands are supported");
     }

@@ -4,7 +4,7 @@
 
 //===---------------- MaxPoolSingleOut.cpp - MaxPoolSingleOut Op-----------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -20,6 +20,7 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "llvm/ADT/ArrayRef.h"
+#include <cstdint>
 #include <src/Dialect/Mlir/IndexExpr.hpp>
 
 using namespace mlir;
@@ -38,10 +39,10 @@ public:
     auto maxpoolOp = llvm::cast<ONNXMaxPoolSingleOutOp>(op);
     OpAdaptor adaptor(operands, op->getAttrDictionary());
 
-    Value input = adaptor.X();
+    Value input = adaptor.getX();
     // The attributes storage_order and dilations are unsupported
-    IntegerAttr storageOrder = adaptor.storage_orderAttr();
-    ArrayAttr dilations = adaptor.dilationsAttr();
+    IntegerAttr storageOrder = adaptor.getStorageOrderAttr();
+    ArrayAttr dilations = adaptor.getDilationsAttr();
 
     if (input.getType().isa<MemRefType>()) {
       return rewriter.notifyMatchFailure(

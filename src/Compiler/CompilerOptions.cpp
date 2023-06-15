@@ -198,10 +198,25 @@ llvm::cl::opt<bool> enableParallel("parallel",
                    "Set to 'true' if you want to enable parallelization."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> disableSimdOption("disable-simd",
+    llvm::cl::desc("Disable SIMD optimizations (default=false). Set to `true` "
+                   "to disable SIMD at O3."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<bool> enableSimdDataLayout("simd-data-layout",
     llvm::cl::desc("Enable SIMD optimization for convolution (default=false)\n"
                    "Set to 'true' if you want to enable SIMD optimizations."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> enablePatternShapeInference("pattern-shape-inference",
+    llvm::cl::desc("Enable pattern based shape inference (default=false)\n"
+                   "Set to 'true' to enable."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
+llvm::cl::opt<bool> enableONNXHybridPass("onnx-hybrid-pass",
+    llvm::cl::desc("Enable ONNX hybrid pass (default=false)\n"
+                   "Set to 'true' if you want to enable ONNX hybrid pass."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> verifyInputTensors("verifyInputTensors",
     llvm::cl::desc(
@@ -225,12 +240,6 @@ llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
                    "After each heap statistics are dumped to "
                    "<output-files-base-path>.heap.log"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
-
-/* FlexML Start */
-llvm::cl::opt<bool> layerNameToLocation("layer-name-to-location",
-    llvm::cl::desc("Extend location information with onnx layer names."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-/* FlexML End */
 
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
