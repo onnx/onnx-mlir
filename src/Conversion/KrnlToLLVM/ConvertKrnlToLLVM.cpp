@@ -411,7 +411,10 @@ void genSignatureFunction(ModuleOp &module,
   }
 }
 
-void loadExternalParamsFromFiles(ModuleOp &module,
+/// This function emits code to load constants from external files into global
+/// operations. Aligned buffers are allocated. Make sure to free these buffers
+/// at the end of the program by calling freeBuffersForExternalConstants.
+void loadConstantsFromFiles(ModuleOp &module,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
   MLIRContext *ctx = module.getContext();
@@ -425,17 +428,22 @@ void loadExternalParamsFromFiles(ModuleOp &module,
   Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
 
   // Keep trace whether there is any external parameters or not.
-  bool hasExternalParams = false;
+  bool hasExternalConstants = false;
 
   // Two the following functions will be emitted inside the IR.
-  std::string loadAllParamsFuncName = "omLoadExternalParamsFromFiles";
-  std::string loadOneParamFuncName = "omLoadExternalParam";
+  std::string loadAllConstantsFuncName = "omLoadConstantsFromFiles";
+  std::string loadOneConstantFuncName = "omLoadExternalConstant";
 
   // Emit a function that loads external parameters.
   // This function will be called by entry points. So put it before any entry
   // point.
-  auto saveIP = b.saveInsertionPoint();
-  Operation *firstEntryPointOp = nullptr;
+  Operation *firstEntryPointOp = getFirstEntryOpInBlock(module, entryGlobalOps);
+  b.setInsertionPoint(firstEntryPointOp);
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  LLVM::LLVMFuncOp funcOp =
+      create.llvm.func(loadAllConstantsFuncName, llvmFnType);
+
+  // Call loadAllConstantsFuncName in each entry point function.
   for (auto entryGlobalOp : entryGlobalOps) {
     std::string entryName =
         entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
@@ -444,18 +452,17 @@ void loadExternalParamsFromFiles(ModuleOp &module,
         std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
     auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
     assert(entryFunc && "Entry function not found");
-    Operation *entryOp = entryFunc.getOperation();
-    if (!firstEntryPointOp || entryOp->isBeforeInBlock(firstEntryPointOp))
-      firstEntryPointOp = entryOp;
+    b.setInsertionPoint(
+        &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
+    FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
+        module, loadAllConstantsFuncName, llvmVoidTy, {},
+        /*isVarArg=*/false);
+    create.llvm.call({}, loadAllConstantsRef, {});
   }
-  OpBuilder::InsertionGuard guard(b);
-  b.setInsertionPoint(firstEntryPointOp);
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
-  LLVM::LLVMFuncOp funcOp = create.llvm.func(loadAllParamsFuncName, llvmFnType);
 
-  // Emit the body of the function.
+  // Finally, emit the body of the function.
   Block *entryBlock = funcOp.addEntryBlock();
-  OpBuilder::InsertionGuard bodyGuard(b);
+  OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(entryBlock);
   module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
     StringRef fnameSymbol = gop.getSymName();
@@ -497,8 +504,8 @@ void loadExternalParamsFromFiles(ModuleOp &module,
     // Read data from the external file.
     // function signature: void (**i8, *i8, i64, i64, i64)
     // arguments: (dataPtr, filename, sizeInBytes, alignment, isLE)
-    FlatSymbolRefAttr getExternalParamRef = create.llvm.getOrInsertSymbolRef(
-        module, loadOneParamFuncName, llvmVoidTy,
+    FlatSymbolRefAttr getExternalConstantRef = create.llvm.getOrInsertSymbolRef(
+        module, loadOneConstantFuncName, llvmVoidTy,
         ArrayRef<Type>{
             llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
         /*isVarArg=*/false);
@@ -508,41 +515,22 @@ void loadExternalParamsFromFiles(ModuleOp &module,
     Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
     Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
     Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
-    create.llvm.call({}, getExternalParamRef,
+    create.llvm.call({}, getExternalConstantRef,
         ArrayRef<Value>({dataPtr, fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
     // Keep trace of global addresses in order to free their buffers.
     dataGlobalOps.emplace_back(dataGlobal);
 
-    if (!hasExternalParams)
-      hasExternalParams = true;
+    if (!hasExternalConstants)
+      hasExternalConstants = true;
 
     return WalkResult::advance();
   });
-
   create.llvm._return();
-  b.restoreInsertionPoint(saveIP);
-
-  // Call loadAllParamsFuncName in each entry point function.
-  if (hasExternalParams) {
-    for (auto entryGlobalOp : entryGlobalOps) {
-      std::string entryName =
-          entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
-      // Erase the null symbol.
-      entryName.erase(
-          std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-      auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
-      assert(entryFunc && "Entry function not found");
-      b.setInsertionPoint(
-          &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
-      FlatSymbolRefAttr loadAllParamsRef = create.llvm.getOrInsertSymbolRef(
-          module, loadAllParamsFuncName, llvmVoidTy, {},
-          /*isVarArg=*/false);
-      create.llvm.call({}, loadAllParamsRef, {});
-    }
-  }
 }
 
-void freeExternalParamsBuffers(ModuleOp &module,
+/// This function emits code to free aligned buffers allocated for loading
+/// constants from external files.
+void freeBuffersForExternalConstants(ModuleOp &module,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
   MLIRContext *ctx = module.getContext();
@@ -555,50 +543,22 @@ void freeExternalParamsBuffers(ModuleOp &module,
   Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
 
   // Two the following functions will be emitted inside the IR.
-  std::string freeAllParamBuffersFuncName = "omFreeAllParamBuffers";
+  std::string freeBuffersForExternalConstantsFuncName =
+      "omFreeBuffersForExternalConstants";
   std::string freeAlignedFuncName = "omFreeAligned";
 
   // Emit a function that free buffers for external parameters.
   // This function will be called by entry points. So put it before any entry
   // point.
-  auto saveIP = b.saveInsertionPoint();
-  Operation *firstEntryPointOp = nullptr;
-  for (auto entryGlobalOp : entryGlobalOps) {
-    std::string entryName =
-        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
-    // Erase the null symbol.
-    entryName.erase(
-        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
-    assert(entryFunc && "Entry function not found");
-    Operation *entryOp = entryFunc.getOperation();
-    if (!firstEntryPointOp || entryOp->isBeforeInBlock(firstEntryPointOp))
-      firstEntryPointOp = entryOp;
-  }
+  Operation *firstEntryPointOp = getFirstEntryOpInBlock(module, entryGlobalOps);
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPoint(firstEntryPointOp);
   Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
   LLVM::LLVMFuncOp funcOp =
-      create.llvm.func(freeAllParamBuffersFuncName, llvmFnType);
+      create.llvm.func(freeBuffersForExternalConstantsFuncName, llvmFnType);
 
-  FlatSymbolRefAttr freeAlignedRef = create.llvm.getOrInsertSymbolRef(module,
-      freeAlignedFuncName, llvmVoidTy, {llvmI8PtrTy},
-      /*isVarArg=*/false);
-
-  // Emit the body of the function.
-  Block *entryBlock = funcOp.addEntryBlock();
-  OpBuilder::InsertionGuard bodyGuard(b);
-  b.setInsertionPointToStart(entryBlock);
-  for (LLVM::GlobalOp global : dataGlobalOps) {
-    Value addr = create.llvm.addressOf(global);
-    Value ptr = create.llvm.load(llvmI8PtrTy, addr);
-    create.llvm.call({}, freeAlignedRef, ArrayRef<Value>{ptr});
-  }
-  create.llvm._return();
-
-  b.restoreInsertionPoint(saveIP);
-
-  // Call freeAllParamBuffersFuncName at the end of each entry point function.
+  // Call freeBuffersForExternalConstants at the end of each entry point
+  // function.
   for (auto entryGlobalOp : entryGlobalOps) {
     std::string entryName =
         entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
@@ -610,11 +570,26 @@ void freeExternalParamsBuffers(ModuleOp &module,
 
     Operation *terminator = entryFunc.getRegion().back().getTerminator();
     b.setInsertionPoint(terminator);
-    FlatSymbolRefAttr freeAllParamsRef = create.llvm.getOrInsertSymbolRef(
-        module, freeAllParamBuffersFuncName, llvmVoidTy, {},
+    FlatSymbolRefAttr freeAllConstantsRef = create.llvm.getOrInsertSymbolRef(
+        module, freeBuffersForExternalConstantsFuncName, llvmVoidTy, {},
         /*isVarArg=*/false);
-    create.llvm.call({}, freeAllParamsRef, {});
+    create.llvm.call({}, freeAllConstantsRef, {});
   }
+
+  // Finally, emit the body of the function freeBuffersForExternalConstants.
+  FlatSymbolRefAttr freeAlignedRef = create.llvm.getOrInsertSymbolRef(module,
+      freeAlignedFuncName, llvmVoidTy, {llvmI8PtrTy},
+      /*isVarArg=*/false);
+
+  Block *entryBlock = funcOp.addEntryBlock();
+  OpBuilder::InsertionGuard bodyGuard(b);
+  b.setInsertionPointToStart(entryBlock);
+  for (LLVM::GlobalOp global : dataGlobalOps) {
+    Value addr = create.llvm.addressOf(global);
+    Value ptr = create.llvm.load(llvmI8PtrTy, addr);
+    create.llvm.call({}, freeAlignedRef, ArrayRef<Value>{ptr});
+  }
+  create.llvm._return();
 }
 
 //===----------------------------------------------------------------------===//
@@ -761,9 +736,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   if (storeGlobalsToFiles) {
     SmallVector<LLVM::GlobalOp> dataGlobalOps;
     // At the beginning of each entry points.
-    loadExternalParamsFromFiles(module, entryGlobalOps, dataGlobalOps);
+    loadConstantsFromFiles(module, entryGlobalOps, dataGlobalOps);
     // At the end of each entry points.
-    freeExternalParamsBuffers(module, entryGlobalOps, dataGlobalOps);
+    freeBuffersForExternalConstants(module, entryGlobalOps, dataGlobalOps);
   }
 
   // Annotate global constants with `.lrodata` section if required.

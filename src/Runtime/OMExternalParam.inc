@@ -30,6 +30,7 @@
 /// malloc() that does alignment
 ///
 /// \param[in] size Size to be malloc'd
+/// \param[in] align Alignment 
 ///
 /// \return Pointer to the malloc'd area if successful, or NULL otherwise
 ///
@@ -69,7 +70,17 @@ void omFreeAligned(void *aligned_ptr) {
   }
 }
 
-void omLoadExternalParam(
+/// Load data from a binary file into a aligned buffer.
+///
+/// \param[in] ptr Pointer returned by omLoadExternalConstant()
+/// \param[in] fname File name at the current folder
+/// \param[in] size Size in bytes to copy data from the binary file 
+/// \param[in] align Alignment 
+/// \param[in] isLE Data in the binary file is little-endian or not 
+///
+/// \return None
+///
+void omLoadExternalConstant(
     void **ptr, char *fname, int64_t size, int64_t align, int64_t isLE) {
   if (ptr == NULL) {
     perror("Error: null pointer");

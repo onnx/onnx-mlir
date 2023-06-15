@@ -78,5 +78,10 @@ mlir::LLVM::LLVMPointerType getPointerType(mlir::MLIRContext *context,
 mlir::LLVM::LLVMPointerType getI8PointerType(
     mlir::MLIRContext *context, unsigned addressSpace = 0);
 
+/// Get the entry point function that locate first among other entry points in
+/// the same block.
+mlir::Operation *getFirstEntryOpInBlock(mlir::ModuleOp &module,
+    const llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps);
+
 } // namespace krnl
 } // namespace onnx_mlir

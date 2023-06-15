@@ -279,5 +279,23 @@ LLVM::LLVMPointerType getI8PointerType(
   return getPointerType(context, IntegerType::get(context, 8), addressSpace);
 }
 
+Operation *getFirstEntryOpInBlock(
+    ModuleOp &module, const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps) {
+  Operation *firstEntryPointOp = nullptr;
+  for (auto entryGlobalOp : entryGlobalOps) {
+    std::string entryName =
+        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+    // Erase the null symbol.
+    entryName.erase(
+        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
+    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+    assert(entryFunc && "Entry function not found");
+    Operation *entryOp = entryFunc.getOperation();
+    if (!firstEntryPointOp || entryOp->isBeforeInBlock(firstEntryPointOp))
+      firstEntryPointOp = entryOp;
+  }
+  return firstEntryPointOp;
+}
+
 } // namespace krnl
 } // namespace onnx_mlir
