@@ -45,7 +45,7 @@ UniqueLibBuilder::~UniqueLibBuilder() {
 }
 
 bool UniqueLibBuilder::build() {
-  if (rank > 2) { // XXX TODO support rank==3
+  if (rank > 3) { // XXX TODO support rank==3
     return false;
   }
   if ((axis < -rank) || (rank <= axis)) {
@@ -165,17 +165,17 @@ bool UniqueLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
     list[0] = omTensorCreateWithShape<int64_t>({I, J, K});
     omTensorGetElem<int64_t>(list[0], {0, 0, 0}) = 1;
     omTensorGetElem<int64_t>(list[0], {0, 0, 1}) = 1;
-    omTensorGetElem<int64_t>(list[0], {0, 1, 0}) = 1;
+    omTensorGetElem<int64_t>(list[0], {0, 1, 0}) = 0;
     omTensorGetElem<int64_t>(list[0], {0, 1, 1}) = 1;
-    omTensorGetElem<int64_t>(list[0], {0, 2, 0}) = 0;
+    omTensorGetElem<int64_t>(list[0], {0, 2, 0}) = 2;
     omTensorGetElem<int64_t>(list[0], {0, 2, 1}) = 1;
     omTensorGetElem<int64_t>(list[0], {0, 3, 0}) = 0;
     omTensorGetElem<int64_t>(list[0], {0, 3, 1}) = 1;
-    omTensorGetElem<int64_t>(list[0], {1, 0, 0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {1, 0, 0}) = 1;
     omTensorGetElem<int64_t>(list[0], {1, 0, 1}) = 1;
-    omTensorGetElem<int64_t>(list[0], {1, 1, 0}) = 2;
+    omTensorGetElem<int64_t>(list[0], {1, 1, 0}) = 0;
     omTensorGetElem<int64_t>(list[0], {1, 1, 1}) = 1;
-    omTensorGetElem<int64_t>(list[0], {1, 2, 0}) = 0;
+    omTensorGetElem<int64_t>(list[0], {1, 2, 0}) = 2;
     omTensorGetElem<int64_t>(list[0], {1, 2, 1}) = 1;
     omTensorGetElem<int64_t>(list[0], {1, 3, 0}) = 0;
     omTensorGetElem<int64_t>(list[0], {1, 3, 1}) = 1;
@@ -305,7 +305,7 @@ bool UniqueLibBuilder::verifyOutputs() {
     omTensorGetElem<int64_t>(inv_ind_ref, {0}) = 1;
     omTensorGetElem<int64_t>(inv_ind_ref, {1}) = 0;
     omTensorGetElem<int64_t>(inv_ind_ref, {2}) = 2;
-    omTensorGetElem<int64_t>(inv_ind_ref, {3}) = 1;
+    omTensorGetElem<int64_t>(inv_ind_ref, {3}) = 0;
     omTensorGetElem<int64_t>(cnt_ref, {0}) = 2;
     omTensorGetElem<int64_t>(cnt_ref, {1}) = 1;
     omTensorGetElem<int64_t>(cnt_ref, {2}) = 1;

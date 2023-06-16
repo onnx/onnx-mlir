@@ -177,7 +177,7 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
       }
     }
   }
-#if 0
+#if 1
   printf("XXXX getSliceData returning: [");
   for (int i = 0; i < dataCount; i++) {
     printf("%ld,", ((uint64_t *) sliceData)[i]);
@@ -189,7 +189,7 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t sliceAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts) {
-  //printf("ZZZZZ: sliceAxis=%ld, sorted=%ld\n", sliceAxis, sorted);
+  printf("ZZZZZ: sliceAxis=%ld, sorted=%ld\n", sliceAxis, sorted);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
@@ -242,12 +242,15 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t sliceSize = 1;
     for (int64_t i = 0; i < inputRank; i++)
       sliceSize *= (i == sliceAxis) ? 1 : inputShape[i];
-    void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum) : YPtr;
+    printf("XXXXX shape=[%ld:%ld:%ld:%ld:%ld:%ld], ", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
+    printf("sliceAxis=%ld, sliceNum=%ld, sliceSize=%ld, dataSize=%ld\n", sliceAxis, sliceNum, sliceSize, dataSize);
+    void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum * dataSize) : YPtr;
     uniqueTableInit(&uniqueTable, sliceSize * dataSize, sliceNum, tablePtr,
         (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
         (int64_t *)countsPtr);
+    void *sliceData = alloca(sliceSize * dataSize);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
-      void *sliceData = alloca(sliceSize * dataSize);
+      printf("XXXX idxInSliceAxis=%d\n", idxInSliceAxis);
       getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
           idxInSliceAxis, sliceSize, dataSize, sliceData);
       if (uniqueTableRegister(&uniqueTable, sliceData, idxInSliceAxis) == 0) {
@@ -256,7 +259,7 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     }
   }
   *totalPtr = count;
-  //printf("XXXX OMUnique: count = %d\n", count);
+  printf("XXXX OMUnique: count = %d\n", count);
   if ((sorted > 0) && (Y != NULL)) {
     uniqueTableSort(&uniqueTable);
   }

@@ -69,6 +69,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     Value X = operandAdaptor.getX();
     ArrayRef<int64_t> xShape = getShape(X.getType());
+    Type elementType = X.getType().cast<MemRefType>().getElementType();
     int64_t rank = create.krnlIE.getShapedTypeRank(X);
     int64_t sorted = operandAdaptor.getSorted();
     Optional<int64_t> optionalAxis = uniqueOp.getAxis();
@@ -122,20 +123,19 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the results of this operation.
     // For Y output
-    Type i64Type = rewriter.getI64Type();
-
     Value outputY;
     if (axis < 0) {
-      MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
+      MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, elementType);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
     } else {
       ArrayRef<int64_t> xShape = getShape(X.getType());
       SmallVector<int64_t> yShape;
       for (int i = 0; i < rank; i++)
         yShape.emplace_back((i == axis) ? ShapedType::kDynamic : xShape[i]);
-      MemRefType memrefType = MemRefType::get(yShape, i64Type);
+      MemRefType memrefType = MemRefType::get(yShape, elementType);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
     }
+    Type i64Type = rewriter.getI64Type();
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
     Value inverse_indices = create.mem.alignedAlloc(memrefType,
@@ -149,7 +149,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     //fflush(stdout);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverse_indices, counts);
-#if 0
+#if 1
     llvm::dbgs() << "XXXX AFTER calling emitArgUnique: [\noutputY=" << outputY <<
       ",\n indices=" << indices << ",\n inverse_indices=" << inverse_indices <<
       ",\n counts=" << counts << "]\n";

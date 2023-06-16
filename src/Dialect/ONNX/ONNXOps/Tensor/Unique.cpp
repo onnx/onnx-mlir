@@ -89,6 +89,8 @@ LogicalResult ONNXUniqueOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Builder b = Builder(getContext());
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type indexType = b.getI64Type();
   ONNXUniqueOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
+  return shapeHelper.computeShapeAndUpdateTypes(
+      {elementType, indexType, indexType, indexType});
 }
