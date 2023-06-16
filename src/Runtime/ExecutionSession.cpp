@@ -32,8 +32,10 @@ const std::string ExecutionSession::_queryEntryPointsName =
     "omQueryEntryPoints";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
-const std::string ExecutionSession::_freeConstantBuffersName =
-    "omFreeBuffersForExternalConstants";
+const std::string ExecutionSession::_loadConstantsFromFilesName =
+    "omLoadConstantsFromFiles";
+const std::string ExecutionSession::_freeBuffersForConstantsName =
+    "omFreeBuffersForConstants";
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
@@ -61,9 +63,18 @@ ExecutionSession::ExecutionSession(
   if (!_outputSignatureFunc)
     throw std::runtime_error(reportSymbolLoadingError(_outputSignatureName));
 
-  _freeConstantBuffersFunc = reinterpret_cast<freeConstantBuffersFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(
-          _freeConstantBuffersName.c_str()));
+  _freeBuffersForConstantsFunc =
+      reinterpret_cast<freeBuffersForConstantsFuncType>(
+          _sharedLibraryHandle.getAddressOfSymbol(
+              _freeBuffersForConstantsName.c_str()));
+
+  _loadConstantsFromFilesFunc =
+      reinterpret_cast<loadConstantsFromFilesFuncType>(
+          _sharedLibraryHandle.getAddressOfSymbol(
+              _loadConstantsFromFilesName.c_str()));
+  // Load constants from files into memory if the model requires.
+  if (_loadConstantsFromFilesFunc)
+    _loadConstantsFromFilesFunc();
 
   errno = 0; // No errors.
 }
@@ -156,8 +167,8 @@ const std::string ExecutionSession::outputSignature() const {
 
 ExecutionSession::~ExecutionSession() {
   // Free allocated buffers for constants if they are loaded from files.
-  if (_freeConstantBuffersFunc)
-    _freeConstantBuffersFunc();
+  if (_freeBuffersForConstantsFunc)
+    _freeBuffersForConstantsFunc();
 
   if (_sharedLibraryHandle.isValid())
     llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);

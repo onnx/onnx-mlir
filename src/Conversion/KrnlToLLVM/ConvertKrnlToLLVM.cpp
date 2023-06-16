@@ -413,7 +413,7 @@ void genSignatureFunction(ModuleOp &module,
 
 /// This function emits code to load constants from external files into global
 /// operations. Aligned buffers are allocated. Make sure to free these buffers
-/// at the end of the program by calling freeBuffersForExternalConstants.
+/// at the end of the program by calling freeBuffersForConstants.
 void loadConstantsFromFiles(ModuleOp &module,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
@@ -444,21 +444,23 @@ void loadConstantsFromFiles(ModuleOp &module,
       create.llvm.func(loadAllConstantsFuncName, llvmFnType);
 
   // Call loadAllConstantsFuncName in each entry point function.
-  for (auto entryGlobalOp : entryGlobalOps) {
-    std::string entryName =
-        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
-    // Erase the null symbol.
-    entryName.erase(
-        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
-    assert(entryFunc && "Entry function not found");
-    b.setInsertionPoint(
-        &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
-    FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-        module, loadAllConstantsFuncName, llvmVoidTy, {},
-        /*isVarArg=*/false);
-    create.llvm.call({}, loadAllConstantsRef, {});
-  }
+  // Disable this. Users should call omLoadConstantsFromFiles manually.
+  // for (auto entryGlobalOp : entryGlobalOps) {
+  //   std::string entryName =
+  //       entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+  //   // Erase the null symbol.
+  //   entryName.erase(
+  //       std::find(entryName.begin(), entryName.end(), '\0'),
+  //       entryName.end());
+  //   auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+  //   assert(entryFunc && "Entry function not found");
+  //   b.setInsertionPoint(
+  //       &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
+  //   FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
+  //       module, loadAllConstantsFuncName, llvmVoidTy, {},
+  //       /*isVarArg=*/false);
+  //   create.llvm.call({}, loadAllConstantsRef, {});
+  // }
 
   // Finally, emit the body of the function.
   Block *entryBlock = funcOp.addEntryBlock();
@@ -530,7 +532,7 @@ void loadConstantsFromFiles(ModuleOp &module,
 
 /// This function emits code to free aligned buffers allocated for loading
 /// constants from external files.
-void freeBuffersForExternalConstants(ModuleOp &module,
+void freeBuffersForConstants(ModuleOp &module,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
   MLIRContext *ctx = module.getContext();
@@ -543,8 +545,7 @@ void freeBuffersForExternalConstants(ModuleOp &module,
   Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
 
   // Two the following functions will be emitted inside the IR.
-  std::string freeBuffersForExternalConstantsFuncName =
-      "omFreeBuffersForExternalConstants";
+  std::string freeBuffersForConstantsFuncName = "omFreeBuffersForConstants";
   std::string freeAlignedFuncName = "omFreeAligned";
 
   // Emit a function that free buffers for external parameters.
@@ -555,29 +556,30 @@ void freeBuffersForExternalConstants(ModuleOp &module,
   b.setInsertionPoint(firstEntryPointOp);
   Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
   LLVM::LLVMFuncOp funcOp =
-      create.llvm.func(freeBuffersForExternalConstantsFuncName, llvmFnType);
+      create.llvm.func(freeBuffersForConstantsFuncName, llvmFnType);
 
-  // Call freeBuffersForExternalConstants at the end of each entry point
+  // Call freeBuffersForConstants at the end of each entry point
   // function.
-  // Disable this. It's better for user to free it manually.
+  // Disable this. Users should call omFreeBuffersForConstants manually.
   // for (auto entryGlobalOp : entryGlobalOps) {
   //   std::string entryName =
   //       entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
   //   // Erase the null symbol.
   //   entryName.erase(
-  //       std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
+  //       std::find(entryName.begin(), entryName.end(), '\0'),
+  //       entryName.end());
   //   auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
   //   assert(entryFunc && "Entry function not found");
 
   //   Operation *terminator = entryFunc.getRegion().back().getTerminator();
   //   b.setInsertionPoint(terminator);
   //   FlatSymbolRefAttr freeAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-  //       module, freeBuffersForExternalConstantsFuncName, llvmVoidTy, {},
+  //       module, freeBuffersForConstantsFuncName, llvmVoidTy, {},
   //       /*isVarArg=*/false);
   //   create.llvm.call({}, freeAllConstantsRef, {});
   // }
 
-  // Finally, emit the body of the function freeBuffersForExternalConstants.
+  // Finally, emit the body of the function freeBuffersForConstants.
   FlatSymbolRefAttr freeAlignedRef = create.llvm.getOrInsertSymbolRef(module,
       freeAlignedFuncName, llvmVoidTy, {llvmI8PtrTy},
       /*isVarArg=*/false);
@@ -732,14 +734,16 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     genSignatureFunction(
         module, entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
 
-  // If globals are stored on external files. Read them in at the beginning of
-  // the entry point functions.
+  // If globals are stored on external files. Emit helper functions to load
+  // constants from files, and free the allocated buffers for constants.
   if (storeGlobalsToFiles) {
     SmallVector<LLVM::GlobalOp> dataGlobalOps;
-    // At the beginning of each entry points.
+    // Emit a function,omLoadConstantsFromFiles, that loads contants from files
+    // to memory.
     loadConstantsFromFiles(module, entryGlobalOps, dataGlobalOps);
-    // Emit a function that free alocated buffers.
-    freeBuffersForExternalConstants(module, entryGlobalOps, dataGlobalOps);
+    // Emit a function, omFreeBuffersForConstants, that frees alocated buffers
+    // in memory.
+    freeBuffersForConstants(module, entryGlobalOps, dataGlobalOps);
   }
 
   // Annotate global constants with `.lrodata` section if required.

@@ -27,7 +27,8 @@ namespace onnx_mlir {
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
 using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
-using freeConstantBuffersFuncType = void (*)();
+using loadConstantsFromFilesFuncType = void (*)();
+using freeBuffersForConstantsFuncType = void (*)();
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 
 /* ExecutionSession
@@ -105,10 +106,11 @@ protected:
   signatureFuncType _inputSignatureFunc = nullptr;
   signatureFuncType _outputSignatureFunc = nullptr;
 
-  // If the model stores constants to external files. Free allocated buffers at
-  // the end of the session.
-  // Function to free allocated buffers.
-  static const std::string _freeConstantBuffersName;
-  freeConstantBuffersFuncType _freeConstantBuffersFunc = nullptr;
+  // If the model stores constants to external files. Load and free contants at
+  // the beginning and the end of the session.
+  static const std::string _loadConstantsFromFilesName;
+  loadConstantsFromFilesFuncType _loadConstantsFromFilesFunc = nullptr;
+  static const std::string _freeBuffersForConstantsName;
+  freeBuffersForConstantsFuncType _freeBuffersForConstantsFunc = nullptr;
 };
 } // namespace onnx_mlir
