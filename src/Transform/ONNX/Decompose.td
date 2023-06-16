@@ -146,80 +146,63 @@ def ReduceSumSquareOpPattern
 //===----------------------------------------------------------------------===//
 // No attribute
 def ScalerNullPattern
-    : Pat<(ONNXScalerOp $x, $a, $b), (replaceWithValue $x),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $a),
-            (AttributeIsNull
-                : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale), (replaceWithValue $x),
+          [(HasFloatType:$x), (AttributeIsNull:$offset), (AttributeIsNull:$scale)],
           (addBenefit 5)>;
 
 // No attribute, input x not float type
 def ScalerNullPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b), (ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
-          [(AttributeIsNull
-               : $a),
-            (AttributeIsNull
-                : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale), (ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+          [(AttributeIsNull:$offset), (AttributeIsNull:$scale)],
           (addBenefit 4)>;
 
 // No scale
 def ScalerNoScalePattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXSubOp $x,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $b)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+          [(HasFloatType:$x), (AttributeIsNull:$scale)],
           (addBenefit 3)>;
 
 // No scale, input x not float type
 def ScalerNoScalePattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-          [(AttributeIsNull
-              : $b)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+          [(AttributeIsNull:$scale)],
           (addBenefit 2)>;
 
 // No offset
 def ScalerNoOffsetPattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp $x,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $a)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(HasFloatType:$x), (AttributeIsNull:$offset)],
           (addBenefit 3)>;
 
 // No offset, input x not float type
 def ScalerNoOffsetPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(AttributeIsNull
-              : $a)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(AttributeIsNull:$offset)],
           (addBenefit 2)>;
 
 // Normal ONNXScalerOp
 def ScalerPattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp(ONNXSubOp $x,
-               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(HasFloatType
-              : $x)],
+               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(HasFloatType:$x)],
           (addBenefit 1)>;
 
 // Normal ONNXScalerOp, input x not float type
 def ScalerPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
-               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
+               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
           [], (addBenefit 0)>;
 
 // Express LogSoftmax using Log and Softmax.
