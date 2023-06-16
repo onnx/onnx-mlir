@@ -831,14 +831,16 @@ public:
 // Code to perform constant propagation for CastOp.
 //===----------------------------------------------------------------------===//
 
-Value ConstPropCast(
-    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
+    Value constValue, IntegerAttr saturate, TypeAttr to) {
   ConstPropCounters::count("Cast", {constValue});
   Type replacingElemType =
       replacingValue.getType().cast<ShapedType>().getElementType();
+  assert(replacingElemType == to.getValue() && "result element type mismatch");
 
   ElementsAttr constElements = getConstValueElements(constValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  // TODO: Use 'saturate' in castElemenType().
   ElementsAttr castElements =
       elementsBuilder.castElementType(constElements, replacingElemType);
   return createReplacingConstantOp(rewriter, replacingValue, castElements);
