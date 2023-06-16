@@ -32,7 +32,7 @@ bool near(double a, double b) { return fabs(a - b) < 1e-6; }
 
 template <typename CPPTY>
 bool eq(CPPTY a, CPPTY b) {
-  if constexpr (isFP16Type<CPPTY>)
+  if constexpr (isSmallFPType<CPPTY>)
     return a.toFloat() == b.toFloat();
   else
     return a == b;
