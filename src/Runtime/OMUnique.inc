@@ -21,6 +21,7 @@
 // Table for elements
 //
 typedef struct uniqueTable {
+  OM_DATA_TYPE dataType;
   uint64_t elementSize;
   uint64_t elementMax;
   uint64_t elementCount;
@@ -30,9 +31,10 @@ typedef struct uniqueTable {
   int64_t *countsPtr;
 } uniqueTable;
 
-void uniqueTableInit(uniqueTable *table, uint64_t elemSize, uint64_t elemMax,
-    void *tablePtr, int64_t *indicesPtr, int64_t *inverseIndicesPtr,
-    int64_t *countsPtr) {
+void uniqueTableInit(uniqueTable *table, OM_DATA_TYPE dataType,
+    uint64_t elemSize, uint64_t elemMax, void *tablePtr, int64_t *indicesPtr,
+    int64_t *inverseIndicesPtr, int64_t *countsPtr) {
+  table->dataType = dataType;
   table->elementSize = elemSize;
   table->elementMax = elemMax;
   table->elementCount = 0;
@@ -73,13 +75,49 @@ int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
 
 int64_t uniqueTable_count(uniqueTable *table) { return table->elementCount; }
 
-int compareElements(void *arg1, void *arg2, int64_t elemSize) {
-  int64_t *int64Arg1 = (int64_t *) arg1;
-  int64_t *int64Arg2 = (int64_t *) arg2;
-  int64_t elemNum = elemSize / sizeof(int64_t);
+int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
+  switch (dataType) {
+  case ONNX_TYPE_FLOAT:
+    return *((float *)arg1) < *((float *)arg2);
+  case ONNX_TYPE_UINT8:
+    return *((uint8_t *)arg1) < *((uint8_t *)arg2);
+  case ONNX_TYPE_INT8:
+    return *((int8_t *)arg1) < *((int8_t *)arg2);
+  case ONNX_TYPE_UINT16:
+    return *((uint16_t *)arg1) < *((uint16_t *)arg2);
+  case ONNX_TYPE_INT16:
+    return *((int16_t *)arg1) < *((int16_t *)arg2);
+  case ONNX_TYPE_INT32:
+    return *((int32_t *)arg1) < *((int32_t *)arg2);
+  case ONNX_TYPE_INT64:
+    return *((int64_t *)arg1) < *((int64_t *)arg2);
+  //case ONNX_TYPE_STRING:
+  case ONNX_TYPE_BOOL:
+    return *((bool *)arg1) < *((bool *)arg2);
+  //case ONNX_TYPE_FLOAT16:
+  case ONNX_TYPE_DOUBLE:
+    return *((double *)arg1) < *((double *)arg2);
+  case ONNX_TYPE_UINT32:
+    return *((uint32_t *)arg1) < *((uint32_t *)arg2);
+  case ONNX_TYPE_UINT64:
+    return *((uint64_t *)arg1) < *((uint64_t *)arg2);
+  //case ONNX_TYPE_COMPLEX64:
+  //case ONNX_TYPE_COMPLEX128:
+  default:
+    assert("Unsupported ONNX type in OMTensor");
+  }
+  return 0;
+}
+
+int isLessElem(void *elem1, void *elem2, uint64_t elemSize,
+    OM_DATA_TYPE dataType) {
+  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  int64_t elemNum = elemSize / dataSize;
   for (int i = 0; i < elemNum; i++) {
-    if (int64Arg1[i] != int64Arg2[i])
-      return (int64Arg1[i] < int64Arg2[i]) ? -1 : 1;
+    void *num1 = ((char *) elem1) + (dataSize * i);
+    void *num2 = ((char *) elem2) + (dataSize * i);
+    if (memcmp(num1, num2, dataSize))
+      return isLessNum(num1, num2, dataType);
   }
   return 0;
 }
@@ -95,7 +133,7 @@ void uniqueTableSort(uniqueTable *table) {
     void *currIdxElemPtr = (void *)(((char *)table->tablePtr) + elemSize * idx);
     for (uint64_t i = 0; i < elemCount; i++) {
       void *elemPtr = (void *)(((char *)table->tablePtr) + elemSize * i);
-      if (compareElements(elemPtr, currIdxElemPtr, elemSize) < 0) {
+      if (isLessElem(elemPtr, currIdxElemPtr, elemSize, table->dataType)) {
         order++;
       }
     }
@@ -213,7 +251,7 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
       elementNum *= inputShape[i];
     }
     void *tablePtr = (YPtr == NULL) ? alloca(dataSize * elementNum) : YPtr;
-    uniqueTableInit(&uniqueTable, dataSize, elementNum, tablePtr,
+    uniqueTableInit(&uniqueTable, dataType, dataSize, elementNum, tablePtr,
         (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
         (int64_t *)countsPtr);
     for (uint64_t off = 0; off < elementNum; off++) {
@@ -245,8 +283,8 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     printf("XXXXX shape=[%ld:%ld:%ld:%ld:%ld:%ld], ", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
     printf("sliceAxis=%ld, sliceNum=%ld, sliceSize=%ld, dataSize=%ld\n", sliceAxis, sliceNum, sliceSize, dataSize);
     void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum * dataSize) : YPtr;
-    uniqueTableInit(&uniqueTable, sliceSize * dataSize, sliceNum, tablePtr,
-        (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
+    uniqueTableInit(&uniqueTable, dataType, sliceSize * dataSize, sliceNum,
+        tablePtr, (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
         (int64_t *)countsPtr);
     void *sliceData = alloca(sliceSize * dataSize);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
