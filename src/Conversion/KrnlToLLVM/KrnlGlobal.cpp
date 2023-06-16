@@ -76,10 +76,9 @@ public:
     assert(krnlGlobalOp.getValue().has_value() &&
            "Krnl Global must always have a value");
     auto value = krnlGlobalOp.getValue().value();
-    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     TypeSwitch<Attribute>(value)
         .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          if (storeGlobalsToFiles && sizeInBytes > kUsedExternalFileThreshold) {
+          if (canUseFiles(krnlGlobalOp)) {
             global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
             dataPtr =
                 create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
@@ -90,7 +89,7 @@ public:
           }
         })
         .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          if (storeGlobalsToFiles && sizeInBytes > kUsedExternalFileThreshold) {
+          if (canUseFiles(krnlGlobalOp)) {
             global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
             dataPtr =
                 create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
@@ -124,6 +123,19 @@ private:
 
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+  }
+
+  bool canUseFiles(KrnlGlobalOp &krnlGlobalOp) const {
+    bool isReturnedValue = false;
+    for (Operation *user : krnlGlobalOp.getResult().getUsers()) {
+      if (isa<func::ReturnOp>(user)) {
+        isReturnedValue = true;
+        break;
+      }
+    }
+    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    return (storeGlobalsToFiles && !isReturnedValue &&
+            (sizeInBytes > kUsedExternalFileThreshold));
   }
 
   LLVM::GlobalOp lowerDenseResourceConstant(KrnlGlobalOp &krnlGlobalOp,
