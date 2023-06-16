@@ -185,6 +185,26 @@ struct ElementWiseBinaryOpImpl<ONNXEqualOp, T> {
   static bool eval(T lhs, T rhs) { return lhs == rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXLessOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs < rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXGreaterOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs > rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXLessOrEqualOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs <= rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXGreaterOrEqualOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs >= rhs; }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
