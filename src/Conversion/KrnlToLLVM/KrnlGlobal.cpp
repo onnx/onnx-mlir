@@ -37,11 +37,10 @@ extern std::string EXTERNAL_CONSTANT_PREFIX;
 
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
-  explicit KrnlGlobalOpLowering(LLVMTypeConverter &typeConverter,
-      MLIRContext *context, bool storeGlobalsToFiles)
+  explicit KrnlGlobalOpLowering(
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConvertToLLVMPattern(
-            KrnlGlobalOp::getOperationName(), context, typeConverter),
-        storeGlobalsToFiles(storeGlobalsToFiles) {}
+            KrnlGlobalOp::getOperationName(), context, typeConverter) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
@@ -112,24 +111,8 @@ public:
   }
 
 private:
-  bool storeGlobalsToFiles;
-  uint64_t kUsedExternalFileThreshold = 1024;
-
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
     return (a.getValue()[i]).cast<IntegerAttr>().getInt();
-  }
-
-  bool canUseFiles(KrnlGlobalOp &krnlGlobalOp) const {
-    bool isReturnedValue = false;
-    for (Operation *user : krnlGlobalOp.getResult().getUsers()) {
-      if (isa<func::ReturnOp>(user)) {
-        isReturnedValue = true;
-        break;
-      }
-    }
-    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
-    return (storeGlobalsToFiles && !isReturnedValue &&
-            (sizeInBytes > kUsedExternalFileThreshold));
   }
 
   LLVM::GlobalOp lowerDenseResourceConstant(KrnlGlobalOp &krnlGlobalOp,
@@ -355,9 +338,8 @@ private:
 };
 
 void populateLoweringKrnlGlobalOpPattern(LLVMTypeConverter &typeConverter,
-    RewritePatternSet &patterns, MLIRContext *ctx, bool storeGlobalsToFiles) {
-  patterns.insert<KrnlGlobalOpLowering>(
-      typeConverter, ctx, storeGlobalsToFiles);
+    RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.insert<KrnlGlobalOpLowering>(typeConverter, ctx);
 }
 
 } // namespace krnl

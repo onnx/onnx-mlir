@@ -45,7 +45,7 @@ void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
         &inputMemRefTypes,
     std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
         &outputMemRefTypes,
-    bool verifyInputTensors, bool storeGlobalsToFiles);
+    bool verifyInputTensors);
 
 void populateLoweringKrnlCallOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
@@ -71,8 +71,7 @@ void populateLoweringKrnlGetRefOpPattern(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlGlobalOpPattern(mlir::LLVMTypeConverter &typeConverter,
-    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
-    bool storeGlobalsToFiles);
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
 void populateLoweringKrnlInstrumentOpPattern(
     mlir::LLVMTypeConverter &typeConverter, mlir::RewritePatternSet &patterns,

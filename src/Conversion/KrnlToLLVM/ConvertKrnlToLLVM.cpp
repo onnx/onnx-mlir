@@ -183,7 +183,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
     std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
     std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
-    bool verifyInputTensors, bool storeConstantsToFile) {
+    bool verifyInputTensors) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -217,8 +217,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
-      outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors,
-      storeConstantsToFile);
+      outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors);
 }
 
 bool hasSingleEntryPoint(ModuleOp &module) {
@@ -434,6 +433,17 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
   module.walk([&](KrnlGlobalOp op) {
+    // Ignore constants that are return values
+    bool isReturnedValue = false;
+    for (Operation *user : op.getResult().getUsers()) {
+      if (isa<func::ReturnOp>(user)) {
+        isReturnedValue = true;
+        break;
+      }
+    }
+    if (isReturnedValue)
+      return WalkResult::advance();
+
     assert(op.getValue().has_value() && "Krnl Global must always have a value");
     auto value = op.getValue().value();
     ArrayRef<char> rawData;
@@ -457,6 +467,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
         .Default([&](Attribute attr) { return; });
     globalOfInterest.emplace_back(op);
     totalSize += rawData.size();
+    return WalkResult::advance();
   });
   // Do not use file if the total size of satisfied constants is <=
   // totalThreshold.
@@ -808,11 +819,6 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   KRNL_ENTRY_POINT_ID = 0;
 
-  // If storing globals on external files, set a base folder for the files by
-  // adding an attribute `baseFolder` to each KrnlGlobalOp.
-  // if (storeConstantsToFile) {
-  // }
-
   // Global Op for entry point names and their input/output JSON signatures,
   // those will generated when lowering KrnlEntryPoint.
   // This info is used to generate global signature functions.
@@ -875,7 +881,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
-      verifyInputTensors, storeConstantsToFile);
+      verifyInputTensors);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -897,7 +903,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // constants from files, and free the allocated buffers for constants.
   if (storeConstantsToFile) {
     SmallVector<LLVM::GlobalOp> dataGlobalOps;
-    // Emit a function,omLoadConstantsFromFile, that loads contants from files
+    // Emit a function, omLoadConstantsFromFile, that loads contants from files
     // to memory.
     loadConstantsFromFile(module, entryGlobalOps, dataGlobalOps);
     // Emit a function, omFreeBuffersForConstants, that frees alocated buffers
@@ -940,15 +946,14 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
     std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
     std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
-    bool verifyInputTensors, bool storeConstantsToFile) {
+    bool verifyInputTensors) {
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlGlobalOpPattern(
-      typeConverter, patterns, ctx, storeConstantsToFile);
+  krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGetRefOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
