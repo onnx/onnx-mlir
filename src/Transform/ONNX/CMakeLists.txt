@@ -98,3 +98,13 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRPass
   MLIRTransforms
   )
+
+add_onnx_mlir_library(OMONNXStandardFuncReturnPass
+  StandardFuncReturnPass.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRTransformUtils
+  MLIRFuncDialect
+  OMONNXOps
+  OMShapeInference
+  )

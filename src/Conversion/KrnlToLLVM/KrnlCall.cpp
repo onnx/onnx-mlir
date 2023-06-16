@@ -45,8 +45,6 @@ public:
     llvm::SmallVector<Type, 4> parameterTypeList;
     llvm::SmallVector<Value, 4> parameterList;
     llvm::SmallVector<Value, 4> omTensors;
-    handleOneParameter(rewriter, op, krnlCallAdaptor.getResult(),
-        krnlCallOp.getResult(), parameterTypeList, parameterList, omTensors);
 
     // Some type of operands has been converted.
     // It is better to check the type of original operands.
@@ -63,6 +61,8 @@ public:
     for (auto namedAttr : op->getAttrs()) {
       // Avoid the funcName() Attribute
       if (namedAttr.getName().getValue().equals("funcName"))
+        continue;
+      if (namedAttr.getName().getValue().equals("numOfOutput"))
         continue;
       handleOneAttribute(
           rewriter, op, namedAttr.getValue(), parameterTypeList, parameterList);

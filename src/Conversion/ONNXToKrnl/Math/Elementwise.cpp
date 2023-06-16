@@ -74,8 +74,8 @@ static double noSimd(int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
 }
 
 template <typename Op>
-double analyzeSimdFor(
-    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+double analyzeSimdFor(Type elementType, Operation *op, int64_t &vectorizedOpNum,
+    int64_t &scalarOpNum) {
   return noSimd(vectorizedOpNum, scalarOpNum);
 }
 
@@ -88,7 +88,8 @@ struct ScalarOp<ONNXTanhOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXTanhOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXTanhOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::TrigHyperbolicGop}, {1}, t, von, son);
 }
 
@@ -98,7 +99,8 @@ struct ScalarOp<ONNXAddOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-double analyzeSimdFor<ONNXAddOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXAddOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
@@ -108,7 +110,8 @@ struct ScalarOp<ONNXAbsOp> {
   using IOp = math::AbsIOp;
 };
 template <>
-double analyzeSimdFor<ONNXAbsOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXAbsOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::AbsGop}, {1}, t, von, son);
 }
 
@@ -118,7 +121,8 @@ struct ScalarOp<ONNXMulOp> {
   using IOp = arith::MulIOp;
 };
 template <>
-double analyzeSimdFor<ONNXMulOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXMulOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::MulGop}, {1}, t, von, son);
 }
 
@@ -128,7 +132,8 @@ struct ScalarOp<ONNXDivOp> {
   using IOp = arith::DivSIOp;
 };
 template <>
-double analyzeSimdFor<ONNXDivOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXDivOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::DivGop}, {1}, t, von, son);
 }
 
@@ -138,7 +143,8 @@ struct ScalarOp<ONNXSubOp> {
   using IOp = arith::SubIOp;
 };
 template <>
-double analyzeSimdFor<ONNXSubOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSubOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
@@ -184,7 +190,8 @@ struct ScalarOp<ONNXExpOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXExpOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXExpOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ExpGop}, {1}, t, von, son);
 }
 
@@ -194,7 +201,8 @@ struct ScalarOp<ONNXSumOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-double analyzeSimdFor<ONNXSumOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSumOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
@@ -204,7 +212,8 @@ struct ScalarOp<ONNXCosOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXCosOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXCosOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::TrigGop}, {1}, t, von, son);
 }
 
@@ -214,7 +223,8 @@ struct ScalarOp<ONNXLogOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXLogOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXLogOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::LogGop}, {1}, t, von, son);
 }
 
@@ -224,7 +234,8 @@ struct ScalarOp<ONNXSqrtOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXSqrtOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSqrtOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::SqrtGop}, {1}, t, von, son);
 }
 
@@ -240,7 +251,8 @@ struct ScalarOp<ONNXCeilOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXCeilOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXCeilOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::CeilGop}, {1}, t, von, son);
 }
 
@@ -250,7 +262,8 @@ struct ScalarOp<ONNXFloorOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXFloorOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXFloorOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::FloorGop}, {1}, t, von, son);
 }
 
@@ -260,7 +273,8 @@ struct ScalarOp<ONNXSinOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXSinOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSinOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::TrigGop}, {1}, t, von, son);
 }
 
@@ -270,15 +284,10 @@ struct ScalarOp<ONNXPowOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXPowOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXPowOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::PowGop}, {1}, t, von, son);
 }
-
-template <>
-struct ScalarOp<ONNXIsInfOp> {
-  using FOp = KrnlIsInfOp;
-  using IOp = NotSuportedScalarOp;
-};
 
 template <>
 struct ScalarOp<ONNXIsNaNOp> {
@@ -323,6 +332,69 @@ struct ScalarOp<ONNXTanOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXIsInfOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXIsInfOp> {
+  using FOp = CustomScalarOp;
+  using IOp = NotSuportedScalarOp;
+};
+
+// For now we will disbale SIMD for IsInf because it is not working correctly.
+
+// template <>
+// double analyzeSimdFor<ONNXIsInfOp>(
+//     Type t, Operation *op, int64_t &von, int64_t &son) {
+//   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+//   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+
+//   bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
+//   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+
+//   if (detectPos || detectNeg) {
+//     return simdAnalysis({GenericOps::CompareGop}, {1}, t, von, son);
+//   } else {
+//     return simdAnalysis(
+//         {GenericOps::CompareGop, GenericOps::LogicalGop}, {2, 1}, t, von,
+//         son);
+//   }
+// }
+
+template <>
+Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+
+  Value operand = scalarOperands[0];
+  Type inputElemType = getElementType(operand.getType());
+
+  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(inputElemType);
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  Value negInf = create.math.negativeInf(inputElemType);
+  Value posInf = create.math.positiveInf(inputElemType);
+
+  double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
+  double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
+
+  // Three different cases: Infinity, Negative Infinity and Positive Infinity
+  bool detectInf = detectPosAttribute == 1 && detectNegAttribute == 1;
+  bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
+  bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
+
+  if (detectInf)
+    // If infinity return true for both positive and negative infinity
+    return create.math.ori(
+        create.math.eq(operand, posInf), create.math.eq(operand, negInf));
+  if (detectPos)
+    // If positive infinity return true else false
+    return create.math.eq(operand, posInf);
+  if (detectNeg)
+    // If negative infinity return true else false
+    return create.math.eq(operand, negInf);
+  llvm_unreachable("unsupported case for this particular op.");
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXCastOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -351,7 +423,8 @@ struct ScalarOp<ONNXSinhOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSinhOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSinhOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
       {2, 2, 1}, t, von, son);
@@ -384,7 +457,8 @@ struct ScalarOp<ONNXCoshOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXCoshOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXCoshOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
       {2, 2, 1}, t, von, son);
@@ -417,7 +491,8 @@ struct ScalarOp<ONNXSigmoidOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSigmoidOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSigmoidOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::ExpGop, GenericOps::DivGop},
       {2, 1, 1}, t, von, son);
@@ -449,7 +524,8 @@ struct ScalarOp<ONNXHardSigmoidOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXHardSigmoidOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXHardSigmoidOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
                           GenericOps::CompareGop, GenericOps::SelectGop},
       {1, 1, 2, 2}, t, von, son);
@@ -494,7 +570,8 @@ struct ScalarOp<ONNXEluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXEluOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXEluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
           GenericOps::SelectGop, GenericOps::ExpGop},
@@ -531,7 +608,8 @@ struct ScalarOp<ONNXReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXReluOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXReluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
 }
@@ -558,7 +636,8 @@ struct ScalarOp<ONNXLeakyReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXLeakyReluOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXLeakyReluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::MulGop},
       {1, 1, 1}, t, von, son);
@@ -592,7 +671,8 @@ struct ScalarOp<ONNXPReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXPReluOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXPReluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::MulGop},
       {1, 1, 1}, t, von, son);
@@ -623,7 +703,8 @@ struct ScalarOp<ONNXSeluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSeluOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSeluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop, GenericOps::MulGop,
           GenericOps::ArithmeticGop, GenericOps::ExpGop},
@@ -664,7 +745,8 @@ struct ScalarOp<ONNXReciprocalOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXReciprocalOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXReciprocalOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::DivGop}, {1}, t, von, son);
 }
 
@@ -690,7 +772,8 @@ struct ScalarOp<ONNXSoftplusOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSoftplusOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSoftplusOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ExpGop, GenericOps::ArithmeticGop, GenericOps::LogGop},
       {1, 1, 1}, t, von, son);
@@ -720,7 +803,8 @@ struct ScalarOp<ONNXSoftsignOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSoftsignOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSoftsignOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::AbsGop, GenericOps::ArithmeticGop, GenericOps::DivGop},
       {1, 1, 1}, t, von, son);
@@ -750,7 +834,8 @@ struct ScalarOp<ONNXSignOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSignOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXSignOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop}, {2, 2}, t, von, son);
 }
@@ -793,7 +878,8 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXErfOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXErfOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ErfGop}, {1}, t, von, son);
 }
 
@@ -807,7 +893,8 @@ struct ScalarOp<ONNXMaxOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMaxOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXMaxOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
 }
@@ -838,7 +925,8 @@ struct ScalarOp<ONNXMinOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMinOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXMinOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
 }
@@ -869,7 +957,8 @@ struct ScalarOp<ONNXNegOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXNegOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXNegOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
@@ -1013,7 +1102,8 @@ struct ScalarOp<ONNXModOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXModOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXModOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::RemGop, GenericOps::CopySignGop}, {1, 1}, t, von, son);
 }
@@ -1059,7 +1149,8 @@ struct ScalarOp<ONNXMeanOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMeanOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXMeanOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::DivGop}, {1, 1}, t, von, son);
 }
@@ -1083,7 +1174,8 @@ struct ScalarOp<ONNXRoundOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXRoundOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXRoundOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::CompareGop,
           GenericOps::SelectGop, GenericOps::FloorGop},
@@ -1146,7 +1238,8 @@ struct ScalarOp<ONNXClipOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXClipOp>(Type t, int64_t &von, int64_t &son) {
+double analyzeSimdFor<ONNXClipOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
       {GenericOps::CompareGop, GenericOps::SelectGop}, {2, 2}, t, von, son);
 }
@@ -1181,7 +1274,7 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 
 template <>
 double analyzeSimdFor<ONNXDequantizeLinearOp>(
-    Type t, int64_t &von, int64_t &son) {
+    Type t, Operation *op, int64_t &von, int64_t &son) {
   // Right now, MLIR vector:splat does not support unsigned int types.
   // Thus we must disable SIMD here for now.
   return noSimd(von, son);
@@ -1223,14 +1316,14 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
+    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t collapsedLiteralSize) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
-  double avgSimdWidth =
-      analyzeSimdFor<ElementwiseOp>(elementType, vectorizedOpNum, scalarOpNum);
+  double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
+      elementType, op, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
                             << avgSimdWidth << " too small\n");
@@ -1858,7 +1951,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, outputMemRefType, outputRank,
+              shapeHelper, create, op, outputMemRefType, outputRank,
               /*collapsedInnermostLoops, ignored*/ 1);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
@@ -2007,8 +2100,8 @@ struct ONNXElementwiseBinaryOpLowering
         !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, outputMemRefType, collapsedInnermostLoops,
-              collapsedLiteralSize);
+              shapeHelper, create, op, outputMemRefType,
+              collapsedInnermostLoops, collapsedLiteralSize);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
@@ -2148,8 +2241,8 @@ struct ONNXElementwiseVariadicOpLowering
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, outputMemRefType, collapsedInnermostLoops,
-              collapsedLiteralSize);
+              shapeHelper, create, op, outputMemRefType,
+              collapsedInnermostLoops, collapsedLiteralSize);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
