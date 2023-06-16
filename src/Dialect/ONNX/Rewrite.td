@@ -934,10 +934,12 @@ def ConstantOpNormalizationPattern6: Pat<
 // Canonicalization for ONNXLessOp
 //===----------------------------------------------------------------------===//
 
+// The 'saturate' attribute shouldn't matter but we require it to be the same
+// for $a and $b to avoid applying the pattern in surprising ways.
 def LessOpSameCastPattern: Pat<
    (ONNXLessOp (ONNXCastOp:$cast_a $a, $saturate1, $to1), (ONNXCastOp $b, $saturate2, $to2)),
    (ONNXLessOp $a, $b),
-   [(HaveSameElementType $a, $b), (Equal $to1, $to2),
+   [(HaveSameElementType $a, $b), (Equal $saturate1, $saturate2), (Equal $to1, $to2),
     (HaveSameElementTypeBitWidth $a, $cast_a),
     (ElementTypeIsNotUnsigned:$cast_a)]
 >;
