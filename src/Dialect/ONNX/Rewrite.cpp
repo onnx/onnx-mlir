@@ -904,7 +904,6 @@ void ONNXLayoutTransformOp::getCanonicalizationPatterns(
 /// on the ONNXLessOp.
 void ONNXLessOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<LessOpSameCastPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
 }
 

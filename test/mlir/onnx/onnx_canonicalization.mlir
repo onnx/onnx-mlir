@@ -784,32 +784,6 @@ func.func @test_fuse_mul_conv(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
 
 // -----
 
-func.func @test_less(%arg0 : tensor<i32>, %arg1 : tensor<i32>) -> tensor<i1> {
-  %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<i32>) -> tensor<f32>
-  %1 = "onnx.Cast"(%arg1) {to = f32} : (tensor<i32>) -> tensor<f32>
-  %2 = "onnx.Less"(%0, %1) : (tensor<f32>, tensor<f32>) -> tensor<i1>
-  onnx.Return %2 : tensor<i1>
-  // CHECK-LABEL: test_less
-  // CHECK: [[RES:%.]] = "onnx.Less"(%arg0, %arg1) : (tensor<i32>, tensor<i32>) -> tensor<i1>
-  // CHECK: onnx.Return [[RES]] : tensor<i1>
-}
-
-// -----
-
-// Cast is not removed because of unsigned integers.
-func.func @test_less_should_not_remove_cast(%arg0 : tensor<f32>, %arg1 : tensor<f32>) -> tensor<i1> {
-  %0 = "onnx.Cast"(%arg0) {to = ui32} : (tensor<f32>) -> tensor<ui32>
-  %1 = "onnx.Cast"(%arg1) {to = ui32} : (tensor<f32>) -> tensor<ui32>
-  %2 = "onnx.Less"(%0, %1) : (tensor<ui32>, tensor<ui32>) -> tensor<i1>
-  onnx.Return %2 : tensor<i1>
-  // CHECK-LABEL: test_less_should_not_remove_cast
-  // CHECK: "onnx.Cast"
-  // CHECK: "onnx.Cast"
-  // CHECK: "onnx.Less"
-}
-
-// -----
-
 // Check deriving a new maximum trip count from the break condition of the loop.
 // In this test, the new maximum trip count is a constant.
 func.func @test_loop_derive_max_trip_count(%arg0: tensor<?x30xf32>) -> tensor<?x?x30xf32> {

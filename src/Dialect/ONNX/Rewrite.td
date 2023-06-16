@@ -931,21 +931,8 @@ def ConstantOpNormalizationPattern6: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXLessOp
-//===----------------------------------------------------------------------===//
-
-def LessOpSameCastPattern: Pat<
-   (ONNXLessOp (ONNXCastOp:$cast_a $a, $to1), (ONNXCastOp $b, $to2)),
-   (ONNXLessOp $a, $b),
-   [(HaveSameElementType $a, $b), (Equal $to1, $to2),
-    (HaveSameElementTypeBitWidth $a, $cast_a),
-    (ElementTypeIsNotUnsigned:$cast_a)]
->;
-
-//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXDimOp
 //===----------------------------------------------------------------------===//
-
 
 def DimOpToConstantPattern: Pat<
    (ONNXDimOp $input, $axis),
