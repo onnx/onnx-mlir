@@ -87,6 +87,7 @@ void omLoadExternalConstant(
     return;
   }
 
+  // Constant is already loaded. Nothing to do.
   if (ptr[0])
     return;
 
@@ -97,7 +98,7 @@ void omLoadExternalConstant(
     perror("Error: ");
     return;
   }
-  long nr = fread(buffer, size, 1, fileptr);
+  fread(buffer, size, 1, fileptr);
   fclose(fileptr);
 
   ptr[0] = buffer;

@@ -32,6 +32,8 @@ const std::string ExecutionSession::_queryEntryPointsName =
     "omQueryEntryPoints";
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
+const std::string ExecutionSession::_freeConstantBuffersName =
+    "omFreeBuffersForExternalConstants";
 
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
@@ -58,6 +60,11 @@ ExecutionSession::ExecutionSession(
       _sharedLibraryHandle.getAddressOfSymbol(_outputSignatureName.c_str()));
   if (!_outputSignatureFunc)
     throw std::runtime_error(reportSymbolLoadingError(_outputSignatureName));
+
+  _freeConstantBuffersFunc = reinterpret_cast<freeConstantBuffersFuncType>(
+      _sharedLibraryHandle.getAddressOfSymbol(
+          _freeConstantBuffersName.c_str()));
+
   errno = 0; // No errors.
 }
 
@@ -148,6 +155,10 @@ const std::string ExecutionSession::outputSignature() const {
 }
 
 ExecutionSession::~ExecutionSession() {
+  // Free allocated buffers for constants if they are loaded from files.
+  if (_freeConstantBuffersFunc)
+    _freeConstantBuffersFunc();
+
   if (_sharedLibraryHandle.isValid())
     llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
 }
