@@ -299,10 +299,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
-          return op->emitError("Incompatible broadcast matching " +
-                               std::to_string(currentDimExpr.getLiteral()) +
-                               " with " +
-                               std::to_string(currentDimExpr.getLiteral()));
+          return op->emitOpError("Incompatible broadcast matching " +
+                                 std::to_string(currentDimExpr.getLiteral()) +
+                                 " with " +
+                                 std::to_string(nextDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.
         continue;
