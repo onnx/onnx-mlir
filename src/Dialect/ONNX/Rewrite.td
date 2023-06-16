@@ -157,15 +157,6 @@ def HaveSameElementType : Constraint<
           "$1.getType().dyn_cast<ShapedType>().getElementType())">,
     "have same element types">;
 
-def HaveSameElementTypeBitWidth: Constraint<
-    CPred<"($0.getType().dyn_cast<ShapedType>().getElementTypeBitWidth() == "
-          "$1.getType().dyn_cast<ShapedType>().getElementTypeBitWidth())">,
-    "has same element type bitwidth">;
-
-def  ElementTypeIsNotUnsigned: Constraint<
-    CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
-    "element type is not unsigned int">;
-
 def HaveSameEncodingAttr: Constraint<
     CPred<"sameEncodingAttr($0.getType(), $1.getType())">,
     "have same RankedTensorType's encoding attribute">;
