@@ -73,34 +73,25 @@ public:
     // Pointer to the raw data of the global.
     Value dataPtr;
 
-    assert(krnlGlobalOp.getValue().has_value() &&
-           "Krnl Global must always have a value");
-    auto value = krnlGlobalOp.getValue().value();
-    TypeSwitch<Attribute>(value)
-        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          if (canUseFiles(krnlGlobalOp)) {
-            global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
-            dataPtr =
-                create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
-          } else {
+    if (krnlGlobalOp.getValue().has_value()) {
+      auto value = krnlGlobalOp.getValue().value();
+      TypeSwitch<Attribute>(value)
+          .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
             global =
                 lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
-            dataPtr = create.llvm.addressOf(global);
-          }
-        })
-        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          if (canUseFiles(krnlGlobalOp)) {
-            global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
-            dataPtr =
-                create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
-          } else {
+          })
+          .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
             global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
-            dataPtr = create.llvm.addressOf(global);
-          }
-        })
-        .Default([&](Attribute attr) {
-          llvm_unreachable("Unsupported attribute type");
-        });
+          })
+          .Default([&](Attribute attr) {
+            llvm_unreachable("Unsupported attribute type");
+          });
+      dataPtr = create.llvm.addressOf(global);
+    } else {
+      // Data are stored on files.
+      global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
+      dataPtr = create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
+    }
 
     // Set the global alignment based on the alignment attribute if it exists,
     // otherwise use the module datalayout info.
@@ -235,43 +226,12 @@ private:
     Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
     Type llvmI64Ty = IntegerType::get(context, 64);
 
-    // Get the raw data of KrnlGlobal.
-    ArrayRef<char> rawData;
-    assert(krnlGlobalOp.getValue().has_value() &&
-           "Krnl Global must always have a value");
-    auto value = krnlGlobalOp.getValue().value();
-    TypeSwitch<Attribute>(value)
-        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          auto blob = krnlGlobalOp.getValue()
-                          .value()
-                          .cast<DenseResourceElementsAttr>()
-                          .getRawHandle()
-                          .getBlob();
-          assert(blob && "Expecting dense resource with a valid blob");
-          rawData = blob->getData();
-        })
-        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          DenseElementsAttr denseAttr =
-              krnlGlobalOp.getValue()
-                  .value()
-                  .dyn_cast_or_null<DenseElementsAttr>();
-          rawData = denseAttr.getRawData();
-        })
-        .Default([&](Attribute attr) {
-          llvm_unreachable("Unsupported attribute type");
-        });
+    auto offset = krnlGlobalOp.getOffset();
+    assert(offset.has_value() && "Missing offset value in KrnlGlobalOp");
 
-    // Store data to a file `data_param_constant_i.bin`
-    std::string filenameWithoutExt = "param_" + krnlGlobalOp.getName().str();
-    std::string filename = filenameWithoutExt + ".bin" + '\0';
-    SmallVector<char, 10> currentFolder;
-    llvm::sys::fs::current_path(currentFolder);
-    std::string pathStr =
-        std::string(currentFolder.begin(), currentFolder.end()) + "/" +
-        filename;
-    std::ofstream outfile(pathStr, std::ofstream::binary);
-    outfile.write(rawData.data(), rawData.size());
-    outfile.close();
+    // Data is store in `constant.bin` at offset.
+    std::string constantName = krnlGlobalOp.getName().str();
+    std::string prefixName = "om_external_";
 
     // Emit globals at the begining of the module.
     OpBuilder::InsertionGuard insertGuard(rewriter);
@@ -280,7 +240,7 @@ private:
     // Create an uninitialized global. Data will be loaded at runtime.
     LLVM::GlobalOp global = create.llvm.globalOp(llvmI8PtrTy,
         /*isConstant=*/false, LLVM::Linkage::Internal,
-        "data_" + filenameWithoutExt, nullptr);
+        prefixName + "data_" + constantName, nullptr);
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       Region &region = global.getInitializerRegion();
@@ -290,25 +250,25 @@ private:
       create.llvm._return(create.llvm.null(llvmI8PtrTy));
     }
 
-    // Create a global to store filename.
-    auto fnameAttr = mlir::StringAttr::get(context, filename);
-    auto fnameArrTy = LLVM::LLVMArrayType::get(llvmI8Ty, filename.size());
-    create.llvm.globalOp(fnameArrTy,
-        /*isConstant=*/true, LLVM::Linkage::Internal,
-        "fname_" + filenameWithoutExt, fnameAttr);
-
-    // Create a global to store data size.
+    // Create a global to store offset.
     create.llvm.globalOp(llvmI64Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        "size_" + filenameWithoutExt,
-        rewriter.getI64IntegerAttr(rawData.size()));
+        prefixName + "offset_" + constantName,
+        rewriter.getI64IntegerAttr(offset.value()));
+
+    // Create a global to store data size.
+    uint64_t dataSize = computeSizeInBytes(krnlGlobalOp);
+    create.llvm.globalOp(llvmI64Ty,
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        prefixName + "size_" + constantName,
+        rewriter.getI64IntegerAttr(dataSize));
 
     // Create a global to store isLE.
     bool isLE = llvm::support::endian::system_endianness() ==
                 llvm::support::endianness::little;
     create.llvm.globalOp(llvmI8Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        "isle_" + filenameWithoutExt, rewriter.getI8IntegerAttr(isLE));
+        prefixName + "isle_" + constantName, rewriter.getI8IntegerAttr(isLE));
 
     return global;
   }

@@ -74,6 +74,7 @@ void omFreeAligned(void *aligned_ptr) {
 ///
 /// \param[in] ptr Pointer returned by omLoadExternalConstant()
 /// \param[in] fname File name at the current folder
+/// \param[in] offset Offset from the beginning of file
 /// \param[in] size Size in bytes to copy data from the binary file 
 /// \param[in] align Alignment 
 /// \param[in] isLE Data in the binary file is little-endian or not 
@@ -81,7 +82,7 @@ void omFreeAligned(void *aligned_ptr) {
 /// \return None
 ///
 void omLoadExternalConstant(
-    void **ptr, char *fname, int64_t size, int64_t align, int64_t isLE) {
+    void **ptr, char *fname, int64_t offset, int64_t size, int64_t align, int64_t isLE) {
   if (ptr == NULL) {
     perror("Error: null pointer");
     return;
@@ -98,6 +99,7 @@ void omLoadExternalConstant(
     perror("Error: ");
     return;
   }
+  fseek(fileptr, offset, SEEK_SET);
   fread(buffer, size, 1, fileptr);
   fclose(fileptr);
 

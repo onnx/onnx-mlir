@@ -33,7 +33,7 @@ const std::string ExecutionSession::_queryEntryPointsName =
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 const std::string ExecutionSession::_loadConstantsFromFilesName =
-    "omLoadConstantsFromFiles";
+    "omLoadConstantsFromFile";
 const std::string ExecutionSession::_freeBuffersForConstantsName =
     "omFreeBuffersForConstants";
 

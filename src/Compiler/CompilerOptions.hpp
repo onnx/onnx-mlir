@@ -65,7 +65,7 @@ extern llvm::cl::opt<std::string> mtriple;
 extern llvm::cl::opt<std::string> mcpu;
 extern llvm::cl::opt<std::string> march;
 extern llvm::cl::opt<ModelSize> modelSize;
-extern llvm::cl::opt<bool> storeConstantsInFiles;
+extern llvm::cl::opt<bool> storeConstantsToFile;
 extern llvm::cl::list<onnx_mlir::accel::Accelerator::Kind> maccel;
 extern llvm::cl::opt<bool> VerboseOutput;
 extern llvm::cl::list<std::string> Xopt;

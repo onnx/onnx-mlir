@@ -108,7 +108,7 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
     llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
-llvm::cl::opt<bool> storeConstantsInFiles("storeConstantsInFiles",
+llvm::cl::opt<bool> storeConstantsToFile("storeConstantsToFile",
     llvm::cl::desc(
         "Constants will be stored on files instead of be embedded "
         "into the model.so. If C++/Python OMSession is used for inference, the "

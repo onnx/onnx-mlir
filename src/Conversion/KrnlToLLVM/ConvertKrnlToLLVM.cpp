@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <fstream>
+
 #include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
@@ -37,13 +39,17 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/Path.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -66,6 +72,8 @@ namespace krnl {
 bool LLVM_USE_OPAQUE_POINTER = true;
 
 uint64_t KRNL_ENTRY_POINT_ID = 0;
+
+std::string OM_EXTERNAL_CONSTANT_FILENAME = "om_external_constant_filename";
 
 // Return true if the value owns the storge. A value defined by memref.alloc
 // owns the storage. A value defined by constant, krnl.Global, does not own
@@ -176,7 +184,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
     std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
     std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
-    bool verifyInputTensors, bool storeGlobalsToFiles) {
+    bool verifyInputTensors, bool storeConstantsToFile) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -211,7 +219,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
       outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors,
-      storeGlobalsToFiles);
+      storeConstantsToFile);
 }
 
 bool hasSingleEntryPoint(ModuleOp &module) {
@@ -411,10 +419,67 @@ void genSignatureFunction(ModuleOp &module,
   }
 }
 
+/// Extract then pack constant arrays and store to a file.
+/// It returns a global op that contains the filename.
+LLVM::GlobalOp extractConstantsToFile(ModuleOp &module, std::string filepath,
+    uint64_t singleThreshold, uint64_t totalThreshold) {
+  Location loc = module.getLoc();
+  MLIRContext *context = module.getContext();
+  OpBuilder b(module.getContext());
+  MultiDialectBuilder<LLVMBuilder> create(b, loc);
+
+  std::vector<char> packedConst;
+  module.walk([&](KrnlGlobalOp op) {
+    assert(op.getValue().has_value() && "Krnl Global must always have a value");
+    auto value = op.getValue().value();
+    // Only handle DenseElementsAttr and DenseResourceElementsAttr.
+    TypeSwitch<Attribute>(value)
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          auto blob =
+              value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
+          assert(blob && "Expecting dense resource with a valid blob");
+          ArrayRef<char> rawData = blob->getData();
+          if (rawData.size() <= singleThreshold)
+            return;
+          op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
+          op.removeValueAttr();
+          packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+          DenseElementsAttr denseAttr =
+              value.dyn_cast_or_null<DenseElementsAttr>();
+          ArrayRef<char> rawData = denseAttr.getRawData();
+          if (rawData.size() <= singleThreshold)
+            return;
+          op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
+          op.removeValueAttr();
+          packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
+        })
+        .Default([&](Attribute attr) { return; });
+  });
+  if (packedConst.empty())
+    return nullptr;
+
+  // Save to file.
+  std::ofstream outfile(filepath, std::ofstream::binary);
+  outfile.write(packedConst.data(), packedConst.size());
+  // Create a global op to store the filename in the IR.
+  OpBuilder::InsertionGuard guard(b);
+  b.setInsertionPointToStart(module.getBody());
+  std::string fname = llvm::sys::path::filename(filepath).str() + '\0';
+  mlir::StringAttr valueAttr = mlir::StringAttr::get(context, fname);
+  Type valueArrayType =
+      LLVM::LLVMArrayType::get(IntegerType::get(context, 8), fname.size());
+  LLVM::GlobalOp fnameGlobalOp = create.llvm.globalOp(valueArrayType,
+      /*isConstant=*/true, LLVM::Linkage::External,
+      OM_EXTERNAL_CONSTANT_FILENAME, valueAttr);
+  return fnameGlobalOp;
+}
+
 /// This function emits code to load constants from external files into global
 /// operations. Aligned buffers are allocated. Make sure to free these buffers
 /// at the end of the program by calling freeBuffersForConstants.
-void loadConstantsFromFiles(ModuleOp &module,
+void loadConstantsFromFile(ModuleOp &module, LLVM::GlobalOp fnameGlobalOp,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
   MLIRContext *ctx = module.getContext();
@@ -431,7 +496,7 @@ void loadConstantsFromFiles(ModuleOp &module,
   bool hasExternalConstants = false;
 
   // Two the following functions will be emitted inside the IR.
-  std::string loadAllConstantsFuncName = "omLoadConstantsFromFiles";
+  std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
   std::string loadOneConstantFuncName = "omLoadExternalConstant";
 
   // Emit a function that loads external parameters.
@@ -444,7 +509,7 @@ void loadConstantsFromFiles(ModuleOp &module,
       create.llvm.func(loadAllConstantsFuncName, llvmFnType);
 
   // Call loadAllConstantsFuncName in each entry point function.
-  // Disable this. Users should call omLoadConstantsFromFiles manually.
+  // Disable this. Users should call omLoadConstantsFromFile manually.
   // for (auto entryGlobalOp : entryGlobalOps) {
   //   std::string entryName =
   //       entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
@@ -466,61 +531,68 @@ void loadConstantsFromFiles(ModuleOp &module,
   Block *entryBlock = funcOp.addEntryBlock();
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(entryBlock);
-  module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
-    StringRef fnameSymbol = gop.getSymName();
-    if (!fnameSymbol.startswith("fname_param"))
-      return WalkResult::advance();
-    std::string constantName = fnameSymbol.drop_front(11).str();
-
-    // Get the global op for filename.
-    auto fnameGlobal = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
-    assert(fnameGlobal && "Could not find the global op for filename");
-
+  Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobalOp, loc, b);
+  module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
     // Get the global op for data.
-    std::string dataSymbol = "data_param" + constantName;
-    auto dataGlobal = module.lookupSymbol<LLVM::GlobalOp>(dataSymbol);
-    assert(dataGlobal && "Could not find the global op for data");
+    StringRef dataSymbol = dataGlobalOp.getSymName();
+    std::string prefixConstant = "om_external_";
+    std::string prefixData = prefixConstant + "data";
+    if (!dataSymbol.startswith(prefixData))
+      return WalkResult::advance();
+    std::string constantName = dataSymbol.drop_front(prefixData.size()).str();
 
     // Get the global op for data size.
-    std::string sizeSymbol = "size_param" + constantName;
-    auto sizeGlobal = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
-    assert(sizeGlobal && "Could not find the global op for data size");
-    int64_t dataSize = sizeGlobal.getValue()
+    std::string sizeSymbol = prefixConstant + "size" + constantName;
+    auto sizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
+    assert(sizeGlobalOp && "Could not find the global op for data size");
+    int64_t dataSize = sizeGlobalOp.getValue()
                            .value()
                            .cast<IntegerAttr>()
                            .getValue()
                            .getSExtValue();
+
+    // Get offset.
+    std::string offsetSymbol = prefixConstant + "offset" + constantName;
+    auto offsetGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(offsetSymbol);
+    assert(offsetGlobalOp && "Could not find the global op for offset");
+    int64_t offset = offsetGlobalOp.getValue()
+                         .value()
+                         .cast<IntegerAttr>()
+                         .getValue()
+                         .getSExtValue();
+
     // Get alignment.
-    int64_t alignment = dataGlobal.getAlignment().value();
+    int64_t alignment = dataGlobalOp.getAlignment().value();
 
     // Get endianess.
-    std::string isleSymbol = "isle_param" + constantName;
-    auto isleGlobal = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
-    assert(isleGlobal && "Could not find the global op for isLE");
-    int64_t isLE = isleGlobal.getValue()
+    std::string isleSymbol = prefixConstant + "isle" + constantName;
+    auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
+    assert(isleGlobalOp && "Could not find the global op for isLE");
+    int64_t isLE = isleGlobalOp.getValue()
                        .value()
                        .cast<IntegerAttr>()
                        .getValue()
                        .getSExtValue();
 
     // Read data from the external file.
-    // function signature: void (**i8, *i8, i64, i64, i64)
-    // arguments: (dataPtr, filename, sizeInBytes, alignment, isLE)
+    // function signature: void (**i8, *i8, i64, i64, i64, i64)
+    // arguments: (dataPtr, filename, offset, sizeInBytes, alignment, isLE)
     FlatSymbolRefAttr getExternalConstantRef = create.llvm.getOrInsertSymbolRef(
         module, loadOneConstantFuncName, llvmVoidTy,
-        ArrayRef<Type>{
-            llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
+        ArrayRef<Type>{llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI64Ty,
+            llvmI64Ty, llvmI64Ty},
         /*isVarArg=*/false);
-    Value dataGlobalAddr = create.llvm.addressOf(dataGlobal);
+    Value dataGlobalAddr = create.llvm.addressOf(dataGlobalOp);
     Value dataPtr = create.llvm.bitcast(llvmI8PtrTy, dataGlobalAddr);
-    Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobal, loc, b);
+    Value offsetVal = create.llvm.constant(llvmI64Ty, offset);
     Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
     Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
     Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
     create.llvm.call({}, getExternalConstantRef,
-        ArrayRef<Value>({dataPtr, fnameI8Ptr, sizeVal, alignmentVal, isLEVal}));
+        ArrayRef<Value>(
+            {dataPtr, fnameI8Ptr, offsetVal, sizeVal, alignmentVal, isLEVal}));
     // Keep trace of global addresses in order to free their buffers.
-    dataGlobalOps.emplace_back(dataGlobal);
+    dataGlobalOps.emplace_back(dataGlobalOp);
 
     if (!hasExternalConstants)
       hasExternalConstants = true;
@@ -609,12 +681,12 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers,
-      bool useLRODATA, bool storeGlobalsToFiles) {
+      bool useLRODATA, bool storeConstantsToFile) {
     this->verifyInputTensors = verifyInputTensors;
     this->useOpaquePointers = useOpaquePointers;
     // Exclusive options. no option or only one option can be True.
     this->useLRODATA = useLRODATA;
-    this->storeGlobalsToFiles = storeGlobalsToFiles;
+    this->storeConstantsToFile = storeConstantsToFile;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -642,8 +714,8 @@ struct ConvertKrnlToLLVMPass
                      "section. This is for linking large object files"),
       llvm::cl::init(false)};
 
-  Option<bool> storeGlobalsToFiles{*this, "store-globals-to-files",
-      llvm::cl::desc("Put global constants into external files "),
+  Option<bool> storeConstantsToFile{*this, "store-constants-to-file",
+      llvm::cl::desc("Put global constants into a file."),
       llvm::cl::init(false)};
 };
 
@@ -662,7 +734,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // If storing globals on external files, set a base folder for the files by
   // adding an attribute `baseFolder` to each KrnlGlobalOp.
-  // if (storeGlobalsToFiles) {
+  // if (storeConstantsToFile) {
   // }
 
   // Global Op for entry point names and their input/output JSON signatures,
@@ -684,16 +756,27 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Determine whether the module has a single entry point or not.
   bool singleEntryPoint = hasSingleEntryPoint(module);
 
+  // Determine whether an output OMTensor should own the underlying buffer or
+  // not.
+  SmallVector<bool, 4> outputOMTensorOwnerships;
+  determineOwnershipForOutputOMTensors(module, outputOMTensorOwnerships);
+
+  // If storeConstantsToFile, copy constants from GlobalOp and write to a single
+  // file.
+  std::string fname = "./constants.bin"; // TODO: use OutputBasePath.
+  uint64_t constantsToFileTotalThreshold = 2048;
+  uint64_t constantsToFileSingleThreshold = 1024;
+  LLVM::GlobalOp fnameGlobalOp;
+  if (storeConstantsToFile) {
+    fnameGlobalOp = extractConstantsToFile(module, fname,
+        constantsToFileSingleThreshold, constantsToFileTotalThreshold);
+  }
+
   // Request C wrapper emission via attribute.
   for (auto func : module.getOps<func::FuncOp>()) {
     func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
         UnitAttr::get(&getContext()));
   }
-
-  // Determine whether an output OMTensor should own the underlying buffer or
-  // not.
-  SmallVector<bool, 4> outputOMTensorOwnerships;
-  determineOwnershipForOutputOMTensors(module, outputOMTensorOwnerships);
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);
@@ -716,7 +799,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
-      verifyInputTensors, storeGlobalsToFiles);
+      verifyInputTensors, storeConstantsToFile);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -736,11 +819,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // If globals are stored on external files. Emit helper functions to load
   // constants from files, and free the allocated buffers for constants.
-  if (storeGlobalsToFiles) {
+  if (storeConstantsToFile) {
     SmallVector<LLVM::GlobalOp> dataGlobalOps;
-    // Emit a function,omLoadConstantsFromFiles, that loads contants from files
+    // Emit a function,omLoadConstantsFromFile, that loads contants from files
     // to memory.
-    loadConstantsFromFiles(module, entryGlobalOps, dataGlobalOps);
+    loadConstantsFromFile(module, fnameGlobalOp, entryGlobalOps, dataGlobalOps);
     // Emit a function, omFreeBuffersForConstants, that frees alocated buffers
     // in memory.
     freeBuffersForConstants(module, entryGlobalOps, dataGlobalOps);
@@ -764,9 +847,9 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
-    bool useOpaquePointers, bool useLRODATA, bool storeGlobalsToFiles) {
+    bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile) {
   return std::make_unique<ConvertKrnlToLLVMPass>(
-      verifyInputTensors, useOpaquePointers, useLRODATA, storeGlobalsToFiles);
+      verifyInputTensors, useOpaquePointers, useLRODATA, storeConstantsToFile);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
@@ -777,7 +860,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
     std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
     std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
-    bool verifyInputTensors, bool storeGlobalsToFiles) {
+    bool verifyInputTensors, bool storeConstantsToFile) {
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
@@ -785,7 +868,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(
-      typeConverter, patterns, ctx, storeGlobalsToFiles);
+      typeConverter, patterns, ctx, storeConstantsToFile);
   krnl::populateLoweringKrnlGetRefOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
