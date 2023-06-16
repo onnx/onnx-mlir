@@ -70,7 +70,13 @@ void omFreeAligned(void *aligned_ptr) {
   }
 }
 
-void *omOpenBinaryFile(char *fname) {
+/// Open a file in binary mode
+///
+/// \param[in] fname File path
+/// \param[in] isLE Data in the file is little-endian or not
+///
+/// \return A FILE pointer
+void *omOpenBinaryFile(char *fname, int64_t isLE) {
   FILE *fileptr;
   fileptr = fopen(fname, "rb"); // Open the file in binary mode
   if (fileptr == NULL) {
@@ -80,6 +86,11 @@ void *omOpenBinaryFile(char *fname) {
   return (void *)fileptr;
 }
 
+/// Close a file
+///
+/// \param[in] fileptr A FILE pointer
+///
+/// \return None
 void omCloseFile(void *fileptr) {
   if (fileptr)
     fclose((FILE *)fileptr);
@@ -96,8 +107,8 @@ void omCloseFile(void *fileptr) {
 ///
 /// \return None
 ///
-void omLoadExternalConstant(void **ptr, void *fileptr, int64_t offset,
-    int64_t size, int64_t align, int64_t isLE) {
+void omLoadExternalConstant(
+    void **ptr, void *fileptr, int64_t offset, int64_t size, int64_t align) {
   if (ptr == NULL) {
     perror("Error: null pointer");
     return;

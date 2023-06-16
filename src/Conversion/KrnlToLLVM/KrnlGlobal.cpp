@@ -32,6 +32,9 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+/// This variable is initizalied inside ConvertKrnlToLLVMPass.
+extern std::string EXTERNAL_CONSTANT_PREFIX;
+
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
   explicit KrnlGlobalOpLowering(LLVMTypeConverter &typeConverter,
@@ -231,7 +234,6 @@ private:
 
     // Data is store in `constant.bin` at offset.
     std::string constantName = krnlGlobalOp.getName().str();
-    std::string prefixName = "om_external_";
 
     // Emit globals at the begining of the module.
     OpBuilder::InsertionGuard insertGuard(rewriter);
@@ -240,7 +242,7 @@ private:
     // Create an uninitialized global. Data will be loaded at runtime.
     LLVM::GlobalOp global = create.llvm.globalOp(llvmI8PtrTy,
         /*isConstant=*/false, LLVM::Linkage::Internal,
-        prefixName + "data_" + constantName, nullptr);
+        EXTERNAL_CONSTANT_PREFIX + "data_" + constantName, nullptr);
     {
       OpBuilder::InsertionGuard insertGuard(rewriter);
       Region &region = global.getInitializerRegion();
@@ -253,22 +255,15 @@ private:
     // Create a global to store offset.
     create.llvm.globalOp(llvmI64Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        prefixName + "offset_" + constantName,
+        EXTERNAL_CONSTANT_PREFIX + "offset_" + constantName,
         rewriter.getI64IntegerAttr(offset.value()));
 
     // Create a global to store data size.
     uint64_t dataSize = computeSizeInBytes(krnlGlobalOp);
     create.llvm.globalOp(llvmI64Ty,
         /*isConstant=*/true, LLVM::Linkage::Internal,
-        prefixName + "size_" + constantName,
+        EXTERNAL_CONSTANT_PREFIX + "size_" + constantName,
         rewriter.getI64IntegerAttr(dataSize));
-
-    // Create a global to store isLE.
-    bool isLE = llvm::support::endian::system_endianness() ==
-                llvm::support::endianness::little;
-    create.llvm.globalOp(llvmI8Ty,
-        /*isConstant=*/true, LLVM::Linkage::Internal,
-        prefixName + "isle_" + constantName, rewriter.getI8IntegerAttr(isLE));
 
     return global;
   }

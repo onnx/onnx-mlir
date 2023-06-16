@@ -70,10 +70,9 @@ namespace onnx_mlir {
 namespace krnl {
 
 bool LLVM_USE_OPAQUE_POINTER = true;
+std::string EXTERNAL_CONSTANT_PREFIX = "om_external_constant_";
 
 uint64_t KRNL_ENTRY_POINT_ID = 0;
-
-std::string OM_EXTERNAL_CONSTANT_FILENAME = "om_external_constant_filename";
 
 // Return true if the value owns the storge. A value defined by memref.alloc
 // owns the storage. A value defined by constant, krnl.Global, does not own
@@ -463,16 +462,24 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Save to file.
   std::ofstream outfile(filepath, std::ofstream::binary);
   outfile.write(packedConst.data(), packedConst.size());
+
   // Create a global op to store the filename in the IR.
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(module.getBody());
+  Type llvmI8Ty = IntegerType::get(context, 8);
   std::string fname = llvm::sys::path::filename(filepath).str() + '\0';
   mlir::StringAttr valueAttr = mlir::StringAttr::get(context, fname);
-  Type valueArrayType =
-      LLVM::LLVMArrayType::get(IntegerType::get(context, 8), fname.size());
+  Type valueArrayType = LLVM::LLVMArrayType::get(llvmI8Ty, fname.size());
   create.llvm.globalOp(valueArrayType,
       /*isConstant=*/true, LLVM::Linkage::External,
-      OM_EXTERNAL_CONSTANT_FILENAME, valueAttr);
+      EXTERNAL_CONSTANT_PREFIX + "filename", valueAttr);
+  // Create a global to store isLE.
+  bool isLE = llvm::support::endian::system_endianness() ==
+              llvm::support::endianness::little;
+  create.llvm.globalOp(llvmI8Ty,
+      /*isConstant=*/true, LLVM::Linkage::Internal,
+      EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
+
   return true;
 }
 
@@ -491,9 +498,6 @@ void loadConstantsFromFile(ModuleOp &module,
   Type llvmI64Ty = IntegerType::get(ctx, 64);
   Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
   Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
-
-  // Keep trace whether there is any external parameters or not.
-  bool hasExternalConstants = false;
 
   // Two the following functions will be emitted inside the IR.
   std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
@@ -535,23 +539,33 @@ void loadConstantsFromFile(ModuleOp &module,
 
   // Open the constant file in binary mode.
   Value fnameI8Ptr = entryBlock->getArgument(0);
+  // Get the global op for isLE.
+  std::string isleSymbol = EXTERNAL_CONSTANT_PREFIX + "isLE";
+  auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
+  assert(isleGlobalOp && "Could not find the global op for data isle");
+  int64_t isle = isleGlobalOp.getValue()
+                     .value()
+                     .cast<IntegerAttr>()
+                     .getValue()
+                     .getSExtValue();
+  Value isleVal = create.llvm.constant(llvmI64Ty, isle);
   FlatSymbolRefAttr openBinaryFileRef = create.llvm.getOrInsertSymbolRef(module,
-      "omOpenBinaryFile", llvmI8PtrTy, {llvmI8PtrTy},
+      "omOpenBinaryFile", llvmI8PtrTy, {llvmI8PtrTy, llvmI64Ty},
       /*isVarArg=*/false);
   Value filePtr =
-      create.llvm.call({llvmI8PtrTy}, openBinaryFileRef, {fnameI8Ptr});
+      create.llvm.call({llvmI8PtrTy}, openBinaryFileRef, {fnameI8Ptr, isleVal});
 
+  // Read data from file to global constants.
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
     // Get the global op for data.
     StringRef dataSymbol = dataGlobalOp.getSymName();
-    std::string prefixConstant = "om_external_";
-    std::string prefixData = prefixConstant + "data";
+    std::string prefixData = EXTERNAL_CONSTANT_PREFIX + "data";
     if (!dataSymbol.startswith(prefixData))
       return WalkResult::advance();
     std::string constantName = dataSymbol.drop_front(prefixData.size()).str();
 
     // Get the global op for data size.
-    std::string sizeSymbol = prefixConstant + "size" + constantName;
+    std::string sizeSymbol = EXTERNAL_CONSTANT_PREFIX + "size" + constantName;
     auto sizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
     assert(sizeGlobalOp && "Could not find the global op for data size");
     int64_t dataSize = sizeGlobalOp.getValue()
@@ -561,7 +575,8 @@ void loadConstantsFromFile(ModuleOp &module,
                            .getSExtValue();
 
     // Get offset.
-    std::string offsetSymbol = prefixConstant + "offset" + constantName;
+    std::string offsetSymbol =
+        EXTERNAL_CONSTANT_PREFIX + "offset" + constantName;
     auto offsetGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(offsetSymbol);
     assert(offsetGlobalOp && "Could not find the global op for offset");
     int64_t offset = offsetGlobalOp.getValue()
@@ -573,38 +588,23 @@ void loadConstantsFromFile(ModuleOp &module,
     // Get alignment.
     int64_t alignment = dataGlobalOp.getAlignment().value();
 
-    // Get endianess.
-    std::string isleSymbol = prefixConstant + "isle" + constantName;
-    auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
-    assert(isleGlobalOp && "Could not find the global op for isLE");
-    int64_t isLE = isleGlobalOp.getValue()
-                       .value()
-                       .cast<IntegerAttr>()
-                       .getValue()
-                       .getSExtValue();
-
     // Read data from the external file.
     // function signature: void (**i8, *i8, i64, i64, i64, i64)
-    // arguments: (dataPtr, filename, offset, sizeInBytes, alignment, isLE)
+    // arguments: (dataPtr, filename, offset, sizeInBytes, alignment)
     FlatSymbolRefAttr getExternalConstantRef = create.llvm.getOrInsertSymbolRef(
         module, loadOneConstantFuncName, llvmVoidTy,
-        ArrayRef<Type>{llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI64Ty,
-            llvmI64Ty, llvmI64Ty},
+        ArrayRef<Type>{
+            llvmI8PtrTy, llvmI8PtrTy, llvmI64Ty, llvmI64Ty, llvmI64Ty},
         /*isVarArg=*/false);
     Value dataGlobalAddr = create.llvm.addressOf(dataGlobalOp);
     Value dataPtr = create.llvm.bitcast(llvmI8PtrTy, dataGlobalAddr);
     Value offsetVal = create.llvm.constant(llvmI64Ty, offset);
     Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
     Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
-    Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
     create.llvm.call({}, getExternalConstantRef,
-        ArrayRef<Value>(
-            {dataPtr, filePtr, offsetVal, sizeVal, alignmentVal, isLEVal}));
+        ArrayRef<Value>({dataPtr, filePtr, offsetVal, sizeVal, alignmentVal}));
     // Keep trace of global addresses in order to free their buffers.
     dataGlobalOps.emplace_back(dataGlobalOp);
-
-    if (!hasExternalConstants)
-      hasExternalConstants = true;
 
     return WalkResult::advance();
   });
