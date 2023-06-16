@@ -77,10 +77,9 @@ int compareElements(void *arg1, void *arg2, int64_t elemSize) {
   int64_t *int64Arg1 = (int64_t *) arg1;
   int64_t *int64Arg2 = (int64_t *) arg2;
   int64_t elemNum = elemSize / sizeof(int64_t);
-  int cmp = 0;
   for (int i = 0; i < elemNum; i++) {
-    cmp = (int64Arg1[i] < int64Arg2[i]);
-      return cmp;
+    if (int64Arg1[i] != int64Arg2[i])
+      return (int64Arg1[i] < int64Arg2[i]) ? -1 : 1;
   }
   return 0;
 }
@@ -96,11 +95,11 @@ void uniqueTableSort(uniqueTable *table) {
     void *currIdxElemPtr = (void *)(((char *)table->tablePtr) + elemSize * idx);
     for (uint64_t i = 0; i < elemCount; i++) {
       void *elemPtr = (void *)(((char *)table->tablePtr) + elemSize * i);
-      if (compareElements(elemPtr, currIdxElemPtr, elemSize)) {
+      if (compareElements(elemPtr, currIdxElemPtr, elemSize) < 0) {
         order++;
       }
     }
-    //printf("XXXX sortedOrder[%d] = %ld\n", order, idx);
+    //printf("XXXX sortedOrder[%d] = %ld\n", idx, order);
     sortedOrder[idx] = order;
   }
   // Allocate sorted tables
