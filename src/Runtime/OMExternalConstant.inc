@@ -30,7 +30,7 @@
 /// malloc() that does alignment
 ///
 /// \param[in] size Size to be malloc'd
-/// \param[in] align Alignment 
+/// \param[in] align Alignment
 ///
 /// \return Pointer to the malloc'd area if successful, or NULL otherwise
 ///
@@ -70,19 +70,34 @@ void omFreeAligned(void *aligned_ptr) {
   }
 }
 
+void *omOpenBinaryFile(char *fname) {
+  FILE *fileptr;
+  fileptr = fopen(fname, "rb"); // Open the file in binary mode
+  if (fileptr == NULL) {
+    perror("Error: OpenBinaryFile");
+    return NULL;
+  }
+  return (void *)fileptr;
+}
+
+void omCloseFile(void *fileptr) {
+  if (fileptr)
+    fclose((FILE *)fileptr);
+}
+
 /// Load data from a binary file into a aligned buffer.
 ///
 /// \param[in] ptr Pointer returned by omLoadExternalConstant()
 /// \param[in] fname File name at the current folder
 /// \param[in] offset Offset from the beginning of file
-/// \param[in] size Size in bytes to copy data from the binary file 
-/// \param[in] align Alignment 
-/// \param[in] isLE Data in the binary file is little-endian or not 
+/// \param[in] size Size in bytes to copy data from the binary file
+/// \param[in] align Alignment
+/// \param[in] isLE Data in the binary file is little-endian or not
 ///
 /// \return None
 ///
-void omLoadExternalConstant(
-    void **ptr, char *fname, int64_t offset, int64_t size, int64_t align, int64_t isLE) {
+void omLoadExternalConstant(void **ptr, void *fileptr, int64_t offset,
+    int64_t size, int64_t align, int64_t isLE) {
   if (ptr == NULL) {
     perror("Error: null pointer");
     return;
@@ -92,16 +107,15 @@ void omLoadExternalConstant(
   if (ptr[0])
     return;
 
-  void *buffer = omMallocAligned(size, align);
-  FILE *fileptr;
-  fileptr = fopen(fname, "rb"); // Open the file in binary mode
+  // File is not opened.
   if (fileptr == NULL) {
-    perror("Error: ");
+    perror("Error: LoadExternalConstant");
     return;
   }
-  fseek(fileptr, offset, SEEK_SET);
-  fread(buffer, size, 1, fileptr);
-  fclose(fileptr);
+
+  void *buffer = omMallocAligned(size, align);
+  fseek((FILE *)fileptr, offset, SEEK_SET);
+  fread(buffer, size, 1, (FILE *)fileptr);
 
   ptr[0] = buffer;
 }

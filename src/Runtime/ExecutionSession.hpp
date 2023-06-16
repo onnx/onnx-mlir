@@ -27,7 +27,7 @@ namespace onnx_mlir {
 using entryPointFuncType = OMTensorList *(*)(OMTensorList *);
 using queryEntryPointsFuncType = const char **(*)(int64_t *);
 using signatureFuncType = const char *(*)(const char *);
-using loadConstantsFromFilesFuncType = void (*)();
+using loadConstantsFromFilesFuncType = void (*)(const char *);
 using freeBuffersForConstantsFuncType = void (*)();
 using OMTensorUniquePtr = std::unique_ptr<OMTensor, decltype(&omTensorDestroy)>;
 

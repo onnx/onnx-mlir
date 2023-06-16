@@ -72,9 +72,13 @@ ExecutionSession::ExecutionSession(
       reinterpret_cast<loadConstantsFromFilesFuncType>(
           _sharedLibraryHandle.getAddressOfSymbol(
               _loadConstantsFromFilesName.c_str()));
-  // Load constants from files into memory if the model requires.
-  if (_loadConstantsFromFilesFunc)
-    _loadConstantsFromFilesFunc();
+  // Load constants from file into memory if the model requires.
+  if (_loadConstantsFromFilesFunc) {
+    std::string constantPath =
+        sharedLibPath.substr(0, sharedLibPath.find_last_of(".")) +
+        ".constants.bin";
+    _loadConstantsFromFilesFunc(constantPath.c_str());
+  }
 
   errno = 0; // No errors.
 }

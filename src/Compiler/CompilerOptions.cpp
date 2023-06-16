@@ -108,7 +108,7 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
     llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
-llvm::cl::opt<bool> storeConstantsToFile("storeConstantsToFile",
+llvm::cl::opt<bool> storeConstantsToFile("store-constants-to-file",
     llvm::cl::desc(
         "Constants will be stored on files instead of be embedded "
         "into the model.so. If C++/Python OMSession is used for inference, the "
@@ -116,6 +116,26 @@ llvm::cl::opt<bool> storeConstantsToFile("storeConstantsToFile",
         "session. C users have to free the buffers manually via calling "
         "omFreeBuffersForExternalConstants."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<int> constantsToFileTotalThreshold(
+    "constants-to-file-total-threshold",
+    llvm::cl::desc(
+        "Put global constants to a file if the total size in "
+        "bytes of constants is greater than this threshold. "
+        "store-constants-to-file must be enabled for this to be effective. "
+        "Only count contants whose size is greater than "
+        "constants-to-file-single-threshold. Value is in GB."),
+    llvm::cl::init(2), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<int> constantsToFileSingleThreshold(
+    "constants-to-file-single-threshold",
+    llvm::cl::desc(
+        "Put global constants to a file if a single constant's size in "
+        "bytes is greater than this threshold. "
+        "store-constants-to-file must be enabled for this to be effective. "
+        "Total sizes in bytes of satisfied constants must be greater than "
+        "constants-to-file-total-threshold. Value is in KB."),
+    llvm::cl::init(1), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
     llvm::cl::desc("Specify an accelerator to generate code for"),

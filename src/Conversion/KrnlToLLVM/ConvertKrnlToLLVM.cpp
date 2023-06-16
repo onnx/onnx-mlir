@@ -420,8 +420,8 @@ void genSignatureFunction(ModuleOp &module,
 }
 
 /// Extract then pack constant arrays and store to a file.
-/// It returns a global op that contains the filename.
-LLVM::GlobalOp extractConstantsToFile(ModuleOp &module, std::string filepath,
+/// Return true if there are constants that are OK to store on files.
+bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     uint64_t singleThreshold, uint64_t totalThreshold) {
   Location loc = module.getLoc();
   MLIRContext *context = module.getContext();
@@ -458,7 +458,7 @@ LLVM::GlobalOp extractConstantsToFile(ModuleOp &module, std::string filepath,
         .Default([&](Attribute attr) { return; });
   });
   if (packedConst.empty())
-    return nullptr;
+    return false;
 
   // Save to file.
   std::ofstream outfile(filepath, std::ofstream::binary);
@@ -470,16 +470,16 @@ LLVM::GlobalOp extractConstantsToFile(ModuleOp &module, std::string filepath,
   mlir::StringAttr valueAttr = mlir::StringAttr::get(context, fname);
   Type valueArrayType =
       LLVM::LLVMArrayType::get(IntegerType::get(context, 8), fname.size());
-  LLVM::GlobalOp fnameGlobalOp = create.llvm.globalOp(valueArrayType,
+  create.llvm.globalOp(valueArrayType,
       /*isConstant=*/true, LLVM::Linkage::External,
       OM_EXTERNAL_CONSTANT_FILENAME, valueAttr);
-  return fnameGlobalOp;
+  return true;
 }
 
 /// This function emits code to load constants from external files into global
 /// operations. Aligned buffers are allocated. Make sure to free these buffers
 /// at the end of the program by calling freeBuffersForConstants.
-void loadConstantsFromFile(ModuleOp &module, LLVM::GlobalOp fnameGlobalOp,
+void loadConstantsFromFile(ModuleOp &module,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps) {
   MLIRContext *ctx = module.getContext();
@@ -504,7 +504,8 @@ void loadConstantsFromFile(ModuleOp &module, LLVM::GlobalOp fnameGlobalOp,
   // point.
   Operation *firstEntryPointOp = getFirstEntryOpInBlock(module, entryGlobalOps);
   b.setInsertionPoint(firstEntryPointOp);
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
+  Type llvmFnType =
+      LLVM::LLVMFunctionType::get(llvmVoidTy, {llvmI8PtrTy}, false);
   LLVM::LLVMFuncOp funcOp =
       create.llvm.func(loadAllConstantsFuncName, llvmFnType);
 
@@ -531,7 +532,15 @@ void loadConstantsFromFile(ModuleOp &module, LLVM::GlobalOp fnameGlobalOp,
   Block *entryBlock = funcOp.addEntryBlock();
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(entryBlock);
-  Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobalOp, loc, b);
+
+  // Open the constant file in binary mode.
+  Value fnameI8Ptr = entryBlock->getArgument(0);
+  FlatSymbolRefAttr openBinaryFileRef = create.llvm.getOrInsertSymbolRef(module,
+      "omOpenBinaryFile", llvmI8PtrTy, {llvmI8PtrTy},
+      /*isVarArg=*/false);
+  Value filePtr =
+      create.llvm.call({llvmI8PtrTy}, openBinaryFileRef, {fnameI8Ptr});
+
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
     // Get the global op for data.
     StringRef dataSymbol = dataGlobalOp.getSymName();
@@ -590,7 +599,7 @@ void loadConstantsFromFile(ModuleOp &module, LLVM::GlobalOp fnameGlobalOp,
     Value isLEVal = create.llvm.constant(llvmI64Ty, isLE);
     create.llvm.call({}, getExternalConstantRef,
         ArrayRef<Value>(
-            {dataPtr, fnameI8Ptr, offsetVal, sizeVal, alignmentVal, isLEVal}));
+            {dataPtr, filePtr, offsetVal, sizeVal, alignmentVal, isLEVal}));
     // Keep trace of global addresses in order to free their buffers.
     dataGlobalOps.emplace_back(dataGlobalOp);
 
@@ -599,6 +608,13 @@ void loadConstantsFromFile(ModuleOp &module, LLVM::GlobalOp fnameGlobalOp,
 
     return WalkResult::advance();
   });
+
+  // Close the file.
+  FlatSymbolRefAttr closeFileRef = create.llvm.getOrInsertSymbolRef(module,
+      "omCloseFile", llvmVoidTy, {llvmI8PtrTy},
+      /*isVarArg=*/false);
+  create.llvm.call({}, closeFileRef, {filePtr});
+
   create.llvm._return();
 }
 
@@ -681,12 +697,17 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers,
-      bool useLRODATA, bool storeConstantsToFile) {
+      bool useLRODATA, bool storeConstantsToFile,
+      uint64_t constantsToFileSingleThreshold,
+      uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt) {
     this->verifyInputTensors = verifyInputTensors;
     this->useOpaquePointers = useOpaquePointers;
     // Exclusive options. no option or only one option can be True.
     this->useLRODATA = useLRODATA;
     this->storeConstantsToFile = storeConstantsToFile;
+    this->constantsToFileSingleThreshold = constantsToFileSingleThreshold;
+    this->constantsToFileTotalThreshold = constantsToFileTotalThreshold;
+    this->outputNameNoExt = outputNameNoExt;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -715,8 +736,30 @@ struct ConvertKrnlToLLVMPass
       llvm::cl::init(false)};
 
   Option<bool> storeConstantsToFile{*this, "store-constants-to-file",
-      llvm::cl::desc("Put global constants into a file."),
-      llvm::cl::init(false)};
+      llvm::cl::desc("Put global constants to a file."), llvm::cl::init(false)};
+
+  Option<uint64_t> constantsToFileTotalThreshold{*this,
+      "constants-to-file-total-threshold",
+      llvm::cl::desc(
+          "Put global constants to a file if the total size in "
+          "bytes of constants is greater than this threshold. "
+          "store-constants-to-file must be enabled for this to be effective. "
+          "Only count contants whose size is greater than "
+          "constants-to-file-single-threshold. Value is in GB."),
+      llvm::cl::init(2)};
+
+  Option<uint64_t> constantsToFileSingleThreshold{*this,
+      "constants-to-file-single-threshold",
+      llvm::cl::desc(
+          "Put global constants to a file if a single constant's size in "
+          "bytes is greater than this threshold. "
+          "store-constants-to-file must be enabled for this to be effective. "
+          "Total sizes in bytes of satisfied constants must be greater than "
+          "constants-to-file-total-threshold. Value is in KB."),
+      llvm::cl::init(1)};
+
+private:
+  std::string outputNameNoExt = "./model";
 };
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
@@ -763,13 +806,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // If storeConstantsToFile, copy constants from GlobalOp and write to a single
   // file.
-  std::string fname = "./constants.bin"; // TODO: use OutputBasePath.
-  uint64_t constantsToFileTotalThreshold = 2048;
-  uint64_t constantsToFileSingleThreshold = 1024;
-  LLVM::GlobalOp fnameGlobalOp;
+  std::string fname = outputNameNoExt + ".constants.bin";
   if (storeConstantsToFile) {
-    fnameGlobalOp = extractConstantsToFile(module, fname,
-        constantsToFileSingleThreshold, constantsToFileTotalThreshold);
+    storeConstantsToFile = extractConstantsToFile(module, fname,
+        constantsToFileSingleThreshold * 1024,
+        constantsToFileTotalThreshold * 1024 * 1024 * 1024);
   }
 
   // Request C wrapper emission via attribute.
@@ -823,7 +864,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
     SmallVector<LLVM::GlobalOp> dataGlobalOps;
     // Emit a function,omLoadConstantsFromFile, that loads contants from files
     // to memory.
-    loadConstantsFromFile(module, fnameGlobalOp, entryGlobalOps, dataGlobalOps);
+    loadConstantsFromFile(module, entryGlobalOps, dataGlobalOps);
     // Emit a function, omFreeBuffersForConstants, that frees alocated buffers
     // in memory.
     freeBuffersForConstants(module, entryGlobalOps, dataGlobalOps);
@@ -847,9 +888,13 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
-    bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile) {
-  return std::make_unique<ConvertKrnlToLLVMPass>(
-      verifyInputTensors, useOpaquePointers, useLRODATA, storeConstantsToFile);
+    bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile,
+    uint64_t constantsToFileSingleThreshold,
+    uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt) {
+  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors,
+      useOpaquePointers, useLRODATA, storeConstantsToFile,
+      constantsToFileSingleThreshold, constantsToFileTotalThreshold,
+      outputNameNoExt);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

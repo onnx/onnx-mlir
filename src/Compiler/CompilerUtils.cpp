@@ -935,10 +935,10 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     hasAccel = true;
     accel->getOrLoadDialects(context);
-    accel->addPasses(module, pm, emissionTarget);
+    accel->addPasses(module, pm, emissionTarget, outputNameNoExt);
   }
   if (!hasAccel)
-    addPasses(module, pm, emissionTarget);
+    addPasses(module, pm, emissionTarget, outputNameNoExt);
   if (!reportHeapBefore.empty() || !reportHeapAfter.empty()) {
     std::string heapLogFileame = outputNameNoExt + ".heap.log";
     pm.addInstrumentation(std::make_unique<HeapReporter>(
