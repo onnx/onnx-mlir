@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
-############################ floatingpoint8_data.py ############################
+################################# fp8_data.py ##################################
 #
 # Generates raw/nonraw_data float8 models in test/mlir/onnx/parse/
 #
@@ -32,8 +32,8 @@ def tensor_vals(nptensor, raw):
     else:
         return nptensor
 
-# Variant of onnx.helper.make_tensor that works for both float16 and bfloat16
-# with uint16 np.ndarray vals when raw == False.
+# Variant of onnx.helper.make_tensor that works for all float8 data types
+# with uint8 np.ndarray vals when raw == False.
 def make_fp8_tensor(
     name: str, data_type: int, dims: Sequence[int], vals: Any, raw: bool = False
 ) -> onnx.TensorProto:

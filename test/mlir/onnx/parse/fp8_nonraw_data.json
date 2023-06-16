@@ -3,7 +3,7 @@
 // fp8_nonraw_data.json is an onnx model that outputs 4 constant tensors
 // with the 4 float8 data types
 
-// json is generated with utils/testing/floatingpoint8_data.py nonraw
+// json is generated with utils/testing/fp8_data.py nonraw
 {
   "irVersion": "9",
   "graph": {
