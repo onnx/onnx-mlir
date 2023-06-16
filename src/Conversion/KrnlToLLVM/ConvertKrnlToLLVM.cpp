@@ -420,6 +420,8 @@ void genSignatureFunction(ModuleOp &module,
 
 /// Extract then pack constant arrays and store to a file.
 /// Return true if there are constants that are OK to store on files.
+/// A single constant's size must be greater than singleThreshold.
+/// The total size of contants must be greater than totalThreshold.
 bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     uint64_t singleThreshold, uint64_t totalThreshold) {
   Location loc = module.getLoc();
@@ -427,19 +429,51 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   OpBuilder b(module.getContext());
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
-  std::vector<char> packedConst;
+  SmallVector<KrnlGlobalOp> globalOfInterest;
+  // Check constants with thresholds.
+  // Do not count constants whose size is <= singleThreshold.
+  uint64_t totalSize = 0;
   module.walk([&](KrnlGlobalOp op) {
     assert(op.getValue().has_value() && "Krnl Global must always have a value");
     auto value = op.getValue().value();
+    ArrayRef<char> rawData;
     // Only handle DenseElementsAttr and DenseResourceElementsAttr.
     TypeSwitch<Attribute>(value)
         .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
           auto blob =
               value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
           assert(blob && "Expecting dense resource with a valid blob");
-          ArrayRef<char> rawData = blob->getData();
+          rawData = blob->getData();
           if (rawData.size() <= singleThreshold)
             return;
+        })
+        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+          DenseElementsAttr denseAttr =
+              value.dyn_cast_or_null<DenseElementsAttr>();
+          rawData = denseAttr.getRawData();
+          if (rawData.size() <= singleThreshold)
+            return;
+        })
+        .Default([&](Attribute attr) { return; });
+    globalOfInterest.emplace_back(op);
+    totalSize += rawData.size();
+  });
+  // Do not use file if the total size of satisfied constants is <=
+  // totalThreshold.
+  if (totalSize <= totalThreshold)
+    return false;
+
+  // Pack all constants into a single buffer in order to save to file.
+  std::vector<char> packedConst;
+  for (KrnlGlobalOp op : globalOfInterest) {
+    assert(op.getValue().has_value() && "Krnl Global must always have a value");
+    auto value = op.getValue().value();
+    TypeSwitch<Attribute>(value)
+        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+          auto blob =
+              value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
+          assert(blob && "Expecting dense resource with a valid blob");
+          ArrayRef<char> rawData = blob->getData();
           op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
           op.removeValueAttr();
           packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
@@ -448,14 +482,13 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
           DenseElementsAttr denseAttr =
               value.dyn_cast_or_null<DenseElementsAttr>();
           ArrayRef<char> rawData = denseAttr.getRawData();
-          if (rawData.size() <= singleThreshold)
-            return;
           op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
           op.removeValueAttr();
           packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
         })
         .Default([&](Attribute attr) { return; });
-  });
+  }
+
   if (packedConst.empty())
     return false;
 
@@ -738,7 +771,7 @@ struct ConvertKrnlToLLVMPass
   Option<bool> storeConstantsToFile{*this, "store-constants-to-file",
       llvm::cl::desc("Put global constants to a file."), llvm::cl::init(false)};
 
-  Option<uint64_t> constantsToFileTotalThreshold{*this,
+  Option<float> constantsToFileTotalThreshold{*this,
       "constants-to-file-total-threshold",
       llvm::cl::desc(
           "Put global constants to a file if the total size in "
@@ -746,9 +779,9 @@ struct ConvertKrnlToLLVMPass
           "store-constants-to-file must be enabled for this to be effective. "
           "Only count contants whose size is greater than "
           "constants-to-file-single-threshold. Value is in GB."),
-      llvm::cl::init(2)};
+      llvm::cl::init(2.0)};
 
-  Option<uint64_t> constantsToFileSingleThreshold{*this,
+  Option<float> constantsToFileSingleThreshold{*this,
       "constants-to-file-single-threshold",
       llvm::cl::desc(
           "Put global constants to a file if a single constant's size in "
@@ -756,7 +789,7 @@ struct ConvertKrnlToLLVMPass
           "store-constants-to-file must be enabled for this to be effective. "
           "Total sizes in bytes of satisfied constants must be greater than "
           "constants-to-file-total-threshold. Value is in KB."),
-      llvm::cl::init(1)};
+      llvm::cl::init(1.0)};
 
 private:
   std::string outputNameNoExt = "./model";
@@ -806,11 +839,13 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // If storeConstantsToFile, copy constants from GlobalOp and write to a single
   // file.
+  // A single constant's size must be greater than singleThreshold.
+  // The total size of contants must be greater than totalThreshold.
   std::string fname = outputNameNoExt + ".constants.bin";
   if (storeConstantsToFile) {
     storeConstantsToFile = extractConstantsToFile(module, fname,
-        constantsToFileSingleThreshold * 1024,
-        constantsToFileTotalThreshold * 1024 * 1024 * 1024);
+        (uint64_t)constantsToFileSingleThreshold * 1024,
+        (uint64_t)constantsToFileTotalThreshold * 1024 * 1024 * 1024);
   }
 
   // Request C wrapper emission via attribute.
@@ -889,8 +924,8 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 }
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile,
-    uint64_t constantsToFileSingleThreshold,
-    uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt) {
+    float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
+    std::string outputNameNoExt) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors,
       useOpaquePointers, useLRODATA, storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,

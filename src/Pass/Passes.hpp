@@ -115,8 +115,8 @@ std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useOpaquePointer, bool useLRODATA, bool storeConstantsToFile,
-    uint64_t constantsToFileSingleThreshold,
-    uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt);
+    float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
+    std::string outputNameNoExt);
 
 } // namespace krnl
 

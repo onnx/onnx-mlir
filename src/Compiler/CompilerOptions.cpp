@@ -117,7 +117,7 @@ llvm::cl::opt<bool> storeConstantsToFile("store-constants-to-file",
         "omFreeBuffersForExternalConstants."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<int> constantsToFileTotalThreshold(
+llvm::cl::opt<float> constantsToFileTotalThreshold(
     "constants-to-file-total-threshold",
     llvm::cl::desc(
         "Put global constants to a file if the total size in "
@@ -125,9 +125,9 @@ llvm::cl::opt<int> constantsToFileTotalThreshold(
         "store-constants-to-file must be enabled for this to be effective. "
         "Only count contants whose size is greater than "
         "constants-to-file-single-threshold. Value is in GB."),
-    llvm::cl::init(2), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(2.0), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<int> constantsToFileSingleThreshold(
+llvm::cl::opt<float> constantsToFileSingleThreshold(
     "constants-to-file-single-threshold",
     llvm::cl::desc(
         "Put global constants to a file if a single constant's size in "
@@ -135,7 +135,7 @@ llvm::cl::opt<int> constantsToFileSingleThreshold(
         "store-constants-to-file must be enabled for this to be effective. "
         "Total sizes in bytes of satisfied constants must be greater than "
         "constants-to-file-total-threshold. Value is in KB."),
-    llvm::cl::init(1), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(1.0), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
     llvm::cl::desc("Specify an accelerator to generate code for"),
