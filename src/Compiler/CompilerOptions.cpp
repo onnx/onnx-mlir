@@ -104,12 +104,18 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
                          "default code model"),
         clEnumVal(large,
             "Generate code for the large model. "
-            "Global constants are put into large read-only data section."),
-
-        clEnumVal(huge, "Generate code for the huge model. "
-                        "Global constants are put into files.")),
+            "Global constants are put into large read-only data section.")),
     llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
+
+llvm::cl::opt<bool> storeConstantsInFiles("storeConstantsInFiles",
+    llvm::cl::desc(
+        "Constants will be stored on files instead of be embedded "
+        "into the model.so. If C++/Python OMSession is used for inference, the "
+        "allocated buffers for constants will be freed at the end of the "
+        "session. C users have to free the buffers manually via calling "
+        "omFreeBuffersForExternalConstants."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
     llvm::cl::desc("Specify an accelerator to generate code for"),
