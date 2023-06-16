@@ -229,7 +229,7 @@ template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 
 mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+    mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
