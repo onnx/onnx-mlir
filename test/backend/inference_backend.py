@@ -178,13 +178,13 @@ def get_test_models():
 
 
         # ==OP== Cast
-        # ==LIM== Cast only between float and double types
+        # ==LIM== Cast only between float, short float, and double types
         "test_cast_FLOAT_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_cast_DOUBLE_to_FLOAT_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        "test_cast_FLOAT_to_FLOAT16_cpu": {}, # appears unsupported at this time
-        "test_cast_FLOAT16_to_FLOAT_cpu": {}, # appears unsupported at this time
-        "test_cast_FLOAT16_to_DOUBLE_cpu": {}, # appears unsupported at this time
-        "test_cast_DOUBLE_to_FLOAT16_cpu": {}, # appears unsupported at this time
+        "test_cast_FLOAT_to_FLOAT16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_cast_FLOAT16_to_FLOAT_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_cast_FLOAT16_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_cast_DOUBLE_to_FLOAT16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_cast_FLOAT_to_STRING_cpu": {}, # appears unsupported at this time
         "test_cast_STRING_to_FLOAT_cpu": {}, # appears unsupported at this time
 
@@ -527,12 +527,11 @@ def get_test_models():
         "test_matmulinteger_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Max
-        # ==LIM== No support for short floats and unsigned int.
+        # ==LIM== No support for unsigned int.
         "test_max_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
-        # "test_max_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_max_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_int8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -575,12 +574,11 @@ def get_test_models():
         # MeanVarianceNormalization
 
         # ==OP== Min
-        # ==LIM== Does not support short floats and unsigned numbers.
+        # ==LIM== Does not support unsigned numbers.
         "test_min_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
-        # "test_min_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_min_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_int8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -595,11 +593,10 @@ def get_test_models():
         # "test_min_uint64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Mod
-        # ==LIM==  Support float and double only.
+        # ==LIM==  Support float, short float, and double only.
         "test_mod_mixed_sign_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_mod_mixed_sign_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
-        # "test_mod_mixed_sign_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_mod_mixed_sign_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # Not yet support integers since MLIR integers are signless.
         # "test_mod_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_mod_int64_fmod_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1237,6 +1234,7 @@ def JniExecutionSession(jar_name, inputs):
         "u4": np.uint32,
         "i8": np.int64,
         "u8": np.uint64,
+        "f2": np.float16,
         "f4": np.float32,
         "f8": np.float64,
     }

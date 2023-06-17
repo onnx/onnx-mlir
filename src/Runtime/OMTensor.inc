@@ -168,6 +168,10 @@ static inline void printElement(
   case ONNX_TYPE_INT64:
     printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
     break;
+  case ONNX_TYPE_FLOAT16:
+    // TODO: Print as floating point number instead of hex.
+    printf("0x%04hX", ((uint16_t *)dataPtr)[elemOffset]);
+    break;
   case ONNX_TYPE_FLOAT:
     printf("%f", ((float *)dataPtr)[elemOffset]);
     break;

@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Support/SmallFP.hpp"
 #include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
@@ -20,6 +21,36 @@ SUPPRESS_WARNINGS_PUSH
 SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSessionBase.hpp"
+
+namespace pybind11 {
+namespace detail {
+
+// Note: Since float16 is not a builtin type in C++, we register
+// onnx_mlir::float_16 as numpy.float16.
+// Ref: https://github.com/pybind/pybind11/issues/1776
+//
+// This implementation is copied from https://github.com/PaddlePaddle/Paddle
+template <>
+struct npy_format_descriptor<onnx_mlir::float_16> {
+  static py::dtype dtype() {
+    // Note: use same enum number of float16 in numpy.
+    // import numpy as np
+    // print np.dtype(np.float16).num  # 23
+    constexpr int NPY_FLOAT16 = 23;
+    handle ptr = npy_api::get().PyArray_DescrFromType_(NPY_FLOAT16);
+    return reinterpret_borrow<py::dtype>(ptr);
+  }
+  static std::string format() {
+    // Note: "e" represents float16.
+    // Details at:
+    // https://docs.python.org/3/library/struct.html#format-characters.
+    return "e";
+  }
+  static constexpr auto name = _("float16");
+};
+
+}  // namespace detail
+}  // namespace pybind11
 
 namespace onnx_mlir {
 
@@ -69,7 +100,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
-    // Missing fp16 support.
+    else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
+      dtype = ONNX_TYPE_FLOAT16;
     else if (py::isinstance<py::array_t<double>>(inputPyArray))
       dtype = ONNX_TYPE_DOUBLE;
     else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))
@@ -148,7 +180,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = py::dtype("bool_");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::FLOAT16:
-      dtype = py::dtype("float32");
+      dtype = py::dtype("float16");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::DOUBLE:
       dtype = py::dtype("float64");

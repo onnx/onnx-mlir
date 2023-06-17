@@ -81,6 +81,7 @@ add_onnx_mlir_library(OMPyExecutionSessionBase
 
   LINK_LIBS PUBLIC
   OMExecutionSession
+  OMMlirUtilities
   pybind11::embed
   pybind11::python_link_helper
   )
