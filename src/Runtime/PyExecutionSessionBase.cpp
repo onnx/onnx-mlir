@@ -49,8 +49,8 @@ struct npy_format_descriptor<onnx_mlir::float_16> {
   static constexpr auto name = _("float16");
 };
 
-}  // namespace detail
-}  // namespace pybind11
+} // namespace detail
+} // namespace pybind11
 
 namespace onnx_mlir {
 
