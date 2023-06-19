@@ -197,7 +197,7 @@ def get_args_from_env():
         type=float,
         default=(0.000001 if TEST_CONSTANTS_TO_FILE else 2),
         help="total threshold to trigger constants to file. Set it to a small "
-        "value 1024 bytes since models in the model zoo are small",
+        "value, 1024 bytes, since models in the model zoo are small",
     )
         
     parser.add_argument("unittest_args", nargs="*")

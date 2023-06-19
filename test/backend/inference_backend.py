@@ -1177,7 +1177,7 @@ def get_test_models():
 
     if args.constants_to_file:
         if args.verbose:
-            print("constant input is enabled", file=sys.stderr)
+            print("constants-to-file is enabled", file=sys.stderr)
         node_test_to_enable = variables.node_test_for_constants_to_file
         model_test_to_enable = variables.model_test_for_constants_to_file
         test_to_enable = variables.test_for_constants_to_file
@@ -1279,7 +1279,7 @@ class EndiannessAwareExecutionSession(object):
         self.exec_name = None
         # Compiling the model in advance if not testing constants, so that
         # the model is compiled once and used multiple times.
-        if not args.constant:
+        if not (args.constant or args.constants_to_file):
             self.exec_name = compile_model(self.model, args.emit)
 
     def is_input_le(self, inputs):
@@ -1348,8 +1348,9 @@ class EndiannessAwareExecutionSession(object):
         from PyRuntime import OMExecutionSession
 
         # If constant is set, recompile the model so inputs are model constants
-        if args.constant:
-            inputs = self.turn_model_input_to_constant(inputs)
+        if args.constant or args.constants_to_file:
+            if args.constant:
+                inputs = self.turn_model_input_to_constant(inputs)
             self.exec_name = compile_model(self.model, args.emit)
 
         # Contant tests may create models that no longer expect input tensors.
