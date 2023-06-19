@@ -1112,7 +1112,7 @@ def get_test_models():
     variables.model_test_to_enable_dict = {
         "test_densenet121_cpu": {STATIC_SHAPE:{}},
         "test_inception_v1_cpu": {STATIC_SHAPE:{}},
-        "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}},
+        "test_resnet50_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{0:{-1}}, CONSTANTS_TO_FILE:{}},
         "test_shufflenet_cpu": {STATIC_SHAPE:{}},
         "test_squeezenet_cpu": {STATIC_SHAPE:{}},
         # Failure in version v13
@@ -1150,6 +1150,14 @@ def get_test_models():
     variables.test_for_constant = [
         key for (key, value) in variables.test_to_enable_dict.items() if CONSTANT_INPUT in value ]
 
+    # Test for constants to file.
+    variables.node_test_for_constants_to_file = [
+        key for (key, value) in variables.node_test_to_enable_dict.items() if CONSTANTS_TO_FILE in value ]
+    variables.model_test_for_constants_to_file = [
+        key for (key, value) in variables.model_test_to_enable_dict.items() if CONSTANTS_TO_FILE in value ]
+    variables.test_for_constants_to_file = [
+        key for (key, value) in variables.test_to_enable_dict.items() if CONSTANTS_TO_FILE in value ]
+
     # Specify the test cases which need version converter
     variables.test_need_converter = []
 
@@ -1166,6 +1174,13 @@ def get_test_models():
         node_test_to_enable = variables.node_test_for_constant
         model_test_to_enable = variables.model_test_for_constant
         test_to_enable = variables.test_for_constant
+
+    if args.constants_to_file:
+        if args.verbose:
+            print("constant input is enabled", file=sys.stderr)
+        node_test_to_enable = variables.node_test_for_constants_to_file
+        model_test_to_enable = variables.model_test_for_constants_to_file
+        test_to_enable = variables.test_for_constants_to_file
 
     # User can specify a list of test cases with TEST_CASE_BY_USER
     TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")

@@ -145,6 +145,15 @@ add_custom_target(check-onnx-backend-model
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+add_custom_target(check-onnx-backend-constants-to-file
+  COMMAND
+    TEST_CONSTANTS_TO_FILE=true
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
 add_custom_target(check-onnx-backend-signature
   COMMAND
     TEST_SIGNATURE=true
@@ -198,6 +207,8 @@ add_dependencies(check-onnx-backend-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
+add_dependencies(check-onnx-backend-constants-to-file onnx-mlir)
+add_dependencies(check-onnx-backend-constants-to-file PyRuntime)
 add_dependencies(check-onnx-backend-node onnx-mlir)
 add_dependencies(check-onnx-backend-node PyRuntime)
 add_dependencies(check-onnx-backend-model onnx-mlir)
@@ -212,6 +223,7 @@ add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-constant)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-constants-to-file)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-signature)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-input-verification)
 

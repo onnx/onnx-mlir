@@ -8,7 +8,7 @@
 # Immutable global variables:
 #   - args, tempdir, result_dir, RUNTIME_DIR, TEST_DRIVER
 # Mutable global variables:
-#   - test_for_dynamic, test_for_constant, test_need_converter
+#   - test_for_dynamic, test_for_constant, test_for_constants_to_file, test_need_converter
 #   - real_model_tests, node_model_tests
 #   - test_to_enable_dict
 ################################################################################
@@ -53,6 +53,7 @@ def get_args_from_env():
     TEST_INPUT_VERIFICATION = os.getenv("TEST_INPUT_VERIFICATION")
     TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
     TEST_INSTRUCTION_CHECK = os.getenv("TEST_INSTRUCTION_CHECK")
+    TEST_CONSTANTS_TO_FILE = os.getenv("TEST_CONSTANTS_TO_FILE")
 
     # Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
     # real model files into home directory.
@@ -185,6 +186,19 @@ def get_args_from_env():
         default=(strtobool(TEST_CASE_CHECK) if TEST_CASE_CHECK else False),
         help="report the change of test cases (default: false if TEST_CASE_CHECK env var not set)",
     )
+    parser.add_argument(
+        "--constants_to_file",
+        action="store_true",
+        default=(strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False),
+        help="whether store constants to file or not, passed to the compiler",
+    )
+    parser.add_argument(
+        "--constants_to_file_total_threshold",
+        type=float,
+        default=(0.000001 if TEST_CONSTANTS_TO_FILE else 2),
+        help="total threshold to trigger constants to file. Set it to a small "
+        "value 1024 bytes since models in the model zoo are small",
+    )
         
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
@@ -248,6 +262,7 @@ def get_runtime_vars():
 STATIC_SHAPE = "static"
 DYNAMIC_SHAPE = "dynamic"
 CONSTANT_INPUT = "constant"
+CONSTANTS_TO_FILE = "constants_to_file"
 
 ### immutable variables ###
 
@@ -273,10 +288,12 @@ except NameError:
 
 # test_xxx
 try:
-    _, _, _ = test_for_dynamic, test_for_constant, test_need_converter
+    _, _, _, _ = test_for_dynamic, test_for_constant, test_for_constant_to_file,
+    test_need_converter
 except NameError:
     test_for_dynamic = []
     test_for_constant = []
+    test_for_constant_to_file = []
     test_need_converter = []
 
 # real_model_tests, node_model_tests
