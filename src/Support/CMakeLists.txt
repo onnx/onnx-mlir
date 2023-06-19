@@ -9,7 +9,7 @@ add_onnx_mlir_library(OMDiagnostic
   LINK_LIBS PUBLIC  
   MLIRIR
   )
-  
+
 add_onnx_mlir_library(OMSupport
   KrnlSupport.cpp
 
@@ -21,7 +21,7 @@ add_onnx_mlir_library(OMSupport
   )
 
 add_onnx_mlir_library(OMMlirUtilities
-  FloatingPoint16.cpp
+  SmallFP.cpp
   TypeUtilities.cpp
   # Expect to have other utilities for Attribute and Value in the future.
   # AttributeUtilities.cpp
