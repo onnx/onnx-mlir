@@ -16,13 +16,20 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <string.h>
-
-#if defined(__APPLE__) || defined(__MVS__)
 #include <stdlib.h>
-#else
-#include <malloc.h>
-#endif
+
+const int i = 1;
+#define IS_SYSTEM_LE() (!((*(const char *)&i) == 0))
+
+#define XOR(a, b) (!(a) != !(b))
+
+void checkEndianness(const char constPackIsLE) {
+  if (XOR(IS_SYSTEM_LE(), constPackIsLE)) {
+    fprintf(stderr, "Constant pack is stored in a byte order that is not "
+                    "native to this current system.");
+    exit(1);
+  }
+}
 
 /// malloc_aligned and free_aligned are adopted from
 /// https://github.com/IBM/zDNN/blob/main/zdnn/malloc4k.c
@@ -78,6 +85,7 @@ void omFreeAligned(void *aligned_ptr) {
 /// \return A FILE pointer
 /// TODO: find a new home for this function.
 void *omOpenBinaryFile(char *fname, int64_t isLE) {
+  checkEndianness(isLE);
   FILE *fileptr;
   fileptr = fopen(fname, "rb"); // Open the file in binary mode
   if (fileptr == NULL) {
