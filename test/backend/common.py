@@ -148,4 +148,5 @@ def compile_model(model, emit):
     # Check if specific instruction are included in the compiled model.
     check_instruction(name + "_cpu", exec_name)
 
+    print("hitung", exec_name, file=sys.stderr)
     return exec_name

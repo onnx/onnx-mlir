@@ -200,6 +200,7 @@ add_custom_target(clean-onnx-backend
     ${CMAKE_COMMAND} -E remove
     ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
     ${CMAKE_CURRENT_BINARY_DIR}/*.so
+    ${CMAKE_CURRENT_BINARY_DIR}/*.constants.bin
   )
 
 add_dependencies(check-onnx-backend onnx-mlir)

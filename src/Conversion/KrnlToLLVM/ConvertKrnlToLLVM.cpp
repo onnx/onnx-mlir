@@ -456,6 +456,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
           rawData = blob->getData();
           if (attr.isSplat() || rawData.size() <= singleThreshold)
             return;
+          globalOfInterest.emplace_back(op);
         })
         .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
           DenseElementsAttr denseAttr =
@@ -463,9 +464,9 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
           rawData = denseAttr.getRawData();
           if (attr.isSplat() || rawData.size() <= singleThreshold)
             return;
+          globalOfInterest.emplace_back(op);
         })
         .Default([&](Attribute attr) { return; });
-    globalOfInterest.emplace_back(op);
     totalSize += rawData.size();
     return WalkResult::advance();
   });

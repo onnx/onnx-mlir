@@ -287,12 +287,11 @@ except NameError:
 
 # test_xxx
 try:
-    _, _, _, _ = test_for_dynamic, test_for_constant, test_for_constant_to_file,
-    test_need_converter
+    _, _, _, _ = test_for_dynamic, test_for_constant, test_for_constants_to_file, test_need_converter
 except NameError:
     test_for_dynamic = []
     test_for_constant = []
-    test_for_constant_to_file = []
+    test_for_constants_to_file = []
     test_need_converter = []
 
 # real_model_tests, node_model_tests
