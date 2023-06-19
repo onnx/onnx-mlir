@@ -80,6 +80,19 @@ def get_args_from_env():
         help="enable constant input tests (default: false if TEST_CONSTANT env var not set)",
     )
     parser.add_argument(
+        "--constants_to_file",
+        action="store_true",
+        default=(strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False),
+        help="whether store constants to file or not, passed to the compiler",
+    )
+    parser.add_argument(
+        "--constants_to_file_total_threshold",
+        type=float,
+        default=(0.000001 if TEST_CONSTANTS_TO_FILE else 2),
+        help="total threshold to trigger constants to file. Set it to a small "
+        "value, 1024 bytes, since models in the model zoo are small",
+    )
+    parser.add_argument(
         "--compilerlib",
         action="store_true",
         default=(strtobool(TEST_COMPILERLIB) if TEST_COMPILERLIB else False),
@@ -186,20 +199,6 @@ def get_args_from_env():
         default=(strtobool(TEST_CASE_CHECK) if TEST_CASE_CHECK else False),
         help="report the change of test cases (default: false if TEST_CASE_CHECK env var not set)",
     )
-    parser.add_argument(
-        "--constants_to_file",
-        action="store_true",
-        default=(strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False),
-        help="whether store constants to file or not, passed to the compiler",
-    )
-    parser.add_argument(
-        "--constants_to_file_total_threshold",
-        type=float,
-        default=(0.000001 if TEST_CONSTANTS_TO_FILE else 2),
-        help="total threshold to trigger constants to file. Set it to a small "
-        "value, 1024 bytes, since models in the model zoo are small",
-    )
-        
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
     return args

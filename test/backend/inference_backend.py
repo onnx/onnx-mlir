@@ -1279,7 +1279,7 @@ class EndiannessAwareExecutionSession(object):
         self.exec_name = None
         # Compiling the model in advance if not testing constants, so that
         # the model is compiled once and used multiple times.
-        if not (args.constant or args.constants_to_file):
+        if not args.constant:
             self.exec_name = compile_model(self.model, args.emit)
 
     def is_input_le(self, inputs):
@@ -1348,9 +1348,8 @@ class EndiannessAwareExecutionSession(object):
         from PyRuntime import OMExecutionSession
 
         # If constant is set, recompile the model so inputs are model constants
-        if args.constant or args.constants_to_file:
-            if args.constant:
-                inputs = self.turn_model_input_to_constant(inputs)
+        if args.constant:
+            inputs = self.turn_model_input_to_constant(inputs)
             self.exec_name = compile_model(self.model, args.emit)
 
         # Contant tests may create models that no longer expect input tensors.
