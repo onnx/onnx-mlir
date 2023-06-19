@@ -264,9 +264,10 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
   Type int32PtrTy = getPointerType(builder.getContext(), int32Ty);
   LLVMBuilder createLLVM(builder, loc);
   LLVMBuilder createLLVMModuleLoc(builder, module.getLoc());
-  // Create '__errno_location' function signature: `i32 *()`
+  // Create 'om_errno_location' function signature: `i32 *()`
+  // TODO: Integrate this with RuntimeAPI.
   FlatSymbolRefAttr errnoSymbolRef = createLLVMModuleLoc.getOrInsertSymbolRef(
-      module, StringRef("__errno_location"), int32PtrTy, {});
+      module, StringRef("om_errno_location"), int32PtrTy, {});
   Value errNoPos =
       createLLVM.call(int32PtrTy, errnoSymbolRef, ArrayRef<Value>({}));
   Value errNoVal = createLLVM.constant(int32Ty, (int64_t)errCode);

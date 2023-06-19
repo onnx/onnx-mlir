@@ -23,7 +23,7 @@ module {
 // CHECK:           %[[VAL_4:.*]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr<array<54 x i8>>
 // CHECK:           %[[VAL_6:.*]] = llvm.bitcast %[[VAL_4]] : !llvm.ptr<array<54 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_6]], %[[VAL_2]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_7:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_7:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_7]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_9:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_9]] : !llvm.ptr
@@ -38,7 +38,7 @@ module {
 // CHECK-DAG:       %[[VAL_15:.*]] = llvm.mlir.addressof @"om_Wrong data type for the input 0: expect f32\0A" : !llvm.ptr<array<44 x i8>>
 // CHECK-DAG:       %[[VAL_17:.*]] = llvm.bitcast %[[VAL_15]] : !llvm.ptr<array<44 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_17]]) : (!llvm.ptr) -> ()
-// CHECK-DAG:       %[[VAL_18:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_18:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_18]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_20:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_20]] : !llvm.ptr
@@ -51,7 +51,7 @@ module {
 // CHECK-DAG:       %[[VAL_24:.*]] = llvm.mlir.addressof @"om_Wrong rank for the input 0: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<51 x i8>>
 // CHECK-DAG:       %[[VAL_26:.*]] = llvm.bitcast %[[VAL_24]] : !llvm.ptr<array<51 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_26]], %[[VAL_22]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_27:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_27:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_27]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_29:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_29]] : !llvm.ptr
@@ -65,7 +65,7 @@ module {
 // CHECK-DAG:       %[[VAL_34:.*]] = llvm.mlir.addressof @"om_Wrong size for the dimension 0 of the input 0: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
 // CHECK-DAG:       %[[VAL_36:.*]] = llvm.bitcast %[[VAL_34]] : !llvm.ptr<array<70 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_36]], %[[VAL_31]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_37:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_37:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_37]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_39:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_39]] : !llvm.ptr
@@ -79,7 +79,7 @@ module {
 // CHECK-DAG:       %[[VAL_45:.*]] = llvm.mlir.addressof @"om_Wrong size for the dimension 1 of the input 0: expect 4, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
 // CHECK-DAG:       %[[VAL_47:.*]] = llvm.bitcast %[[VAL_45]] : !llvm.ptr<array<70 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_47]], %[[VAL_42]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_48:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_48:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_48]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_50:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_50]] : !llvm.ptr
@@ -93,7 +93,7 @@ module {
 // CHECK-DAG:       %[[VAL_56:.*]] = llvm.mlir.addressof @"om_Wrong size for the dimension 2 of the input 0: expect 5, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
 // CHECK-DAG:       %[[VAL_58:.*]] = llvm.bitcast %[[VAL_56]] : !llvm.ptr<array<70 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_58]], %[[VAL_53]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_59:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_59:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_59]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_61:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_61]] : !llvm.ptr
@@ -108,7 +108,7 @@ module {
 // CHECK-DAG:       %[[VAL_68:.*]] = llvm.mlir.addressof @"om_Wrong data type for the input 1: expect f32\0A" : !llvm.ptr<array<44 x i8>>
 // CHECK-DAG:       %[[VAL_70:.*]] = llvm.bitcast %[[VAL_68]] : !llvm.ptr<array<44 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_70]]) : (!llvm.ptr) -> ()
-// CHECK-DAG:       %[[VAL_71:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_71:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_71]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_73:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_73]] : !llvm.ptr
@@ -121,7 +121,7 @@ module {
 // CHECK-DAG:       %[[VAL_77:.*]] = llvm.mlir.addressof @"om_Wrong rank for the input 1: expect 3, but got {{\%}}lld\0A" : !llvm.ptr<array<51 x i8>>
 // CHECK-DAG:       %[[VAL_79:.*]] = llvm.bitcast %[[VAL_77]] : !llvm.ptr<array<51 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_79]], %[[VAL_75]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_80:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_80:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_80]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_82:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_82]] : !llvm.ptr
@@ -135,7 +135,7 @@ module {
 // CHECK-DAG:       %[[VAL_87:.*]] = llvm.mlir.addressof @"om_Wrong size for the dimension 0 of the input 1: expect a non-negative value\0A" : !llvm.ptr<array<75 x i8>>
 // CHECK-DAG:       %[[VAL_89:.*]] = llvm.bitcast %[[VAL_87]] : !llvm.ptr<array<75 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_89]]) : (!llvm.ptr) -> ()
-// CHECK-DAG:       %[[VAL_90:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_90:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_90]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_92:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_92]] : !llvm.ptr
@@ -149,7 +149,7 @@ module {
 // CHECK-DAG:       %[[VAL_98:.*]] = llvm.mlir.addressof @"om_Wrong size for the dimension 1 of the input 1: expect 4, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
 // CHECK-DAG:       %[[VAL_100:.*]] = llvm.bitcast %[[VAL_98]] : !llvm.ptr<array<70 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_100]], %[[VAL_95]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_101:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_101:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_101]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_103:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_103]] : !llvm.ptr
@@ -163,7 +163,7 @@ module {
 // CHECK-DAG:       %[[VAL_109:.*]] = llvm.mlir.addressof @"om_Wrong size for the dimension 2 of the input 1: expect 5, but got {{\%}}lld\0A" : !llvm.ptr<array<70 x i8>>
 // CHECK-DAG:       %[[VAL_111:.*]] = llvm.bitcast %[[VAL_109]] : !llvm.ptr<array<70 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_111]], %[[VAL_106]]) : (!llvm.ptr, i64) -> ()
-// CHECK-DAG:       %[[VAL_112:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
+// CHECK-DAG:       %[[VAL_112:.*]] = llvm.call @om_errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_112]] : i32, !llvm.ptr
 // CHECK:           %[[VAL_114:.*]] = llvm.mlir.null : !llvm.ptr
 // CHECK:           llvm.return %[[VAL_114]] : !llvm.ptr

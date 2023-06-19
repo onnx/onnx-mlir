@@ -36,12 +36,15 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
+
+int32_t *om_errno_location(void) { return &errno; }
 
 struct OMTensor {
 #ifdef __cplusplus
