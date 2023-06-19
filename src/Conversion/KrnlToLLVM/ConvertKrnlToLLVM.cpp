@@ -638,7 +638,9 @@ void loadConstantsFromFile(ModuleOp &module,
                          .getSExtValue();
 
     // Get alignment.
-    int64_t alignment = dataGlobalOp.getAlignment().value();
+    int64_t alignment = -1;
+    if (dataGlobalOp.getAlignment().has_value())
+      alignment = dataGlobalOp.getAlignment().value();
 
     // Read data from the external file.
     Value dataGlobalAddr = create.llvm.addressOf(dataGlobalOp);
@@ -678,6 +680,7 @@ void freeBuffersForConstants(ModuleOp &module,
 
   Type llvmI8Ty = IntegerType::get(ctx, 8);
   Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
+  Type llvmI64Ty = IntegerType::get(ctx, 64);
   Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
 
   // The following function will be emitted inside the IR to free buffers for
@@ -725,8 +728,13 @@ void freeBuffersForConstants(ModuleOp &module,
   for (LLVM::GlobalOp global : dataGlobalOps) {
     Value addr = create.llvm.addressOf(global);
     Value ptr = create.llvm.load(llvmI8PtrTy, addr);
+    // Get alignment.
+    int64_t alignment = -1;
+    if (global.getAlignment().has_value())
+      alignment = global.getAlignment().value();
+    Value alignVal = create.llvm.constant(llvmI64Ty, alignment);
     RuntimeAPI::callApi(
-        b, loc, apiRegistry, RuntimeAPI::API::FREE_ALIGNED, {ptr});
+        b, loc, apiRegistry, RuntimeAPI::API::FREE_ALIGNED, {ptr, alignVal});
   }
   create.llvm._return();
 }

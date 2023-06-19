@@ -37,13 +37,23 @@ void checkEndianness(const char constPackIsLE) {
 /// malloc() that does alignment
 ///
 /// \param[in] size Size to be malloc'd
-/// \param[in] align Alignment
+/// \param[in] align Alignment, -1 if no alignment
 ///
 /// \return Pointer to the malloc'd area if successful, or NULL otherwise
 ///
 /// TODO: find a new home for this function.
-void *omMallocAligned(size_t size, size_t align) {
-  // request one more page + size of a pointer from the OS
+void *omMallocAligned(int64_t size, int64_t align) {
+  // No alignment.
+  if (align == -1) {
+    void *ptr = malloc(size);
+    if (!ptr) {
+      perror("Error during malloc");
+      fprintf(stderr, "errno = %d\n", errno);
+    }
+    return ptr;
+  }
+
+  // Request one more page + size of a pointer from the OS.
   unsigned short extra_allocation = (align - 1) + sizeof(void *);
 
   void *ptr = malloc(size + extra_allocation);
@@ -53,10 +63,10 @@ void *omMallocAligned(size_t size, size_t align) {
     return ptr;
   }
 
-  // find the align boundary after ptr
+  // Find the align boundary after ptr.
   void *aligned_ptr =
       (void *)(((uintptr_t)ptr + extra_allocation) & ~(align - 1));
-  // put the original malloc'd address right before aligned_ptr
+  // Put the original malloc'd address right before aligned_ptr.
   ((void **)aligned_ptr)[-1] = ptr;
 
   return aligned_ptr;
@@ -69,11 +79,16 @@ void *omMallocAligned(size_t size, size_t align) {
 /// \return None
 ///
 /// TODO: find a new home for this function.
-void omFreeAligned(void *aligned_ptr) {
-  if (aligned_ptr) {
-    // get the original malloc'd address from where we put it and free it
-    void *original_ptr = ((void **)aligned_ptr)[-1];
-    free(original_ptr);
+void omFreeAligned(void *ptr, int64_t align) {
+  if (ptr) {
+    if (align == -1) {
+      // No alignment.
+      free(ptr);
+    } else {
+      // Get the original malloc'd address from where we put it and free it.
+      void *original_ptr = ((void **)ptr)[-1];
+      free(original_ptr);
+    }
   }
 }
 
@@ -87,7 +102,7 @@ void omFreeAligned(void *aligned_ptr) {
 void *omOpenBinaryFile(char *fname, int64_t isLE) {
   checkEndianness(isLE);
   FILE *fileptr;
-  fileptr = fopen(fname, "rb"); // Open the file in binary mode
+  fileptr = fopen(fname, "rb"); // Open the file in binary mode.
   if (fileptr == NULL) {
     perror("Error: OpenBinaryFile");
     return NULL;

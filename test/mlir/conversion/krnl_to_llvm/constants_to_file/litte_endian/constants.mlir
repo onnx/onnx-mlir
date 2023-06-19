@@ -64,25 +64,27 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK-DAG:       [[VAR_0_8_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
 // CHECK-DAG:       [[VAR_1_3_:%.+]] = llvm.mlir.constant(80 : i64) : i64
 // CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.call @omOpenBinaryFile([[arg0_]], [[VAR_2_3_]]) : (!llvm.ptr, i64) -> !llvm.ptr
+// CHECK-DAG:       [[VAR_3_4_:%.+]] = llvm.call @omOpenBinaryFile([[arg0_]], [[VAR_3_3_]]) : (!llvm.ptr, i64) -> !llvm.ptr
 // CHECK-DAG:       [[VAR_4_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
 // CHECK:           [[VAR_5_3_:%.+]] = llvm.bitcast [[VAR_4_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omLoadExternalConstant([[VAR_5_3_]], [[VAR_3_3_]], [[VAR_1_3_]], [[VAR_1_3_]], [[VAR_0_8_]]) : (!llvm.ptr, !llvm.ptr, i64, i64, i64) -> ()
+// CHECK:           llvm.call @omLoadExternalConstant([[VAR_5_3_]], [[VAR_3_4_]], [[VAR_1_3_]], [[VAR_1_3_]], [[VAR_0_8_]]) : (!llvm.ptr, !llvm.ptr, i64, i64, i64) -> ()
 // CHECK:           [[VAR_6_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
 // CHECK:           [[VAR_7_3_:%.+]] = llvm.bitcast [[VAR_6_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omLoadExternalConstant([[VAR_7_3_]], [[VAR_3_3_]], [[VAR_2_3_]], [[VAR_1_3_]], [[VAR_0_8_]]) : (!llvm.ptr, !llvm.ptr, i64, i64, i64) -> ()
+// CHECK:           llvm.call @omLoadExternalConstant([[VAR_7_3_]], [[VAR_3_4_]], [[VAR_2_3_]], [[VAR_1_3_]], [[VAR_0_8_]]) : (!llvm.ptr, !llvm.ptr, i64, i64, i64) -> ()
 // CHECK:           llvm.call @omCloseFile([[VAR_3_3_]]) : (!llvm.ptr) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 
 // CHECK:         llvm.func @omFreeBuffersForConstants() {
-// CHECK:           [[VAR_0_9_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
-// CHECK:           [[VAR_1_3_:%.+]] = llvm.load [[VAR_0_9_]] : !llvm.ptr<ptr>
-// CHECK:           llvm.call @omFreeAligned([[VAR_1_3_]]) : (!llvm.ptr) -> ()
-// CHECK:           [[VAR_2_4_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
-// CHECK:           [[VAR_3_3_:%.+]] = llvm.load [[VAR_2_4_]] : !llvm.ptr<ptr>
-// CHECK:           llvm.call @omFreeAligned([[VAR_3_3_]]) : (!llvm.ptr) -> ()
+// CHECK-DAG:       [[VAR_0_9_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
+// CHECK-DAG:       [[VAR_1_4_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
+// CHECK:           [[VAR_2_4_:%.+]] = llvm.load [[VAR_1_4_]] : !llvm.ptr<ptr>
+// CHECK:           llvm.call @omFreeAligned([[VAR_2_4_]], [[VAR_0_9_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_3_5_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
+// CHECK:           [[VAR_4_4_:%.+]] = llvm.load [[VAR_3_5_]] : !llvm.ptr<ptr>
+// CHECK:           llvm.call @omFreeAligned([[VAR_4_4_]], [[VAR_0_9_]]) : (!llvm.ptr, i64) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 }
