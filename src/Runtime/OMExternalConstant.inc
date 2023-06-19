@@ -76,6 +76,7 @@ void omFreeAligned(void *aligned_ptr) {
 /// \param[in] isLE Data in the file is little-endian or not
 ///
 /// \return A FILE pointer
+/// TODO: find a new home for this function.
 void *omOpenBinaryFile(char *fname, int64_t isLE) {
   FILE *fileptr;
   fileptr = fopen(fname, "rb"); // Open the file in binary mode
@@ -91,12 +92,13 @@ void *omOpenBinaryFile(char *fname, int64_t isLE) {
 /// \param[in] fileptr A FILE pointer
 ///
 /// \return None
+/// TODO: find a new home for this function.
 void omCloseFile(void *fileptr) {
   if (fileptr)
     fclose((FILE *)fileptr);
 }
 
-/// Load data from a binary file into a aligned buffer.
+/// Load data from a binary file into an aligned buffer.
 ///
 /// \param[in] ptr Pointer returned by omLoadExternalConstant()
 /// \param[in] fname File name at the current folder
