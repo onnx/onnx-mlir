@@ -122,54 +122,10 @@ int isLessElem(void *elem1, void *elem2, uint64_t elemSize,
   return 0;
 }
 
-void uniqueTableSort(uniqueTable *table) {
-  uint64_t elemSize = table->elementSize;
-  uint64_t elemCount = table->elementCount;
-  int64_t *sortedOrder = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  //printf("XXXX uniqueTableSort: called\n");
-  for (uint64_t idx = 0; idx < elemCount; idx++) {
-    // get the least value in the table
-    int order = 0;
-    void *currIdxElemPtr = (void *)(((char *)table->tablePtr) + elemSize * idx);
-    for (uint64_t i = 0; i < elemCount; i++) {
-      void *elemPtr = (void *)(((char *)table->tablePtr) + elemSize * i);
-      if (isLessElem(elemPtr, currIdxElemPtr, elemSize, table->dataType)) {
-        order++;
-      }
-    }
-    //printf("XXXX sortedOrder[%d] = %ld\n", idx, order);
-    sortedOrder[idx] = order;
-  }
-  // Allocate sorted tables
-  char *sortedTablePtr = (char *) alloca(elemCount * elemSize);
-  int64_t *sortedIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  int64_t *sortedInverseIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  int64_t *sortedCountsPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  // Set sorted tables
-  for (uint64_t i = 0; i < elemCount; i++) {
-    memcpy(sortedTablePtr + sortedOrder[i] * elemSize,
-           ((char *)table->tablePtr) + i * elemSize, elemSize);
-    if (table->countsPtr != NULL)
-      sortedCountsPtr[sortedOrder[i]] = table->countsPtr[i];
-    if (table->indicesPtr != NULL)
-      sortedIndicesPtr[sortedOrder[i]] = table->indicesPtr[i];
-  }
-  if (table->inverseIndicesPtr != NULL)
-    for (uint64_t i = 0; i < elemCount; i++)
-      sortedInverseIndicesPtr[i] = sortedOrder[table->inverseIndicesPtr[i]];
-  // Copy sorted data from the sorted tables to the original tables
-  memcpy(table->tablePtr, (void *)sortedTablePtr, elemCount * elemSize);
-  if (table->countsPtr != NULL)
-    memcpy(table->countsPtr, sortedCountsPtr, elemCount * sizeof(int64_t));
-  if (table->indicesPtr != NULL)
-    memcpy(table->indicesPtr, sortedIndicesPtr, elemCount * sizeof(int64_t));
-  if (table->inverseIndicesPtr != NULL)
-    memcpy(table->inverseIndicesPtr, sortedInverseIndicesPtr, elemCount * sizeof(int64_t));
-}
-
+typedef enum CopyDirection { ToSlicedOrder, ToOriginalOrder } CopyDirection;
 void getSliceData(void *inputPtr, int64_t *shape, int64_t *strides, int64_t rank,
     int64_t *shapeInUniqueAxis, int64_t sliceAxis, int64_t idxInSliceAxis,
-    int64_t sliceSize, int64_t dataSize, void *sliceData) {
+    int64_t dataSize, void *sliceData, CopyDirection dir) {
   assert(rank == 6 && "rank should be expanded to 6 in getSliceData");
 #if 0
 printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
@@ -207,7 +163,10 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
                   tdim[4] * strides[4] + tdim[5] * strides[5];
               void *currInputPtr = ((char *)inputPtr) + currOff * dataSize;
               void *currSliceData = ((char *)sliceData) + dataCount * dataSize;
-              memcpy(currSliceData, currInputPtr, dataSize);
+              if (dir == ToSlicedOrder)
+                memcpy(currSliceData, currInputPtr, dataSize);
+              else 
+                memcpy(currInputPtr, currSliceData, dataSize);
               dataCount++;
             }
           }
@@ -222,6 +181,64 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
   }
   printf("] =============================================================\n");
 #endif
+}
+
+void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted,
+    int64_t sliced, int64_t *shape, int64_t rank, int64_t *strides,
+    int64_t *shapeInUniqueAxis, int64_t axis, int64_t dataSize) {
+  uint64_t elemSize = table->elementSize;
+  uint64_t elemCount = table->elementCount;
+  //printf("XXXX uniqueTableSort: called\n");
+  char *sortedTablePtr = (char *) alloca(elemCount * elemSize);
+  if (sorted) {
+    int64_t *sortedOrder = (int64_t *) alloca(elemCount * sizeof(int64_t));
+    for (uint64_t idx = 0; idx < elemCount; idx++) {
+      // get the least value in the table
+      int order = 0;
+      void *currIdxElemPtr = (void *)(((char *)table->tablePtr) + elemSize * idx);
+      for (uint64_t i = 0; i < elemCount; i++) {
+        void *elemPtr = (void *)(((char *)table->tablePtr) + elemSize * i);
+        if (isLessElem(elemPtr, currIdxElemPtr, elemSize, table->dataType)) {
+          order++;
+        }
+      }
+      //printf("XXXX sortedOrder[%d] = %ld\n", idx, order);
+      sortedOrder[idx] = order;
+    }
+    // Allocate sorted tables
+    int64_t *sortedIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
+    int64_t *sortedInverseIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
+    int64_t *sortedCountsPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
+    // Set sorted tables
+    for (uint64_t i = 0; i < elemCount; i++) {
+      memcpy(sortedTablePtr + sortedOrder[i] * elemSize,
+             ((char *)table->tablePtr) + i * elemSize, elemSize);
+      if (table->countsPtr != NULL)
+        sortedCountsPtr[sortedOrder[i]] = table->countsPtr[i];
+      if (table->indicesPtr != NULL)
+        sortedIndicesPtr[sortedOrder[i]] = table->indicesPtr[i];
+    }
+    if (table->inverseIndicesPtr != NULL)
+      for (uint64_t i = 0; i < elemCount; i++)
+        sortedInverseIndicesPtr[i] = sortedOrder[table->inverseIndicesPtr[i]];
+  } else {
+    sortedTablePtr = (char *) table->tablePtr;
+  }
+  if (sliced) {
+    // Copy sorted data from the sorted tables to the original tables
+    for (int idxInSliceAxis = 0; idxInSliceAxis < elemCount; idxInSliceAxis++) {
+      void *slicedData = sortedTablePtr + idxInSliceAxis * elemSize;
+      getSliceData(table->tablePtr, shape, strides, rank, shapeInUniqueAxis,
+          axis, idxInSliceAxis, dataSize, slicedData, ToOriginalOrder); 
+    }
+  }
+  return;
+}
+
+void uniqueTableSort(uniqueTable *table) {
+  return uniqueTableSortAndConvertToOriginalOrder(table, /*sorted=*/1,
+      /*sliced=*/0, /*shape=*/NULL, /*rank=*/0, /*strides=*/NULL, /*shapeInUniqueAxis=*/NULL, 
+      /*axis=*/0, /*dataSize=*/0);
 }
 
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
@@ -260,6 +277,9 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
         count++;
       }
     }
+    if ((sorted > 0) && (Y != NULL)) {
+      uniqueTableSort(&uniqueTable);
+    }
   } else { // if slice attribute is specified
     // To support input Tensor with various ranks in a uniform way.
     // If the input rank < 6, upgrade the rank to 6 virtually without changing
@@ -283,24 +303,23 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     printf("XXXXX shape=[%ld:%ld:%ld:%ld:%ld:%ld], ", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
     printf("sliceAxis=%ld, sliceNum=%ld, sliceSize=%ld, dataSize=%ld\n", sliceAxis, sliceNum, sliceSize, dataSize);
     void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum * dataSize) : YPtr;
+    void *sliceData = alloca(sliceSize * dataSize);
     uniqueTableInit(&uniqueTable, dataType, sliceSize * dataSize, sliceNum,
         tablePtr, (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
         (int64_t *)countsPtr);
-    void *sliceData = alloca(sliceSize * dataSize);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
       printf("XXXX idxInSliceAxis=%d\n", idxInSliceAxis);
       getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
-          idxInSliceAxis, sliceSize, dataSize, sliceData);
+          idxInSliceAxis, dataSize, sliceData, ToSlicedOrder);
       if (uniqueTableRegister(&uniqueTable, sliceData, idxInSliceAxis) == 0) {
         count++;
       }
     }
+    uniqueTableSortAndConvertToOriginalOrder(&uniqueTable, /*sorted=*/sorted, /*sliced=*/1,
+        shape, rank, strides, shapeInUniqueAxis, axis, dataSize);
   }
   *totalPtr = count;
   printf("XXXX OMUnique: count = %d\n", count);
-  if ((sorted > 0) && (Y != NULL)) {
-    uniqueTableSort(&uniqueTable);
-  }
   return;
 }
 
