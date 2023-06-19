@@ -558,11 +558,13 @@ void loadConstantsFromFile(ModuleOp &module,
 
   // By default, user program (C/C++/Java/Python) would call this function.
   // If calledByEntryPoint, this function will be called by entry points.
-  Operation *firstEntryPointOp = getFirstEntryOpInBlock(module, entryGlobalOps);
-  b.setInsertionPoint(firstEntryPointOp);
-  LLVM::LLVMFuncOp funcOp =
-      create.llvm.func(loadAllConstantsFuncName, llvmFnType);
+  LLVM::LLVMFuncOp funcOp;
   if (calledByEntryPoint) {
+    Operation *firstEntryPointOp =
+        getFirstEntryOpInBlock(module, entryGlobalOps);
+    assert(firstEntryPointOp && "No entry function exists");
+    b.setInsertionPoint(firstEntryPointOp);
+    funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
     // Call loadAllConstantsFuncName in each entry point function.
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
@@ -579,6 +581,10 @@ void loadConstantsFromFile(ModuleOp &module,
           /*isVarArg=*/false);
       create.llvm.call({}, loadAllConstantsRef, {});
     }
+  } else {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToEnd(module.getBody());
+    funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
   }
 
   // Emit the body of the function.
@@ -681,12 +687,14 @@ void freeBuffersForConstants(ModuleOp &module,
 
   // By default, user program (C/C++/Java/Python) would call this function.
   // If calledByEntryPoint, this function will be called by entry points.
-  Operation *firstEntryPointOp = getFirstEntryOpInBlock(module, entryGlobalOps);
-  OpBuilder::InsertionGuard guard(b);
-  b.setInsertionPoint(firstEntryPointOp);
-  LLVM::LLVMFuncOp funcOp =
-      create.llvm.func(freeBuffersForConstantsFuncName, llvmFnType);
+  LLVM::LLVMFuncOp funcOp;
   if (calledByEntryPoint) {
+    Operation *firstEntryPointOp =
+        getFirstEntryOpInBlock(module, entryGlobalOps);
+    assert(firstEntryPointOp && "No entry function exists");
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPoint(firstEntryPointOp);
+    funcOp = create.llvm.func(freeBuffersForConstantsFuncName, llvmFnType);
     // Call omFreeBuffersForConstants at the end of each entry point function.
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
@@ -704,6 +712,10 @@ void freeBuffersForConstants(ModuleOp &module,
           /*isVarArg=*/false);
       create.llvm.call({}, freeAllConstantsRef, {});
     }
+  } else {
+    OpBuilder::InsertionGuard guard(b);
+    b.setInsertionPointToEnd(module.getBody());
+    funcOp = create.llvm.func(freeBuffersForConstantsFuncName, llvmFnType);
   }
 
   // Emit the body of the function omFreeBuffersForConstants.
