@@ -38,7 +38,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
   return %2 : memref<10xi64>
 
 // CHECK-LABEL: module
-// CHECK:         llvm.func @omFreeAligned(!llvm.ptr)
+// CHECK:         llvm.func @omFreeAligned(!llvm.ptr, i64)
 // CHECK:         llvm.func @omCloseFile(!llvm.ptr)
 // CHECK:         llvm.func @omOpenBinaryFile(!llvm.ptr, i64) -> !llvm.ptr
 // CHECK:         llvm.func @omLoadExternalConstant(!llvm.ptr, !llvm.ptr, i64, i64, i64)
