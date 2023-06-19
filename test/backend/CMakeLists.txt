@@ -147,6 +147,7 @@ add_custom_target(check-onnx-backend-model
 
 add_custom_target(check-onnx-backend-constants-to-file
   COMMAND
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constants-to-file
     TEST_CONSTANTS_TO_FILE=true
     ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
