@@ -105,7 +105,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
 
@@ -356,7 +356,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 5; }
     static int getNumberOfResults() { return 1; }
-    static std::vector<int> getTypeMap() { return {20}; }
+    static std::vector<int> getTypeMap() { return {30}; }
   }];
   
   let extraClassDefinition = [{  
@@ -397,7 +397,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 1; }
     static int getNumberOfResults() { return 1; }
-    static std::vector<int> getTypeMap() { return {20}; }
+    static std::vector<int> getTypeMap() { return {30}; }
   }];
   
   let extraClassDefinition = [{  
