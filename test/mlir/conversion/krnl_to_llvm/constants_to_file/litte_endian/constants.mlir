@@ -73,7 +73,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:           [[VAR_6_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
 // CHECK:           [[VAR_7_3_:%.+]] = llvm.bitcast [[VAR_6_3_]] : !llvm.ptr<ptr> to !llvm.ptr
 // CHECK:           llvm.call @omLoadExternalConstant([[VAR_7_3_]], [[VAR_3_4_]], [[VAR_2_3_]], [[VAR_1_3_]], [[VAR_0_8_]]) : (!llvm.ptr, !llvm.ptr, i64, i64, i64) -> ()
-// CHECK:           llvm.call @omCloseFile([[VAR_3_3_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.call @omCloseFile([[VAR_3_4_]]) : (!llvm.ptr) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 
