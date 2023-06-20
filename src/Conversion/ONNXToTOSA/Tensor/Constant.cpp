@@ -29,8 +29,8 @@ public:
   using OpAdaptor = typename ONNXConstantOp::Adaptor;
   LogicalResult matchAndRewrite(ONNXConstantOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    llvm::Optional<Attribute> valueAttr = adaptor.getValue();
-    llvm::Optional<Attribute> sparseAttr = adaptor.getSparseValue();
+    std::optional<Attribute> valueAttr = adaptor.getValue();
+    std::optional<Attribute> sparseAttr = adaptor.getSparseValue();
     // Only one of the attributes can/must be present. If
     // sparse is there, value is not present. Currently sparse doesn't seem to
     // be supported by TOSA.

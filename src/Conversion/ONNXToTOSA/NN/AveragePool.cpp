@@ -87,7 +87,7 @@ public:
       handleIncludePadAttr(rewriter, op, adaptor.getX());
     }
 
-    llvm::Optional<Value> newAveragePoolOp =
+    std::optional<Value> newAveragePoolOp =
         tosa::convertPoolOp<ONNXAveragePoolOp, mlir::tosa::AvgPool2dOp>(
             rewriter, op);
 

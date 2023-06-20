@@ -352,14 +352,14 @@ private:
     }
   }
 
-  llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
+  std::optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
       if (const onnx::TypeProto *onnxTypePtr =
               onnx_type_map.GetByOnnxName(onnx_name)) {
-        return llvm::Optional<Type>(ImportType(*onnxTypePtr));
+        return std::optional<Type>(ImportType(*onnxTypePtr));
       }
     }
-    return llvm::Optional<Type>();
+    return std::optional<Type>();
   }
 
   NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(

@@ -39,13 +39,13 @@ namespace onnx_mlir {
 namespace tosa {
 
 // Lowers Gather operators to a sequence of TOSA ops.
-llvm::Optional<mlir::Value> convertGatherOp(mlir::PatternRewriter &rewriter,
+std::optional<mlir::Value> convertGatherOp(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::Value resultValue, mlir::Value inputValue,
     mlir::Value indicesValue, int32_t batchDims, int32_t axis);
 
 // Lowers ReduceMean to a sequence of TOSA ops.
 // Originates from the TorchToTosa conversion
-llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
+std::optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, TosaBuilder &tosaBuilder,
     mlir::RankedTensorType output_type, mlir::Value input_value,
     mlir::ElementsAttr axes_elems, bool keep_dims);
@@ -137,7 +137,7 @@ inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter, 
 
 // Lower MaxPool and AveragePool to TOSA ops.
 template <typename ONNXPoolOp, typename TOSAPoolOp>
-llvm::Optional<mlir::Value> convertPoolOp(
+std::optional<mlir::Value> convertPoolOp(
     mlir::PatternRewriter &rewriter, mlir::Operation *op) {
   using OpAdaptor = typename ONNXPoolOp::Adaptor;
   mlir::Location loc = op->getLoc();
@@ -231,7 +231,7 @@ namespace tosa {
 // Common function for lowering reduce operations to TOSA ops.
 // Modified from TensorFlow
 template <typename T>
-llvm::Optional<mlir::Value> convertReduceOpCommon(
+std::optional<mlir::Value> convertReduceOpCommon(
     mlir::PatternRewriter &rewriter, mlir::Operation *op,
     mlir::RankedTensorType outputType, mlir::Value inputValue,
     mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {

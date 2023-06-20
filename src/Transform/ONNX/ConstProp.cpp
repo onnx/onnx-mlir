@@ -585,7 +585,7 @@ Value ConstPropSqueeze(
 
 template <typename Op>
 LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
-    llvm::Optional<ArrayAttr> splitAttr) {
+    std::optional<ArrayAttr> splitAttr) {
   // Basic info.
   unsigned numResults = splitOp.getNumResults();
   Value input = splitOp.getInput();
@@ -636,7 +636,7 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
-    llvm::Optional<ArrayAttr> optionalAttr;
+    std::optional<ArrayAttr> optionalAttr;
 
     auto split = splitOp.getSplit();
     if (auto splitConstOp = getONNXConstantOp(split)) {

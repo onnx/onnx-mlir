@@ -37,7 +37,7 @@ struct TosaBuilder : DialectBuilder {
   TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~TosaBuilder() {}
 
-  llvm::Optional<mlir::Value> gather(mlir::Value resultValue,
+  std::optional<mlir::Value> gather(mlir::Value resultValue,
       mlir::Value inputValue, mlir::Value indicesValue, int32_t batchDims,
       int32_t axis);
   template <typename T>

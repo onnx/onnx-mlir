@@ -27,9 +27,9 @@ TorchTypeConverter::TorchTypeConverter() {
   /// Unrealized conversion cast
   auto addUnrealizedCast = [&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
-      return llvm::None;
+      return std::nullopt;
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   };
@@ -42,14 +42,14 @@ TorchTypeConverter::TorchTypeConverter() {
   });
 
   /// Torch tensor conversion
-  addConversion([](TensorType type) -> Optional<Type> {
+  addConversion([](TensorType type) -> std::optional<Type> {
     return Torch::ValueTensorType::get(
         type.getContext(), type.getShape(), type.getElementType());
   });
   auto addTensorCast = [](OpBuilder &builder, TensorType type,
-                           ValueRange inputs, Location loc) -> Optional<Value> {
+                           ValueRange inputs, Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
-      return llvm::None;
+      return std::nullopt;
     assert(inputs[0].getType().isa<Torch::BaseTensorType>());
     return builder
         .create<torch::TorchConversion::ToBuiltinTensorOp>(loc, inputs[0])
@@ -59,9 +59,9 @@ TorchTypeConverter::TorchTypeConverter() {
   addArgumentMaterialization(addTensorCast);
   addTargetMaterialization(
       [](OpBuilder &builder, Torch::ValueTensorType type, ValueRange inputs,
-          Location loc) -> Optional<Value> {
+          Location loc) -> std::optional<Value> {
         if (inputs.size() != 1)
-          return llvm::None;
+          return std::nullopt;
         assert(inputs[0].getType().isa<mlir::TensorType>());
         return builder
             .create<torch::TorchConversion::FromBuiltinTensorOp>(
@@ -83,7 +83,7 @@ TorchTypeConverter::TorchTypeConverter() {
   });
   addSourceMaterialization([](OpBuilder &builder, RankedTensorType type,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (type.getElementType().isUnsignedInteger()) {
       mlir::Type elementType = IntegerType::get(type.getContext(),
           type.getElementType().getIntOrFloatBitWidth(), IntegerType::Unsigned);
@@ -91,11 +91,11 @@ TorchTypeConverter::TorchTypeConverter() {
           .create<UnrealizedConversionCastOp>(loc, elementType, inputs)
           .getResult(0);
     }
-    return llvm::None;
+    return std::nullopt;
   });
   addTargetMaterialization([](OpBuilder &builder, RankedTensorType type,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (type.getElementType().isSignedInteger()) {
       mlir::Type elementType = IntegerType::get(type.getContext(),
           type.getElementType().getIntOrFloatBitWidth(), IntegerType::Signed);
@@ -103,6 +103,6 @@ TorchTypeConverter::TorchTypeConverter() {
           .create<UnrealizedConversionCastOp>(loc, elementType, inputs)
           .getResult(0);
     }
-    return llvm::None;
+    return std::nullopt;
   });
 }

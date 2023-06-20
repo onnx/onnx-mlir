@@ -171,7 +171,7 @@ Value TosaBuilder::slice(Value &inputConst, llvm::ArrayRef<int64_t> size,
   return newSliceInput;
 }
 
-llvm::Optional<Value> TosaBuilder::gather(Value resultValue, Value inputValue,
+std::optional<Value> TosaBuilder::gather(Value resultValue, Value inputValue,
     Value indicesValue, int32_t batchDims, int32_t axis) {
   return tosa::convertGatherOp(rewriter(), loc(), resultValue, inputValue,
       indicesValue, batchDims, axis);

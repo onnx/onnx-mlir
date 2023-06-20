@@ -289,13 +289,13 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
 size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 
-size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.value().size(); }
+size_t ArrayAttrSize(std::optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
+int64_t ArrayAttrIntVal(std::optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 

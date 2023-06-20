@@ -42,7 +42,7 @@ struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
     // Get input shape.
     Value inputMemRef = adaptor.getInput();
     int64_t inputRank = create.krnlIE.getShapedTypeRank(inputMemRef);
-    Optional<int64_t> axis = compressOp.getAxis();
+    std::optional<int64_t> axis = compressOp.getAxis();
 
     // Create a few constants.
     auto bitType = rewriter.getIntegerType(1);

@@ -51,7 +51,7 @@ static int64_t countDynamicDims(llvm::ArrayRef<int64_t> dims) {
 
 // Lowers Gather operators to a sequence of TOSA ops.
 // This Code is mostly the same as TF to TOSA.
-llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
+std::optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
     Value resultValue, Value inputValue, Value indicesValue, int32_t batchDims,
     int32_t axis) {
 
@@ -287,7 +287,7 @@ llvm::Optional<Value> convertGatherOp(PatternRewriter &rewriter, Location loc,
 
 // Common function for lowering reduce operations to TOSA ops.
 template <typename T>
-llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
+std::optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
     Operation *op, RankedTensorType output_type, Value input_value,
     ElementsAttr axes_elems, bool keep_dims, Type reduce_element_type,
     bool is_quantized, double input_scale, int64_t input_zp,
@@ -351,7 +351,7 @@ llvm::Optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
 }
 
 // Lowers ReduceMean to a sequence of TOSA ops.
-llvm::Optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
+std::optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
     Operation *op, TosaBuilder &tosaBuilder, RankedTensorType output_type,
     Value input_value, ElementsAttr axes_elems, bool keep_dims) {
   // reduce_mean is lowered as followed:

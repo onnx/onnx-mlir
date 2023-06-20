@@ -16,8 +16,8 @@
 using namespace mlir;
 using namespace mlir::torch;
 
-static llvm::Optional<std::pair<unsigned, unsigned>> isEquivalentToFlatten(const llvm::ArrayRef<int64_t> &inputShape, const llvm::ArrayRef<int64_t> &targetShape) {
-  llvm::Optional<std::pair<unsigned, unsigned>> savedResult;
+static std::optional<std::pair<unsigned, unsigned>> isEquivalentToFlatten(const llvm::ArrayRef<int64_t> &inputShape, const llvm::ArrayRef<int64_t> &targetShape) {
+  std::optional<std::pair<unsigned, unsigned>> savedResult;
   int targetSize = targetShape.size();
   int inputSize = inputShape.size();
   int dimDiff = inputSize - targetSize; 
