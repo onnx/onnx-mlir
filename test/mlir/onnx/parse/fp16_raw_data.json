@@ -4,7 +4,7 @@
 // with float16 and bfloat16 data types
 // and with the data represented as raw_data byte arrays
 
-// json is generated with utils/testing/floatingpoint16_data.py raw
+// json is generated with utils/testing/fp16_data.py raw
 {
   "irVersion": "8",
   "graph": {

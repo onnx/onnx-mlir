@@ -25,7 +25,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Support/FloatingPoint16.hpp"
+#include "src/Support/SmallFP.hpp"
 
 using namespace mlir;
 
@@ -79,7 +79,8 @@ struct TransformValueToONNXData {
   static const google::protobuf::RepeatedField<int32_t> &data(
       const onnx::TensorProto &tp) {
     // int32_data is used for:
-    // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16
+    // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16,
+    // float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz
     return tp.int32_data();
   }
 };
@@ -147,8 +148,8 @@ constexpr bool shouldSwapLEBytes =
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
-  if constexpr (isFP16Type<T>)
-    return T::bitcastFromU16(llvm::sys::getSwappedBytes(x.bitcastToU16()));
+  if constexpr (isSmallFPType<T>)
+    return T::bitcastFromUInt(llvm::sys::getSwappedBytes(x.bitcastToUInt()));
   else
     return llvm::sys::getSwappedBytes(x);
 }
@@ -158,7 +159,7 @@ ElementsAttr createElementsAttrFromMemoryBuffer_LE(
     RankedTensorType tensorType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   MLIRContext *ctx = tensorType.getContext();
   assert(tensorType.getElementType() == toMlirType<T>(ctx));
-  if (shouldSwapLEBytes<T>) {
+  if constexpr (shouldSwapLEBytes<T>) {
     ArrayRef<T> array = asArrayRef<T>(membuf->getBuffer());
     return createElmAttrFromArray<T>(tensorType, array, swappedBytes<T>);
   } else {
@@ -171,8 +172,12 @@ template <typename T>
 ElementsAttr createElmAttrFromRawBytes_LE(
     RankedTensorType tensorType, ArrayRef<char> bytes) {
   ArrayRef<T> array = castArrayRef<T>(bytes);
-  return createElmAttrFromArray<T>(tensorType, array,
-      [](T x) { return shouldSwapLEBytes<T> ? swappedBytes<T>(x) : x; });
+  return createElmAttrFromArray<T>(tensorType, array, [](T x) {
+    if constexpr (shouldSwapLEBytes<T>)
+      return swappedBytes<T>(x);
+    else
+      return x;
+  });
 }
 
 // Converts to the cpp type 'To' that correspond's to the tensor element type
@@ -182,8 +187,8 @@ ElementsAttr createElmAttrFromRawBytes_LE(
 // which must be bit-wise converted from uint16_t.
 template <typename To, typename From>
 To deserializeDatum(const From &from) {
-  if constexpr (isFP16Type<To>)
-    return To::bitcastFromU16(from);
+  if constexpr (isSmallFPType<To>)
+    return To::bitcastFromUInt(from);
   else
     return from;
 }
