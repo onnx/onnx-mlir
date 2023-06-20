@@ -458,11 +458,11 @@ def DivOnesOnRhs : Pat<
 
 def EqualConstProp : Pat<
     // From equal(c1, c2).
-    (ONNXEqualOp:$equalOp
+    (ONNXEqualOp:$result
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     // To c1 == c2
-    (CreateEqualOfTwoConst $equalOp, $lhs, $rhs),
+    (CreateEqualOfTwoConst $result, $lhs, $rhs),
     // constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
