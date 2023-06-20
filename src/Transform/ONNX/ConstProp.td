@@ -121,19 +121,19 @@ def CreateDivOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXDivOp>($_builder, $0, $1, $2)">;
 
 def CreateEqualOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXEqualOp>($_builder, $0, $1, $2)">;
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXEqualOp>($_builder, $0, $1)">;
 
 def CreateLessOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXLessOp>($_builder, $0, $1, $2)">;
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXLessOp>($_builder, $0, $1)">;
 
 def CreateGreaterOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOp>($_builder, $0, $1, $2)">;
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOp>($_builder, $0, $1)">;
 
 def CreateLessOrEqualOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXLessOrEqualOp>($_builder, $0, $1, $2)">;
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXLessOrEqualOp>($_builder, $0, $1)">;
 
 def CreateGreaterOrEqualOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOrEqualOp>($_builder, $0, $1, $2)">;
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOrEqualOp>($_builder, $0, $1)">;
 
 def CreateWhereOfThreeConst :
    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
@@ -458,12 +458,10 @@ def DivOnesOnRhs : Pat<
 
 def EqualConstProp : Pat<
     // From equal(c1, c2).
-    (ONNXEqualOp:$result
+    (ONNXEqualOp
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
-    // To c1 == c2
-    (CreateEqualOfTwoConst $result, $lhs, $rhs),
-    // constraints
+    (CreateEqualOfTwoConst $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
 //===----------------------------------------------------------------------===//
@@ -471,10 +469,10 @@ def EqualConstProp : Pat<
 //===----------------------------------------------------------------------===//
 
 def LessConstPropPattern: Pat<
-    (ONNXLessOp:$result
+    (ONNXLessOp
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
-    (CreateLessOfTwoConst $result, $lhs, $rhs),
+    (CreateLessOfTwoConst $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
 //===----------------------------------------------------------------------===//
@@ -482,10 +480,10 @@ def LessConstPropPattern: Pat<
 //===----------------------------------------------------------------------===//
 
 def GreaterConstPropPattern: Pat<
-    (ONNXGreaterOp:$result
+    (ONNXGreaterOp
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
-    (CreateGreaterOfTwoConst $result, $lhs, $rhs),
+    (CreateGreaterOfTwoConst $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
 //===----------------------------------------------------------------------===//
@@ -493,10 +491,10 @@ def GreaterConstPropPattern: Pat<
 //===----------------------------------------------------------------------===//
 
 def LessOrEqualConstPropPattern: Pat<
-    (ONNXLessOrEqualOp:$result
+    (ONNXLessOrEqualOp
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
-    (CreateLessOrEqualOfTwoConst $result, $lhs, $rhs),
+    (CreateLessOrEqualOfTwoConst $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
 //===----------------------------------------------------------------------===//
@@ -504,10 +502,10 @@ def LessOrEqualConstPropPattern: Pat<
 //===----------------------------------------------------------------------===//
 
 def GreaterOrEqualConstPropPattern: Pat<
-    (ONNXGreaterOrEqualOp:$result
+    (ONNXGreaterOrEqualOp
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
-    (CreateGreaterOrEqualOfTwoConst $result, $lhs, $rhs),
+    (CreateGreaterOrEqualOfTwoConst $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
 //===----------------------------------------------------------------------===//
