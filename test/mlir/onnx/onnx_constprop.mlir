@@ -365,14 +365,74 @@ func.func @test_div_ones(%arg0 : tensor<1x2xui8>) -> tensor<1x2xui8> {
 
 // -----
 
-// CHECK-LABEL: @test_equal() -> tensor<1xi1>
-func.func @test_equal() -> tensor<1xi1> {
-  %0 = onnx.Constant dense<2> : tensor<1xi64>
-  %1 = onnx.Constant dense<-1> : tensor<1xi64>
-  %2 = "onnx.Equal"(%0, %1) : (tensor<1xi64>, tensor<1xi64>) -> tensor<1xi1>
-  "onnx.Return"(%2) : (tensor<1xi1>) -> ()
-  // CHECK: {{.*}} = onnx.Constant dense<false> : tensor<1xi1>
+// CHECK-LABEL: @test_equal() -> tensor<3xi1>
+func.func @test_equal() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[-1, 0, 2]> : tensor<3xi64>
+  %2 = "onnx.Equal"(%0, %1) : (tensor<3xi64>, tensor<3xi64>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[false, true, false]> : tensor<3xi1>
   // CHECK-NOT: {{.*}} = "onnx.Equal"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// Less tests
+
+// -----
+
+// CHECK-LABEL: @test_less() -> tensor<3xi1>
+func.func @test_less() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[-1, 0, 2]> : tensor<3xi64>
+  %2 = "onnx.Less"(%0, %1) : (tensor<3xi64>, tensor<3xi64>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[false, false, true]> : tensor<3xi1>
+  // CHECK-NOT: {{.*}} = "onnx.Less"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// Greater tests
+
+// -----
+
+// CHECK-LABEL: @test_greater() -> tensor<3xi1>
+func.func @test_greater() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[-1, 0, 2]> : tensor<3xi64>
+  %2 = "onnx.Greater"(%0, %1) : (tensor<3xi64>, tensor<3xi64>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[true, false, false]> : tensor<3xi1>
+  // CHECK-NOT: {{.*}} = "onnx.Greater"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// LessOrEqual tests
+
+// -----
+
+// CHECK-LABEL: @test_lessorequal() -> tensor<3xi1>
+func.func @test_lessorequal() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[-1, 0, 2]> : tensor<3xi64>
+  %2 = "onnx.LessOrEqual"(%0, %1) : (tensor<3xi64>, tensor<3xi64>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[false, true, true]> : tensor<3xi1>
+  // CHECK-NOT: {{.*}} = "onnx.LessOrEqual"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// GreaterOrEqual tests
+
+// -----
+
+// CHECK-LABEL: @test_greaterorequal() -> tensor<3xi1>
+func.func @test_greaterorequal() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[0, 0, 0]> : tensor<3xi64>
+  %1 = onnx.Constant dense<[-1, 0, 2]> : tensor<3xi64>
+  %2 = "onnx.GreaterOrEqual"(%0, %1) : (tensor<3xi64>, tensor<3xi64>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: {{.*}} = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  // CHECK-NOT: {{.*}} = "onnx.GreaterOrEqual"{{.*}}
 }
 
 //===----------------------------------------------------------------------===//
