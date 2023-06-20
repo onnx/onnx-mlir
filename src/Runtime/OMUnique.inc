@@ -125,14 +125,15 @@ int isLessElem(void *elem1, void *elem2, uint64_t elemSize,
 typedef enum CopyDirection { ToSlicedOrder, ToOriginalOrder } CopyDirection;
 void getSliceData(void *inputPtr, int64_t *shape, int64_t *strides, int64_t rank,
     int64_t *shapeInUniqueAxis, int64_t sliceAxis, int64_t idxInSliceAxis,
-    int64_t dataSize, void *sliceData, CopyDirection dir) {
+    int64_t dataSize, void *sliceData, CopyDirection direction) {
   assert(rank == 6 && "rank should be expanded to 6 in getSliceData");
-#if 0
-printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
+#if 1
+if (direction == ToOriginalOrder)
+printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
        "shape=[%ld:%ld:%ld:%ld:%ld:%ld], "
        "strides=[%ld:%ld:%ld:%ld:%ld:%ld], rank=%ld, "
        "shapeInUniqueAxis=[%ld:%ld:%ld:%ld:%ld:%ld], "
-       "sliceAxis=%ld, idxInSliceAxis=%ld, sliceSize=%ld, dataSize=%ld\n",
+       "sliceAxis=%ld, idxInSliceAxis=%ld, dataSize=%ld, direction=%d\n",
        ((uint64_t *) inputPtr)[0], ((uint64_t *) inputPtr)[1],
        ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3],
        ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5],
@@ -142,7 +143,7 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
        strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
        rank, shapeInUniqueAxis[0], shapeInUniqueAxis[1], shapeInUniqueAxis[2],
        shapeInUniqueAxis[3], shapeInUniqueAxis[4], shapeInUniqueAxis[5],
-       sliceAxis, idxInSliceAxis, sliceSize, dataSize);
+       sliceAxis, idxInSliceAxis, dataSize, direction);
 #endif  
   // Gather all data in the slice
   int dim[6];
@@ -163,7 +164,7 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
                   tdim[4] * strides[4] + tdim[5] * strides[5];
               void *currInputPtr = ((char *)inputPtr) + currOff * dataSize;
               void *currSliceData = ((char *)sliceData) + dataCount * dataSize;
-              if (dir == ToSlicedOrder)
+              if (direction == ToSlicedOrder)
                 memcpy(currSliceData, currInputPtr, dataSize);
               else 
                 memcpy(currInputPtr, currSliceData, dataSize);
@@ -175,11 +176,13 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
     }
   }
 #if 1
-  printf("XXXX getSliceData returning: [");
+if (direction == ToOriginalOrder) {
+  printf("XXXX getSliceData (ToOrigin) returning: [");
   for (int i = 0; i < dataCount; i++) {
     printf("%ld,", ((uint64_t *) sliceData)[i]);
   }
   printf("] =============================================================\n");
+}
 #endif
 }
 
@@ -188,10 +191,14 @@ void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted
     int64_t *shapeInUniqueAxis, int64_t axis, int64_t dataSize) {
   uint64_t elemSize = table->elementSize;
   uint64_t elemCount = table->elementCount;
-  //printf("XXXX uniqueTableSort: called\n");
+  uint64_t axisSize = shape[axis];
+  printf("XXX uniqueTableSortAndConvertToOriginalOrder called (sliced=%ld, elmCount=%ld, elemSize=%ld)\n", sliced, elemCount, elemSize);
   char *sortedTablePtr = (char *) alloca(elemCount * elemSize);
+  int64_t *sortedOrder = (int64_t *) alloca(elemCount * sizeof(int64_t));
+  int64_t *sortedIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
+  int64_t *sortedInverseIndicesPtr = (int64_t *) alloca(axisSize * sizeof(int64_t));
+  int64_t *sortedCountsPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
   if (sorted) {
-    int64_t *sortedOrder = (int64_t *) alloca(elemCount * sizeof(int64_t));
     for (uint64_t idx = 0; idx < elemCount; idx++) {
       // get the least value in the table
       int order = 0;
@@ -202,36 +209,52 @@ void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted
           order++;
         }
       }
-      //printf("XXXX sortedOrder[%d] = %ld\n", idx, order);
+      printf("XXXX sortedOrder[%ld] = %d\n", idx, order);
       sortedOrder[idx] = order;
     }
     // Allocate sorted tables
-    int64_t *sortedIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-    int64_t *sortedInverseIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-    int64_t *sortedCountsPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
     // Set sorted tables
     for (uint64_t i = 0; i < elemCount; i++) {
       memcpy(sortedTablePtr + sortedOrder[i] * elemSize,
              ((char *)table->tablePtr) + i * elemSize, elemSize);
+      if (table->indicesPtr != NULL) {
+        sortedIndicesPtr[sortedOrder[i]] = table->indicesPtr[i];
+        printf("XXXXXX sortedOrder[%ld]=%ld, table->indicesPtr[i]=%ld\n",
+               i, sortedOrder[i], table->indicesPtr[i]);
+      }
       if (table->countsPtr != NULL)
         sortedCountsPtr[sortedOrder[i]] = table->countsPtr[i];
-      if (table->indicesPtr != NULL)
-        sortedIndicesPtr[sortedOrder[i]] = table->indicesPtr[i];
     }
-    if (table->inverseIndicesPtr != NULL)
-      for (uint64_t i = 0; i < elemCount; i++)
-        sortedInverseIndicesPtr[i] = sortedOrder[table->inverseIndicesPtr[i]];
   } else {
-    sortedTablePtr = (char *) table->tablePtr;
+    memcpy(sortedTablePtr, table->tablePtr, elemCount * elemSize);
   }
+  if (table->inverseIndicesPtr != NULL)
+    for (uint64_t i = 0; i < axisSize; i++)
+      sortedInverseIndicesPtr[i] = sortedOrder[table->inverseIndicesPtr[i]];
+
   if (sliced) {
     // Copy sorted data from the sorted tables to the original tables
-    for (int idxInSliceAxis = 0; idxInSliceAxis < elemCount; idxInSliceAxis++) {
+#if 0
+    printf("XXXXXX elmCount = %ld\n", elemCount);
+    memcpy(table->tablePtr, (void *)sortedTablePtr, elemCount * elemSize * dataSize);
+#else
+    for (int idxInSliceAxis = 0; idxInSliceAxis < (int) elemCount; idxInSliceAxis++) {
       void *slicedData = sortedTablePtr + idxInSliceAxis * elemSize;
       getSliceData(table->tablePtr, shape, strides, rank, shapeInUniqueAxis,
-          axis, idxInSliceAxis, dataSize, slicedData, ToOriginalOrder); 
+          axis, sortedOrder[idxInSliceAxis], dataSize, slicedData, ToOriginalOrder); 
     }
+#endif
   }
+  if (sliced && sorted) {
+    if (table->countsPtr != NULL)
+      memcpy(table->countsPtr, sortedCountsPtr, elemCount * sizeof(int64_t));
+    if (table->indicesPtr != NULL)
+      memcpy(table->indicesPtr, sortedIndicesPtr, elemCount * sizeof(int64_t));
+    if (table->inverseIndicesPtr != NULL)
+      memcpy(table->inverseIndicesPtr, sortedInverseIndicesPtr,
+             axisSize * sizeof(int64_t));
+  }
+  
   return;
 }
 
@@ -244,7 +267,6 @@ void uniqueTableSort(uniqueTable *table) {
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t sliceAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts) {
-  printf("ZZZZZ: sliceAxis=%ld, sorted=%ld\n", sliceAxis, sorted);
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "omTensorUnique assumes inputRank <= 6");
@@ -300,15 +322,12 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t sliceSize = 1;
     for (int64_t i = 0; i < inputRank; i++)
       sliceSize *= (i == sliceAxis) ? 1 : inputShape[i];
-    printf("XXXXX shape=[%ld:%ld:%ld:%ld:%ld:%ld], ", shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]);
-    printf("sliceAxis=%ld, sliceNum=%ld, sliceSize=%ld, dataSize=%ld\n", sliceAxis, sliceNum, sliceSize, dataSize);
     void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum * dataSize) : YPtr;
     void *sliceData = alloca(sliceSize * dataSize);
     uniqueTableInit(&uniqueTable, dataType, sliceSize * dataSize, sliceNum,
         tablePtr, (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
         (int64_t *)countsPtr);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
-      printf("XXXX idxInSliceAxis=%d\n", idxInSliceAxis);
       getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
           idxInSliceAxis, dataSize, sliceData, ToSlicedOrder);
       if (uniqueTableRegister(&uniqueTable, sliceData, idxInSliceAxis) == 0) {

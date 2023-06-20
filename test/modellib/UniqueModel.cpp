@@ -355,7 +355,8 @@ bool UniqueLibBuilder::verifyOutputs() {
   omTensorPrint("], CNT_OUT=[\n", cnt_res);
   printf("]\n");
   fflush(stdout);
-  bool ok = areCloseFloat(y_res, y_ref);
+  bool ok = true;
+  ok &= areCloseFloat(y_res, y_ref);
   ok &= areCloseFloat(ind_res, ind_ref);
   ok &= areCloseFloat(inv_ind_res, inv_ind_ref);
   ok &= areCloseFloat(cnt_res, cnt_ref);

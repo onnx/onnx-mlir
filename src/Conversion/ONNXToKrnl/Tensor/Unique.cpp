@@ -111,13 +111,14 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       }
       outputInverseIndexDims.emplace_back(inputDimExpr);
     } else {
+      printf("BBBBBB rank=%ld, axis=%ld\n", rank, axis);
       for (int64_t i = 0; i < rank; i++) {
         DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
         if (i == axis)
           tDimExpr = totalDimExpr;
         outputYDims.emplace_back(tDimExpr);
-        outputIndexDims.emplace_back(tDimExpr);
       }
+      outputIndexDims.emplace_back(totalDimExpr);
       outputInverseIndexDims.emplace_back(LiteralIndexExpr(xShape[axis]));
     }
 
@@ -143,13 +144,14 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
-    //printf("XXXX calling emitArgUnique(uniqueCount=%p, X=%p, axis=%p, "
-    //    "sorted=%p, outputY=%p, indices=%p, inverse_indices=%p, counts=%p\n",
-    //    uniqueCount, X, axis, sorted, outputY, indices, inverse_indices, counts);
-    //fflush(stdout);
+#if 0
+    llvm::dbgs() << "XXXX BEFORE calling emitArgUnique: [\noutputY=" << outputY <<
+      ",\n indices=" << indices << ",\n inverse_indices=" << inverse_indices <<
+      ",\n counts=" << counts << "]\n";
+#endif
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverse_indices, counts);
-#if 1
+#if 0
     llvm::dbgs() << "XXXX AFTER calling emitArgUnique: [\noutputY=" << outputY <<
       ",\n indices=" << indices << ",\n inverse_indices=" << inverse_indices <<
       ",\n counts=" << counts << "]\n";
