@@ -168,19 +168,19 @@ struct ScalarOp<ONNXXorOp> {
 
 template <>
 struct ScalarOp<ONNXBitwiseAndOp> {
-  using FOp = arith::AndIOp; // Not used.
+  using FOp = NotSuportedScalarOp;
   using IOp = arith::AndIOp;
 };
 
 template <>
 struct ScalarOp<ONNXBitwiseOrOp> {
-  using FOp = arith::OrIOp; // Not used.
+  using FOp = NotSuportedScalarOp;
   using IOp = arith::OrIOp;
 };
 
 template <>
 struct ScalarOp<ONNXBitwiseXorOp> {
-  using FOp = arith::XOrIOp; // Not used.
+  using FOp = NotSuportedScalarOp;
   using IOp = arith::XOrIOp;
 };
 
@@ -340,25 +340,10 @@ struct ScalarOp<ONNXIsInfOp> {
   using IOp = NotSuportedScalarOp;
 };
 
-// For now we will disbale SIMD for IsInf because it is not working correctly.
-
-// template <>
-// double analyzeSimdFor<ONNXIsInfOp>(
-//     Type t, Operation *op, int64_t &von, int64_t &son) {
-//   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
-//   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
-
-//   bool detectNeg = detectPosAttribute == 0 && detectNegAttribute == 1;
-//   bool detectPos = detectPosAttribute == 1 && detectNegAttribute == 0;
-
-//   if (detectPos || detectNeg) {
-//     return simdAnalysis({GenericOps::CompareGop}, {1}, t, von, son);
-//   } else {
-//     return simdAnalysis(
-//         {GenericOps::CompareGop, GenericOps::LogicalGop}, {2, 1}, t, von,
-//         son);
-//   }
-// }
+// Currently, SIMD code gen does not support handling operations where the data
+// size of the inputs is different than the data size of the outputs. As the
+// output of isInf is a bit, and the input is a float, there is size reduction;
+// thus this operation cannot be simdized at this time.
 
 template <>
 Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
@@ -366,12 +351,12 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
 
   Value operand = scalarOperands[0];
-  Type inputElemType = getElementType(operand.getType());
-
-  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(inputElemType);
+  // Get the type from the operands, as they determine the type of the compares.
+  Type inputType = operand.getType();
+  CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(inputType);
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  Value negInf = create.math.negativeInf(inputElemType);
-  Value posInf = create.math.positiveInf(inputElemType);
+  Value negInf = create.math.negativeInf(inputType);
+  Value posInf = create.math.positiveInf(inputType);
 
   double detectNegAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectNegative();
   double detectPosAttribute = dyn_cast<ONNXIsInfOp>(op).getDetectPositive();
