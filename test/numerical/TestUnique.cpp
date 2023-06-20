@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // test with existing example cases in the onnx github
-#if 0
+#if 1
   // Example 1
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
       /*rank=*/1, /*I=*/6, /*J=*/1, /*K=*/-1, /*axis=*/0, /*sorted=*/0,

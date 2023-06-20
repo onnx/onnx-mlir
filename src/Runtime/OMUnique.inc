@@ -26,14 +26,15 @@ typedef struct uniqueTable {
   uint64_t elementMax;
   uint64_t elementCount;
   void *tablePtr;
-  int64_t *indicesPtr;
-  int64_t *inverseIndicesPtr;
-  int64_t *countsPtr;
+  uint64_t *indicesPtr;
+  uint64_t *inverseIndicesPtr;
+  uint64_t *countsPtr;
+  uint64_t sorted;
 } uniqueTable;
 
 void uniqueTableInit(uniqueTable *table, OM_DATA_TYPE dataType,
-    uint64_t elemSize, uint64_t elemMax, void *tablePtr, int64_t *indicesPtr,
-    int64_t *inverseIndicesPtr, int64_t *countsPtr) {
+    uint64_t elemSize, uint64_t elemMax, void *tablePtr, uint64_t *indicesPtr,
+    uint64_t *inverseIndicesPtr, uint64_t *countsPtr, uint64_t sorted) {
   table->dataType = dataType;
   table->elementSize = elemSize;
   table->elementMax = elemMax;
@@ -42,38 +43,8 @@ void uniqueTableInit(uniqueTable *table, OM_DATA_TYPE dataType,
   table->indicesPtr = indicesPtr;
   table->inverseIndicesPtr = inverseIndicesPtr;
   table->countsPtr = countsPtr;
+  table->sorted = sorted;
 }
-
-int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
-  char *tablePtr = (char *)table->tablePtr;
-  uint64_t i;
-  int found = 0;
-  // Searching for matching data in linear search
-  // More optimizations, such as introducing hash table, are considerable.
-  for (i = 0; i < table->elementCount; i++) {
-    void *elementInTable = (void *)(tablePtr + table->elementSize * i);
-    if (!memcmp(elementInTable, element, table->elementSize)) {
-      found = 1;
-      if (table->countsPtr != NULL)
-        ((table->countsPtr)[i])++;
-      break;
-    }
-  }
-  if (i == table->elementCount) { // no matching element found in the table
-    void *elementInTable = (void *)(tablePtr + table->elementSize * i);
-    memcpy(elementInTable, element, table->elementSize);
-    if (table->countsPtr != NULL)
-      (table->countsPtr)[table->elementCount] = 1;
-    if (table->indicesPtr != NULL)
-      (table->indicesPtr)[table->elementCount] = off;
-    (table->elementCount)++;
-  }
-  if (table->inverseIndicesPtr != NULL)
-    (table->inverseIndicesPtr)[off] = i;
-  return found;
-}
-
-int64_t uniqueTable_count(uniqueTable *table) { return table->elementCount; }
 
 int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
   switch (dataType) {
@@ -121,6 +92,59 @@ int isLessElem(void *elem1, void *elem2, uint64_t elemSize,
   }
   return 0;
 }
+
+int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
+  char *tablePtr = (char *)table->tablePtr;
+  uint64_t i;
+  int found = 0;
+  // Searching for matching data in linear search
+  // More optimizations, such as introducing hash table, are considerable.
+  for (i = 0; i < table->elementCount; i++) {
+    void *elementInTable = (void *)(tablePtr + table->elementSize * i);
+    if (!memcmp(elementInTable, element, table->elementSize)) {
+      found = 1;
+      if (table->countsPtr != NULL)
+        ((table->countsPtr)[i])++;
+      break;
+    }
+    if (table->sorted &&
+        !isLessElem(elementInTable, element, table->elementSize,
+            table->dataType)) {
+      break;
+    }
+  }
+  if (found == 0) { // no matching element found in the table
+    // make space to insert an element
+    for (uint64_t j = table->elementCount; j > i; j--) {
+      void *elem = (void *)(tablePtr + table->elementSize * j);
+      void *elemPrev = (void *)(tablePtr + table->elementSize * (j - 1));
+      memcpy(elem, elemPrev, table->elementSize);
+      if (table->countsPtr != NULL)
+        (table->countsPtr)[j] = (table->countsPtr)[j - 1];
+      if (table->indicesPtr != NULL)
+        (table->indicesPtr)[j] = (table->indicesPtr)[j - 1];
+    }
+    if (table->inverseIndicesPtr != NULL) {
+      for (uint64_t j = 0; j < off; j++) {
+        if ((table->inverseIndicesPtr)[off] >= j)
+          (table->inverseIndicesPtr)[off] += 1;
+      }
+    }
+    (table->elementCount)++;
+    // insert the current element to the space
+    void *elementInTable = (void *)(tablePtr + table->elementSize * i);
+    memcpy(elementInTable, element, table->elementSize);
+    if (table->countsPtr != NULL)
+      (table->countsPtr)[i] = 1;
+    if (table->indicesPtr != NULL)
+      (table->indicesPtr)[i] = off;
+  }
+  if (table->inverseIndicesPtr != NULL)
+    (table->inverseIndicesPtr)[off] = i;
+  return found;
+}
+
+int64_t uniqueTable_count(uniqueTable *table) { return table->elementCount; }
 
 typedef enum CopyDirection { ToSlicedOrder, ToOriginalOrder } CopyDirection;
 void getSliceData(void *inputPtr, int64_t *shape, int64_t *strides, int64_t rank,
@@ -291,16 +315,13 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     }
     void *tablePtr = (YPtr == NULL) ? alloca(dataSize * elementNum) : YPtr;
     uniqueTableInit(&uniqueTable, dataType, dataSize, elementNum, tablePtr,
-        (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
-        (int64_t *)countsPtr);
+        (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr,
+        (uint64_t *)countsPtr, sorted);
     for (uint64_t off = 0; off < elementNum; off++) {
       void *elemPtr = ((char *)inputPtr) + dataSize * off;
       if (uniqueTableRegister(&uniqueTable, elemPtr, off) == 0) {
         count++;
       }
-    }
-    if ((sorted > 0) && (Y != NULL)) {
-      uniqueTableSort(&uniqueTable);
     }
   } else { // if slice attribute is specified
     // To support input Tensor with various ranks in a uniform way.
@@ -325,8 +346,8 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     void *tablePtr = (YPtr == NULL) ? alloca(sliceSize * sliceNum * dataSize) : YPtr;
     void *sliceData = alloca(sliceSize * dataSize);
     uniqueTableInit(&uniqueTable, dataType, sliceSize * dataSize, sliceNum,
-        tablePtr, (int64_t *)indicesPtr, (int64_t *)inverseIndicesPtr,
-        (int64_t *)countsPtr);
+        tablePtr, (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr,
+        (uint64_t *)countsPtr, sorted);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
       getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
           idxInSliceAxis, dataSize, sliceData, ToSlicedOrder);
@@ -334,8 +355,10 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
         count++;
       }
     }
-    uniqueTableSortAndConvertToOriginalOrder(&uniqueTable, /*sorted=*/sorted, /*sliced=*/1,
-        shape, rank, strides, shapeInUniqueAxis, axis, dataSize);
+#if 0
+    if (Y != NULL)
+      transposeY(Y, shape, rank, axis);
+#endif
   }
   *totalPtr = count;
   printf("XXXX OMUnique: count = %d\n", count);
