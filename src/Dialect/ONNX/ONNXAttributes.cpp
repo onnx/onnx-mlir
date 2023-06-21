@@ -127,8 +127,7 @@ Attribute ONNXDialect::parseAttribute(
     auto shapedTy = type.cast<ShapedType>();
     if (auto membuf = DisposableElementsAttr::parse(parser, shapedTy))
       return OnnxElementsAttrBuilder(type.getContext())
-          .fromMemoryBuffer(
-              shapedTy, std::move(membuf), 0, membuf->getBufferSize());
+          .fromMemoryBuffer(shapedTy, std::move(membuf));
     else
       return {};
   }

@@ -65,6 +65,11 @@ struct ElementsAttrBuilder::ElementsProperties {
 ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
     : disposablePool(disposablePool) {}
 
+ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
+    ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+  return fromMemoryBuffer(type, std::move(membuf), 0, membuf->getBufferSize());
+}
+
 ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(ShapedType type,
     std::shared_ptr<llvm::MemoryBuffer> membuf, uint64_t offset,
     uint64_t length) {

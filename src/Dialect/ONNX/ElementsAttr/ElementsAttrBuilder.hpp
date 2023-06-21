@@ -34,6 +34,9 @@ public:
   // The created instance takes ownership of membuf and will release it when the
   // instance is disposed by garbage collection, unless it has shared membuf
   // with other DisposableElementsAttr instances that are longer lived.
+  mlir::ElementsAttr fromMemoryBuffer(
+      mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
+
   mlir::ElementsAttr fromMemoryBuffer(mlir::ShapedType type,
       std::shared_ptr<llvm::MemoryBuffer> membuf, uint64_t offset,
       uint64_t length);
