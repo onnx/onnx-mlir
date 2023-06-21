@@ -54,10 +54,11 @@ namespace onnx_mlir {
 uint64_t getStridesPosition(
     llvm::ArrayRef<uint64_t> index, llvm::ArrayRef<int64_t> strides);
 
-// The data is splat (singleton) if strides are all zero.
-inline bool areStridesSplat(llvm::ArrayRef<int64_t> strides) {
-  return llvm::all_of(strides, [](int64_t s) { return s == 0; });
-}
+// Size of the underlying linear array that represents shape with the given
+// strides. Returns 0 if shape is empty. Returns 1 if strides are splat (all
+// zeros) and shape is non-empty.
+int64_t getStridedSize(
+    llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides);
 
 // Returns strides == getDefaultStrides(shape, strides).
 bool areStridesContiguous(

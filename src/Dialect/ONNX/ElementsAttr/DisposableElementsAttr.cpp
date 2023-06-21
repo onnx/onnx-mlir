@@ -79,7 +79,7 @@ void DisposableElementsAttr::dispose() {
 }
 
 bool DisposableElementsAttr::isSplat() const {
-  return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
+  return getNumBufferElements() == 1;
 }
 
 BType DisposableElementsAttr::getBType() const { return getImpl()->btype; }
@@ -127,13 +127,7 @@ unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
 }
 
 int64_t DisposableElementsAttr::getNumBufferElements() const {
-  int64_t lastPos = 0;
-  for (auto [dimSize, stride] : llvm::zip(getShape(), getStrides())) {
-    if (dimSize == 0)
-      return 0;
-    lastPos += (dimSize - 1) * stride;
-  }
-  return lastPos + 1;
+  return getStridedSize(getShape(), getStrides());
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
