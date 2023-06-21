@@ -398,7 +398,7 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     uint64_t rank = 6;
     for (int64_t i = 0; i < inputRank; i++) {
       shape[i] = inputShape[i];
-      strides[i] = inputStrides[i];
+      strides[i] = (i == 0) ? 1 : strides[i - 1] * inputShape[i - 1];
       shapeInUniqueAxis[i] = (i == sliceAxis) ? 1 : inputShape[i];
     }
     int64_t sliceNum = inputShape[sliceAxis];
