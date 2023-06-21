@@ -126,8 +126,8 @@ int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
     }
     if (table->inverseIndicesPtr != NULL) {
       for (uint64_t j = 0; j < off; j++) {
-        if ((table->inverseIndicesPtr)[off] >= j)
-          (table->inverseIndicesPtr)[off] += 1;
+        if ((table->inverseIndicesPtr)[j] >= i)
+          (table->inverseIndicesPtr)[j] += 1;
       }
     }
     (table->elementCount)++;
@@ -146,18 +146,16 @@ int uniqueTableRegister(uniqueTable *table, void *element, uint64_t off) {
 
 int64_t uniqueTable_count(uniqueTable *table) { return table->elementCount; }
 
-typedef enum CopyDirection { ToSlicedOrder, ToOriginalOrder } CopyDirection;
-void getSliceData(void *inputPtr, int64_t *shape, int64_t *strides, int64_t rank,
-    int64_t *shapeInUniqueAxis, int64_t sliceAxis, int64_t idxInSliceAxis,
-    int64_t dataSize, void *sliceData, CopyDirection direction) {
+void getSliceData(void *inputPtr, uint64_t *shape, uint64_t *strides, uint64_t rank,
+    uint64_t *shapeInUniqueAxis, uint64_t sliceAxis, uint64_t idxInSliceAxis,
+    uint64_t dataSize, void *sliceData) {
   assert(rank == 6 && "rank should be expanded to 6 in getSliceData");
-#if 1
-if (direction == ToOriginalOrder)
+#if 0
 printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
        "shape=[%ld:%ld:%ld:%ld:%ld:%ld], "
        "strides=[%ld:%ld:%ld:%ld:%ld:%ld], rank=%ld, "
        "shapeInUniqueAxis=[%ld:%ld:%ld:%ld:%ld:%ld], "
-       "sliceAxis=%ld, idxInSliceAxis=%ld, dataSize=%ld, direction=%d\n",
+       "sliceAxis=%ld, idxInSliceAxis=%ld, dataSize=%ld\n",
        ((uint64_t *) inputPtr)[0], ((uint64_t *) inputPtr)[1],
        ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3],
        ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5],
@@ -167,17 +165,17 @@ printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
        strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
        rank, shapeInUniqueAxis[0], shapeInUniqueAxis[1], shapeInUniqueAxis[2],
        shapeInUniqueAxis[3], shapeInUniqueAxis[4], shapeInUniqueAxis[5],
-       sliceAxis, idxInSliceAxis, dataSize, direction);
+       sliceAxis, idxInSliceAxis, dataSize);
 #endif  
   // Gather all data in the slice
-  int dim[6];
+  uint64_t dim[6];
   int dataCount = 0;
-  for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
-    for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
-      for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
-        for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
-          for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
-            for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
+  for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
+    for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
+      for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
+        for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
+          for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
+            for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
               int tdim[6];
               for (int i = 0; i < 6; i++)
                 tdim[i] = dim[i];
@@ -188,10 +186,7 @@ printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
                   tdim[4] * strides[4] + tdim[5] * strides[5];
               void *currInputPtr = ((char *)inputPtr) + currOff * dataSize;
               void *currSliceData = ((char *)sliceData) + dataCount * dataSize;
-              if (direction == ToSlicedOrder)
-                memcpy(currSliceData, currInputPtr, dataSize);
-              else 
-                memcpy(currInputPtr, currSliceData, dataSize);
+              memcpy(currSliceData, currInputPtr, dataSize);
               dataCount++;
             }
           }
@@ -200,16 +195,15 @@ printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
     }
   }
 #if 1
-if (direction == ToOriginalOrder) {
   printf("XXXX getSliceData (ToOrigin) returning: [");
   for (int i = 0; i < dataCount; i++) {
     printf("%ld,", ((uint64_t *) sliceData)[i]);
   }
   printf("] =============================================================\n");
-}
 #endif
 }
 
+#if 0
 void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted,
     int64_t sliced, int64_t *shape, int64_t rank, int64_t *strides,
     int64_t *shapeInUniqueAxis, int64_t axis, int64_t dataSize) {
@@ -265,7 +259,7 @@ void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted
     for (int idxInSliceAxis = 0; idxInSliceAxis < (int) elemCount; idxInSliceAxis++) {
       void *slicedData = sortedTablePtr + idxInSliceAxis * elemSize;
       getSliceData(table->tablePtr, shape, strides, rank, shapeInUniqueAxis,
-          axis, sortedOrder[idxInSliceAxis], dataSize, slicedData, ToOriginalOrder); 
+          axis, sortedOrder[idxInSliceAxis], dataSize, slicedData); 
     }
 #endif
   }
@@ -284,8 +278,74 @@ void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted
 
 void uniqueTableSort(uniqueTable *table) {
   return uniqueTableSortAndConvertToOriginalOrder(table, /*sorted=*/1,
-      /*sliced=*/0, /*shape=*/NULL, /*rank=*/0, /*strides=*/NULL, /*shapeInUniqueAxis=*/NULL, 
+      /*sliced=*/0, /*shape=*/NULL, /*rank=*/0, /*strides=*/NULL, /*shapeInUniqueAxis=*/NULL,
       /*axis=*/0, /*dataSize=*/0);
+}
+#endif
+
+void transposeY(OMTensor *Y, uint64_t *shape, uint64_t rank, uint64_t axis, uint64_t count) {
+  assert(rank == 6 && "rank should be expanded to 6 in transposeY");
+  const OM_DATA_TYPE dataType = omTensorGetDataType(Y);
+  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  uint64_t strides[6];
+  uint64_t elementNum = 1;
+  uint64_t sliceSize = 1;
+  for (uint64_t i = 0; i < rank; i++) {
+    strides[i] = elementNum;
+    elementNum *= (i == axis) ? count : shape[i];
+    sliceSize *= (i == axis) ? 1 : shape[i];
+  }
+  void *inputPtr = alloca(dataSize * elementNum);
+  memcpy(inputPtr, omTensorGetDataPtr(Y), dataSize * elementNum);
+  void *outputPtr = omTensorGetDataPtr(Y);
+#if 1
+printf("XXXX transposeY: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
+       "shape=[%ld:%ld:%ld:%ld:%ld:%ld], "
+       "strides=[%ld:%ld:%ld:%ld:%ld:%ld], rank=%ld, "
+       "axis=%ld, dataSize=%ld\n",
+       ((uint64_t *) inputPtr)[0], ((uint64_t *) inputPtr)[1],
+       ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3],
+       ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5],
+       ((uint64_t *) inputPtr)[6], ((uint64_t *) inputPtr)[7],
+       ((uint64_t *) inputPtr)[8], ((uint64_t *) inputPtr)[9],
+       ((uint64_t *) inputPtr)[10], ((uint64_t *) inputPtr)[11],
+       shape[0], shape[1], shape[2], shape[3], shape[4], shape[5],
+       strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
+       rank, axis, dataSize);
+#endif  
+  uint64_t tshape[6] = {shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]};
+  tshape[axis] = 1;
+  uint64_t dim[6];
+  uint64_t inputIdx = 0;
+  for (uint64_t idxInSliceAxis = 0; idxInSliceAxis < count; idxInSliceAxis++) {
+    uint64_t sliceOff = sliceSize * idxInSliceAxis;
+    printf("XXXX sliceSize=%ld, idxInSliceAxis=%ld, sliceOff=%ld\n", sliceSize, idxInSliceAxis, sliceOff);
+    for (dim[5] = 0; dim[5] < tshape[5]; dim[5]++) {
+      for (dim[4] = 0; dim[4] < tshape[4]; dim[4]++) {
+        for (dim[3] = 0; dim[3] < tshape[3]; dim[3]++) {
+          for (dim[2] = 0; dim[2] < tshape[2]; dim[2]++) {
+            for (dim[1] = 0; dim[1] < tshape[1]; dim[1]++) {
+              for (dim[0] = 0; dim[0] < tshape[0]; dim[0]++) {
+                void *currInputPtr = ((char *)inputPtr) + inputIdx * dataSize;
+                 uint64_t tdim[6] = {dim[0], dim[1], dim[2], dim[3], dim[4], dim[5]};
+                tdim[axis] = idxInSliceAxis;
+                uint64_t currOff = 
+                    tdim[0] * strides[0] + tdim[1] * strides[1] +
+                    tdim[2] * strides[2] + tdim[3] * strides[3] +
+                    tdim[4] * strides[4] + tdim[5] * strides[5];
+                void *currOutputPtr = ((char *)outputPtr) + currOff * dataSize;
+                printf("XXXX tdim=[%ld:%ld:%ld:%ld:%ld:%ld], inputIdx=%ld, currOff=%ld, dataSize=%ld: "
+                       "currInput=%ld\n", tdim[0], tdim[1], tdim[2], tdim[3], tdim[4], tdim[5],
+                       inputIdx, currOff, dataSize, ((uint64_t *) currInputPtr)[0]);
+                memcpy(currOutputPtr, currInputPtr, dataSize);
+                inputIdx++;
+             }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
@@ -328,16 +388,14 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     // If the input rank < 6, upgrade the rank to 6 virtually without changing
     // the physical memory layout by inserting length=1 ranks at lower ranks.
     // The 5th axis becomes the unique axis.
-    int64_t shape[6] = {1, 1, 1, 1, 1, 1};
-    int64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
-    int64_t strides[6] = {0, 0, 0, 0, 0, 0};
-    int64_t rank = 6;
-    int64_t axis = sliceAxis + (rank - inputRank);
+    uint64_t shape[6] = {1, 1, 1, 1, 1, 1};
+    uint64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
+    uint64_t strides[6] = {0, 0, 0, 0, 0, 0};
+    uint64_t rank = 6;
     for (int64_t i = 0; i < inputRank; i++) {
-      shape[i + (rank - inputRank)] = inputShape[i];
-      shapeInUniqueAxis[i + (rank - inputRank)] =
-          (i == sliceAxis) ? 1 : inputShape[i];
-      strides[i + (rank - inputRank)] = inputStrides[i];
+      shape[i] = inputShape[i];
+      strides[i] = inputStrides[i];
+      shapeInUniqueAxis[i] = (i == sliceAxis) ? 1 : inputShape[i];
     }
     int64_t sliceNum = inputShape[sliceAxis];
     int64_t sliceSize = 1;
@@ -349,16 +407,15 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
         tablePtr, (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr,
         (uint64_t *)countsPtr, sorted);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
-      getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
-          idxInSliceAxis, dataSize, sliceData, ToSlicedOrder);
+      getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, sliceAxis,
+          idxInSliceAxis, dataSize, sliceData);
       if (uniqueTableRegister(&uniqueTable, sliceData, idxInSliceAxis) == 0) {
         count++;
       }
     }
-#if 0
-    if (Y != NULL)
-      transposeY(Y, shape, rank, axis);
-#endif
+    if ((sliceAxis > 0) && (Y != NULL)) {
+      transposeY(Y, shape, rank, sliceAxis, count);
+    }
   }
   *totalPtr = count;
   printf("XXXX OMUnique: count = %d\n", count);
