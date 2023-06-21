@@ -150,8 +150,8 @@ void getSliceData(void *inputPtr, uint64_t *shape, uint64_t *strides, uint64_t r
     uint64_t *shapeInUniqueAxis, uint64_t sliceAxis, uint64_t idxInSliceAxis,
     uint64_t dataSize, void *sliceData) {
   assert(rank == 6 && "rank should be expanded to 6 in getSliceData");
-#if 0
-printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
+#if 1
+printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld], "
        "shape=[%ld:%ld:%ld:%ld:%ld:%ld], "
        "strides=[%ld:%ld:%ld:%ld:%ld:%ld], rank=%ld, "
        "shapeInUniqueAxis=[%ld:%ld:%ld:%ld:%ld:%ld], "
@@ -160,7 +160,8 @@ printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
        ((uint64_t *) inputPtr)[2], ((uint64_t *) inputPtr)[3],
        ((uint64_t *) inputPtr)[4], ((uint64_t *) inputPtr)[5],
        ((uint64_t *) inputPtr)[6], ((uint64_t *) inputPtr)[7],
-       ((uint64_t *) inputPtr)[8],
+       ((uint64_t *) inputPtr)[8], ((uint64_t *) inputPtr)[9],
+       ((uint64_t *) inputPtr)[10], ((uint64_t *) inputPtr)[11],
        shape[0], shape[1], shape[2], shape[3], shape[4], shape[5],
        strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
        rank, shapeInUniqueAxis[0], shapeInUniqueAxis[1], shapeInUniqueAxis[2],
@@ -176,15 +177,18 @@ printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
         for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
           for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
             for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
-              int tdim[6];
-              for (int i = 0; i < 6; i++)
-                tdim[i] = dim[i];
+              uint64_t tdim[6] = {dim[0], dim[1], dim[2], dim[3], dim[4], dim[5]};
               tdim[sliceAxis] = idxInSliceAxis;
               uint64_t currOff = 
                   tdim[0] * strides[0] + tdim[1] * strides[1] +
                   tdim[2] * strides[2] + tdim[3] * strides[3] +
                   tdim[4] * strides[4] + tdim[5] * strides[5];
               void *currInputPtr = ((char *)inputPtr) + currOff * dataSize;
+              printf("getSliceData: tdim=[%ld:%ld:%ld:%ld:%ld:%ld], "
+                     "strides=[%ld:%ld:%ld:%ld:%ld:%ld] (%ld) => dataCount=%d\n", 
+                     tdim[0], tdim[1], tdim[2], tdim[3], tdim[4], tdim[5],
+                     strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
+                     *((uint64_t *) currInputPtr), dataCount);
               void *currSliceData = ((char *)sliceData) + dataCount * dataSize;
               memcpy(currSliceData, currInputPtr, dataSize);
               dataCount++;
@@ -195,7 +199,7 @@ printf("XXXX getSliceData(ToOrigin): inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
     }
   }
 #if 1
-  printf("XXXX getSliceData (ToOrigin) returning: [");
+  printf("XXXX getSliceData returning: [");
   for (int i = 0; i < dataCount; i++) {
     printf("%ld,", ((uint64_t *) sliceData)[i]);
   }

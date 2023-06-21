@@ -99,6 +99,7 @@ int main(int argc, char *argv[]) {
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
       /*rank=*/2, /*I=*/3, /*J=*/3, /*K=*/-1, /*axis=*/0, /*sorted=*/1,
       /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/3));
+  return 0;
 #endif
   // Example 4
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
