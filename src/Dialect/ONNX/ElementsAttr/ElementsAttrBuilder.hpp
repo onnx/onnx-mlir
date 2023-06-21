@@ -34,8 +34,9 @@ public:
   // The created instance takes ownership of membuf and will release it when the
   // instance is disposed by garbage collection, unless it has shared membuf
   // with other DisposableElementsAttr instances that are longer lived.
-  mlir::ElementsAttr fromMemoryBuffer(
-      mlir::ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf);
+  mlir::ElementsAttr fromMemoryBuffer(mlir::ShapedType type,
+      std::shared_ptr<llvm::MemoryBuffer> membuf, uint64_t offset,
+      uint64_t length);
 
   // Wraps elements in a DisposableElementsAttr if it isn't already a
   // DisposableElementsAttr, provided the underlying DisposablePool is active.
@@ -228,7 +229,8 @@ private:
       const Filler<char> &bytesFiller);
 
   mlir::ElementsAttr createWithDefaultStrides(mlir::ShapedType type,
-      BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf);
+      BType bufferBType, std::shared_ptr<llvm::MemoryBuffer> membuf,
+      uint64_t offset = 0);
 
   // Create a DisposableElementsAttr and put it in disposablePool.
   mlir::ElementsAttr create(mlir::ShapedType type, BType bufferBType,

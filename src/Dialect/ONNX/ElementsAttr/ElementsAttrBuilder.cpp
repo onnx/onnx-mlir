@@ -65,10 +65,13 @@ struct ElementsAttrBuilder::ElementsProperties {
 ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
     : disposablePool(disposablePool) {}
 
-ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
-    ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(ShapedType type,
+    std::shared_ptr<llvm::MemoryBuffer> membuf, uint64_t offset,
+    uint64_t length) {
   BType btype = btypeOfMlirType(type.getElementType());
-  return createWithDefaultStrides(type, btype, std::move(membuf));
+  uint64_t numBytes = type.getNumElements() * bytewidthOfBType(btype);
+  assert(numBytes == length && "length mismatch");
+  return createWithDefaultStrides(type, btype, std::move(membuf), offset);
 }
 
 DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
@@ -908,9 +911,10 @@ ElementsAttr ElementsAttrBuilder::fromRawBytes(
 }
 
 ElementsAttr ElementsAttrBuilder::createWithDefaultStrides(ShapedType type,
-    BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+    BType bufferBType, std::shared_ptr<llvm::MemoryBuffer> membuf,
+    uint64_t offset) {
   auto strides = getDefaultStrides(type.getShape());
-  return create(type, bufferBType, strides, std::move(membuf), 0);
+  return create(type, bufferBType, strides, std::move(membuf), offset);
 }
 
 ElementsAttr ElementsAttrBuilder::create(ShapedType type, BType bufferBType,
