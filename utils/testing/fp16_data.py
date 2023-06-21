@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 
-######################### floatingpoint16_data.py ##############################
+################################# fp16_data.py #################################
 #
 # Generates raw/nonraw_data (b)float16 models in test/mlir/onnx/parse/
 #

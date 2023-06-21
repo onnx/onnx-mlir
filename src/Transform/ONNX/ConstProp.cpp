@@ -67,8 +67,9 @@ struct ConstPropCounters {
     auto &counters = map[name];
     counters.invocations += 1;
     for (auto oprnd : operands)
-      counters.input_elms +=
-          getNumberOfElements(oprnd.getType().cast<ShapedType>());
+      if (!isa<NoneType>(oprnd.getType()))
+        counters.input_elms +=
+            getNumberOfElements(oprnd.getType().cast<ShapedType>());
   }
 
   static void dump(llvm::raw_ostream &os) {
@@ -184,10 +185,38 @@ struct ElementWiseBinaryOpImpl<ONNXEqualOp, T> {
   static bool eval(T lhs, T rhs) { return lhs == rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXLessOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs < rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXGreaterOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs > rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXLessOrEqualOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs <= rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXGreaterOrEqualOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs >= rhs; }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
       ElementwiseBinaryOp>(elemType);
+}
+
+constexpr auto addCombiner(Type elemType) {
+  return elementwiseBinaryOpCombiner<ONNXAddOp>(elemType);
+}
+
+constexpr auto subCombiner(Type elemType) {
+  return elementwiseBinaryOpCombiner<ONNXSubOp>(elemType);
 }
 
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
@@ -365,8 +394,8 @@ Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     if constexpr (std::is_same_v<ReduceOp, ONNXReduceMeanOp>) {
       // sum = ReduceSum(data)
-      ElementsAttr sum = elementsBuilder.reduce(data, absoluteAxes, keepdims,
-          elementwiseBinaryOpCombiner<ONNXAddOp>(elemType));
+      ElementsAttr sum = elementsBuilder.reduce(
+          data, absoluteAxes, keepdims, addCombiner(elemType));
       assert(data.size() % sum.size() == 0 &&
              "ReduceSum reduces tensor size by integer factor");
       int64_t denominator = data.size() / sum.size();
@@ -412,6 +441,16 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for matrix multiplication.
 //===----------------------------------------------------------------------===//
+
+Value ConstPropMatMul(PatternRewriter &rewriter, Value replacingValue,
+    Value lhsMatrixValue, Value rhsMatrixValue) {
+  ConstPropCounters::count("MatMul", {lhsMatrixValue, rhsMatrixValue});
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr lhs = getConstValueElements(lhsMatrixValue);
+  ElementsAttr rhs = getConstValueElements(rhsMatrixValue);
+  ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
+  return createReplacingConstantOp(rewriter, replacingValue, matMulElements);
+}
 
 // Takes the matrix shape and zero point for the LHS argument to MatMulInteger
 // and returns the zero point if it broadcasts to the matrix shape or else
@@ -515,13 +554,16 @@ ElementsAttr getMatMulIntegerMatrixElements(
     ElementsAttr reshapedZeroPoint32 =
         elementsBuilder.castElementType(reshapedZeroPoint8, I32);
     return elementsBuilder.combine(matrix32, reshapedZeroPoint32,
-        matrix32.getShapedType(), elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
+        matrix32.getShapedType(),
+        subCombiner(I32)); // elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
   }
 }
 
 Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
     Value lhsMatrixValue, Value rhsMatrixValue, Value lhsZeroPointValue,
     Value rhsZeroPointValue) {
+  ConstPropCounters::count("MatMulInteger",
+      {lhsMatrixValue, rhsMatrixValue, lhsZeroPointValue, rhsZeroPointValue});
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
       lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);
@@ -529,6 +571,56 @@ Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
       rhsMatrixValue, rhsZeroPointValue, reshapeMatMulIntegerRhsZero);
   ElementsAttr matMulElements = elementsBuilder.matMul(lhs, rhs);
   return createReplacingConstantOp(rewriter, replacingValue, matMulElements);
+}
+
+Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
+    Value lhsMatrixValue, Value rhsMatrixValue, Value biasMatrixValue) {
+  ConstPropCounters::count(
+      "MatMul", {lhsMatrixValue, rhsMatrixValue, biasMatrixValue});
+  ONNXGemmOp gemmOp = cast<ONNXGemmOp>(replacingValue.getDefiningOp());
+  float alpha = gemmOp.getAlpha().convertToFloat();
+  float beta = gemmOp.getBeta().convertToFloat();
+  constexpr std::array<uint64_t, 2> IDENTITY = {0, 1};
+  constexpr std::array<uint64_t, 2> TRANSPOSE = {1, 0};
+  ArrayRef<uint64_t> permLhs = gemmOp.getTransA() == 0 ? IDENTITY : TRANSPOSE;
+  ArrayRef<uint64_t> permRhs = gemmOp.getTransB() == 0 ? IDENTITY : TRANSPOSE;
+  Type F64 = rewriter.getF64Type();
+  ShapedType resType = cast<ShapedType>(replacingValue.getType());
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr lhs = getConstValueElements(lhsMatrixValue);
+  ElementsAttr rhs = getConstValueElements(rhsMatrixValue);
+  ElementsAttr res =
+      elementsBuilder.matMul(elementsBuilder.transpose(lhs, permLhs),
+          elementsBuilder.transpose(rhs, permRhs));
+  if (alpha != 1.0) {
+    res = elementsBuilder.castElementType(res, F64);
+    res = elementsBuilder.transform(res, F64, [alpha](WideNum n) {
+      return WideNum::widen<BType::DOUBLE>(alpha * n.narrow<BType::DOUBLE>());
+    });
+  }
+  bool hasBias = !isa<NoneType>(biasMatrixValue.getType());
+  if (hasBias) {
+    ElementsAttr bias = getConstValueElements(biasMatrixValue);
+    if (beta != 1.0) {
+      bias = elementsBuilder.castElementType(bias, F64);
+      bias = elementsBuilder.transform(bias, F64, [beta](WideNum n) {
+        return WideNum::widen<BType::DOUBLE>(beta * n.narrow<BType::DOUBLE>());
+      });
+    }
+    // If one of res or bias has been cast to F64 then also cast the other.
+    if (res.getElementType() != bias.getElementType()) {
+      // One cast is unnecessary but ok: cast to the same type is free.
+      res = elementsBuilder.castElementType(res, F64);
+      bias = elementsBuilder.castElementType(bias, F64);
+    }
+    // elemType will be F64 if alpha != 1.0 or beta != 1.0.
+    Type elemType = res.getElementType();
+    res = elementsBuilder.combine(
+        res, bias, resType.clone(elemType), addCombiner(elemType));
+  }
+  // Cast back in case res was cast to F64 somewhere along the way.
+  res = elementsBuilder.castElementType(res, resType.getElementType());
+  return createReplacingConstantOp(rewriter, replacingValue, res);
 }
 
 //===----------------------------------------------------------------------===//
