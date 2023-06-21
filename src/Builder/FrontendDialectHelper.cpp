@@ -61,16 +61,18 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     }
   }
   assert(!location.empty() && "missing external data location");
-  SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
-  llvm::sys::path::append(path, location);
+  SmallVector<char> pathBuf(externalDataDir.begin(), externalDataDir.end());
+  llvm::sys::path::append(pathBuf, location);
+  StringRef path(pathBuf.data(), pathBuf.size());
   auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
       path, length, offset, /*IsVolatile=*/false);
   if (std::error_code ec = bufferOrError.getError()) {
-    std::string pathStr(path.data(), path.size());
-    llvm::errs() << "Error " << ec.message() << " reading from file " << pathStr
+    llvm::errs() << "Error " << ec.message() << " reading from file " << path
                  << ", offset=" << offset << ", length=" << length << "\n";
     llvm_unreachable("llvm::MemoryBuffer::getFileSlice failed");
   }
+  assert(bufferOrError.get()->getBufferIdentifier() == path &&
+         "buffer identifier is file path");
   return std::move(bufferOrError.get());
 }
 
