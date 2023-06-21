@@ -1424,6 +1424,9 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
         /*op=*/mainFunc.getOperation(), /*useReturn=*/true);
     mainFunc.setType(funcType);
+    if (!externalDataFiles_.empty())
+      mainFunc->setAttr("external_data_dir",
+          builder_.getStringAttr(options_.externalDataDir));
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);
