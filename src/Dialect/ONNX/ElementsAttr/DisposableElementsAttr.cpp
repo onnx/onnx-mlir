@@ -127,7 +127,13 @@ unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
 }
 
 int64_t DisposableElementsAttr::getNumBufferElements() const {
-  return getBuffer()->getBufferSize() / getBufferElementBytewidth();
+  int64_t lastPos = 0;
+  for (auto [dimSize, stride] : llvm::zip(getShape(), getStrides())) {
+    if (dimSize == 0)
+      return 0;
+    lastPos += (dimSize - 1) * stride;
+  }
+  return lastPos + 1;
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
@@ -253,7 +259,8 @@ void DisposableElementsAttr::readBytesAsWideNums(
 }
 
 ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
-  return asArrayRef(getBuffer()->getBuffer());
+  size_t numBytes = getNumBufferElements() * getBufferElementBytewidth();
+  return asArrayRef(getBuffer()->getBuffer().substr(getOffset(), numBytes));
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {
