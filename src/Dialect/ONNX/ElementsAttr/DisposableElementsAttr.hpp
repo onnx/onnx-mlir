@@ -118,7 +118,7 @@ private:
   // created instance.
   static DisposableElementsAttr create(ShapedType type, size_t id,
       BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
-      uint64_t offset, Transformer transformer);
+      uint64_t offset, uint64_t length, Transformer transformer);
 
   // Clears the buffer payload shared_ptr which decreases the reference count
   // and, if it reaches zero, frees or closes the underlying MemoryBuffer's

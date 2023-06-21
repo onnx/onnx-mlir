@@ -58,7 +58,7 @@ public:
   mlir::ElementsAttr createElementsAttr(mlir::ShapedType type,
       BType bufferBType, llvm::ArrayRef<int64_t> strides,
       const mlir::DisposableElementsAttr::Buffer &buffer, uint64_t offset,
-      mlir::DisposableElementsAttr::Transformer transformer);
+      uint64_t length, mlir::DisposableElementsAttr::Transformer transformer);
 
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).

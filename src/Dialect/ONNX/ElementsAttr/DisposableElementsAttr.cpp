@@ -58,12 +58,20 @@ void widenArray(
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
     size_t id, BType bufferBType, ArrayRef<int64_t> strides,
-    const Buffer &buffer, uint64_t offset, Transformer transformer) {
+    const Buffer &buffer, uint64_t offset, uint64_t length,
+    Transformer transformer) {
+  assert(offset <= buffer->getBufferSize() && "offset out of range");
+  assert(length <= buffer->getBufferSize() - offset && "length out of range");
   BType btype = btypeOfMlirType(type.getElementType());
   assert((transformer != nullptr ||
              wideBTypeOfBType(bufferBType) == wideBTypeOfBType(btype)) &&
          "buffer wide type mismatch requires transformer");
   bool isContiguous = areStridesContiguous(type.getShape(), strides);
+  int64_t numBufferElements = isContiguous
+                                  ? type.getNumElements()
+                                  : getStridedSize(type.getShape(), strides);
+  uint64_t numBytes = numBufferElements * bytewidthOfBType(bufferBType);
+  assert(numBytes == length && "length mismatch");
   DisposableElementsAttr a = Base::get(
       type.getContext(), type, strides, bufferBType, btype, isContiguous, id);
   DisposableElementsAttributeStorage &s = *a.getImpl();

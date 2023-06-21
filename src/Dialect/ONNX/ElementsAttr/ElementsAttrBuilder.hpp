@@ -233,13 +233,13 @@ private:
 
   mlir::ElementsAttr createWithDefaultStrides(mlir::ShapedType type,
       BType bufferBType, std::shared_ptr<llvm::MemoryBuffer> membuf,
-      uint64_t offset = 0);
+      uint64_t offset, uint64_t length);
 
   // Create a DisposableElementsAttr and put it in disposablePool.
   mlir::ElementsAttr create(mlir::ShapedType type, BType bufferBType,
       llvm::ArrayRef<int64_t> strides,
       const std::shared_ptr<llvm::MemoryBuffer> &buffer, uint64_t offset,
-      Transformer transformer = nullptr);
+      uint64_t length, Transformer transformer = nullptr);
 
   DisposablePool &disposablePool;
 };
