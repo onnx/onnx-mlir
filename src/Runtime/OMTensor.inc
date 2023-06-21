@@ -36,11 +36,18 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
+#endif
+
+#if defined(__APPLE__)
+// __errno_location() is called from krnl::emitErrNo() to set errno in
+// generated llvm IR, but it somehow doesn't come out of the box on MacOS.
+int * __attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
 
 struct OMTensor {
