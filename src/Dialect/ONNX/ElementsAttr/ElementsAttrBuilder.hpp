@@ -233,7 +233,7 @@ private:
   // Create a DisposableElementsAttr and put it in disposablePool.
   mlir::ElementsAttr create(mlir::ShapedType type, BType bufferBType,
       llvm::ArrayRef<int64_t> strides,
-      const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+      const std::shared_ptr<llvm::MemoryBuffer> &buffer, uint64_t offset,
       Transformer transformer = nullptr);
 
   DisposablePool &disposablePool;

@@ -24,12 +24,12 @@ DisposablePool::~DisposablePool() {}
 
 ElementsAttr DisposablePool::createElementsAttr(ShapedType type,
     BType bufferBType, ArrayRef<int64_t> strides,
-    const mlir::DisposableElementsAttr::Buffer &buffer,
+    const mlir::DisposableElementsAttr::Buffer &buffer, uint64_t offset,
     DisposableElementsAttr::Transformer transformer) {
   static std::atomic<size_t> counter{0};
   size_t id = ++counter;
   auto disposable = DisposableElementsAttr::create(
-      type, id, bufferBType, strides, buffer, std::move(transformer));
+      type, id, bufferBType, strides, buffer, offset, std::move(transformer));
   if (insert(disposable)) {
     return disposable;
   } else {

@@ -58,6 +58,7 @@ struct ElementsAttrBuilder::ElementsProperties {
   BType bufferBType;
   SmallVector<int64_t, 4> strides;
   std::shared_ptr<llvm::MemoryBuffer> buffer;
+  uint64_t offset;
   const Transformer &transformer;
 };
 
@@ -79,7 +80,7 @@ DisposableElementsAttr ElementsAttrBuilder::toDisposableElementsAttr(
       return nullptr;
     ElementsProperties props = getElementsProperties(dense);
     ElementsAttr created = create(dense.getType(), props.bufferBType,
-        props.strides, props.buffer, props.transformer);
+        props.strides, props.buffer, props.offset, props.transformer);
     // Check for race condition where disposablePool became inactive since we
     // checked, in which case it returns a DenseElementsAttr which we don't
     // want.
@@ -328,7 +329,7 @@ ElementsAttr ElementsAttrBuilder::castElementType(
           : composeTransforms(props.transformer,
                 functionTransformer(wideCaster(oldWideType, newWideType)));
   return create(newType, props.bufferBType, props.strides, props.buffer,
-      std::move(transformer));
+      props.offset, std::move(transformer));
 }
 
 namespace {
@@ -353,7 +354,7 @@ ElementsAttr ElementsAttrBuilder::transpose(
   ShapedType transposedType = type.clone(transposedShape);
   auto transposedStrides = transposeDims(props.strides, perm);
   return create(transposedType, props.bufferBType, transposedStrides,
-      props.buffer, props.transformer);
+      props.buffer, props.offset, props.transformer);
 }
 
 ElementsAttr ElementsAttrBuilder::reshape(
@@ -369,7 +370,7 @@ ElementsAttr ElementsAttrBuilder::reshape(
   if (auto reshapedStrides =
           reshapeStrides(shape, props.strides, reshapedShape))
     return create(reshapedType, props.bufferBType, *reshapedStrides,
-        props.buffer, props.transformer);
+        props.buffer, props.offset, props.transformer);
 
   auto disp = elms.dyn_cast<DisposableElementsAttr>();
   assert(disp && "reshapeStrides() always succeeds for non-Disposable "
@@ -399,7 +400,7 @@ ElementsAttr ElementsAttrBuilder::expand(
   ShapedType expandedType = type.clone(expandedShape);
   auto expandedStrides = expandStrides(props.strides, expandedShape);
   return create(expandedType, props.bufferBType, expandedStrides, props.buffer,
-      props.transformer);
+      props.offset, props.transformer);
 }
 
 namespace {
@@ -836,6 +837,7 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     return {/*.bufferBType=*/disposable.getBufferBType(),
         /*.strides=*/{strides.begin(), strides.end()},
         /*.buffer=*/disposable.getBuffer(),
+        /*.offset=*/disposable.getOffset(),
         /*.transformer=*/disposable.getTransformer()};
   } else if (auto dense = elements.dyn_cast<DenseElementsAttr>()) {
     ShapedType type = dense.getType();
@@ -848,6 +850,7 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     return {/*.bufferBType=*/btypeOfMlirType(type.getElementType()),
         /*.strides=*/{strides.begin(), strides.end()},
         /*.buffer=*/getMemoryBuffer(dense),
+        /*.offset=*/0,
         /*.transformer=*/nullTransformer};
   }
   // TODO: consider supporting more ElementsAttr types
@@ -879,6 +882,7 @@ ElementsAttr ElementsAttrBuilder::doTransform(
   ElementsProperties props = getElementsProperties(elms);
 
   return create(transformedType, props.bufferBType, props.strides, props.buffer,
+      props.offset,
       composeTransforms(props.transformer, std::move(transformer)));
 }
 
@@ -890,7 +894,7 @@ ElementsAttr ElementsAttrBuilder::expandAndTransform(ElementsAttr elms,
       expandStrides(props.strides, expandedTransformedType.getShape());
 
   return create(expandedTransformedType, props.bufferBType, expandedStrides,
-      props.buffer,
+      props.buffer, props.offset,
       composeTransforms(props.transformer, std::move(transformer)));
 }
 
@@ -906,15 +910,15 @@ ElementsAttr ElementsAttrBuilder::fromRawBytes(
 ElementsAttr ElementsAttrBuilder::createWithDefaultStrides(ShapedType type,
     BType bufferBType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
   auto strides = getDefaultStrides(type.getShape());
-  return create(type, bufferBType, strides, std::move(membuf));
+  return create(type, bufferBType, strides, std::move(membuf), 0);
 }
 
 ElementsAttr ElementsAttrBuilder::create(ShapedType type, BType bufferBType,
     ArrayRef<int64_t> strides,
-    const std::shared_ptr<llvm::MemoryBuffer> &buffer,
+    const std::shared_ptr<llvm::MemoryBuffer> &buffer, uint64_t offset,
     Transformer transformer) {
   return disposablePool.createElementsAttr(
-      type, bufferBType, strides, buffer, std::move(transformer));
+      type, bufferBType, strides, buffer, offset, std::move(transformer));
 }
 
 } // namespace onnx_mlir

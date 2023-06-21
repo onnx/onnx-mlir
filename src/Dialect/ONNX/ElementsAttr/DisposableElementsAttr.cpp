@@ -58,7 +58,7 @@ void widenArray(
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
     size_t id, BType bufferBType, ArrayRef<int64_t> strides,
-    const Buffer &buffer, Transformer transformer) {
+    const Buffer &buffer, uint64_t offset, Transformer transformer) {
   BType btype = btypeOfMlirType(type.getElementType());
   assert((transformer != nullptr ||
              wideBTypeOfBType(bufferBType) == wideBTypeOfBType(btype)) &&
@@ -68,6 +68,7 @@ DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
       type.getContext(), type, strides, bufferBType, btype, isContiguous, id);
   DisposableElementsAttributeStorage &s = *a.getImpl();
   s.buffer = buffer;
+  s.offset = offset;
   s.transformer = std::move(transformer);
   return a;
 }
@@ -97,6 +98,8 @@ auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   assert(!isDisposed());
   return getImpl()->buffer;
 }
+
+uint64_t DisposableElementsAttr::getOffset() const { return getImpl()->offset; }
 
 auto DisposableElementsAttr::getTransformer() const -> const Transformer & {
   assert(!isDisposed());
