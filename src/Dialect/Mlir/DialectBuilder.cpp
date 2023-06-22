@@ -553,16 +553,32 @@ TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
 }
 
 Value MathBuilder::negativeInf(Type type) const {
-  TypedAttr attr = negativeInfAttr(type);
+  // Strip vector type if any.
+  Type elementType = elementTypeWithVector(type);
+  TypedAttr attr = negativeInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 
 Value MathBuilder::positiveInf(Type type) const {
-  TypedAttr attr = positiveInfAttr(type);
+  // Strip vector type if any.
+  Type elementType = elementTypeWithVector(type);
+  TypedAttr attr = positiveInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 

@@ -2860,26 +2860,48 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {9};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOrEqualOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
-  let hasVerifier = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOrEqualOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasVerifier = 1;
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
@@ -3626,26 +3648,48 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {9};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOrEqualOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
-  let hasVerifier = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOrEqualOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasVerifier = 1;
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
