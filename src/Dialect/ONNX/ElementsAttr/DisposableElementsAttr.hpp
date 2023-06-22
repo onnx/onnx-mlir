@@ -19,9 +19,7 @@
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/Support/MemoryBuffer.h"
 
@@ -267,15 +265,6 @@ public:
 
   // Makes deep copy.
   DenseElementsAttr toDenseElementsAttr() const;
-
-  static constexpr StringLiteral getMnemonic() { return {"dense_disposable"}; }
-
-  static Attribute parse(AsmParser &parser, Type type,
-      function_ref<ParseResult(size_t, ElementsAttr &)> parseElements);
-
-  void printWithoutType(AsmPrinter &printer) const;
-
-  void printAsDenseElementsAttr(AsmPrinter &printer) const;
 
 private:
   // Widens and transforms bytes into WideNums in accordance with

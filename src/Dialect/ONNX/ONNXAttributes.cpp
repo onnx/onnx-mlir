@@ -22,7 +22,9 @@
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
 #include "mlir/IR/DialectImplementation.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Endian.h"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -99,6 +101,136 @@ void ONNXTensorEncodingAttr::print(AsmPrinter &printer) const {
 }
 
 //===----------------------------------------------------------------------===//
+// ONNX Attribute: DisposablElementsAttr
+//===----------------------------------------------------------------------===//
+
+namespace {
+constexpr StringLiteral getDisposablElementsAttrMnemonic() {
+  return {"dense_disposable"};
+}
+
+#if 1
+Attribute parseDisposablElementsAttr(AsmParser &parser, Type type) {
+  llvm_unreachable("TODO: implement");
+}
+
+void printDisposablElementsAttr(
+    AsmPrinter &printer, DisposableElementsAttr disposable) {
+  llvm_unreachable("TODO: implement");
+}
+#else
+Attribute parseDisposablElementsAttr(AsmParser &parser, Type type) {
+  return DisposableElementsAttr::parse(
+      parser, type, [&](size_t id, ElementsAttr &elms) -> ParseResult {
+        return OnnxElementsAttrBuilder(type.getContext())
+            .parseElements(parser, cast<ShapedType>(type), id, elms);
+      });
+}
+
+void printDisposablElementsAttr(
+    AsmPrinter &printer, DisposableElementsAttr disposable) {
+  disposable.printWithoutType(printer);
+}
+
+static Attribute parse(AsmParser &parser, Type type,
+    function_ref<ParseResult(size_t, ElementsAttr &)> parseElements);
+
+void printWithoutType(AsmPrinter &printer) const;
+
+void printAsDenseElementsAttr(AsmPrinter &printer) const;
+
+namespace {
+// Perform byte swap if system endianness is BE and elements are multi-byte.
+bool shouldSwapLEBytes(unsigned elementByteWidth) {
+  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
+                                     llvm::support::endianness::little;
+}
+} // namespace
+
+/*static*/
+Attribute DisposableElementsAttr::parse(AsmParser &parser, Type type,
+    function_ref<ParseResult(size_t, ElementsAttr &)> parseElements) {
+  size_t id = 0; // The parsed id.
+  ElementsAttr elms;
+  if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
+      parseElements(id, elms) || parser.parseGreater())
+    return nullptr;
+
+  return elms;
+}
+
+void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
+  // It would be ideal if we could read the printer flags from printer instead
+  // of constructing them here, because printer may have been constructed with
+  // an override of elideLargeElementsAttrs which we cannot see here.
+  // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
+  // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
+  static OpPrintingFlags printerFlags{};
+  printer << getMnemonic() << "<" << getImpl()->id << ":";
+  if (!printerFlags.shouldElideElementsAttr(*this)) {
+    auto rawBytes = getRawBytes();
+    SmallVector<char> buffer;
+    ArrayRef<char> bytes;
+    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(getElementType()))) {
+      bytes = rawBytes.get();
+    } else {
+      // Reorder raw bytes to little-endian on big-endian platforms:
+      buffer.resize_for_overwrite(rawBytes.get().size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+          rawBytes.get(), buffer, getType());
+      ArrayRef<char> bufferRef(buffer);
+      bytes = bufferRef;
+    }
+    printer << "\"0x" << llvm::toHex(castArrayRef<uint8_t>(bytes)) << "\"";
+  } else {
+    printer << "__elided__";
+  }
+  printer << ">";
+}
+
+mlir::ParseResult parseElements(mlir::AsmParser &parser, mlir::ShapedType type,
+    size_t id, mlir::ElementsAttr &elms);
+
+ParseResult ElementsAttrBuilder::parseElements(
+    AsmParser &parser, ShapedType type, size_t id, ElementsAttr &elms) {
+  std::string str;
+  if (parser.parseString(&str))
+    return failure();
+  if (!parser.parseOptionalColon()) {
+    uint64_t offset = 0;
+    uint64_t length = 0;
+    if (parser.parseInteger(offset) || parser.parseColon() ||
+        parser.parseInteger(length))
+      return failure();
+    return parser.emitError(parser.getCurrentLocation(), "TODO: implement");
+  } else {
+    StringRef hex = str;
+    std::string bytes;
+    if (!hex.consume_front("0x") || (hex.size() & 1) ||
+        !llvm::tryGetFromHex(hex, bytes))
+      return parser.emitError(
+          parser.getCurrentLocation(), "ill-formed hex string");
+    if (bytes.size() != static_cast<size_t>(getSizeInBytes(type)))
+      return parser.emitError(
+          parser.getCurrentLocation(), "data size doesn't match type size");
+    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(type.getElementType()))) {
+      elms =
+          fromMemoryBuffer(type, llvm::MemoryBuffer::getMemBufferCopy(bytes));
+    } else {
+      // Reorder bytes from little-endian on big-endian platforms:
+      std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
+          llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes.size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+          {bytes.data(), bytes.size()}, writeBuffer->getBuffer(), type);
+      elms = fromMemoryBuffer(type, std::move(writeBuffer));
+    }
+    return success();
+  }
+}
+#endif
+} // namespace
+
+//===----------------------------------------------------------------------===//
 // ONNX Attributes: TableGen generated implementation
 //===----------------------------------------------------------------------===//
 
@@ -123,12 +255,8 @@ Attribute ONNXDialect::parseAttribute(
   StringRef attrTag;
   if (generatedAttributeParser(parser, &attrTag, type, attr).has_value())
     return attr;
-  if (attrTag == DisposableElementsAttr::getMnemonic()) {
-    return DisposableElementsAttr::parse(
-        parser, type, [&](size_t id, ElementsAttr &elms) -> ParseResult {
-          return OnnxElementsAttrBuilder(type.getContext())
-              .parseElements(parser, cast<ShapedType>(type), id, elms);
-        });
+  if (attrTag == getDisposablElementsAttrMnemonic()) {
+    return parseDisposablElementsAttr(parser, type);
   }
   parser.emitError(parser.getCurrentLocation())
       << "unknown attribute `" << attrTag << "` in dialect `ONNX`";
@@ -141,6 +269,6 @@ void ONNXDialect::printAttribute(
   // generatedAttributePrinter is generated in ONNXAttributes.cpp.inc
   if (succeeded(generatedAttributePrinter(attr, printer)))
     return;
-  if (auto elements = attr.dyn_cast<DisposableElementsAttr>())
-    elements.printWithoutType(printer);
+  if (auto disposable = attr.dyn_cast<DisposableElementsAttr>())
+    printDisposablElementsAttr(printer, disposable);
 }

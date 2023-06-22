@@ -16,8 +16,6 @@
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 
-#include "mlir/IR/OpImplementation.h"
-
 #include <functional>
 #include <memory>
 
@@ -31,9 +29,6 @@ public:
   // Uses disposablePool to construct DisposableElementsAttr instances
   // in the builder methods.
   ElementsAttrBuilder(DisposablePool &disposablePool);
-
-  mlir::ParseResult parseElements(mlir::AsmParser &parser,
-      mlir::ShapedType type, size_t id, mlir::ElementsAttr &elms);
 
   // Creates a DisposableElementsAttr instance backed by the data in membuf.
   // The created instance takes ownership of membuf and will release it when the

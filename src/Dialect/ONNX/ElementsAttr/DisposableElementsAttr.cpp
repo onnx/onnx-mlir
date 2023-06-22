@@ -14,9 +14,6 @@
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Endian.h"
-
 #include <algorithm>
 #include <string>
 
@@ -165,72 +162,6 @@ DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
     // don't use getFromRawBuffer which requires bit packing
     return DenseElementsAttr::get(getType(), castArrayRef<bool>(bytes.get()));
   return DenseElementsAttr::getFromRawBuffer(getType(), bytes.get());
-}
-
-namespace {
-// Perform byte swap if system endianness is BE and elements are multi-byte.
-bool shouldSwapLEBytes(unsigned elementByteWidth) {
-  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
-                                     llvm::support::endianness::little;
-}
-} // namespace
-
-/*static*/
-Attribute DisposableElementsAttr::parse(AsmParser &parser, Type type,
-    function_ref<ParseResult(size_t, ElementsAttr &)> parseElements) {
-  size_t id = 0; // The parsed id.
-  ElementsAttr elms;
-  if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
-      parseElements(id, elms) || parser.parseGreater())
-    return nullptr;
-
-  return elms;
-}
-
-void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
-  // It would be ideal if we could read the printer flags from printer instead
-  // of constructing them here, because printer may have been constructed with
-  // an override of elideLargeElementsAttrs which we cannot see here.
-  // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
-  // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
-  static OpPrintingFlags printerFlags{};
-  printer << getMnemonic() << "<" << getImpl()->id << ":";
-  if (!printerFlags.shouldElideElementsAttr(*this)) {
-    auto rawBytes = getRawBytes();
-    SmallVector<char> buffer;
-    ArrayRef<char> bytes;
-    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(getElementType()))) {
-      bytes = rawBytes.get();
-    } else {
-      // Reorder raw bytes to little-endian on big-endian platforms:
-      buffer.resize_for_overwrite(rawBytes.get().size());
-      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
-          rawBytes.get(), buffer, getType());
-      ArrayRef<char> bufferRef(buffer);
-      bytes = bufferRef;
-    }
-    printer << "\"0x" << llvm::toHex(castArrayRef<uint8_t>(bytes)) << "\"";
-  } else {
-    printer << "__elided__";
-  }
-  printer << ">";
-}
-
-void DisposableElementsAttr::printAsDenseElementsAttr(
-    AsmPrinter &printer) const {
-  static OpPrintingFlags printerFlags{};
-  if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
-    // Take shortcut by first converting to DenseElementsAttr.
-    // NOTE: This creates a copy which is never garbage collected. This is not
-    // only slow but also defeats the garbage collection benefits of
-    // DisposableElementsAttr, depending on when the printing
-    // takes place (the print at the end of onnx-mlir-opt in lit tests is ok).
-    printer.printAttribute(toDenseElementsAttr());
-    // TODO: Do the work to print without constructing DenseElementsAttr.
-  } else {
-    // In this special case it's easy to avoid conversion to DenseElementsAttr.
-    printer << "dense<__elided__> : " << getType();
-  }
 }
 
 void DisposableElementsAttr::readBytesAsWideNums(
