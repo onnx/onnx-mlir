@@ -167,7 +167,7 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld
        rank, shapeInUniqueAxis[0], shapeInUniqueAxis[1], shapeInUniqueAxis[2],
        shapeInUniqueAxis[3], shapeInUniqueAxis[4], shapeInUniqueAxis[5],
        sliceAxis, idxInSliceAxis, dataSize);
-#endif  
+#endif
   // Gather all data in the slice
   uint64_t dim[6];
   int dataCount = 0;
@@ -208,86 +208,6 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld
   printf("] =============================================================\n");
 #endif
 }
-
-#if 0
-void uniqueTableSortAndConvertToOriginalOrder(uniqueTable *table, int64_t sorted,
-    int64_t sliced, int64_t *shape, int64_t rank, int64_t *strides,
-    int64_t *shapeInUniqueAxis, int64_t axis, int64_t dataSize) {
-  uint64_t elemSize = table->elementSize;
-  uint64_t elemCount = table->elementCount;
-  uint64_t axisSize = shape[axis];
-  printf("XXX uniqueTableSortAndConvertToOriginalOrder called (sliced=%ld, elmCount=%ld, elemSize=%ld)\n", sliced, elemCount, elemSize);
-  char *sortedTablePtr = (char *) alloca(elemCount * elemSize);
-  int64_t *sortedOrder = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  int64_t *sortedIndicesPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  int64_t *sortedInverseIndicesPtr = (int64_t *) alloca(axisSize * sizeof(int64_t));
-  int64_t *sortedCountsPtr = (int64_t *) alloca(elemCount * sizeof(int64_t));
-  if (sorted) {
-    for (uint64_t idx = 0; idx < elemCount; idx++) {
-      // get the least value in the table
-      int order = 0;
-      void *currIdxElemPtr = (void *)(((char *)table->tablePtr) + elemSize * idx);
-      for (uint64_t i = 0; i < elemCount; i++) {
-        void *elemPtr = (void *)(((char *)table->tablePtr) + elemSize * i);
-        if (isLessElem(elemPtr, currIdxElemPtr, elemSize, table->dataType)) {
-          order++;
-        }
-      }
-      printf("XXXX sortedOrder[%ld] = %d\n", idx, order);
-      sortedOrder[idx] = order;
-    }
-    // Allocate sorted tables
-    // Set sorted tables
-    for (uint64_t i = 0; i < elemCount; i++) {
-      memcpy(sortedTablePtr + sortedOrder[i] * elemSize,
-             ((char *)table->tablePtr) + i * elemSize, elemSize);
-      if (table->indicesPtr != NULL) {
-        sortedIndicesPtr[sortedOrder[i]] = table->indicesPtr[i];
-        printf("XXXXXX sortedOrder[%ld]=%ld, table->indicesPtr[i]=%ld\n",
-               i, sortedOrder[i], table->indicesPtr[i]);
-      }
-      if (table->countsPtr != NULL)
-        sortedCountsPtr[sortedOrder[i]] = table->countsPtr[i];
-    }
-  } else {
-    memcpy(sortedTablePtr, table->tablePtr, elemCount * elemSize);
-  }
-  if (table->inverseIndicesPtr != NULL)
-    for (uint64_t i = 0; i < axisSize; i++)
-      sortedInverseIndicesPtr[i] = sortedOrder[table->inverseIndicesPtr[i]];
-
-  if (sliced) {
-    // Copy sorted data from the sorted tables to the original tables
-#if 0
-    printf("XXXXXX elmCount = %ld\n", elemCount);
-    memcpy(table->tablePtr, (void *)sortedTablePtr, elemCount * elemSize * dataSize);
-#else
-    for (int idxInSliceAxis = 0; idxInSliceAxis < (int) elemCount; idxInSliceAxis++) {
-      void *slicedData = sortedTablePtr + idxInSliceAxis * elemSize;
-      getSliceData(table->tablePtr, shape, strides, rank, shapeInUniqueAxis,
-          axis, sortedOrder[idxInSliceAxis], dataSize, slicedData); 
-    }
-#endif
-  }
-  if (sliced && sorted) {
-    if (table->countsPtr != NULL)
-      memcpy(table->countsPtr, sortedCountsPtr, elemCount * sizeof(int64_t));
-    if (table->indicesPtr != NULL)
-      memcpy(table->indicesPtr, sortedIndicesPtr, elemCount * sizeof(int64_t));
-    if (table->inverseIndicesPtr != NULL)
-      memcpy(table->inverseIndicesPtr, sortedInverseIndicesPtr,
-             axisSize * sizeof(int64_t));
-  }
-  
-  return;
-}
-
-void uniqueTableSort(uniqueTable *table) {
-  return uniqueTableSortAndConvertToOriginalOrder(table, /*sorted=*/1,
-      /*sliced=*/0, /*shape=*/NULL, /*rank=*/0, /*strides=*/NULL, /*shapeInUniqueAxis=*/NULL,
-      /*axis=*/0, /*dataSize=*/0);
-}
-#endif
 
 void transposeY(OMTensor *Y, uint64_t *shape, uint64_t rank, uint64_t axis, uint64_t count) {
   assert(rank == 6 && "rank should be expanded to 6 in transposeY");
@@ -429,7 +349,7 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     }
   }
   *totalPtr = count;
-#if 0
+#if 1
   printf("OMUnique: return (count = %d) YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY\n", count);
   omTensorPrint("INPUT [\n", inputTensor);
   if (Y != NULL)
