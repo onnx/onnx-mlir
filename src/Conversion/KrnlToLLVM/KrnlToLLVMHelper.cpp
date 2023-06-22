@@ -12,12 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
+#include "llvm/ADT/TypeSwitch.h"
+
+#include "onnx/onnx_pb.h"
+
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
@@ -121,7 +124,10 @@ int64_t getRankFromMemRefType(LLVM::LLVMStructType memRefTy) {
 
 // Convert an MLIR type to the correspoding ONNX type.
 int64_t mlirTypeToOnnxType(Type elemType) {
-  return onnx_mlir::mlirTypeToOnnxType(elemType);
+  if (isa_and_present<StringType>(elemType))
+    return onnx::TensorProto::STRING;
+  else
+    return onnx_mlir::mlirTypeToOnnxType(elemType);
 }
 
 void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,

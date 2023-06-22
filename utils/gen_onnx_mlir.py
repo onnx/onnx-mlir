@@ -107,7 +107,7 @@ version_dict = {
  'Compress': [11],
  'Concat': [13],
  'ConcatFromSequence': [11],
- 'Constant': [13],
+ 'Constant': [19],
  'ConstantOfShape': [9],
  'Conv': [11],
  'ConvInteger': [10],
@@ -399,6 +399,7 @@ OpsWithVerifier = [
     'Pow',
     'RandomNormalLike',
     'Range',
+    'Reshape',
     'Resize',
     'ReverseSequence',
     'RoiAlign',
@@ -505,7 +506,9 @@ custom_builder_broadcast_to_same_type_ops_list = [
 custom_builder_broadcast_to_bool_ops_list = [
     'Equal',
     'Greater',
+    'GreaterOrEqual',
     'Less',
+    'LessOrEqual',
 ]
 custom_builder_broadcast_ops_list = custom_builder_broadcast_to_same_type_ops_list + \
     custom_builder_broadcast_to_bool_ops_list
@@ -565,24 +568,37 @@ custom_definition_misc = dict([ ('Constant',
 #     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
 #     BFLOAT16 = 16;
 # 
+#     // Non-IEEE floating-point format based on papers
+#     // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
+#     // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
+#     // Operators supported FP8 are Cast, CastLike, QuantizeLinear, DequantizeLinear.
+#     // The computation usually happens inside a block quantize / dequantize
+#     // fused by the runtime.
+#     FLOAT8E4M3FN = 17;    // float 8, mostly used for coefficients, supports nan, not inf
+#     FLOAT8E4M3FNUZ = 18;  // float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+#     FLOAT8E5M2 = 19;      // follows IEEE 754, supports nan, inf, mostly used for gradients
+#     FLOAT8E5M2FNUZ = 20;  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
+#
 #     // Future extensions go here.
 #   }
 onnx_types = (
     'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64', 
     'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
-    'complex64', 'complex128', 'bfloat16'
+    'complex64', 'complex128',
+    'bfloat16', 'float8e4m3fn', 'float8e4m3fnuz', 'float8e5m2', 'float8e5m2fnuz'
 )
 tblgen_types = (
     'BF16', 'F32', 'AnyUI8', 'AnyI8', 'AnyUI16', 'AnyI16', 'AnyI32', 'AnyI64',
     'StringType', 'AnyI1', 'F16', 'F64', 'AnyUI32', 'AnyUI64',
-    'Complex<F32>', 'Complex<F64>','BF16', 
+    'Complex<F32>', 'Complex<F64>',
+    'BF16', 'F8E4M3FN', 'F8E4M3FNUZ', 'F8E5M2', 'F8E5M2FNUZ'
     
 )
 
 # Maximum count for actual type. Number more than MAX_NUM_TYPES will be used to encode
 # the mapping method. MAX_NUM_TYPES should be greater than the length of onnx_types
 # This value has to be kept the same with MAX_TYPE in FrontendDialectTransformer.cpp
-MAX_NUM_TYPES=20
+MAX_NUM_TYPES=30
 
 # Attribute names are ordered alphabetically except for the
 # manually specified special orderings in special_attr_order.
@@ -701,8 +717,8 @@ def get_allowed_elem_types(schema, input):
     # allowed_types_str = None
     # return allowed_types_str
     # TODO: enable type constraints.
-    if input.typeStr :
-        tstr = input.typeStr
+    if input.type_str :
+        tstr = input.type_str
         structure, element = get_data_structure_element(tstr);
         # In case the type is directly specified.
         if structure and element :
@@ -776,7 +792,7 @@ def get_operands_or_results(schema, type_str_dict, op_name, is_input):
             types.append("NoneType")
 
         if OpSchema.FormalParameterOption.Variadic == value.option:
-            if value.isHomogeneous:
+            if value.is_homogeneous:
                 types = ["Variadic<{}>".format(any_type_of(types))]
             else:
                 #TODO handle(variadic, heterogeneous) "
@@ -876,11 +892,11 @@ def get_output_type_mapping(schema):
             continue
 
         # Map the type string.
-        if output.typeStr :
-            tstr = output.typeStr
+        if output.type_str :
+            tstr = output.type_str
             found = False
             for i, input in enumerate(schema.inputs):
-                if input.typeStr and input.typeStr == tstr:
+                if input.type_str and input.type_str == tstr:
                     mapping.append(str(i+MAX_NUM_TYPES))
                     found = True
                     break
@@ -945,10 +961,6 @@ def parse_type_str(allowedType):
         'seq' : 'SeqOf',
         'map' : 'TupleOf',
         'bool': 'I1',
-        #'uint8' : 'AnyI8',
-        #'uint16' : 'AnyI16',
-        #'uint32' : 'AnyI32',
-        #'uint64' : 'AnyI64',
         'uint8' : 'UI8',
         'uint16' : 'UI16',
         'uint32' : 'UI32',
@@ -957,11 +969,14 @@ def parse_type_str(allowedType):
         'int16' : 'I16',
         'int32' : 'I32',
         'int64' : 'I64',
+        'double' : 'F64',
+        'float' : 'F32',
         'float16' : 'F16',
         'bfloat16' : 'BF16',
-        'float' : 'F32',
-        'double' : 'F64',
-        'undefined' : 'BF16',
+        'float8e4m3fn' : 'F8E4M3FN',
+        'float8e4m3fnuz' : 'F8E4M3FNUZ',
+        'float8e5m2' : 'F8E5M2',
+        'float8e5m2fnuz' : 'F8E5M2FNUZ',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}
@@ -1000,16 +1015,16 @@ def parse_type_constraints(schema):
     return type_str_dict
 
 def get_onnx_mlir_types(schema, type_str_dict, input):
-    if input.typeStr :
-         if not input.typeStr in type_str_dict :
+    if input.type_str :
+         if not input.type_str in type_str_dict :
              # Some arguments use type description directly
              # instead of constraint.
-             type_str = parse_type_str(input.typeStr)
+             type_str = parse_type_str(input.type_str)
              return [type_str]
          else :
-             return type_str_dict[input.typeStr]
+             return type_str_dict[input.type_str]
     else :
-        print('No typeStr ', schema.name)
+        print('No type_str ', schema.name)
         return []
 
 

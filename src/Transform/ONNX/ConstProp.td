@@ -61,9 +61,13 @@ def IsVariadicOperandDenseONNXConstantOp:
   "Variadic operand is produced by dense ONNXConstantOps">;
 
 def HasStaticShape: Constraint<CPred<
-  "(isRankedShapedType($_self.getType()) && "
-  " $_self.getType().cast<ShapedType>().hasStaticShape())">,
+  "hasStaticShape($_self.getType())">,
   "A value has static shape"
+>;
+
+def HasIntegerElementType: Constraint<CPred<
+  "isa<IntegerType>(getElementType($_self.getType()))">,
+  "A value has integer element type"
 >;
 
 def IsConstOfZeros : Constraint<
@@ -119,6 +123,18 @@ def CreateDivOfTwoConst :
 def CreateEqualOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXEqualOp>($_builder, $0, $1, $2)">;
 
+def CreateLessOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXLessOp>($_builder, $0, $1, $2)">;
+
+def CreateGreaterOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOp>($_builder, $0, $1, $2)">;
+
+def CreateLessOrEqualOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXLessOrEqualOp>($_builder, $0, $1, $2)">;
+
+def CreateGreaterOrEqualOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOrEqualOp>($_builder, $0, $1, $2)">;
+
 def CreateWhereOfThreeConst :
    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
 
@@ -137,8 +153,14 @@ def CreateReduceMaxConst :
 def CreateReduceMeanConst :
     NativeCodeCall<"ConstPropReduce<mlir::ONNXReduceMeanOp>($_builder, $0, $1, $2)">;
 
+def CreateMatMulOfConsts :
+    NativeCodeCall<"ConstPropMatMul($_builder, $0, $1, $2)">;
+
 def CreateMatMulIntegerOfConsts :
     NativeCodeCall<"ConstPropMatMulInteger($_builder, $0, $1, $2, $3, $4)">;
+
+def CreateGemmOfConsts :
+    NativeCodeCall<"ConstPropGemm($_builder, $0, $1, $2, $3)">;
 
 def CreateTransposeOfConst :
    NativeCodeCall<"ConstPropTranspose($_builder, $0, $1)">;
@@ -430,16 +452,63 @@ def DivOnesOnRhs : Pat<
       (ValuesHaveSameType $result, $x)
     ]>;
 
-// Constant Propagation for Equal
+//===----------------------------------------------------------------------===//
+// Constant propagate ONNXEqualOp
+//===----------------------------------------------------------------------===//
+
 def EqualConstProp : Pat<
     // From equal(c1, c2).
-    (ONNXEqualOp:$equalOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
-                          (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXEqualOp:$result
+      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     // To c1 == c2
-    (CreateEqualOfTwoConst $equalOp, $lhs, $rhs),
+    (CreateEqualOfTwoConst $result, $lhs, $rhs),
     // constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
+//===----------------------------------------------------------------------===//
+// Constant propagate ONNXLessOp
+//===----------------------------------------------------------------------===//
+
+def LessConstPropPattern: Pat<
+    (ONNXLessOp:$result
+      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (CreateLessOfTwoConst $result, $lhs, $rhs),
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
+//===----------------------------------------------------------------------===//
+// Constant propagate ONNXGreaterOp
+//===----------------------------------------------------------------------===//
+
+def GreaterConstPropPattern: Pat<
+    (ONNXGreaterOp:$result
+      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (CreateGreaterOfTwoConst $result, $lhs, $rhs),
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
+//===----------------------------------------------------------------------===//
+// Constant propagate ONNXLessOrEqualOp
+//===----------------------------------------------------------------------===//
+
+def LessOrEqualConstPropPattern: Pat<
+    (ONNXLessOrEqualOp:$result
+      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (CreateLessOrEqualOfTwoConst $result, $lhs, $rhs),
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+
+//===----------------------------------------------------------------------===//
+// Constant propagate ONNXGreaterOrEqualOp
+//===----------------------------------------------------------------------===//
+
+def GreaterOrEqualConstPropPattern: Pat<
+    (ONNXGreaterOrEqualOp:$result
+      (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    (CreateGreaterOrEqualOfTwoConst $result, $lhs, $rhs),
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns for Where.
@@ -515,6 +584,41 @@ def ReduceMeanConstProp: Pat<
 // Patterns for MatMul.
 //===----------------------------------------------------------------------===//
 
+// Limited to integers because 0 * NaN is NaN, not 0.
+def MatMulZerosOnLhs : Pat<
+    (ONNXMatMulOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      $B
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsConstOfZeros:$A), (IsNotAConstant:$B),
+     (HasStaticShape:$resOp), (HasIntegerElementType:$resOp)]
+    >;
+
+// Limited to integers because NaN * 0 is NaN, not 0.
+def MatMulZerosOnRhs : Pat<
+    (ONNXMatMulOp:$resOp
+      $A,
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (CreateZeroTensorOfType $resOp),
+    [(IsNotAConstant:$A), (IsConstOfZeros:$B),
+     (HasStaticShape:$resOp), (HasIntegerElementType:$resOp)]
+    >;
+
+def MatMulOfConsts : Pat<
+    (ONNXMatMulOp:$resOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
+    ),
+    (CreateMatMulOfConsts $resOp, $A, $B),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B)]
+    >;
+
+//===----------------------------------------------------------------------===//
+// Patterns for MatMulInteger.
+//===----------------------------------------------------------------------===//
+
 def MatMulIntegerConstZeroLhs : Pat<
     (ONNXMatMulIntegerOp:$resOp
       (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
@@ -547,6 +651,20 @@ def MatMulIntegerOfConsts : Pat<
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
      (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point)]
     >;
+
+//===----------------------------------------------------------------------===//
+// Patterns for Gemm.
+//===----------------------------------------------------------------------===//
+
+// Attributes are not passed to CreateGemmOfConsts. It reads them from gemmOp.
+def GemmConstProp : Pat<
+    (ONNXGemmOp:$gemmOp
+      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
+      $C, $alpha, $beta, $transA, $transB),
+    (CreateGemmOfConsts $gemmOp, $A, $B, $C),
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
+     (IsFromDenseONNXConstantOpOrNone:$C)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.

@@ -559,8 +559,9 @@ private:
     }
   }
 
-  static constexpr int MAX_TYPE = 20;
+  static constexpr int MAX_NUM_TYPES = 30;
 
+  // clang-format off
   // Get these indices from TensorProto in
   // https://github.com/onnx/onnx/blob/main/onnx/onnx.in.proto#L481.
   // enum DataType {
@@ -592,6 +593,17 @@ private:
   //     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
   //     BFLOAT16 = 16;
   //
+  //     // Non-IEEE floating-point format based on papers
+  //     // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
+  //     // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
+  //     // Operators supported FP8 are Cast, CastLike, QuantizeLinear, DequantizeLinear.
+  //     // The computation usually happens inside a block quantize / dequantize
+  //     // fused by the runtime.
+  //     FLOAT8E4M3FN = 17;    // float 8, mostly used for coefficients, supports nan, not inf
+  //     FLOAT8E4M3FNUZ = 18;  // float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+  //     FLOAT8E5M2 = 19;      // follows IEEE 754, supports nan, inf, mostly used for gradients
+  //     FLOAT8E5M2FNUZ = 20;  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
+  //
   //     // Future extensions go here.
   //   }
   //
@@ -599,8 +611,10 @@ private:
   // onnx_types = (
   //     'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32',
   //     'int64', 'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
-  //     'complex64', 'complex128', 'bfloat16'
+  //     'complex64', 'complex128',
+  //     'bfloat16', 'float8e4m3fn', 'float8e4m3fnuz', 'float8e5m2', 'float8e5m2fnuz'
   // )
+  // clang-format on
   Type buildTypeFromIndex(int index) {
     switch (index) {
     case 1:
@@ -686,9 +700,9 @@ private:
         // Variadic output is a single ODS result.
         if (variadicOut)
           j = 0;
-        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
+        if (j < outputMap.size() && outputMap[j] >= MAX_NUM_TYPES) {
           // Mapping gives a connection with an input.
-          Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
+          Type inputType = inputs[outputMap[j] - MAX_NUM_TYPES].getType();
           if (inputType.isa<TensorType>()) {
             Type elementType = inputType.cast<TensorType>().getElementType();
             auto outType = UnrankedTensorType::get(elementType);
