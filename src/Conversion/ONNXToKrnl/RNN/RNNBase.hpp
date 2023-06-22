@@ -27,8 +27,8 @@ namespace onnx_mlir {
 
 struct RNNActivation {
   llvm::StringRef name;
-  llvm::Optional<mlir::FloatAttr> alpha;
-  llvm::Optional<mlir::FloatAttr> beta;
+  std::optional<mlir::FloatAttr> alpha;
+  std::optional<mlir::FloatAttr> beta;
 };
 
 /// Get a dimension of the tensor's shape.

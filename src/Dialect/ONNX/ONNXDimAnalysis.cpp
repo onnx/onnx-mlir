@@ -617,7 +617,7 @@ void DimAnalysis::visitDim(
     if (dataHasOneDynamicDim && outputHasOneDynamicDim &&
         (dataStaticSize == outputStaticSize)) {
       // Find the index of the dynamic dimension in the data.
-      Optional<int64_t> dynamicDimIndexInData = std::nullopt;
+     std::optional<int64_t> dynamicDimIndexInData = std::nullopt;
       for (int64_t i = 0; i < dataType.getRank(); ++i)
         if (dataType.isDynamicDim(i)) {
           dynamicDimIndexInData = i;

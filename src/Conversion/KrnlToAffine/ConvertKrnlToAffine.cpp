@@ -153,8 +153,8 @@ public:
    *     to inner loops.
    */
   struct Movable {
-    llvm::Optional<KrnlMovableOp> movableOp;
-    llvm::Optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
+    std::optional<KrnlMovableOp> movableOp;
+    std::optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
 
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
     explicit Movable(KrnlIterateOp op) {
@@ -234,7 +234,7 @@ public:
           insertPt++;
         movableOp->erase();
       } else if (transferPt.loopsToSkip.has_value()) {
-        llvm::Optional<AffineForOp> loopToSkip;
+        std::optional<AffineForOp> loopToSkip;
         loopToSkip = transferPt.loopsToSkip.value().empty()
                          ? loopToSkip
                          : loopRefToOp[transferPt.loopsToSkip.value().front()];
@@ -575,7 +575,7 @@ AffineTypeConverter::AffineTypeConverter() {
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) ->std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -585,7 +585,7 @@ AffineTypeConverter::AffineTypeConverter() {
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) ->std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 

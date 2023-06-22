@@ -1,6 +1,6 @@
 # Check out protobuf v3.18.3
-PROTOBUF_VERSION=3.18.3
-git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git
+PROTOBUF_VERSION=3.20.3
+git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
 
 cd protobuf
 ./autogen.sh

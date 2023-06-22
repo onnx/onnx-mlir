@@ -221,8 +221,8 @@ KrnlGetRefOp KrnlBuilder::getRef(
 }
 
 Value KrnlBuilder::constant(MemRefType type, StringRef name,
-    Optional<Attribute> value, Optional<IntegerAttr> offset,
-    Optional<IntegerAttr> alignment) const {
+   std::optional<Attribute> value,std::optional<IntegerAttr> offset,
+   std::optional<IntegerAttr> alignment) const {
   static int32_t constantID = 0;
   return b().create<KrnlGlobalOp>(loc(), type,
       b().getI64ArrayAttr(type.getShape()),
