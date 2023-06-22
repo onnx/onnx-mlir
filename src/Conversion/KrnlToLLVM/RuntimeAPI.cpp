@@ -91,7 +91,7 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(
     RuntimeAPI(API::LOAD_EXTERNAL_CONSTANT, "omLoadExternalConstant", voidTy, {opaquePtrPtrTy, opaquePtrPtrTy, int64Ty, int64Ty, int64Ty}),
     RuntimeAPI(API::OPEN_BINARY_FILE, "omOpenBinaryFile", opaquePtrPtrTy, {opaquePtrPtrTy, int64Ty}),
     RuntimeAPI(API::CLOSE_FILE, "omCloseFile", voidTy, {opaquePtrPtrTy}),
-    RuntimeAPI(API::FREE_ALIGNED, "omFreeAligned", voidTy, {opaquePtrPtrTy, int64Ty}),
+    RuntimeAPI(API::FREE_BUFFER, "omFreeBuffer", voidTy, {opaquePtrPtrTy}),
   };
   // clang-format on
 

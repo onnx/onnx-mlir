@@ -38,7 +38,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
   return %2 : memref<10xi64>
 
 // CHECK-LABEL: module
-// CHECK:         llvm.func @omFreeAligned(!llvm.ptr, i64)
+// CHECK:         llvm.func @omFreeBuffer(!llvm.ptr)
 // CHECK:         llvm.func @omCloseFile(!llvm.ptr)
 // CHECK:         llvm.func @omOpenBinaryFile(!llvm.ptr, i64) -> !llvm.ptr
 // CHECK:         llvm.func @omLoadExternalConstant(!llvm.ptr, !llvm.ptr, i64, i64, i64)
@@ -77,13 +77,12 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:         }
 
 // CHECK:         llvm.func @omFreeBuffersForConstants() {
-// CHECK-DAG:       [[VAR_0_9_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
-// CHECK-DAG:       [[VAR_1_4_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
+// CHECK:           [[VAR_1_4_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
 // CHECK:           [[VAR_2_4_:%.+]] = llvm.load [[VAR_1_4_]] : !llvm.ptr<ptr>
-// CHECK:           llvm.call @omFreeAligned([[VAR_2_4_]], [[VAR_0_9_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @omFreeBuffer([[VAR_2_4_]]) : (!llvm.ptr) -> ()
 // CHECK:           [[VAR_3_4_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
 // CHECK:           [[VAR_4_4_:%.+]] = llvm.load [[VAR_3_4_]] : !llvm.ptr<ptr>
-// CHECK:           llvm.call @omFreeAligned([[VAR_4_4_]], [[VAR_0_9_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @omFreeBuffer([[VAR_4_4_]]) : (!llvm.ptr) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 }

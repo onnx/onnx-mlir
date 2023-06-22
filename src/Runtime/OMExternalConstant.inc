@@ -17,6 +17,8 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <malloc.h>
 
 const int i = 1;
 #define IS_SYSTEM_LE() (!((*(const char *)&i) == 0))
@@ -31,9 +33,6 @@ void checkEndianness(const char constPackIsLE) {
   }
 }
 
-/// malloc_aligned and free_aligned are adopted from
-/// https://github.com/IBM/zDNN/blob/main/zdnn/malloc4k.c
-
 /// malloc() that does alignment
 ///
 /// \param[in] size Size to be malloc'd
@@ -42,7 +41,7 @@ void checkEndianness(const char constPackIsLE) {
 /// \return Pointer to the malloc'd area if successful, or NULL otherwise
 ///
 /// TODO: find a new home for this function.
-void *omMallocAligned(int64_t size, int64_t align) {
+void *omMallocBuffer(int64_t size, int64_t align) {
   // No alignment.
   if (align == -1) {
     void *ptr = malloc(size);
@@ -53,42 +52,33 @@ void *omMallocAligned(int64_t size, int64_t align) {
     return ptr;
   }
 
-  // Request one more page + size of a pointer from the OS.
-  unsigned short extra_allocation = (align - 1) + sizeof(void *);
+  void *ptr = NULL;
+#if defined(_MSC_VER)
+  ptr = _aligned_malloc(size, align);
+#else
+  posix_memalign((void**) &ptr, align, size);
+#endif
 
-  void *ptr = malloc(size + extra_allocation);
   if (!ptr) {
     perror("Error during malloc");
     fprintf(stderr, "errno = %d\n", errno);
     return ptr;
   }
 
-  // Find the align boundary after ptr.
-  void *aligned_ptr =
-      (void *)(((uintptr_t)ptr + extra_allocation) & ~(align - 1));
-  // Put the original malloc'd address right before aligned_ptr.
-  ((void **)aligned_ptr)[-1] = ptr;
-
-  return aligned_ptr;
+  return ptr;
 }
 
-/// free() what was allocated via omMallocAligned()
+/// free() what was allocated via omMallocBuffer()
 ///
-/// \param[in] ptr Pointer returned by omMallocAligned()
+/// \param[in] ptr Pointer returned by omMallocBuffer()
 ///
 /// \return None
 ///
 /// TODO: find a new home for this function.
-void omFreeAligned(void *ptr, int64_t align) {
+void omFreeBuffer(void *ptr) {
   if (ptr) {
-    if (align == -1) {
-      // No alignment.
-      free(ptr);
-    } else {
-      // Get the original malloc'd address from where we put it and free it.
-      void *original_ptr = ((void **)ptr)[-1];
-      free(original_ptr);
-    }
+    free(ptr);
+    ptr = NULL;
   }
 }
 
@@ -104,7 +94,7 @@ void *omOpenBinaryFile(char *fname, int64_t isLE) {
   FILE *fileptr;
   fileptr = fopen(fname, "rb"); // Open the file in binary mode.
   if (fileptr == NULL) {
-    perror("Error: OpenBinaryFile");
+    fprintf(stderr, "Error while openning %s: %s\n", fname, strerror(errno));
     return NULL;
   }
   return (void *)fileptr;
@@ -149,7 +139,7 @@ void omLoadExternalConstant(
     return;
   }
 
-  void *buffer = omMallocAligned(size, align);
+  void *buffer = omMallocBuffer(size, align);
   fseek((FILE *)fileptr, offset, SEEK_SET);
   fread(buffer, size, 1, (FILE *)fileptr);
 

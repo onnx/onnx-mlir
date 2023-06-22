@@ -50,7 +50,7 @@ public:
     LOAD_EXTERNAL_CONSTANT,
     OPEN_BINARY_FILE,
     CLOSE_FILE,
-    FREE_ALIGNED,
+    FREE_BUFFER,
   };
 
   // Call the runtime API identified by \p apiId, return the SSA value

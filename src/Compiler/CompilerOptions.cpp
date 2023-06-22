@@ -110,11 +110,18 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
 
 llvm::cl::opt<bool> storeConstantsToFile("store-constants-to-file",
     llvm::cl::desc(
-        "Constants will be stored on files instead of be embedded "
-        "into the model.so. If C++/Python OMSession is used for inference, the "
-        "allocated buffers for constants will be freed at the end of the "
-        "session. C users have to free the buffers manually via calling "
-        "omFreeBuffersForExternalConstants."),
+        "Constants will be stored on a binary file instead of be embedded "
+        "into the model.so. The binary file is in the same folder as the "
+        "model.so and has the same name as the model with the extension of "
+        ".constants.bin. For inference, model.so and model.constants.bin must "
+        "be in the same folder. If C++/Python OMSession is used for inference, "
+        "constant values will be loaded from the binary file during the "
+        "session's constructor and be freed during the ession's destructor. C "
+        "users have to load and free constants manually via calling "
+        "omLoadConstantsFromFile(filename) and "
+        "omFreeBuffersForExternalConstants, respectively. "
+        "omLoadConstantsFromFile and omFreeBuffersForExternalConstants are not "
+        "thread-safe."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<float> constantsToFileTotalThreshold(
