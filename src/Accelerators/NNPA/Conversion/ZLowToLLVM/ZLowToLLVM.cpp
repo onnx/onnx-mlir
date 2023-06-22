@@ -780,7 +780,8 @@ public:
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val), nullpointer,
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
     } else {
-      callApi(rewriter, loc, module, apiRegistry, APIFor<UnaryElementwiseOp>(),
+      callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+          APIFor<UnaryElementwiseOp>(),
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
     }
