@@ -239,6 +239,17 @@ FlatSymbolRefAttr getOrInsertStrncmp(OpBuilder &builder, ModuleOp module) {
       builder.getI32Type(), {i8PtrTy, i8PtrTy, builder.getI64Type()});
 }
 
+/// Return a symbol reference to the exit function, inserting it into the
+/// module if necessary.
+FlatSymbolRefAttr getOrInsertExit(OpBuilder &builder, ModuleOp module) {
+  MultiDialectBuilder<LLVMBuilder> create(builder, module.getLoc());
+  MLIRContext *ctx = module.getContext();
+  Type voidTy = LLVM::LLVMVoidType::get(ctx);
+  // Create 'exit' function signature: `void (i32)`
+  return create.llvm.getOrInsertSymbolRef(
+      module, StringRef("exit"), voidTy, {builder.getI32Type()});
+}
+
 std::string a2e_s(std::string a_s) {
   std::string r(a_s);
   for (unsigned int i = 0; i < r.size(); i++)

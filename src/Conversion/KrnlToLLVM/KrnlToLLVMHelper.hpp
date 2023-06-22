@@ -54,6 +54,11 @@ void setAlignment(mlir::LLVM::GlobalOp &global, mlir::IntegerAttr alignmentAttr,
 mlir::FlatSymbolRefAttr getOrInsertStrncmp(
     mlir::OpBuilder &builder, mlir::ModuleOp module);
 
+/// Return a symbol reference to the exit function, inserting it into the
+/// module if necessary.
+mlir::FlatSymbolRefAttr getOrInsertExit(
+    mlir::OpBuilder &builder, mlir::ModuleOp module);
+
 /// Convert a string from ASCII to EBCDIC IBM-1047.
 /// This is not in-place conversion and a new string in EBCDIC is returned.
 std::string a2e_s(std::string a_s);
