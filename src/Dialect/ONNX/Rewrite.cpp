@@ -110,8 +110,7 @@ bool areProducedByTransposeOp(ValueRange values) {
 
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
-    Value value, int64_t start = 0,
-    std::optional<int64_t> end = std::nullopt) {
+    Value value, int64_t start = 0, std::optional<int64_t> end = std::nullopt) {
 
   auto inType = value.getType().cast<ShapedType>();
   assert(inType.hasRank() && "inType must be ranked");

@@ -676,8 +676,8 @@ Value ConstPropSqueeze(
 //===----------------------------------------------------------------------===//
 
 template <typename Op>
-LogicalResult ConstPropSplitPatternCommon(Op splitOp, PatternRewriter &rewriter,
-    std::optional<ArrayAttr> splitAttr) {
+LogicalResult ConstPropSplitPatternCommon(
+    Op splitOp, PatternRewriter &rewriter, std::optional<ArrayAttr> splitAttr) {
   // Basic info.
   unsigned numResults = splitOp.getNumResults();
   Value input = splitOp.getInput();

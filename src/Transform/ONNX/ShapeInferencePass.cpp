@@ -105,7 +105,7 @@ public:
       if (auto shape_op = llvm::dyn_cast<ShapeInferenceOpInterface>(op)) {
         // Verify the operation before attempting to infer the shape of the
         // produced output(s).
-       std::optional<RegisteredOperationName> registeredInfo =
+        std::optional<RegisteredOperationName> registeredInfo =
             op.getName().getRegisteredInfo();
         if (registeredInfo && failed(registeredInfo->verifyInvariants(&op)))
           return op.emitError("verification failed");

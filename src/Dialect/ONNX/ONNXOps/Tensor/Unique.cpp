@@ -23,7 +23,7 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXUniqueOp::verify() {
- std::optional<int64_t> optionalSorted = getSorted();
+  std::optional<int64_t> optionalSorted = getSorted();
   if (optionalSorted.has_value()) {
     // optional sorted attribute must be zero or one.
     int64_t sorted = optionalSorted.value();
@@ -38,7 +38,7 @@ LogicalResult ONNXUniqueOp::verify() {
     return success(); // Too early to verify.
 
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
- std::optional<int64_t> optionalAxis = getAxis();
+  std::optional<int64_t> optionalAxis = getAxis();
 
   if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(X).

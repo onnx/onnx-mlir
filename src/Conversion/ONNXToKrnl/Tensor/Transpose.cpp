@@ -82,7 +82,7 @@ private:
   // If transpose does not permute the non-1 dimensions, it is safe to lower
   // transpose to a view op.
   bool canBeViewOp(
-      MemRefType inMemRefType,std::optional<ArrayAttr> permAttr) const {
+      MemRefType inMemRefType, std::optional<ArrayAttr> permAttr) const {
     ArrayRef<int64_t> dims = inMemRefType.getShape();
     uint64_t rank = inMemRefType.getRank();
 
@@ -103,7 +103,7 @@ private:
   // Determine how many consecutive inner-most dimensions are not permuted.
   // Only apply to MemRefs whose affine layout is identity.
   int unchangedInnerDimensions(MemRefType inputMemRefType,
-      MemRefType outputMemRefType,std::optional<ArrayAttr> permAttr) const {
+      MemRefType outputMemRefType, std::optional<ArrayAttr> permAttr) const {
     // Verify that the input's affine layout is identity.
     AffineMap im = inputMemRefType.getLayout().getAffineMap();
     if (im.getNumResults() != 1 && !im.isIdentity())
@@ -127,7 +127,7 @@ private:
 
   // Do transpose by copying elements one-by-one.
   void scalarTranspose(Value inputMemRef, Value outputMemRef,
-     std::optional<ArrayAttr> permAttr, MDBuilder *create) const {
+      std::optional<ArrayAttr> permAttr, MDBuilder *create) const {
     uint64_t rank = outputMemRef.getType().cast<MemRefType>().getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
@@ -150,7 +150,8 @@ private:
   // Do transpose by copying block of consecutive elements in the inner-most
   // dimensions.
   void blockTranspose(Value inputMemRef, Value outputMemRef,
-     std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims) const {
+      std::optional<ArrayAttr> permAttr, MDBuilder *create,
+      int numLastDims) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
     MemRefType inMemRefType = inputMemRef.getType().cast<MemRefType>();
     uint64_t rank = inMemRefType.getRank();

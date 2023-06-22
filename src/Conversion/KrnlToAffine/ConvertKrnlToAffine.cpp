@@ -575,7 +575,7 @@ AffineTypeConverter::AffineTypeConverter() {
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) ->std::optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -585,7 +585,7 @@ AffineTypeConverter::AffineTypeConverter() {
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) ->std::optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 

@@ -39,7 +39,8 @@ namespace {
 //===----------------------------------------------------------------------===//
 
 template <class T>
-LogicalResult processConvDilationParam(T *op,std::optional<ArrayAttr> kernelShape) {
+LogicalResult processConvDilationParam(
+    T *op, std::optional<ArrayAttr> kernelShape) {
   auto builder = Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -94,8 +95,8 @@ LogicalResult processConvKernelParam(
 
 template <class T>
 LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
-   std::optional<ArrayAttr> kernelShape,std::optional<ArrayAttr> stridesOpt,
-   std::optional<ArrayAttr> dilationsOpt = std::nullopt) {
+    std::optional<ArrayAttr> kernelShape, std::optional<ArrayAttr> stridesOpt,
+    std::optional<ArrayAttr> dilationsOpt = std::nullopt) {
   auto builder = Builder(op->getContext());
 
   auto inputRank = inputShape.size();
@@ -196,7 +197,8 @@ LogicalResult processConvPadParam(T *op, ArrayRef<int64_t> inputShape,
 //===----------------------------------------------------------------------===//
 
 template <class T>
-LogicalResult processConvStrideParam(T *op,std::optional<ArrayAttr> kernelShape) {
+LogicalResult processConvStrideParam(
+    T *op, std::optional<ArrayAttr> kernelShape) {
   auto builder = Builder(op->getContext());
   auto kernelRank = ArrayAttrSize(kernelShape);
 
@@ -291,9 +293,11 @@ static int64_t AffineMapIntConstant(Builder &builder, AffineMap map,
 }
 
 static void insertConvSpatialDim(SmallVector<int64_t, 4> *outputDims,
-    Builder &builder, ArrayRef<int64_t> xShape,std::optional<ArrayAttr> kernelShape,
-   std::optional<ArrayAttr> padsOpt,std::optional<ArrayAttr> stridesOpt,
-   std::optional<ArrayAttr> dilationsOpt = std::nullopt, bool ceilMode = false) {
+    Builder &builder, ArrayRef<int64_t> xShape,
+    std::optional<ArrayAttr> kernelShape, std::optional<ArrayAttr> padsOpt,
+    std::optional<ArrayAttr> stridesOpt,
+    std::optional<ArrayAttr> dilationsOpt = std::nullopt,
+    bool ceilMode = false) {
   auto spatialRank = ArrayAttrSize(kernelShape);
   auto spatialOffset = xShape.size() - spatialRank;
 
@@ -355,12 +359,13 @@ LogicalResult ONNXQLinearConvOpShapeHelper::computeShape() {
 LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
   ONNXConvTransposeOp convTransposeOp = llvm::cast<ONNXConvTransposeOp>(op);
   ONNXConvTransposeOpAdaptor operandAdaptor(operands);
- std::optional<ArrayAttr> kernelShapeOpt = convTransposeOp.getKernelShape();
- std::optional<ArrayAttr> padOpt = convTransposeOp.getPads();
- std::optional<ArrayAttr> strideOpt = convTransposeOp.getStrides();
- std::optional<ArrayAttr> dilationOpt = convTransposeOp.getDilations();
- std::optional<ArrayAttr> outputPaddingOpt = convTransposeOp.getOutputPadding();
- std::optional<ArrayAttr> outputShapeOpt = convTransposeOp.getOutputShape();
+  std::optional<ArrayAttr> kernelShapeOpt = convTransposeOp.getKernelShape();
+  std::optional<ArrayAttr> padOpt = convTransposeOp.getPads();
+  std::optional<ArrayAttr> strideOpt = convTransposeOp.getStrides();
+  std::optional<ArrayAttr> dilationOpt = convTransposeOp.getDilations();
+  std::optional<ArrayAttr> outputPaddingOpt =
+      convTransposeOp.getOutputPadding();
+  std::optional<ArrayAttr> outputShapeOpt = convTransposeOp.getOutputShape();
   int64_t groupNum = convTransposeOp.getGroup();
   llvm::StringRef autoPad = convTransposeOp.getAutoPad();
 

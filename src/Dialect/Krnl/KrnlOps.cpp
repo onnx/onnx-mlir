@@ -914,7 +914,8 @@ std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
   return create.mem.dealloc(alloc).getOperation();
 }
 
-std::optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqExtractOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }
@@ -939,7 +940,8 @@ std::optional<Operation *> KrnlSeqAllocOp::buildDealloc(
   return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
 }
 
-std::optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqAllocOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }
