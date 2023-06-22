@@ -47,7 +47,7 @@
 #if defined(__APPLE__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
 // generated llvm IR, but it somehow doesn't come out of the box on MacOS.
-int * __attribute__((__weak__)) __errno_location(void) { return &errno; }
+int * __errno_location(void) __attribute__((__weak__)) { return &errno; }
 #endif
 
 struct OMTensor {
