@@ -31,6 +31,7 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
         QuestionmarkIndexExpr(/*isFloat*/ false)); // return 1D array
   } else {                                         // if axis given
     int64_t axis = optionalAxis.value();
+    axis = (axis < 0) ? (rank + axis) : axis;
     for (int64_t i = 0; i < rank; i++) {
       outputDims.emplace_back((i == axis)
                                   ? QuestionmarkIndexExpr(/*isFloat*/ false)

@@ -184,11 +184,13 @@ printf("XXXX getSliceData: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld
                   tdim[2] * strides[2] + tdim[3] * strides[3] +
                   tdim[4] * strides[4] + tdim[5] * strides[5];
               void *currInputPtr = ((char *)inputPtr) + currOff * dataSize;
-              printf("getSliceData: tdim=[%ld:%ld:%ld:%ld:%ld:%ld], "
+#if 1
+              printf("getSliceData: tdim=[%ld:%ld:%ld:%ld:%ld:%ld], currOff=%ld, "
                      "strides=[%ld:%ld:%ld:%ld:%ld:%ld] (%ld) => dataCount=%d\n", 
-                     tdim[0], tdim[1], tdim[2], tdim[3], tdim[4], tdim[5],
+                     tdim[0], tdim[1], tdim[2], tdim[3], tdim[4], tdim[5], currOff,
                      strides[0], strides[1], strides[2], strides[3], strides[4], strides[5],
                      *((uint64_t *) currInputPtr), dataCount);
+#endif
               void *currSliceData = ((char *)sliceData) + dataCount * dataSize;
               memcpy(currSliceData, currInputPtr, dataSize);
               dataCount++;
@@ -295,7 +297,7 @@ void transposeY(OMTensor *Y, uint64_t *shape, uint64_t rank, uint64_t axis, uint
   uint64_t elementNum = 1;
   uint64_t sliceSize = 1;
   for (uint64_t i = 0; i < rank; i++) {
-    strides[i] = elementNum;
+    strides[i] = (i == 0) ? 1 : strides[i - 1] * shape[i - 1];
     elementNum *= (i == axis) ? count : shape[i];
     sliceSize *= (i == axis) ? 1 : shape[i];
   }
@@ -323,13 +325,13 @@ printf("XXXX transposeY: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
   uint64_t inputIdx = 0;
   for (uint64_t idxInSliceAxis = 0; idxInSliceAxis < count; idxInSliceAxis++) {
     uint64_t sliceOff = sliceSize * idxInSliceAxis;
-    printf("XXXX sliceSize=%ld, idxInSliceAxis=%ld, sliceOff=%ld\n", sliceSize, idxInSliceAxis, sliceOff);
-    for (dim[5] = 0; dim[5] < tshape[5]; dim[5]++) {
-      for (dim[4] = 0; dim[4] < tshape[4]; dim[4]++) {
-        for (dim[3] = 0; dim[3] < tshape[3]; dim[3]++) {
-          for (dim[2] = 0; dim[2] < tshape[2]; dim[2]++) {
-            for (dim[1] = 0; dim[1] < tshape[1]; dim[1]++) {
-              for (dim[0] = 0; dim[0] < tshape[0]; dim[0]++) {
+    //printf("XXXX sliceSize=%ld, idxInSliceAxis=%ld, sliceOff=%ld\n", sliceSize, idxInSliceAxis, sliceOff);
+    for (dim[0] = 0; dim[0] < tshape[0]; dim[0]++) {
+      for (dim[1] = 0; dim[1] < tshape[1]; dim[1]++) {
+        for (dim[2] = 0; dim[2] < tshape[2]; dim[2]++) {
+          for (dim[3] = 0; dim[3] < tshape[3]; dim[3]++) {
+            for (dim[4] = 0; dim[4] < tshape[4]; dim[4]++) {
+              for (dim[5] = 0; dim[5] < tshape[5]; dim[5]++) {
                 void *currInputPtr = ((char *)inputPtr) + inputIdx * dataSize;
                  uint64_t tdim[6] = {dim[0], dim[1], dim[2], dim[3], dim[4], dim[5]};
                 tdim[axis] = idxInSliceAxis;
@@ -338,9 +340,11 @@ printf("XXXX transposeY: inputPtr=[%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%ld:%
                     tdim[2] * strides[2] + tdim[3] * strides[3] +
                     tdim[4] * strides[4] + tdim[5] * strides[5];
                 void *currOutputPtr = ((char *)outputPtr) + currOff * dataSize;
+#if 1
                 printf("XXXX tdim=[%ld:%ld:%ld:%ld:%ld:%ld], inputIdx=%ld, currOff=%ld, dataSize=%ld: "
                        "currInput=%ld\n", tdim[0], tdim[1], tdim[2], tdim[3], tdim[4], tdim[5],
                        inputIdx, currOff, dataSize, ((uint64_t *) currInputPtr)[0]);
+#endif
                 memcpy(currOutputPtr, currInputPtr, dataSize);
                 inputIdx++;
              }
@@ -397,10 +401,11 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
     uint64_t strides[6] = {0, 0, 0, 0, 0, 0};
     uint64_t rank = 6;
     for (int64_t i = 0; i < inputRank; i++) {
-      shape[i] = inputShape[i];
-      strides[i] = (i == 0) ? 1 : strides[i - 1] * inputShape[i - 1];
-      shapeInUniqueAxis[i] = (i == sliceAxis) ? 1 : inputShape[i];
+      shape[i + (6 - inputRank)] = inputShape[i];
+      strides[i + (6 - inputRank)] = inputStrides[i];
+      shapeInUniqueAxis[i + (6 - inputRank)] = (i == sliceAxis) ? 1 : inputShape[i];
     }
+    uint64_t axis = sliceAxis + (6 - inputRank);
     int64_t sliceNum = inputShape[sliceAxis];
     int64_t sliceSize = 1;
     for (int64_t i = 0; i < inputRank; i++)
@@ -411,18 +416,30 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
         tablePtr, (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr,
         (uint64_t *)countsPtr, sorted);
     for (int idxInSliceAxis = 0; idxInSliceAxis < sliceNum; idxInSliceAxis++) {
-      getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, sliceAxis,
+      getSliceData(inputPtr, shape, strides, rank, shapeInUniqueAxis, axis,
           idxInSliceAxis, dataSize, sliceData);
       if (uniqueTableRegister(&uniqueTable, sliceData, idxInSliceAxis) == 0) {
         count++;
       }
     }
     if ((sliceAxis > 0) && (Y != NULL)) {
-      transposeY(Y, shape, rank, sliceAxis, count);
+      uint64_t YShape[6] = {shape[0], shape[1], shape[2], shape[3], shape[4], shape[5]};
+      YShape[axis] = count;
+      transposeY(Y, YShape, rank, axis, count);
     }
   }
   *totalPtr = count;
-  printf("XXXX OMUnique: count = %d\n", count);
+#if 0
+  printf("OMUnique: return (count = %d) YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY\n", count);
+  omTensorPrint("INPUT [\n", inputTensor);
+  if (Y != NULL)
+    omTensorPrint("] Y [\n", Y);
+  if (indices != NULL)
+    omTensorPrint("] INDICES [\n", indices);
+  if (inverse_indices != NULL)
+    omTensorPrint("] INV_INDICES [\n", inverse_indices);
+  printf("] YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY\n");
+#endif
   return;
 }
 
