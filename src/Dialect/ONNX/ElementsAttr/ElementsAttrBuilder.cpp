@@ -11,6 +11,8 @@
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
 #include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Endian.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -65,6 +67,51 @@ struct ElementsAttrBuilder::ElementsProperties {
 
 ElementsAttrBuilder::ElementsAttrBuilder(DisposablePool &disposablePool)
     : disposablePool(disposablePool) {}
+
+namespace {
+// Perform byte swap if system endianness is BE and elements are multi-byte.
+bool shouldSwapLEBytes(unsigned elementByteWidth) {
+  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
+                                     llvm::support::endianness::little;
+}
+} // namespace
+
+ParseResult ElementsAttrBuilder::parseElements(
+    AsmParser &parser, ShapedType type, size_t id, ElementsAttr &elms) {
+  std::string str;
+  if (parser.parseString(&str))
+    return failure();
+  if (!parser.parseOptionalColon()) {
+    uint64_t offset = 0;
+    uint64_t length = 0;
+    if (parser.parseInteger(offset) || parser.parseColon() ||
+        parser.parseInteger(length))
+      return failure();
+    return parser.emitError(parser.getCurrentLocation(), "TODO: implement");
+  } else {
+    StringRef hex = str;
+    std::string bytes;
+    if (!hex.consume_front("0x") || (hex.size() & 1) ||
+        !llvm::tryGetFromHex(hex, bytes))
+      return parser.emitError(
+          parser.getCurrentLocation(), "ill-formed hex string");
+    if (bytes.size() != static_cast<size_t>(getSizeInBytes(type)))
+      return parser.emitError(
+          parser.getCurrentLocation(), "data size doesn't match type size");
+    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(type.getElementType()))) {
+      elms =
+          fromMemoryBuffer(type, llvm::MemoryBuffer::getMemBufferCopy(bytes));
+    } else {
+      // Reorder bytes from little-endian on big-endian platforms:
+      std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
+          llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes.size());
+      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
+          {bytes.data(), bytes.size()}, writeBuffer->getBuffer(), type);
+      elms = fromMemoryBuffer(type, std::move(writeBuffer));
+    }
+    return success();
+  }
+}
 
 ElementsAttr ElementsAttrBuilder::fromMemoryBuffer(
     ShapedType type, std::unique_ptr<llvm::MemoryBuffer> membuf) {

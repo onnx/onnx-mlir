@@ -21,8 +21,8 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <functional>
@@ -270,11 +270,8 @@ public:
 
   static constexpr StringLiteral getMnemonic() { return {"dense_disposable"}; }
 
-  // Returns the underlying data as a flat byte array in row-major order.
-  // If the element type is bool the data holds one byte (with value 0 or 1) per
-  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  static std::unique_ptr<llvm::MemoryBuffer> parse(
-      AsmParser &parser, ShapedType type);
+  static Attribute parse(AsmParser &parser, Type type,
+      function_ref<ParseResult(size_t, ElementsAttr &)> parseElements);
 
   void printWithoutType(AsmPrinter &printer) const;
 

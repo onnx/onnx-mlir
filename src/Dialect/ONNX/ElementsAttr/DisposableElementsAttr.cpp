@@ -176,35 +176,15 @@ bool shouldSwapLEBytes(unsigned elementByteWidth) {
 } // namespace
 
 /*static*/
-std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
-    AsmParser &parser, ShapedType type) {
-  size_t id = 0; // The parsed id is ignored.
-  std::string str;
+Attribute DisposableElementsAttr::parse(AsmParser &parser, Type type,
+    function_ref<ParseResult(size_t, ElementsAttr &)> parseElements) {
+  size_t id = 0; // The parsed id.
+  ElementsAttr elms;
   if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
-      parser.parseString(&str))
+      parseElements(id, elms) || parser.parseGreater())
     return nullptr;
-  StringRef hex = str;
-  std::string bytes;
-  if (!hex.consume_front("0x") || (hex.size() & 1) ||
-      !llvm::tryGetFromHex(hex, bytes)) {
-    parser.emitError(parser.getCurrentLocation(), "ill-formed hex string");
-    return nullptr;
-  }
-  if (bytes.size() != static_cast<size_t>(getSizeInBytes(type))) {
-    parser.emitError(
-        parser.getCurrentLocation(), "data size doesn't match type size");
-    return nullptr;
-  }
-  if (!shouldSwapLEBytes(getIntOrFloatByteWidth(type.getElementType()))) {
-    return llvm::MemoryBuffer::getMemBufferCopy(bytes);
-  } else {
-    // Reorder bytes from little-endian on big-endian platforms:
-    std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
-        llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes.size());
-    DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
-        {bytes.data(), bytes.size()}, writeBuffer->getBuffer(), type);
-    return writeBuffer;
-  }
+
+  return elms;
 }
 
 void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {

@@ -119,17 +119,16 @@ void ONNXDialect::registerAttributes() {
 Attribute ONNXDialect::parseAttribute(
     DialectAsmParser &parser, Type type) const {
   // generatedAttributeParser is generated in ONNXAttributes.cpp.inc
+  Attribute attr;
   StringRef attrTag;
-  if (Attribute attr;
-      generatedAttributeParser(parser, &attrTag, type, attr).has_value())
+  if (generatedAttributeParser(parser, &attrTag, type, attr).has_value())
     return attr;
   if (attrTag == DisposableElementsAttr::getMnemonic()) {
-    auto shapedTy = type.cast<ShapedType>();
-    if (auto membuf = DisposableElementsAttr::parse(parser, shapedTy))
-      return OnnxElementsAttrBuilder(type.getContext())
-          .fromMemoryBuffer(shapedTy, std::move(membuf));
-    else
-      return {};
+    return DisposableElementsAttr::parse(
+        parser, type, [&](size_t id, ElementsAttr &elms) -> ParseResult {
+          return OnnxElementsAttrBuilder(type.getContext())
+              .parseElements(parser, cast<ShapedType>(type), id, elms);
+        });
   }
   parser.emitError(parser.getCurrentLocation())
       << "unknown attribute `" << attrTag << "` in dialect `ONNX`";
