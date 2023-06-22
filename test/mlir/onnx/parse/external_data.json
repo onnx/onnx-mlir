@@ -608,7 +608,7 @@
   ]
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   () -> (tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>) attributes {external_data_dir = "{{.*}}/test/mlir/onnx/parse", input_names = [], output_names = ["output0", "output1", "output2", "output3", "output4", "output5", "output6", "output7", "output8", "output9", "output10", "output11"]} {
+// CHECK-SAME:   () -> (tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>) attributes {external_data_dir = "{{.*}}parse", input_names = [], output_names = ["output0", "output1", "output2", "output3", "output4", "output5", "output6", "output7", "output8", "output9", "output10", "output11"]} {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 0, 1]> : tensor<3xui8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 0, 1]> : tensor<3xi8>
