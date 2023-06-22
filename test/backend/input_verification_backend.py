@@ -167,7 +167,7 @@ def redirect_c_stdout(stream):
         # Flush the C-level buffer stdout
         # Note: this does not work on Windows.
         libc = ctypes.CDLL(None)
-        c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
+        c_stdout = ctypes.c_void_p.in_dll(libc, '__stdoutp' if sys.platform == 'darwin' else 'stdout')
         libc.fflush(c_stdout)
         # Flush and close sys.stdout - also closes the file descriptor (fd)
         sys.stdout.close()
