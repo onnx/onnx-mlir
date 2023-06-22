@@ -136,12 +136,13 @@ void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
     Value lhs, Value rhs, std::string errorMsg = "", bool appendRHS = true) {
   MLIRContext *context = rewriter.getContext();
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-  create.llvm.ifThenElse(/*cond=*/
+  create.llvm.ifThenElseTest(/*cond=*/
       [&](LLVMBuilder &createLLVM) {
         return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
       }, /*then=*/
       [&](LLVMBuilder &createLLVM) {
-        MultiDialectBuilder<LLVMBuilder, KrnlBuilder> create(createLLVM);
+        MultiDialectBuilder<LLVMBuilder, KrnlBuilder, MathBuilder> create(
+            createLLVM);
         // Print an error message.
         if (appendRHS)
           create.krnl.printf(StringRef(errorMsg), rhs, rhs.getType(), true);
@@ -149,9 +150,16 @@ void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
           create.krnl.printf(StringRef(errorMsg + "\n"));
         // Set errno.
         krnl::emitErrNo(module, rewriter, loc, EINVAL);
+
+        // Exit
+        Type int32Ty = IntegerType::get(context, 32);
+        Value one = create.math.constant(int32Ty, 1);
+        FlatSymbolRefAttr exitRef = krnl::getOrInsertExit(rewriter, module);
+        create.llvm.call({}, exitRef, {one});
+
         // Return NULL.
-        create.llvm._return(
-            create.llvm.null(onnx_mlir::krnl::getI8PointerType(context)));
+        // createLLVM._return(
+        //   createLLVM.null(krnl::getI8PointerType(context)));
       });
 }
 

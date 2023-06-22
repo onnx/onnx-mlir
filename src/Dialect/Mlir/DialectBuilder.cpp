@@ -1735,4 +1735,49 @@ void LLVMBuilder::ifThenElse(
   b().setInsertionPointToStart(endBlock);
 }
 
+void LLVMBuilder::ifThenElseTest(
+    valueFuncRef cond, voidFuncRef thenFn, voidFuncRef elseFn) const {
+  LLVMBuilder createLLVM(b(), loc());
+
+  // Split the current block into IF, THEN, ELSE and END blocks.
+  Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
+  ifBlock = b().getInsertionBlock();
+  endBlock = ifBlock->splitBlock(b().getInsertionPoint());
+  thenBlock = b().createBlock(
+      ifBlock->getParent(), std::next(Region::iterator(ifBlock)));
+  if (elseFn)
+    elseBlock = b().createBlock(
+        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+  else
+    elseBlock = endBlock;
+
+  // Emit code for the IF block.
+  b().setInsertionPointToEnd(ifBlock);
+  Value condVal = cond(createLLVM);
+
+  // Branch the block into the THEN and ELSE blocks.
+  createLLVM.condBr(condVal, thenBlock, {}, elseBlock, {});
+
+  // Emit code for the THEN block.
+  b().setInsertionPointToStart(thenBlock);
+  thenFn(createLLVM);
+  if (thenBlock->hasNoSuccessors() && !isa<LLVM::ReturnOp>(thenBlock->back())) {
+    LLVM_DEBUG(llvm::dbgs() << "ThenBlock\n");
+    br({}, endBlock);
+  }
+  // Emit code for the ELSE block if required.
+  if (elseFn) {
+    b().setInsertionPointToStart(elseBlock);
+    elseFn(createLLVM);
+    LLVM_DEBUG(llvm::dbgs() << "DebugE;Elselock\n");
+    if (elseBlock->hasNoSuccessors() &&
+        !isa<LLVM::ReturnOp>(elseBlock->back())) {
+      LLVM_DEBUG(llvm::dbgs() << "ElseBlock\n");
+      br({}, endBlock);
+    }
+  }
+  // End if-then-else and return to the main body.
+  b().setInsertionPointToStart(endBlock);
+}
+
 } // namespace onnx_mlir

@@ -593,6 +593,9 @@ struct LLVMBuilder final : DialectBuilder {
   /// ```
   void ifThenElse(valueFuncRef cond, voidFuncRef thenFn,
       voidFuncRef elseFn = nullptr) const;
+
+  void ifThenElseTest(valueFuncRef cond, voidFuncRef thenFn,
+      voidFuncRef elseFn = nullptr) const;
 };
 
 //===----------------------------------------------------------------------===//
