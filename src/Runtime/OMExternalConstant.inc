@@ -16,9 +16,13 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
 #include <malloc.h>
+#else
+#include <stdlib.h>
+#endif
 
 const int i = 1;
 #define IS_SYSTEM_LE() (!((*(const char *)&i) == 0))
@@ -53,10 +57,10 @@ void *omMallocBuffer(int64_t size, int64_t align) {
   }
 
   void *ptr = NULL;
-#if defined(_MSC_VER)
+#ifdef _WIN32
   ptr = _aligned_malloc(size, align);
 #else
-  posix_memalign((void**) &ptr, align, size);
+  posix_memalign((void **)&ptr, align, size);
 #endif
 
   if (!ptr) {
@@ -77,7 +81,11 @@ void *omMallocBuffer(int64_t size, int64_t align) {
 /// TODO: find a new home for this function.
 void omFreeBuffer(void *ptr) {
   if (ptr) {
+#ifdef _WIN32
+    _aligned_free(ptr);
+#else
     free(ptr);
+#endif
     ptr = NULL;
   }
 }
