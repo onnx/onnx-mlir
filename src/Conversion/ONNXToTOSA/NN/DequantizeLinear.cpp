@@ -19,7 +19,6 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "torch-mlir/Conversion/TorchToTosa/TosaLegalizeUtils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include <src/Dialect/Mlir/IndexExpr.hpp>
 

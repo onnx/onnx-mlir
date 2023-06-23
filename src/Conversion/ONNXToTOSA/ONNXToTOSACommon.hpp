@@ -199,10 +199,9 @@ std::optional<mlir::Value> convertPoolOp(
                       std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value,
                   "Expected either tosa::MaxPool2dOp or tosa::AvgPool2dOp");
   if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value) {
-      input = rewriter
-                          .create<TOSAPoolOp>(loc, newResultType, input, newKernelShape,
-                                          strides, newPads)
-                          .getResult();
+    input = tosa::CreateOpAndInfer<TOSAPoolOp>(
+        rewriter, loc, newResultType, input, newKernelShape, strides, newPads)
+                .getResult();
   } else if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value) {
       mlir::TypeAttr accType;
       if (failed(tosa::getAvgPool2dAccType(rewriter, input, accType))) {
@@ -210,10 +209,9 @@ std::optional<mlir::Value> convertPoolOp(
           op, "Failed to get accumulator type for pooling");
         return std::nullopt;
       }
-      input = rewriter
-                          .create<TOSAPoolOp>(loc, newResultType, input, newKernelShape,
-                                          strides, newPads, accType)
-                          .getResult();
+    input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
+        input, newKernelShape, strides, newPads, accType)
+                .getResult();
   }
 
   // Revert to original shape (NCHW)
