@@ -30,15 +30,21 @@ LogicalResult ONNXCustomOp::inferShapes(
     return success();
 
   if (!getShapeInferPattern().has_value()) {
-    // No shape inference pattern provided. Do not know how to infer shape
+    // When no shape inference pattern provided, Just return.
     return success();
+  } else if(getResults().size() > 1) {
+    // ToFix: implementation limitation of existing ShapeHelper
+    return emitError(
+        "Shape inference pattern for multiple outputs NOT supported"); 
   }
-
+    
+  // Deterimine the element type of output.
+  // Use output_element_type attribute if specified.
+  // Otherwise,  use the first input in the list of inputs_for_infer.
   std::optional<ArrayAttr> inputIndexAttrs = getInputsForInfer();
-  // Use the first input because their element type should be same
   int64_t inputIdx = 0;
   if (inputIndexAttrs.has_value())
-    (inputIndexAttrs->getValue()[0]).cast<IntegerAttr>().getInt();
+    inputIdx = (inputIndexAttrs->getValue()[0]).cast<IntegerAttr>().getInt();
 
   Type elementType = getOutputElementType().value_or(
       getElementType(getInputs()[inputIdx].getType()));

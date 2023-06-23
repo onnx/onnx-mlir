@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+
 
 //===-- AdditionalONNXOps.td -- ONNX Dialect Additional Ops  -*- tablegen -===//
 //
@@ -83,37 +83,57 @@ def ONNXCustomOp:ONNX_Op<"Custom",
      DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Custom operation";
   let description = [{
-    This operation is not part of the standard and was added to support call
-    to any user defined external function.
-    Allow call-out to a user defined operation. A single required attribute
-    is a string which names the operation, other inputs are passed to the user
-    operation.
+    CustomOp is not an Op defined in onnx standard and was added to support
+    extention of Op that can be transformed or finally call a user-defined
+    external function."
+
+    It allows for calling a user-defined operation, with a single required
+    attribute being a string that names the operation. Other inputs are passed
+    to the user operation.
+
     The number of inputs and outputs can vary.
-    NoneType is allowed for input and output since the CustomOp may want
-    number of input/output to be fixed for external function call.
-    Other than the values passed to the user defined operation, some attributes
-    are introduced to help analysis and transformation of CustomOp.
-    Since the semantics of this op is not defined to compiler, some attributes
-    are introduced to guide shape inference:
-      'output_element_type':
-           Optional. The element type for the output tensor. Optional. If not
-           specified, follow the shape infer.
-      'shape_infer_pattern':
-           Optional. Specify how to propagate the shape info from inputs to
-           output. Current supported patterns are `SameAs`, `MDBroadcast`.
+
+    NoneType is allowed for both input and output, as the CustomOp may require
+    a fixed number of inputs/outputs for the external function call.
+
+    In addition to the values passed to the user-defined operation, certain
+    attributes are introduced to facilitate the analysis and transformation of
+    CustomOp.
+
+    Since the compiler does not define the semantics of CustomOp, onnx-mlir
+    cannot infer the shape of its output. Consequently, specific attributes are
+    introduced to specify how shape inference should be performed on a CustomOp.
+    These attributes are:
       'inputs_for_infer':
-           which inputs are used to apply the shape_infer_pattern.
-           When mulitple inputs are specified for 'SameAs', all these inputs
-           should have the same shape, and element type if output_type is
-           not specified. When this optional attribute is not specified,
-           all the inputs will be used for shape inference.
-    Every instance of CustomOp has its own attributes for shape inference. 
-    Usually the CustomOps with the same functions_name have the same attributes.
-    When attributes for shape inference are not provided, the shape inference 
-    for CustomOp will simply pass.
+           Optional. The index of inputs used for shape inference.
+           The value of index should be [0, the number of inputs).
+           If not specified, all the inputs of the CustomOp will be used for
+           shape inference.
+      'shape_infer_pattern':
+           Optional. Specify how to propagate the shape info from the inputs
+           (may be limited by inputs_for_infer) to output. Current supported
+           patterns are `SameAs`, `MDBroadcast`.
+      'output_element_type':
+           Optional. The element type for the output tensor. If not specified,
+           follow the shape infer pattern behavor. Usually the element type of
+           the first input is used.
+    Each instance of CustomOp can have its own attributes for shape inference,
+    allowing for customization. However, CustomOps with the same function_name
+    typically behave similarly in terms of shape inference, and therefore have
+    the same attributes.
 
-    All these attributes are optional to make them less intrusive.
+    The existing shape inference patterns for ONNX ops are reused for CustomOp,
+    with the polymorphism in shape inference based on its attribute values.
+    Due to the current implementation for ONNX Ops, a CustomOp with specified
+    shape inference attributes supports only a single output, rather than
+    variadic outputs.
 
+    When attributes for shape inference are not provided, the shape inference
+    for CustomOp will simply pass through.
+
+    All of these additional attributes are optional, designed to be less
+    intrusive. The .mlir file can remain the same when a new attribute is
+    added.
   }];
 
   let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$inputs,

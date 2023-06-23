@@ -3646,3 +3646,15 @@ func.func @test_custom2(%arg0: tensor<1024xf32>, %arg1: tensor<4x1024xf32>) -> t
 // CHECK:           return [[VAR_0_]] : tensor<4x1024xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_custom3(%arg0: tensor<1024xi32>, %arg1: tensor<4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Custom"(%arg0, %arg1) {function_name = "testcall", inputs_for_infer = [1], shape_infer_pattern = "SameAs"} : (tensor<1024xi32>, tensor<4xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_custom3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1024xi32>, [[PARAM_1_:%.+]]: tensor<4xf32>) -> tensor<4xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Custom"([[PARAM_0_]], [[PARAM_1_]]) {function_name = "testcall", inputs_for_infer = [1], shape_infer_pattern = "SameAs"} : (tensor<1024xi32>, tensor<4xf32>) -> tensor<4xf32>
+// CHECK:           return [[VAR_0_]] : tensor<4xf32>
+// CHECK:         }
