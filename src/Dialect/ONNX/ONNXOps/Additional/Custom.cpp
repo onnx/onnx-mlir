@@ -22,8 +22,8 @@ using namespace onnx_mlir;
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-LogicalResult
-ONNXCustomOp::inferShapes(std::function<void(Region &)> doShapeInference) {
+LogicalResult ONNXCustomOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
   // ToDo: this check could be refined to the shape related input,
   // if inputs_for_infer is specified
   if (!hasShapeAndRank(getOperation()))
