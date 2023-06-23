@@ -6,6 +6,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
   Additional/ShapeTransform.cpp
+  Additional/Custom.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
