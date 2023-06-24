@@ -822,17 +822,19 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
   if (!customOp.getShapeInferPattern().has_value()) {
     pattern = 0;
     return;
-  } else if (customOp.getShapeInferPattern() == "SameAs") {
+  }
+
+  if (customOp.getShapeInferPattern() == "SameAs") {
     pattern = 1;
   } else if (customOp.getShapeInferPattern() == "MDBroadcast") {
     pattern = 2;
   } else {
-    // Or just use ShapeHelper?
+    // ToFix: move the check into verifier
     llvm_unreachable("The specified shape_infer_pattern is not supported"
                      "Error encountered in shape inference.");
   }
-  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
 
+  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
   ValueRange inputs =
       operands.empty() ? ValueRange(customOp.getInputs()) : operands;
   if (!inputIndexAttrs.has_value()) {

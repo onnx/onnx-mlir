@@ -115,7 +115,7 @@ def ONNXCustomOp:ONNX_Op<"Custom",
            patterns are `SameAs`, `MDBroadcast`.
       'output_element_type':
            Optional. The element type for the output tensor. If not specified,
-           follow the shape infer pattern behavor. Usually the element type of
+           follow the shape infer pattern behavior. Usually the element type of
            the first input is used.
     Each instance of CustomOp can have its own attributes for shape inference,
     allowing for customization. However, CustomOps with the same function_name
