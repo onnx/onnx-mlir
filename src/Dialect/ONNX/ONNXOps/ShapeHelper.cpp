@@ -227,8 +227,8 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
 
 void ONNXOpShapeHelper::setOperands(std::vector<Value> inputs) {
   // Note: do not use operands until it is re-assigned
-  privateOperandsCache = llvm::SmallVector<Value, 4>(
-      inputs.begin(), inputs.end());
+  privateOperandsCache =
+      llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
   operands = ValueRange(privateOperandsCache);
 }
 
