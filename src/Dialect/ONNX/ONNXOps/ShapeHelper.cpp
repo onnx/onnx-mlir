@@ -225,6 +225,13 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
   return success();
 }
 
+void ONNXOpShapeHelper::setOperands(std::vector<Value> inputs) {
+  // Note: do not use operands until it is re-assigned
+  privateOperandsCache = llvm::SmallVector<Value, 4>(
+      inputs.begin(), inputs.end());
+  operands = ValueRange(privateOperandsCache);
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -817,7 +824,7 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
 ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
     bool hasUniBroadcasting)
-    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope), operandsVector() {
+    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {
   ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
   if (!customOp.getShapeInferPattern().has_value()) {
     pattern = 0;
@@ -841,15 +848,11 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     return;
   }
 
-  // ToFix: It seems to me that the vector for ValueRange has to be alive
-  // during the lifespan of the ValueRange. Using static definitely violates
-  // MLIR transformation requirement.
-
-  ValueRange usedOperands;
+  std::vector<mlir::Value> operandsVector;
   for (auto indexAttr : inputIndexAttrs.value()) {
     operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
   }
-  ONNXOpShapeHelper::operands = ArrayRef(operandsVector);
+  setOperands(operandsVector);
 }
 
 LogicalResult ONNXCustomOpShapeHelper::computeShape() {
