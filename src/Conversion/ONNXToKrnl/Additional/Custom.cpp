@@ -38,8 +38,9 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
     IndexExprScope scope(create.krnlIE);
 
     // Get shape.
-    ONNXCustomOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    // Commented out, waiting for the new PR
+    //ONNXCustomOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    //shapeHelper.computeShapeAndAssertOnFailure();
 
     // Output types.
     SmallVector<Type, 4> outputMemRefTypes;
@@ -55,15 +56,15 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
 
     // Handle the attributes: exclude the attributes used for analysis
     // function_name is passed explicitly. Others may include shape inference
-    std::vector<std::string> excludeStrings={"function_name"};
+    std::vector<std::string> excludeStrings={"function_name", "shape_infer_pattern", "inputs_for_infer", "output_element_type"};
     std::vector<std::string> attributeNames;
-    for(NamedAttr namedAttr : customOp.getAttrs()) {
-      std::string attrName = namedAttr.getName().getValue();
+    for(NamedAttribute namedAttr : customOp->getAttrs()) {
+      std::string attrName = namedAttr.getName().getValue().str();
       if(std::find(excludeStrings.begin(), excludeStrings.end(), attrName) == excludeStrings.end())
         attributeNames.push_back(attrName);
     }
 
-    rewriter.create<KrnlCallOp>(loc, customOp.getFunctionName(), allocOutpus, operands, attributeNames);
+    rewriter.create<KrnlCallOp>(loc, customOp.getFunctionName().str(), allocOutputs, op, operands, attributeNames);
      
     rewriter.replaceOp(op, allocOutputs);
     return success();
