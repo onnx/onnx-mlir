@@ -1721,14 +1721,14 @@ void LLVMBuilder::ifThenElse(
   // Split the current block into IF, THEN, ELSE and END blocks.
   Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
   ifBlock = b().getInsertionBlock();
-  thenBlock = ifBlock->splitBlock(b().getInsertionPoint());
-  elseBlock = b().createBlock(
-      thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+  endBlock = ifBlock->splitBlock(b().getInsertionPoint());
+  thenBlock = b().createBlock(
+      ifBlock->getParent(), std::next(Region::iterator(ifBlock)));
   if (elseFn)
-    endBlock = b().createBlock(
-        elseBlock->getParent(), std::next(Region::iterator(elseBlock)));
+    elseBlock = b().createBlock(
+        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
   else
-    endBlock = elseBlock;
+    elseBlock = endBlock;
 
   // Emit code for the IF block.
   b().setInsertionPointToEnd(ifBlock);
