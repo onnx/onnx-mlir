@@ -188,7 +188,8 @@ static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
   Value constZero = tosaBuilder.getSplattedConst(0.0, outputType.getShape());
 
   auto mul = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, op->getLoc(),
-      outputType, input, tosaBuilder.getSplattedConst(alpha, outputType.getShape()),
+      outputType, input,
+      tosaBuilder.getSplattedConst(alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =
