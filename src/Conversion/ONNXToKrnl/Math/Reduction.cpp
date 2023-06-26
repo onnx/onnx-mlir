@@ -424,7 +424,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] == ShapedType::kDynamic) {
           if (dynamicAxes) {
-            // hi alex: we rely here on the fact that input and output rank is
+            // We appear to rely here on the fact that input and output rank is
             // identical. Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = create.mem.dim(input, i);
             Value indexVal = create.math.constantIndex(i);
@@ -441,12 +441,25 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
     }
 
-    // There are two required and one optional Krnl loops:
-    // - One to initialize the result memref,
-    // - One to do reduction, and
-    // - One to compute mean (optional).
+//////////////////////////////////////////////////////////////////////
+// There are two required and one optional Krnl loops:
+// - One to initialize the result memref,
+// - One to do reduction, and
+// - One to compute mean (optional).
 
-    // 1. Define loops to initialize the result.
+// 1. Define loops to initialize the result.
+#if 1
+    ValueRange loop1Def = create.krnl.defineLoops(outRank);
+    SmallVector<IndexExpr, 4> lbs1(outRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs1;
+    create.krnlIE.getShapeAsDims(alloc, ubs1);
+    create.krnl.iterateIE(loop1Def, loop1Def, lbs1, ubs1,
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          Value identity =
+              getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
+          createKrnl.store(identity, alloc, loopInd);
+        });
+#else
     std::vector<Value> originalLoopsInit;
     defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
@@ -473,9 +486,43 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Value identity =
         getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
     create.krnl.store(identity, alloc, loopIVs);
-
-    // 2. Define an Krnl loop to do reduction.
     rewriter.setInsertionPointAfter(iterateOpInit);
+#endif
+
+#if 1
+    // 2. Define an Krnl loop to do reduction.
+    ValueRange loop2Def = create.krnl.defineLoops(inRank);
+    SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs2;
+    create.krnlIE.getShapeAsDims(input, ubs2);
+    create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
+        [&](KrnlBuilder &kb, ValueRange loopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
+          Value zeroIndex = create.math.constantIndex(0);
+          // Compute accumulator  access function.
+          SmallVector<Value, 4> accumulatorAccessFct;
+          for (decltype(inRank) i = 0; i < outRank; ++i) {
+            if (dynamicAxes) {
+              // For the reduced dim, the output index is always 0.
+              Value indexVal = create.math.constantIndex(i);
+              Value mask = create.krnl.load(maskVal, indexVal);
+              Value cond = create.math.eq(mask, trueVal);
+              Value dim = create.math.select(cond, zeroIndex, loopInd[i]);
+              accumulatorAccessFct.push_back(dim);
+            } else if (outInDimMap.find(i) != outInDimMap.end())
+              accumulatorAccessFct.push_back(loopInd[outInDimMap[i]]);
+            else
+              accumulatorAccessFct.push_back(zeroIndex);
+          }
+          // Load accumulator value, accumulate, and store.
+          Value next = create.krnl.load(input, loopInd);
+          Value accumulated = create.krnl.load(alloc, accumulatorAccessFct);
+          accumulated = emitScalarOpFor<ONNXReductionOp>(rewriter, loc, op,
+              memRefOutType.getElementType(), {accumulated, next});
+          create.krnl.store(accumulated, alloc, accumulatorAccessFct);
+        });
+#else
+    // 2. Define an Krnl loop to do reduction.
     auto ipMainRegion = rewriter.saveInsertionPoint();
     std::vector<Value> originalLoops;
     defineLoops(rewriter, loc, originalLoops, inRank);
@@ -519,9 +566,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     accumulated = emitScalarOpFor<ONNXReductionOp>(
         rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
     create.krnl.store(accumulated, alloc, outLoopIVs);
+    rewriter.restoreInsertionPoint(ipMainRegion);
+#endif
 
     // 3. Define an Krnl loop to compute mean (optional).
-    rewriter.restoreInsertionPoint(ipMainRegion);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
