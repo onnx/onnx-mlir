@@ -506,7 +506,9 @@ custom_builder_broadcast_to_same_type_ops_list = [
 custom_builder_broadcast_to_bool_ops_list = [
     'Equal',
     'Greater',
+    'GreaterOrEqual',
     'Less',
+    'LessOrEqual',
 ]
 custom_builder_broadcast_ops_list = custom_builder_broadcast_to_same_type_ops_list + \
     custom_builder_broadcast_to_bool_ops_list
