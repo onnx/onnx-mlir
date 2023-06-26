@@ -975,7 +975,7 @@ func.func @test_reducemean_v13_i32_unknown_dims(%arg0 : tensor<3x?x2xi32>) -> te
   // CHECK: krnl.iterate
   // CHECK: krnl.iterate
   // CHECK: [[DIM:%.+]] = memref.dim %arg0, [[ONE]] : memref<3x?x2xi32>
-  // CHECK: [[DIVISOR:%.+]] = arith.index_cast [[DIM]] : index to i32
+  // CHECK: [[DIVISOR:%.+]] = arith.index_cast [[DIM]] : index to i64
   // CHECK: krnl.iterate
 }
 

@@ -76,6 +76,7 @@ namespace onnx_mlir {
 // Warning, this does not work well in presence of Seq and Opt types, which have
 // a dependence on ONNX.
 bool IndexExprBuilder::hasShapeAndRank(Value value) {
+  assert(value && "expected a value");
   ShapedType shapedType = value.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
 }
@@ -138,6 +139,8 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -149,6 +152,8 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
     int64_t outOfBoundVal, IndexExprList &list, int64_t len) {
   list.clear();
   assert(len >= 0 && "expect a defined size");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr =
         getIntFromArrayAsLiteral(intAttrArray, i, outOfBoundVal);
@@ -255,6 +260,8 @@ void IndexExprBuilder::getIntFromArrayAsSymbols(
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsSymbol(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -270,6 +277,8 @@ void IndexExprBuilder::getIntFromArrayAsDims(
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -285,6 +294,8 @@ void IndexExprBuilder::getFloatFromArrayAsNonAffine(
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getFloatFromArrayAsNonAffine(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
