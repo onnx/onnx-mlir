@@ -1,4 +1,4 @@
-
+// SPDX-License-Identifier: Apache-2.0
 
 //===-- AdditionalONNXOps.td -- ONNX Dialect Additional Ops  -*- tablegen -===//
 //

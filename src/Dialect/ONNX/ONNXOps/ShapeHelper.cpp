@@ -225,7 +225,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
   return success();
 }
 
-void ONNXOpShapeHelper::setOperands(std::vector<Value> inputs) {
+void ONNXOpShapeHelper::setOperands(ValueRange inputs) {
   // Note: do not use operands until it is re-assigned
   privateOperandsCache =
       llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
@@ -852,7 +852,7 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
   for (auto indexAttr : inputIndexAttrs.value()) {
     operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
   }
-  setOperands(operandsVector);
+  setOperands(ValueRange(operandsVector));
 }
 
 LogicalResult ONNXCustomOpShapeHelper::computeShape() {

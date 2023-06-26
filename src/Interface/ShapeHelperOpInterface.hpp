@@ -138,7 +138,7 @@ struct ONNXOpShapeHelper {
   mlir::Operation *getOp() { return op; }
 
   // Set the operands with a vector of Value
-  void setOperands(std::vector<mlir::Value>);
+  void setOperands(mlir::ValueRange);
 
 protected:
   // Helper for ops for which the output (n'th) is the same as the type of a
