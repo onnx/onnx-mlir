@@ -262,8 +262,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     if constexpr (legacyOp == RLegacy::Latest) {
       // Deal with operations where we find axes in the inputs.
       axesVal = adaptor.getAxes();
-      // axesVal = operands[1];
-      axesVal.dump();
       if (isNoneValue(axesVal)) {
         // Default value of having no axes.
         hasNoAxes = true;
@@ -441,14 +439,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
     }
 
-//////////////////////////////////////////////////////////////////////
-// There are two required and one optional Krnl loops:
-// - One to initialize the result memref,
-// - One to do reduction, and
-// - One to compute mean (optional).
+    //////////////////////////////////////////////////////////////////////
+    // There are two required and one optional Krnl loops:
+    // - One to initialize the result memref,
+    // - One to do reduction, and
+    // - One to compute mean (optional).
 
-// 1. Define loops to initialize the result.
-#if 1
+    // 1. Define loops to initialize the result.
     ValueRange loop1Def = create.krnl.defineLoops(outRank);
     SmallVector<IndexExpr, 4> lbs1(outRank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> ubs1;
@@ -459,37 +456,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
           createKrnl.store(identity, alloc, loopInd);
         });
-#else
-    std::vector<Value> originalLoopsInit;
-    defineLoops(rewriter, loc, originalLoopsInit, outRank);
 
-    // Iteration information
-    // TODO use new KrnlDialectBuilder.
-    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
-    for (decltype(outRank) i = 0; i < outRank; ++i)
-      addDimensionToPack(rewriter, loc, packInit, alloc, i);
-
-    KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
-    Block &iterationBlockInit = iterateOpInit.getBodyRegion().front();
-
-    // Perform the insertions into the body of the initialization loop.
-
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlockInit);
-
-    // Handle the operation:
-    SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlockInit.getArguments()) {
-      loopIVs.push_back(arg);
-    }
-
-    Value identity =
-        getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
-    create.krnl.store(identity, alloc, loopIVs);
-    rewriter.setInsertionPointAfter(iterateOpInit);
-#endif
-
-#if 1
     // 2. Define an Krnl loop to do reduction.
     ValueRange loop2Def = create.krnl.defineLoops(inRank);
     SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
@@ -521,53 +488,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               memRefOutType.getElementType(), {accumulated, next});
           create.krnl.store(accumulated, alloc, accumulatorAccessFct);
         });
-#else
-    // 2. Define an Krnl loop to do reduction.
-    auto ipMainRegion = rewriter.saveInsertionPoint();
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, inRank);
-    // Iteration information
-    // TODO use new KrnlDialectBuilder.
-    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (decltype(inRank) i = 0; i < inRank; ++i)
-      addDimensionToPack(rewriter, loc, pack, input, i);
-
-    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.getBodyRegion().front();
-
-    // Perform the insertions into the body of the reduction loop.
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
-    SmallVector<Value, 4> inLoopIVs, outLoopIVs;
-    auto args = iterationBlock.getArguments();
-    for (unsigned int i = 0; i < args.size(); ++i) {
-      inLoopIVs.push_back(args[i]);
-    }
-    // Value zeroIndex = nullptr;
-    Value zeroIndex = create.math.constantIndex(0);
-    for (decltype(inRank) i = 0; i < outRank; ++i) {
-      if (dynamicAxes) {
-        // For the reduced dim, the output index is always 0
-        Value indexVal = create.math.constantIndex(i);
-        Value mask = create.krnl.load(maskVal, indexVal);
-        Value cond = create.math.eq(mask, trueVal);
-        Value dim = create.math.select(cond, zeroIndex, inLoopIVs[i]);
-        outLoopIVs.push_back(dim);
-      } else if (outInDimMap.find(i) != outInDimMap.end())
-        outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
-      else
-        outLoopIVs.push_back(zeroIndex);
-    }
-
-    Value next = create.krnl.load(input, inLoopIVs);
-    Value accumulated = create.krnl.load(alloc, outLoopIVs);
-    accumulated = emitScalarOpFor<ONNXReductionOp>(
-        rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
-    create.krnl.store(accumulated, alloc, outLoopIVs);
-    rewriter.restoreInsertionPoint(ipMainRegion);
-#endif
 
     // 3. Define an Krnl loop to compute mean (optional).
     if (computeMean) {
@@ -597,15 +517,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      ValueRange loopDef = create.krnl.defineLoops(outRank);
-      SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(alloc, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadData = createKrnl.load(alloc, loopInd);
+      ValueRange loop3Def = create.krnl.defineLoops(outRank);
+      SmallVector<IndexExpr, 4> lbs3(outRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs3;
+      create.krnlIE.getShapeAsDims(alloc, ubs3);
+      create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
+          [&](KrnlBuilder &kb, ValueRange loopInd) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
+            Value loadData = create.krnl.load(alloc, loopInd);
             Value meanVal = create.math.div(loadData, divisor);
-            createKrnl.store(meanVal, alloc, loopInd);
+            create.krnl.store(meanVal, alloc, loopInd);
           });
     }
 
