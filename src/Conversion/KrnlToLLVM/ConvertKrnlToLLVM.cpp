@@ -428,10 +428,14 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   OpBuilder b(module.getContext());
   MultiDialectBuilder<LLVMBuilder> create(b, loc);
 
-  SmallVector<KrnlGlobalOp> globalOfInterest;
+  Type llvmI8Ty = IntegerType::get(context, 8);
+  Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
+  Type llvmI64Ty = IntegerType::get(context, 64);
+
   // Check constants with thresholds.
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
+  SmallVector<KrnlGlobalOp> globalOfInterest;
   module.walk([&](KrnlGlobalOp op) {
     // Ignore constants that are return values.
     bool isReturnedValue = false;
@@ -444,29 +448,16 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     if (isReturnedValue)
       return WalkResult::advance();
 
-    assert(op.getValue().has_value() && "Krnl Global must always have a value");
-    auto value = op.getValue().value();
-    ArrayRef<char> rawData;
-    // Only handle DenseElementsAttr and DenseResourceElementsAttr.
-    TypeSwitch<Attribute>(value)
-        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          auto blob =
-              value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
-          assert(blob && "Expecting dense resource with a valid blob");
-          rawData = blob->getData();
-          if (attr.isSplat() || rawData.size() <= singleThreshold)
-            return;
-          globalOfInterest.emplace_back(op);
-        })
-        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          DenseElementsAttr denseAttr =
-              value.dyn_cast_or_null<DenseElementsAttr>();
-          rawData = denseAttr.getRawData();
-          if (attr.isSplat() || rawData.size() <= singleThreshold)
-            return;
-          globalOfInterest.emplace_back(op);
-        })
-        .Default([&](Attribute attr) { return; });
+    // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
+    ArrayRef<char> rawData = getRawData(op);
+    if (rawData.empty())
+      return WalkResult::advance();
+
+    auto valueAttr = op.getValue().value().cast<ElementsAttr>();
+    if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
+      return WalkResult::advance();
+
+    globalOfInterest.emplace_back(op);
     totalSize += rawData.size();
     return WalkResult::advance();
   });
@@ -475,30 +466,45 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   if (totalSize <= totalThreshold)
     return false;
 
+  // Sort constants in the non-descending order of alignment values.
+  // Non-alignment is the smallest value (-1), the others are positive.
+  llvm::sort(globalOfInterest, [&](KrnlGlobalOp left, KrnlGlobalOp right) {
+    int64_t leftAlign = -1;
+    int64_t rightAlign = -1;
+    if (left.getAlignment().has_value())
+      leftAlign = left.getAlignment().value();
+    if (right.getAlignment().has_value())
+      rightAlign = right.getAlignment().value();
+    return (leftAlign < rightAlign);
+  });
+
   // Pack all constants into a single buffer in order to save to file.
+  // Constants with the highest alignment will be packed first in the file.
+  // The file will be mmaped later at runtime and aligned at the page boundary,
+  // So every constants must be correctly aligned in the packed constant. Pads
+  // are added if necessary.
   std::vector<char> packedConst;
-  for (KrnlGlobalOp op : globalOfInterest) {
-    assert(op.getValue().has_value() && "Krnl Global must always have a value");
-    auto value = op.getValue().value();
-    TypeSwitch<Attribute>(value)
-        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          auto blob =
-              value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
-          assert(blob && "Expecting dense resource with a valid blob");
-          ArrayRef<char> rawData = blob->getData();
-          op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
-          op.removeValueAttr();
-          packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
-        })
-        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          DenseElementsAttr denseAttr =
-              value.dyn_cast_or_null<DenseElementsAttr>();
-          ArrayRef<char> rawData = denseAttr.getRawData();
-          op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
-          op.removeValueAttr();
-          packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
-        })
-        .Default([&](Attribute attr) { return; });
+  for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
+    KrnlGlobalOp op = globalOfInterest[i];
+    ArrayRef<char> rawData = getRawData(op);
+
+    // Get alignment.
+    int64_t alignment = -1;
+    if (op.getAlignment().has_value())
+      alignment = op.getAlignment().value();
+
+    // Padding if necessary.
+    if ((alignment > 0) && (packedConst.size() % alignment != 0)) {
+      uint64_t padSize =
+          ((uint64_t)(packedConst.size() / alignment) + 1) * alignment -
+          packedConst.size();
+      SmallVector<char> pads(padSize, (char)0);
+      packedConst.insert(packedConst.end(), pads.begin(), pads.end());
+    }
+
+    op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
+    op.removeValueAttr();
+    packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
   }
 
   // No constant statisfying thresholds, do not store constants to file.
@@ -512,35 +518,45 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Create a global op to store the filename in the IR.
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(module.getBody());
-  Type llvmI8Ty = IntegerType::get(context, 8);
   std::string fname = llvm::sys::path::filename(filepath).str() + '\0';
   mlir::StringAttr valueAttr = mlir::StringAttr::get(context, fname);
-  Type valueArrayType = LLVM::LLVMArrayType::get(llvmI8Ty, fname.size());
-  create.llvm.globalOp(valueArrayType,
+  create.llvm.globalOp(LLVM::LLVMArrayType::get(llvmI8Ty, fname.size()),
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "filename", valueAttr);
+  // Create a global to store filesize.
+  create.llvm.globalOp(llvmI64Ty,
+      /*isConstant=*/true, LLVM::Linkage::Internal,
+      EXTERNAL_CONSTANT_PREFIX + "filesize",
+      b.getI64IntegerAttr(packedConst.size()));
   // Create a global to store isLE.
   bool isLE = llvm::support::endian::system_endianness() ==
               llvm::support::endianness::little;
   create.llvm.globalOp(llvmI8Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
+  // Create an uninitialized global into which we will load/mmap constants from
+  // the file at runtime.
+  LLVM::GlobalOp packedConstOp = create.llvm.globalOp(llvmI8PtrTy,
+      /*isConstant=*/false, LLVM::Linkage::Internal,
+      EXTERNAL_CONSTANT_PREFIX + "packedConst", nullptr);
+  {
+    OpBuilder::InsertionGuard insertGuard(b);
+    Region &region = packedConstOp.getInitializerRegion();
+    Block *block = b.createBlock(&region);
+    // Initialize an array with the addresses of the global op.
+    b.setInsertionPoint(block, block->begin());
+    create.llvm._return(create.llvm.null(llvmI8PtrTy));
+  }
 
   return true;
 }
 
 /// Emit a function "omLoadConstantsFromFile" in the IR to load constants from
-/// external files into global operations. Aligned buffers are allocated. Make
-/// sure to free these buffers at the end of the program by calling
-/// "freeBuffersForConstants".
-/// By default, user program (C/C++/Java/Python) would call
-/// "omLoadConstantsFromFile".
-/// If calledByEntryPoint, this function will be called by entry points.
+/// external files into global operations.
 void loadConstantsFromFile(ModuleOp &module,
     const RuntimeAPIRegistry &apiRegistry,
     const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps,
-    bool calledByEntryPoint = false) {
+    bool calledByEntryPoint = true) {
   MLIRContext *ctx = module.getContext();
   Location loc = module.getLoc();
   OpBuilder b(ctx);
@@ -554,11 +570,10 @@ void loadConstantsFromFile(ModuleOp &module,
   // The following function will be emitted inside the IR to load constants from
   // file.
   std::string loadAllConstantsFuncName = "omLoadConstantsFromFile";
-  Type llvmFnType =
-      LLVM::LLVMFunctionType::get(llvmVoidTy, {llvmI8PtrTy}, false);
+  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
 
-  // By default, user program (C/C++/Java/Python) would call this function.
   // If calledByEntryPoint, this function will be called by entry points.
+  // Otherwise, user program (C/C++/Java/Python) would call this function.
   LLVM::LLVMFuncOp funcOp;
   if (calledByEntryPoint) {
     Operation *firstEntryPointOp =
@@ -593,8 +608,20 @@ void loadConstantsFromFile(ModuleOp &module,
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(entryBlock);
 
-  // Open the constant file in binary mode.
-  Value fnameI8Ptr = entryBlock->getArgument(0);
+  // Get the constant file name.
+  std::string fnameSymbol = EXTERNAL_CONSTANT_PREFIX + "filename";
+  auto fnameGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
+  assert(fnameGlobalOp && "Could not find the global op for filename");
+  Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobalOp, loc, b);
+  // Get the file size.
+  std::string fsizeSymbol = EXTERNAL_CONSTANT_PREFIX + "filesize";
+  auto fsizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fsizeSymbol);
+  assert(fsizeGlobalOp && "Could not find the global op for filesize");
+  int64_t dataSize = fsizeGlobalOp.getValue()
+                         .value()
+                         .cast<IntegerAttr>()
+                         .getValue()
+                         .getSExtValue();
   // Get the global op for isLE.
   std::string isleSymbol = EXTERNAL_CONSTANT_PREFIX + "isLE";
   auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
@@ -604,11 +631,18 @@ void loadConstantsFromFile(ModuleOp &module,
                      .cast<IntegerAttr>()
                      .getValue()
                      .getSExtValue();
+  // Get the packedConst global.
+  std::string packedSymbol = EXTERNAL_CONSTANT_PREFIX + "packedConst";
+  auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
+  Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
+  Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
+  // Call a function to mmap the binary file to memory.
   Value isleVal = create.llvm.constant(llvmI64Ty, isle);
-  Value filePtr = RuntimeAPI::callApi(b, loc, apiRegistry,
-      RuntimeAPI::API::OPEN_BINARY_FILE, {fnameI8Ptr, isleVal});
+  Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
+  RuntimeAPI::callApi(b, loc, apiRegistry, RuntimeAPI::API::MMAP_BINARY_FILE,
+      {packedGlobalPtr, fnameI8Ptr, sizeVal, isleVal});
 
-  // Read data from file to global constants.
+  // Now set pointers for constants in the IR
   module->walk([&](LLVM::GlobalOp dataGlobalOp) -> WalkResult {
     // Get the global op for data.
     StringRef dataSymbol = dataGlobalOp.getSymName();
@@ -616,16 +650,6 @@ void loadConstantsFromFile(ModuleOp &module,
     if (!dataSymbol.startswith(prefixData))
       return WalkResult::advance();
     std::string constantName = dataSymbol.drop_front(prefixData.size()).str();
-
-    // Get the global op for data size.
-    std::string sizeSymbol = EXTERNAL_CONSTANT_PREFIX + "size" + constantName;
-    auto sizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(sizeSymbol);
-    assert(sizeGlobalOp && "Could not find the global op for data size");
-    int64_t dataSize = sizeGlobalOp.getValue()
-                           .value()
-                           .cast<IntegerAttr>()
-                           .getValue()
-                           .getSExtValue();
 
     // Get offset.
     std::string offsetSymbol =
@@ -638,99 +662,17 @@ void loadConstantsFromFile(ModuleOp &module,
                          .getValue()
                          .getSExtValue();
 
-    // Get alignment.
-    int64_t alignment = -1;
-    if (dataGlobalOp.getAlignment().has_value())
-      alignment = dataGlobalOp.getAlignment().value();
-
-    // Read data from the external file.
+    // Set the data pointer pointing to the packedConst.
     Value dataGlobalAddr = create.llvm.addressOf(dataGlobalOp);
     Value dataPtr = create.llvm.bitcast(llvmI8PtrTy, dataGlobalAddr);
     Value offsetVal = create.llvm.constant(llvmI64Ty, offset);
-    Value sizeVal = create.llvm.constant(llvmI64Ty, dataSize);
-    Value alignmentVal = create.llvm.constant(llvmI64Ty, alignment);
     RuntimeAPI::callApi(b, loc, apiRegistry,
-        RuntimeAPI::API::LOAD_EXTERNAL_CONSTANT,
-        {dataPtr, filePtr, offsetVal, sizeVal, alignmentVal});
-    // Keep trace of global addresses in order to free their buffers.
-    dataGlobalOps.emplace_back(dataGlobalOp);
+        RuntimeAPI::API::GET_EXTERNAL_CONSTANT_ADDR,
+        {dataPtr, packedGlobalPtr, offsetVal});
 
     return WalkResult::advance();
   });
 
-  // Close the file.
-  RuntimeAPI::callApi(
-      b, loc, apiRegistry, RuntimeAPI::API::CLOSE_FILE, {filePtr});
-
-  create.llvm._return();
-}
-
-/// Emit a function "omFreeBuffersForConstants" in the IR to free aligned
-/// buffers allocated for constants from files.
-/// By default, user program (C/C++/Java/Python) would call this function.
-/// If calledByEntryPoint, this function will be called by entry points.
-void freeBuffersForConstants(ModuleOp &module,
-    const RuntimeAPIRegistry &apiRegistry,
-    const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &dataGlobalOps,
-    bool calledByEntryPoint = false) {
-  MLIRContext *ctx = module.getContext();
-  Location loc = module.getLoc();
-  OpBuilder b(ctx);
-  MultiDialectBuilder<LLVMBuilder> create(b, loc);
-
-  Type llvmI8Ty = IntegerType::get(ctx, 8);
-  Type llvmI8PtrTy = getPointerType(ctx, llvmI8Ty);
-  Type llvmVoidTy = LLVM::LLVMVoidType::get(ctx);
-
-  // The following function will be emitted inside the IR to free buffers for
-  // external parameters.
-  std::string freeBuffersForConstantsFuncName = "omFreeBuffersForConstants";
-  Type llvmFnType = LLVM::LLVMFunctionType::get(llvmVoidTy, {}, false);
-
-  // By default, user program (C/C++/Java/Python) would call this function.
-  // If calledByEntryPoint, this function will be called by entry points.
-  LLVM::LLVMFuncOp funcOp;
-  if (calledByEntryPoint) {
-    Operation *firstEntryPointOp =
-        getFirstEntryOpInBlock(module, entryGlobalOps);
-    assert(firstEntryPointOp && "No entry function exists");
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPoint(firstEntryPointOp);
-    funcOp = create.llvm.func(freeBuffersForConstantsFuncName, llvmFnType);
-    // Call omFreeBuffersForConstants at the end of each entry point function.
-    for (auto entryGlobalOp : entryGlobalOps) {
-      std::string entryName =
-          entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
-      // Erase the null symbol.
-      entryName.erase(
-          std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
-      auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
-      assert(entryFunc && "Entry function not found");
-
-      Operation *terminator = entryFunc.getRegion().back().getTerminator();
-      b.setInsertionPoint(terminator);
-      FlatSymbolRefAttr freeAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-          module, freeBuffersForConstantsFuncName, llvmVoidTy, {},
-          /*isVarArg=*/false);
-      create.llvm.call({}, freeAllConstantsRef, {});
-    }
-  } else {
-    OpBuilder::InsertionGuard guard(b);
-    b.setInsertionPointToEnd(module.getBody());
-    funcOp = create.llvm.func(freeBuffersForConstantsFuncName, llvmFnType);
-  }
-
-  // Emit the body of the function omFreeBuffersForConstants.
-  Block *entryBlock = funcOp.addEntryBlock();
-  OpBuilder::InsertionGuard bodyGuard(b);
-  b.setInsertionPointToStart(entryBlock);
-  for (LLVM::GlobalOp global : dataGlobalOps) {
-    Value addr = create.llvm.addressOf(global);
-    Value ptr = create.llvm.load(llvmI8PtrTy, addr);
-    RuntimeAPI::callApi(
-        b, loc, apiRegistry, RuntimeAPI::API::FREE_BUFFER, {ptr});
-  }
   create.llvm._return();
 }
 
@@ -908,19 +850,15 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
         module, entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
 
   // If globals are stored on external files. Emit helper functions to load
-  // constants from files, and to free the allocated buffers for constants.
+  // constants from files.
   if (storeConstantsToFile) {
     // Register runtime function calls, e.g. omXXX functions.
     const RuntimeAPIRegistry &apiRegistry =
         RuntimeAPIRegistry(module, builder, typeConverter);
 
-    SmallVector<LLVM::GlobalOp> dataGlobalOps;
     // Emit a function, omLoadConstantsFromFile, that loads contants from files
     // to memory.
-    loadConstantsFromFile(module, apiRegistry, entryGlobalOps, dataGlobalOps);
-    // Emit a function, omFreeBuffersForConstants, that frees alocated buffers
-    // in memory.
-    freeBuffersForConstants(module, apiRegistry, entryGlobalOps, dataGlobalOps);
+    loadConstantsFromFile(module, apiRegistry, entryGlobalOps);
   }
 
   // Annotate global constants with `.lrodata` section if required.

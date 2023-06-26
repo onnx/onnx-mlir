@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "onnx/onnx_pb.h"
@@ -301,6 +305,26 @@ Operation *getFirstEntryOpInBlock(
       firstEntryPointOp = entryOp;
   }
   return firstEntryPointOp;
+}
+
+ArrayRef<char> getRawData(KrnlGlobalOp &op) {
+  ArrayRef<char> rawData;
+  assert(op.getValue().has_value() && "Krnl Global must always have a value");
+  auto value = op.getValue().value();
+  TypeSwitch<Attribute>(value)
+      .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+        auto blob =
+            value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
+        assert(blob && "Expecting dense resource with a valid blob");
+        rawData = blob->getData();
+      })
+      .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+        DenseElementsAttr denseAttr =
+            value.dyn_cast_or_null<DenseElementsAttr>();
+        rawData = denseAttr.getRawData();
+      })
+      .Default([&](Attribute attr) { return; });
+  return rawData;
 }
 
 } // namespace krnl

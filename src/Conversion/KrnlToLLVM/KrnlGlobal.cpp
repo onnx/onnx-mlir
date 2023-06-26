@@ -241,13 +241,6 @@ private:
         EXTERNAL_CONSTANT_PREFIX + "offset_" + constantName,
         rewriter.getI64IntegerAttr(offset.value()));
 
-    // Create a global to store data size.
-    uint64_t dataSize = computeSizeInBytes(krnlGlobalOp);
-    create.llvm.globalOp(llvmI64Ty,
-        /*isConstant=*/true, LLVM::Linkage::Internal,
-        EXTERNAL_CONSTANT_PREFIX + "size_" + constantName,
-        rewriter.getI64IntegerAttr(dataSize));
-
     return global;
   }
 

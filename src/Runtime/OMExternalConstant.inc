@@ -13,11 +13,14 @@
 //===----------------------------------------------------------------------===//
 
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #ifdef _WIN32
 #include <malloc.h>
@@ -36,119 +39,71 @@ void checkEndianness(const char constPackIsLE) {
   }
 }
 
-/// malloc() that does alignment
+/// MMap data from a binary file into memory.
 ///
-/// \param[in] size Size to be malloc'd
-/// \param[in] align Alignment, -1 if no alignment
-///
-/// \return Pointer to the malloc'd area if successful, or NULL otherwise
-///
-/// TODO: find a new home for this function.
-void *omMallocBuffer(int64_t size, int64_t align) {
-  // No alignment.
-  if (align == -1) {
-    void *ptr = malloc(size);
-    if (!ptr) {
-      perror("Error during malloc");
-      fprintf(stderr, "errno = %d\n", errno);
-    }
-    return ptr;
-  }
-
-  void *ptr = NULL;
-#ifdef _WIN32
-  ptr = _aligned_malloc(size, align);
-#else
-  posix_memalign((void **)&ptr, align, size);
-#endif
-
-  if (!ptr) {
-    perror("Error during malloc");
-    fprintf(stderr, "errno = %d\n", errno);
-    return ptr;
-  }
-
-  return ptr;
-}
-
-/// free() what was allocated via omMallocBuffer()
-///
-/// \param[in] ptr Pointer returned by omMallocBuffer()
-///
-/// \return None
-///
-/// TODO: find a new home for this function.
-void omFreeBuffer(void *ptr) {
-  if (ptr) {
-#ifdef _WIN32
-    _aligned_free(ptr);
-#else
-    free(ptr);
-#endif
-    ptr = NULL;
-  }
-}
-
-/// Open a file in binary mode
-///
-/// \param[in] fname File path
-/// \param[in] isLE Data in the file is little-endian or not
-///
-/// \return A FILE pointer
-/// TODO: find a new home for this function.
-void *omOpenBinaryFile(char *fname, int64_t isLE) {
-  checkEndianness(isLE);
-  FILE *fileptr;
-  fileptr = fopen(fname, "rb"); // Open the file in binary mode.
-  if (fileptr == NULL) {
-    fprintf(stderr, "Error while openning %s: %s\n", fname, strerror(errno));
-    return NULL;
-  }
-  return (void *)fileptr;
-}
-
-/// Close a file
-///
-/// \param[in] fileptr A FILE pointer
-///
-/// \return None
-/// TODO: find a new home for this function.
-void omCloseFile(void *fileptr) {
-  if (fileptr)
-    fclose((FILE *)fileptr);
-}
-
-/// Load data from a binary file into an aligned buffer.
-///
-/// \param[in] ptr Pointer returned by omLoadExternalConstant()
+/// \param[in] constAddr lreturned address to a global variable in the IR.
 /// \param[in] fname File name at the current folder
-/// \param[in] offset Offset from the beginning of file
 /// \param[in] size Size in bytes to copy data from the binary file
-/// \param[in] align Alignment
 /// \param[in] isLE Data in the binary file is little-endian or not
 ///
 /// \return None
 ///
-void omLoadExternalConstant(
-    void **ptr, void *fileptr, int64_t offset, int64_t size, int64_t align) {
-  if (ptr == NULL) {
+void omMMapBinaryFile(
+    void **constAddr, char *fname, int64_t size, int64_t isLE) {
+  checkEndianness(isLE);
+  if (constAddr == NULL) {
     perror("Error: null pointer");
     return;
   }
+  if (constAddr[0] == NULL) {
+    int fd = open(fname, O_RDONLY);
+    if (fd < 0) {
+      fprintf(stderr, "Error while openning %s\n", fname);
+      return;
+    }
 
-  // Constant is already loaded. Nothing to do.
-  if (ptr[0])
-    return;
+    void *tempAddr = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
+    if (tempAddr == MAP_FAILED) {
+      fprintf(stderr, "Error while mmapping %s\n", fname);
+      close(fd);
+      return;
+    }
 
-  // File is not opened.
-  if (fileptr == NULL) {
-    perror("Error: LoadExternalConstant");
+    /* Prepare to compare-and-swap to setup the shared constAddr.
+     * If we fail, another thread beat us so free our mmap.
+     */
+    if (!__sync_bool_compare_and_swap(&constAddr[0], NULL, tempAddr))
+      munmap(tempAddr, size);
+
+    /* Either we succeeded in setting constAddr or someone else did it.
+     * Either way, constAddr is now setup. We can close our fd without
+     * invalidating the mmap.
+     */
+    close(fd);
+  }
+}
+
+/// Return the address of a constant at a given offset.
+///
+/// \param[in] outputAddr Returned address of a constant.
+/// \param[in] baseAddr Base address to find the constant.
+/// \param[in] offset Offset of the constant
+///
+/// \return None
+///
+void omGetExternalConstantAddr(
+    void **outputAddr, void **baseAddr, int64_t offset) {
+  if (outputAddr == NULL) {
+    perror("Error: null pointer");
     return;
   }
+  if (baseAddr == NULL) {
+    perror("Error: null pointer");
+    return;
+  }
+  // Constant is already loaded. Nothing to do.
+  if (outputAddr[0])
+    return;
 
-  void *buffer = omMallocBuffer(size, align);
-  fseek((FILE *)fileptr, offset, SEEK_SET);
-  fread(buffer, size, 1, (FILE *)fileptr);
-
-  ptr[0] = buffer;
+  outputAddr[0] = (char *)baseAddr[0] + offset;
 }

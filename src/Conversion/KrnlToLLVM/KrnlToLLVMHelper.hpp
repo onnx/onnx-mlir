@@ -17,7 +17,9 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
+
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 namespace onnx_mlir {
 namespace krnl {
@@ -82,6 +84,9 @@ mlir::LLVM::LLVMPointerType getI8PointerType(
 /// the same block.
 mlir::Operation *getFirstEntryOpInBlock(mlir::ModuleOp &module,
     const llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps);
+
+/// Get rawData from a DenseElementsAttr or a DenseResourceElementsAttr.
+llvm::ArrayRef<char> getRawData(mlir::KrnlGlobalOp &op);
 
 } // namespace krnl
 } // namespace onnx_mlir
