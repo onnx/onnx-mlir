@@ -99,6 +99,38 @@ func.func @test_mul(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> t
 
 // -----
 
+func.func @test_div(%arg0: tensor<13x21x1xi32>, %arg1: tensor<13x21x1xi32>) -> tensor<13x21x1xi32> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xi32>, tensor<13x21x1xi32>) -> tensor<13x21x1xi32>
+  "func.return"(%0) : (tensor<13x21x1xi32>) -> ()
+// CHECK-LABEL:  func @test_div
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xi32>, [[PARAM_1_:%.+]]: tensor<13x21x1xi32>) -> tensor<13x21x1xi32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.div"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<13x21x1xi32>, tensor<13x21x1xi32>) -> tensor<13x21x1xi32>
+}
+
+// -----
+
+func.func @test_div_broadcast(%arg0: tensor<13x21x1xi32>, %arg1: tensor<1xi32>) -> tensor<13x21x1xi32> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xi32>, tensor<1xi32>) -> tensor<13x21x1xi32>
+  "func.return"(%0) : (tensor<13x21x1xi32>) -> ()
+// CHECK-LABEL:  func @test_div_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xi32>, [[PARAM_1_:%.+]]: tensor<1xi32>) -> tensor<13x21x1xi32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reshape"([[PARAM_1_]]) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xi32>) -> tensor<1x1x1xi32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.div"([[PARAM_0_]], [[VAR_0_]]) : (tensor<13x21x1xi32>, tensor<1x1x1xi32>) -> tensor<13x21x1xi32>
+}
+
+// -----
+
+func.func @test_div_decomposed(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+  "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
+// CHECK-LABEL:  func @test_div_decomposed
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reciprocal"([[PARAM_1_]]) : (tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.mul"([[PARAM_0_]], [[VAR_0_]]) <{shift = 0 : i32}> : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+}
+
+// -----
+
 func.func @test_leaky_relu(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
   %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.707330704  : f32} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
   func.return %0 : tensor<13x21x3xf32>
@@ -254,4 +286,14 @@ func.func @test_clip_constant_minimum_maximum_non_splat(%arg0: tensor<3xi32>) ->
 // CHECK-NEXT:     [[VAR_3_:%.+]] = "tosa.minimum"([[VAR_2_]], [[VAR_1_]]) : (tensor<3xi32>, tensor<1xi32>) -> tensor<3xi32>
 // CHECK-NEXT:     return [[VAR_3_]] : tensor<3xi32>
 // CHECK-NEXT:   }
+}
+
+func.func @test_div_decomposed_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xf32> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xf32>
+  "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
+// CHECK-LABEL:  func @test_div_decomposed_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<13x21x1xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reciprocal"([[PARAM_1_]]) : (tensor<1xf32>) -> tensor<1xf32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.reshape"([[VAR_0_]]) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK-NEXT:      [[VAR_2_:%.+]] = "tosa.mul"([[PARAM_0_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
 }
