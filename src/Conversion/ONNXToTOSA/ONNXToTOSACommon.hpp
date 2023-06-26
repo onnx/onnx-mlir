@@ -113,9 +113,8 @@ mlir::ArrayAttr createOrderedPadAttr(mlir::PatternRewriter &rewriter,
       padOrder[2], padOrder[3] + ceilConstants[1]});
 }
 
-
-inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter, mlir::Value input,
-                                  mlir::TypeAttr &accType) {
+inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter,
+    mlir::Value input, mlir::TypeAttr &accType) {
   auto inputTy = llvm::dyn_cast<mlir::ShapedType>(input.getType());
   if (!inputTy)
     return mlir::failure();
@@ -162,7 +161,8 @@ std::optional<mlir::Value> convertPoolOp(
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), mlir::ShapedType::kDynamic),
+      llvm::SmallVector<int64_t, 4>(
+          inputType.getShape().size(), mlir::ShapedType::kDynamic),
       inputType.getElementType());
 
   // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
@@ -196,19 +196,20 @@ std::optional<mlir::Value> convertPoolOp(
       rewriter.getDenseI64ArrayAttr(mlir::extractFromI64ArrayAttr(kernelShape));
 
   static_assert(std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value ||
-                      std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value,
-                  "Expected either tosa::MaxPool2dOp or tosa::AvgPool2dOp");
+                    std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value,
+      "Expected either tosa::MaxPool2dOp or tosa::AvgPool2dOp");
   if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value) {
     input = tosa::CreateOpAndInfer<TOSAPoolOp>(
         rewriter, loc, newResultType, input, newKernelShape, strides, newPads)
                 .getResult();
-  } else if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value) {
-      mlir::TypeAttr accType;
-      if (failed(tosa::getAvgPool2dAccType(rewriter, input, accType))) {
-         (void)rewriter.notifyMatchFailure(
+  } else if constexpr (std::is_same<TOSAPoolOp,
+                           mlir::tosa::AvgPool2dOp>::value) {
+    mlir::TypeAttr accType;
+    if (failed(tosa::getAvgPool2dAccType(rewriter, input, accType))) {
+      (void)rewriter.notifyMatchFailure(
           op, "Failed to get accumulator type for pooling");
-        return std::nullopt;
-      }
+      return std::nullopt;
+    }
     input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
         input, newKernelShape, strides, newPads, accType)
                 .getResult();
@@ -324,8 +325,9 @@ void populateLoweringONNXAveragePoolOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXQuantizeLinearOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXDequantizeLinearOpToTOSAPattern(mlir::ConversionTarget &,
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXDequantizeLinearOpToTOSAPattern(
+    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &,
+    mlir::MLIRContext *);
 // `Tensor` directory methods:
 void populateLoweringONNXReshapeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

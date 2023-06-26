@@ -150,7 +150,8 @@ private:
   // Do transpose by copying block of consecutive elements in the inner-most
   // dimensions.
   void blockTranspose(Value inputMemRef, Value outputMemRef,
-      std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims) const {
+      std::optional<ArrayAttr> permAttr, MDBuilder *create,
+      int numLastDims) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
     MemRefType inMemRefType = inputMemRef.getType().cast<MemRefType>();
     uint64_t rank = inMemRefType.getRank();

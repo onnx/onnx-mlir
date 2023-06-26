@@ -44,9 +44,9 @@ public:
     // onnx allows values beetween [-r, r-1] where r is the rank.
     axis = tosa::convertNegativeAxis(axis, inputRank);
 
-    Type newConcatOutputType =
-        RankedTensorType::get(llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
-            resultType.cast<ShapedType>().getElementType());
+    Type newConcatOutputType = RankedTensorType::get(
+        llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
+        resultType.cast<ShapedType>().getElementType());
 
     tosa::CreateReplaceOpAndInfer<mlir::tosa::ConcatOp>(
         rewriter, op, newConcatOutputType, inputs, axis);

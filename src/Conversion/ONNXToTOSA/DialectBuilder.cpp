@@ -16,8 +16,8 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
-#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
@@ -123,7 +123,6 @@ Value TosaBuilder::getConst(ArrayRef<int8_t> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-
 Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   auto elementType = rewriter().getF32Type();
   Value constOp = this->createConst<float>(vec, shape, elementType);
@@ -138,7 +137,6 @@ Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
       rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
   return constOp;
 }
-
 
 Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
   int64_t valueRank = value.getType().cast<RankedTensorType>().getRank();

@@ -23,8 +23,8 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h"
 
-#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp" // from @llvm-project
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp" // from @llvm-project
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -46,13 +46,13 @@ int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
   return axis;
 }
 
-llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(                      
-    llvm::ArrayRef<IndexExpr> indexVector) {                                    
-  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());              
-  llvm::transform(indexVector, literalVector.begin(),                           
-      [](const auto &indexExpr) { return indexExpr.getLiteral(); });            
-  return literalVector;                                                         
-} 
+llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
+    llvm::ArrayRef<IndexExpr> indexVector) {
+  llvm::SmallVector<int64_t, 4> literalVector(indexVector.size());
+  llvm::transform(indexVector, literalVector.begin(),
+      [](const auto &indexExpr) { return indexExpr.getLiteral(); });
+  return literalVector;
+}
 
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding) {
@@ -61,13 +61,13 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 }
 
 mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {
-    if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
-      if (source.getValue())
-        return cast<mlir::ElementsAttr>(source.getValue().value());
-    }
-    // if the constant is not an onnx.const it has to be a tosa.const
-    assert(val.getDefiningOp<mlir::tosa::ConstOp>());
-    return tosa::getValueFromTosaConst<ElementsAttr>(val);
+  if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
+    if (source.getValue())
+      return cast<mlir::ElementsAttr>(source.getValue().value());
+  }
+  // if the constant is not an onnx.const it has to be a tosa.const
+  assert(val.getDefiningOp<mlir::tosa::ConstOp>());
+  return tosa::getValueFromTosaConst<ElementsAttr>(val);
 }
 
 // Create a TOSA rescale op from input framework tensor, zero points and
@@ -86,9 +86,9 @@ Value buildRescale(PatternRewriter &rewriter, Operation *op,
       op->getLoc(), output_type, input_val,
       rewriter.getI32IntegerAttr(static_cast<int32_t>(input_zp)),
       rewriter.getI32IntegerAttr(static_cast<int32_t>(output_zp)),
-      rewriter.getDenseI32ArrayAttr({multiplier}), rewriter.getDenseI32ArrayAttr({shift}),
-      rewriter.getBoolAttr(scale32), rewriter.getBoolAttr(double_round),
-      rewriter.getBoolAttr(false));
+      rewriter.getDenseI32ArrayAttr({multiplier}),
+      rewriter.getDenseI32ArrayAttr({shift}), rewriter.getBoolAttr(scale32),
+      rewriter.getBoolAttr(double_round), rewriter.getBoolAttr(false));
 
   return rescale_op.getResult();
 }

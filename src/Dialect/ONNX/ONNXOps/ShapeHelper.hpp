@@ -411,9 +411,8 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
   // Actual computation of the pool shape and parameters using every different
   // switches that differs between pooling and conv ops.
   mlir::LogicalResult customComputeShape(mlir::Value X /* image */,
-      mlir::Value W /* filter */,
-      std::optional<mlir::ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
-      std::optional<mlir::ArrayAttr> padOpt,
+      mlir::Value W /* filter */, std::optional<mlir::ArrayAttr> kernelShapeOpt,
+      llvm::StringRef autoPad, std::optional<mlir::ArrayAttr> padOpt,
       std::optional<mlir::ArrayAttr> strideOpt,
       std::optional<mlir::ArrayAttr> dilationOpt,
       bool hasFilter, // If has filter, it also has CO and optional kernel.
