@@ -40,11 +40,13 @@ struct TosaBuilder : DialectBuilder {
   template <typename T>
   mlir::Value binaryOp(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift = 0);
+  mlir::Value intdiv(mlir::Value &lhs, mlir::Value &rhs);
 
   mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
   mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
       llvm::ArrayRef<int64_t> start);
   mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
+  mlir::Value reciprocal(mlir::Value &input);
 
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
