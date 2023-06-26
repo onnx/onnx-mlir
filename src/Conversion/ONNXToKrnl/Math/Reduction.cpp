@@ -821,10 +821,11 @@ struct ONNXReductionOpLoweringNEW
     Value axesVal = nullptr;
     bool hasNoAxes = false; // Axles is a None (i.e. optional value not given).
     bool dynamicAxes = false; // No dynamic axes unless proven otherwise.
+    IndexExpr axisShape0;     // Shape to be used if dynamic.
     if constexpr (legacyOp == RLegacy::Latest) {
       // Deal with operations where we find axes in the inputs.
       axesVal = adaptor.getAxes();
-      //axesVal = operands[1];
+      // axesVal = operands[1];
       axesVal.dump();
       if (isNoneValue(axesVal)) {
         // Default value of having no axes.
@@ -833,7 +834,7 @@ struct ONNXReductionOpLoweringNEW
         // Check it has a rank of 1.
         assert(
             create.krnlIE.getShapedTypeRank(axesVal) == 1 && "expect rank 1");
-        IndexExpr axisShape0 = create.krnlIE.getShapeAsDim(axesVal, 0);
+        axisShape0 = create.krnlIE.getShapeAsDim(axesVal, 0);
 
         if (!axisShape0.isLiteral())
           // Don't even know the shape of the axis... it is dynamic.
@@ -920,18 +921,18 @@ struct ONNXReductionOpLoweringNEW
       falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
       trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
-      assert(axesVal && "expected axesVal");
-      IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
+      // assert(axesVal && "expected axesVal");
+      // hi alex IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
 
       // Initialize mask to 0
       // Unless noop_with_empty_axesDim is false and axesDim is
       // ShapedType::kDynamic.
       Value initVal;
-      if (!axesBound0.isLiteral() && !isNoop) {
+      if (!axisShape0.isLiteral() && !isNoop) {
         // initVal = axes.shape[0] == 0 ? true : false
         IndexExprScope axesLoopContext(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
-        Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
+        Value cond = create.math.eq(axisShape0.getValue(), zeroIndex);
         initVal = create.math.select(cond, trueVal, falseVal);
       } else {
         // When axesDim is known, it can not be 0 due to !isNoneValue
@@ -948,12 +949,12 @@ struct ONNXReductionOpLoweringNEW
           axesVal.getType().cast<MemRefType>().getElementType();
       auto dataDimConst = create.math.constant(axesElementType, inRank);
       Value zeroValue = create.math.constant(axesElementType, 0);
-      if (!axesBound0.isLiteral()) {
+      if (!axisShape0.isLiteral()) {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
         createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)},
-            {axesBound0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            {axisShape0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
@@ -963,7 +964,7 @@ struct ONNXReductionOpLoweringNEW
               createKrnl.store(trueVal, maskVal, jVal);
             });
       } else {
-        int64_t axesDim = axesBound0.getLiteral();
+        int64_t axesDim = axisShape0.getLiteral();
         for (int64_t i = 0; i < axesDim; ++i) {
           Value indexVal = create.math.constantIndex(i);
           Value axe = create.krnl.load(axesVal, indexVal);
