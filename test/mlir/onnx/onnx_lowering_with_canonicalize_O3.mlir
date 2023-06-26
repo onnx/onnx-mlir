@@ -1147,67 +1147,77 @@ func.func @test_prelu_broadcast_unknown_dims1(%arg0: tensor<?x2x?xf32>, %arg1: t
 // -----
 
 /// Check ReduceMeanV13 with f32.
+
 func.func private @test_reducemean_v13_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
 
-  // CHECK-LABEL: test_reducemean_v13_f32
-  // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0.000000e+00 : f32
-  // CHECK-DAG: [[DIVISOR:%.+]] = arith.constant 2.000000e+00 : f32
-  // CHECK-DAG: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
-  // CHECK-DAG: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2){
-  // CHECK: krnl.store [[IDENTITY]], [[RES]][%arg1, %arg2] : memref<3x2xf32>
-
-  // CHECK: [[DEF_LOOPS2:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2){
-  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xf32>
-  // CHECK: [[LOAD2:%.+]] = krnl.load [[RES]][%arg1, %arg3] : memref<3x2xf32>
-  // CHECK: [[REDUCE:%.+]] = arith.addf [[LOAD2]], [[LOAD1]] : f32
-  // CHECK: krnl.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xf32>
-  // CHECK: }
-
-  // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2){
-  // CHECK:   [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-  // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xf32>
-  // CHECK:   [[MEAN:%.+]] = arith.divf [[LOAD3]], [[DIVISOR]] : f32
-  // CHECK:   krnl.store [[MEAN]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xf32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<3x2xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_reducemean_v13_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x2x2xf32>) -> memref<3x2xf32> {
+// CHECK-DAG:       [[CST_2_dot_000000_:%.+]] = arith.constant 2.000000e+00 : f32
+// CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             krnl.store [[CST_0_dot_000000_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<3x2xf32>
+// CHECK:           }
+// CHECK:           [[LOOP_1_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 3, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 2, [[LOOP_1_]]#2 -> [[I_4_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_3_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#1, [[VAR_3_1_]]#2] : memref<3x2x2xf32>
+// CHECK-DAG:         [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#2] : memref<3x2xf32>
+// CHECK:             [[VAR_6_:%.+]] = arith.addf [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#2] : memref<3x2xf32>
+// CHECK:           }
+// CHECK:           [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 3, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_3_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_3_2_]]#0, [[VAR_3_2_]]#1] : memref<3x2xf32>
+// CHECK:             [[LOAD_RES_MEM_2_:%.+]] = arith.divf [[LOAD_RES_MEM_1_]], [[CST_2_dot_000000_]] : f32
+// CHECK:             krnl.store [[LOAD_RES_MEM_2_]], [[RES_]]{{.}}[[VAR_3_2_]]#0, [[VAR_3_2_]]#1] : memref<3x2xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3x2xf32>
+// CHECK:         }
 }
 
 // -----
 
 /// Check ReduceMeanV13 with i32.
+
 func.func private @test_reducemean_v13_i32(%arg0 : tensor<3x2x2xi32>) -> tensor<*xi32> {
   %0 ="onnx.ReduceMeanV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xi32>)-> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
 
-  // CHECK-LABEL: test_reducemean_v13_i32
-  // CHECK-DAG: [[IDENTITY:%.+]] = arith.constant 0 : i32
-  // CHECK-DAG: [[DIVISOR:%.+]] = arith.constant 2 : i32
-  // CHECK-DAG: [[RES:%.+]] = memref.alloc() {{.*}}: memref<3x2xi32>
-  // CHECK-DAG: [[DEF_LOOPS1:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 2){
-  // CHECK: krnl.store [[IDENTITY]], [[RES]][%arg1, %arg2] : memref<3x2xi32>
-
-  // CHECK: [[DEF_LOOPS2:%.+]]:3 = krnl.define_loops 3
-  // CHECK: krnl.iterate([[DEF_LOOPS2]]#0, [[DEF_LOOPS2]]#1, [[DEF_LOOPS2]]#2) with ([[DEF_LOOPS2]]#0 -> %arg1 = 0 to 3, [[DEF_LOOPS2]]#1 -> %arg2 = 0 to 2, [[DEF_LOOPS2]]#2 -> %arg3 = 0 to 2){
-  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[%arg1, %arg2, %arg3] : memref<3x2x2xi32>
-  // CHECK: [[LOAD2:%.+]] = krnl.load [[RES]][%arg1, %arg3] : memref<3x2xi32>
-  // CHECK: [[REDUCE:%.+]] = arith.addi [[LOAD2]], [[LOAD1]] : i32
-  // CHECK: krnl.store [[REDUCE]], [[RES]][%arg1, %arg3] : memref<3x2xi32>
-  // CHECK: }
-
-  // CHECK: [[DEF_MEAN_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) with ([[DEF_MEAN_LOOPS]]#0 -> %arg1 = 0 to 3, [[DEF_MEAN_LOOPS]]#1 -> %arg2 = 0 to 2){
-  // CHECK:   [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_MEAN_LOOPS]]#0, [[DEF_MEAN_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-  // CHECK:   [[LOAD3:%.+]] = krnl.load [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xi32>
-  // CHECK:   [[MEAN:%.+]] = arith.divsi [[LOAD3]], [[DIVISOR]] : i32
-  // CHECK:   krnl.store [[MEAN]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<3x2xi32>
-  // CHECK: }
-  // CHECK: return [[RES]] : memref<3x2xi32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_reducemean_v13_i32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x2x2xi32>) -> memref<3x2xi32> {
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : i32
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x2xi32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             krnl.store [[CST_0_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<3x2xi32>
+// CHECK:           }
+// CHECK:           [[LOOP_1_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 3, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 2, [[LOOP_1_]]#2 -> [[I_4_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_3_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1, [[LOOP_1_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#1, [[VAR_3_1_]]#2] : memref<3x2x2xi32>
+// CHECK-DAG:         [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#2] : memref<3x2xi32>
+// CHECK:             [[VAR_6_:%.+]] = arith.addi [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : i32
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#2] : memref<3x2xi32>
+// CHECK:           }
+// CHECK:           [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 3, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_3_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_3_2_]]#0, [[VAR_3_2_]]#1] : memref<3x2xi32>
+// CHECK:             [[LOAD_RES_MEM_2_:%.+]] = arith.divsi [[LOAD_RES_MEM_1_]], [[CST_2_]] : i32
+// CHECK:             krnl.store [[LOAD_RES_MEM_2_]], [[RES_]]{{.}}[[VAR_3_2_]]#0, [[VAR_3_2_]]#1] : memref<3x2xi32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<3x2xi32>
+// CHECK:         }
 }
 
 // -----
@@ -5310,10 +5320,15 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // -----
 
 // Test onnx.Erf lowering from onnx to kerneL
+
 func.func @test_erf(%arg0: tensor<?x10xf32>) -> (tensor<*xf32>) {
     %0 = "onnx.Erf"(%arg0): (tensor<?x10xf32>) -> (tensor<*xf32>)
     return %0 : tensor<*xf32>
 
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 * 40 + 128)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 10)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s1)>
 // CHECK-LABEL:  func.func @test_erf
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf32> {
 // CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
