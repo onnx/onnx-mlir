@@ -83,4 +83,5 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:         }
 
 }
+  "krnl.entry_point"() {func = @test_constants_to_file, numInputs = 0 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 }
