@@ -209,7 +209,8 @@ std::optional<mlir::Value> convertPoolOp(
     return std::nullopt;
   }
 
-  mlir::DenseI64ArrayAttr newPads = rewriter.getDenseI64ArrayAttr(reorderedPads);
+  mlir::DenseI64ArrayAttr newPads =
+      rewriter.getDenseI64ArrayAttr(reorderedPads);
 
   auto strides = rewriter.getDenseI64ArrayAttr(shapeHelper.strides);
 
