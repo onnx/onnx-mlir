@@ -186,12 +186,13 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
 template <typename ONNXReductionOp, RLegacy legacyOp>
 struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   using OpAdaptor = typename ONNXReductionOp::Adaptor;
+  bool enableSIMD = false;
   bool computeMean = false;
 
-  ONNXReductionOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
+  ONNXReductionOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableSIMD, bool computeMean = false)
       : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx),
-        computeMean(computeMean) {}
+        enableSIMD(enableSIMD), computeMean(computeMean) {}
 
   LogicalResult matchAndRewrite(ONNXReductionOp reduceOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -536,7 +537,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 };
 
 void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMaxV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinV13Op, RLegacy::UpTo13>,
@@ -546,11 +547,11 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumOp, RLegacy::Latest>>(
-      typeConverter, ctx);
+      typeConverter, ctx, enableSIMD);
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
-      typeConverter, ctx, /*computeMean=*/true);
+      typeConverter, ctx, enableSIMD, /*computeMean=*/true);
 }
 
 } // namespace onnx_mlir
