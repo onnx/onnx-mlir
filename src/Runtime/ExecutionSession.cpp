@@ -64,7 +64,11 @@ ExecutionSession::ExecutionSession(
   std::size_t found = sharedLibPath.find_last_of("/\\");
   if (found != std::string::npos) {
     std::string basePath = sharedLibPath.substr(0, found);
+#if defined(_WIN32)
+    _putenv_s("OM_CONSTANT_PATH", basePath.c_str());
+#else
     setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+#endif
   }
 }
 
