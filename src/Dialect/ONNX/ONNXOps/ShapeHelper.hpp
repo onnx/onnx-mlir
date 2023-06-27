@@ -171,7 +171,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // interpreted as 1x5xf32
   //
   // Examples without rank broadcast:
-  // * 2x5xf32 and 1x5xf32 does not have rank boadcasting because the ranks are
+  // * 2x5xf32 and 1x5xf32 does not have rank broadcasting because the ranks are
   // already equal
   virtual bool hasRankBroadcast();
 
