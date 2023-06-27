@@ -182,6 +182,36 @@ Value TosaBuilder::mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift) {
       rewriter(), loc(), newValueType, lhs, rhs, shift);
 }
 
+Value TosaBuilder::intdiv(mlir::Value &lhs, mlir::Value &rhs) {
+  Type lhsElementType = lhs.getType().cast<ShapedType>().getElementType();
+  Type rhsElementType = rhs.getType().cast<ShapedType>().getElementType();
+  assert((lhsElementType.isSignlessInteger(32) &&
+             rhsElementType.isSignlessInteger(32)) &&
+         "Tosa DivOp needs 32-bit signless integer inputs");
+
+  if (needsRankBroadcast({lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
+  }
+
+  auto lhsType = lhs.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
+      lhsElementType);
+  return tosa::CreateOpAndInfer<mlir::tosa::DivOp>(
+      rewriter(), loc(), newValueType, lhs, rhs);
+}
+
+Value TosaBuilder::reciprocal(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
 template <typename T>
 Value TosaBuilder::binaryOp(mlir::Value &lhs, mlir::Value &rhs) {
   if (needsRankBroadcast({lhs, rhs})) {
