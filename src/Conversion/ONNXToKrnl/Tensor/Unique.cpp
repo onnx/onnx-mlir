@@ -79,13 +79,6 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       axis = axis < 0 ? axis + rank : axis;
       assert(axis >= 0 && axis < rank && "axis is out of bound");
     }
-#if 0
-    // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType resMemRefType = convertedType.cast<MemRefType>();
-#endif
     // Count unique subtensors of X along axis.
     Type indexTy = rewriter.getIndexType();
     Value iZero = create.math.constantIndex(0);
@@ -93,7 +86,6 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
-    //printf("YYYYY: axis=%ld\n", axis);
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
     // Calculate output shapes for ouputs according to the results
@@ -111,7 +103,6 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       }
       outputInverseIndexDims.emplace_back(inputDimExpr);
     } else {
-      printf("BBBBBB rank=%ld, axis=%ld\n", rank, axis);
       for (int64_t i = 0; i < rank; i++) {
         DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
         if (i == axis)
@@ -144,18 +135,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     // Compute argUnique of X along axis.
     create.krnl.store(iZero, uniqueCount, {});
-#if 0
-    llvm::dbgs() << "XXXX BEFORE calling emitArgUnique: [\noutputY=" << outputY <<
-      ",\n indices=" << indices << ",\n inverse_indices=" << inverse_indices <<
-      ",\n counts=" << counts << "]\n";
-#endif
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverse_indices, counts);
-#if 0
-    llvm::dbgs() << "XXXX AFTER calling emitArgUnique: [\noutputY=" << outputY <<
-      ",\n indices=" << indices << ",\n inverse_indices=" << inverse_indices <<
-      ",\n counts=" << counts << "]\n";
-#endif
     rewriter.replaceOp(op, {outputY, indices, inverse_indices, counts});
     return success();
   }
