@@ -120,6 +120,12 @@ def compile_model(model, emit):
         command_list.append("--verifyInputTensors=")
     if args.converter or name in variables.test_need_converter:
         command_list.append("--invokeOnnxVersionConverter=true")
+    if args.constants_to_file:
+        command_list.append("--store-constants-to-file=true")
+    if args.constants_to_file_total_threshold:
+        command_list.append("--constants-to-file-total-threshold=" +
+                            str(args.constants_to_file_total_threshold))
+
     command_list.append(target[emit])
     command_list.append(model_name)
     command_list.append("-o=" + exec_base)

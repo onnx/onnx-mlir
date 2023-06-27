@@ -93,9 +93,12 @@ struct IndexExprBuilder : DialectBuilder {
   // Get rank of the type defined by value. Expect ranked shaped type.
   uint64_t getShapedTypeRank(mlir::Value value);
   // Get size of 1D array attribute. Expect 1D ranked shaped type.
-  uint64_t getArraySize(mlir::ArrayAttr arrayAttr);
+  int64_t getArraySize(mlir::ArrayAttr arrayAttr);
   // Get size of 1D array defined by arrayVal. Expect 1D ranked shaped type.
-  uint64_t getArraySize(mlir::Value arrayVal);
+  // When staticSizeOnly is false, it may return ShapedType::kDynamic. When
+  // staticSizeOnly is true, it will assert if the shape of the array is
+  // dynamic.
+  int64_t getArraySize(mlir::Value arrayVal, bool staticSizeOnly = false);
 
   //===--------------------------------------------------------------------===//
   // Get literal index expressions from an array of integer attributes.
