@@ -56,6 +56,8 @@ struct ImportOptions {
   // Directory to look for external data if any tensor has external
   // data location. If empty then external data is disabled.
   std::string externalDataDir = "";
+  // The module ID
+  std::string moduleId = "";
 };
 
 /*!
