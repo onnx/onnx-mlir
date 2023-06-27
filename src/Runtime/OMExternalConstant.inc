@@ -2,18 +2,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---- OMExternalParam.cpp - OMExternalParam C/C++ Implementation ------===//
+//===-- OMExternalConstant.inc - OMExternalConstant C/C++ Implementation --===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains C/C++ neutral implementation of OMExternalParam.
+// This file contains C/C++ neutral implementation of OMExternalConstant.
 //
 //===----------------------------------------------------------------------===//
 
 #if defined(_WIN32)
-/// Will support Windoes soon.
+/// Will support Windows soon.
 typedef int make_iso_compilers_happy;
 #else
 

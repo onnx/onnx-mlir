@@ -215,7 +215,7 @@ private:
     auto offset = krnlGlobalOp.getOffset();
     assert(offset.has_value() && "Missing offset value in KrnlGlobalOp");
 
-    // Data is store in `constant.bin` at offset.
+    // Data is store in `constants.bin` at offset.
     std::string constantName = krnlGlobalOp.getName().str();
 
     // Emit globals at the begining of the module.

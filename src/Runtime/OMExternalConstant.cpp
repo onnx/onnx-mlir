@@ -8,7 +8,7 @@
 //
 // =============================================================================
 //
-// This file contains implementation to read model parameters (constants) from
+// This file contains implementation to read model constants (parameters) from
 // files.
 //
 //===----------------------------------------------------------------------===//
