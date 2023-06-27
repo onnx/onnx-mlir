@@ -76,6 +76,7 @@ namespace onnx_mlir {
 // Warning, this does not work well in presence of Seq and Opt types, which have
 // a dependence on ONNX.
 bool IndexExprBuilder::hasShapeAndRank(Value value) {
+  assert(value && "expected a value");
   ShapedType shapedType = value.getType().dyn_cast_or_null<ShapedType>();
   return shapedType && shapedType.hasRank();
 }
@@ -94,7 +95,7 @@ uint64_t IndexExprBuilder::getShapedTypeRank(Value value) {
 }
 
 // Size from 1D attribute array.
-uint64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
+int64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
   // Assume that if we have no array, a good value to return is 0.
   if (!attrArray)
     return 0;
@@ -102,13 +103,15 @@ uint64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
 }
 
 // Size from 1D value array.
-uint64_t IndexExprBuilder::getArraySize(Value array) {
+int64_t IndexExprBuilder::getArraySize(Value array, bool staticSizeOnly) {
   uint64_t rank = getShapedTypeRank(array);
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   if (rank == 0)
     return 1;
-  ShapedType shapeType = array.getType().cast<ShapedType>();
-  return shapeType.getShape()[0];
+  int64_t shape = getShape(array, 0);
+  if (staticSizeOnly)
+    assert(shape != ShapedType::kDynamic && "expected static size");
+  return shape;
 }
 
 //===----------------------------------------------------------------------===//
@@ -138,6 +141,8 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsLiteral(intAttrArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -149,6 +154,8 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
     int64_t outOfBoundVal, IndexExprList &list, int64_t len) {
   list.clear();
   assert(len >= 0 && "expect a defined size");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr =
         getIntFromArrayAsLiteral(intAttrArray, i, outOfBoundVal);
@@ -167,7 +174,7 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 // Dim(int), NonAffine (float) IndexExpr.
 IndexExpr IndexExprBuilder::getValFromArray(
     Value array, uint64_t i, bool makeSymbol, bool isFloat) {
-  uint64_t size = getArraySize(array);
+  uint64_t size = getArraySize(array, /*static only*/ true);
   Type type = array.getType();
 
   if (i >= size)
@@ -199,17 +206,17 @@ IndexExpr IndexExprBuilder::getValFromArray(
 }
 
 IndexExpr IndexExprBuilder::getIntAsSymbol(Value value) {
-  assert(getArraySize(value) == 1 && "Expected a scalar");
+  assert(getArraySize(value, /*static only*/ true) == 1 && "Expected a scalar");
   return getIntFromArrayAsSymbol(value, 0);
 }
 
 IndexExpr IndexExprBuilder::getIntAsDim(Value value) {
-  assert(getArraySize(value) == 1 && "Expected a scalar");
+  assert(getArraySize(value, /*static only*/ true) == 1 && "Expected a scalar");
   return getIntFromArrayAsDim(value, 0);
 }
 
 IndexExpr IndexExprBuilder::getFloatAsNonAffine(Value value) {
-  assert(getArraySize(value) == 1 && "Expected a scalar");
+  assert(getArraySize(value, /*static only*/ true) == 1 && "Expected a scalar");
   return getFloatFromArrayAsNonAffine(value, 0);
 }
 
@@ -250,11 +257,13 @@ IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
 void IndexExprBuilder::getIntFromArrayAsSymbols(
     Value array, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getArraySize(array);
+  uint64_t size = getArraySize(array, /*static only*/ true);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsSymbol(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -265,11 +274,13 @@ void IndexExprBuilder::getIntFromArrayAsSymbols(
 void IndexExprBuilder::getIntFromArrayAsDims(
     Value array, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getArraySize(array);
+  uint64_t size = getArraySize(array, /*static only*/ true);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
@@ -280,11 +291,13 @@ void IndexExprBuilder::getIntFromArrayAsDims(
 void IndexExprBuilder::getFloatFromArrayAsNonAffine(
     Value array, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getArraySize(array);
+  uint64_t size = getArraySize(array, /*static only*/ true);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
     assert((uint64_t)len <= size && "requesting too many elements");
+  if (len == 0)
+    return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
     IndexExpr indexExpr = getFloatFromArrayAsNonAffine(array, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");

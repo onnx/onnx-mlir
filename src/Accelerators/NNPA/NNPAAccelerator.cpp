@@ -64,10 +64,10 @@ void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
 }
 
 void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::PassManager &pm,
-    onnx_mlir::EmissionTargetType &emissionTarget) const {
+    mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
+    std::string outputNameNoExt) const {
   LLVM_DEBUG(llvm::dbgs() << "Adding passes for NNPA accelerator\n");
-  addPassesNNPA(module, pm, emissionTarget);
+  addPassesNNPA(module, pm, emissionTarget, outputNameNoExt);
 }
 
 void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {

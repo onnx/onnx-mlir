@@ -225,6 +225,13 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
   return success();
 }
 
+void ONNXOpShapeHelper::setOperands(ValueRange inputs) {
+  // Note: do not use operands until it is re-assigned
+  privateOperandsCache =
+      llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
+  operands = ValueRange(privateOperandsCache);
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -808,6 +815,53 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
   int numRes = op->getNumResults();
   for (int i = 0; i < numRes; ++i)
     resetTypeShapeToQuestionmarks(op->getResult(i));
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Custom Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
+    ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
+    bool hasUniBroadcasting)
+    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {
+  ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
+  if (!customOp.getShapeInferPattern().has_value()) {
+    pattern = 0;
+    return;
+  }
+
+  if (customOp.getShapeInferPattern() == "SameAs") {
+    pattern = 1;
+  } else if (customOp.getShapeInferPattern() == "MDBroadcast") {
+    pattern = 2;
+  } else {
+    // ToFix: move the check into verifier
+    llvm_unreachable("The specified shape_infer_pattern is not supported"
+                     "Error encountered in shape inference.");
+  }
+
+  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
+  ValueRange inputs =
+      operands.empty() ? ValueRange(customOp.getInputs()) : operands;
+  if (!inputIndexAttrs.has_value()) {
+    return;
+  }
+
+  std::vector<mlir::Value> operandsVector;
+  for (auto indexAttr : inputIndexAttrs.value()) {
+    operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
+  }
+  setOperands(ValueRange(operandsVector));
+}
+
+LogicalResult ONNXCustomOpShapeHelper::computeShape() {
+  if (pattern == 1) {
+    return ONNXUnaryOpShapeHelper::computeShape();
+  } else if (pattern == 2) {
+    return ONNXBroadcastOpShapeHelper::computeShape();
+  }
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

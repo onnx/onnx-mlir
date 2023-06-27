@@ -96,7 +96,8 @@ void normalizeMemRefsPasses(mlir::PassManager &pm) {
 }
 
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::PassManager &pm, EmissionTargetType &emissionTarget) {
+    mlir::PassManager &pm, EmissionTargetType &emissionTarget,
+    std::string outputNameNoExt) {
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
@@ -162,7 +163,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   if (emissionTarget >= EmitLLVMIR)
     // Lower the remaining Krnl and all ZLow ops to LLVM dialect.
-    addKrnlToLLVMPasses(pm, /*enableCSE=*/true);
+    addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
 }
 
 } // namespace onnx_mlir

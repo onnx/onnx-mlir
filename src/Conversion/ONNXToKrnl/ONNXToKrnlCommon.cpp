@@ -166,21 +166,29 @@ bool indicesAreNonNegativeConstants(Value indices) {
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
+//
+// Integers in axes must be in [0..inRank), that is they were normalized.
+//
+// Mapping responds to the following question:
+//   for a given output index (that is not a reduction index in presence of
+//   keepDim, by def of size 1), find the input index related to that given
+//   output index.
 std::map<int64_t, int64_t> getReductionMapping(
     MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
   std::map<int64_t, int64_t> OutInDimMap;
-  int64_t rank = inputTy.getRank();
+  int64_t inRank = inputTy.getRank();
 
   // Mark reduction axes.
   std::vector<bool> isReductionAxis;
-  for (decltype(rank) i = 0; i < rank; ++i) {
+  for (decltype(inRank) i = 0; i < inRank; ++i) {
     if (std::find(axes.begin(), axes.end(), i) != axes.end())
       isReductionAxis.push_back(true);
     else
       isReductionAxis.push_back(false);
   }
 
-  for (decltype(rank) inIndex = 0, outIndex = 0; inIndex < rank; ++inIndex) {
+  for (decltype(inRank) inIndex = 0, outIndex = 0; inIndex < inRank;
+       ++inIndex) {
     // If it is a reduction axis, there is no relationship among dimensions.
     if (isReductionAxis[inIndex]) {
       if (keepdims)
