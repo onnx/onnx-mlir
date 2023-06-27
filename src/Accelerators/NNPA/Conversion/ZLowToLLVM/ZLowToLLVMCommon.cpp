@@ -130,13 +130,11 @@ std::string apiIdStr(API apiId) {
   return "INVALID_APIID";
 }
 
-// Copyied from "src/Conversion/KrnlToLLVM/KrnlEntryPoint.cpp" for debugging.
-// Emit code for `IF lhs != rhs THEN return null ELSE do nothing`
-void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
-    Value lhs, Value rhs, std::string errorMsg = "", bool appendRHS = true) {
-  MLIRContext *context = rewriter.getContext();
+// Emit code for `IF lhs != rhs THEN print messages and exit`
+void equalOrExit(ModuleOp &module, PatternRewriter &rewriter, Location loc,
+    Value lhs, Value rhs, std::string errorMsg = "", bool errorExit = false) {
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-  create.llvm.ifThenElseTest(/*cond=*/
+  create.llvm.ifThenElse(/*cond=*/
       [&](LLVMBuilder &createLLVM) {
         return createLLVM.icmp(LLVM::ICmpPredicate::ne, lhs, rhs);
       }, /*then=*/
@@ -144,22 +142,16 @@ void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
         MultiDialectBuilder<LLVMBuilder, KrnlBuilder, MathBuilder> create(
             createLLVM);
         // Print an error message.
-        if (appendRHS)
-          create.krnl.printf(StringRef(errorMsg), rhs, rhs.getType(), true);
-        else
-          create.krnl.printf(StringRef(errorMsg + "\n"));
-        // Set errno.
-        krnl::emitErrNo(module, rewriter, loc, EINVAL);
+        create.krnl.printf(StringRef(errorMsg), rhs, rhs.getType(), true);
 
         // Exit
-        Type int32Ty = IntegerType::get(context, 32);
-        Value one = create.math.constant(int32Ty, 1);
-        FlatSymbolRefAttr exitRef = krnl::getOrInsertExit(rewriter, module);
-        create.llvm.call({}, exitRef, {one});
-
-        // Return NULL.
-        // createLLVM._return(
-        //   createLLVM.null(krnl::getI8PointerType(context)));
+        if (errorExit) {
+          MLIRContext *context = rewriter.getContext();
+          Type int32Ty = IntegerType::get(context, 32);
+          Value one = create.math.constant(int32Ty, 1);
+          FlatSymbolRefAttr exitRef = krnl::getOrInsertExit(rewriter, module);
+          create.llvm.call({}, exitRef, {one});
+        }
       });
 }
 
@@ -362,17 +354,17 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
 Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
     ModuleOp module, ApiRegistry registry, API apiId, ArrayRef<Value> params,
     Value ref) {
-  MultiDialectBuilder<LLVMBuilder, MathBuilder> create(rewriter, loc);
   Value ret = callApi(rewriter, loc, module, registry, apiId, params);
   if (ref == nullptr) { // if ref is not given, set zero
     MLIRContext *context = module.getContext();
-    auto int32Ty = IntegerType::get(context, 32);
+    MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+    Type int32Ty = IntegerType::get(context, 32);
     ref = create.math.constant(int32Ty, 0);
   }
-  std::string error_message =
-      "Error in zDNN call(" + apiIdStr(apiId) + "): returned %ld";
   // compare the return value with ref
-  equalOrFailed(module, rewriter, loc, ref, ret, error_message);
+  std::string errorMsg =
+      "Error in zDNN call(" + apiIdStr(apiId) + "): returned";
+  equalOrExit(module, rewriter, loc, ref, ret, errorMsg);
   return ret;
 }
 
