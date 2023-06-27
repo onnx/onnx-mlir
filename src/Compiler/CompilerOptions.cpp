@@ -108,6 +108,37 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
     llvm::cl::init(small), llvm::cl::cat(OnnxMlirOptions),
     llvm::cl::ValueRequired);
 
+llvm::cl::opt<bool> storeConstantsToFile("store-constants-to-file",
+    llvm::cl::desc(
+        "Constants will be stored on a binary file instead of be embedded "
+        "into the model.so. The binary file is in the same folder as the "
+        "model.so and has the same name as the model with the extension of "
+        ".constants.bin. For inference, model.constants.bin must be at the "
+        "same folder as the inference programm. If model.constants.bin is at "
+        "another folder, use the environment variable OM_CONSTANT_PATH to set "
+        "the constant folder. Windows will be supported soon."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<float> constantsToFileTotalThreshold(
+    "constants-to-file-total-threshold",
+    llvm::cl::desc(
+        "Put global constants to a file if the total size in "
+        "bytes of constants is greater than this threshold. "
+        "store-constants-to-file must be enabled for this to be effective. "
+        "Only count contants whose size is greater than "
+        "constants-to-file-single-threshold. Value is in GB."),
+    llvm::cl::init(2.0), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<float> constantsToFileSingleThreshold(
+    "constants-to-file-single-threshold",
+    llvm::cl::desc(
+        "Put global constants to a file if a single constant's size in "
+        "bytes is greater than this threshold. "
+        "store-constants-to-file must be enabled for this to be effective. "
+        "Total sizes in bytes of satisfied constants must be greater than "
+        "constants-to-file-total-threshold. Value is in KB."),
+    llvm::cl::init(1.0), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::list<accel::Accelerator::Kind> maccel("maccel",
     llvm::cl::desc("Specify an accelerator to generate code for"),
     // clang-format off

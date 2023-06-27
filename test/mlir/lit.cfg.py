@@ -38,6 +38,7 @@ tools = [
     'onnx-mlir-opt',
     'mlir-opt',
     'mlir-translate',
+    'binary-decoder',
 ]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)

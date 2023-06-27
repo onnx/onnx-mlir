@@ -156,7 +156,8 @@ void addKrnlToAffinePasses(mlir::PassManager &pm) {
       onnx_mlir::krnl::createConvertKrnlToAffinePass());
 }
 
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
+void addKrnlToLLVMPasses(
+    mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -192,7 +193,10 @@ void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE) {
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
       /*useOpaquePointers=*/true,
-      /*useLRODATA=*/(modelSize == ModelSize::large)));
+      /*useLRODATA=*/(modelSize == ModelSize::large),
+      /*storeConstantsToFile=*/storeConstantsToFile,
+      constantsToFileSingleThreshold, constantsToFileTotalThreshold,
+      outputNameNoExt));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
@@ -223,7 +227,7 @@ InputIRLevelType determineInputIRLevel(mlir::OwningOpRef<ModuleOp> &module) {
 }
 
 void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType emissionTarget) {
+    EmissionTargetType emissionTarget, std::string outputNameNoExt) {
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
@@ -238,7 +242,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   }
 
   if (inputIRLevel <= LLVMLevel && emissionTarget >= EmitLLVMIR)
-    addKrnlToLLVMPasses(pm, /*enableCSE=*/true);
+    addKrnlToLLVMPasses(pm, outputNameNoExt, /*enableCSE=*/true);
 }
 
 } // namespace onnx_mlir

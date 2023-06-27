@@ -54,6 +54,7 @@ set(ONNX_MLIR_TEST_DEPENDS
   not
   split-file
   llvm-dis
+  binary-decoder
   )
 
 add_lit_testsuite(check-onnx-lit
