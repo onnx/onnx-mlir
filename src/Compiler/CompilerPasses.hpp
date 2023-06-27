@@ -20,9 +20,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU);
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
-void addKrnlToLLVMPasses(mlir::OpPassManager &pm, bool enableCSE);
+void addKrnlToLLVMPasses(
+    mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE);
 InputIRLevelType determineInputIRLevel(
     mlir::OwningOpRef<mlir::ModuleOp> &module);
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,
-    EmissionTargetType emissionTarget);
+    EmissionTargetType emissionTarget, std::string outputNameNoExt);
 } // namespace onnx_mlir
