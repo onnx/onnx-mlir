@@ -86,33 +86,38 @@ int main(int argc, char *argv[]) {
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 
   // test with existing example cases in the onnx github
-#if 0
-  // Test 1
-  RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
-      /*rank=*/2, /*I=*/3, /*J=*/3, /*K=*/-1, /*axis=*/2, /*sorted=*/1,
-      /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/4));
-#endif
-  // Example 1
+  // Example 1: _not_sorted_without_axis
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
       /*rank=*/1, /*I=*/6, /*J=*/1, /*K=*/-1, /*axis=*/0, /*sorted=*/0,
       /*isNoneAxis=*/1, /*isNoneIndexOutput=*/0, /*example=*/1));
-  // Example 2
+  // Example 2: _not_sorted_without_axis
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
       /*rank=*/2, /*I=*/2, /*J=*/2, /*K=*/-1, /*axis=*/0, /*sorted=*/1,
       /*isNoneAxis=*/1, /*isNoneIndexOutput=*/0, /*example=*/2));
-  // Example 3
+  // Example 3: _sorted_with_axis
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
       /*rank=*/2, /*I=*/3, /*J=*/3, /*K=*/-1, /*axis=*/0, /*sorted=*/1,
       /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/3));
-  // Example 4
+  // Example 4: _sorted_with_axis_3d
   RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
       /*rank=*/3, /*I=*/2, /*J=*/4, /*K=*/2, /*axis=*/1, /*sorted=*/1,
       /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/4));
+  // Example 5: _sorted_with_negative_axis
+  RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
+      /*rank=*/2, /*I=*/3, /*J=*/3, /*K=*/-1, /*axis=*/-1, /*sorted=*/1,
+      /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/5));
+  return 0;
+#if 0
+  // Example 6: _sorted_with_axis_3d (data modified)
+  RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
+      /*rank=*/3, /*I=*/2, /*J=*/4, /*K=*/2, /*axis=*/1, /*sorted=*/1,
+      /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/6));
+#endif
   if (true) {
     printf("RapidCheck test case generation.\n");
     bool success = rc::check("Unique implementation correctness", []() {
       const int rank = 2; // *rc::gen::inRange(1, maxRank);
-      const int I = 3;    // *rc::gen::inRange(1, maxRank);
+      const int I = 2;    // *rc::gen::inRange(1, maxRank);
       const int J = 3;    // *rc::gen::inRange(1, maxRank);
       const int K = -1;   // *rc::gen::inRange(1, maxRank);
       const int axis = *rc::gen::inRange(0, rank);

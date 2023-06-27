@@ -220,6 +220,15 @@ bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
 }
 
+bool ModelLibBuilder::areCloseLong(const OMTensor *res, const OMTensor *ref,
+    float defaultRtol, float defaultAtol) const {
+  if (!res || !ref)
+    return false;
+  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : defaultRtol;
+  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : defaultAtol;
+  return omTensorAreTwoOmtsClose<long>(res, ref, rtol, atol);
+}
+
 void ModelLibBuilder::printIndices(
     const std::string message, const std::vector<int64_t> &indices) const {
   if (!message.empty())
