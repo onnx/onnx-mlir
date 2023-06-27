@@ -12,7 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+/// Will support Windoes soon.
+typedef int make_iso_compilers_happy;
+#else
 
 #include <errno.h>
 #include <inttypes.h>
