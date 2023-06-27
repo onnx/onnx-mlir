@@ -59,6 +59,13 @@ ExecutionSession::ExecutionSession(
   if (!_outputSignatureFunc)
     throw std::runtime_error(reportSymbolLoadingError(_outputSignatureName));
   errno = 0; // No errors.
+
+  // Set OM_CONSTANT_PATH for loading constants from file if required.
+  std::size_t found = sharedLibPath.find_last_of("/\\");
+  if (found != std::string::npos) {
+    std::string basePath = sharedLibPath.substr(0, found);
+    setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
+  }
 }
 
 const std::string *ExecutionSession::queryEntryPoints(

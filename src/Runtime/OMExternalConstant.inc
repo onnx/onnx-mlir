@@ -22,8 +22,15 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#ifdef _WIN32
+#if defined(_WIN32)
+#pragma warning(disable : 4996)
 #include <malloc.h>
+#endif
+
+#if defined(_WIN32)
+const char *DIR_SEPARATOR = "\\";
+#else
+const char *DIR_SEPARATOR = "/";
 #endif
 
 const int i = 1;
@@ -48,6 +55,8 @@ void checkEndianness(const char constPackIsLE) {
 ///
 /// \return None
 ///
+/// This function is thread-safe.
+///
 void omMMapBinaryFile(
     void **constAddr, char *fname, int64_t size, int64_t isLE) {
   checkEndianness(isLE);
@@ -56,9 +65,28 @@ void omMMapBinaryFile(
     return;
   }
   if (constAddr[0] == NULL) {
-    int fd = open(fname, O_RDONLY);
+    char *filePath;
+    char *basePath = getenv("OM_CONSTANT_PATH");
+    if (basePath) {
+      size_t baseLen = strlen(basePath);
+      size_t fnameLen = strlen(fname);
+      size_t sepLen = strlen(DIR_SEPARATOR);
+      size_t filePathLen = baseLen + sepLen + fnameLen;
+      filePath = (char *)malloc(filePathLen);
+      if (!filePath) {
+        fprintf(stderr, "Error while malloc");
+        return;
+      }
+      memcpy(filePath, basePath, baseLen);
+      memcpy(filePath + baseLen, DIR_SEPARATOR, sepLen);
+      memcpy(filePath + baseLen + sepLen, fname, fnameLen);
+      filePath[filePathLen] = '\0';
+    } else {
+      filePath = (char *)fname;
+    }
+    int fd = open(filePath, O_RDONLY);
     if (fd < 0) {
-      fprintf(stderr, "Error while openning %s\n", fname);
+      fprintf(stderr, "Error while openning %s\n", filePath);
       return;
     }
 
@@ -80,6 +108,8 @@ void omMMapBinaryFile(
      * invalidating the mmap.
      */
     close(fd);
+    if (basePath)
+      free(filePath);
   }
 }
 
