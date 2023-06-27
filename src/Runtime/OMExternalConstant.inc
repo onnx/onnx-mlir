@@ -12,20 +12,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !defined(_WIN32)
+
 #include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
-#if defined(_WIN32)
-#pragma warning(disable : 4996)
-#include <malloc.h>
-#endif
 
 #if defined(_WIN32)
 const char *DIR_SEPARATOR = "\\";
@@ -137,3 +135,5 @@ void omGetExternalConstantAddr(
 
   outputAddr[0] = (char *)baseAddr[0] + offset;
 }
+
+#endif
