@@ -20,6 +20,7 @@
 
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -28,8 +29,49 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
+#include "src/Support/Arrays.hpp"
 
 using namespace mlir;
+
+//===----------------------------------------------------------------------===//
+// Local helper.
+
+namespace {
+
+APFloat getFloatValue(ElementsAttr elementsAttr, uint64_t i) {
+  // Work around that elementsAttr may be a DenseUI8ResourceElementsAttr
+  // which doesn't support getValues<APFloat>().
+  if (auto resource = dyn_cast<DenseUI8ResourceElementsAttr>(elementsAttr)) {
+    ArrayRef<uint8_t> array = resource.tryGetAsArrayRef().value();
+    Type elType = elementsAttr.getElementType();
+    if (elType.isF32())
+      return APFloat(onnx_mlir::castArrayRef<float>(array)[i]);
+    if (elType.isF64())
+      return APFloat(onnx_mlir::castArrayRef<double>(array)[i]);
+    llvm_unreachable("Unexpected float type");
+  }
+  return elementsAttr.getValues<APFloat>()[i];
+}
+
+APInt getIntValue(ElementsAttr elementsAttr, uint64_t i) {
+  // Work around that elementsAttr may be a DenseUI8ResourceElementsAttr
+  // which doesn't support getValues<APInt>().
+  if (auto resource = dyn_cast<DenseUI8ResourceElementsAttr>(elementsAttr)) {
+    ArrayRef<uint8_t> array = resource.tryGetAsArrayRef().value();
+    Type elType = elementsAttr.getElementType();
+    bool isSigned = true;
+    if (elType.isInteger(16))
+      return APInt(16, onnx_mlir::castArrayRef<int16_t>(array)[i], isSigned);
+    if (elType.isInteger(32))
+      return APInt(32, onnx_mlir::castArrayRef<int32_t>(array)[i], isSigned);
+    if (elType.isInteger(64))
+      return APInt(64, onnx_mlir::castArrayRef<int64_t>(array)[i], isSigned);
+    llvm_unreachable("Unexpected int type");
+  }
+  return elementsAttr.getValues<APInt>()[i];
+}
+
+} // namespace
 
 namespace onnx_mlir {
 
@@ -151,10 +193,10 @@ IndexExpr IndexExprBuilder::getValFromArray(
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
-      double floatVal = elementsAttr.getValues<APFloat>()[i].convertToDouble();
+      double floatVal = getFloatValue(elementsAttr, i).convertToDouble();
       return LiteralIndexExpr(floatVal);
     } else {
-      int64_t intVal = elementsAttr.getValues<APInt>()[i].getSExtValue();
+      int64_t intVal = getIntValue(elementsAttr, i).getSExtValue();
       return LiteralIndexExpr(intVal);
     }
   }
