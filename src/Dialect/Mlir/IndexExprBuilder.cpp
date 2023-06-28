@@ -141,16 +141,19 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 // Dim(int), NonAffine (float) IndexExpr.
 IndexExpr IndexExprBuilder::getValFromArray(
     Value array, uint64_t i, bool makeSymbol, bool isFloat) {
+  Type elType = getElementTypeOrSelf(array);
+  if (isFloat)
+    assert(isa<FloatType>(elType) && "array element type mismatch");
+  else
+    assert(isa<IntegerType>(elType) && "array element type mismatch");
   uint64_t size = getArraySize(array, /*static only*/ true);
   if (i >= size)
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
-      assert(isa<FloatType>(elementsAttr.getElementType()));
       double floatVal = elementsAttr.getValues<APFloat>()[i].convertToDouble();
       return LiteralIndexExpr(floatVal);
     } else {
-      assert(isa<IntegerType>(elementsAttr.getElementType()));
       int64_t intVal = elementsAttr.getValues<APInt>()[i].getSExtValue();
       return LiteralIndexExpr(intVal);
     }
@@ -187,44 +190,45 @@ IndexExpr IndexExprBuilder::getFloatAsNonAffine(Value value) {
   return getFloatFromArrayAsNonAffine(value, 0);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(Value array, uint64_t i) {
-  return getValFromArray(array, i, /*makeSymbol*/ true, /*isFloat*/ false);
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
+    Value intArray, uint64_t i) {
+  return getValFromArray(intArray, i, /*makeSymbol*/ true, /*isFloat*/ false);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value array, uint64_t i) {
-  return getValFromArray(array, i, /*makeSymbol*/ false, /*isFloat*/ false);
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value intArray, uint64_t i) {
+  return getValFromArray(intArray, i, /*makeSymbol*/ false, /*isFloat*/ false);
 }
 
 IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
-    Value array, uint64_t i) {
-  return getValFromArray(array, i, /*makeSymbol*/ false, /*isFloat*/ true);
+    Value floatArray, uint64_t i) {
+  return getValFromArray(floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true);
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
-    Value array, uint64_t i, int64_t defaultLiteral) {
-  IndexExpr indexExpr = getIntFromArrayAsSymbol(array, i);
+    Value intArray, uint64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
-    Value array, uint64_t i, int64_t defaultLiteral) {
-  IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
+    Value intArray, uint64_t i, int64_t defaultLiteral) {
+  IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
 IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
-    Value array, uint64_t i, double defaultLiteral) {
-  IndexExpr indexExpr = getFloatFromArrayAsNonAffine(array, i);
+    Value floatArray, uint64_t i, double defaultLiteral) {
+  IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
 void IndexExprBuilder::getIntFromArrayAsSymbols(
-    Value array, IndexExprList &list, int64_t len) {
+    Value intArray, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getArraySize(array, /*static only*/ true);
+  uint64_t size = getArraySize(intArray, /*static only*/ true);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
@@ -232,16 +236,16 @@ void IndexExprBuilder::getIntFromArrayAsSymbols(
   if (len == 0)
     return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
-    IndexExpr indexExpr = getIntFromArrayAsSymbol(array, i);
+    IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }
 }
 
 void IndexExprBuilder::getIntFromArrayAsDims(
-    Value array, IndexExprList &list, int64_t len) {
+    Value intArray, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getArraySize(array, /*static only*/ true);
+  uint64_t size = getArraySize(intArray, /*static only*/ true);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
@@ -249,16 +253,16 @@ void IndexExprBuilder::getIntFromArrayAsDims(
   if (len == 0)
     return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
-    IndexExpr indexExpr = getIntFromArrayAsDim(array, i);
+    IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }
 }
 
 void IndexExprBuilder::getFloatFromArrayAsNonAffine(
-    Value array, IndexExprList &list, int64_t len) {
+    Value floatArray, IndexExprList &list, int64_t len) {
   list.clear();
-  uint64_t size = getArraySize(array, /*static only*/ true);
+  uint64_t size = getArraySize(floatArray, /*static only*/ true);
   if (len == -1) // Meaning pick up the full size of the list.
     len = size;
   else
@@ -266,7 +270,7 @@ void IndexExprBuilder::getFloatFromArrayAsNonAffine(
   if (len == 0)
     return;
   for (uint64_t i = 0; i < (uint64_t)len; ++i) {
-    IndexExpr indexExpr = getFloatFromArrayAsNonAffine(array, i);
+    IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
     assert(!indexExpr.isUndefined() && "expected defined index expr");
     list.emplace_back(indexExpr);
   }

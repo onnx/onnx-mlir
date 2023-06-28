@@ -28,7 +28,8 @@ template <>
 LogicalResult ONNXRangeOpShapeHelper::computeShape() {
   ONNXRangeOpAdaptor operandAdaptor(operands);
 
-  bool isFloat = isa<FloatType>(getElementType(operandAdaptor.getStart().getType()));
+  bool isFloat =
+      isa<FloatType>(getElementType(operandAdaptor.getStart().getType()));
 
   // Calculate num = ceil((limit-start)/delta).
   IndexExpr num;
