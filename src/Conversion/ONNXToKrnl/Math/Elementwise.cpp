@@ -1325,57 +1325,17 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
-#if 1
-  int64_t suitableSimdUnroll = create.vec.SuitableUnrollFactor(vms, memRefType,
+  simdUnroll = create.vec.SuitableUnrollFactor(vms, memRefType,
       shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
-      /*canPad*/true);
-  return suitableSimdUnroll;
-#else
-  // Test if there is enough work.
-  int64_t staticSize;
-  IndexExpr dynSize;
-  bool isStaticSize = create.mem.getStaticAndDynamicMemSize(
-      memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
-  if (isStaticSize && staticSize < simdUnroll) {
-    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
-                            << " too short \n");
-    return 0;
-  }
-  if (collapsedInnermostLoops > 0 &&
-      collapsedInnermostLoops < (int64_t)memRefType.getRank()) {
-    // We have a partially flattened operator. Since we do only simdize entire
-    // loops (i.e. we don't support scalar epilogues at this time), make sure
-    // the static size is a multiple of the VL. Get the VL of the store
-    // (output's element type).
-    int64_t VL = vms->getVectorLength(elementType);
-    if (collapsedLiteralSize % VL != 0) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "  simd disabled: partial flattened dims "
-                 << collapsedInnermostLoops << " with size "
-                 << collapsedLiteralSize << " is not 0 mod VL " << VL << "\n");
-      return 0;
-    }
-    // See if we can get a unroll factor.
-    bool gotOne = false;
-    for (int64_t u = simdUnroll; u > 0; --u) {
-      if (collapsedLiteralSize % (u * VL) == 0) {
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  partial flattened dims " << collapsedInnermostLoops
-                   << " with size " << collapsedLiteralSize << " works with VL "
-                   << VL << " and unroll " << u << "\n");
-        simdUnroll = u;
-        gotOne = true;
-        break;
-      }
-    }
-    // Since we passed the test collapsedLiteralSize % VL == 0 above, this
-    // assert is expected to hold true.
-    assert(gotOne && "expected at least 1 *VL to work");
-  }
-  LLVM_DEBUG(llvm::dbgs() << "  SIMD with avg width " << avgSimdWidth
-                          << " and unroll " << simdUnroll << "\n");
+      /*canPad*/ true);
+  LLVM_DEBUG({
+    if (simdUnroll)
+      llvm::dbgs() << "  simd enabled with unroll " << simdUnroll << "\n";
+    else
+      LLVM_DEBUG(
+          llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
+  });
   return simdUnroll;
-  #endif
 }
 
 //===----------------------------------------------------------------------===//
