@@ -107,29 +107,4 @@ int main(int argc, char *argv[]) {
       /*rank=*/2, /*I=*/3, /*J=*/3, /*K=*/-1, /*axis=*/-1, /*sorted=*/1,
       /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/5));
   return 0;
-#if 0
-  // Example 6: _sorted_with_axis_3d (data modified)
-  RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
-      /*rank=*/3, /*I=*/2, /*J=*/4, /*K=*/2, /*axis=*/1, /*sorted=*/1,
-      /*isNoneAxis=*/0, /*isNoneIndexOutput=*/0, /*example=*/6));
-#endif
-  if (true) {
-    printf("RapidCheck test case generation.\n");
-    bool success = rc::check("Unique implementation correctness", []() {
-      const int rank = 2; // *rc::gen::inRange(1, maxRank);
-      const int I = 2;    // *rc::gen::inRange(1, maxRank);
-      const int J = 3;    // *rc::gen::inRange(1, maxRank);
-      const int K = -1;   // *rc::gen::inRange(1, maxRank);
-      const int axis = *rc::gen::inRange(0, rank);
-      const int sorted = *rc::gen::inRange(0, 2);
-      const int isNoneAxis = *rc::gen::inRange(0, 2);
-      const int isNoneIndexOutput = 0; // *rc::gen::inRange(0, 1);
-      const int useExample = 0;
-      RC_ASSERT(isOMUniqueTheSameAsNaiveImplFor(
-          rank, I, J, K, axis, sorted, isNoneAxis, isNoneIndexOutput, useExample));
-    });
-    if (!success)
-      return 1;
-  }
-  return 0;
 }
