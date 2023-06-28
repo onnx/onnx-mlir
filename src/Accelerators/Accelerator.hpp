@@ -90,8 +90,8 @@ public:
 
   /// Add the transformations necessary to support the accelerator.
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
-      mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType &emissionTarget) const = 0;
+      mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
+      std::string outputNameNoExt) const = 0;
 
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-mlir-opt driver
