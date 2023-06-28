@@ -28,11 +28,6 @@
 #include "OMTensorListHelper.hpp"
 
 namespace onnx_mlir {
-const std::string ExecutionSession::_queryEntryPointsName =
-    "omQueryEntryPoints";
-const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
-const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
-
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
 

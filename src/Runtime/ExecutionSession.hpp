@@ -95,12 +95,12 @@ protected:
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Query entry point function.
-  static const std::string _queryEntryPointsName;
+  const std::string _queryEntryPointsName = "omQueryEntryPoints";
   queryEntryPointsFuncType _queryEntryPointsFunc = nullptr;
 
   // Entry point for input/output signatures
-  static const std::string _inputSignatureName;
-  static const std::string _outputSignatureName;
+  const std::string _inputSignatureName = "omInputSignature";
+  const std::string _outputSignatureName = "omOutputSignature";
   signatureFuncType _inputSignatureFunc = nullptr;
   signatureFuncType _outputSignatureFunc = nullptr;
 };
