@@ -283,6 +283,13 @@ void KrnlBuilder::printf(
   b().create<KrnlPrintOp>(loc(), newFormat, input);
 }
 
+void KrnlBuilder::printf(
+    StringRef msg, Value input, StringRef format, bool endsWithNewLine) const {
+  std::string concat(msg.str() + format.str() + (endsWithNewLine ? "\n" : ""));
+  StringRef newFormat(concat);
+  b().create<KrnlPrintOp>(loc(), newFormat, input);
+}
+
 void KrnlBuilder::printf(Value input, Type inputType) const {
   StringRef format = getFormat(inputType);
   b().create<KrnlPrintOp>(loc(), format, input);

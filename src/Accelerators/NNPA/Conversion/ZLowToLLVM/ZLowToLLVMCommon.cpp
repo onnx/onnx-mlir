@@ -142,7 +142,7 @@ void equalOrExit(ModuleOp &module, PatternRewriter &rewriter, Location loc,
         MultiDialectBuilder<LLVMBuilder, KrnlBuilder, MathBuilder> create(
             createLLVM);
         // Print an error message.
-        create.krnl.printf(StringRef(errorMsg), rhs, rhs.getType(), true);
+        create.krnl.printf(StringRef(errorMsg), rhs, StringRef("%#x"), true);
 
         // Exit
         if (errorExit) {
@@ -363,7 +363,7 @@ Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
   }
   // compare the return value with ref
   std::string errorMsg =
-      "Error in zDNN call(" + apiIdStr(apiId) + "): returned";
+      "onnx-mlir: Error in zDNN call(" + apiIdStr(apiId) + "): returned ";
   equalOrExit(module, rewriter, loc, ref, ret, errorMsg);
   return ret;
 }
