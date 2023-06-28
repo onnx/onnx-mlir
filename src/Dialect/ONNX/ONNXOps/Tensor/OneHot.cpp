@@ -36,7 +36,9 @@ LogicalResult ONNXOneHotOpShapeHelper::computeShape() {
     axis += indicesRank + 1;
   assert(axis >= 0 && axis <= indicesRank && "tested in verify");
 
-  depth = createIE->getIntAsDim(operandAdaptor.getDepth());
+  Value depthValue = operandAdaptor.getDepth();
+  bool depthIsFloat = isa<FloatType>(getElementType(depthValue.getType()));
+  depth = depthIsFloat ? createIE->getFloatAsNonAffine(depthValue).convertToIndex() : createIE->getIntAsDim(depthValue);
   if (depth.isLiteral()) {
     if (depth.getLiteral() < 1)
       return op->emitError("OneHot depth must be greater than 1");

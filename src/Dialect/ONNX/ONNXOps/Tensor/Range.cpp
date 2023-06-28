@@ -28,16 +28,28 @@ template <>
 LogicalResult ONNXRangeOpShapeHelper::computeShape() {
   ONNXRangeOpAdaptor operandAdaptor(operands);
 
-  // Get values.
-  IndexExpr start =
-      createIE->getIntFromArrayAsDim(operandAdaptor.getStart(), 0);
-  IndexExpr limit =
-      createIE->getIntFromArrayAsDim(operandAdaptor.getLimit(), 0);
-  IndexExpr delta =
-      createIE->getIntFromArrayAsDim(operandAdaptor.getDelta(), 0);
+  bool isFloat = isa<FloatType>(getElementType(operandAdaptor.getStart().getType()));
+
+  // Calculate num = ceil((limit-start)/delta).
+  IndexExpr num;
+  if (isFloat) {
+    IndexExpr start =
+        createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getStart(), 0);
+    IndexExpr limit =
+        createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getLimit(), 0);
+    IndexExpr delta =
+        createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getDelta(), 0);
+    num = ((limit - start) / delta).ceil().convertToIndex();
+  } else {
+    IndexExpr start =
+        createIE->getIntFromArrayAsDim(operandAdaptor.getStart(), 0);
+    IndexExpr limit =
+        createIE->getIntFromArrayAsDim(operandAdaptor.getLimit(), 0);
+    IndexExpr delta =
+        createIE->getIntFromArrayAsDim(operandAdaptor.getDelta(), 0);
+    num = (limit - start).ceilDiv(delta);
+  }
   // Dim = max(ceil((limit-start)/delta), 0).
-  IndexExpr num = limit - start;
-  num.ceilDiv(delta);
   IndexExpr res = IndexExpr::max(num, 0);
   DimsExpr outputDims(1, res);
   // Save the final result.

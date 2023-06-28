@@ -31,39 +31,6 @@
 
 using namespace mlir;
 
-//===----------------------------------------------------------------------===//
-// Local helper.
-
-namespace {
-
-// Get scalar value regardless of the type.
-// Code adapted from src/Dialect/ONNX/ONNXOps/OpHelper.cpp file.
-// Take here the ith value; in OpHelper.cpp, it was taking the first only.
-template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(ElementsAttr &elementsAttr, Type type, uint64_t i) {
-  Type elementaryType = getElementTypeOrSelf(type);
-  if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
-      elementaryType.isInteger(64)) {
-    auto value = elementsAttr.getValues<IntegerAttr>()[ArrayRef<uint64_t>({i})];
-    return (RESULT_TYPE)value.cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isF32()) {
-    auto value = elementsAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
-    return (RESULT_TYPE)value.convertToFloat();
-  } else if (elementaryType.isF64()) {
-    auto value = elementsAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
-    return (RESULT_TYPE)value.convertToDouble();
-  }
-  llvm_unreachable("Unexpected type.");
-  return 0;
-}
-
-// Template instantiation for getScalarValue. I don't see any need to have any
-// other result types that int, but keep it general just in case.
-template int64_t getScalarValue<int64_t>(
-    ElementsAttr &elementsAttr, Type type, uint64_t i);
-
-} // namespace
-
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
@@ -175,18 +142,18 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 IndexExpr IndexExprBuilder::getValFromArray(
     Value array, uint64_t i, bool makeSymbol, bool isFloat) {
   uint64_t size = getArraySize(array, /*static only*/ true);
-  Type type = array.getType();
-
   if (i >= size)
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
-    // From OpHelper.cpp's getScalarValue.
     if (isFloat) {
-      double floatVal = getScalarValue<double>(elementsAttr, type, i);
+      assert(isa<FloatType>(elementsAttr.getElementType()));
+      double floatVal = elementsAttr.getValues<APFloat>()[i].convertToDouble();
       return LiteralIndexExpr(floatVal);
+    } else {
+      assert(isa<IntegerType>(elementsAttr.getElementType()));
+      int64_t intVal = elementsAttr.getValues<APInt>()[i].getSExtValue();
+      return LiteralIndexExpr(intVal);
     }
-    int64_t intVal = getScalarValue<int64_t>(elementsAttr, type, i);
-    return LiteralIndexExpr(intVal);
   }
   // If our scalar array is not a constant; we have a runtime value.
   if (Value val = getVal(array, i)) {
