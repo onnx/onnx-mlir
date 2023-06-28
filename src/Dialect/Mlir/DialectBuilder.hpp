@@ -27,6 +27,7 @@
 
 // Please do not add dependences on ONNX or KRNL dialects.
 #include "src/Dialect/Mlir/IndexExpr.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
 namespace onnx_mlir {
 
@@ -221,13 +222,21 @@ struct MemRefBuilder final : DialectBuilder {
   // Constants
   static const int64_t defaultAlign;
 
-  // Info: get static and dynamic size of memory. Return true if static only.
+  // Info: get static and dynamic size of memory in number of elementary type.
+  // Array of vector types are not supported at this time.
+  //
+  // If range r>0: include dims in range [ 0, min(r, rank) ).
+  // Range r==0: noop, look at no data.
+  // If r<=: include dims from [ max(0, r+rank) to rank ).
+  //
+  // Default value includes the entire range. Return true if static only within
+  // the specified range.
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
-      mlir::ValueRange dynSymbols, int64_t &staticSize,
-      IndexExpr &dynSize) const;
+      mlir::ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
+      int64_t range = 1000) const;
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
       llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-      IndexExpr &dynSize) const;
+      IndexExpr &dynSize, int64_t range = 1000) const;
 
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
@@ -401,6 +410,21 @@ struct VectorBuilder final : DialectBuilder {
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
       llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
+
+  // Compute a suitable SIMD unroll factor. If the dims are too small, return 0
+  // (no suitable simd). The collapsedInnermostLoops parameter indicates how
+  // many inner dimensions of the memref are considered for vectorization. If
+  // all of them are considered and padding is possible, then we can always
+  // generate SIMD code with the maxSIMD unroll factor. Otherwise, we must
+  // ensure that the cumulative static size of the array is a multiple of the
+  // Vector Length associated with this type. If it is not, then no SIMD code
+  // gen is possible (return 0). If it is possible, return the largest SIMD
+  // unroll factor (starting at maxSimdUnroll) that divide the cumulative
+  // static size of the memref being collapsed for SIMD.
+  int64_t SuitableUnrollFactor(VectorMachineSupport *vms,
+      mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
+      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll,
+      bool canPad = false) const;
 
 private:
   bool isPowerOf2(uint64_t num) const;

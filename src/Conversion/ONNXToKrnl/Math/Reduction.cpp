@@ -17,6 +17,8 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -292,8 +294,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     }
 
     //////////////////////////////////////////////////////////////////////
-    // Find out if we have constant axes (make unique and within [0, inRank).
+    // Find out if we have constant axes: make unique and within [0, inRank).
     std::vector<int64_t> uniqueLitAxes;
+    // The noRedInnerSpan = x indicates that the x innermost dimensions have
+    // no reduction in them.
+    int64_t noRedInnerSpan = inRank; // Until proven otherwise, no reduction
     if (hasNoAxes) {
       if (isNoop) {
         // No axes and is noop, should we not just return the input array?
@@ -301,13 +306,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         // No axes, perform a full reduction.
         for (int64_t i = 0; i < inRank; ++i)
           uniqueLitAxes.push_back(i);
+        noRedInnerSpan = 0; // No dimensions without a reduction.
       }
     } else if (!dynamicAxes) {
       // Check raw axes.
       int64_t rawAxesRank = rawAxesIE.size();
       for (int64_t i = 0; i < rawAxesRank; ++i) {
         if (!rawAxesIE[i].isLiteral()) {
-          dynamicAxes = true;
+          dynamicAxes = true; // Unknown axes is being reduced.
+          noRedInnerSpan = 0; // Possibly no dimension without a reduction.
           break;
         }
         // Has a literal, normalize it; make sure it is unique
@@ -320,8 +327,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             uniqueLitAxes.end()) {
           // Has a new unique literal axes, save it.
           uniqueLitAxes.push_back(newAxis);
+          int64_t span = inRank - (newAxis + 1);
+          noRedInnerSpan = span < noRedInnerSpan ? span : noRedInnerSpan;
         }
       }
+    } else {
+      // Already dynamic.
+      noRedInnerSpan = 0; // Possibly no dimension without a reduction.
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -333,13 +345,28 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Value falseVal = nullptr;
     Value trueVal = nullptr;
     Value valueOne = nullptr;
-
+    int64_t simdUnroll = 0; // No SIMD.
     if (!dynamicAxes) {
       // All axes are static, fill in the outInDimMap appropriately.
+      assert(noRedInnerSpan >= 0 && noRedInnerSpan <= inRank && "bad span");
       outInDimMap =
           getReductionMapping(memRefInType, uniqueLitAxes, isKeepdims);
+      if (enableSIMD && noRedInnerSpan > 0) {
+        LLVM_DEBUG(llvm::dbgs() << "  SIMD: study if possible along the "
+                                << noRedInnerSpan << " innermost dim(s)\n";);
+        DimsExpr inputDims;
+        create.krnlIE.getShapeAsDims(input, inputDims);
+        int64_t staticSize;
+        IndexExpr dynSize;
+        bool isStatic = create.mem.getStaticAndDynamicMemSize(
+            memRefInType, inputDims, staticSize, dynSize, -noRedInnerSpan);
+        LLVM_DEBUG(llvm::dbgs()
+                       << "  is static " << isStatic << ", inner static size "
+                       << staticSize << "\n";);
+      }
     } else {
       // Has one or more dynamic axes.
+      assert(noRedInnerSpan == 0 && "expected no span");
       if (!isKeepdims)
         return emitError(
             loc, "dynamic axes without getKeepdims() not implemented");
@@ -423,8 +450,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] == ShapedType::kDynamic) {
           if (dynamicAxes) {
-            // We appear to rely here on the fact that input and output rank is
-            // identical. Dim size: maskVal[i] ? 1 : inputDim[i]
+            // We appear to rely here on the fact that input and output rank
+            // is identical. Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = create.mem.dim(input, i);
             Value indexVal = create.math.constantIndex(i);
             Value mask = create.krnl.load(maskVal, indexVal);

@@ -953,25 +953,48 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 //===----------------------------------------------------------------------===//
 // Info about memory size.
 
-// Compute static and dynamic size of memref. Return true if has static size.
+// Compute static and dynamic size of memref in elements. Return true if has
+// static size.
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
-    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize) const {
+    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
+    int64_t range) const {
   Type elementType = type.getElementType();
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
   staticSize = 1;                // Multiplication of static sizes.
   dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = (dynSymbols.size() == 0);
+  bool staticShape = true;       // Static until proven otherwise.
   int64_t rank = type.getRank();
+  // Process with range [lb inclusive, ub exclusive)
+  int64_t lb = 0, ub = rank;
+  if (range == 0)
+    // Empty range, nothing to do.
+    return staticShape;
+  if (range > 0) {
+    // Positive range r: interval is [ 0, min(r, rank) ).
+    ub = (range < rank) ? range : rank;
+  } else {
+    // Negative range r: interval is [ max(0, r+rank) to rank ).
+    range += rank;
+    lb = range > 0 ? range : 0;
+  }
+  assert(lb >= 0 && ub <= rank && "out of bound range");
   int64_t iDim = 0;
   for (int64_t i = 0; i < rank; ++i) {
     if (shape[i] == ShapedType::kDynamic) {
-      assert(!staticShape && "expected static shape");
       assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
-      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+      if (i >= lb && i < ub) {
+        // Keep track of static shape and dynamic sizes only when inbounds.
+        staticShape = false;
+        dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim]);
+      }
+      iDim++;
     } else {
       // Has constant shape.
-      staticSize *= shape[i];
+      if (i >= lb && i < ub) {
+        // Keep track of static size only when inbounds.
+        staticSize *= shape[i];
+      }
     }
   }
   return staticShape;
@@ -979,10 +1002,11 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
     llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-    IndexExpr &dynSize) const {
+    IndexExpr &dynSize, int64_t range) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
-  return getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
+  return getStaticAndDynamicMemSize(
+      type, dynSymbols, staticSize, dynSize, range);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1528,6 +1552,49 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     // Completed the machineVL x machineVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
+    MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
+    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad) const {
+  assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  MemRefBuilder createMem(*this);
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool isStaticSize = createMem.getStaticAndDynamicMemSize(
+      memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
+  if (isStaticSize && staticSize < maxSimdUnroll) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
+                            << " too short \n");
+    return 0;
+  }
+  if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
+    // Fully collapsed and can add padding to be fine
+    return maxSimdUnroll;
+  }
+  // We have a partially flattened operator. Since we do only simdize entire
+  // loops (i.e. we don't support scalar epilogues at this time), make sure
+  // the static size is a multiple of the VL. Get the VL of the store
+  // (output's element type).
+  Type elementType = memRefType.getElementType();
+  int64_t VL = vms->getVectorLength(elementType);
+  if (staticSize % VL != 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
+                            << collapsedInnermostLoops << " with size "
+                            << staticSize << " is not 0 mod VL " << VL << "\n");
+    return 0;
+  }
+  // See if we can get a unroll factor.
+  for (int64_t u = maxSimdUnroll; u > 0; --u) {
+    if (staticSize % (u * VL) == 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  partial flattened dims " << collapsedInnermostLoops
+                 << " with size " << staticSize << " works with VL " << VL
+                 << " and unroll " << u << "\n");
+      return u;
+    }
+  }
+  llvm_unreachable("should always find u==1 feasible");
 }
 
 //===----------------------------------------------------------------------===//

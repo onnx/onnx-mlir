@@ -1325,6 +1325,12 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
+#if 1
+  int64_t suitableSimdUnroll = create.vec.SuitableUnrollFactor(vms, memRefType,
+      shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
+      /*canPad*/true);
+  return suitableSimdUnroll;
+#else
   // Test if there is enough work.
   int64_t staticSize;
   IndexExpr dynSize;
@@ -1369,6 +1375,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
   LLVM_DEBUG(llvm::dbgs() << "  SIMD with avg width " << avgSimdWidth
                           << " and unroll " << simdUnroll << "\n");
   return simdUnroll;
+  #endif
 }
 
 //===----------------------------------------------------------------------===//
