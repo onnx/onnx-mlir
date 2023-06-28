@@ -21,6 +21,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+enum RLegacy { Latest, UpTo13 };
+
 // Identity values
 template <>
 Value getIdentityValue<ONNXReduceMaxOp>(
@@ -179,220 +181,9 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   return createMath.select(min, lhs, rhs);
 }
 
-template <typename ONNXReductionOp>
-struct ONNXOldReductionOpLowering
-    : public OpConversionPattern<ONNXReductionOp> {
-  using OpAdaptor = typename ONNXReductionOp::Adaptor;
-  bool computeMean = false;
-
-  ONNXOldReductionOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool computeMean = false)
-      : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx) {
-    this->computeMean = computeMean;
-  }
-
-  LogicalResult matchAndRewrite(ONNXReductionOp reduceOp, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const final {
-    /*
-     * Condition: reduction function must be associative and commutative.
-     *
-     * Example 1 (here, reduction function is `+`):
-     * Induction variables: (i0, i1, i2)
-     * axes = [0, 2]
-     * keepdims = true
-     * krnl.iterate() with (i0, i1, i2) {
-     *   Y(0, i1, 0) += X(i0, i1, i2)
-     * }
-     *
-     * Example 2 (here, reduction function is `+`):
-     * Induction variables: (i0, i1, i2)
-     * axes = [0, 2]
-     * keepdims = false
-     * krnl.iterate() with (i0, i1, i2) {
-     *   Y(i1) += X(i0, i1, i2)
-     * }
-     *
-     */
-    Operation *op = reduceOp.getOperation();
-    ValueRange operands = adaptor.getOperands();
-    Location loc = ONNXLoc<ONNXReductionOp>(op);
-    Value input = operands[0];
-    MemRefType memRefInType = input.getType().cast<MemRefType>();
-    // Convert the output type to MemRefType.
-    Type convertedType =
-        this->typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType memRefOutType = convertedType.cast<MemRefType>();
-    int64_t inRank = memRefInType.getRank();
-    int64_t outRank = memRefOutType.getRank();
-
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
-        MathBuilder>
-        create(rewriter, loc);
-
-    // Get axes value defined by op
-    // Leave empty is not defined
-    std::vector<int64_t> definedAxes;
-    ArrayAttr axisAttrs = adaptor.getAxesAttr();
-    if (axisAttrs) {
-      for (auto axisAttr : axisAttrs.getValue()) {
-        int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
-        definedAxes.push_back(axis);
-      }
-    }
-
-    std::vector<int64_t> axes;
-    if (definedAxes.size()) {
-      for (auto axis : definedAxes) {
-        if (axis < -inRank || axis > inRank - 1)
-          return emitError(loc, "axes value out of range");
-        int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
-        if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
-          axes.push_back(newAxis);
-      }
-    } else
-      for (decltype(inRank) i = 0; i < inRank; ++i)
-        axes.push_back(i);
-
-    // KeepDims
-    auto keepdims = adaptor.getKeepdims();
-    bool isKeepdims = (keepdims == 1) ? true : false;
-
-    // Get type information
-    auto elementOutType = memRefOutType.getElementType();
-    std::map<int64_t, int64_t> outInDimMap =
-        getReductionMapping(memRefInType, axes, isKeepdims);
-
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = create.mem.alignedAlloc(input, memRefOutType);
-
-    // There are two required and one optional Krnl loops:
-    // - One to initialize the result memref,
-    // - One to do reduction, and
-    // - One to compute mean (optional).
-
-    // 1. Define loops to initialize the result.
-    std::vector<Value> originalLoopsInit;
-    defineLoops(rewriter, loc, originalLoopsInit, outRank);
-
-    // Iteration information
-    // TODO use new KrnlDialectBuilder.
-    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
-    for (decltype(outRank) i = 0; i < outRank; ++i)
-      addDimensionToPack(rewriter, loc, packInit, alloc, i);
-
-    KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
-    Block &iterationBlockInit = iterateOpInit.getBodyRegion().front();
-
-    // Perform the insertions into the body of the initialization loop.
-
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlockInit);
-
-    // Handle the operation:
-    SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlockInit.getArguments())
-      loopIVs.push_back(arg);
-
-    Value identity =
-        getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
-    create.krnl.store(identity, alloc, loopIVs);
-
-    // 2. Define an Krnl loop to do reduction.
-    rewriter.setInsertionPointAfter(iterateOpInit);
-    auto ipMainRegion = rewriter.saveInsertionPoint();
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, inRank);
-    // Iteration information
-    // TODO use new KrnlDialectBuilder.
-    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (decltype(inRank) i = 0; i < inRank; ++i)
-      addDimensionToPack(rewriter, loc, pack, input, i);
-
-    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.getBodyRegion().front();
-
-    // Perform the insertions into the body of the reduction loop.
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
-    SmallVector<Value, 4> inLoopIVs, outLoopIVs;
-    auto args = iterationBlock.getArguments();
-    for (unsigned int i = 0; i < args.size(); ++i) {
-      inLoopIVs.push_back(args[i]);
-    }
-    Value zeroIndex = nullptr;
-    for (decltype(inRank) i = 0; i < outRank; ++i) {
-      if (outInDimMap.find(i) != outInDimMap.end()) {
-        outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
-      } else {
-        if (zeroIndex) {
-          outLoopIVs.push_back(zeroIndex);
-        } else {
-          zeroIndex = create.math.constantIndex(0);
-          outLoopIVs.push_back(zeroIndex);
-        }
-      }
-    }
-
-    Value next = create.krnl.load(input, inLoopIVs);
-    Value accumulated = create.krnl.load(alloc, outLoopIVs);
-    accumulated = emitScalarOpFor<ONNXReductionOp>(
-        rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
-    create.krnl.store(accumulated, alloc, outLoopIVs);
-
-    // 3. Define an Krnl loop to compute mean (optional).
-    rewriter.restoreInsertionPoint(ipMainRegion);
-    if (computeMean) {
-      Type elementType = memRefOutType.getElementType();
-      // Compute the divisor that is the number of elements participated in
-      // reduction, i.e., 'divisor = size of input / size of output'.
-      IndexExprScope scope(&rewriter, loc);
-      IndexExpr inputSizeExpr = LiteralIndexExpr(1);
-      for (unsigned i = 0; i < inRank; i++) {
-        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(input, i);
-        inputSizeExpr = inputSizeExpr * dimExpr;
-      }
-      IndexExpr outputSizeExpr = LiteralIndexExpr(1);
-      for (unsigned i = 0; i < outRank; i++) {
-        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(alloc, i);
-        outputSizeExpr = outputSizeExpr * dimExpr;
-      }
-      IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
-      Value divisor = divisorExpr.getValue();
-      if (elementType.isa<FloatType>()) {
-        divisor = rewriter.create<arith::IndexCastOp>(
-            loc, rewriter.getIntegerType(64), divisor);
-        divisor = rewriter.create<arith::UIToFPOp>(loc, elementType, divisor);
-      } else if (elementType.isa<IntegerType>()) {
-        divisor =
-            rewriter.create<arith::IndexCastOp>(loc, elementType, divisor);
-      } else
-        llvm_unreachable("unsupported element type");
-
-      // Compute mean
-      ValueRange loopDef = create.krnl.defineLoops(outRank);
-      SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(alloc, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadData = createKrnl.load(alloc, loopInd);
-            Value meanVal = create.math.div(loadData, divisor);
-            createKrnl.store(meanVal, alloc, loopInd);
-          });
-    }
-
-    rewriter.replaceOp(op, alloc);
-    return success();
-  }
-};
-
 // This duplicated code can be eliminated with if constexpr in c++ 17
 // Or onnx uses input for axes for all ops
-template <typename ONNXReductionOp>
+template <typename ONNXReductionOp, RLegacy legacyOp>
 struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   using OpAdaptor = typename ONNXReductionOp::Adaptor;
   bool computeMean = false;
@@ -428,11 +219,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Operation *op = reduceOp.getOperation();
     ValueRange operands = adaptor.getOperands();
     Location loc = ONNXLoc<ONNXReductionOp>(op);
-    auto input = operands[0];
-    auto axesVal = operands[1];
+    Value input = operands[0];
 
-    auto memRefInType = input.getType().cast<MemRefType>();
-    // Convert the output type to MemRefType.
+    //////////////////////////////////////////////////////////////////////
+    // Handle type conversion.
+    MemRefType memRefInType = input.getType().cast<MemRefType>();
     Type convertedType =
         this->typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
@@ -440,47 +231,117 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     MemRefType memRefOutType = convertedType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
+    auto memRefOutShape = memRefOutType.getShape();
+    auto elementOutType = memRefOutType.getElementType();
+
+    //////////////////////////////////////////////////////////////////////
+    // Read op attributes
+    // Check KeepDims attribute
+    int64_t keepdims = adaptor.getKeepdims();
+    bool isKeepdims = (keepdims == 1);
+    bool isNoop = false;
+    if constexpr (legacyOp == RLegacy::Latest) {
+      // Guarded by constexpr as legacy ops don't have this attribute, which
+      // defaults to false in legacy ops.
+      auto noop = llvm::dyn_cast<ONNXReductionOp>(op).getNoopWithEmptyAxes();
+      isNoop = (noop == 1);
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    // Extract raw axes from operation.
+    IndexExprScope scope(&rewriter, loc);
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
 
-    // KeepDims
-    int64_t keepdims = adaptor.getKeepdims();
-    bool isKeepdims = (keepdims == 1);
+    DimsExpr rawAxesIE;
+    Value axesVal = nullptr;
+    bool hasNoAxes = false; // Axles is a None (i.e. optional value not given).
+    bool dynamicAxes = false; // No dynamic axes unless proven otherwise.
+    IndexExpr axisShape0;     // Shape to be used if dynamic.
+    if constexpr (legacyOp == RLegacy::Latest) {
+      // Deal with operations where we find axes in the inputs.
+      axesVal = adaptor.getAxes();
+      if (isNoneValue(axesVal)) {
+        // Default value of having no axes.
+        hasNoAxes = true;
+      } else {
+        // Check it has a rank of 1.
+        assert(
+            create.krnlIE.getShapedTypeRank(axesVal) == 1 && "expect rank 1");
+        axisShape0 = create.krnlIE.getShapeAsDim(axesVal, 0);
 
-    // Noop
-    auto noop = llvm::dyn_cast<ONNXReductionOp>(op).getNoopWithEmptyAxes();
-    bool isNoop = (noop == 1);
+        if (!axisShape0.isLiteral())
+          // Don't even know the shape of the axis... it is dynamic.
+          dynamicAxes = true;
+        else
+          // We have a shape, try to get the array integers
+          create.krnlIE.getIntFromArrayAsDims(axesVal, rawAxesIE);
+      }
+    } else if constexpr (legacyOp == RLegacy::UpTo13) {
+      // Deal with operations where we find axes in the attributes.
+      ArrayAttr axesAttrs = adaptor.getAxesAttr();
+      if (!axesAttrs) {
+        // Default value of having no axes.
+        hasNoAxes = true;
+      } else {
+        // Has axes defined by the axis, get their index expressions
+        create.krnlIE.getIntFromArrayAsLiterals(axesAttrs, rawAxesIE);
+      }
+    }
 
-    // Get axes dims
-    IndexExprScope mainScope(&rewriter, loc);
-    DimsExpr axesDims;
-    if (isNoneValue(axesVal) && !isNoop) {
-      // The default is to reduce over all the dimensions of the input tensor if
-      // 'noop_with_empty_axes' is false
-      for (int64_t i = 0; i < inRank; ++i)
-        axesDims.emplace_back(LiteralIndexExpr(i));
-    } else
-      create.krnlIE.getShapeAsDims(axesVal, axesDims);
+    //////////////////////////////////////////////////////////////////////
+    // Find out if we have constant axes (make unique and within [0, inRank).
+    std::vector<int64_t> uniqueLitAxes;
+    if (hasNoAxes) {
+      if (isNoop) {
+        // No axes and is noop, should we not just return the input array?
+      } else {
+        // No axes, perform a full reduction.
+        for (int64_t i = 0; i < inRank; ++i)
+          uniqueLitAxes.push_back(i);
+      }
+    } else if (!dynamicAxes) {
+      // Check raw axes.
+      int64_t rawAxesRank = rawAxesIE.size();
+      for (int64_t i = 0; i < rawAxesRank; ++i) {
+        if (!rawAxesIE[i].isLiteral()) {
+          dynamicAxes = true;
+          break;
+        }
+        // Has a literal, normalize it; make sure it is unique
+        int64_t axis = rawAxesIE[i].getLiteral();
+        if (axis < -inRank || axis > inRank - 1) {
+          return emitError(loc, "axes value out of range");
+        }
+        int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
+        if (std::find(uniqueLitAxes.begin(), uniqueLitAxes.end(), newAxis) ==
+            uniqueLitAxes.end()) {
+          // Has a new unique literal axes, save it.
+          uniqueLitAxes.push_back(newAxis);
+        }
+      }
+    }
 
-    // Get type information
-    auto memRefOutShape = memRefOutType.getShape();
-    auto elementOutType = memRefOutType.getElementType();
-
-    bool dynamicAxes = false;
+    //////////////////////////////////////////////////////////////////////
+    // Process axes.
+    // With static axes, use this
+    std::map<int64_t, int64_t> outInDimMap;
+    // With dynamic axes, use this
     Value maskVal = nullptr;
     Value falseVal = nullptr;
     Value trueVal = nullptr;
     Value valueOne = nullptr;
-    std::map<int64_t, int64_t> outInDimMap;
 
-    Value axesValue = llvm::dyn_cast<ONNXReductionOp>(op).getAxes();
-    // Dynamic axes
-    if (!isNoneValue(axesValue) && !getONNXConstantOp(axesValue)) {
-      dynamicAxes = true;
-      // Handle only when keepdims == true
+    if (!dynamicAxes) {
+      // All axes are static, fill in the outInDimMap appropriately.
+      outInDimMap =
+          getReductionMapping(memRefInType, uniqueLitAxes, isKeepdims);
+    } else {
+      // Has one or more dynamic axes.
       if (!isKeepdims)
-        return emitError(loc, "not getKeepdims() not implemented");
+        return emitError(
+            loc, "dynamic axes without getKeepdims() not implemented");
 
       // Define a mask memref with same size of input and bool type
       // maskVal[i] == true if ith dim will be reduced
@@ -495,17 +356,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       falseVal = create.math.constant(rewriter.getIntegerType(1), 0);
       trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
       valueOne = create.math.constantIndex(1);
-      auto axesDim = axesVal.getType().cast<MemRefType>().getShape()[0];
-
       // Initialize mask to 0
       // Unless noop_with_empty_axesDim is false and axesDim is
       // ShapedType::kDynamic.
       Value initVal;
-      if (axesDim == ShapedType::kDynamic && !isNoop) {
-        IndexExprScope axesLoopContex(&rewriter, loc);
+      if (!axisShape0.isLiteral() && !isNoop) {
+        // initVal = axes.shape[0] == 0 ? true : false
+        IndexExprScope axesLoopContext(&rewriter, loc);
         Value zeroIndex = create.math.constantIndex(0);
-        IndexExpr axesBound0 = create.krnlIE.getShapeAsDim(axesVal, 0);
-        Value cond = create.math.eq(axesBound0.getValue(), zeroIndex);
+        Value cond = create.math.eq(axisShape0.getValue(), zeroIndex);
         initVal = create.math.select(cond, trueVal, falseVal);
       } else {
         // When axesDim is known, it can not be 0 due to !isNoneValue
@@ -522,13 +381,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           axesVal.getType().cast<MemRefType>().getElementType();
       auto dataDimConst = create.math.constant(axesElementType, inRank);
       Value zeroValue = create.math.constant(axesElementType, 0);
-      if (axesDim == ShapedType::kDynamic) {
+      if (!axisShape0.isLiteral()) {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
-        SmallVector<IndexExpr, 4> lbs(1, LiteralIndexExpr(0));
-        createKrnl.iterateIE(loopDef, loopDef, lbs, axesDims,
-            [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+        createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)},
+            {axisShape0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
               Value cond = create.math.slt(axe, zeroValue);
               Value dim = create.math.select(
@@ -538,6 +396,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               createKrnl.store(trueVal, maskVal, jVal);
             });
       } else {
+        int64_t axesDim = axisShape0.getLiteral();
         for (int64_t i = 0; i < axesDim; ++i) {
           Value indexVal = create.math.constantIndex(i);
           Value axe = create.krnl.load(axesVal, indexVal);
@@ -551,38 +410,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           create.krnl.store(trueVal, maskVal, jVal);
         }
       }
-    } else {
-      // Get axes value defined by op. Leave empty is not defined.
-      std::vector<int64_t> definedAxes;
-
-      // Assume it is verified that axes are known. Convert DenseElementsAttr to
-      // ArrayAttr.
-      if (!isNoneValue(axesValue) && getONNXConstantOp(axesValue)) {
-        auto constAxes = getONNXConstantOp(axesValue)
-                             .getValueAttr()
-                             .dyn_cast_or_null<mlir::DenseElementsAttr>();
-        for (auto element : constAxes.getValues<IntegerAttr>())
-          definedAxes.push_back(element.getInt());
-      }
-
-      std::vector<int64_t> axes;
-      if (definedAxes.size()) {
-        for (auto axis : definedAxes) {
-          if (axis < -inRank || axis > inRank - 1) {
-            return emitError(loc, "axes value out of range");
-          }
-          int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
-          if (std::find(axes.begin(), axes.end(), newAxis) == axes.end())
-            axes.push_back(newAxis);
-        }
-      } else if (!isNoop) {
-        for (decltype(inRank) i = 0; i < inRank; ++i) {
-          axes.push_back(i);
-        }
-      }
-      outInDimMap = getReductionMapping(memRefInType, axes, isKeepdims);
     }
 
+    //////////////////////////////////////////////////////////////////////
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
     if (hasAllConstantDimensions(memRefOutType)) {
@@ -592,7 +422,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       for (decltype(outRank) i = 0; i < outRank; ++i) {
         if (memRefOutShape[i] == ShapedType::kDynamic) {
           if (dynamicAxes) {
-            // Dim size: maskVal[i] ? 1 : inputDim[i]
+            // We appear to rely here on the fact that input and output rank is
+            // identical. Dim size: maskVal[i] ? 1 : inputDim[i]
             Value inputDim = create.mem.dim(input, i);
             Value indexVal = create.math.constantIndex(i);
             Value mask = create.krnl.load(maskVal, indexVal);
@@ -608,87 +439,57 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
     }
 
+    //////////////////////////////////////////////////////////////////////
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
     // - One to do reduction, and
     // - One to compute mean (optional).
 
     // 1. Define loops to initialize the result.
-    std::vector<Value> originalLoopsInit;
-    defineLoops(rewriter, loc, originalLoopsInit, outRank);
-
-    // Iteration information
-    // TODO use new KrnlDialectBuilder.
-    krnl::KrnlIterateOperandPack packInit(rewriter, originalLoopsInit);
-    for (decltype(outRank) i = 0; i < outRank; ++i)
-      addDimensionToPack(rewriter, loc, packInit, alloc, i);
-
-    KrnlIterateOp iterateOpInit = create.krnl.iterate(packInit);
-    Block &iterationBlockInit = iterateOpInit.getBodyRegion().front();
-
-    // Perform the insertions into the body of the initialization loop.
-
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlockInit);
-
-    // Handle the operation:
-    SmallVector<Value, 4> loopIVs;
-    for (auto arg : iterationBlockInit.getArguments()) {
-      loopIVs.push_back(arg);
-    }
-
-    Value identity =
-        getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
-    create.krnl.store(identity, alloc, loopIVs);
+    ValueRange loop1Def = create.krnl.defineLoops(outRank);
+    SmallVector<IndexExpr, 4> lbs1(outRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs1;
+    create.krnlIE.getShapeAsDims(alloc, ubs1);
+    create.krnl.iterateIE(loop1Def, loop1Def, lbs1, ubs1,
+        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+          Value identity =
+              getIdentityValue<ONNXReductionOp>(rewriter, loc, elementOutType);
+          createKrnl.store(identity, alloc, loopInd);
+        });
 
     // 2. Define an Krnl loop to do reduction.
-    rewriter.setInsertionPointAfter(iterateOpInit);
-    auto ipMainRegion = rewriter.saveInsertionPoint();
-    std::vector<Value> originalLoops;
-    defineLoops(rewriter, loc, originalLoops, inRank);
-    // Iteration information
-    // TODO use new KrnlDialectBuilder.
-    krnl::KrnlIterateOperandPack pack(rewriter, originalLoops);
-    for (decltype(inRank) i = 0; i < inRank; ++i)
-      addDimensionToPack(rewriter, loc, pack, input, i);
-
-    KrnlIterateOp iterateOp = create.krnl.iterate(pack);
-    Block &iterationBlock = iterateOp.getBodyRegion().front();
-
-    // Perform the insertions into the body of the reduction loop.
-    // Insert instructions inside the KernelIterateOp body.
-    rewriter.setInsertionPointToStart(&iterationBlock);
-
-    // Handle the operation:
-    SmallVector<Value, 4> inLoopIVs, outLoopIVs;
-    auto args = iterationBlock.getArguments();
-    for (unsigned int i = 0; i < args.size(); ++i) {
-      inLoopIVs.push_back(args[i]);
-    }
-    // Value zeroIndex = nullptr;
-    Value zeroIndex = create.math.constantIndex(0);
-    for (decltype(inRank) i = 0; i < outRank; ++i) {
-      if (dynamicAxes) {
-        // For the reduced dim, the output index is always 0
-        Value indexVal = create.math.constantIndex(i);
-        Value mask = create.krnl.load(maskVal, indexVal);
-        Value cond = create.math.eq(mask, trueVal);
-        Value dim = create.math.select(cond, zeroIndex, inLoopIVs[i]);
-        outLoopIVs.push_back(dim);
-      } else if (outInDimMap.find(i) != outInDimMap.end())
-        outLoopIVs.push_back(inLoopIVs[outInDimMap[i]]);
-      else
-        outLoopIVs.push_back(zeroIndex);
-    }
-
-    Value next = create.krnl.load(input, inLoopIVs);
-    Value accumulated = create.krnl.load(alloc, outLoopIVs);
-    accumulated = emitScalarOpFor<ONNXReductionOp>(
-        rewriter, loc, op, memRefOutType.getElementType(), {accumulated, next});
-    create.krnl.store(accumulated, alloc, outLoopIVs);
+    ValueRange loop2Def = create.krnl.defineLoops(inRank);
+    SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs2;
+    create.krnlIE.getShapeAsDims(input, ubs2);
+    create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
+        [&](KrnlBuilder &kb, ValueRange loopInd) {
+          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
+          Value zeroIndex = create.math.constantIndex(0);
+          // Compute accumulator  access function.
+          SmallVector<Value, 4> accumulatorAccessFct;
+          for (decltype(inRank) i = 0; i < outRank; ++i) {
+            if (dynamicAxes) {
+              // For the reduced dim, the output index is always 0.
+              Value indexVal = create.math.constantIndex(i);
+              Value mask = create.krnl.load(maskVal, indexVal);
+              Value cond = create.math.eq(mask, trueVal);
+              Value dim = create.math.select(cond, zeroIndex, loopInd[i]);
+              accumulatorAccessFct.push_back(dim);
+            } else if (outInDimMap.find(i) != outInDimMap.end())
+              accumulatorAccessFct.push_back(loopInd[outInDimMap[i]]);
+            else
+              accumulatorAccessFct.push_back(zeroIndex);
+          }
+          // Load accumulator value, accumulate, and store.
+          Value next = create.krnl.load(input, loopInd);
+          Value accumulated = create.krnl.load(alloc, accumulatorAccessFct);
+          accumulated = emitScalarOpFor<ONNXReductionOp>(rewriter, loc, op,
+              memRefOutType.getElementType(), {accumulated, next});
+          create.krnl.store(accumulated, alloc, accumulatorAccessFct);
+        });
 
     // 3. Define an Krnl loop to compute mean (optional).
-    rewriter.restoreInsertionPoint(ipMainRegion);
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
       // Compute the divisor that is the number of elements participated in
@@ -716,15 +517,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         llvm_unreachable("unsupported element type");
 
       // Compute mean
-      ValueRange loopDef = create.krnl.defineLoops(outRank);
-      SmallVector<IndexExpr, 4> lbs(outRank, LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> ubs;
-      create.krnlIE.getShapeAsDims(alloc, ubs);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            Value loadData = createKrnl.load(alloc, loopInd);
+      ValueRange loop3Def = create.krnl.defineLoops(outRank);
+      SmallVector<IndexExpr, 4> lbs3(outRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs3;
+      create.krnlIE.getShapeAsDims(alloc, ubs3);
+      create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
+          [&](KrnlBuilder &kb, ValueRange loopInd) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
+            Value loadData = create.krnl.load(alloc, loopInd);
             Value meanVal = create.math.div(loadData, divisor);
-            createKrnl.store(meanVal, alloc, loopInd);
+            create.krnl.store(meanVal, alloc, loopInd);
           });
     }
 
@@ -735,16 +537,19 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
 void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXOldReductionOpLowering<mlir::ONNXReduceMaxV13Op>,
-      ONNXOldReductionOpLowering<mlir::ONNXReduceMinV13Op>,
-      ONNXOldReductionOpLowering<mlir::ONNXReduceProdV13Op>,
-      ONNXOldReductionOpLowering<mlir::ONNXReduceSumV11Op>,
-      ONNXReductionOpLowering<mlir::ONNXReduceMaxOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceMinOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceProdOp>,
-      ONNXReductionOpLowering<mlir::ONNXReduceSumOp>>(typeConverter, ctx);
-  patterns.insert<ONNXOldReductionOpLowering<mlir::ONNXReduceMeanV13Op>,
-      ONNXReductionOpLowering<mlir::ONNXReduceMeanOp>>(
+  patterns.insert<
+      ONNXReductionOpLowering<mlir::ONNXReduceMaxV13Op, RLegacy::UpTo13>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMinV13Op, RLegacy::UpTo13>,
+      ONNXReductionOpLowering<mlir::ONNXReduceProdV13Op, RLegacy::UpTo13>,
+      ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op, RLegacy::UpTo13>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMaxOp, RLegacy::Latest>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMinOp, RLegacy::Latest>,
+      ONNXReductionOpLowering<mlir::ONNXReduceProdOp, RLegacy::Latest>,
+      ONNXReductionOpLowering<mlir::ONNXReduceSumOp, RLegacy::Latest>>(
+      typeConverter, ctx);
+  patterns.insert<
+      ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
       typeConverter, ctx, /*computeMean=*/true);
 }
 

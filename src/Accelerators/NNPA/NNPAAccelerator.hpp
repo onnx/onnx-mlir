@@ -50,8 +50,8 @@ public:
   //===--------------------------------------------------------------------===//
   virtual void getOrLoadDialects(mlir::MLIRContext &context) const final;
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
-      mlir::PassManager &pm,
-      onnx_mlir::EmissionTargetType &emissionTarget) const final;
+      mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
+      std::string outputNameNoExt) const final;
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-mlir-opt driver
   //===--------------------------------------------------------------------===//

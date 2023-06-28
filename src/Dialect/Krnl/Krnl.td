@@ -357,7 +357,7 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let description = [{
     Operation for holding global data values. A global constant can have a
     meaningful name recorded as its `name` attribute. Its content is stored
-    in the `value` dense/opaque element attribute.
+    in the `value` dense element attribute.
   }];
 
   let arguments = (ins AnyAttr:$shape,
