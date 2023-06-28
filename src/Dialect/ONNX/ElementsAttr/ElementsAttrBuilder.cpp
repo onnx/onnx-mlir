@@ -157,14 +157,17 @@ bool ElementsAttrBuilder::allEqual(
             auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
             return llvm::all_of(values, nEquals);
           }
+        } else if (auto dense = lhs.dyn_cast<DisposableElementsAttr>()) {
+          if (lhs.isSplat()) {
+            cpptype x = lhs.getSplatValue<cpptype>();
+            return nEquals(x);
+          } else {
+            auto values = lhs.getValues<cpptype>();
+            return llvm::all_of(values, nEquals);
+          }
         }
-        if (lhs.isSplat()) {
-          cpptype x = lhs.getSplatValue<cpptype>();
-          return nEquals(x);
-        } else {
-          auto values = lhs.getValues<cpptype>();
-          return llvm::all_of(values, nEquals);
-        }
+        // TODO: consider supporting more ElementsAttr types
+        llvm_unreachable("unexpected ElementsAttr instance");
       });
 }
 
