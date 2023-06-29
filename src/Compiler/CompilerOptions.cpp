@@ -285,6 +285,11 @@ llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
                    "<output-files-base-path>.heap.log"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> errorExit("error-exit",
+    llvm::cl::desc("Execution failed when external function call failed."
+                   " Currently only zDNN calls in NNPA are supported."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.

@@ -692,7 +692,8 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers,
       bool useLRODATA, bool storeConstantsToFile,
       uint64_t constantsToFileSingleThreshold,
-      uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt) {
+      uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt,
+      bool errorExit) {
     this->verifyInputTensors = verifyInputTensors;
     this->useOpaquePointers = useOpaquePointers;
     // Exclusive options. no option or only one option can be True.
@@ -701,6 +702,7 @@ struct ConvertKrnlToLLVMPass
     this->constantsToFileSingleThreshold = constantsToFileSingleThreshold;
     this->constantsToFileTotalThreshold = constantsToFileTotalThreshold;
     this->outputNameNoExt = outputNameNoExt;
+    this->errorExit = errorExit;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -730,6 +732,11 @@ struct ConvertKrnlToLLVMPass
 
   Option<bool> storeConstantsToFile{*this, "store-constants-to-file",
       llvm::cl::desc("Put global constants to a file."), llvm::cl::init(false)};
+
+  Option<bool> errorExit{*this, "error-exit",
+      llvm::cl::desc("Execution failed when external function call failed."
+                     " Currently only zDNN calls in NNPA are supported.."),
+      llvm::cl::init(false)};
 
   Option<float> constantsToFileTotalThreshold{*this,
       "constants-to-file-total-threshold",
@@ -835,7 +842,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx);
+    accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx, errorExit);
 
   // We want to completely lower to LLVM, so we use a `FullConversion`. This
   // ensures that only legal operations will remain after the conversion.
@@ -881,11 +888,11 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt) {
+    std::string outputNameNoExt, bool errorExit) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors,
       useOpaquePointers, useLRODATA, storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt);
+      outputNameNoExt, errorExit);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

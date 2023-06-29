@@ -353,7 +353,7 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
 // Call a registered API, and check if the return code is zero.
 Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
     ModuleOp module, ApiRegistry registry, API apiId, ArrayRef<Value> params,
-    Value ref) {
+    bool errorExit, Value ref) {
   Value ret = callApi(rewriter, loc, module, registry, apiId, params);
   if (ref == nullptr) { // if ref is not given, set zero
     MLIRContext *context = module.getContext();
@@ -364,7 +364,7 @@ Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
   // compare the return value with ref
   std::string errorMsg =
       "onnx-mlir: Error in zDNN call(" + apiIdStr(apiId) + "): returned ";
-  equalOrExit(module, rewriter, loc, ref, ret, errorMsg);
+  equalOrExit(module, rewriter, loc, ref, ret, errorMsg, errorExit);
   return ret;
 }
 

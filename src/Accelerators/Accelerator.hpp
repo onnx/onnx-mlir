@@ -140,7 +140,8 @@ public:
 
   /// Define rewrite patterns to be used with KrnlToLLVM.
   virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
-      mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx) const = 0;
+      mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx,
+      bool errorExit) const = 0;
 
 protected:
   static llvm::SmallVector<Accelerator *, 4> acceleratorTargets;

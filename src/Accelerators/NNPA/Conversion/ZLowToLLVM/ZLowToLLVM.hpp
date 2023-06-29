@@ -23,7 +23,8 @@ namespace zlow {
 
 /// Populate all conversion patterns for ZLow Ops.
 void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
-    mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx);
+    mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    bool errorExit);
 
 } // namespace zlow
 } // namespace onnx_mlir
