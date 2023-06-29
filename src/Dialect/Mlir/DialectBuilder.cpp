@@ -1752,6 +1752,10 @@ Value LLVMBuilder::ptrtoint(Type type, Value val) const {
   return b().create<LLVM::PtrToIntOp>(loc(), type, val);
 }
 
+void LLVMBuilder::_return() const {
+  b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>{});
+}
+
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
 }

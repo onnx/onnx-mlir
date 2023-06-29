@@ -587,6 +587,7 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;
 
   // ReturnOp
+  void _return() const;
   void _return(mlir::Value val) const;
 
   // SExtOp
