@@ -33,41 +33,14 @@ ModelLibBuilder::ModelLibBuilder(const std::string &name)
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
-  // omTensorListDestroy(inputs);
-  // omTensorListDestroy(outputs);
-  // if (exec)
-  //  delete exec;
+  omTensorListDestroy(inputs);
+  omTensorListDestroy(outputs);
+  if (exec)
+    delete exec;
 }
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
-  {
-    if (compileModule(moduleRef, ctx, sharedLibBaseName,
-            onnx_mlir::EmitONNXBasic) != CompilerSuccess)
-      return false;
-    std::string libFilename =
-        getTargetFilename(sharedLibBaseName, onnx_mlir::EmitONNXBasic);
-    remove((libFilename + "-onnbasic").c_str());
-    rename(libFilename.c_str(), (libFilename + "-onnbasic").c_str());
-  }
-  {
-    if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitMLIR) !=
-        CompilerSuccess)
-      return false;
-    std::string libFilename =
-        getTargetFilename(sharedLibBaseName, onnx_mlir::EmitMLIR);
-    remove((libFilename + "-mlir").c_str());
-    rename(libFilename.c_str(), (libFilename + "-mlir").c_str());
-  }
-  {
-    if (compileModule(moduleRef, ctx, sharedLibBaseName,
-            onnx_mlir::EmitLLVMIR) != CompilerSuccess)
-      return false;
-    std::string libFilename =
-        getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLLVMIR);
-    remove((libFilename + "-llvmir").c_str());
-    rename(libFilename.c_str(), (libFilename + "-llvmir").c_str());
-  }
   if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;
@@ -218,15 +191,6 @@ bool ModelLibBuilder::areCloseFloat(const OMTensor *res, const OMTensor *ref,
   float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : defaultRtol;
   float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : defaultAtol;
   return omTensorAreTwoOmtsClose<float>(res, ref, rtol, atol);
-}
-
-bool ModelLibBuilder::areCloseLong(const OMTensor *res, const OMTensor *ref,
-    float defaultRtol, float defaultAtol) const {
-  if (!res || !ref)
-    return false;
-  float rtol = getenv("TEST_RTOL") ? atof(getenv("TEST_RTOL")) : defaultRtol;
-  float atol = getenv("TEST_ATOL") ? atof(getenv("TEST_ATOL")) : defaultAtol;
-  return omTensorAreTwoOmtsClose<long>(res, ref, rtol, atol);
 }
 
 void ModelLibBuilder::printIndices(

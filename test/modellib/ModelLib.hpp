@@ -144,9 +144,6 @@ protected:
   // Compare results as float.
   bool areCloseFloat(const OMTensor *res, const OMTensor *ref,
       float defaultRtol = 1e-5, float defaultAtol = 1e-5) const;
-  // Compare results as long.
-  bool areCloseLong(const OMTensor *res, const OMTensor *ref,
-      float defaultRtol = 1e-5, float defaultAtol = 1e-5) const;
   // Print indices rank and values, for debugging.
   void printIndices(
       const std::string message, const std::vector<int64_t> &indices) const;
@@ -509,26 +506,6 @@ private:
   std::string onnxOpName;
   const int I, J;
   const int inputNum;
-};
-
-class UniqueLibBuilder : public ModelLibBuilder {
-public:
-  UniqueLibBuilder(const std::string &modelName, const int rank, const int I,
-      const int J, const int K = -1, const int axis = -1,
-      const int sorted = 0, const int isNoneAxis = 0,
-      const int isNoneIndexOutput = 0, const int useExample = 0);
-  virtual ~UniqueLibBuilder();
-  bool build() final;
-  bool prepareInputs() final;
-  bool prepareInputs(float dataRangeLB, float dataRangeUB);
-  bool prepareInputsFromEnv(const std::string envDataRange);
-  bool verifyOutputs() final;
-
-private:
-  // Data that defines model.
-  const int rank, I, J, K, axis, sorted, isNoneAxis, isNoneIndexOutput, useExample;
-  // Computed parameters.
-  llvm::SmallVector<int64_t, 2> xShape, yShape;
 };
 
 } // namespace test
