@@ -125,7 +125,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     //
     Value outputY;
     if (axis < 0) {
-      MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, elementType);
+      MemRefType memrefType =
+          MemRefType::get({ShapedType::kDynamic}, elementType);
       outputY = create.mem.alignedAlloc(memrefType, outputYDims);
     } else {
       ArrayRef<int64_t> xShape = getShape(X.getType());
@@ -138,8 +139,8 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Type i64Type = rewriter.getI64Type();
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
     Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    Value inverse_indices = create.mem.alignedAlloc(memrefType,
-        outputInverseIndexDims);
+    Value inverse_indices =
+        create.mem.alignedAlloc(memrefType, outputInverseIndexDims);
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     //
     // Emit a Unique call to get the outputs

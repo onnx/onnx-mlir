@@ -18,5 +18,5 @@
 #endif
 
 void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
-   int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
-   OMTensor *inverse_indices, OMTensor *counts);
+    int64_t inputAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
+    OMTensor *inverse_indices, OMTensor *counts);
