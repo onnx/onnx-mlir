@@ -93,9 +93,12 @@ struct IndexExprBuilder : DialectBuilder {
   // Get rank of the type defined by value. Expect ranked shaped type.
   uint64_t getShapedTypeRank(mlir::Value value);
   // Get size of 1D array attribute. Expect 1D ranked shaped type.
-  uint64_t getArraySize(mlir::ArrayAttr arrayAttr);
+  int64_t getArraySize(mlir::ArrayAttr arrayAttr);
   // Get size of 1D array defined by arrayVal. Expect 1D ranked shaped type.
-  uint64_t getArraySize(mlir::Value arrayVal);
+  // When staticSizeOnly is false, it may return ShapedType::kDynamic. When
+  // staticSizeOnly is true, it will assert if the shape of the array is
+  // dynamic.
+  int64_t getArraySize(mlir::Value arrayVal, bool staticSizeOnly = false);
 
   //===--------------------------------------------------------------------===//
   // Get literal index expressions from an array of integer attributes.
@@ -135,19 +138,20 @@ struct IndexExprBuilder : DialectBuilder {
   IndexExpr getIntAsSymbol(mlir::Value value);
   IndexExpr getIntAsDim(mlir::Value value);
   IndexExpr getFloatAsNonAffine(mlir::Value value);
-  // Get a symbol/dim index expression from the array defined by `array` at
-  // position `i`. When out of bound, return an undefined index expressions.
-  IndexExpr getIntFromArrayAsSymbol(mlir::Value array, uint64_t i);
-  IndexExpr getIntFromArrayAsDim(mlir::Value array, uint64_t i);
-  IndexExpr getFloatFromArrayAsNonAffine(mlir::Value array, uint64_t i);
+  // Get a symbol/dim index expression from the int or float array defined by
+  // `intArray` / `floatArray` at position `i`.
+  // When out of bound, return an undefined index expressions.
+  IndexExpr getIntFromArrayAsSymbol(mlir::Value intArray, uint64_t i);
+  IndexExpr getIntFromArrayAsDim(mlir::Value intArray, uint64_t i);
+  IndexExpr getFloatFromArrayAsNonAffine(mlir::Value floatArray, uint64_t i);
   // Same as above; `outOfBoundVal` literal index expression is returned
   // when out of bound.
   IndexExpr getIntFromArrayAsSymbol(
-      mlir::Value array, uint64_t i, int64_t outOfBoundVal);
+      mlir::Value intArray, uint64_t i, int64_t outOfBoundVal);
   IndexExpr getIntFromArrayAsDim(
-      mlir::Value array, uint64_t i, int64_t outOfBoundVal);
+      mlir::Value intArray, uint64_t i, int64_t outOfBoundVal);
   IndexExpr getFloatFromArrayAsNonAffine(
-      mlir::Value array, uint64_t i, double outOfBoundVal);
+      mlir::Value floatArray, uint64_t i, double outOfBoundVal);
   // Same as above, but get a list of up to len values. A length of -1 returns
   // the whole list. Assert when `len` exceed the array bounds.
   void getIntFromArrayAsSymbols(
@@ -200,6 +204,7 @@ protected:
 
 private:
   // Returns a SymbolIndexExpr/DimIndexExpr when makeSymbol is true/false.
+  // 'array' element type must match 'isFloat'.
   IndexExpr getValFromArray(
       mlir::Value array, uint64_t i, bool makeSymbol, bool isFloat);
 };

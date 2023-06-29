@@ -145,6 +145,18 @@ add_custom_target(check-onnx-backend-model
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
+IF (NOT WIN32)
+add_custom_target(check-onnx-backend-constants-to-file
+  COMMAND
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constants-to-file
+    TEST_CONSTANTS_TO_FILE=true
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+ENDIF()
+
 add_custom_target(check-onnx-backend-signature
   COMMAND
     TEST_SIGNATURE=true
@@ -190,6 +202,7 @@ add_custom_target(clean-onnx-backend
     ${CMAKE_COMMAND} -E remove
     ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
     ${CMAKE_CURRENT_BINARY_DIR}/*.so
+    ${CMAKE_CURRENT_BINARY_DIR}/*.constants.bin
   )
 
 add_dependencies(check-onnx-backend onnx-mlir)
@@ -198,6 +211,10 @@ add_dependencies(check-onnx-backend-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
+IF (NOT WIN32)
+add_dependencies(check-onnx-backend-constants-to-file onnx-mlir)
+add_dependencies(check-onnx-backend-constants-to-file PyRuntime)
+ENDIF()
 add_dependencies(check-onnx-backend-node onnx-mlir)
 add_dependencies(check-onnx-backend-node PyRuntime)
 add_dependencies(check-onnx-backend-model onnx-mlir)
@@ -212,6 +229,9 @@ add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-constant)
+IF (NOT WIN32)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-constants-to-file)
+ENDIF()
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-signature)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-input-verification)
 
