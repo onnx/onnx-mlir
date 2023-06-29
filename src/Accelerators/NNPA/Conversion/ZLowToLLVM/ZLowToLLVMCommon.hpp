@@ -151,7 +151,7 @@ mlir::Value callApi(mlir::PatternRewriter &rewriter, mlir::Location loc,
 // Call a registered API, and check if the return is zero
 mlir::Value callApiAndCheckReturnCode(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::ModuleOp module, ApiRegistry registry, API apiId,
-    mlir::ArrayRef<mlir::Value> params, bool errorExit,
+    mlir::ArrayRef<mlir::Value> params, bool funcCallErrorExit,
     mlir::Value ref = nullptr);
 
 /// Get rank of a memref.

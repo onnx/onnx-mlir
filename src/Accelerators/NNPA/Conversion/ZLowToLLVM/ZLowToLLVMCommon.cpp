@@ -132,7 +132,8 @@ std::string apiIdStr(API apiId) {
 
 // Emit code for `IF lhs != rhs THEN print messages and exit`
 void equalOrExit(ModuleOp &module, PatternRewriter &rewriter, Location loc,
-    Value lhs, Value rhs, std::string errorMsg = "", bool errorExit = false) {
+    Value lhs, Value rhs, std::string errorMsg = "",
+    bool funcCallErrorExit = false) {
   MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
   create.llvm.ifThenElse(/*cond=*/
       [&](LLVMBuilder &createLLVM) {
@@ -145,7 +146,7 @@ void equalOrExit(ModuleOp &module, PatternRewriter &rewriter, Location loc,
         create.krnl.printf(StringRef(errorMsg), rhs, StringRef("%#x"), true);
 
         // Exit
-        if (errorExit) {
+        if (funcCallErrorExit) {
           MLIRContext *context = rewriter.getContext();
           Type int32Ty = IntegerType::get(context, 32);
           Value one = create.math.constant(int32Ty, 1);
@@ -353,7 +354,7 @@ Value callApi(PatternRewriter &rewriter, Location loc, ModuleOp module,
 // Call a registered API, and check if the return code is zero.
 Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
     ModuleOp module, ApiRegistry registry, API apiId, ArrayRef<Value> params,
-    bool errorExit, Value ref) {
+    bool funcCallErrorExit, Value ref) {
   Value ret = callApi(rewriter, loc, module, registry, apiId, params);
   if (ref == nullptr) { // if ref is not given, set zero
     MLIRContext *context = module.getContext();
@@ -364,7 +365,7 @@ Value callApiAndCheckReturnCode(PatternRewriter &rewriter, Location loc,
   // compare the return value with ref
   std::string errorMsg =
       "onnx-mlir: Error in zDNN call(" + apiIdStr(apiId) + "): returned ";
-  equalOrExit(module, rewriter, loc, ref, ret, errorMsg, errorExit);
+  equalOrExit(module, rewriter, loc, ref, ret, errorMsg, funcCallErrorExit);
   return ret;
 }
 

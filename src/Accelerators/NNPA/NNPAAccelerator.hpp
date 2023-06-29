@@ -75,7 +75,7 @@ public:
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternKrnlToLLVM(mlir::RewritePatternSet &patterns,
       mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx,
-      bool errorExit) const final;
+      bool funcCallErrorExit) const final;
 };
 
 } // namespace accel

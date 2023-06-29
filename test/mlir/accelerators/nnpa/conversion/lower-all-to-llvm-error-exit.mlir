@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm="use-opaque-pointers=true error-exit=true"  %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --maccel=NNPA --convert-krnl-to-llvm="use-opaque-pointers=true func-call-error-exit=true"  %s -split-input-file | FileCheck %s
 
 // -----
 

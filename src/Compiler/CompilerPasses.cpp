@@ -196,7 +196,7 @@ void addKrnlToLLVMPasses(
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, errorExit));
+      outputNameNoExt, funcCallErrorExit));
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }

@@ -85,11 +85,11 @@ API APIFor<ZLowSigmoidOp>() {
 class ZLowStickLowering : public mlir::ConvertToLLVMPattern {
 public:
   explicit ZLowStickLowering(MLIRContext *context, LLVMTypeConverter &lowering_,
-      ApiRegistry apiRegistry, bool errorExit)
+      ApiRegistry apiRegistry, bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowStickOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -131,7 +131,7 @@ public:
     callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
         API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -139,17 +139,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowStickForLSTMLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowStickForLSTMLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowStickForLSTMOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -222,7 +223,7 @@ public:
         API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), fGatePtr, iGatePtr,
             cGatePtr, oGatePtr},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -230,17 +231,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowStickForGRULowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowStickForGRULowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowStickForGRUOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -309,7 +311,7 @@ public:
         API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), zGatePtr, rGatePtr,
             hGatePtr},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -317,17 +319,17 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowLSTMLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowLSTMLowering(MLIRContext *context, LLVMTypeConverter &lowering_,
-      ApiRegistry apiRegistry, bool errorExit)
+      ApiRegistry apiRegistry, bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowLSTMOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -509,7 +511,7 @@ public:
             direction, workArea,
             toOpaquePtr(rewriter, loc, module, hnOutputZTensor.val),
             toOpaquePtr(rewriter, loc, module, cfOutputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -517,17 +519,17 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowGRULowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowGRULowering(MLIRContext *context, LLVMTypeConverter &lowering_,
-      ApiRegistry apiRegistry, bool errorExit)
+      ApiRegistry apiRegistry, bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowGRUOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -667,7 +669,7 @@ public:
             toOpaquePtr(rewriter, loc, module, hiddenBiasZTensor.val),
             direction, workArea,
             toOpaquePtr(rewriter, loc, module, hnOutputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -675,17 +677,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowUnstickLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowUnstickLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowUnstickOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -726,7 +729,7 @@ public:
     callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
         API::ZDNN_TRANSFORM_ORIGTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -734,18 +737,19 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 template <typename UnaryElementwiseOp>
 class ZLowUnaryElementwiseOpLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowUnaryElementwiseOpLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             UnaryElementwiseOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -804,13 +808,13 @@ public:
           APIFor<UnaryElementwiseOp>(),
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val), nullpointer,
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-          errorExit);
+          funcCallErrorExit);
     } else {
       callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
           APIFor<UnaryElementwiseOp>(),
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-          errorExit);
+          funcCallErrorExit);
     }
 
     rewriter.eraseOp(op);
@@ -819,18 +823,19 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 template <typename BinaryElementwiseOp>
 class ZLowBinaryElementwiseOpLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowBinaryElementwiseOpLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             BinaryElementwiseOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -894,7 +899,7 @@ public:
         {toOpaquePtr(rewriter, loc, module, inputZTensor1.val),
             toOpaquePtr(rewriter, loc, module, inputZTensor2.val),
             toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -902,17 +907,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowSoftmaxOpLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowSoftmaxOpLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowSoftmaxOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -981,7 +987,7 @@ public:
             actFunc,
             toOpaquePtr(rewriter, loc, module, outputZTensor.val),
         },
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -989,17 +995,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowMatMulLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowMatMulLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowMatMulOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -1115,7 +1122,7 @@ public:
               toOpaquePtr(rewriter, loc, module, yZTensor.val),
               toOpaquePtr(rewriter, loc, module, biasZTensor.val), op_type,
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-          errorExit);
+          funcCallErrorExit);
     } else {
       callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
           API::ZDNN_MATMUL_OP,
@@ -1123,7 +1130,7 @@ public:
               toOpaquePtr(rewriter, loc, module, yZTensor.val),
               toOpaquePtr(rewriter, loc, module, biasZTensor.val), op_type,
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-          errorExit);
+          funcCallErrorExit);
     }
 
     rewriter.eraseOp(op);
@@ -1132,17 +1139,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowConv2DLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowConv2DLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowConv2DOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -1261,7 +1269,7 @@ public:
             toOpaquePtr(rewriter, loc, module, biasZTensor.val), paddingType,
             strideHeight, strideWidth, actFunc, nullpointer,
             toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1269,7 +1277,7 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 template <typename POOLOP>
@@ -1291,10 +1299,11 @@ template <typename POOLOP>
 class ZLowPool2DLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowPool2DLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(POOLOP::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -1384,7 +1393,7 @@ public:
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val), paddingType, KH,
             KW, strideHeight, strideWidth,
             toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1392,17 +1401,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowMeanReduce2DLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowMeanReduce2DLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowMeanReduce2DOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -1457,7 +1467,7 @@ public:
         API::ZDNN_MEANREDUCE2D,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
             toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1465,17 +1475,18 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 class ZLowBatchNormLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowBatchNormLowering(MLIRContext *context,
-      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry, bool errorExit)
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry,
+      bool funcCallErrorExit)
       : ConvertToLLVMPattern(
             ZLowBatchNormOp::getOperationName(), context, lowering_) {
     this->apiRegistry = apiRegistry;
-    this->errorExit = errorExit;
+    this->funcCallErrorExit = funcCallErrorExit;
   }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -1542,7 +1553,7 @@ public:
             toOpaquePtr(rewriter, loc, module, aZTensor.val),
             toOpaquePtr(rewriter, loc, module, bZTensor.val),
             toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
-        errorExit);
+        funcCallErrorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1550,12 +1561,12 @@ public:
 
 private:
   ApiRegistry apiRegistry;
-  bool errorExit;
+  bool funcCallErrorExit;
 };
 
 void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::LLVMTypeConverter &typeConverter, mlir::MLIRContext *ctx,
-    bool errorExit) {
+    bool funcCallErrorExit) {
   ApiRegistry apiRegistry = RegisterAllApis(ctx);
   // clang-format off
   patterns.insert<
@@ -1573,7 +1584,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,
       ZLowBatchNormLowering
-    >(ctx, typeConverter, apiRegistry, errorExit);
+    >(ctx, typeConverter, apiRegistry, funcCallErrorExit);
   patterns.insert<
       // Elementwise operations
       ZLowBinaryElementwiseOpLowering<ZLowAddOp>,
@@ -1592,7 +1603,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       // Other operations
       ZLowPool2DLowering<ZLowAvgPool2DOp>,
       ZLowPool2DLowering<ZLowMaxPool2DOp>
-    >(ctx, typeConverter, apiRegistry, errorExit);
+    >(ctx, typeConverter, apiRegistry, funcCallErrorExit);
   // clang-format on
 }
 
