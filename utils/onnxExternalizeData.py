@@ -26,21 +26,25 @@ parser.add_argument('--no_convert_attribute', action='store_true', help="Only co
 parser.add_argument('--make_raw', action='store_true', help="Convert non-raw tensors to raw_data")
 args = parser.parse_args()
 
-def get_all_tensors(onnx_model_proto):
-    return onnx.external_data_helper._get_all_tensors(onnx_model_proto)
-
-def get_initializer_tensors(onnx_model_proto):
-    return onnx.external_data_helper._get_initializer_tensors(onnx_model_proto)
+def get_tensors(onnx_model_proto):
+    # HACK: Use these convenient private onnx.external_data_helper methods.
+    #       Will need to be updated/reimplemented if onnx.external_data_helper changes.
+    if args.no_convert_attribute:
+        return onnx.external_data_helper._get_initializer_tensors(onnx_model_proto)
+    else:
+        return onnx.external_data_helper._get_all_tensors(onnx_model_proto)
 
 def main():
     filepath = args.model_path
     basename = os.path.basename(filepath)
     model = onnx.load_model(filepath)
     if args.make_raw:
-        tensors = get_initializer_tensors(model) if args.no_convert_attribute else get_all_tensors(model)
+        tensors = get_tensors(model)
         for tensor in tensors:
             if not tensor.HasField("raw_data") and tensor.data_type != onnx.TensorProto.STRING:
                 arr = onnx.numpy_helper.to_array(tensor)
+                # TODO: If this is too slow, calculate bytes size without converting to bytes
+                #       to avoid conversion when bytes size is below threshold.
                 bytes = arr.tobytes()
                 if sys.getsizeof(bytes) >= args.size_threshold:
                     storage_field = onnx.helper.tensor_dtype_to_field(tensor.data_type)
