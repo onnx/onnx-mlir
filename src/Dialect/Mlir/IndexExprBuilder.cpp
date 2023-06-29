@@ -38,12 +38,11 @@ using namespace mlir;
 
 namespace {
 
-APFloat getFloatValue(ElementsAttr elementsAttr, uint64_t i) {
+APFloat getFloatValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
   // Work around that elementsAttr may be a DenseUI8ResourceElementsAttr
   // which doesn't support getValues<APFloat>().
   if (auto resource = dyn_cast<DenseUI8ResourceElementsAttr>(elementsAttr)) {
     ArrayRef<uint8_t> array = resource.tryGetAsArrayRef().value();
-    Type elType = elementsAttr.getElementType();
     if (elType.isF32())
       return APFloat(onnx_mlir::castArrayRef<float>(array)[i]);
     if (elType.isF64())
@@ -53,12 +52,11 @@ APFloat getFloatValue(ElementsAttr elementsAttr, uint64_t i) {
   return elementsAttr.getValues<APFloat>()[i];
 }
 
-APInt getIntValue(ElementsAttr elementsAttr, uint64_t i) {
+APInt getIntValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
   // Work around that elementsAttr may be a DenseUI8ResourceElementsAttr
   // which doesn't support getValues<APInt>().
   if (auto resource = dyn_cast<DenseUI8ResourceElementsAttr>(elementsAttr)) {
     ArrayRef<uint8_t> array = resource.tryGetAsArrayRef().value();
-    Type elType = elementsAttr.getElementType();
     bool isSigned = true;
     if (elType.isInteger(16))
       return APInt(16, onnx_mlir::castArrayRef<int16_t>(array)[i], isSigned);
@@ -193,10 +191,11 @@ IndexExpr IndexExprBuilder::getValFromArray(
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
-      double floatVal = getFloatValue(elementsAttr, i).convertToDouble();
+      double floatVal =
+          getFloatValue(elementsAttr, elType, i).convertToDouble();
       return LiteralIndexExpr(floatVal);
     } else {
-      int64_t intVal = getIntValue(elementsAttr, i).getSExtValue();
+      int64_t intVal = getIntValue(elementsAttr, elType, i).getSExtValue();
       return LiteralIndexExpr(intVal);
     }
   }
