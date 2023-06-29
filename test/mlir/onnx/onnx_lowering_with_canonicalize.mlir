@@ -3776,6 +3776,227 @@ func.func @top_k_unknown_dims(%arg0: tensor<?x?xf32>, %arg1: tensor<1xi64>) -> (
 
 // -----
 
+func.func @unique_without_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_without_axis
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<4xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<4xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_axis
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<?x2xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?x2xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<?x2xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<?x2xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_axis_3d(%arg0: tensor<2x2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_axis_3d
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2x2xi64>) -> memref<?x2x2xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?x2x2xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2x2xi64>, i64, i64, memref<?x2x2xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<?x2x2xi64>
+// CHECK:         }
+
+
+// -----
+
+func.func @unique_with_negative_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = -1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_negative_axis
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_sort(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {sorted = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_sort
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<4xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<4xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_indices(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_indices
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_inverse_indices(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, tensor<*xi64>, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_inverse_indices
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_counts(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, tensor<*xi64>)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_counts
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2) {funcName = "omTensorUnique", numOfOutput = 8 : si64} : (memref<index>, memref<2x2xi64>, i64, i64, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
 func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
     %0 = onnx.Constant dense<7> : tensor<i64>
     %1 = onnx.Constant dense<true> : tensor<i1>
