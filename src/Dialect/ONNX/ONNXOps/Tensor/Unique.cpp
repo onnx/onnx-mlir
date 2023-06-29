@@ -28,19 +28,19 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   DimsExpr outputDims;
   if (!optionalAxis.has_value()) { // if no axis given
     outputDims.emplace_back(
-        QuestionmarkIndexExpr(/*isFloat*/ false)); // return 1D array
+        QuestionmarkIndexExpr(false)); // return 1D array
   } else {                                         // if axis given
     int64_t axis = optionalAxis.value();
     axis = (axis < 0) ? (rank + axis) : axis;
     for (int64_t i = 0; i < rank; i++) {
       outputDims.emplace_back((i == axis)
-                                  ? QuestionmarkIndexExpr(/*isFloat*/ false)
+                                  ? QuestionmarkIndexExpr(false)
                                   : createIE->getShapeAsDim(X, i));
     }
   }
   setOutputDims(outputDims, 0);
   DimsExpr indexDims;
-  indexDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
+  indexDims.emplace_back(QuestionmarkIndexExpr(false));
   setOutputDims(indexDims, 1);
   setOutputDims(indexDims, 2);
   setOutputDims(indexDims, 3);

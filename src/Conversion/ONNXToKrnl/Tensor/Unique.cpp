@@ -73,22 +73,30 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     int64_t rank = create.krnlIE.getShapedTypeRank(X);
     int64_t sorted = operandAdaptor.getSorted();
     Optional<int64_t> optionalAxis = uniqueOp.getAxis();
+    //
+    // Get axis value as a positive integer if axis attribute is specified.
+    // If set "-1" if the axis attribute is not specified.
+    //
     int64_t axis = -1;
     if (optionalAxis.has_value()) {
       axis = optionalAxis.value();
       axis = axis < 0 ? axis + rank : axis;
       assert(axis >= 0 && axis < rank && "axis is out of bound");
     }
-    // Count unique subtensors of X along axis.
+    //
+    // Emit a Unique call to get the outputs to count unique
+    // slices(subtensors) of X along axis at first.
+    //
     Type indexTy = rewriter.getIndexType();
     Value iZero = create.math.constantIndex(0);
-    // Emit a variable for the total number of nonzero values.
     Value uniqueCount = create.mem.alloca(MemRefType::get({}, indexTy));
     create.krnl.store(iZero, uniqueCount, {});
     Value noneValue;
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         noneValue, noneValue, noneValue, noneValue, /*count_only=*/true);
-    // Calculate output shapes for ouputs according to the results
+    //
+    // Calculate shapes of output Tensors
+    //
     Value total = create.krnl.load(uniqueCount, {});
     NonAffineIndexExpr totalDimExpr = DimIndexExpr(total);
     DimsExpr outputYDims;
@@ -112,9 +120,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
       outputIndexDims.emplace_back(totalDimExpr);
       outputInverseIndexDims.emplace_back(LiteralIndexExpr(xShape[axis]));
     }
-
-    // Insert an allocation and deallocation for the results of this operation.
-    // For Y output
+    //
+    // Insert an allocation and deallocation for the outputs.
+    //
     Value outputY;
     if (axis < 0) {
       MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, elementType);
@@ -133,7 +141,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Value inverse_indices = create.mem.alignedAlloc(memrefType,
         outputInverseIndexDims);
     Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    // Compute argUnique of X along axis.
+    //
+    // Emit a Unique call to get the outputs
+    //
     create.krnl.store(iZero, uniqueCount, {});
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverse_indices, counts);
