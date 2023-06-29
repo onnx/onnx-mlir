@@ -65,7 +65,7 @@ public:
   virtual void conversionTargetONNXToKrnl(
       mlir::ConversionTarget &target) const final;
   virtual void rewritePatternONNXToKrnl(mlir::RewritePatternSet &patterns,
-					mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
+      mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) const final;
   virtual int64_t getDefaultAllocAlignment(
       const mlir::TensorType tensorType) const final;
   //===--------------------------------------------------------------------===//
