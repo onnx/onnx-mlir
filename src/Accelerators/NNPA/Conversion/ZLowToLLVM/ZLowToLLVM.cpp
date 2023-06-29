@@ -128,8 +128,10 @@ public:
 
     // Ready to stickify.
     Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
-        {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_TRANSFORM_ZTENSOR,
+        {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -216,9 +218,11 @@ public:
     Value iGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getIGate());
     Value cGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getCGate());
     Value oGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOGate());
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), fGatePtr, iGatePtr,
-            cGatePtr, oGatePtr});
+            cGatePtr, oGatePtr},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -301,9 +305,11 @@ public:
     Value zGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getZGate());
     Value rGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getRGate());
     Value hGatePtr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getHGate());
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ZTENSOR,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_TRANSFORM_ZTENSOR,
         {toOpaquePtr(rewriter, loc, module, zTensor.val), zGatePtr, rGatePtr,
-            hGatePtr});
+            hGatePtr},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -491,7 +497,8 @@ public:
               /*isTransformed=*/true);
 
     // Ready to call zDNN LSTM.
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_LSTM,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_LSTM,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
             toOpaquePtr(rewriter, loc, module, h0ZTensor.val),
             toOpaquePtr(rewriter, loc, module, c0ZTensor.val),
@@ -501,7 +508,8 @@ public:
             toOpaquePtr(rewriter, loc, module, hiddenBiasZTensor.val),
             direction, workArea,
             toOpaquePtr(rewriter, loc, module, hnOutputZTensor.val),
-            toOpaquePtr(rewriter, loc, module, cfOutputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, cfOutputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -650,7 +658,7 @@ public:
         /*isTransformed=*/true);
 
     // Ready to call zDNN GRU.
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_GRU,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry, API::ZDNN_GRU,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
             toOpaquePtr(rewriter, loc, module, h0ZTensor.val),
             toOpaquePtr(rewriter, loc, module, inputWeightsZTensor.val),
@@ -658,7 +666,8 @@ public:
             toOpaquePtr(rewriter, loc, module, hiddenWeightsZTensor.val),
             toOpaquePtr(rewriter, loc, module, hiddenBiasZTensor.val),
             direction, workArea,
-            toOpaquePtr(rewriter, loc, module, hnOutputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, hnOutputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -714,8 +723,10 @@ public:
 
     // Ready to unstickify.
     Value unstickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_TRANSFORM_ORIGTENSOR,
-        {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr});
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_TRANSFORM_ORIGTENSOR,
+        {toOpaquePtr(rewriter, loc, module, zTensor.val), unstickI8Ptr},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -789,9 +800,11 @@ public:
       // Insert "nullptr" as the third argument for the "clipping_value",
       // because onnx.Relu does not use the clipping value.
       Value nullpointer = create.llvm.null(krnl::getI8PointerType(context));
-      callApi(rewriter, loc, module, apiRegistry, APIFor<UnaryElementwiseOp>(),
+      callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+          APIFor<UnaryElementwiseOp>(),
           {toOpaquePtr(rewriter, loc, module, inputZTensor.val), nullpointer,
-              toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+              toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+          errorExit);
     } else {
       callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
           APIFor<UnaryElementwiseOp>(),
@@ -876,10 +889,12 @@ public:
         /*isTransformed=*/true);
 
     // Ready to call a zDNN elementwise API.
-    callApi(rewriter, loc, module, apiRegistry, APIFor<BinaryElementwiseOp>(),
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        APIFor<BinaryElementwiseOp>(),
         {toOpaquePtr(rewriter, loc, module, inputZTensor1.val),
             toOpaquePtr(rewriter, loc, module, inputZTensor2.val),
-            toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1094,17 +1109,21 @@ public:
 
     // Ready to call zDNN MatMul.
     if (broadcasting) {
-      callApi(rewriter, loc, module, apiRegistry, API::ZDNN_MATMUL_BCAST_OP,
+      callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+          API::ZDNN_MATMUL_BCAST_OP,
           {toOpaquePtr(rewriter, loc, module, xZTensor.val),
               toOpaquePtr(rewriter, loc, module, yZTensor.val),
               toOpaquePtr(rewriter, loc, module, biasZTensor.val), op_type,
-              toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+              toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+          errorExit);
     } else {
-      callApi(rewriter, loc, module, apiRegistry, API::ZDNN_MATMUL_OP,
+      callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+          API::ZDNN_MATMUL_OP,
           {toOpaquePtr(rewriter, loc, module, xZTensor.val),
               toOpaquePtr(rewriter, loc, module, yZTensor.val),
               toOpaquePtr(rewriter, loc, module, biasZTensor.val), op_type,
-              toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+              toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+          errorExit);
     }
 
     rewriter.eraseOp(op);
@@ -1235,12 +1254,14 @@ public:
     // Prepare nullpointer for the clipping value
     Value nullpointer = create.llvm.null(krnl::getI8PointerType(context));
     // Ready to call zDNN Conv2D.
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_CONV2D,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_CONV2D,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
             toOpaquePtr(rewriter, loc, module, kernelZTensor.val),
             toOpaquePtr(rewriter, loc, module, biasZTensor.val), paddingType,
             strideHeight, strideWidth, actFunc, nullpointer,
-            toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1358,10 +1379,12 @@ public:
             /*isTransformed=*/true);
 
     // Ready to call zDNN Pool2D.
-    callApi(rewriter, loc, module, apiRegistry, getPool2DAPI<POOLOP>(),
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        getPool2DAPI<POOLOP>(),
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val), paddingType, KH,
             KW, strideHeight, strideWidth,
-            toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1430,9 +1453,11 @@ public:
             /*isTransformed=*/true);
 
     // Ready to call zDNN MeanReduce2D.
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_MEANREDUCE2D,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_MEANREDUCE2D,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
-            toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
@@ -1511,11 +1536,13 @@ public:
             /*isTransformed=*/true);
 
     // Ready to call zDNN BatchNorm.
-    callApi(rewriter, loc, module, apiRegistry, API::ZDNN_BATCHNORM,
+    callApiAndCheckReturnCode(rewriter, loc, module, apiRegistry,
+        API::ZDNN_BATCHNORM,
         {toOpaquePtr(rewriter, loc, module, inputZTensor.val),
             toOpaquePtr(rewriter, loc, module, aZTensor.val),
             toOpaquePtr(rewriter, loc, module, bZTensor.val),
-            toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+            toOpaquePtr(rewriter, loc, module, outputZTensor.val)},
+        errorExit);
 
     rewriter.eraseOp(op);
     return success();
