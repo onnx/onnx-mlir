@@ -25,15 +25,16 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
       : OpConversionPattern(typeConverter, ctx) {}
 
   LogicalResult
-  matchAndRewrite(ONNXCustomOp customOp, ONNXCustomOpAdaptor operandAdaptor,
-                  ConversionPatternRewriter &rewriter) const final {
+  matchAndRewrite(ONNXCustomOp customOp,
+      ONNXCustomOpAdaptor operandAdaptor,
+      ConversionPatternRewriter &rewriter) const final {
     Operation *op = customOp.getOperation();
     Location loc = op->getLoc();
     ValueRange operands = operandAdaptor.getOperands();
 
     // Helper builders.
     MultiDialectBuilder<AffineBuilder, IndexExprBuilderForKrnl, KrnlBuilder,
-                        MemRefBuilder>
+        MemRefBuilder>
         create(rewriter, loc);
     IndexExprScope scope(create.krnlIE);
 
@@ -49,16 +50,15 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
       MemRefType outputMemRefType =
           typeConverter->convertType(ty).cast<MemRefType>();
       outputMemRefTypes.emplace_back(outputMemRefType);
-      Value alloc = create.mem.alignedAlloc(outputMemRefType,
-                                            shapeHelper.getOutputDims(idx));
+      Value alloc = create.mem.alignedAlloc(
+          outputMemRefType, shapeHelper.getOutputDims(idx));
       outputAllocs.emplace_back(alloc);
     }
 
     // Handle the attributes: exclude the attributes used for analysis
     // function_name is passed explicitly. Others may include shape inference
-    std::vector<std::string> excludeStrings = {
-        "function_name", "shape_infer_pattern", "inputs_for_infer",
-        "output_element_type"};
+    std::vector<std::string> excludeStrings = {"function_name",
+        "shape_infer_pattern", "inputs_for_infer", "output_element_type"};
     std::vector<std::string> attributeNames;
     for (NamedAttribute namedAttr : customOp->getAttrs()) {
       std::string attrName = namedAttr.getName().getValue().str();
@@ -68,7 +68,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
     }
 
     rewriter.create<KrnlCallOp>(loc, customOp.getFunctionName().str(),
-                                outputAllocs, op, operands, attributeNames);
+        outputAllocs, op, operands, attributeNames);
 
     rewriter.replaceOp(op, outputAllocs);
     return success();
@@ -76,8 +76,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
 };
 
 void populateLoweringONNXCustomOpPattern(RewritePatternSet &patterns,
-                                         TypeConverter &typeConverter,
-                                         MLIRContext *ctx) {
+    TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXCustomOpLowering>(typeConverter, ctx);
 }
 
