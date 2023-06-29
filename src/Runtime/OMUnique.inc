@@ -46,6 +46,8 @@ void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
   table->countsPtr = countsPtr;
 }
 
+
+#ifdef _DEBUG_SLICE_TABLE
 void sliceTablePrint(sliceTable *table) {
   printf("sliceTablePrint: dataType=%d, sorted=%ld, numberOfElementsInSlice=%ld, "
          "numberOfSlices=%ld, maxNumberOfSlices=%ld, sliceTable = [\n",
@@ -70,6 +72,7 @@ void sliceTablePrint(sliceTable *table) {
   }
   printf("]\n");
 }
+#endif
 
 // Check if the first argument is less than the second one
 int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
