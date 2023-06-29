@@ -24,8 +24,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
   ONNXCustomOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult
-  matchAndRewrite(ONNXCustomOp customOp,
+  LogicalResult matchAndRewrite(ONNXCustomOp customOp,
       ONNXCustomOpAdaptor operandAdaptor,
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = customOp.getOperation();
