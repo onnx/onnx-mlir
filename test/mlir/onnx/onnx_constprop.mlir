@@ -544,6 +544,21 @@ func.func @test_matmul_rhs_zero(%arg0: tensor<4x3xi64>) -> tensor<4x2xi64> {
 
 // -----
 
+// The MatMulZerosOnRhs constant propagation pattern doesn't match fp types.
+func.func @test_matmul_rhs_zero_f16(%arg0: tensor<4x3xf16>) -> tensor<4x2xf16> {
+  %0 = onnx.Constant dense<0.0> : tensor<3x2xf16>
+  %1 = "onnx.MatMul"(%arg0, %0) : (tensor<4x3xf16>, tensor<3x2xf16>) -> tensor<4x2xf16>
+  "onnx.Return"(%1) : (tensor<4x2xf16>) -> ()
+  // CHECK-LABEL:  func.func @test_matmul_rhs_zero_f16
+  // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<4x3xf16>) -> tensor<4x2xf16> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<3x2xf16>
+  // CHECK:           [[VAR_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<4x3xf16>, tensor<3x2xf16>) -> tensor<4x2xf16>
+  // CHECK:           onnx.Return [[VAR_1_]] : tensor<4x2xf16>
+  // CHECK:         }
+}
+
+// -----
+
 func.func @test_matmul_2d() -> (tensor<2x1xf32>) {
   %0 = "onnx.Constant"() {value = dense<1.> : tensor<2x3xf32>} : () -> tensor<2x3xf32>
   %1 = "onnx.Constant"() {value = dense<1.> : tensor<3x1xf32>} : () -> tensor<3x1xf32>
