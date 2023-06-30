@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 

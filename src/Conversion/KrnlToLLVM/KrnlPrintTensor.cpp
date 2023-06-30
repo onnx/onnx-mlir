@@ -28,7 +28,7 @@ namespace krnl {
 class KrnlPrintTensorOpLowering : public ConversionPattern {
 public:
   explicit KrnlPrintTensorOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlPrintTensorOp::getOperationName(), 1, context) {}
 
@@ -39,6 +39,8 @@ public:
     Location loc = printTensorOp.getLoc();
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *typeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     StringRef msg = printTensorOp.getMsg();
     Value input = operandAdaptor.getInput();
@@ -47,7 +49,8 @@ public:
            "expecting LLVMStructType");
 
     ModuleOp module = printTensorOp->getParentOfType<ModuleOp>();
-    const auto &apiRegistry = RuntimeAPIRegistry(module, rewriter);
+    const auto &apiRegistry =
+        RuntimeAPIRegistry(module, rewriter, *typeConverter);
 
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
@@ -61,8 +64,8 @@ public:
     Type elemTy = originalInput.getType().cast<MemRefType>().getElementType();
     krnl::fillOMTensorWithMemRef(input, elemTy, omTensor, false /*outOwning*/,
         rewriter, loc, apiRegistry, module);
-    LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(msg, loc, rewriter,
-        module, static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
+        msg, loc, rewriter, module, typeConverter);
     Value strPtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
 
     RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -73,7 +76,7 @@ public:
   }
 };
 
-void populateLoweringKrnlPrintTensorOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlPrintTensorOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlPrintTensorOpLowering>(typeConverter, ctx);
 }

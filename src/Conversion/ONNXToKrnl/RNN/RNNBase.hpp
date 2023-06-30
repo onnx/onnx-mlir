@@ -27,8 +27,8 @@ namespace onnx_mlir {
 
 struct RNNActivation {
   llvm::StringRef name;
-  llvm::Optional<mlir::FloatAttr> alpha;
-  llvm::Optional<mlir::FloatAttr> beta;
+  std::optional<mlir::FloatAttr> alpha;
+  std::optional<mlir::FloatAttr> beta;
 };
 
 /// Get a dimension of the tensor's shape.
@@ -219,7 +219,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
                     : create.mem.dim(X, 0);
 
             mlir::Value reverseSequenceIV =
-                rewriter.create<mlir::AffineApplyOp>(loc, reverseIVMap,
+                rewriter.create<mlir::affine::AffineApplyOp>(loc, reverseIVMap,
                     std::vector<mlir::Value>{loopInd[0], sequenceSize});
             // Get a slice of X at the current timestep.
             mlir::Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);

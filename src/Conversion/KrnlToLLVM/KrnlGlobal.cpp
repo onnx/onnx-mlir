@@ -191,6 +191,10 @@ private:
     const auto type = krnlGlobalOp.getResult().getType();
     const auto memRefTy = type.cast<mlir::MemRefType>();
 
+    // Special handling for bool.
+    if (memRefTy.getElementType().isInteger(1))
+      return llvm::divideCeil(numElements, 8);
+
     return numElements * getMemRefEltSizeInBytes(memRefTy);
   }
 
@@ -200,10 +204,11 @@ private:
     Type elementType = memRefType.getElementType();
     LLVMTypeConverter &typeConverter = *getTypeConverter();
     Type llvmElemType = typeConverter.convertType(elementType);
+    MLIRContext *context = builder.getContext();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    auto ptrType = LLVM::LLVMPointerType::get(llvmElemType);
+    auto ptrType = getPointerType(context, llvmElemType);
     // Bitcast the address to the MemRefType's element type.
     Value bitCastOp = create.llvm.bitcast(ptrType, address);
     // Create llvm MemRef from original MemRef and fill the data pointers.
@@ -225,8 +230,7 @@ private:
     DenseElementsAttr denseAttr =
         krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
-    Type i8Type = IntegerType::get(builder.getContext(), 8);
-    Type i8PtrType = LLVM::LLVMPointerType::get(i8Type);
+    Type i8PtrType = getI8PointerType(builder.getContext());
 
     // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
     // attribute.

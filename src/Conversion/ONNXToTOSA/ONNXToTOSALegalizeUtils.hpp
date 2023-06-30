@@ -35,10 +35,9 @@ namespace tosa {
 // makes sure the axis is in the right range for TOSA.
 int64_t convertNegativeAxis(int64_t axis, int64_t inputRank);
 
-// Get a vector of indexExpr and extract the Int64 values                       
-llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(                      
-    llvm::ArrayRef<IndexExpr> indexVector);                                     
-                                            
+// Get a vector of indexExpr and extract the Int64 values
+llvm::SmallVector<int64_t> createInt64VectorFromIndexExpr(
+    llvm::ArrayRef<IndexExpr> indexVector);
 
 // Create a RankedTensorType with shape and all elements being 1
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
@@ -69,8 +68,8 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   llvm::SmallVector<mlir::ShapedTypeComponents> returnedShapes;
   if (shapeInterface
           .inferReturnTypeComponents(op.getContext(), op.getLoc(),
-              op->getOperands(), op->getAttrDictionary(), op->getRegions(),
-              returnedShapes)
+              op->getOperands(), op->getAttrDictionary(),
+              op->getPropertiesStorage(), op->getRegions(), returnedShapes)
           .failed())
     return op;
 

@@ -193,14 +193,6 @@ endif()
 # Increase the log level for onnx-mlir
 set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 
-# TODO: properly specify the location of torch and its components
-include_directories(${TORCH_MLIR_INCLUDE_DIRS})
-link_directories(${TORCH_MLIR_LIB_DIR})
-
-
-#find_library(DIA_LIB TorchMLIRTorchDialect)
-#find_library(FOO_LIB TorchMLIRTorchUtils)
-
 # Ensure warnings are reported for onnx-mlir code.
 if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(LLVM_ENABLE_WERROR ${ONNX_MLIR_ENABLE_WERROR})

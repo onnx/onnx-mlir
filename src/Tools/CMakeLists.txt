@@ -2,3 +2,4 @@
 
 add_subdirectory(onnx-mlir-opt)
 add_subdirectory(onnx-mlir-reduce)
+add_subdirectory(lrodata-script)

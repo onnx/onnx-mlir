@@ -114,8 +114,25 @@ public:
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
+    auto loc = op.getLoc();
     Value lhs = adaptor.getA();
     Value rhs = adaptor.getB();
+
+    if (TosaOpT::template hasTrait<
+            mlir::OpTrait::ResultsBroadcastableShape>()) {
+
+      IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
+      ONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createTosaIE);
+      shapeHelper.computeShapeAndAssertOnFailure();
+
+      if (shapeHelper.hasRankBroadcast()) {
+        TosaBuilder tosaBuilder(rewriter, loc);
+        llvm::SmallVector<Value, 4> newValues =
+            tosaBuilder.equalizeRanks({lhs, rhs});
+        lhs = newValues[0];
+        rhs = newValues[1];
+      }
+    }
 
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
 
@@ -171,7 +188,8 @@ static LogicalResult LegalizeFloatingPointPrelu(Operation *op,
   Value constZero = tosaBuilder.getSplattedConst(0.0, outputType.getShape());
 
   auto mul = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, op->getLoc(),
-      outputType, input, tosaBuilder.getSplattedConst(alpha, outputType.getShape()),
+      outputType, input,
+      tosaBuilder.getSplattedConst(alpha, outputType.getShape()),
       /*shift=*/0);
 
   auto greaterEqual =

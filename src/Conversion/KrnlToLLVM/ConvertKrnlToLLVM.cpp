@@ -63,6 +63,8 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+bool LLVM_USE_OPAQUE_POINTER = true;
+
 uint64_t KRNL_ENTRY_POINT_ID = 0;
 
 // Return true if the value owns the storge. A value defined by memref.alloc
@@ -275,9 +277,9 @@ void genSignatureFunction(ModuleOp &module,
   Type i8Type = IntegerType::get(context, 8);
   Type i32Type = IntegerType::get(context, 32);
   Type i64Type = IntegerType::get(context, 64);
-  Type i64PtrTy = LLVM::LLVMPointerType::get(i64Type);
-  Type i8PtrTy = LLVM::LLVMPointerType::get(i8Type);
-  Type i8PtrPtrTy = LLVM::LLVMPointerType::get(i8PtrTy);
+  Type i64PtrTy = getPointerType(context, i64Type);
+  Type i8PtrTy = getPointerType(context, i8Type);
+  Type i8PtrPtrTy = getPointerType(context, i8PtrTy);
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
 
@@ -300,16 +302,13 @@ void genSignatureFunction(ModuleOp &module,
     uint32_t index = 0;
     Value lastValue = array;
     for (const LLVM::GlobalOp &globalOp : entryGlobalOps) {
-      Value address = create.llvm.addressOf(globalOp);
-      Value zeroI64 = create.llvm.constant(i64Type, (int64_t)0);
-      Value strAddr =
-          create.llvm.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+      Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, b);
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
 
     // The last element of the array is NULL.
-    Value nullPtr = create.llvm.nullI8Ptr();
+    Value nullPtr = create.llvm.null(getI8PointerType(context));
     lastValue =
         create.llvm.insertValue(arrayType, lastValue, nullPtr, {index++});
     create.llvm._return(lastValue);
@@ -339,16 +338,15 @@ void genSignatureFunction(ModuleOp &module,
               LLVM::ICmpPredicate::ne, numOfEntryPoints, nullPtr);
         }, /*then=*/
         [&](LLVMBuilder &createLLVM) {
-          Value zero = createLLVM.constant(i64Type, (int64_t)0);
-          Value numOfEntryPointsPtr =
-              createLLVM.getElemPtr(i64PtrTy, numOfEntryPoints, {zero});
+          Value numOfEntryPointsPtr = createLLVM.getElemPtr(
+              i64PtrTy, i64Type, numOfEntryPoints, ArrayRef<LLVM::GEPArg>{0});
           Value noep =
               createLLVM.constant(i64Type, (int64_t)entryGlobalOps.size());
           createLLVM.store(noep, numOfEntryPointsPtr);
         });
     // Emit code to return the entry point array.
     Value entryAddr = create.llvm.addressOf(entryArrayOp);
-    Value entryI8Ptr = create.llvm.bitcastI8PtrPtr(entryAddr);
+    Value entryI8Ptr = create.llvm.bitcast(i8PtrPtrTy, entryAddr);
     create.llvm._return(entryI8Ptr);
   }
 
@@ -388,10 +386,8 @@ void genSignatureFunction(ModuleOp &module,
       create.llvm.ifThenElse(/*cond=*/
           [&](LLVMBuilder &createLLVM) {
             // Read an entry point name.
-            Value address = createLLVM.addressOf(globalEntryPoint);
-            Value zeroI64 = createLLVM.constant(i64Type, (int64_t)0);
             Value entryI8Ptr =
-                createLLVM.getElemPtr(i8PtrTy, address, {zeroI64, zeroI64});
+                krnl::getPtrToGlobalString(globalEntryPoint, loc, b);
             // Compare it with the user's entry point name.
             FlatSymbolRefAttr StrncmpRef = krnl::getOrInsertStrncmp(b, module);
             Value length = createLLVM.constant(
@@ -404,13 +400,13 @@ void genSignatureFunction(ModuleOp &module,
           }, /*then=*/
           [&](LLVMBuilder &createLLVM) {
             Value sigAddr = createLLVM.addressOf(globalSignature);
-            Value sigI8Ptr = createLLVM.bitcastI8Ptr(sigAddr);
+            Value sigI8Ptr = createLLVM.bitcast(i8PtrTy, sigAddr);
             createLLVM._return(sigI8Ptr);
           });
     }
 
     // Return NULL if not found.
-    create.llvm._return(create.llvm.nullI8Ptr());
+    create.llvm._return(create.llvm.null(getI8PointerType(context)));
   }
 }
 
@@ -427,8 +423,11 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass() = default;
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
-  ConvertKrnlToLLVMPass(bool verifyInputTensors) {
+  ConvertKrnlToLLVMPass(
+      bool verifyInputTensors, bool useOpaquePointers, bool useLRODATA) {
     this->verifyInputTensors = verifyInputTensors;
+    this->useOpaquePointers = useOpaquePointers;
+    this->useLRODATA = useLRODATA;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -439,11 +438,21 @@ struct ConvertKrnlToLLVMPass
 
   void runOnOperation() final;
 
+  Option<bool> useOpaquePointers{*this, "use-opaque-pointers",
+      llvm::cl::desc("Whether to use opaque pointers instead of typed pointers "
+                     "when lowering to LLVM. Default: true"),
+      llvm::cl::init(true)};
+
   Option<bool> verifyInputTensors{*this, "verify-input-tensors",
       llvm::cl::desc(
           "Verify input tensors whenever the entry point function is called.\n"
           "Data type and shape are verified. Enable this may introduce "
           "overhead in inferencing."),
+      llvm::cl::init(false)};
+
+  Option<bool> useLRODATA{*this, "use-lrodata-section",
+      llvm::cl::desc("Put global constants into the large read-only data "
+                     "section. This is for linking large object files"),
       llvm::cl::init(false)};
 };
 
@@ -453,9 +462,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
 
-  // There are many places where we still rely on non-opaque pointers. Disable
-  // opaque-pointers until we migrated the affected code parts
-  options.useOpaquePointers = false;
+  // MLIR/LLVM is moving to using opaque pointers instead of typed pointers.
+  // Remove this once MLIR/LLVM completely uses opaque pointers.
+  options.useOpaquePointers = useOpaquePointers; // for LLVMTypeConverter.
+  LLVM_USE_OPAQUE_POINTER = useOpaquePointers; // for onnx-mlir util functions.
 
   KRNL_ENTRY_POINT_ID = 0;
 
@@ -527,14 +537,28 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   if (entryGlobalOps.size() >= 1)
     genSignatureFunction(
         module, entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
+
+  // Annotate global constants with `.lrodata` section if required.
+  // Make sure this is always called at the end of this pass.
+  if (useLRODATA) {
+    module->walk([&](LLVM::GlobalOp gop) -> WalkResult {
+      // Put all global constants into `.lrodata` instead of `.rodata` because
+      // AI workloads often have a large amount of constants, especially large
+      // language models.
+      gop.getOperation()->setAttr("section", StringAttr::get(ctx, ".lrodata"));
+      return WalkResult::advance();
+    });
+  }
 }
 
 /// Create the pass for lowering `Krnl`, `Affine` and `Std` dialects to LLVM.
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
-std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors) {
-  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors);
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass(
+    bool verifyInputTensors, bool useOpaquePointers, bool useLRODATA) {
+  return std::make_unique<ConvertKrnlToLLVMPass>(
+      verifyInputTensors, useOpaquePointers, useLRODATA);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

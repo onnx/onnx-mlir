@@ -27,17 +27,35 @@ using namespace onnx_mlir;
 
 namespace {
 
-static LogicalResult verifyShapeForBroadcastingOps(
-    Operation *op, Type elementType = nullptr) {
+// Returns true if op is a v1-v6 binary op with legacy axis and
+// broadcast attributes set.
+static bool hasBroadcastAxisAttribute(Operation *op) {
+  IntegerAttr bcast = op->getAttrOfType<IntegerAttr>("broadcast");
+  return bcast && bcast.getValue().getSExtValue() == 1 &&
+         op->getAttrOfType<IntegerAttr>("axis");
+}
+
+static LogicalResult verifyShapeForBroadcastingOps(Operation *op) {
   if (!hasShapeAndRank(op))
     return success();
 
-  auto resultTy = op->getOperand(0).getType().template cast<ShapedType>();
-  for (unsigned i = 1; i < op->getNumOperands(); ++i) {
-    auto nextTy = op->getOperand(i).getType().template cast<ShapedType>();
-    resultTy = getBroadcastedType(resultTy, nextTy, elementType);
-    if (resultTy == nullptr)
-      op->emitError("Broadcast op with incompatible dimensions");
+  if (hasBroadcastAxisAttribute(op)) {
+    // Leave it to BinaryOpBroadcastAxisPattern to process and remove the axis
+    // attribute and fix up the shapes instead of trying to verify them here.
+    return success();
+  }
+
+  auto operands = op->getOperands();
+  auto it = operands.begin();
+  SmallVector<int64_t> resultShape(getShape((*it).getType()));
+  while (++it != operands.end()) {
+    ArrayRef<int64_t> nextShape = getShape((*it).getType());
+    SmallVector<int64_t> bcastShape;
+    if (!OpTrait::util::getBroadcastedShape(
+            resultShape, nextShape, bcastShape)) {
+      op->emitOpError("Broadcast op with incompatible shapes: ");
+    }
+    resultShape = bcastShape;
   }
   return success();
 }
@@ -49,6 +67,12 @@ static LogicalResult inferShapeForBroadcastingOps(
   typename OP_TYPE::Adaptor operandAdaptor(op);
   if (!hasShapeAndRank(op.getOperation()))
     return success();
+
+  if (hasBroadcastAxisAttribute(op.getOperation())) {
+    // Leave it to BinaryOpBroadcastAxisPattern to process and remove the axis
+    // attribute and fix up the shapes instead of trying to infer shapes here.
+    return success();
+  }
 
   if (!elementType)
     elementType =
@@ -392,8 +416,7 @@ LogicalResult ONNXSumOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXWhereOp::verify() {
-  Type resultElementType = getX().getType().cast<ShapedType>().getElementType();
-  return verifyShapeForBroadcastingOps(getOperation(), resultElementType);
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXWhereOp::inferShapes(

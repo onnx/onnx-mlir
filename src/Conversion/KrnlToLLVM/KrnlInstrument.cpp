@@ -23,6 +23,7 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
@@ -34,7 +35,7 @@ namespace krnl {
 class KrnlInstrumentOpLowering : public ConversionPattern {
 public:
   explicit KrnlInstrumentOpLowering(
-      TypeConverter &typeConverter, MLIRContext *context)
+      LLVMTypeConverter &typeConverter, MLIRContext *context)
       : ConversionPattern(
             typeConverter, KrnlInstrumentOp::getOperationName(), 1, context) {}
 
@@ -45,15 +46,16 @@ public:
     Location loc = op->getLoc();
     KrnlInstrumentOp instrumentOp = llvm::dyn_cast<KrnlInstrumentOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+    LLVMTypeConverter *typeConverter =
+        static_cast<LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
     auto instrumentRef = getOrInsertInstrument(rewriter, parentModule);
 
     StringRef opNameStr = instrumentOp.getOpName();
-    LLVM::GlobalOp globalOpNameStr =
-        krnl::getOrCreateGlobalString(opNameStr, loc, rewriter, parentModule,
-            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    LLVM::GlobalOp globalOpNameStr = krnl::getOrCreateGlobalString(
+        opNameStr, loc, rewriter, parentModule, typeConverter);
     Value opNamePtr =
         krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
     Value tag = create.llvm.constant(
@@ -61,11 +63,41 @@ public:
     StringRef nodeName;
     if (instrumentOp.getNodeName().has_value())
       nodeName = instrumentOp.getNodeName().value();
-    else
+    else if (auto nameLoc = loc.dyn_cast<NameLoc>())
+      nodeName = nameLoc.getName();
+    else if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+      // Combine each location name and set it as nodeName.
+      std::string name;
+      for (Location locIt : fusedLoc.getLocations()) {
+        if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
+          name += nameLocIt.getName().str() + "-";
+        else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+          std::string filename =
+              llvm::sys::path::filename(fileLineColLoc.getFilename().str())
+                  .str();
+          name +=
+              filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
+        }
+      }
+      if (name.empty())
+        name = "NOTSET";
+      else
+        name.pop_back(); // remove last "-"
+      loc = NameLoc::get(rewriter.getStringAttr(name));
+      nodeName = cast<NameLoc>(loc).getName();
+    } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+      std::string filename =
+          llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
+      std::string name =
+          filename + ":" + std::to_string(fileLineColLoc.getLine());
+      loc = NameLoc::get(rewriter.getStringAttr(name));
+      nodeName = cast<NameLoc>(loc).getName();
+    } else
       nodeName = StringRef("NOTSET");
-    LLVM::GlobalOp globalStr =
-        krnl::getOrCreateGlobalString(nodeName, loc, rewriter, parentModule,
-            static_cast<LLVMTypeConverter *>(getTypeConverter()));
+    LLVM_DEBUG(
+        llvm::dbgs() << "Instrumentation_nodeName: " << nodeName << "\n");
+    LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
+        nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
     create.llvm.call({}, instrumentRef, {opNamePtr, tag, nodeNamePtr});
 
@@ -82,15 +114,14 @@ private:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
     Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
     Type llvmI64Ty = IntegerType::get(context, 64);
-    Type llvmI8Ty = IntegerType::get(context, 8);
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(llvmI8Ty);
+    Type opaquePtrTy = getI8PointerType(context);
     return create.llvm.getOrInsertSymbolRef(module,
         StringRef("OMInstrumentPoint"), llvmVoidTy,
         {opaquePtrTy, llvmI64Ty, opaquePtrTy});
   }
 };
 
-void populateLoweringKrnlInstrumentOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlInstrumentOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<KrnlInstrumentOpLowering>(typeConverter, ctx);
 }

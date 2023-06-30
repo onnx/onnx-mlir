@@ -58,7 +58,7 @@ SmallVector<int64_t, 4> getSplatStrides(ArrayRef<int64_t> shape) {
   return SmallVector<int64_t, 4>(shape.size(), 0);
 }
 
-Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
+std::optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> reshapedShape) {
   assert(shape.size() == strides.size());
   assert(ShapedType::getNumElements(shape) ==
@@ -186,8 +186,8 @@ void restrideArrayImpl(unsigned elementBytewidth, ArrayRef<int64_t> shape,
   assert(sizeof(T) == elementBytewidth && "dispatch safety check");
   ArrayRef<T> srcT = castArrayRef<T>(src);
   MutableArrayRef<T> dstT = castMutableArrayRef<T>(dst);
-  for (auto &idxpos : StridesRange<1>(shape, {srcStrides}))
-    dstT[idxpos.flattenedIndex] = srcT[idxpos[0]];
+  for (auto &idxoffs : StridesRange<1>(shape, {srcStrides}))
+    dstT[idxoffs.flattenedIndex] = srcT[idxoffs[0]];
 }
 } // namespace
 

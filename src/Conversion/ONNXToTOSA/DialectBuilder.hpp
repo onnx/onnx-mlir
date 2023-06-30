@@ -37,9 +37,11 @@ struct TosaBuilder : DialectBuilder {
   TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~TosaBuilder() {}
 
-  llvm::Optional<mlir::Value> gather(mlir::Value resultValue,
+  std::optional<mlir::Value> gather(mlir::Value resultValue,
       mlir::Value inputValue, mlir::Value indicesValue, int32_t batchDims,
       int32_t axis);
+  template <typename T>
+  mlir::Value binaryOp(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift = 0);
 
   mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
@@ -59,10 +61,10 @@ struct TosaBuilder : DialectBuilder {
   // The tensor will have the same rank as shape but all dimensions will
   // have size 1 (differs from tensorflow impl.)
   mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
-  
-  // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set to
-  // `value`.
-  template<typename T>
+
+  // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set
+  // to `value`.
+  template <typename T>
   mlir::Value getSplattedConst(T value, uint rank) {
     llvm::SmallVector<int64_t, 4> tmpTensor;
     for (uint i = 0; i < rank; ++i) {
@@ -71,6 +73,9 @@ struct TosaBuilder : DialectBuilder {
     std::vector zpVec = std::vector<T>{value};
     return getConst(zpVec, tmpTensor);
   }
+
+  // Adds reshape ops to expand the rank to the max rank of the values.
+  llvm::SmallVector<mlir::Value, 4> equalizeRanks(mlir::ValueRange valueRange);
 
 protected:
   template <typename T>
@@ -84,6 +89,7 @@ protected:
       llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
 
   mlir::Value expandRank(mlir::Value input, int64_t rank);
+  bool needsRankBroadcast(mlir::ValueRange valueRange);
 
   // Private getters of builder (concise version).
   mlir::PatternRewriter &rewriter() const {

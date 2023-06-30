@@ -57,7 +57,7 @@ public:
           maxpoolOp, "storage_order attribute is unsupported by TOSA");
     }
 
-    llvm::Optional<Value> newMaxpoolOp =
+    std::optional<Value> newMaxpoolOp =
         tosa::convertPoolOp<ONNXMaxPoolSingleOutOp, mlir::tosa::MaxPool2dOp>(
             rewriter, op);
 

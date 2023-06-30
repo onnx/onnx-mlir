@@ -75,7 +75,7 @@ static std::string typeToString(Type ty) {
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
-    std::string funcNameStr, Value resultVal, Operation *op,
+    std::string funcNameStr, ValueRange resultVals, Operation *op,
     ValueRange operands, bool copyAttrs) {
   // Creates parameters for KrnlCall for Optional input (with NoneType)
   // The semantics of optional input is ONNX Op specific and should be
@@ -87,20 +87,25 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   // Then the None input can be handled inside the external function.
   // Currently, onnx-mlir::NoneType is not handled by typeConverter of
   // ONNXToKrnl conversion.
-  SmallVector<Value, 4> allInputs;
-  allInputs.emplace_back(resultVal);
+  SmallVector<Value, 4> allInputs(resultVals);
   for (auto operand : operands) {
     if (!isNoneValue(operand))
       allInputs.emplace_back(operand);
   }
 
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
-  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  IntegerAttr numOfOutputAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, /*value=*/resultVals.size(), /*isSigned=*/true));
   if (!copyAttrs) {
-    build(builder, odsState, funcNameAttr, resultVal, allInputs);
+    build(builder, odsState, funcNameAttr, numOfOutputAttr,
+        ValueRange(allInputs));
   } else {
     std::vector<NamedAttribute> attributes;
-    attributes.emplace_back(namedAttr);
+    auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
+    auto namedAttr2 = builder.getNamedAttr("numOfOuptut", funcNameAttr);
+    attributes.emplace_back(namedAttr1);
+    attributes.emplace_back(namedAttr2);
     for (auto namedAttr : op->getAttrs()) {
       attributes.emplace_back(namedAttr);
     }
@@ -109,26 +114,51 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
-    Value resultVal, Operation *op, ValueRange operands, bool copyAttrs) {
+    std::string funcNameStr, ValueRange resultVals, Operation *op,
+    ValueRange operands, std::vector<std::string> attributeNames) {
+  SmallVector<Value, 4> allInputs(resultVals);
+  for (auto operand : operands) {
+    if (!isNoneValue(operand))
+      allInputs.emplace_back(operand);
+  }
+
+  std::vector<NamedAttribute> attributes;
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+
+  attributes.emplace_back(namedAttr);
+  for (auto attributeName : attributeNames) {
+    if (Attribute attr = op->getAttr(attributeName)) {
+      attributes.emplace_back(builder.getNamedAttr(attributeName, attr));
+    }
+  }
+  build(builder, odsState, TypeRange(), ValueRange(allInputs), attributes);
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    ValueRange resultVals, Operation *op, ValueRange operands, bool copyAttrs) {
   // Create funcName
   std::string name = op->getName().getStringRef().str();
   std::replace(name.begin(), name.end(), '.', '_');
-  ShapedType resultType = resultVal.getType().cast<ShapedType>();
+  ShapedType resultType = resultVals[0].getType().cast<ShapedType>();
   Type elementType = resultType.getElementType();
   std::string funcNameStr = name + "_" + typeToString(elementType);
 
-  build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
+  build(builder, odsState, funcNameStr, resultVals, op, operands, copyAttrs);
 }
 
 void KrnlCallOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  for (auto parameter : getParameters()) {
-    effects.emplace_back(MemoryEffects::Read::get(), parameter,
-        SideEffects::DefaultResource::get());
+
+  for (size_t i = 0; i < getParameters().size(); i++) {
+    if (i < (size_t)getNumOfOutput())
+      effects.emplace_back(MemoryEffects::Write::get(), getParameters()[i],
+          SideEffects::DefaultResource::get());
+    else
+      effects.emplace_back(MemoryEffects::Read::get(), getParameters()[i],
+          SideEffects::DefaultResource::get());
   }
-  effects.emplace_back(MemoryEffects::Write::get(), getResult(),
-      SideEffects::DefaultResource::get());
 }
 
 //===----------------------------------------------------------------------===//
@@ -355,7 +385,7 @@ struct LoopParser {
     if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
       unsigned currentNumOperands = result.operands.size();
       unsigned numDims = 0;
-      if (parseDimAndSymbolList(parser, result.operands, numDims))
+      if (affine::parseDimAndSymbolList(parser, result.operands, numDims))
         return failure();
 
       auto map = affineMapAttr.getValue();
@@ -877,14 +907,15 @@ void KrnlSeqExtractOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   MultiDialectBuilder<MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqExtractOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }
@@ -902,14 +933,15 @@ void KrnlSeqAllocOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
+std::optional<Operation *> KrnlSeqAllocOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
   return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqAllocOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }

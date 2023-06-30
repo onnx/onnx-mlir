@@ -57,7 +57,8 @@ void handleIncludePadAttr(
   auto inputType = input.getType().cast<mlir::TensorType>();
   auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,
       mlir::RankedTensorType::get(
-          llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), ShapedType::kDynamic),
+          llvm::SmallVector<int64_t, 4>(
+              inputType.getShape().size(), ShapedType::kDynamic),
           inputType.getElementType()),
       input, padding, constTosaTensor);
 
@@ -87,7 +88,7 @@ public:
       handleIncludePadAttr(rewriter, op, adaptor.getX());
     }
 
-    llvm::Optional<Value> newAveragePoolOp =
+    std::optional<Value> newAveragePoolOp =
         tosa::convertPoolOp<ONNXAveragePoolOp, mlir::tosa::AvgPool2dOp>(
             rewriter, op);
 

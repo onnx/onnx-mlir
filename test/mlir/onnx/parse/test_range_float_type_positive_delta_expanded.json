@@ -272,7 +272,7 @@
 // CHECK-DAG:         [[VAR_9_:%.+]] = "onnx.Identity"([[PARAM_4_]]) : (tensor<i1>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_10_:%.+]] = "onnx.Add"([[PARAM_5_]], [[PARAM_2_]]) : (tensor<*xf32>, tensor<f32>) -> tensor<*xf32>
 // CHECK-DAG:         [[VAR_11_:%.+]] = "onnx.Identity"([[PARAM_5_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:             onnx.Return [[VAR_9_]], [[VAR_10_]], [[VAR_11_]] : tensor<i1>, tensor<*xf32>, tensor<*xf32>
-// CHECK:           }) {{.*}} : (tensor<i64>, tensor<i1>, tensor<f32>) -> (tensor<i1>, tensor<2xf32>)
-// CHECK:           return [[VAR_8_]]#1 : tensor<2xf32>
+// CHECK:             onnx.Yield [[VAR_9_]], [[VAR_10_]], [[VAR_11_]] : tensor<i1>, tensor<*xf32>, tensor<*xf32>
+// CHECK:           }) {{.*}} : (tensor<i64>, tensor<i1>, tensor<f32>) -> (tensor<*xf32>, tensor<2xf32>)
+// CHECK:           onnx.Return [[VAR_8_]]#1 : tensor<2xf32>
 // CHECK:         }

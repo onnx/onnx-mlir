@@ -39,13 +39,13 @@ namespace onnx_mlir {
 namespace tosa {
 
 // Lowers Gather operators to a sequence of TOSA ops.
-llvm::Optional<mlir::Value> convertGatherOp(mlir::PatternRewriter &rewriter,
+std::optional<mlir::Value> convertGatherOp(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::Value resultValue, mlir::Value inputValue,
     mlir::Value indicesValue, int32_t batchDims, int32_t axis);
 
 // Lowers ReduceMean to a sequence of TOSA ops.
 // Originates from the TorchToTosa conversion
-llvm::Optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
+std::optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
     mlir::Operation *op, TosaBuilder &tosaBuilder,
     mlir::RankedTensorType output_type, mlir::Value input_value,
     mlir::ElementsAttr axes_elems, bool keep_dims);
@@ -113,9 +113,30 @@ mlir::ArrayAttr createOrderedPadAttr(mlir::PatternRewriter &rewriter,
       padOrder[2], padOrder[3] + ceilConstants[1]});
 }
 
+inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter,
+    mlir::Value input, mlir::TypeAttr &accType) {
+  auto inputTy = llvm::dyn_cast<mlir::ShapedType>(input.getType());
+  if (!inputTy)
+    return mlir::failure();
+  auto inputETy = inputTy.getElementType();
+
+  if (auto quantType =
+          llvm::dyn_cast<mlir::quant::UniformQuantizedType>(inputETy))
+    inputETy = quantType.getStorageType();
+
+  // Tosa supports FP16 and FP32 accumulator type for FP16 input. When the time
+  // FP16 is supported, the accumulator type can be selected based on trade-off
+  // between performance and accuracy. Set to FP32 by default.
+  accType = inputETy.isa<mlir::FloatType>()
+                ? mlir::TypeAttr::get(rewriter.getF32Type())
+                : mlir::TypeAttr::get(rewriter.getIntegerType(32));
+
+  return mlir::success();
+}
+
 // Lower MaxPool and AveragePool to TOSA ops.
 template <typename ONNXPoolOp, typename TOSAPoolOp>
-llvm::Optional<mlir::Value> convertPoolOp(
+std::optional<mlir::Value> convertPoolOp(
     mlir::PatternRewriter &rewriter, mlir::Operation *op) {
   using OpAdaptor = typename ONNXPoolOp::Adaptor;
   mlir::Location loc = op->getLoc();
@@ -140,7 +161,8 @@ llvm::Optional<mlir::Value> convertPoolOp(
 
   // Construct the transposed type for the new Pool OP
   mlir::Type newResultType = mlir::RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputType.getShape().size(), mlir::ShapedType::kDynamic),
+      llvm::SmallVector<int64_t, 4>(
+          inputType.getShape().size(), mlir::ShapedType::kDynamic),
       inputType.getElementType());
 
   // ONNX Mlir uses NCHW as an input while TOSA expects NHWC. Insert a
@@ -173,8 +195,25 @@ llvm::Optional<mlir::Value> convertPoolOp(
   auto newKernelShape =
       rewriter.getDenseI64ArrayAttr(mlir::extractFromI64ArrayAttr(kernelShape));
 
-  input = tosa::CreateOpAndInfer<TOSAPoolOp>(
-      rewriter, loc, newResultType, input, newKernelShape, strides, newPads);
+  static_assert(std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value ||
+                    std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value,
+      "Expected either tosa::MaxPool2dOp or tosa::AvgPool2dOp");
+  if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value) {
+    input = tosa::CreateOpAndInfer<TOSAPoolOp>(
+        rewriter, loc, newResultType, input, newKernelShape, strides, newPads)
+                .getResult();
+  } else if constexpr (std::is_same<TOSAPoolOp,
+                           mlir::tosa::AvgPool2dOp>::value) {
+    mlir::TypeAttr accType;
+    if (failed(tosa::getAvgPool2dAccType(rewriter, input, accType))) {
+      (void)rewriter.notifyMatchFailure(
+          op, "Failed to get accumulator type for pooling");
+      return std::nullopt;
+    }
+    input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
+        input, newKernelShape, strides, newPads, accType)
+                .getResult();
+  }
 
   // Revert to original shape (NCHW)
   // Construct the old result shape out of the new one
@@ -191,7 +230,7 @@ namespace tosa {
 // Common function for lowering reduce operations to TOSA ops.
 // Modified from TensorFlow
 template <typename T>
-llvm::Optional<mlir::Value> convertReduceOpCommon(
+std::optional<mlir::Value> convertReduceOpCommon(
     mlir::PatternRewriter &rewriter, mlir::Operation *op,
     mlir::RankedTensorType outputType, mlir::Value inputValue,
     mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {
@@ -286,8 +325,9 @@ void populateLoweringONNXAveragePoolOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXQuantizeLinearOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXDequantizeLinearOpToTOSAPattern(mlir::ConversionTarget &,
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXDequantizeLinearOpToTOSAPattern(
+    mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &,
+    mlir::MLIRContext *);
 // `Tensor` directory methods:
 void populateLoweringONNXReshapeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

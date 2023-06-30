@@ -733,7 +733,7 @@ struct DecomposeONNXToONNXPass
   DecomposeONNXToONNXPass(const DecomposeONNXToONNXPass &pass)
       : mlir::PassWrapper<DecomposeONNXToONNXPass,
             OperationPass<func::FuncOp>>() {
-    this->target = pass.target;
+    this->target = pass.target.getValue();
   }
 
   StringRef getArgument() const override { return "decompose-onnx"; }
@@ -776,12 +776,14 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXReduceLogSumOp>();
   target.addIllegalOp<ONNXReduceLogSumExpOp>();
   target.addIllegalOp<ONNXReduceSumSquareOp>();
+  target.addIllegalOp<ONNXResizeV13Op>();
   target.addIllegalOp<ONNXResizeV11Op>();
   target.addIllegalOp<ONNXResizeV10Op>();
   target.addIllegalOp<ONNXScalerOp>();
   target.addIllegalOp<ONNXScatterOp>();
   target.addIllegalOp<ONNXSequenceConstructOp>();
   target.addIllegalOp<ONNXSplitV11Op>();
+  target.addIllegalOp<ONNXSplitV13Op>();
   target.addIllegalOp<ONNXSqueezeV11Op>();
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV7Op>();

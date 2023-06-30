@@ -1,44 +1,21 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
 
-func.func @test_static_reshape(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-  %0 = "onnx.Constant"() {value = dense<[32,512]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<32x512x1x1xf32>, tensor<2xi64>) -> tensor<32x512xf32>
-  return %1 : tensor<32x512xf32>
-  //CHECK:  %[[VAR0:.*]] = "tosa.reshape"(%arg0) {new_shape = array<i64: 32, 512>} : (tensor<32x512x1x1xf32>) -> tensor<32x512xf32>
+func.func @test_reshape(%arg0 : tensor<128x1024xf32>) -> tensor<1x128x16x64xf32> {
+  %0 = "onnx.Constant"() {value = dense<[-1, 128, 16, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<128x1024xf32>, tensor<4xi64>) -> tensor<1x128x16x64xf32>
+  "func.return"(%1) : (tensor<1x128x16x64xf32>) -> ()
+// CHECK-LABEL:  func @test_reshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x1024xf32>) -> tensor<1x128x16x64xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "tosa.reshape"([[PARAM_0_]]) <{new_shape = array<i64: 1, 128, 16, 64>}> : (tensor<128x1024xf32>) -> tensor<1x128x16x64xf32>
+// CHECK-NEXT:      return [[VAR_1_]] : tensor<1x128x16x64xf32>
 }
 
-// -----
-
-func.func @test_static_reshape_zero(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-  %0 = "onnx.Constant"() {value = dense<[0,-1]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<32x512x1x1xf32>, tensor<2xi64>) -> tensor<32x512xf32>
-  return %1 : tensor<32x512xf32>
-// CHECK-LABEL:   func.func @test_static_reshape_zero(
-// CHECK-SAME:                                        %[[VAL_0:.*]]: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-// CHECK:           %[[VAL_2:.*]] = "tosa.reshape"(%[[VAL_0]]) {new_shape = array<i64: 32, 512>} : (tensor<32x512x1x1xf32>) -> tensor<32x512xf32>
-// CHECK:           return %[[VAL_2]] : tensor<32x512xf32>
-}
-
-// -----
-func.func @test_dynamic_reshape(%arg0: tensor<32x512x1x1xf32>, %arg1: tensor<2xi64>) -> tensor<32x512xf32> {
-  %1 = "onnx.Reshape"(%arg0, %arg1) : (tensor<32x512x1x1xf32>, tensor<2xi64>) -> tensor<32x512xf32>
-  return %1 : tensor<32x512xf32>
-  //CHECK-LABEL:  "onnx.Reshape"
-}
-// -----
-func.func @test_allowzero_reshape(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-  %0 = "onnx.Constant"() {value = dense<[32,512]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) {allowzero = 1 : si64}: (tensor<32x512x1x1xf32>, tensor<2xi64>) -> tensor<32x512xf32>
-  return %1 : tensor<32x512xf32>
-  //CHECK-LABEL:  "onnx.Reshape"
-}
-// -----
-func.func @test_shape_zero_reshape(%arg0: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-  %0 = "onnx.Constant"() {value = dense<[32, 0]> : tensor<2xi64>} : () -> tensor<2xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<32x512x1x1xf32>, tensor<2xi64>) -> tensor<32x512xf32>
-  return %1 : tensor<32x512xf32>
-// CHECK-LABEL:   func.func @test_shape_zero_reshape(
-// CHECK-SAME:                                       %[[VAL_0:.*]]: tensor<32x512x1x1xf32>) -> tensor<32x512xf32> {
-// CHECK:           %[[VAL_2:.*]] = "tosa.reshape"(%[[VAL_0]]) {new_shape = array<i64: 32, 512>} : (tensor<32x512x1x1xf32>) -> tensor<32x512xf32>
-// CHECK:           return %[[VAL_2]] : tensor<32x512xf32>
+func.func @test_reshape_allowzero(%arg0 : tensor<12x128x1024xf32>) -> tensor<12x128x16x64xf32> {
+  %0 = "onnx.Constant"() {value = dense<[-1, 0, 16, 64]> : tensor<4xi64>} : () -> tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<12x128x1024xf32>, tensor<4xi64>) -> tensor<12x128x16x64xf32>
+  "func.return"(%1) : (tensor<12x128x16x64xf32>) -> ()
+// CHECK-LABEL:  func @test_reshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x128x1024xf32>) -> tensor<12x128x16x64xf32> {
+// CHECK:           [[VAR_1_:%.+]] = "tosa.reshape"([[PARAM_0_]]) <{new_shape = array<i64: 12, 128, 16, 64>}> : (tensor<12x128x1024xf32>) -> tensor<12x128x16x64xf32>
+// CHECK-NEXT:      return [[VAR_1_]] : tensor<12x128x16x64xf32>
 }

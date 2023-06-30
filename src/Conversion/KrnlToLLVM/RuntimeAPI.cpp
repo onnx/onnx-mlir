@@ -12,8 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
@@ -57,15 +59,16 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
 
 RuntimeAPIRegistry::~RuntimeAPIRegistry() {}
 
-RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
+RuntimeAPIRegistry::RuntimeAPIRegistry(
+    ModuleOp &module, OpBuilder &builder, LLVMTypeConverter &typeConvert)
     : registry() {
   MLIRContext *context = module.getContext();
   auto voidTy = LLVM::LLVMVoidType::get(context);
   auto int8Ty = IntegerType::get(context, 8);
-  auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
-  auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
+  auto opaquePtrTy = onnx_mlir::krnl::getPointerType(context, int8Ty);
+  auto opaquePtrPtrTy = onnx_mlir::krnl::getPointerType(context, opaquePtrTy);
   auto int64Ty = IntegerType::get(context, 64);
-  auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
+  auto int64PtrTy = onnx_mlir::krnl::getPointerType(context, int64Ty);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.

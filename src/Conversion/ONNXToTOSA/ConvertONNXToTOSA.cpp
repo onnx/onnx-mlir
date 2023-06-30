@@ -69,6 +69,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Flow
   populateLoweringONNXEntryPointOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
 }
 
 // Performs lowering to TOSA dialect
@@ -101,12 +103,12 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // are executed. This ensures that we do not need to trigger separate
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
-  typeConverter.addConversion([](Type type) -> Optional<Type> {
+  typeConverter.addConversion([](Type type) -> std::optional<Type> {
     if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>())
       return type;
     return std::nullopt;
   });
-  typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
+  typeConverter.addConversion([&](TensorType type) -> std::optional<Type> {
     if (typeConverter.isLegal(type.getElementType()))
       return type;
     return std::nullopt;

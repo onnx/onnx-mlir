@@ -60,6 +60,9 @@ std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
     bool report = false);
 
+/// Pass for replacing ONNXReturnOp with func::ReturnOp.
+std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
+
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
@@ -74,10 +77,6 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     bool enableTiling, bool enableSIMD, bool enableParallel);
-
-/// Add pass for lowering to Torch IR.
-std::unique_ptr<mlir::Pass> createLowerToTorchPass();
-std::unique_ptr<mlir::Pass> createLowerToTorchPass(int optLevel);
 
 /// Pass for ONNX to Aten Types Transform
 std::unique_ptr<mlir::Pass> createONNXToAtenModifyMainFunctionPass();
@@ -118,7 +117,7 @@ std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(
-    bool verifyInputTensors);
+    bool verifyInputTensors, bool useOpaquePointer, bool useLRODATA);
 
 } // namespace krnl
 

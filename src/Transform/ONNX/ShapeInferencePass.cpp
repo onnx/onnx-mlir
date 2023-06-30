@@ -99,13 +99,13 @@ public:
       // However, shape inference is still needed on these ops to infer optional
       // attributes.
       if (!containSubgraph(op) && !isUsedByReturnOp(op) &&
-          !returnsDynamicOrUnknownShape(op))
+          !returnsDynamicOrUnknownShape(&op))
         continue;
 
       if (auto shape_op = llvm::dyn_cast<ShapeInferenceOpInterface>(op)) {
         // Verify the operation before attempting to infer the shape of the
         // produced output(s).
-        Optional<RegisteredOperationName> registeredInfo =
+        std::optional<RegisteredOperationName> registeredInfo =
             op.getName().getRegisteredInfo();
         if (registeredInfo && failed(registeredInfo->verifyInvariants(&op)))
           return op.emitError("verification failed");
@@ -121,26 +121,16 @@ public:
   }
 
   static bool isUsedByReturnOp(Operation &op) {
-    return llvm::any_of(op.getUsers(),
-        [](Operation *user) { return isa<func::ReturnOp>(user); });
+    return llvm::any_of(op.getUsers(), [](Operation *user) {
+      // TODO: Only test for ONNXReturnOp once lit tests are converted
+      //       to use onnx.Return.
+      return isa<func::ReturnOp, ONNXReturnOp>(user);
+    });
   }
 
   // Op needs shape inference when contains a subgraph
   // Temporary fix: only LoopOp is checked
   static bool containSubgraph(Operation &op) { return isa<ONNXLoopOp>(op); }
-
-  /*!
-   *  Check if the given operation has a dynamically shaped result.
-   */
-  static bool returnsDynamicOrUnknownShape(Operation &op) {
-    return llvm::any_of(op.getResultTypes(), [](Type result_type) {
-      if (result_type.isa<RankedTensorType>())
-        return llvm::any_of(result_type.dyn_cast<RankedTensorType>().getShape(),
-            [](int64_t dim) { return dim < 0; });
-      else
-        return !result_type.isa<NoneType>();
-    });
-  }
 };
 } // end anonymous namespace
 
