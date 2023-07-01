@@ -10,6 +10,7 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 
+#include "mlir/IR/Threading.h"
 #include "llvm/ADT/DenseMap.h"
 
 #include <atomic>
@@ -24,7 +25,7 @@ DisposablePool::~DisposablePool() {}
 
 ElementsAttr DisposablePool::createElementsAttr(ShapedType type,
     BType bufferBType, ArrayRef<int64_t> strides,
-    const mlir::DisposableElementsAttr::Buffer &buffer,
+    const DisposableElementsAttr::Buffer &buffer,
     DisposableElementsAttr::Transformer transformer) {
   static std::atomic<size_t> counter{0};
   size_t id = ++counter;
@@ -75,24 +76,73 @@ void DisposablePool::garbageCollectUnreachable(
   }
 }
 
-void DisposablePool::scrub(mlir::ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
-  std::unordered_map<size_t, mlir::DenseElementsAttr> scrubbed;
+void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
+  using Translation = std::pair<DisposableElementsAttr, DenseElementsAttr>;
+  std::unordered_map<size_t, Translation> translations;
   walkOpsAttrs(moduleOp, opsAttrs,
-      [&scrubbed](Operation *op, StringRef attrName,
+      [&translations](Operation *op, StringRef attrName,
           DisposableElementsAttr disposable) {
-        auto insertion = scrubbed.try_emplace(disposable.getId(), nullptr);
-        auto iter = insertion.first;
-        if (insertion.second) { // disposable was inserted
-          iter->second = disposable.toDenseElementsAttr();
+        translations.try_emplace(
+            disposable.getId(), std::make_pair(disposable, nullptr));
+      });
+
+  {
+    // The mutex protects access to the iterator 'next' which is progressed as
+    // translations are fetched in batches to be processed by the parallel
+    // workers in work().
+    std::mutex translationMutex;
+    auto next = translations.begin();
+    // Returns a range of consecutive translations to work on.
+    // Returns an empty range when there are no more translations left.
+    auto fetchBatch = [&translationMutex, &translations, &next]() {
+      const std::lock_guard<std::mutex> lock(translationMutex);
+      auto batchBegin = next;
+      auto batchEnd = batchBegin;
+      size_t count = 0, aggregateSize = 0;
+      // To avoid excessive parallel coordination overhead if there are many
+      // small attributes: keep growing the batch until next has at least 10
+      // attributes or their aggregate size (elements count) exceeds 1000.
+      constexpr size_t minCount = 10, minAggregateCount = 1000;
+      while (count < minCount && aggregateSize < minAggregateCount && batchEnd != translations.end()) {
+        auto [disposable, _] = next->second;
+        aggregateSize += disposable.size();
+        ++count;
+        ++batchEnd;
+      }
+      next = batchEnd;
+      return llvm::make_range(batchBegin, batchEnd);
+    };
+    // Parallel worker body: Fetch and process batches until there are no more.
+    auto work = [&fetchBatch](size_t threadNumber) {
+      for (;;) {
+        auto batch = fetchBatch();
+        if (batch.empty())
+          break;
+        for (auto &[id, translation] : batch) {
+          auto &[disposable, dense] = translation;
+          dense = disposable.toDenseElementsAttr();
+          // TODO: Consider calling disposable.dispose() here to free up memory
+          //       on the go to make memory available to create the next
+          //       DenseElementsAttr. In that case should we lock mutex?
         }
-        op->setAttr(attrName, iter->second);
+      }
+    };
+    MLIRContext *ctx = moduleOp.getContext();
+    parallelFor(ctx, 0, ctx->getNumThreads(), work);
+  }
+
+  walkOpsAttrs(moduleOp, opsAttrs,
+      [&translations](Operation *op, StringRef attrName,
+          DisposableElementsAttr disposable) {
+        DenseElementsAttr dense = translations.at(disposable.getId()).second;
+        op->setAttr(attrName, dense);
       });
 
   {
     const std::lock_guard<std::mutex> lock(mutex);
 
-    for (const auto &s : scrubbed)
-      assert(pool.count(s.first) == 1 &&
+    for (const auto &t : translations)
+      assert(pool.count(t.first) == 1 &&
              "scrubbed disposables must be in the pool");
     eraseUnreachable({});
   }
