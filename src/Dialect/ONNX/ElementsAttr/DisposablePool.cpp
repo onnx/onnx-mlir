@@ -103,7 +103,8 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
       // small attributes: keep growing the batch until next has at least 10
       // attributes or their aggregate size (elements count) exceeds 1000.
       constexpr size_t minCount = 10, minAggregateCount = 1000;
-      while (count < minCount && aggregateSize < minAggregateCount && batchEnd != translations.end()) {
+      while (count < minCount && aggregateSize < minAggregateCount &&
+             batchEnd != translations.end()) {
         auto [disposable, _] = next->second;
         aggregateSize += disposable.size();
         ++count;
