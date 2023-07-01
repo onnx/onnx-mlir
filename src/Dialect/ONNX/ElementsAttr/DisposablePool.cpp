@@ -101,7 +101,7 @@ void DisposablePool::scrub(ModuleOp moduleOp, OpAttrDictionary opsAttrs) {
       size_t count = 0, aggregateSize = 0;
       // To avoid excessive parallel coordination overhead if there are many
       // small attributes: keep growing the batch until next has at least 10
-      // attributes or their aggregate size (elements count) exceeds 1000.
+      // attributes or their aggregate size (elements count) is at least 1000.
       constexpr size_t minCount = 10, minAggregateCount = 1000;
       while (count < minCount && aggregateSize < minAggregateCount &&
              batchEnd != translations.end()) {
