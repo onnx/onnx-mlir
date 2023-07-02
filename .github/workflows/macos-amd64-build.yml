@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
     - uses: actions/setup-python@v4
@@ -24,12 +24,10 @@ jobs:
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
       id: cache-mlir
-      uses: actions/cache@v3.3.1
-      env:
-        cache-name: cache-mlir-directory
+      uses: actions/cache@v3
       with:
         path: ~/work/onnx-mlir/llvm-project
-        key: V8-${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
+        key: ${{ runner.os }}-mlir-${{ hashFiles('**/clone-mlir.sh', '**/build-mlir.sh') }}
     - name: clone & build MLIR
       if: steps.cache-mlir.outputs.cache-hit != 'true'
       run: |
