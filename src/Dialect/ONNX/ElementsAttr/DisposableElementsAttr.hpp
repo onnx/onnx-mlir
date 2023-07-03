@@ -19,10 +19,8 @@
 #include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <functional>
@@ -118,7 +116,7 @@ private:
   // created instance.
   static DisposableElementsAttr create(ShapedType type, size_t id,
       BType bufferBType, ArrayRef<int64_t> strides, const Buffer &buffer,
-      Transformer transformer);
+      uint64_t offset, uint64_t length, Transformer transformer);
 
   // Clears the buffer payload shared_ptr which decreases the reference count
   // and, if it reaches zero, frees or closes the underlying MemoryBuffer's
@@ -153,6 +151,8 @@ private:
   ArrayRef<int64_t> getStrides() const;
 
   const Buffer &getBuffer() const;
+
+  uint64_t getOffset() const;
 
   const Transformer &getTransformer() const;
 
@@ -265,18 +265,6 @@ public:
 
   // Makes deep copy.
   DenseElementsAttr toDenseElementsAttr() const;
-
-  static constexpr StringLiteral getMnemonic() { return {"dense_disposable"}; }
-
-  // Returns the underlying data as a flat byte array in row-major order.
-  // If the element type is bool the data holds one byte (with value 0 or 1) per
-  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
-  static std::unique_ptr<llvm::MemoryBuffer> parse(
-      AsmParser &parser, ShapedType type);
-
-  void printWithoutType(AsmPrinter &printer) const;
-
-  void printAsDenseElementsAttr(AsmPrinter &printer) const;
 
 private:
   // Widens and transforms bytes into WideNums in accordance with

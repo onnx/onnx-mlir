@@ -37,7 +37,7 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
       onnx_mlir::BType bufferBType, onnx_mlir::BType btype, bool isContiguous,
       size_t id)
       : type(type), strides(strides), bufferBType(bufferBType), btype(btype),
-        isContiguous(isContiguous), id(id) {}
+        isContiguous(isContiguous), id(id), offset(0) {}
 
   // Equality and hashKey are engineered to defeat the storage uniquer.
   // We don't want uniqueing because we can't compare transformers for equality
@@ -102,6 +102,8 @@ struct DisposableElementsAttributeStorage : public AttributeStorage {
   // The MemoryBuffer is destroyed (and heap allocated data freed or mmap'ed
   // file closed) when no one points to it anymore.
   Buffer buffer;
+
+  uint64_t offset;
 
   // Reads the buffer elements to WideNums corresponding to type's
   // element type. Is null if data is not transformed.

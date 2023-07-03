@@ -57,8 +57,8 @@ public:
   // otherwise returns conversion to DenseElementsAttr.
   mlir::ElementsAttr createElementsAttr(mlir::ShapedType type,
       BType bufferBType, llvm::ArrayRef<int64_t> strides,
-      const mlir::DisposableElementsAttr::Buffer &buffer,
-      mlir::DisposableElementsAttr::Transformer transformer);
+      const mlir::DisposableElementsAttr::Buffer &buffer, uint64_t offset,
+      uint64_t length, mlir::DisposableElementsAttr::Transformer transformer);
 
   // Disposes every DisposableElementsAttr in the pool which is unreachable
   // (doesn't appear in moduleOp).

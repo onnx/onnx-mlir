@@ -14,9 +14,6 @@
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Endian.h"
-
 #include <algorithm>
 #include <string>
 
@@ -58,16 +55,25 @@ void widenArray(
 /*static*/
 DisposableElementsAttr DisposableElementsAttr::create(ShapedType type,
     size_t id, BType bufferBType, ArrayRef<int64_t> strides,
-    const Buffer &buffer, Transformer transformer) {
+    const Buffer &buffer, uint64_t offset, uint64_t length,
+    Transformer transformer) {
+  assert(offset <= buffer->getBufferSize() && "offset out of range");
+  assert(length <= buffer->getBufferSize() - offset && "length out of range");
   BType btype = btypeOfMlirType(type.getElementType());
   assert((transformer != nullptr ||
              wideBTypeOfBType(bufferBType) == wideBTypeOfBType(btype)) &&
          "buffer wide type mismatch requires transformer");
   bool isContiguous = areStridesContiguous(type.getShape(), strides);
+  int64_t numBufferElements = isContiguous
+                                  ? type.getNumElements()
+                                  : getStridedSize(type.getShape(), strides);
+  uint64_t numBytes = numBufferElements * bytewidthOfBType(bufferBType);
+  assert(numBytes == length && "length mismatch");
   DisposableElementsAttr a = Base::get(
       type.getContext(), type, strides, bufferBType, btype, isContiguous, id);
   DisposableElementsAttributeStorage &s = *a.getImpl();
   s.buffer = buffer;
+  s.offset = offset;
   s.transformer = std::move(transformer);
   return a;
 }
@@ -78,7 +84,7 @@ void DisposableElementsAttr::dispose() {
 }
 
 bool DisposableElementsAttr::isSplat() const {
-  return areStridesSplat(getStrides()) && getBuffer()->getBufferSize() != 0;
+  return getNumBufferElements() == 1;
 }
 
 BType DisposableElementsAttr::getBType() const { return getImpl()->btype; }
@@ -97,6 +103,8 @@ auto DisposableElementsAttr::getBuffer() const -> const Buffer & {
   assert(!isDisposed());
   return getImpl()->buffer;
 }
+
+uint64_t DisposableElementsAttr::getOffset() const { return getImpl()->offset; }
 
 auto DisposableElementsAttr::getTransformer() const -> const Transformer & {
   assert(!isDisposed());
@@ -124,7 +132,7 @@ unsigned DisposableElementsAttr::getBufferElementBytewidth() const {
 }
 
 int64_t DisposableElementsAttr::getNumBufferElements() const {
-  return getBuffer()->getBufferSize() / getBufferElementBytewidth();
+  return getStridedSize(getShape(), getStrides());
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getWideNums() const {
@@ -156,92 +164,6 @@ DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
   return DenseElementsAttr::getFromRawBuffer(getType(), bytes.get());
 }
 
-namespace {
-// Perform byte swap if system endianness is BE and elements are multi-byte.
-bool shouldSwapLEBytes(unsigned elementByteWidth) {
-  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
-                                     llvm::support::endianness::little;
-}
-} // namespace
-
-/*static*/
-std::unique_ptr<llvm::MemoryBuffer> DisposableElementsAttr::parse(
-    AsmParser &parser, ShapedType type) {
-  size_t id = 0; // The parsed id is ignored.
-  std::string str;
-  if (parser.parseLess() || parser.parseInteger(id) || parser.parseColon() ||
-      parser.parseString(&str))
-    return nullptr;
-  StringRef hex = str;
-  std::string bytes;
-  if (!hex.consume_front("0x") || (hex.size() & 1) ||
-      !llvm::tryGetFromHex(hex, bytes)) {
-    parser.emitError(parser.getCurrentLocation(), "ill-formed hex string");
-    return nullptr;
-  }
-  if (bytes.size() != static_cast<size_t>(getSizeInBytes(type))) {
-    parser.emitError(
-        parser.getCurrentLocation(), "data size doesn't match type size");
-    return nullptr;
-  }
-  if (!shouldSwapLEBytes(getIntOrFloatByteWidth(type.getElementType()))) {
-    return llvm::MemoryBuffer::getMemBufferCopy(bytes);
-  } else {
-    // Reorder bytes from little-endian on big-endian platforms:
-    std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
-        llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes.size());
-    DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
-        {bytes.data(), bytes.size()}, writeBuffer->getBuffer(), type);
-    return writeBuffer;
-  }
-}
-
-void DisposableElementsAttr::printWithoutType(AsmPrinter &printer) const {
-  // It would be ideal if we could read the printer flags from printer instead
-  // of constructing them here, because printer may have been constructed with
-  // an override of elideLargeElementsAttrs which we cannot see here.
-  // Oh well, at least OpPrintingFlags().shouldElideElementsAttr(ElementsAttr)
-  // lets us respect the --mlir-elide-elementsattrs-if-larger command line flag.
-  static OpPrintingFlags printerFlags{};
-  printer << getMnemonic() << "<" << getImpl()->id << ":";
-  if (!printerFlags.shouldElideElementsAttr(*this)) {
-    auto rawBytes = getRawBytes();
-    SmallVector<char> buffer;
-    ArrayRef<char> bytes;
-    if (!shouldSwapLEBytes(getIntOrFloatByteWidth(getElementType()))) {
-      bytes = rawBytes.get();
-    } else {
-      // Reorder raw bytes to little-endian on big-endian platforms:
-      buffer.resize_for_overwrite(rawBytes.get().size());
-      DenseIntOrFPElementsAttr::convertEndianOfArrayRefForBEmachine(
-          rawBytes.get(), buffer, getType());
-      ArrayRef<char> bufferRef(buffer);
-      bytes = bufferRef;
-    }
-    printer << "\"0x" << llvm::toHex(castArrayRef<uint8_t>(bytes)) << "\"";
-  } else {
-    printer << "__elided__";
-  }
-  printer << ">";
-}
-
-void DisposableElementsAttr::printAsDenseElementsAttr(
-    AsmPrinter &printer) const {
-  static OpPrintingFlags printerFlags{};
-  if (isSplat() || !printerFlags.shouldElideElementsAttr(*this)) {
-    // Take shortcut by first converting to DenseElementsAttr.
-    // NOTE: This creates a copy which is never garbage collected. This is not
-    // only slow but also defeats the garbage collection benefits of
-    // DisposableElementsAttr, depending on when the printing
-    // takes place (the print at the end of onnx-mlir-opt in lit tests is ok).
-    printer.printAttribute(toDenseElementsAttr());
-    // TODO: Do the work to print without constructing DenseElementsAttr.
-  } else {
-    // In this special case it's easy to avoid conversion to DenseElementsAttr.
-    printer << "dense<__elided__> : " << getType();
-  }
-}
-
 void DisposableElementsAttr::readBytesAsWideNums(
     ArrayRef<char> srcBytes, llvm::MutableArrayRef<WideNum> dst) const {
   widenArray(getBufferBType(), srcBytes, dst);
@@ -250,7 +172,8 @@ void DisposableElementsAttr::readBytesAsWideNums(
 }
 
 ArrayRef<char> DisposableElementsAttr::getBufferBytes() const {
-  return asArrayRef(getBuffer()->getBuffer());
+  size_t numBytes = getNumBufferElements() * getBufferElementBytewidth();
+  return asArrayRef(getBuffer()->getBuffer().substr(getOffset(), numBytes));
 }
 
 ArrayBuffer<WideNum> DisposableElementsAttr::getBufferAsWideNums() const {

@@ -28,6 +28,17 @@ uint64_t getStridesPosition(
   return pos;
 }
 
+int64_t getStridedSize(ArrayRef<int64_t> shape, ArrayRef<int64_t> strides) {
+  assert(shape.size() == strides.size());
+  int64_t lastPos = 0;
+  for (auto [dimSize, stride] : llvm::zip(shape, strides)) {
+    if (dimSize == 0)
+      return 0;
+    lastPos += (dimSize - 1) * stride;
+  }
+  return lastPos + 1;
+}
+
 bool areStridesContiguous(ArrayRef<int64_t> shape, ArrayRef<int64_t> strides) {
   unsigned rank = shape.size();
   assert(rank == strides.size());

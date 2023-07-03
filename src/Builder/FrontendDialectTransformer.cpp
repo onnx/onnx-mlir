@@ -25,6 +25,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 
 #include "include/onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Builder/FrontendDialectTransformer.hpp"
@@ -142,6 +143,14 @@ void replaceAttrRefs(onnx::GraphProto &graph, const AttrMap &attr_map) {
 // End of copied code from third_party/onnx.
 // -------------------------------------------------------------------------- //
 
+// Parses unsigned number.
+size_t parseOffsetOrLength(const std::string &value) {
+  char *end = nullptr;
+  size_t offsetOrLength = strtoull(value.c_str(), &end, 0);
+  assert(end != value.c_str() && "failed to parse offset or length");
+  return offsetOrLength;
+}
+
 } // namespace
 
 namespace detail {
@@ -211,6 +220,66 @@ private:
 
   ModelLocalFunctionsMap in_model_functions_;
 
+  using ExternalDataFiles =
+      std::unordered_map<std::string, std::shared_ptr<llvm::MemoryBuffer>>;
+
+  ExternalDataFiles externalDataFiles_;
+
+  const std::shared_ptr<llvm::MemoryBuffer> &mapExternalDataFile(
+      const std::string &location) {
+    auto [iter, inserted] = externalDataFiles_.try_emplace(location, nullptr);
+    if (inserted) {
+      StringRef dir = options_.externalDataDir;
+      SmallVector<char> pathVector(dir.begin(), dir.end());
+      llvm::sys::path::append(pathVector, location);
+      StringRef path(pathVector.data(), pathVector.size());
+      // Memory maps file (in most cases) or reads it into memory.
+      auto bufferOrError = llvm::MemoryBuffer::getFile(
+          path, /*IsText=*/false, /*RequiresNullTerminator=*/false);
+      if (std::error_code ec = bufferOrError.getError()) {
+        llvm::errs() << "Error " << ec.message() << " reading from file "
+                     << path << "\n";
+        llvm_unreachable("llvm::MemoryBuffer::getFile failed");
+      }
+      std::unique_ptr<llvm::MemoryBuffer> buffer =
+          std::move(bufferOrError.get());
+      assert(buffer->getBufferIdentifier() == path &&
+             "buffer identifier is file path");
+      iter->second = std::move(buffer);
+    }
+    return iter->second;
+  }
+
+  ExternalDataFileSlice readExternalData(const onnx::TensorProto &tp) {
+    assert(tp.has_data_location() &&
+           tp.data_location() == onnx::TensorProto::EXTERNAL &&
+           "tensor proto data must be external");
+    // MemoryBuffer uses -1 to mean infinity
+    constexpr uint64_t infiniteLength = -1;
+    std::string location;
+    uint64_t offset = 0;
+    uint64_t length = infiniteLength;
+    for (const onnx::StringStringEntryProto &entry : tp.external_data()) {
+      assert(entry.has_key() && "external_data entry must have key");
+      assert(entry.has_value() && "external_data entry must have value");
+      if (entry.key() == "location") {
+        location = entry.value();
+      } else if (entry.key() == "offset") {
+        offset = parseOffsetOrLength(entry.value());
+      } else if (entry.key() == "length") {
+        length = parseOffsetOrLength(entry.value());
+      }
+    }
+    assert(!location.empty() && "missing external data location");
+    const std::shared_ptr<llvm::MemoryBuffer> &file =
+        mapExternalDataFile(location);
+    uint64_t fileLength = file->getBufferSize();
+    assert(offset <= fileLength && "offset out of range");
+    if (length != infiniteLength)
+      assert(offset + length <= fileLength && "length out of range");
+    return {file, offset, length};
+  }
+
   Location UnknownLoc() const { return UnknownLoc::get(&context_); }
 
   Location ImportLoc(const onnx::NodeProto &node) {
@@ -264,8 +333,14 @@ private:
   }
 
   Value ImportTensor(const onnx::TensorProto &tensor) {
-    mlir::ElementsAttr mlirAttr =
-        onnxTensorProtoToElmAttr(&context_, options_.externalDataDir, tensor);
+    mlir::ElementsAttr mlirAttr;
+    if (tensor.has_data_location() &&
+        tensor.data_location() == onnx::TensorProto::EXTERNAL) {
+      ExternalDataFileSlice fileSlice = readExternalData(tensor);
+      mlirAttr = onnxTensorProtoToElmAttr(&context_, tensor, &fileSlice);
+    } else {
+      mlirAttr = onnxTensorProtoToElmAttr(&context_, tensor);
+    }
     // Use the tensor name as Location.
     auto loc =
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
@@ -385,10 +460,16 @@ private:
       mlirAttr = builder_.getI64ArrayAttr(
           llvm::ArrayRef(attr.ints().data(), attr.ints().size()));
       break;
-    case onnx::AttributeProto::TENSOR:
-      mlirAttr = onnxTensorProtoToElmAttr(
-          &context_, options_.externalDataDir, attr.t());
-      break;
+    case onnx::AttributeProto::TENSOR: {
+      const onnx::TensorProto &tensor = attr.t();
+      if (tensor.has_data_location() &&
+          tensor.data_location() == onnx::TensorProto::EXTERNAL) {
+        ExternalDataFileSlice fileSlice = readExternalData(tensor);
+        mlirAttr = onnxTensorProtoToElmAttr(&context_, tensor, &fileSlice);
+      } else {
+        mlirAttr = onnxTensorProtoToElmAttr(&context_, tensor);
+      }
+    } break;
     case onnx::AttributeProto::STRINGS: {
       llvm::SmallVector<StringRef, 4> vectorStringRef;
       for (const auto &item : attr.strings()) {
@@ -1343,6 +1424,9 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
         /*op=*/mainFunc.getOperation(), /*useReturn=*/true);
     mainFunc.setType(funcType);
+    if (!externalDataFiles_.empty())
+      mainFunc->setAttr("external_data_dir",
+          builder_.getStringAttr(options_.externalDataDir));
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);
