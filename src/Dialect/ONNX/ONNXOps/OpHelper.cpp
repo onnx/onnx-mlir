@@ -476,33 +476,6 @@ void getDims(Value val, SmallVectorImpl<Value> &dims) {
     dims.emplace_back(val);
 }
 
-Value normalizeConstantOp(
-    PatternRewriter &rewriter, Value output, Attribute attr) {
-  ShapedType outputType = output.getType().cast<ShapedType>();
-  Type elementType = outputType.getElementType();
-
-  DenseElementsAttr denseAttr;
-  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
-    int64_t dim = arrayAttr.size();
-    auto tensorType = RankedTensorType::get({dim}, elementType);
-    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-  } else {
-    auto tensorType = RankedTensorType::get({}, elementType);
-    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
-    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
-    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
-    } else {
-      llvm_unreachable("unexpected Attribute");
-    }
-  }
-  return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(),
-      Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
-      ArrayAttr(), StringAttr(), ArrayAttr());
-}
-
 // Create a DenseElementsAttr based on the shape of type at the given index.
 DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
     PatternRewriter &rewriter, Value value, IntegerAttr indexAttr) {

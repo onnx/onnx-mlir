@@ -203,9 +203,6 @@ mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
 
-mlir::Value normalizeConstantOp(
-    mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
-
 // Create a DenseElementsAttr based on the shape of type at the given index.
 mlir::DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
     mlir::PatternRewriter &rewriter, mlir::Value value,
