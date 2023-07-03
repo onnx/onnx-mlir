@@ -554,13 +554,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
     return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isF16()) {
-    auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToFloat();
-  } else if (elementaryType.isF32()) {
-    auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToFloat();
-  } else if (elementaryType.isF64()) {
+  } else if (elementaryType.isa<FloatType>()) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
   }
