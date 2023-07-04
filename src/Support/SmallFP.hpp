@@ -39,20 +39,22 @@ public:
   // Use FP::fromFloat() in case FP overrides fromFloat().
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
   explicit SmallFPBase(const T &x)
-      : SmallFPBase(FP::fromFloat(static_cast<float>(x))) {}
+      : SmallFPBase(fromFloat(static_cast<float>(x))) {}
 
   // Support static_cast<T>(*this) for any T that float converts to.
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
   explicit operator T() const {
-    // Down cast in case FP overrides FP::toFloat().
-    FP fp = FP::bitcastFromUInt(ui);
-    return static_cast<float>(fp.toFloat());
+    return static_cast<float>(toFloat());
   }
 
   llvm::APFloat toAPFloat() const;
 
   // Same as static_cast<float>(*this).
-  float toFloat() const { return toAPFloat().convertToFloat(); }
+  float toFloat() const {
+    // Down cast in case FP overrides FP::toFloatImpl().
+    FP fp = FP::bitcastFromUInt(ui);
+    return fp.toFloatImpl();
+  }
 
   // Same as bitcast<bitcasttype>(*this).
   constexpr bitcasttype bitcastToUInt() const { return ui; }
@@ -60,7 +62,7 @@ public:
   static FP fromAPFloat(llvm::APFloat a);
 
   // Same as static_cast<FP>(f).
-  static FP fromFloat(float f) { return fromAPFloat(llvm::APFloat(f)); }
+  static FP fromFloat(float f) { return FP::fromFloatImpl(f); }
 
   // Same as bitcast<FP>(u).
   static constexpr FP bitcastFromUInt(bitcasttype u) {
@@ -75,6 +77,11 @@ public:
   bool operator==(FP other) const { return toFloat() == other.toFloat(); }
 
   bool operator!=(FP other) const { return !(*this == other); }
+
+protected:
+  float toFloatImpl() const { return toAPFloat().convertToFloat(); }
+
+  static FP fromFloatImpl(float f) { return fromAPFloat(llvm::APFloat(f)); }
 
 private:
   bitcasttype ui;
@@ -104,8 +111,11 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::IEEEhalf();
   }
-  float toFloat() const { return om_f16_to_f32(bitcastToUInt()); }
-  static float_16 fromFloat(float f) {
+
+protected:
+  friend class detail::SmallFPBase<float_16, 16>;
+  float toFloatImpl() const { return om_f16_to_f32(bitcastToUInt()); }
+  static float_16 fromFloatImpl(float f) {
     return bitcastFromUInt(om_f32_to_f16(f));
   }
 };
@@ -122,8 +132,11 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::BFloat();
   }
-  float toFloat() const { return om_bf16_to_f32(bitcastToUInt()); }
-  static bfloat_16 fromFloat(float f) {
+
+protected:
+  friend class detail::SmallFPBase<bfloat_16, 16>;
+  float toFloatImpl() const { return om_bf16_to_f32(bitcastToUInt()); }
+  static bfloat_16 fromFloatImpl(float f) {
     return bitcastFromUInt(om_f32_to_bf16(f));
   }
 };
