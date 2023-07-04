@@ -48,6 +48,10 @@ jobs:
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
+    - name: build and run docs/doc_example tests
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-doc-example.sh
     - name: run onnx-mlir backend and numerical tests
       run: |
         cd ~/work/onnx-mlir
