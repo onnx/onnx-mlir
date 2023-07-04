@@ -23,7 +23,7 @@ LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
   // Get info about X and K operands.
   Value X = operandAdaptor.getX();
   int64_t rank = createIE->getShapedTypeRank(X);
-  Optional<int64_t> optionalAxis = operandAdaptor.getAxis();
+  std::optional<int64_t> optionalAxis = operandAdaptor.getAxis();
   // Generate the output dims.
   DimsExpr outputDims;
   if (!optionalAxis.has_value()) {                         // if no axis given
