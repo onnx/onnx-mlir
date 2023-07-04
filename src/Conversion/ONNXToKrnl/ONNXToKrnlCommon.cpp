@@ -638,7 +638,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -648,7 +648,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
