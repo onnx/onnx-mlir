@@ -507,16 +507,13 @@ bool isDenseONNXConstant(Value result) {
   if (!constOp)
     return false;
 
-  // The value attribute must be an ElementsAttr (which is one of
-  // DenseElementsAttr, DenseResourceElementsAttr, DisposableElementsAttr).
-  if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
+  // Must have value attribute.
+  Attribute value = constOp.getValueAttr();
+  if (!value)
     return false;
 
-  // Except DenseResourceElementsAttr is too hard to work with, since it
-  // sometimes has a different shape and element type than constOp, plus
-  // DenseResourceElementsAttr has a limited API.
-  if (isa<DenseResourceElementsAttr>(constOp.getValueAttr()))
-    return false;
+  assert((isa<DenseElementsAttr, DisposableElementsAttr>(value)) &&
+         "unsupported onnx constant value attribute");
 
   // No other attribute must be set.
   return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
