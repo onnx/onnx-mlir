@@ -539,6 +539,12 @@ bool isDenseONNXConstant(Value result) {
   if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
     return false;
 
+  // Except DenseResourceElementsAttr is too hard to work with, since it
+  // sometimes has a different shape and element type than constOp, plus
+  // DenseResourceElementsAttr has a limited API.
+  if (isa<DenseResourceElementsAttr>(constOp.getValueAttr()))
+    return false;
+
   // No other attribute must be set.
   return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
          !constOp.getValueIntAttr() && !constOp.getValueIntsAttr() &&
@@ -554,10 +560,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
     return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isF32()) {
-    auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToFloat();
-  } else if (elementaryType.isF64()) {
+  } else if (elementaryType.isa<FloatType>()) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
   }
