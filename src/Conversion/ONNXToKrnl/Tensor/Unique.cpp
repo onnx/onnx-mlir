@@ -72,7 +72,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     Type elementType = X.getType().cast<MemRefType>().getElementType();
     int64_t rank = create.krnlIE.getShapedTypeRank(X);
     int64_t sorted = operandAdaptor.getSorted();
-    Optional<int64_t> optionalAxis = uniqueOp.getAxis();
+    std::optional<int64_t> optionalAxis = uniqueOp.getAxis();
     //
     // Get axis value as a positive integer if axis attribute is specified.
     // If set "-1" if the axis attribute is not specified.
