@@ -26,9 +26,9 @@ namespace onnx_mlir {
 
 template <typename OP_TYPE>
 LogicalResult ONNXGenericPoolOpShapeHelper<OP_TYPE>::customComputeShape(
-    Value xValue, Value wValue, Optional<ArrayAttr> kernelShapeOpt,
-    llvm::StringRef autoPad, Optional<ArrayAttr> padOpt,
-    Optional<ArrayAttr> strideOpt, Optional<ArrayAttr> dilationOpt,
+    Value xValue, Value wValue, std::optional<ArrayAttr> kernelShapeOpt,
+    llvm::StringRef autoPad, std::optional<ArrayAttr> padOpt,
+    std::optional<ArrayAttr> strideOpt, std::optional<ArrayAttr> dilationOpt,
     bool hasFilter, bool ceilMode) {
   // Basic information.
   int64_t rank = createIE->getShapedTypeRank(xValue);
@@ -173,7 +173,7 @@ namespace {
 // For ops without filter, pass nullptr in filterOperand.
 template <class T>
 static LogicalResult verifyKernelShape(T *op, Value filterOperand,
-    Optional<ArrayAttr> kernelShapeOpt, int64_t spatialRank) {
+    std::optional<ArrayAttr> kernelShapeOpt, int64_t spatialRank) {
   if (filterOperand && !hasShapeAndRank(filterOperand)) {
     // Won't be able to do any checking at this stage.
     return success();

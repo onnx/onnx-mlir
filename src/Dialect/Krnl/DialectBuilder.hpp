@@ -135,9 +135,9 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::Value offset, mlir::ValueRange indices = {}) const;
 
   mlir::Value constant(mlir::MemRefType type, mlir::StringRef name,
-      mlir::Optional<mlir::Attribute> value,
-      mlir::Optional<mlir::IntegerAttr> offset = std::nullopt,
-      mlir::Optional<mlir::IntegerAttr> alignment = std::nullopt) const;
+      std::optional<mlir::Attribute> value,
+      std::optional<mlir::IntegerAttr> offset = std::nullopt,
+      std::optional<mlir::IntegerAttr> alignment = std::nullopt) const;
 
   // C library functions.
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value numElems) const;
