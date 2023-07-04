@@ -40,11 +40,17 @@ int main() {
 
   // Get the first tensor from output list.
   OMTensor *y = omTensorListGetOmtByIndex(output_list, 0);
+  omTensorPrint("Result tensor: ", y);
   float *outputPtr = (float *) omTensorGetDataPtr(y);
 
   // Print its content, should be all 3.
-  for (int i = 0; i < 6; i++)
-    printf("%f ", outputPtr[i]);
+  for (int i = 0; i < 6; i++) {
+    float f = outputPtr[i];
+    if (f != 3.0) {
+      fprintf(stderr, "Iteration %d: expected 3.0, got %f.\n", i, f);
+      exit(100);
+    }
+  }
   printf("\n");
 
   // Destory the list and the tensors inside of it.
