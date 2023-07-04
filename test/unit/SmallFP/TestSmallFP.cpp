@@ -23,6 +23,30 @@ namespace {
 class Test {
 
 public:
+  template <typename FP16>
+  int test_fp16(const char *fp_name, float (*toF32)(uint16_t),
+      uint16_t (*fromF32)(float)) {
+    std::cout << "test_fp16 " << fp_name << ":" << std::endl;
+
+    constexpr uint32_t u16max = std::numeric_limits<uint16_t>::max();
+    for (uint32_t u = 0; u <= u16max; ++u) {
+      assert(FP16::bitcastFromUInt(u).toFloat() == toF32(u));
+    }
+    uint16_t u16 = 0;
+    do {
+      assert(FP16::bitcastFromUInt(u16).toFloat() == toF32(u16));
+    } while (++u16 != 0);
+
+    uint32_t u32 = 0;
+    do {
+      float f32;
+      memcpy(&f32, &u32, sizeof(u32));
+      assert(FP16::fromFloat(f32).bitcastToUInt() == fromF32(f32));
+    } while (++u32 != 0);
+
+    return 0;
+  }
+
   template <typename FP>
   int test_fp_cast(const char *fp_name, float fpmin, float fpmax) {
     std::cout << "test_fp_cast " << fp_name << ":" << std::endl;
@@ -131,6 +155,11 @@ int main(int argc, char *argv[]) {
   Test test;
   int failures = 0;
 
+  failures +=
+      test.test_fp16<float_16>("float_16", om_f16_to_f32, om_f32_to_f16);
+  failures +=
+      test.test_fp16<bfloat_16>("bfloat_16", om_bf16_to_f32, om_f32_to_bf16);
+
   const bool noNegZero = false;
   const float fp8min = 0.005f;
   const float fp8max = 192.0f;
@@ -147,6 +176,7 @@ int main(int argc, char *argv[]) {
       test.test_fp_cast<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max);
   failures += test.test_fp_equals<float_8e5m2fnuz>(
       "float_8e5m2fnuz", fp8min, fp8max, noNegZero);
+
   const float fp16min = 5.96e-8f;
   const float fp16max = 32768.0f;
   failures += test.test_fp_cast<float_16>("float_16", fp16min, fp16max);
