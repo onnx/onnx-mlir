@@ -19,8 +19,10 @@ OMTensorList *create_input_list() {
 
   // Use omTensorCreateWithOwnership "true" so float arrays are automatically
   // freed when the Tensors are destroyed.
-  OMTensor *x1 = omTensorCreateWithOwnership(x1Data, shape, rank, ONNX_TYPE_FLOAT, true);
-  OMTensor *x2 = omTensorCreateWithOwnership(x2Data, shape, rank, ONNX_TYPE_FLOAT, true);
+  OMTensor *x1 =
+      omTensorCreateWithOwnership(x1Data, shape, rank, ONNX_TYPE_FLOAT, true);
+  OMTensor *x2 =
+      omTensorCreateWithOwnership(x2Data, shape, rank, ONNX_TYPE_FLOAT, true);
 
   // Construct a TensorList using the Tensors
   OMTensor *list[2] = {x1, x2};
@@ -41,7 +43,7 @@ int main() {
   // Get the first tensor from output list.
   OMTensor *y = omTensorListGetOmtByIndex(output_list, 0);
   omTensorPrint("Result tensor: ", y);
-  float *outputPtr = (float *) omTensorGetDataPtr(y);
+  float *outputPtr = (float *)omTensorGetDataPtr(y);
 
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++) {
