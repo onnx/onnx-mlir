@@ -1,6 +1,7 @@
 #include "SmallFPConversion.h"
 
 #include <assert.h>
+#include <math.h>
 #include <string.h>
 
 // Defines variable TO of type TO_TYPE and copies bytes from variable FROM.
@@ -57,6 +58,13 @@ uint16_t om_f32_to_f16(float f32) {
 // Implementation adapted from https://stackoverflow.com/a/60047308
 
 float om_f16_to_f32(uint16_t u16) {
+  if ((u16 & 0x7C00) == 0x7C00) {
+    if (u16 == 0x7C00)
+      return INFINITY;
+    if (u16 == 0xFC00)
+      return -INFINITY;
+    return NAN;
+  }
   uint32_t e = (u16 & 0x7C00) >> 10; // exponent
   uint32_t m = (u16 & 0x03FF) << 13; // mantissa
   // evil log2 bit hack to count leading zeros in denormalized format:
@@ -99,5 +107,11 @@ float om_bf16_to_f32(uint16_t u16) {
 
 uint16_t om_f32_to_bf16(float f32) {
   BIT_CAST(uint32_t, u32, f32);
-  return u32 >> 16;
+  u32 += 32767 + ((u32 & 0x1FFFF) == 0x18000) * 0x10000;
+  uint16_t u16 = u32 >> 16;
+  if ((u16 & 0x7FFF) == 0x7F80 && isnan(f32))
+    return u16 + 0x40; // NAN
+  if ((u16 & 0x7FFF) == 0 && isnan(f32))
+    return u16 - 1; // NAN
+  return u16;
 }
