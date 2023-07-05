@@ -47,22 +47,28 @@ public:
     return static_cast<float>(toFloat());
   }
 
-  llvm::APFloat toAPFloat() const;
+  bool isNaN() const {
+    // Down cast in case FP overrides isNaNImpl().
+    FP fp = FP::bitcastFromUInt(ui);
+    return fp.isNaNImpl();
+  }
 
   // Same as static_cast<float>(*this).
   float toFloat() const {
-    // Down cast in case FP overrides FP::toFloatImpl().
+    // Down cast in case FP overrides toFloatImpl().
     FP fp = FP::bitcastFromUInt(ui);
     return fp.toFloatImpl();
   }
 
+  llvm::APFloat toAPFloat() const;
+
   // Same as bitcast<bitcasttype>(*this).
   constexpr bitcasttype bitcastToUInt() const { return ui; }
 
-  static FP fromAPFloat(llvm::APFloat a);
-
   // Same as static_cast<FP>(f).
   static FP fromFloat(float f) { return FP::fromFloatImpl(f); }
+
+  static FP fromAPFloat(llvm::APFloat a);
 
   // Same as bitcast<FP>(u).
   static constexpr FP bitcastFromUInt(bitcasttype u) {
@@ -79,6 +85,8 @@ public:
   bool operator!=(FP other) const { return !(*this == other); }
 
 protected:
+  float isNaNImpl() const { return toAPFloat().isNaN(); }
+
   float toFloatImpl() const { return toAPFloat().convertToFloat(); }
 
   static FP fromFloatImpl(float f) { return fromAPFloat(llvm::APFloat(f)); }
@@ -114,6 +122,10 @@ public:
 
 protected:
   friend class detail::SmallFPBase<float_16, 16>;
+  float isNaNImpl() const {
+    uint16_t u16 = bitcastToUInt();
+    return (u16 & 0x7C00) == 0x7C00 && (u16 & 0x03FF) != 0;
+  }
   float toFloatImpl() const { return om_f16_to_f32(bitcastToUInt()); }
   static float_16 fromFloatImpl(float f) {
     return bitcastFromUInt(om_f32_to_f16(f));
@@ -135,6 +147,10 @@ public:
 
 protected:
   friend class detail::SmallFPBase<bfloat_16, 16>;
+  float isNaNImpl() const {
+    uint16_t u16 = bitcastToUInt();
+    return (u16 & 0x7F80) == 0x7F80 && (u16 & 0x007F) != 0;
+  }
   float toFloatImpl() const { return om_bf16_to_f32(bitcastToUInt()); }
   static bfloat_16 fromFloatImpl(float f) {
     return bitcastFromUInt(om_f32_to_bf16(f));
