@@ -468,40 +468,6 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   return order;
 }
 
-/// Emit function call to compute arg unique of a given MemRef along a given
-/// axis. The first output MemRef has the same shape as the input MemRef but is
-/// of IndexType. Shape of the second, third and fourth arguments depends on the
-/// input options.
-Value emitArgUnique(ConversionPatternRewriter &rewriter, Location loc,
-    Value total, Value input, int64_t axis, int64_t sorted, Value Y,
-    Value indices, Value inverse_indices, Value counts, bool count_only) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
-      rewriter, loc);
-  IndexExprScope scope(create.krnl);
-  MemRefType inputMemRefType = input.getType().cast<MemRefType>();
-  Type indexType = rewriter.getIndexType();
-  int64_t rank = inputMemRefType.getRank();
-  assert(axis < rank && "axis is out of bound");
-  LiteralIndexExpr zeroIE(0), oneIE(1);
-  SmallVector<IndexExpr, 4> lbs(rank, zeroIE);
-  SmallVector<IndexExpr, 4> ubs;
-  create.krnlIE.getShapeAsDims(input, ubs);
-
-  // Emit krnl.Call to call omTensorUnique API
-  Type int_type = rewriter.getIntegerType(64);
-  Value val_axis = create.math.constant(int_type, axis);
-  Value val_sorted = create.math.constant(int_type, sorted);
-  if (count_only) {
-    SmallVector<Value, 4> operands = {total, input, val_axis, val_sorted};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", 1, operands);
-  } else {
-    SmallVector<Value, 8> operands = {total, input, val_axis, val_sorted, Y,
-        indices, inverse_indices, counts};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 8, operands);
-  }
-  return total;
-}
-
 /// This function returns a scalar of type 'dtype' from an optional value.
 /// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
 /// Default value is used in case of NoneType.
