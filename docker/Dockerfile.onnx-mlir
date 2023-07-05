@@ -50,13 +50,13 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                 [ "$(uname -m)" = "x86_64" ] &&  echo || \
                                 [ "$(uname -m)" = "ppc64le" ] && echo || echo)} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
+    && make check-docs \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
             -j${NPROC} \
             check-onnx-backend-numerical \
-    && make check-docs \
     && make -j${NPROC} install \
     && echo -e "/usr/local/lib" > \
             /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig \
