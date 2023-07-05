@@ -86,8 +86,6 @@
     }
   ]
 }
-// CHECK: "func.func"() ({
-// CHECK:   ^bb0(%arg0: tensor<3x4xf16>, %arg1: tensor<1xf32>):
-// CHECK:     %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3x4xf16>) -> tensor<*xf32>
-// CHECK:     "func.return"(%0) : (tensor<*xf32>) -> ()
-// CHECK:   }) {function_type = (tensor<3x4xf16>, tensor<1xf32>) -> tensor<3x4xf32>, sym_name = "CastLike"} : () -> ()
+// CHECK: func.func @main_graph(%arg0: tensor<3x4xf16>, %arg1: tensor<1xf32>) -> tensor<3x4xf32> attributes {input_names = ["input", "like"], output_names = ["output"]} {
+// CHECK:     %0 = "onnx.Cast"(%arg0) {to = f32} : (tensor<3x4xf16>) -> tensor<3x4xf32>
+// CHECK:     onnx.Return %0 : tensor<3x4xf32>
