@@ -142,14 +142,14 @@ jobs:
 
   - script: |
       call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      call onnx-mlir\utils\check-docs.cmd
+    displayName: Run onnx-mlir doc tests
+    workingDirectory: $(Agent.BuildDirectory)
+
+  - script: |
+      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       call onnx-mlir\utils\check-onnx-numerical.cmd
     displayName: Run onnx-mlir numerical tests
     workingDirectory: $(Agent.BuildDirectory)
     env:
       CTEST_PARALLEL_LEVEL: ${{ parameters.CTEST_PARALLEL_LEVEL }}
-
-  - script: |
-      call "%ProgramFiles(x86)%\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      call onnx-mlir\utils\check-docs.cmd
-    displayName: Run onnx-mlir doc tests
-    workingDirectory: $(Agent.BuildDirectory)
