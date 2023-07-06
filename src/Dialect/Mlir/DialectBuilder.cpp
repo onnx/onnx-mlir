@@ -1585,6 +1585,7 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     return 0;
   }
   // See if we can get a unroll factor.
+  assert(maxSimdUnroll>0 && "expected positive max simd unroll");
   for (int64_t u = maxSimdUnroll; u > 0; --u) {
     if (staticSize % (u * VL) == 0) {
       LLVM_DEBUG(llvm::dbgs()

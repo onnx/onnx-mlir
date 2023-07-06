@@ -1301,8 +1301,7 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
-    int64_t collapsedLiteralSize) {
+    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops) {
   int64_t simdUnroll = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
@@ -1903,8 +1902,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdUnroll =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, op, outputMemRefType, outputRank,
-              /*collapsedInnermostLoops, ignored*/ 1);
+              shapeHelper, create, op, outputMemRefType, outputRank);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
@@ -2053,7 +2051,7 @@ struct ONNXElementwiseBinaryOpLowering
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops, collapsedLiteralSize);
+              collapsedInnermostLoops);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
@@ -2194,7 +2192,7 @@ struct ONNXElementwiseVariadicOpLowering
       int64_t simdUnroll =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops, collapsedLiteralSize);
+              collapsedInnermostLoops);
       if (simdUnroll > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,

@@ -254,7 +254,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Extract raw axes from operation.
     IndexExprScope scope(&rewriter, loc);
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
-        MemRefBuilder>
+        MemRefBuilder, VectorBuilder>
         create(rewriter, loc);
 
     DimsExpr rawAxesIE;
@@ -354,15 +354,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       if (enableSIMD && noRedInnerSpan > 0) {
         LLVM_DEBUG(llvm::dbgs() << "  SIMD: study if possible along the "
                                 << noRedInnerSpan << " innermost dim(s)\n";);
+        VectorMachineSupport *vms =
+            VectorMachineSupport::getGlobalVectorMachineSupport();
         DimsExpr inputDims;
         create.krnlIE.getShapeAsDims(input, inputDims);
-        int64_t staticSize;
-        IndexExpr dynSize;
-        bool isStatic = create.mem.getStaticAndDynamicMemSize(
-            memRefInType, inputDims, staticSize, dynSize, -noRedInnerSpan);
+        simdUnroll = create.vec.SuitableUnrollFactor(
+            vms, memRefInType, inputDims, noRedInnerSpan, 4, /*canPad*/ false);
         LLVM_DEBUG(llvm::dbgs()
-                       << "  is static " << isStatic << ", inner static size "
-                       << staticSize << "\n";);
+                   << "  SIMD " << (simdUnroll ? "" : "im")
+                   << "possible with unroll " << simdUnroll << "\n");
       }
     } else {
       // Has one or more dynamic axes.
