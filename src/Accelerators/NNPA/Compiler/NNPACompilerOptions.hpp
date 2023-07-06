@@ -18,8 +18,9 @@
 // clang-format off
 #define INSTRUMENTSTAGE_EUM_NNPA                                               \
     ,                                                                          \
-    ZHigh,                                                      \
-    ZLow // clang-format on
+    ZHigh,                                                                     \
+    ZLow                                                                       \
+// clang-format on
 
 #define INSTRUMENTSTAGE_CL_ENUM_NNPA                                           \
   clEnumVal(Onnx, "Profile for onnx ops. For NNPA, profile onnx ops before "   \
