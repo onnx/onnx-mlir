@@ -71,11 +71,11 @@ def HasIntegerElementType: Constraint<CPred<
 >;
 
 def IsConstOfZeros : Constraint<
-  CPred<"isConstOf($_self, 0.0)">,
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
 
 def IsConstOfOnes : Constraint<
-  CPred<"isConstOf($_self, 1.0)">,
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
   "Value is an all-ones constant tensor">;
 
 def ValuesHaveSameType : Constraint<

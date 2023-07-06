@@ -125,6 +125,7 @@ int main(int argc, char **argv) {
       {&onnx_mlir::OnnxMlirCommonOptions, &OnnxMlirOptOptions});
 
   mlir::DialectRegistry registry;
+  registry.insert<mlir::arith::ArithDialect>();
   registry.insert<mlir::linalg::LinalgDialect>();
   registry.insert<mlir::affine::AffineDialect>();
   registry.insert<mlir::LLVM::LLVMDialect>();
@@ -137,6 +138,7 @@ int main(int argc, char **argv) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlDialect>();
   registry.insert<mlir::tosa::TosaDialect>();
+  registry.insert<mlir::cf::ControlFlowDialect>();
 
   // Initialize accelerators if they exist.
   onnx_mlir::accel::initAccelerators(maccel);

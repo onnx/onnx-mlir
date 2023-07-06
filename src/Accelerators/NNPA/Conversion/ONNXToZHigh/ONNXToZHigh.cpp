@@ -17,6 +17,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -107,26 +108,15 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     return noneValue;
 
   ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
-  Value minusOne =
-      rewriter
-          .create<ONNXConstantOp>(loc, nullptr, rewriter.getI64TensorAttr({-1}))
-          .getResult();
-  Value zero =
-      rewriter
-          .create<ONNXConstantOp>(loc, nullptr, rewriter.getI64TensorAttr({0}))
-          .getResult();
-  Value one =
-      rewriter
-          .create<ONNXConstantOp>(loc, nullptr, rewriter.getI64TensorAttr({1}))
-          .getResult();
+  Value minusOne = create.onnx.constantInt64({-1});
+  Value zero = create.onnx.constantInt64({0});
+  Value one = create.onnx.constantInt64({1});
   // Use INT_MAX to get timestep dimension because timestep is the end of a
   // dimension. INT_MAX is recommended in ONNX.Slice to slice to the end of a
   // dimension with unknown size.
-  Value intMax = rewriter
-                     .create<ONNXConstantOp>(
-                         loc, nullptr, rewriter.getI64TensorAttr({INT_MAX}))
-                     .getResult();
+  Value intMax = create.onnx.constantInt64({INT_MAX});
   StringRef directionStr = direction.getValue();
   ArrayRef<int64_t> resYhShape =
       resYh.getType().cast<RankedTensorType>().getShape();
