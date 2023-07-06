@@ -51,6 +51,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
     && TEST_OPTLEVEL=0 \
     && make check-docs \
+    && make check-unittest \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_MCPU=${TEST_MCPU} \
