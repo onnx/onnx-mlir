@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --maccel=NNPA --EmitMLIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --maccel=NNPA --EmitMLIR --nnpa-clip-to-dlfloat-range=false --printIR %s | FileCheck %s
 
 // -----
 

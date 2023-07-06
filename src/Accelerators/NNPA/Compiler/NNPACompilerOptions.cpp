@@ -34,4 +34,9 @@ llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
     llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
     llvm::cl::cat(OnnxMlirOptions)};
 
+llvm::cl::opt<bool> nnpaClipToDLFloatRange("nnpa-clip-to-dlfloat-range",
+    llvm::cl::desc("Clip CPU tensors to dlfloat range before stickification to "
+                   "avoid out-of-range"),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
 } // namespace onnx_mlir
