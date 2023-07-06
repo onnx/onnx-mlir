@@ -10,6 +10,12 @@
 # eligible to become external data, otherwise
 # onnx.save_model(model, path, save_as_external_data=True)
 # doesn't convert them to external data.
+# For example, given the 249MB arcfaceresnet100-8.onnx file from the model zoo
+#
+#   utils/onnxExternalizeData.py arcfaceresnet100-8.onnx --make_raw
+#
+# creates a 249MB external data file arcfaceresnet100-8.onnx.ext and shrinks
+# arcfaceresnet100-8.onnx to 189KB.
 #
 ################################################################################
 
