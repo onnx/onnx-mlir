@@ -907,14 +907,15 @@ void KrnlSeqExtractOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   MultiDialectBuilder<MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqExtractOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }
@@ -932,14 +933,15 @@ void KrnlSeqAllocOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
+std::optional<Operation *> KrnlSeqAllocOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
   return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqAllocOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }

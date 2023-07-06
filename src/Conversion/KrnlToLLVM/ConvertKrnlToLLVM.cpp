@@ -30,6 +30,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -710,6 +711,10 @@ struct ConvertKrnlToLLVMPass
   }
 
   void runOnOperation() final;
+
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<cf::ControlFlowDialect>();
+  }
 
   Option<bool> useOpaquePointers{*this, "use-opaque-pointers",
       llvm::cl::desc("Whether to use opaque pointers instead of typed pointers "

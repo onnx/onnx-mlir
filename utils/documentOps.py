@@ -203,7 +203,7 @@ def main(argv):
     emit_unsupported = 0
     util_path = "."
     file_name = ""
-    input_command = "python documentOps.py"
+    input_command = "python3 documentOps.py"
 
     try:
         opts, args = getopt.getopt(
@@ -236,7 +236,7 @@ def main(argv):
         print_usage()
 
     # Load gen_onnx_mlir operation version.
-    proc = subprocess.Popen(['python', util_path + '/gen_onnx_mlir.py', '--list-operation-version'], stdout=subprocess.PIPE)
+    proc = subprocess.Popen(['python3', util_path + '/gen_onnx_mlir.py', '--list-operation-version'], stdout=subprocess.PIPE)
     str = ""
     for line in  proc.stdout:
         str += line.decode("utf-8").rstrip()
