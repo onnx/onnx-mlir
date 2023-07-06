@@ -24,6 +24,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -34,6 +35,24 @@ namespace onnx_mlir {
 namespace zhigh {
 
 namespace {
+
+/// Check if a value is from or transitively from a zTensor without value
+/// modification.
+bool valueFromZTensor(Value tensor) {
+  if (!tensor.dyn_cast<BlockArgument>()) {
+    Operation *op = tensor.getDefiningOp();
+    // From a zTensor.
+    if (isa<ZHighUnstickOp>(op))
+      return true;
+    // Concat/Transpose does not change the input precision. So we can consider
+    // that the input is already in the dlfloat range if it comes from zTensor.
+    if (isa<ONNXConcatOp, ONNXTransposeOp>(op)) {
+      return llvm::all_of(
+          op->getOperands(), [&](Value v) { return valueFromZTensor(v); });
+    }
+  }
+  return false;
+}
 
 class ZHighClipToDLFloatPattern : public OpRewritePattern<ZHighStickOp> {
 public:
@@ -47,13 +66,10 @@ public:
     Value input = stickOp.getIn();
     Type inputElementType = getElementType(input.getType());
 
-    // Do not clip if the input tensor was unstickified from a zTensor.
-    // In such case, the unstickified tensor must be in the range of dlfloat.
-    if (!input.dyn_cast<BlockArgument>()) {
-      auto unstickOp = dyn_cast<ZHighUnstickOp>(input.getDefiningOp());
-      if (unstickOp)
-        return failure();
-    }
+    // Do not clip if the input tensor is already in the dlfloat range.
+    // For example, the input was unstickified from a zTensor.
+    if (valueFromZTensor(input))
+      return failure();
 
     // Clip the input values if required since the values are potentially
     // out-of-bound of dlfloat.
