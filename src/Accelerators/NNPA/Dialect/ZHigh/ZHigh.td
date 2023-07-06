@@ -580,6 +580,31 @@ def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
   ];
 }
 
+def ZHighWaitOp:ZHigh_Op<"Wait", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ZHigh Wait operation";
+  let description = [{
+    ZHigh operation to wait for token for asynchronous execution.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
+                       TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
+                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$In,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Token);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
+                       TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
+                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$Out);
+
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::Value":$Token), [{
+      Type elementType = In.getType().cast<ShapedType>().getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      build($_builder, $_state, resType, In, Token);
+    }]>
+  ];
+}
+
 def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
