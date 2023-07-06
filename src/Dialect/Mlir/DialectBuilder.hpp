@@ -268,17 +268,17 @@ struct MemRefBuilder final : DialectBuilder {
   // Operation does not support layouts at this time.
   //
   // Alloc for static shapes with alignment and SIMD padding.
-  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      int64_t simdUnroll = 1, int64_t align = defaultAlign) const;
+  mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type, int64_t VL = 1,
+      int64_t align = defaultAlign) const;
   // Alloc for static/dynamic shapes with alignment and SIMD padding.
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      mlir::ValueRange dynSymbols, int64_t simdUnroll = 1,
+      mlir::ValueRange dynSymbols, int64_t VL = 1,
       int64_t align = defaultAlign) const;
   mlir::Value alignedAllocWithSimdPadding(mlir::Value operandOfSameType,
-      mlir::MemRefType type, int64_t simdUnroll = 1,
+      mlir::MemRefType type, int64_t VL = 1,
       int64_t align = defaultAlign) const;
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll = 1,
+      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdVLUnroll = 1,
       int64_t align = defaultAlign) const;
 
   // The alloca instruction allocates memory on the stack frame of the currently
@@ -411,14 +411,15 @@ struct VectorBuilder final : DialectBuilder {
   void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
       llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
-  // Compute a suitable SIMD unroll factor. If the dims are too small, return 0
-  // (no suitable simd). The collapsedInnermostLoops parameter indicates how
-  // many inner dimensions of the memref are considered for vectorization. If
-  // all of them are considered and padding is possible, then we can always
-  // generate SIMD code with the maxSIMD unroll factor. Otherwise, we must
-  // ensure that the cumulative static size of the array is a multiple of the
-  // Vector Length associated with this type. If it is not, then no SIMD code
-  // gen is possible (return 0). If it is possible, return the largest SIMD
+  // Compute a suitable SIMD Vector length (which may be a multiple of the
+  // hardware vector length, up to maxSimdUnroll times). If the dims are too
+  // small, return 0 (no suitable simd). The collapsedInnermostLoops parameter
+  // indicates how many inner dimensions of the memref are considered for
+  // vectorization. If all of them are considered and padding is possible, then
+  // we can always generate SIMD code with the maxSIMD unroll factor. Otherwise,
+  // we must ensure that the cumulative static size of the array is a multiple
+  // of the Vector Length associated with this type. If it is not, then no SIMD
+  // code gen is possible (return 0). If it is possible, return the largest SIMD
   // unroll factor (starting at maxSimdUnroll) that divide the cumulative
   // static size of the memref being collapsed for SIMD.
   int64_t SuitableUnrollFactor(VectorMachineSupport *vms,

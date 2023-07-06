@@ -1294,7 +1294,7 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-// Return SIMD unroll; no simd -> return 0;
+// Return unrolled vector length; no simd -> return 0;
 // collapsedLiteralSize is ignored when we can collapse every loop iterations as
 // we then rely on padding of the allocated memory to enable arbitrary output
 // array simdization. When partial simd is requested, then we must ensure that
@@ -1302,7 +1302,8 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops) {
-  int64_t simdUnroll = 0;
+  int64_t simdUnroll;
+  int64_t uVL = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
@@ -1324,17 +1325,17 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
-  simdUnroll = create.vec.SuitableUnrollFactor(vms, memRefType,
+  uVL = create.vec.SuitableUnrollFactor(vms, memRefType,
       shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
       /*canPad*/ true);
   LLVM_DEBUG({
-    if (simdUnroll)
-      llvm::dbgs() << "  simd enabled with unroll " << simdUnroll << "\n";
+    if (uVL)
+      llvm::dbgs() << "  simd enabled with vector length " << uVL << "\n";
     else
       LLVM_DEBUG(
           llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
   });
-  return simdUnroll;
+  return uVL;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1346,7 +1347,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
     MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
-    int64_t simdUnroll, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
+    int64_t VL, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
     bool isUnaryOp) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
@@ -1356,8 +1357,6 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
-  int64_t VL =
-      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
   // Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
@@ -1365,7 +1364,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // will change if we do partial flattening with non-multiple of VL *
   // simdUnroll.
   Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
+      outputMemRefType, shapeHelper->getOutputDims(), VL, alignment);
   // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
@@ -1900,13 +1899,12 @@ struct ONNXElementwiseUnaryOpLowering
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
-      int64_t simdUnroll =
-          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, op, outputMemRefType, outputRank);
-      if (simdUnroll > 0)
+      int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
+          shapeHelper, create, op, outputMemRefType, outputRank);
+      if (uVL > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, /*collapsedInnermostLoop*/ outputRank,
+            uVL, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
@@ -2048,14 +2046,14 @@ struct ONNXElementwiseBinaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
-      int64_t simdUnroll =
+      int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops);
-      if (simdUnroll > 0)
+      if (uVL > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, collapsedInnermostLoops, hasNoBroadcast,
+            uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
@@ -2189,14 +2187,14 @@ struct ONNXElementwiseVariadicOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
-      int64_t simdUnroll =
+      int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops);
-      if (simdUnroll > 0)
+      if (uVL > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, collapsedInnermostLoops, hasNoBroadcast,
+            uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");

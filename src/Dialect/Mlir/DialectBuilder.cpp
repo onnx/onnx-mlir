@@ -1019,19 +1019,18 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
+    ValueRange dynSymbols, int64_t VL, int64_t alignment) const {
   Type elementType = type.getElementType();
   assert(!hasNonIdentityLayout(type) && "unsupported layout");
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
-  assert(simdUnroll >= 1 && "expected positive simd unroll factor");
+  assert(VL >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
   int64_t staticSize;
   IndexExpr dynSize;
   bool staticShape =
       getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
-  MultiDialectBuilder<VectorBuilder> create(*this);
-  int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
+  // hi alex MultiDialectBuilder<VectorBuilder> create(*this);
   // If the static size component is already a multiple of VL, no matter the
   // values of the dynamic shapes, the last value is part of a full SIMD. No
   // need for extra padding then.
@@ -1083,18 +1082,18 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
-    MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+    MemRefType type, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(operandOfSameType, type, dynSymbols);
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL,
     int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1568,16 +1567,16 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
                             << " too short \n");
     return 0;
   }
+  Type elementType = memRefType.getElementType();
+  int64_t VL = vms->getVectorLength(elementType);
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
-    return maxSimdUnroll;
+    return maxSimdUnroll * VL;
   }
   // We have a partially flattened operator. Since we do only simdize entire
   // loops (i.e. we don't support scalar epilogues at this time), make sure
   // the static size is a multiple of the VL. Get the VL of the store
   // (output's element type).
-  Type elementType = memRefType.getElementType();
-  int64_t VL = vms->getVectorLength(elementType);
   if (staticSize % VL != 0) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
                             << collapsedInnermostLoops << " with size "
@@ -1585,14 +1584,14 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     return 0;
   }
   // See if we can get a unroll factor.
-  assert(maxSimdUnroll>0 && "expected positive max simd unroll");
+  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   for (int64_t u = maxSimdUnroll; u > 0; --u) {
     if (staticSize % (u * VL) == 0) {
       LLVM_DEBUG(llvm::dbgs()
                  << "  partial flattened dims " << collapsedInnermostLoops
                  << " with size " << staticSize << " works with VL " << VL
                  << " and unroll " << u << "\n");
-      return u;
+      return u * VL;
     }
   }
   llvm_unreachable("should always find u==1 feasible");

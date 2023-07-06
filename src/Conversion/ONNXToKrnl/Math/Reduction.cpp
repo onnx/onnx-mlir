@@ -345,7 +345,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Value falseVal = nullptr;
     Value trueVal = nullptr;
     Value valueOne = nullptr;
-    int64_t simdUnroll = 0; // No SIMD.
+    int64_t uVL = 0; // No SIMD.
     if (!dynamicAxes) {
       // All axes are static, fill in the outInDimMap appropriately.
       assert(noRedInnerSpan >= 0 && noRedInnerSpan <= inRank && "bad span");
@@ -357,12 +357,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         VectorMachineSupport *vms =
             VectorMachineSupport::getGlobalVectorMachineSupport();
         DimsExpr inputDims;
-        create.krnlIE.getShapeAsDims(input, inputDims);
-        simdUnroll = create.vec.SuitableUnrollFactor(
+        create.krnlIE.getShapeAsSymbols(input, inputDims);
+        uVL = create.vec.SuitableUnrollFactor(
             vms, memRefInType, inputDims, noRedInnerSpan, 4, /*canPad*/ false);
         LLVM_DEBUG(llvm::dbgs()
-                   << "  SIMD " << (simdUnroll ? "" : "im")
-                   << "possible with unroll " << simdUnroll << "\n");
+                   << "  SIMD " << (uVL ? "" : "im")
+                   << "possible with vector length " << uVL << "\n");
       }
     } else {
       // Has one or more dynamic axes.
@@ -486,37 +486,40 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         });
 
     // 2. Define an Krnl loop to do reduction.
-    ValueRange loop2Def = create.krnl.defineLoops(inRank);
-    SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> ubs2;
-    create.krnlIE.getShapeAsDims(input, ubs2);
-    create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
-        [&](KrnlBuilder &kb, ValueRange loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
-          Value zeroIndex = create.math.constantIndex(0);
-          // Compute accumulator  access function.
-          SmallVector<Value, 4> accumulatorAccessFct;
-          for (decltype(inRank) i = 0; i < outRank; ++i) {
-            if (dynamicAxes) {
-              // For the reduced dim, the output index is always 0.
-              Value indexVal = create.math.constantIndex(i);
-              Value mask = create.krnl.load(maskVal, indexVal);
-              Value cond = create.math.eq(mask, trueVal);
-              Value dim = create.math.select(cond, zeroIndex, loopInd[i]);
-              accumulatorAccessFct.push_back(dim);
-            } else if (outInDimMap.find(i) != outInDimMap.end())
-              accumulatorAccessFct.push_back(loopInd[outInDimMap[i]]);
-            else
-              accumulatorAccessFct.push_back(zeroIndex);
-          }
-          // Load accumulator value, accumulate, and store.
-          Value next = create.krnl.load(input, loopInd);
-          Value accumulated = create.krnl.load(alloc, accumulatorAccessFct);
-          accumulated = emitScalarOpFor<ONNXReductionOp>(rewriter, loc, op,
-              memRefOutType.getElementType(), {accumulated, next});
-          create.krnl.store(accumulated, alloc, accumulatorAccessFct);
-        });
+    if (false && uVL > 0) {
 
+    } else {
+      ValueRange loop2Def = create.krnl.defineLoops(inRank);
+      SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs2;
+      create.krnlIE.getShapeAsDims(input, ubs2);
+      create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
+          [&](KrnlBuilder &kb, ValueRange loopInd) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
+            Value zeroIndex = create.math.constantIndex(0);
+            // Compute accumulator  access function.
+            SmallVector<Value, 4> accumulatorAccessFct;
+            for (decltype(inRank) i = 0; i < outRank; ++i) {
+              if (dynamicAxes) {
+                // For the reduced dim, the output index is always 0.
+                Value indexVal = create.math.constantIndex(i);
+                Value mask = create.krnl.load(maskVal, indexVal);
+                Value cond = create.math.eq(mask, trueVal);
+                Value dim = create.math.select(cond, zeroIndex, loopInd[i]);
+                accumulatorAccessFct.push_back(dim);
+              } else if (outInDimMap.find(i) != outInDimMap.end())
+                accumulatorAccessFct.push_back(loopInd[outInDimMap[i]]);
+              else
+                accumulatorAccessFct.push_back(zeroIndex);
+            }
+            // Load accumulator value, accumulate, and store.
+            Value next = create.krnl.load(input, loopInd);
+            Value accumulated = create.krnl.load(alloc, accumulatorAccessFct);
+            accumulated = emitScalarOpFor<ONNXReductionOp>(rewriter, loc, op,
+                memRefOutType.getElementType(), {accumulated, next});
+            create.krnl.store(accumulated, alloc, accumulatorAccessFct);
+          });
+    }
     // 3. Define an Krnl loop to compute mean (optional).
     if (computeMean) {
       Type elementType = memRefOutType.getElementType();
