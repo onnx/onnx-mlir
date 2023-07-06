@@ -1269,8 +1269,6 @@ private:
   }
 
   void ImportNode(const onnx::NodeProto &node) {
-    // look up handler for the opName. If not found, create a node
-    // for a custom op, and issue a warning.
     std::string opName = node.op_type() + GetImportVersionOfNode(node);
     auto handler = import_handler_map_.find(opName);
     std::vector<std::string> funcs = options_.functionsToDecompose;
