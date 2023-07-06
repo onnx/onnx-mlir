@@ -16,6 +16,7 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -75,6 +76,8 @@ Value OnnxBuilder::concat(
 }
 
 Value OnnxBuilder::constant(Attribute denseAttr) const {
+  assert((isa<DenseElementsAttr, DisposableElementsAttr>(denseAttr)) &&
+         "unsupported onnx constant value attribute");
   return createOpAndInferShapes<ONNXConstantOp>(Attribute(), denseAttr);
 }
 
