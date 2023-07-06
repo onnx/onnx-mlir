@@ -108,7 +108,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     std::optional<int64_t> optionalAxis = uniqueOp.getAxis();
     //
     // Get axis value as a positive integer if axis attribute is specified.
-    // If set "-1" if the axis attribute is not specified.
+    // Set "-1" if the axis attribute is not specified.
     //
     int64_t axis = -1;
     if (optionalAxis.has_value()) {
