@@ -1,0 +1,43 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===---------------- AsyncMatMul.cpp - ZHigh Operations-------------------===//
+//
+// Copyright 2019-2023 The IBM Research Authors.
+//
+// =============================================================================
+//
+//
+//===----------------------------------------------------------------------===//
+
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
+
+using namespace mlir;
+using namespace onnx_mlir;
+
+namespace onnx_mlir {
+namespace zhigh {
+
+//===----------------------------------------------------------------------===//
+// Shape inference
+//===----------------------------------------------------------------------===//
+
+LogicalResult ZHighAsyncMatMulOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  if (!hasRankedType(getA()) || !hasRankedType(getB()))
+    return success();
+
+  ONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  shapeHelper.computeShapeAndAssertOnFailure();
+
+  SmallVector<int64_t, 4> outputDims;
+  IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
+  Type elementType =
+      getResults()[0].getType().cast<ShapedType>().getElementType();
+  updateType(getResults()[0], outputDims, elementType);
+
+  return success();
+}
+} // namespace zhigh
+} // namespace onnx_mlir

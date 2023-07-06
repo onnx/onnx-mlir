@@ -16,6 +16,7 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/GRU/GRU.cpp
   ZHighOps/LSTM/LSTM.cpp
   ZHighOps/MatMul/MatMul.cpp
+  ZHighOps/AsyncMatMul/AsyncMatMul.cpp
   ZHighOps/MeanReduce2D/MeanReduce2D.cpp
   ZHighOps/Pooling/Pooling.cpp
   ZHighOps/Softmax/Softmax.cpp

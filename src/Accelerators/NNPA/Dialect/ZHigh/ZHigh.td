@@ -390,6 +390,33 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
   let hasVerifier = 1;
 }
 
+def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+  let summary = "ZHigh Asynchronous MatMul operation";
+  let description = [{
+    ZHigh operation to perform a MatMul asynchronously.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$A,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
+                       TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
+                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
+                      TensorOf<[I64]>:$Token);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$A, "::mlir::Value":$B), [{
+      Type elementType = A.getType().cast<ShapedType>().getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+      Type i64Ty = $_builder.getI64Type();
+      UnrankedTensorType tokenType = UnrankedTensorType::get(i64Ty);
+      build($_builder, $_state, resType, tokenType, A, B);
+    }]>
+  ];
+}
+
 def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh LSTM operation";
