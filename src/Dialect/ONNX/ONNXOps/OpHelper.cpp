@@ -289,13 +289,13 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
 size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 
-size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.value().size(); }
+size_t ArrayAttrSize(std::optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
+int64_t ArrayAttrIntVal(std::optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
@@ -539,6 +539,12 @@ bool isDenseONNXConstant(Value result) {
   if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
     return false;
 
+  // Except DenseResourceElementsAttr is too hard to work with, since it
+  // sometimes has a different shape and element type than constOp, plus
+  // DenseResourceElementsAttr has a limited API.
+  if (isa<DenseResourceElementsAttr>(constOp.getValueAttr()))
+    return false;
+
   // No other attribute must be set.
   return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
          !constOp.getValueIntAttr() && !constOp.getValueIntsAttr() &&
@@ -554,10 +560,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
     return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isF32()) {
-    auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToFloat();
-  } else if (elementaryType.isF64()) {
+  } else if (elementaryType.isa<FloatType>()) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
   }

@@ -3,7 +3,7 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitations are listed when applicable.
+Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitations are listed when applicable.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodified to Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
@@ -47,7 +47,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Compress** |11 | | |
 | **Concat** |13 | | |
 | **ConcatFromSequence** | |unsupported | |
-| **Constant** |13 | | |
+| **Constant** |19 | | |
 | **ConstantOfShape** |9 | | |
 | **Conv** |11 | | |
 | **ConvInteger** | |unsupported | |
