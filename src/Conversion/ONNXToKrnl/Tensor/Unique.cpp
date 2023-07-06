@@ -46,9 +46,9 @@ Value emitArgUnique(ConversionPatternRewriter &rewriter, Location loc,
     SmallVector<Value, 4> operands = {total, input, val_axis, val_sorted};
     rewriter.create<KrnlCallOp>(loc, "omTensorUniqueCount", 1, operands);
   } else {
-    SmallVector<Value, 8> operands = {total, input, val_axis, val_sorted, Y,
-        indices, inverse_indices, counts};
-    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 8, operands);
+    SmallVector<Value, 8> operands = {total, Y, indices, inverse_indices,
+        counts, input, val_axis, val_sorted};
+    rewriter.create<KrnlCallOp>(loc, "omTensorUnique", 5, operands);
   }
   return total;
 }

@@ -303,9 +303,9 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
   }
 }
 
-void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
-    int64_t sliceAxis, uint64_t sorted, OMTensor *Y, OMTensor *indices,
-    OMTensor *inverse_indices, OMTensor *counts) {
+void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
+    OMTensor *inverse_indices, OMTensor *counts, const OMTensor *inputTensor,
+    int64_t sliceAxis, uint64_t sorted) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
   const int64_t inputRank = omTensorGetRank(inputTensor);
   assert(inputRank <= 6 && "input rank should be 6 or less");
@@ -383,6 +383,6 @@ void omTensorUnique(OMTensor *totalTensor, const OMTensor *inputTensor,
 void omTensorUniqueCount(OMTensor *totalTensor, const OMTensor *inputTensor,
     int64_t sliceAxis, uint64_t sorted) {
   omTensorUnique(
-      totalTensor, inputTensor, sliceAxis, sorted, NULL, NULL, NULL, NULL);
+      totalTensor, NULL, NULL, NULL, NULL, inputTensor, sliceAxis, sorted);
   return;
 }
