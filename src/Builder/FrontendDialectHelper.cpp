@@ -21,10 +21,10 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SwapByteOrder.h"
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Support/Arrays.hpp"
 #include "src/Support/SmallFP.hpp"
 
 using namespace mlir;

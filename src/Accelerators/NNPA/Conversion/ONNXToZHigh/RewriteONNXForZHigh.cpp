@@ -28,6 +28,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -42,14 +43,13 @@ namespace onnx_mlir {
 Value getSqrtResultBatchNormA(
     Location loc, PatternRewriter &rewriter, Value var, FloatAttr epsilon) {
   Type elementType = var.getType().cast<ShapedType>().getElementType();
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
   // epsilon
   RankedTensorType epsilonType = RankedTensorType::get({1}, elementType);
   DenseElementsAttr epsilonConstAttr =
       DenseElementsAttr::get<float>(epsilonType, epsilon.getValueAsDouble());
-  Value epsilonConst = rewriter.create<ONNXConstantOp>(loc, epsilonType,
-      nullptr, epsilonConstAttr, nullptr, nullptr, nullptr, nullptr, nullptr,
-      nullptr);
+  Value epsilonConst = create.onnx.constant(epsilonConstAttr);
 
   // sqrt(var + epsilon)
   Value var_plus_epsilon = rewriter.create<ONNXAddOp>(loc, var, epsilonConst);

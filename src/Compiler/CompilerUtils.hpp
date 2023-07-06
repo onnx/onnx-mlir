@@ -32,7 +32,6 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Pass/Passes.hpp"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -54,7 +53,7 @@ namespace onnx_mlir {
 
 std::string getVendorName();
 
-llvm::Optional<std::string> getEnvVar(std::string name);
+std::optional<std::string> getEnvVar(std::string name);
 
 struct Command {
 
@@ -66,7 +65,7 @@ struct Command {
         _args({llvm::sys::path::filename(_path).str()}) {}
 
   Command &appendStr(const std::string &arg);
-  Command &appendStrOpt(const llvm::Optional<std::string> &arg);
+  Command &appendStrOpt(const std::optional<std::string> &arg);
   Command &appendList(const std::vector<std::string> &args);
   Command &resetArgs();
   int exec(std::string wdir = "") const;

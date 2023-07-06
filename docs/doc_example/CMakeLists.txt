@@ -73,7 +73,6 @@ add_onnx_mlir_executable(OMRuntimeTest
 
   LINK_LIBS PRIVATE
   OMRuntimeTestModelLibrary
-  cruntime
   )
 
 set_output_directory(OMRuntimeTest BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} LIBRARY_DIR ${CMAKE_CURRENT_BINARY_DIR})

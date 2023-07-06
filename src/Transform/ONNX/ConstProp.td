@@ -71,11 +71,11 @@ def HasIntegerElementType: Constraint<CPred<
 >;
 
 def IsConstOfZeros : Constraint<
-  CPred<"isConstOf($_self, 0.0)">,
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
 
 def IsConstOfOnes : Constraint<
-  CPred<"isConstOf($_self, 1.0)">,
+  CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
   "Value is an all-ones constant tensor">;
 
 def ValuesHaveSameType : Constraint<
@@ -272,10 +272,7 @@ def AddZerosOnRhs : Pat<
     ),
     // To x.
     (replaceWithValue $x),
-    [
-      (IsNotAConstant:$x), (IsConstOfZeros:$c),
-      (ValuesHaveSameType $result, $x)
-    ]>;
+    [(IsNotAConstant:$x), (ValuesHaveSameType $result, $x), (IsConstOfZeros:$c)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise SUB / NEG operations.
@@ -299,10 +296,7 @@ def SubZerosOnRhs : Pat<
     ),
     // To x.
     (replaceWithValue $x),
-    [
-      (IsNotAConstant:$x), (IsConstOfZeros:$c),
-      (ValuesHaveSameType $result, $x)
-    ]>;
+    [(IsNotAConstant:$x), (ValuesHaveSameType $result, $x), (IsConstOfZeros:$c)]>;
 
 // Cast of constant is simply a constant with the new type.
 def CastofConst :  Pat<
@@ -591,8 +585,8 @@ def MatMulZerosOnLhs : Pat<
       $B
     ),
     (CreateZeroTensorOfType $resOp),
-    [(IsConstOfZeros:$A), (IsNotAConstant:$B),
-     (HasStaticShape:$resOp), (HasIntegerElementType:$resOp)]
+    [(IsNotAConstant:$B), (HasIntegerElementType:$resOp),
+     (HasStaticShape:$resOp), (IsConstOfZeros:$A)]
     >;
 
 // Limited to integers because NaN * 0 is NaN, not 0.
@@ -602,8 +596,8 @@ def MatMulZerosOnRhs : Pat<
       (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
     ),
     (CreateZeroTensorOfType $resOp),
-    [(IsNotAConstant:$A), (IsConstOfZeros:$B),
-     (HasStaticShape:$resOp), (HasIntegerElementType:$resOp)]
+    [(IsNotAConstant:$A), (HasIntegerElementType:$resOp),
+     (HasStaticShape:$resOp), (IsConstOfZeros:$B)]
     >;
 
 def MatMulOfConsts : Pat<

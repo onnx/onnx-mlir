@@ -485,6 +485,9 @@ struct SoftmaxPattern : public ConversionPattern {
 
     // Rewrite
     Location odsLoc = op0->getLoc();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, odsLoc);
+
     IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 1);
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
@@ -495,8 +498,7 @@ struct SoftmaxPattern : public ConversionPattern {
     Value subValue =
         rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
     Value expValue = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
-    Value axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
-        /*value=*/rewriter.getI64TensorAttr({axisValue}));
+    Value axisOp = create.onnx.constantInt64({axisValue});
     IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 0);
     Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
