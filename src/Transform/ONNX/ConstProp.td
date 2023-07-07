@@ -114,6 +114,12 @@ def CreateSqrtOfConst :
 def CreateReluOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXReluOp>($_builder, $0, $1)">;
 
+def CreateMaxOfConst :
+   NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXMaxOp>($_builder, $0, $1)">;
+
+def CreateMinOfConst :
+   NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXMinOp>($_builder, $0, $1)">;
+
 def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
@@ -339,6 +345,24 @@ def ReluofConst :  Pat<
     (CreateReluOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
  
+// Constant Propagation for Max
+def MaxConstProp : Pat<
+    // From max(c1, c2).
+    (ONNXMaxOp:$maxOp $operandList),
+    // To c = max(c1, c2)
+    (CreateMaxOfConst $maxOp, $operandList),
+    // Constraints
+    [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
+
+// Constant Propagation for Min
+def MinConstProp : Pat<
+    // From min(c1, c2).
+    (ONNXMinOp:$minOp $operandList),
+    // To c = min(c1, c2)
+    (CreateMinOfConst $minOp, $operandList),
+    // Constraints
+    [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
+
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
 // Exactly the same pattern as for the elementwise ADD operations.
