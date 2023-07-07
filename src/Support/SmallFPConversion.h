@@ -1,3 +1,13 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------------------ SmallFPConversion.h -------------------------===//
+//
+// Conversion to and from 16 bits floating point types.
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include <stdint.h>
