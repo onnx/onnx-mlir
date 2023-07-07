@@ -7,7 +7,7 @@
 // Defines variable TO of type TO_TYPE and copies bytes from variable FROM.
 // Using memcpy because the simpler definition
 //
-//   #define BIT_CAST(TYPE, TO, FROM) TYPE TO = *(const TYPE *)FROM
+//   #define BIT_CAST(TO_TYPE, TO, FROM) TO_TYPE TO = *(const TO_TYPE *)&FROM
 //
 // might violate the rules about strict aliasing in C++.
 #define BIT_CAST(TO_TYPE, TO, FROM)                                            \
@@ -79,9 +79,17 @@ float om_f16_to_f32(uint16_t u16) {
   return f32;
 }
 
+// NOTE: This implementation rounds to nearest, ties away from zero.
+// TODO: Fix it to round to nearest, ties to even.
 uint16_t om_f32_to_f16(float f32) {
-  // round-to-nearest-even: add last bit after truncated mantissa
+  if (f32 >= 65568.0)
+    return 0x7C00; // INFINITY
+  if (f32 <= -65568.0)
+    return 0xFC00; // -INFINITY
   BIT_CAST(uint32_t, u32, f32);
+  if ((u32 & 0x7FFFF000u) == 0x7FFFF000u)
+    return u32 >> 16; // NAN
+  // round-to-nearest-even: add last bit after truncated mantissa
   uint32_t b = u32 + 0x00001000;
   uint32_t e = (b & 0x7F800000) >> 23; // exponent
   uint32_t m = b & 0x007FFFFF;         // mantissa
