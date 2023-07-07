@@ -1356,7 +1356,12 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                           << collapsedInnermostLoops << " inner dims\n");
 
   // generate SIMD code of VL elements per vector.
+  fprintf(stderr, "hi alex, create new alloc scope to distinguish from shapeHelper\n");
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
+  fprintf(stderr, "hi alex, create new alloc scope to distinguish from shapeHelper done\n");
+  DimsExpr outputDims;
+  getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
+
   // Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
@@ -1364,7 +1369,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // will change if we do partial flattening with non-multiple of VL *
   // simdUnroll.
   Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, shapeHelper->getOutputDims(), VL, alignment);
+      outputMemRefType, outputDims, VL, alignment);
   // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
@@ -1373,35 +1378,31 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       flatOperands.emplace_back(oper);
       continue;
     }
-    llvm::SmallVector<IndexExpr, 4> operDims;
-    Value operSize;
+    DimsExpr operDims, flattenOperDims;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
     Value flatOper = create.mem.reshapeToFlat(
-        oper, operDims, operSize, collapsedInnermostLoops);
+        oper, operDims, flattenOperDims, collapsedInnermostLoops);
     flatOperands.emplace_back(flatOper);
   }
+
   // Create flat output.
-  Value flattenedOutputSize;
-  DimsExpr outputDims = shapeHelper->getOutputDims();
-  Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, outputDims, flattenedOutputSize, collapsedInnermostLoops);
-  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
-  // one and blocked by mVL.
   int64_t rank = outputDims.size() - collapsedInnermostLoops + 1;
   LLVM_DEBUG(
       llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
   int64_t flattenedDim = rank - 1;
+  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  SmallVector<IndexExpr, 4> ubs;
+  Value flatAlloc = create.mem.reshapeToFlat(
+      alloc, outputDims, ubs, collapsedInnermostLoops);
+  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
+  // one and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(rank);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
   SmallVector<Value, 4> optimizedLoopDef;
-  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 4> ubs;
   for (int64_t r = 0; r < rank - 1; ++r) {
     optimizedLoopDef.emplace_back(loopDef[r]);
-    ubs.emplace_back(SymbolIndexExpr(outputDims[r]));
   }
   optimizedLoopDef.emplace_back(blockedLoopDef[0]);
-  ubs.emplace_back(SymbolIndexExpr(flattenedOutputSize));
   // Create the vector type to operate over.
   VectorType vecElementType = VectorType::get({VL}, outputElementType);
   // Iterate only over the blocks.

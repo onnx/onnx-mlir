@@ -477,7 +477,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     ValueRange loop1Def = create.krnl.defineLoops(outRank);
     SmallVector<IndexExpr, 4> lbs1(outRank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> ubs1;
-    create.krnlIE.getShapeAsDims(alloc, ubs1);
+    create.krnlIE.getShapeAsSymbols(alloc, ubs1);
     create.krnl.iterateIE(loop1Def, loop1Def, lbs1, ubs1,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           Value identity =
@@ -505,7 +505,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       ValueRange loop2Def = create.krnl.defineLoops(inRank);
       SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs2;
-      create.krnlIE.getShapeAsSymbols(input, ubs2); // hi alex, should be symbols
+      create.krnlIE.getShapeAsSymbols(input, ubs2);
       create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
           [&](KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
@@ -541,12 +541,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       IndexExprScope scope(&rewriter, loc);
       IndexExpr inputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < inRank; i++) {
-        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(input, i);
+        IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(input, i);
         inputSizeExpr = inputSizeExpr * dimExpr;
       }
       IndexExpr outputSizeExpr = LiteralIndexExpr(1);
       for (unsigned i = 0; i < outRank; i++) {
-        IndexExpr dimExpr = create.krnlIE.getShapeAsDim(alloc, i);
+        IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(alloc, i);
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
@@ -564,7 +564,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       ValueRange loop3Def = create.krnl.defineLoops(outRank);
       SmallVector<IndexExpr, 4> lbs3(outRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs3;
-      create.krnlIE.getShapeAsDims(alloc, ubs3);
+      create.krnlIE.getShapeAsSymbols(alloc, ubs3);
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
           [&](KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);

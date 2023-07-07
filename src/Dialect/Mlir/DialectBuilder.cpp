@@ -1129,6 +1129,7 @@ memref::ReshapeOp MemRefBuilder::reshape(
       loc(), destType, valToReshape, destShapeStoredInMem);
 }
 
+#if 1 // hi alex remove?
 // Flatten the innermost dimsToFlatten of the value valToReshape. Return in
 // flattenSize the cumulative size of the flattened dimensions. If flattenSize
 // is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
@@ -1174,6 +1175,58 @@ Value MemRefBuilder::reshapeToFlat(Value valToReshape,
     Value dd = create.math.constantIndex(d);
     IndexExpr shapeIE =
         (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
+    create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
+    outputShape.emplace_back(shapeIE.getShape());
+  }
+  // Reshape the input N-D MemRef into a M-D MemRef.
+  MemRefType outputType = MemRefType::get(outputShape, elementType);
+  return reshape(outputType, valToReshape, outputShapeInMem);
+}
+#endif
+
+// Flatten the innermost dimsToFlatten of the value valToReshape. Return in
+// flattenSize the cumulative size of the flattened dimensions. If flattenSize
+// is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
+// Output rank is Rank(input) - dimsToFlatten + 1.
+Value MemRefBuilder::reshapeToFlat(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
+    int64_t dimsToFlatten) const {
+  // Parse input.
+  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
+  int64_t inputRank = inputType.getRank();
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  Type elementType = inputType.getElementType();
+  assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
+  // Set/check dimsToFlatten.
+  if (dimsToFlatten == -1)
+    dimsToFlatten = inputRank;
+  assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
+         "out of range dimsToFlatten");
+  if (dimsToFlatten == 1) {
+    // Flattening of the last dim is really no flattening at all. Return
+    // original value before doing the actual reshaping, which is unnecessary.
+    flattenedDims = dims;
+    return valToReshape;
+  }
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  // Compute total number of flattened elements.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) 
+    numOfFlattenedElements = numOfFlattenedElements * dims[d];
+  // Shape for reshaping from N-D to M-D saved into memory.
+  int64_t outputRank = (inputRank - dimsToFlatten) + 1;
+  Type indexType = b().getIndexType();
+  Value outputShapeInMem =
+      alignedAlloc(MemRefType::get({outputRank}, indexType));
+  llvm::SmallVector<int64_t, 4> outputShape;
+  // Compute shape and store it in memory.
+  flattenedDims.clear();
+  for (int64_t d = 0; d < outputRank; ++d) {
+    Value dd = create.math.constantIndex(d);
+    IndexExpr shapeIE =
+        (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
+    flattenedDims.emplace_back(shapeIE);
     create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
     outputShape.emplace_back(shapeIE.getShape());
   }
