@@ -10,8 +10,12 @@
 
 #include "src/Support/SmallFP.hpp"
 
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APInt.h"
+
 #include <benchmark/benchmark.h>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -23,6 +27,63 @@ namespace {
 class Test {
 
 public:
+  template <typename FP16>
+  int test_from_fp16(const char *fp_name) {
+    std::cout << "test_from_fp16 " << fp_name << ":" << std::endl;
+
+    constexpr uint16_t u16max = std::numeric_limits<uint16_t>::max();
+    uint16_t u16 = 0;
+    do {
+      FP16 fp16 = FP16::bitcastFromUInt(u16);
+      llvm::APFloat ap = fp16.toAPFloat();
+      assert(fp16.isNaN() == ap.isNaN());
+      float apf32 = ap.convertToFloat();
+      float f32 = fp16.toFloat();
+      if (apf32 != f32) {
+        assert(std::isnan(apf32));
+        assert(std::isnan(f32));
+      }
+    } while (u16++ < u16max);
+
+    return 0;
+  }
+
+  template <typename FP16>
+  int test_to_fp16(const char *fp_name, uint32_t step) {
+    std::cout << "test_to_fp16 " << fp_name << ":" << std::endl;
+
+    auto apFromF32 = [](float f32) {
+      llvm::APFloat ap(f32);
+      bool ignored;
+      ap.convert(
+          FP16::semantics(), llvm::APFloat::rmNearestTiesToEven, &ignored);
+      return ap;
+    };
+
+    assert(apFromF32(NAN).isNaN());
+    assert(FP16::fromFloat(NAN).isNaN());
+    constexpr uint32_t u32max = std::numeric_limits<uint32_t>::max();
+    uint32_t u32 = 0;
+    while (true) { // slow if step32 is small
+      float f32;
+      memcpy(&f32, &u32, sizeof(u32));
+      llvm::APFloat ap = apFromF32(f32);
+      uint16_t apu16 = ap.bitcastToAPInt().getZExtValue();
+      FP16 fp16 = FP16::fromFloat(f32);
+      uint16_t u16 = fp16.bitcastToUInt();
+      if (apu16 != u16) {
+        assert(std::isnan(f32));
+        assert(ap.isNaN());
+        assert(fp16.isNaN());
+      }
+      if (u32 > u32max - step)
+        break;
+      u32 += step;
+    }
+
+    return 0;
+  }
+
   template <typename FP>
   int test_fp_cast(const char *fp_name, float fpmin, float fpmax) {
     std::cout << "test_fp_cast " << fp_name << ":" << std::endl;
@@ -119,9 +180,24 @@ void BM_FP16_TO_F32(benchmark::State &state) {
 BENCHMARK(BM_FP16_TO_F32<float_16>);
 BENCHMARK(BM_FP16_TO_F32<bfloat_16>);
 
+// Low tech command line args parsing.
+// Removes the flag to hide it from benchmark::ReportUnrecognizedArguments().
+bool parseFlag(const std::string &flag, int *argc, char **argv) {
+  assert(*argc >= 1);
+  // Remove any occurrences of flag from the command line arguments.
+  char **end = std::remove_if(
+      argv + 1, argv + *argc, [&flag](char *arg) { return flag == arg; });
+  assert(end - argv <= *argc);
+  const bool removed = end != argv + *argc;
+  *argc = end - argv;
+  return removed;
+}
+
 } // namespace
 
 int main(int argc, char *argv[]) {
+  const bool exhaustive = parseFlag("--exhaustive", &argc, argv);
+
   ::benchmark::Initialize(&argc, argv);
   if (::benchmark::ReportUnrecognizedArguments(argc, argv))
     return 1;
@@ -130,6 +206,14 @@ int main(int argc, char *argv[]) {
 
   Test test;
   int failures = 0;
+
+  // Exhaustive is slow, so it is disabled by default.
+  uint32_t step = exhaustive ? 1 : 37;
+  failures += test.test_to_fp16<float_16>("float_16", step);
+  failures += test.test_to_fp16<bfloat_16>("bfloat_16", step);
+
+  failures += test.test_from_fp16<float_16>("float_16");
+  failures += test.test_from_fp16<bfloat_16>("bfloat_16");
 
   const bool noNegZero = false;
   const float fp8min = 0.005f;
@@ -147,6 +231,7 @@ int main(int argc, char *argv[]) {
       test.test_fp_cast<float_8e5m2fnuz>("float_8e5m2fnuz", fp8min, fp8max);
   failures += test.test_fp_equals<float_8e5m2fnuz>(
       "float_8e5m2fnuz", fp8min, fp8max, noNegZero);
+
   const float fp16min = 5.96e-8f;
   const float fp16max = 32768.0f;
   failures += test.test_fp_cast<float_16>("float_16", fp16min, fp16max);
