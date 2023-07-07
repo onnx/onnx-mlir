@@ -28,16 +28,8 @@ class Test {
 
 public:
   template <typename FP16>
-  int test_fp16(const char *fp_name, uint32_t step32) {
-    std::cout << "test_fp16 " << fp_name << ":" << std::endl;
-
-    auto apFromF32 = [](float f32) {
-      llvm::APFloat ap(f32);
-      bool ignored;
-      ap.convert(
-          FP16::semantics(), llvm::APFloat::rmNearestTiesToEven, &ignored);
-      return ap;
-    };
+  int test_from_fp16(const char *fp_name) {
+    std::cout << "test_from_fp16 " << fp_name << ":" << std::endl;
 
     constexpr uint16_t u16max = std::numeric_limits<uint16_t>::max();
     uint16_t u16 = 0;
@@ -52,6 +44,21 @@ public:
         assert(std::isnan(f32));
       }
     } while (u16++ < u16max);
+
+    return 0;
+  }
+
+  template <typename FP16>
+  int test_to_fp16(const char *fp_name, uint32_t step) {
+    std::cout << "test_to_fp16 " << fp_name << ":" << std::endl;
+
+    auto apFromF32 = [](float f32) {
+      llvm::APFloat ap(f32);
+      bool ignored;
+      ap.convert(
+          FP16::semantics(), llvm::APFloat::rmNearestTiesToEven, &ignored);
+      return ap;
+    };
 
     assert(apFromF32(NAN).isNaN());
     assert(FP16::fromFloat(NAN).isNaN());
@@ -69,9 +76,9 @@ public:
         assert(ap.isNaN());
         assert(fp16.isNaN());
       }
-      if (u32 > u32max - step32)
+      if (u32 > u32max - step)
         break;
-      u32 += step32;
+      u32 += step;
     }
 
     return 0;
@@ -178,7 +185,8 @@ BENCHMARK(BM_FP16_TO_F32<bfloat_16>);
 bool parseFlag(const std::string &flag, int *argc, char **argv) {
   assert(*argc >= 1);
   // Remove any occurrences of flag from the command line arguments.
-  char **end = std::remove_if(argv + 1, argv + *argc, [&flag](char *arg) { return flag == arg; });
+  char **end = std::remove_if(
+      argv + 1, argv + *argc, [&flag](char *arg) { return flag == arg; });
   assert(end - argv <= *argc);
   const bool removed = end != argv + *argc;
   *argc = end - argv;
@@ -200,9 +208,12 @@ int main(int argc, char *argv[]) {
   int failures = 0;
 
   // Exhaustive is slow, so it is disabled by default.
-  uint32_t step32 = exhaustive ? 1 : 37;
-  failures += test.test_fp16<float_16>("float_16", step32);
-  failures += test.test_fp16<bfloat_16>("bfloat_16", step32);
+  uint32_t step = exhaustive ? 1 : 37;
+  failures += test.test_to_fp16<float_16>("float_16", step);
+  failures += test.test_to_fp16<bfloat_16>("bfloat_16", step);
+
+  failures += test.test_from_fp16<float_16>("float_16");
+  failures += test.test_from_fp16<bfloat_16>("bfloat_16");
 
   const bool noNegZero = false;
   const float fp8min = 0.005f;
