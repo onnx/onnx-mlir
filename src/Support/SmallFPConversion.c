@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdbool.h>
 #include <string.h>
 
 // Defines variable TO of type TO_TYPE and copies bytes from variable FROM.
@@ -55,51 +56,102 @@ uint16_t om_f32_to_f16(float f32) {
 
 #else
 
-// Implementation adapted from https://stackoverflow.com/a/60047308
+// Implementation adapted from https://stackoverflow.com/a/3542975
 
 float om_f16_to_f32(uint16_t u16) {
-  if ((u16 & 0x7C00) == 0x7C00) {
-    if (u16 == 0x7C00)
-      return INFINITY;
-    if (u16 == 0xFC00)
-      return -INFINITY;
-    return NAN;
-  }
-  uint32_t e = (u16 & 0x7C00) >> 10; // exponent
-  uint32_t m = (u16 & 0x03FF) << 13; // mantissa
-  // evil log2 bit hack to count leading zeros in denormalized format:
-  float m_float = (float)m;
-  BIT_CAST(uint32_t, m_float_bits, m_float);
-  uint32_t v = m_float_bits >> 23;
-  uint32_t u32 = // sign : normalized : denormalized
-      (u16 & 0x8000u) << 16 | (e != 0) * ((e + 112) << 23 | m) |
-      ((e == 0) & (m != 0)) *
-          ((v - 37) << 23 | ((m << (150 - v)) & 0x007FE000));
-  BIT_CAST(float, f32, u32);
+  static const int f32_sig_bits = 23;
+  static const int f32_exp_bits = 8;
+  static const int f32_bits = f32_sig_bits + f32_exp_bits + 1;
+  static const int f32_exp_max = (1 << f32_exp_bits) - 1;
+  static const int f32_exp_bias = f32_exp_max >> 1;
+  static const uint32_t f32_inf = ((uint32_t)f32_exp_max) << f32_sig_bits;
+
+  static const int f16_sig_bits = 10;
+  static const int f16_exp_bits = 5;
+  static const int f16_bits = f16_sig_bits + f16_exp_bits + 1;
+  static const int f16_exp_max = (1 << f16_exp_bits) - 1;
+  static const int f16_exp_bias = f16_exp_max >> 1;
+  static const int f16_sign = ((uint16_t)1) << (f16_bits - 1);
+  static const uint16_t f16_inf = ((uint16_t)f16_exp_max) << f16_sig_bits;
+
+  static const int sig_diff = f32_sig_bits - f16_sig_bits;
+  static const int bit_diff = f32_bits - f16_bits;
+  static const uint32_t bias_mul = ((uint32_t)(2 * f32_exp_bias - f16_exp_bias))
+                                   << f32_sig_bits;
+  uint32_t bits = u16;
+  uint32_t sign = bits & f16_sign; // save sign
+  bits ^= sign;                    // clear sign
+  bool is_norm = bits < f16_inf;
+  bits = (sign << bit_diff) | (bits << sig_diff);
+  BIT_CAST(float, bits_f32, bits);
+  BIT_CAST(float, bias_mul_f32, bias_mul);
+  float val_f32 = bits_f32 * bias_mul_f32;
+  BIT_CAST(uint32_t, val, val_f32);
+  val |= is_norm ? 0 : f32_inf;
+  BIT_CAST(float, f32, val);
   return f32;
 }
 
-// NOTE: This implementation rounds to nearest, ties away from zero.
-// TODO: Fix it to round to nearest, ties to even.
 uint16_t om_f32_to_f16(float f32) {
-  if (f32 >= 65568.0)
-    return 0x7C00; // INFINITY
-  if (f32 <= -65568.0)
-    return 0xFC00; // -INFINITY
-  BIT_CAST(uint32_t, u32, f32);
-  if ((u32 & 0x7FFFF000u) == 0x7FFFF000u)
-    return u32 >> 16; // NAN
-  // round-to-nearest-even: add last bit after truncated mantissa
-  uint32_t b = u32 + 0x00001000;
-  uint32_t e = (b & 0x7F800000) >> 23; // exponent
-  uint32_t m = b & 0x007FFFFF;         // mantissa
-  // in line below: 0x007FF000 = 0x00800000 - 0x00001000
-  //                           = decimal indicator flag - initial rounding
-  return // sign : normalized : denormalized : saturate
-      (b & 0x80000000u) >> 16 |
-      (e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) |
-      ((e < 113) & (e > 101)) * ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1) |
-      (e > 143) * 0x7FFF;
+  static const int f32_sig_bits = 23;
+  static const int f32_exp_bits = 8;
+  static const int f32_bits = f32_sig_bits + f32_exp_bits + 1;
+  static const int f32_exp_max = (1 << f32_exp_bits) - 1;
+  static const int f32_exp_bias = f32_exp_max >> 1;
+  static const int f32_sign = ((uint32_t)1) << (f32_bits - 1);
+  static const uint32_t f32_inf = ((uint32_t)f32_exp_max) << f32_sig_bits;
+
+  static const int f16_sig_bits = 10;
+  static const int f16_exp_bits = 5;
+  static const int f16_bits = f16_sig_bits + f16_exp_bits + 1;
+  static const int f16_exp_max = (1 << f16_exp_bits) - 1;
+  static const int f16_exp_bias = f16_exp_max >> 1;
+  static const uint16_t f16_inf = ((uint16_t)f16_exp_max) << f16_sig_bits;
+  static const uint16_t f16_qnan = f16_inf | (f16_inf >> 1);
+
+  static const int sig_diff = f32_sig_bits - f16_sig_bits;
+  static const int bit_diff = f32_bits - f16_bits;
+  static const uint32_t bias_mul = ((uint32_t)f16_exp_bias) << f32_sig_bits;
+  BIT_CAST(float, bias_mul_f32, bias_mul);
+  BIT_CAST(uint32_t, bits, f32);
+  uint32_t sign = bits & f32_sign; // save sign
+  bits ^= sign;                    // clear sign
+  bool is_nan = f32_inf < bits;    // compare before rounding!!
+
+  // round:
+  {
+    static const uint32_t min_norm =
+        ((uint32_t)(f32_exp_bias - f16_exp_bias + 1)) << f32_sig_bits;
+    static const uint32_t sub_rnd =
+        f16_exp_bias < sig_diff
+            ? 1u << (f32_sig_bits - 1 + f16_exp_bias - sig_diff)
+            : ((uint32_t)(f16_exp_bias - sig_diff)) << f32_sig_bits;
+    BIT_CAST(float, sub_rnd_f32, sub_rnd);
+    static const uint32_t sub_mul = ((uint32_t)(f32_exp_bias + sig_diff))
+                                    << f32_sig_bits;
+    BIT_CAST(float, sub_mul_f32, sub_mul);
+    bool is_sub = bits < min_norm;
+    BIT_CAST(float, norm_f32, bits);
+    float subn_f32 = norm_f32;
+    subn_f32 *= sub_rnd_f32;  // round subnormals
+    subn_f32 *= sub_mul_f32;  // correct subnormal exp
+    norm_f32 *= bias_mul_f32; // fix exp bias
+    BIT_CAST(uint32_t, norm, norm_f32);
+    bits = norm;
+    bits += (bits >> sig_diff) & 1;     // add tie breaking bias
+    bits += (1u << (sig_diff - 1)) - 1; // round up to half
+    BIT_CAST(uint32_t, subn, subn_f32);
+    if (is_sub)
+      bits = subn;
+  }
+
+  bits >>= sig_diff; // truncate
+  if (f16_inf < bits)
+    bits = f16_inf; // fix overflow
+  if (is_nan)
+    bits = f16_qnan;
+  bits |= sign >> bit_diff; // restore sign
+  return bits;
 }
 
 #endif
