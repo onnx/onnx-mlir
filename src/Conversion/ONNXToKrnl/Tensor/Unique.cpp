@@ -100,7 +100,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
         create(rewriter, loc);
     IndexExprScope scope(create.krnl);
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShape();
+    shapeHelper.computeShapeAndAssertOnFailure();
     Value X = operandAdaptor.getX();
     ArrayRef<int64_t> xShape = getShape(X.getType());
     Type elementType = X.getType().cast<MemRefType>().getElementType();
