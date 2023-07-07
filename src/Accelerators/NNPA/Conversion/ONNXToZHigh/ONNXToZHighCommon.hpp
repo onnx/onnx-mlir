@@ -74,4 +74,5 @@ mlir::Value emitONNXTransposeWithType(mlir::Location loc,
 /// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chucnk can be smaller.
 mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
-    mlir::Value X, int64_t axis);
+    mlir::Value X, int64_t axis,
+    int64_t chunkSize = NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);

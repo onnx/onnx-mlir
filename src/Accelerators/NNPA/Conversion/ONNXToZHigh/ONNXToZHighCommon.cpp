@@ -38,8 +38,8 @@ Value emitONNXTransposeWithType(Location loc, PatternRewriter &rewriter,
 
 /// Split a tensor along an axis in which each chunk has a size of
 /// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chunk can be smaller.
-ValueRange splitAlongAxis(
-    MultiDialectBuilder<OnnxBuilder> &create, Value X, int64_t axis) {
+ValueRange splitAlongAxis(MultiDialectBuilder<OnnxBuilder> &create, Value X,
+    int64_t axis, int64_t chunkSize) {
   Type xType = X.getType();
   ArrayRef<int64_t> xShape = getShape(xType);
   Type elementTy = getElementType(xType);
@@ -49,13 +49,13 @@ ValueRange splitAlongAxis(
   SmallVector<int64_t> splitSizesI64;
   SmallVector<int64_t> splitShape(xShape);
   int64_t dimSize = xShape[axis];
-  // First splits have the same size of NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
-  while (dimSize > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) {
-    splitShape[axis] = NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+  // First splits have the same size of chunkSize.
+  while (dimSize > chunkSize) {
+    splitShape[axis] = chunkSize;
     auto ty = RankedTensorType::get(splitShape, elementTy);
     splitTy.emplace_back(ty);
-    splitSizesI64.emplace_back(NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-    dimSize -= NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    splitSizesI64.emplace_back(chunkSize);
+    dimSize -= chunkSize;
   }
   // The last split.
   splitShape[axis] = dimSize;

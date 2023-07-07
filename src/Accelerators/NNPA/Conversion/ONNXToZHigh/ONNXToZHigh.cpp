@@ -251,6 +251,91 @@ struct ONNXSumOpPatternEnhancedRecursion
   }
 };
 
+// TODO: Shared with rewriting
+class ONNXMatMulAsyncExecutionPattern : public OpRewritePattern<ONNXMatMulOp> {
+public:
+  using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
+    Location loc = matmulOp.getLoc();
+    Operation *op = matmulOp.getOperation();
+    Value A = matmulOp.getA(); // NxK
+    Value B = matmulOp.getB(); // KxM
+
+    Type aType = A.getType();
+    Type bType = B.getType();
+    Type outputType = matmulOp.getY().getType();
+    int64_t aRank = getRank(aType);
+    int64_t bRank = getRank(bType);
+    int64_t outputRank = getRank(outputType);
+    ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
+    ArrayRef<int64_t> outputShape = getShape(outputType);
+    Type elementType = getElementType(bType);
+    auto unrankedType = UnrankedTensorType::get(elementType);
+    // Expect 2D or 3D input.
+    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
+      return failure();
+    // Expect N or M exceeds NNPA limitation.
+    int64_t N = aShape[aRank - 2];
+    int64_t M = bShape[bRank - 1];
+    int chunkSize = 2048;
+    bool nExceeded = N > chunkSize;
+    bool mExceeded = M > chunkSize;
+    if (!(nExceeded || mExceeded))
+      return failure();
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    ValueRange subAs(A), subBs(B);
+    if (nExceeded) {
+      // Split A along the dimension N.
+      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
+    }
+    if (mExceeded) {
+      // Split B along the dimension M.
+      subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
+    }
+    // Emit sub matrix multiplication.
+    SmallVector<Value> resSubAs;
+    for (Value a : subAs) {
+      ArrayRef<int64_t> subAShape = getShape(a.getType());
+      // For each matrix along dimension N, do MatMul for sub matrices along
+      // dimension M.
+      SmallVector<Value> subMatrices;
+      for (Value b : subBs) {
+        // Create ZHighAsymcMatMul op
+        RankedTensorType tokenType =
+            RankedTensorType::get({1}, rewriter.getI64Type());
+        zhigh::ZHighAsyncMatMulOp asyncMutMulOp =
+            rewriter.create<zhigh::ZHighAsyncMatMulOp>(
+                loc, unrankedType, tokenType, a, b);
+        (void)asyncMatMulOp.inferShapes([](Region &region) {});
+        Value sm = asyncMatMulOp.getResults()[0];
+        subMatrices.emplace_back(sm);
+      }
+      Value res = subMatrices[0];
+      if (subMatrices.size() > 1) {
+        // Wait op
+        // onnx_mlir::zhigh::ZHighWait waitOp =
+        // rewriter.create<onnx_mlir::zhigh::ZHighWaitOp>(loc, unrankedType, a,
+        // b); Concat sub results along dimension M of B.
+        SmallVector<int64_t> concatShape(outputShape);
+        concatShape[outputRank - 2] = subAShape[aRank - 2];
+        Type concatTy = RankedTensorType::get(concatShape, elementType);
+        res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
+      }
+      resSubAs.emplace_back(res);
+    }
+    Value res = resSubAs[0];
+    if (resSubAs.size() > 1)
+      // Concat sub results along dimension N of A.
+      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
+    rewriter.replaceOp(op, res);
+    return success();
+  }
+};
+
 struct ONNXToZHighLoweringPass
     : public PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>> {
 
@@ -318,6 +403,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
   patterns.insert<ONNXSumOpPatternEnhancedRecursion>(&getContext());
+  patterns.insert<ONNXMatMulAsyncExecutionPattern>(&getContext());
 
   // This is to make sure we don't want to alloc any MemRef at this high-level
   // representation.
