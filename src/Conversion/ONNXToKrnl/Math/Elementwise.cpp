@@ -1356,9 +1356,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
                           << collapsedInnermostLoops << " inner dims\n");
 
   // generate SIMD code of VL elements per vector.
-  fprintf(stderr, "hi alex, create new alloc scope to distinguish from shapeHelper\n");
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
-  fprintf(stderr, "hi alex, create new alloc scope to distinguish from shapeHelper done\n");
   DimsExpr outputDims;
   getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
 
@@ -1390,10 +1388,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   LLVM_DEBUG(
       llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
   int64_t flattenedDim = rank - 1;
-  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 4> ubs;
+  SmallVector<IndexExpr, 4> flattenedOutputDims;
   Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, outputDims, ubs, collapsedInnermostLoops);
+      alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
   // Create loop iteration (flattened to output dim - inner dim + 1) with inner
   // one and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(rank);
@@ -1406,7 +1403,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // Create the vector type to operate over.
   VectorType vecElementType = VectorType::get({VL}, outputElementType);
   // Iterate only over the blocks.
-  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, ubs,
+  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
       [&](KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         SmallVector<IndexExpr, 4> outputAccessExprs;

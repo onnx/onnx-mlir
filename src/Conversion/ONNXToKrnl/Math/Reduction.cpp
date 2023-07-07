@@ -492,14 +492,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       ValueRange loop2Def = create.krnl.defineLoops(inRank);
       SmallVector<IndexExpr, 4> inputDims;
       create.krnlIE.getShapeAsSymbols(input, inputDims);
-      Value flattenedInputSize;
+      DimsExpr flatInputDims;
       Value flatInput = create.mem.reshapeToFlat(
-          input, inputDims, flattenedInputSize, noRedInnerSpan);
+          input, inputDims, flatInputDims, noRedInnerSpan);
 
       SmallVector<IndexExpr, 4> lbs2(flatRank, LiteralIndexExpr(0));
-      SmallVector<IndexExpr, 4> ubs2;
-      for (int64_t i = 0; i < flatRank - 1; ++i)
-        ubs2.emplace_back(inputDims[i]);
 
     } else {
       ValueRange loop2Def = create.krnl.defineLoops(inRank);

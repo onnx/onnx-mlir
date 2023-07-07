@@ -1030,7 +1030,6 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
   bool staticShape =
       getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
-  // hi alex MultiDialectBuilder<VectorBuilder> create(*this);
   // If the static size component is already a multiple of VL, no matter the
   // values of the dynamic shapes, the last value is part of a full SIMD. No
   // need for extra padding then.
@@ -1128,61 +1127,6 @@ memref::ReshapeOp MemRefBuilder::reshape(
   return b().create<memref::ReshapeOp>(
       loc(), destType, valToReshape, destShapeStoredInMem);
 }
-
-#if 1 // hi alex remove?
-// Flatten the innermost dimsToFlatten of the value valToReshape. Return in
-// flattenSize the cumulative size of the flattened dimensions. If flattenSize
-// is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
-// Output rank is Rank(input) - dimsToFlatten + 1.
-Value MemRefBuilder::reshapeToFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
-    int64_t dimsToFlatten) const {
-  // Parse input.
-  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
-  int64_t inputRank = inputType.getRank();
-  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
-  Type elementType = inputType.getElementType();
-  assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
-  // Set/check dimsToFlatten.
-  if (dimsToFlatten == -1)
-    dimsToFlatten = inputRank;
-  assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
-         "out of range dimsToFlatten");
-  // Create scope to avoid issues.
-  IndexExprScope innerScope(getBuilderPtr(), loc());
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of flattened elements in new scope.
-  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
-  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) {
-    numOfFlattenedElements = numOfFlattenedElements * SymbolIndexExpr(dims[d]);
-  }
-  // flattenedSize is an output value corresponding to the total number of
-  // elements that were flattened.
-  flattenedSize = numOfFlattenedElements.getValue();
-  if (dimsToFlatten == 1)
-    // Flattening of the last dim is really no flattening at all. Return
-    // original value before doing the actual reshaping, which is unnecessary.
-    // Waited until here as we need to return a valid flattenedSize,
-    return valToReshape;
-  // Shape for reshaping from N-D to M-D saved into memory.
-  int64_t outputRank = (inputRank - dimsToFlatten) + 1;
-  Type indexType = b().getIndexType();
-  Value outputShapeInMem =
-      alignedAlloc(MemRefType::get({outputRank}, indexType));
-  llvm::SmallVector<int64_t, 4> outputShape;
-  // Compute shape and store it in memory.
-  for (int64_t d = 0; d < outputRank; ++d) {
-    Value dd = create.math.constantIndex(d);
-    IndexExpr shapeIE =
-        (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
-    create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
-    outputShape.emplace_back(shapeIE.getShape());
-  }
-  // Reshape the input N-D MemRef into a M-D MemRef.
-  MemRefType outputType = MemRefType::get(outputShape, elementType);
-  return reshape(outputType, valToReshape, outputShapeInMem);
-}
-#endif
 
 // Flatten the innermost dimsToFlatten of the value valToReshape. Return in
 // flattenSize the cumulative size of the flattened dimensions. If flattenSize
