@@ -487,12 +487,25 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     // 2. Define an Krnl loop to do reduction.
     if (false && uVL > 0) {
+      // Create flattened rank with unrolled inner loop by VL
+      int64_t flatRank = inRank - noRedInnerSpan + 1;
+      ValueRange loop2Def = create.krnl.defineLoops(inRank);
+      SmallVector<IndexExpr, 4> inputDims;
+      create.krnlIE.getShapeAsSymbols(input, inputDims);
+      Value flattenedInputSize;
+      Value flatInput = create.mem.reshapeToFlat(
+          input, inputDims, flattenedInputSize, noRedInnerSpan);
+
+      SmallVector<IndexExpr, 4> lbs2(flatRank, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs2;
+      for (int64_t i = 0; i < flatRank - 1; ++i)
+        ubs2.emplace_back(inputDims[i]);
 
     } else {
       ValueRange loop2Def = create.krnl.defineLoops(inRank);
       SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs2;
-      create.krnlIE.getShapeAsDims(input, ubs2);
+      create.krnlIE.getShapeAsSymbols(input, ubs2); // hi alex, should be symbols
       create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
           [&](KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
