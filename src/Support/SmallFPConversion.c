@@ -68,25 +68,28 @@ uint16_t om_f32_to_f16(float f32) {
 
 // Implementation adapted from https://stackoverflow.com/a/3542975
 
+#define f32_sig_bits 23
+#define f32_exp_bits 8
+#define f32_bits (f32_sig_bits + f32_exp_bits + 1)
+#define f32_exp_max ((1u << f32_exp_bits) - 1)
+#define f32_exp_bias (f32_exp_max >> 1)
+#define f32_sign (1u << (f32_bits - 1))
+#define f32_inf (f32_exp_max << f32_sig_bits)
+
+#define f16_sig_bits 10
+#define f16_exp_bits 5
+#define f16_bits (f16_sig_bits + f16_exp_bits + 1)
+#define f16_exp_max ((1u << f16_exp_bits) - 1)
+#define f16_exp_bias (f16_exp_max >> 1)
+#define f16_sign (1u << (f16_bits - 1))
+#define f16_inf (f16_exp_max << f16_sig_bits)
+#define f16_qnan (f16_inf | (f16_inf >> 1))
+
+#define sig_diff (f32_sig_bits - f16_sig_bits)
+#define bit_diff (f32_bits - f16_bits)
+
 float om_f16_to_f32(uint16_t u16) {
-  static const int f32_sig_bits = 23;
-  static const int f32_exp_bits = 8;
-  static const int f32_bits = f32_sig_bits + f32_exp_bits + 1;
-  static const int f32_exp_max = (1 << f32_exp_bits) - 1;
-  static const int f32_exp_bias = f32_exp_max >> 1;
-  static const uint32_t f32_inf = ((uint32_t)f32_exp_max) << f32_sig_bits;
-
-  static const int f16_sig_bits = 10;
-  static const int f16_exp_bits = 5;
-  static const int f16_bits = f16_sig_bits + f16_exp_bits + 1;
-  static const int f16_exp_max = (1 << f16_exp_bits) - 1;
-  static const int f16_exp_bias = f16_exp_max >> 1;
-  static const int f16_sign = ((uint16_t)1) << (f16_bits - 1);
-  static const uint16_t f16_inf = ((uint16_t)f16_exp_max) << f16_sig_bits;
-
-  static const int sig_diff = f32_sig_bits - f16_sig_bits;
-  static const int bit_diff = f32_bits - f16_bits;
-  static const uint32_t bias_mul = ((uint32_t)(2 * f32_exp_bias - f16_exp_bias))
+  static const uint32_t bias_mul = (2 * f32_exp_bias - f16_exp_bias)
                                    << f32_sig_bits;
   uint32_t bits = u16;
   uint32_t sign = bits & f16_sign; // save sign
@@ -103,25 +106,7 @@ float om_f16_to_f32(uint16_t u16) {
 }
 
 uint16_t om_f32_to_f16(float f32) {
-  static const int f32_sig_bits = 23;
-  static const int f32_exp_bits = 8;
-  static const int f32_bits = f32_sig_bits + f32_exp_bits + 1;
-  static const int f32_exp_max = (1 << f32_exp_bits) - 1;
-  static const int f32_exp_bias = f32_exp_max >> 1;
-  static const int f32_sign = ((uint32_t)1) << (f32_bits - 1);
-  static const uint32_t f32_inf = ((uint32_t)f32_exp_max) << f32_sig_bits;
-
-  static const int f16_sig_bits = 10;
-  static const int f16_exp_bits = 5;
-  static const int f16_bits = f16_sig_bits + f16_exp_bits + 1;
-  static const int f16_exp_max = (1 << f16_exp_bits) - 1;
-  static const int f16_exp_bias = f16_exp_max >> 1;
-  static const uint16_t f16_inf = ((uint16_t)f16_exp_max) << f16_sig_bits;
-  static const uint16_t f16_qnan = f16_inf | (f16_inf >> 1);
-
-  static const int sig_diff = f32_sig_bits - f16_sig_bits;
-  static const int bit_diff = f32_bits - f16_bits;
-  static const uint32_t bias_mul = ((uint32_t)f16_exp_bias) << f32_sig_bits;
+  static const uint32_t bias_mul = f16_exp_bias << f32_sig_bits;
   BIT_CAST(float, bias_mul_f32, bias_mul);
   BIT_CAST(uint32_t, bits, f32);
   uint32_t sign = bits & f32_sign; // save sign
@@ -130,15 +115,11 @@ uint16_t om_f32_to_f16(float f32) {
 
   // round:
   {
-    static const uint32_t min_norm =
-        ((uint32_t)(f32_exp_bias - f16_exp_bias + 1)) << f32_sig_bits;
-    static const uint32_t sub_rnd =
-        f16_exp_bias < sig_diff
-            ? 1u << (f32_sig_bits - 1 + f16_exp_bias - sig_diff)
-            : ((uint32_t)(f16_exp_bias - sig_diff)) << f32_sig_bits;
+    static const uint32_t min_norm = (f32_exp_bias - f16_exp_bias + 1)
+                                     << f32_sig_bits;
+    static const uint32_t sub_rnd = (f16_exp_bias - sig_diff) << f32_sig_bits;
     BIT_CAST(float, sub_rnd_f32, sub_rnd);
-    static const uint32_t sub_mul = ((uint32_t)(f32_exp_bias + sig_diff))
-                                    << f32_sig_bits;
+    static const uint32_t sub_mul = (f32_exp_bias + sig_diff) << f32_sig_bits;
     BIT_CAST(float, sub_mul_f32, sub_mul);
     bool is_sub = bits < min_norm;
     BIT_CAST(float, norm_f32, bits);
