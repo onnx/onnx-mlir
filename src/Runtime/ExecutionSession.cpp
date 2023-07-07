@@ -122,6 +122,17 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   return outs;
 }
 
+static void printOMTensorList(const char *msg, OMTensorList *omts) {
+  for (int64_t i = 0; i < omTensorListGetSize(omts); i++) {
+    auto *omt = omTensorListGetOmtByIndex(omts, i);
+    long long numElems = omTensorGetNumElems(omt);
+    if (numElems < 10)
+      omTensorPrint(msg, omt);
+    else
+      printf("%s numElems=%lld\n", msg, numElems);
+  }
+}
+
 // Run using public interface. Explicit calls are needed to free tensor & tensor
 // lists.
 OMTensorList *ExecutionSession::run(OMTensorList *input) {
@@ -132,6 +143,7 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
     errno = EINVAL;
     throw std::runtime_error(errStr.str());
   }
+  printOMTensorList("ExecutionSession::run input:", input);
   OMTensorList *output = _entryPointFunc(input);
   if (!output) {
     std::stringstream errStr;
@@ -140,6 +152,7 @@ OMTensorList *ExecutionSession::run(OMTensorList *input) {
            << errMessageStr << "'" << std::endl;
     throw std::runtime_error(errStr.str());
   }
+  printOMTensorList("ExecutionSession::run output:", output);
   errno = 0; // No errors.
   return output;
 }

@@ -674,9 +674,11 @@ JNIEXPORT jobject JNICALL Java_com_ibm_onnxmlir_OMModel_main_1graph_1jni(
       omtl_java_to_native(env, cls, java_iomtl, japi), jni_iomtl != NULL,
       "jni_iomtl=%p", jni_iomtl);
 
+  fprintf(stderr, "before run_main_graph\n");
   /* Call model inference entry point */
   CHECK_CALL(OMTensorList *, jni_oomtl, run_main_graph(jni_iomtl),
       jni_oomtl != NULL, "jni_oomtl=%p", jni_oomtl);
+  fprintf(stderr, "after run_main_graph\n");
 
   /* Convert native data structure to Java object */
   CHECK_CALL(jobject, java_oomtl,

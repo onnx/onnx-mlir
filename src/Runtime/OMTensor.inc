@@ -44,11 +44,19 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
+#include "src/Support/SmallFPConversion.h"
+
 #if defined(__APPLE__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
 // generated llvm IR, but it somehow doesn't come out of the box on MacOS.
 int * __attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
+
+float __extendhfsf2(uint16_t a) { return om_f16_to_f32(a); }
+float __gnu_h2f_ieee(uint16_t a) { return om_f16_to_f32(a); }
+uint16_t __gnu_f2h_ieee(float a) { return om_f32_to_f16(a); }
+uint16_t __truncsfhf2(float a) { return om_f32_to_f16(a); }
+uint16_t __truncdfhf2(double a) { return om_f32_to_f16(a); }
 
 struct OMTensor {
 #ifdef __cplusplus
@@ -169,8 +177,7 @@ static inline void printElement(
     printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
     break;
   case ONNX_TYPE_FLOAT16:
-    // TODO: Print as floating point number instead of hex.
-    printf("0x%04hX", ((uint16_t *)dataPtr)[elemOffset]);
+    printf("%f", om_f16_to_f32(((uint16_t *)dataPtr)[elemOffset]));
     break;
   case ONNX_TYPE_FLOAT:
     printf("%f", ((float *)dataPtr)[elemOffset]);
@@ -523,6 +530,9 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   if (dataInfo) {
     printf("\tdata: (");
     switch (rank) {
+    case 0:
+      printElement(dataPtr, 0, dataType);
+      break;
     case 1: {
       int64_t indexes[1];
       LOOP_1(0, i, shape[0])
@@ -540,7 +550,7 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
       LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
     } break;
     default:
-      assert(false && "not implemented");
+      printf("...(rank=%d)", (int)rank); // assert(false && "not implemented");
     }
     printf(")\n");
   }

@@ -136,6 +136,11 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
           (int64_t)inputPyArray.ndim(), dtype, ownData);
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, safeStrides.data());
     }
+    long long inputNumElems = omTensorGetNumElems(inputOMTensor);
+    if (inputNumElems < 30)
+      omTensorPrint("PyExecutionSessionBase input:", inputOMTensor);
+    else
+      printf("PyExecutionSessionBase input: numElems=%lld", inputNumElems);
     omts.emplace_back(inputOMTensor);
   }
 
@@ -146,6 +151,11 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
+    long long outputNumElems = omTensorGetNumElems(omt);
+    if (outputNumElems < 30)
+      omTensorPrint("PyExecutionSessionBase output:", omt);
+    else
+      printf("PyExecutionSessionBase output: numElems=%lld", outputNumElems);
     auto shape = std::vector<int64_t>(
         omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
 
