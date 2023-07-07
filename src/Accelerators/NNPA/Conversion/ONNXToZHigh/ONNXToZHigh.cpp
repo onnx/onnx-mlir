@@ -302,28 +302,37 @@ public:
       ArrayRef<int64_t> subAShape = getShape(a.getType());
       // For each matrix along dimension N, do MatMul for sub matrices along
       // dimension M.
-      SmallVector<Value> subMatrices;
+      SmallVector<Value> subMatrices, tokens;
       for (Value b : subBs) {
         // Create ZHighAsymcMatMul op
         RankedTensorType tokenType =
             RankedTensorType::get({1}, rewriter.getI64Type());
-        zhigh::ZHighAsyncMatMulOp asyncMutMulOp =
+        zhigh::ZHighAsyncMatMulOp asyncMatMulOp =
             rewriter.create<zhigh::ZHighAsyncMatMulOp>(
                 loc, unrankedType, tokenType, a, b);
         (void)asyncMatMulOp.inferShapes([](Region &region) {});
         Value sm = asyncMatMulOp.getResults()[0];
         subMatrices.emplace_back(sm);
+        Value token = asyncMatMulOp.getResults()[1];
+        tokens.emplace_back(token);
       }
       Value res = subMatrices[0];
       if (subMatrices.size() > 1) {
         // Wait op
-        // onnx_mlir::zhigh::ZHighWait waitOp =
-        // rewriter.create<onnx_mlir::zhigh::ZHighWaitOp>(loc, unrankedType, a,
-        // b); Concat sub results along dimension M of B.
+        SmallVector<Value> waitOps;
+        for (auto it : llvm::zip(subMatrices, tokens)) {
+          Value subMatrix = std::get<0>(it);
+          Value token = std::get<1>(it);
+          onnx_mlir::zhigh::ZHighWaitOp waitOp =
+              rewriter.create<onnx_mlir::zhigh::ZHighWaitOp>(
+                  loc, subMatrix.getType(), subMatrix, token);
+          waitOps.emplace_back(waitOp.getResult());
+        }
+        // Concat sub results along dimension M of B.
         SmallVector<int64_t> concatShape(outputShape);
         concatShape[outputRank - 2] = subAShape[aRank - 2];
         Type concatTy = RankedTensorType::get(concatShape, elementType);
-        res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
+        res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
       }
       resSubAs.emplace_back(res);
     }
