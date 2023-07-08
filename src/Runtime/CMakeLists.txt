@@ -49,6 +49,7 @@ add_onnx_mlir_library(OMTensorUtils
 
   DEPENDS 
   AcceleratorsInc
+  OMSmallFPConversion
 
   EXCLUDE_FROM_OM_LIBS
 
