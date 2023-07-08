@@ -54,6 +54,7 @@ def get_args_from_env():
     TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
     TEST_INSTRUCTION_CHECK = os.getenv("TEST_INSTRUCTION_CHECK")
     TEST_CONSTANTS_TO_FILE = os.getenv("TEST_CONSTANTS_TO_FILE")
+    TEST_NOFLOAT16 = os.getenv("TEST_NOFLOAT16")
 
     # Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
     # real model files into home directory.
@@ -84,6 +85,12 @@ def get_args_from_env():
         action="store_true",
         default=(strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False),
         help="whether store constants to file or not, passed to the compiler",
+    )
+    parser.add_argument(
+        "--nofloat16",
+        action="store_true",
+        default=(strtobool(TEST_NOFLOAT16) if TEST_NOFLOAT16 else False),
+        help="whether to disable float16 backend tests",
     )
     parser.add_argument(
         "--constants_to_file_total_threshold",
@@ -262,6 +269,7 @@ STATIC_SHAPE = "static"
 DYNAMIC_SHAPE = "dynamic"
 CONSTANT_INPUT = "constant"
 CONSTANTS_TO_FILE = "constants_to_file"
+FLOAT16 = "float16"
 
 ### immutable variables ###
 
