@@ -554,7 +554,7 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
       LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
     } break;
     default:
-      printf("...(rank=%d)", (int)rank); // assert(false && "not implemented");
+      assert(false && "not implemented");
     }
     printf(")\n");
   }

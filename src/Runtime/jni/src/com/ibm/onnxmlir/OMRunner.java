@@ -242,11 +242,6 @@ public class OMRunner
 
     /* Read inputs from stdin, call mainGraph, write outputs to stdout */
     public static void main(String[] args) throws Exception {
-	OMTensorList input = readStdin();
-	System.err.println("read input");
-	OMTensorList output = OMModel.mainGraph(input);
-	System.err.println("computed output");
-	writeStdout(output);
-	System.err.println("wrote output");
+	writeStdout(OMModel.mainGraph(readStdin()));
     }
 }

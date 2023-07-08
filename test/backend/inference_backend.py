@@ -1232,12 +1232,9 @@ def JniExecutionSession(jar_name, inputs):
     ]
     print(cmd, file=sys.stderr)
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    procInput = procStdin.encode("utf-8")
-    print("input", procInput, file=sys.stderr)
-    procOutput = proc.communicate(input=procInput)[0].decode("utf-8").strip()
-    print("output", type(procOutput), repr(procOutput), file=sys.stderr)
-    print(cmd, file=sys.stderr)
-    procStdout = json.loads(procOutput)
+    procStdout = json.loads(
+        proc.communicate(input=procStdin.encode("utf-8"))[0].decode("utf-8").strip()
+    )
 
     dtype = {
         "b1": np.bool_,
@@ -1385,9 +1382,9 @@ class EndiannessAwareExecutionSession(object):
         # Run the model
         if args.emit == "lib":
             session = OMExecutionSession(self.exec_name)
-            print('input=', inputs, file=sys.stderr)
             outputs = session.run(inputs)
-            print('output=', outputs, file=sys.stderr)
+            # print('input='+str(inputs), file=sys.stderr)
+            # print('output='+str(outputs), file=sys.stderr)
         elif args.emit == "jni":
             outputs = JniExecutionSession(self.exec_name, inputs)
 
