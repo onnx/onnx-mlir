@@ -52,6 +52,10 @@
 int * __attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
 
+// On some platforms LLVM generates f16 conversion code that calls some
+// of these C runtime functions.
+// TODO: Figure out if we could get these with llvm/compiler-rt in a
+//       systematic way.
 float __extendhfsf2(uint16_t a) { return om_f16_to_f32(a); }
 float __gnu_h2f_ieee(uint16_t a) { return om_f16_to_f32(a); }
 uint16_t __gnu_f2h_ieee(float a) { return om_f32_to_f16(a); }
