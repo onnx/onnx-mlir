@@ -1180,6 +1180,10 @@ def get_test_models():
         test_to_enable = variables.test_for_constants_to_file
 
     if args.nofloat16:
+        if args.verbose:
+            print("float16 tests disabled:",
+                  [x for x in test_to_enable if FLOAT16 in variables.test_to_enable_dict[x]],
+                  file=sys.stderr)
         variables.test_with_no_float16 = [
             x for x in test_to_enable if FLOAT16 not in variables.test_to_enable_dict[x]]
         variables.node_test_with_no_float16 = [
