@@ -334,6 +334,11 @@ ElementsAttr ElementsAttrBuilder::castElementType(
       std::move(transformer));
 }
 
+ElementsAttr ElementsAttrBuilder::clip(
+    ElementsAttr elms, WideNum min, WideNum max) {
+  llvm_unreachable("TODO: implement");
+}
+
 namespace {
 bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
   for (size_t i = 0; i < perm.size(); ++i) {

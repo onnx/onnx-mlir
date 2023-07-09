@@ -834,15 +834,36 @@ public:
 Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
     Value constValue, IntegerAttr saturate, TypeAttr to) {
   ConstPropCounters::count("Cast", {constValue});
-  Type replacingElemType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
-  assert(replacingElemType == to.getValue() && "result element type mismatch");
+  Type toType = to.getValue();
+  assert(toType == getElementType(replacingValue.getType()) &&
+         "result element type mismatch");
 
   ElementsAttr constElements = getConstValueElements(constValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  // TODO: Use 'saturate' in castElemenType().
   ElementsAttr castElements =
-      elementsBuilder.castElementType(constElements, replacingElemType);
+      elementsBuilder.castElementType(constElements, toType);
+
+  // 'saturate' is ignored unless toType is a 8 bits float type.
+  if (saturate && isa<FloatType>(toType) &&
+      toType.getIntOrFloatBitWidth() == 8) {
+    float max =
+        dispatchByBType(btypeOfMlirType(toType), [&](auto btype) -> float {
+          using cpptype = CppType<btype>;
+          if constexpr (isSmallFPType<cpptype>) {
+            return cpptype::max;
+          } else {
+            llvm_unreachable("unsupported 8 bits floating point type");
+          }
+        });
+    // Clipping after cast relies on that cast is lazy and represents
+    // elements as doubles until they are materialized, so it's not too
+    // late to clip them here.
+    // TODO: Clean up the contracts to make it clearer what's going on.
+    WideNum lowest = WideNum::widen<BType::FLOAT>(-max);
+    WideNum highest = WideNum::widen<BType::FLOAT>(max);
+    castElements = elementsBuilder.clip(castElements, lowest, highest);
+  }
+
   return createReplacingConstantOp(rewriter, replacingValue, castElements);
 }
 
