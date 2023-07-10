@@ -336,12 +336,11 @@ ElementsAttr ElementsAttrBuilder::castElementType(
 
 ElementsAttr ElementsAttrBuilder::clip(
     ElementsAttr elms, WideNum min, WideNum max) {
-  Type elementType = elms.getElementType();
-  return wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+  return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
     using cpptype = decltype(wideZero);
-    constexpr BType TAG = toBType<cpptype>;
     return doTransform(
-        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
+        elms, elms.getElementType(), functionTransformer([&](WideNum n) {
+          constexpr BType TAG = toBType<cpptype>;
           cpptype x = n.narrow<TAG>();
           if (x < min.narrow<TAG>())
             return min;
