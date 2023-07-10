@@ -205,6 +205,11 @@ struct ElementWiseBinaryOpImpl<ONNXGreaterOrEqualOp, T, EnableNotBool<T>> {
   static bool eval(T lhs, T rhs) { return lhs >= rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXSumOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs + rhs; }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
@@ -243,7 +248,7 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
 template <typename ElementwiseBinaryOp>
 Value ConstPropVariadicElementwiseBinary(
     PatternRewriter &rewriter, Value replacingValue, ValueRange inputList) {
-  assert(inputList.size() > 0 && "The variadic input is emply");
+  assert(inputList.size() > 0 && "The variadic input is empty");
   ConstPropCounters::count("VariadicElementwiseBinary", inputList);
   auto replacingType = replacingValue.getType().cast<ShapedType>();
 

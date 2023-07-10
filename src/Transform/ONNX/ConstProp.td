@@ -120,6 +120,9 @@ def CreateMaxOfConst :
 def CreateMinOfConst :
    NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXMinOp>($_builder, $0, $1)">;
 
+def CreateSumOfConst :
+   NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXSumOp>($_builder, $0, $1)">;
+
 def CreateMulOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXMulOp>($_builder, $0, $1, $2)">;
 
@@ -345,6 +348,10 @@ def ReluofConst :  Pat<
     (CreateReluOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
  
+//===----------------------------------------------------------------------===//
+// Const propagation patterns for variadic elementwise operations.
+//===----------------------------------------------------------------------===//
+
 // Constant Propagation for Max
 def MaxConstProp : Pat<
     // From max(c1, c2).
@@ -360,6 +367,15 @@ def MinConstProp : Pat<
     (ONNXMinOp:$minOp $operandList),
     // To c = min(c1, c2)
     (CreateMinOfConst $minOp, $operandList),
+    // Constraints
+    [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
+
+// Constant Propagation for Sum
+def SumConstProp : Pat<
+    // From sum(c1, c2).
+    (ONNXSumOp:$sumOp $operandList),
+    // To c = sum(c1, c2)
+    (CreateSumOfConst $sumOp, $operandList),
     // Constraints
     [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
 
