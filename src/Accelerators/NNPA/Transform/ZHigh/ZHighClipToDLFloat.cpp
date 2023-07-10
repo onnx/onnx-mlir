@@ -94,6 +94,13 @@ public:
     Value output = stickOp.getOut();
     Type inputElementType = getElementType(input.getType());
 
+    // Only clip if the input is in float > 16 bit.
+    auto floatType = dyn_cast<FloatType>(inputElementType);
+    if (!floatType)
+      return failure();
+    if (floatType.getWidth() <= 16)
+      return failure();
+
     // Only clip if the consummer is Softmax with which we have seen NaNs.
     if (llvm::none_of(output.getUsers(),
             [&](Operation *op) { return isa<ZHighSoftmaxOp>(op); }))
