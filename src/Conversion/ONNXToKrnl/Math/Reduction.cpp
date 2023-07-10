@@ -570,6 +570,19 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           });
     }
   }
+
+  void SimdReduction(ConversionPatternRewriter &rewriter, MDBuilder &create,
+      Operation *op, Type elementType, Value input, Value alloc, int64_t inRank,
+      int64_t outRank, int64_t VL,
+      std::map<int64_t, int64_t> &outInDimMap) const {
+
+      assert(VL>1 && "expected simd here");
+            VectorType vecType = VectorType::get({VL}, elementType);
+      Value identity = getIdentityValue<ONNXReductionOp>(
+              rewriter, create.getLoc(), elementType);
+      Value identityVec = create.vec.splat(vecType, identity);
+
+      }
 };
 
 void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,

@@ -263,6 +263,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
   // clang-format on
 }
 

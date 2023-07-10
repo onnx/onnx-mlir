@@ -1506,7 +1506,9 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
 // *  VL is the vector length of the machine SIMD vectors.
 // *  N is a multiple of VL as we can perform consecutive VL x VL
 //    reductions.
-// Currently limited to add operations.
+// For example, when we passe N=VL input vectors, the output has one vector;
+// when we passe N=2VL input vectors, the output has 2 vectors...
+
 void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     F2 reductionFct, SmallVectorImpl<Value> &outputVecArray) {
   uint64_t N = inputVecArray.size();

@@ -168,4 +168,16 @@ public:
   int64_t getVectorBitWidth() override { return 258; }
 };
 
+// Support for Arm 64
+
+class NeonVectorMachineSupport : public VectorMachineSupport {
+public:
+  NeonVectorMachineSupport() = default;
+  virtual ~NeonVectorMachineSupport() = default;
+
+  int64_t VectorRegisterNum() override { return 32; }
+  int64_t getVectorBitWidth() override { return 128; }
+  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+};
+
 } // namespace onnx_mlir
