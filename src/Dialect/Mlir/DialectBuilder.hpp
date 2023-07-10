@@ -29,6 +29,8 @@
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
+#include <functional>
+
 namespace onnx_mlir {
 
 struct DialectBuilder {
@@ -376,6 +378,8 @@ struct VectorBuilder final : DialectBuilder {
   VectorBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~VectorBuilder() {}
 
+  using F2 = std::function<mlir::Value(mlir::Value const, mlir::Value const)>;
+
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
   int64_t getMachineVectorLength(const mlir::Type &elementType) const;
@@ -410,7 +414,7 @@ struct VectorBuilder final : DialectBuilder {
   mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
-      llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
+      F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
   // Compute a suitable SIMD Vector length (which may be a multiple of the
   // hardware vector length, up to maxSimdUnroll times). If the dims are too

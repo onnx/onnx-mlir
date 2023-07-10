@@ -444,7 +444,10 @@ private:
       vProdList.emplace_back(vTmpProd);
     }
     SmallVector<Value, 8> vReductionList;
-    create.vec.multiReduction(vProdList, vReductionList);
+    create.vec.multiReduction(
+        vProdList,
+        [create](Value a, Value b) -> Value { return create.math.add(a, b); },
+        vReductionList);
     // For each reduction in the list (vector of VL length), load C, add
     // reduction, and store C.
     uint64_t size = vReductionList.size();

@@ -1156,7 +1156,7 @@ Value MemRefBuilder::reshapeToFlat(Value valToReshape,
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
   // Compute total number of flattened elements.
   IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
-  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) 
+  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d)
     numOfFlattenedElements = numOfFlattenedElements * dims[d];
   // Shape for reshaping from N-D to M-D saved into memory.
   int64_t outputRank = (inputRank - dimsToFlatten) + 1;
@@ -1506,8 +1506,9 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
 // *  VL is the vector length of the machine SIMD vectors.
 // *  N is a multiple of VL as we can perform consecutive VL x VL
 //    reductions.
+// Currently limited to add operations.
 void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
-    SmallVectorImpl<Value> &outputVecArray) {
+    F2 reductionFct, SmallVectorImpl<Value> &outputVecArray) {
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
@@ -1530,17 +1531,21 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   // Reductions of full physical vectors.
   outputVecArray.clear();
   MultiDialectBuilder<MathBuilder> create(*this);
+  // Process each block of machineVL input vectors at a time.
   for (uint64_t r = 0; r < N; r += machineVL) {
     // Algorithm for the set of input arrays from tmp[r] to
     // tmp[r+machineVL-1].
-    uint64_t numPairs = machineVL / 2; // Pair number decrease by power of 2.
+    // With machineVL inputs, we have machineVL/2 initial pairs.
+    uint64_t numPairs = machineVL / 2;
+    // While we have pairs...
     for (uint64_t step = 1; step < machineVL; step = step * 2) {
+      // For each pair, reduce pair 2p and 2p+1 and save sum into p.
       for (uint64_t p = 0; p < numPairs; ++p) {
         Value highVal =
             mergeHigh(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
         Value lowVal =
             mergeLow(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
-        Value red = create.math.add(highVal, lowVal);
+        Value red = reductionFct(highVal, lowVal);
         tmpArray[r + p] = red;
       }
       numPairs = numPairs / 2; // Pair number decrease by power of 2.
