@@ -844,7 +844,7 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
       elementsBuilder.castElementType(constElements, toType);
 
   // 'saturate' is ignored unless toType is a 8 bits float type.
-  if (saturate && isa<FloatType>(toType) &&
+  if (saturate.getSInt() != 0 && isa<FloatType>(toType) &&
       toType.getIntOrFloatBitWidth() == 8) {
     float max =
         dispatchByBType(btypeOfMlirType(toType), [&](auto btype) -> float {
