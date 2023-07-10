@@ -449,6 +449,9 @@ void populateLoweringONNXLayoutTransformOpPattern(
 void populateLoweringONNXShapeTransformOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
+void populateLoweringONNXCustomOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
 bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
 
 /// This function returns the index in the list of alloc arguments of the
