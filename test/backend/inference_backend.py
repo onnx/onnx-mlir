@@ -1180,7 +1180,7 @@ def get_test_models():
         test_to_enable = variables.test_for_constants_to_file
 
     # Build check-onnx-backend with env TEST_NOFLOAT16=true to set args.nofloat16
-    # on platforms like s390z where LLVM float16 conversions don't yet work.
+    # on platforms like IBM Z where LLVM float16 conversions don't yet work.
     if args.nofloat16:
         if args.verbose:
             print("float16 tests disabled:",
