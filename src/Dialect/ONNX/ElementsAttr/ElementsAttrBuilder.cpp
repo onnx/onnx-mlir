@@ -336,7 +336,20 @@ ElementsAttr ElementsAttrBuilder::castElementType(
 
 ElementsAttr ElementsAttrBuilder::clip(
     ElementsAttr elms, WideNum min, WideNum max) {
-  llvm_unreachable("TODO: implement");
+  Type elementType = elms.getElementType();
+  return wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return doTransform(
+        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
+          cpptype x = n.narrow<TAG>();
+          if (x < min.narrow<TAG>())
+            return min;
+          if (x > max.narrow<TAG>())
+            return max;
+          return n;
+        }));
+  });
 }
 
 namespace {
