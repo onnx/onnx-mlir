@@ -859,6 +859,15 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
     // elements as doubles until they are materialized, so it's not too
     // late to clip them here.
     // TODO: Clean up the contracts to make it clearer what's going on.
+    //
+    // Note that we saturate by clipping which isn't 100% faithful to the
+    // onnx spec here: https://onnx.ai/onnx/technical/float8.html
+    // and here: https://github.com/onnx/onnx/blob/main/docs/Operators.md#Cast
+    // which, in the case of E4M3FNUZ and E5M2FNUZ, requires infinite values
+    // to saturate to NaN, whereas we saturate them to lowest/highest with
+    // clipping. Our clipping implementation matchint the reference
+    // implementation in onnx/reference/ops/op_cast.py.
+    // TODO: Change our implementation to match the spec, or change the spec.
     WideNum lowest = WideNum::widen<BType::FLOAT>(-max);
     WideNum highest = WideNum::widen<BType::FLOAT>(max);
     castElements = elementsBuilder.clip(castElements, lowest, highest);
