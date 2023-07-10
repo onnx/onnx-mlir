@@ -205,6 +205,11 @@ struct ElementWiseBinaryOpImpl<ONNXGreaterOrEqualOp, T, EnableNotBool<T>> {
   static bool eval(T lhs, T rhs) { return lhs >= rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXSumOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs + rhs; }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
@@ -236,6 +241,33 @@ Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
   ElementsAttr resultElements = elementsBuilder.combine(lhs, rhs, replacingType,
       elementwiseBinaryOpCombiner<ElementwiseBinaryOp>(operandsElemType));
   return createReplacingConstantOp(rewriter, replacingValue, resultElements);
+}
+
+/// Do element-wise binary calculation of a variadic value and create an
+/// ONNXConstantOp for the result.
+template <typename ElementwiseBinaryOp>
+Value ConstPropVariadicElementwiseBinary(
+    PatternRewriter &rewriter, Value replacingValue, ValueRange inputList) {
+  assert(inputList.size() > 0 && "The variadic input is empty");
+  ConstPropCounters::count("VariadicElementwiseBinary", inputList);
+  auto replacingType = replacingValue.getType().cast<ShapedType>();
+
+  Value lhsValue = inputList[0];
+  if (inputList.size() == 1)
+    return lhsValue;
+
+  ElementsAttr lhs = getConstValueElements(lhsValue);
+  Type operandsElemType = lhs.getElementType();
+  for (unsigned i = 1; i < inputList.size(); ++i) {
+    Value rhsValue = inputList[i];
+    ElementsAttr rhs = getConstValueElements(rhsValue);
+    assert(operandsElemType == rhs.getElementType() &&
+           "all element-wise binary ops have matching operands element types");
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    lhs = elementsBuilder.combine(lhs, rhs, replacingType,
+        elementwiseBinaryOpCombiner<ElementwiseBinaryOp>(operandsElemType));
+  }
+  return createReplacingConstantOp(rewriter, replacingValue, lhs);
 }
 
 //===----------------------------------------------------------------------===//
