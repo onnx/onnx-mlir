@@ -1632,3 +1632,139 @@ func.func @test_nonzero() -> tensor<2x?xi64> {
 // CHECK:           onnx.Return [[VAR]] : tensor<2x4xi64>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_max_1_input() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %2 = "onnx.Max"(%0) : (tensor<2x2xi32>) -> tensor<2x2xi32>
+  "onnx.Return"(%2) : (tensor<2x2xi32>) -> ()
+
+// CHECK-LABEL:  func.func @test_max_1_input
+// CHECK-SAME:   () -> tensor<2x2xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[1, 2], [3, 4]{{.}}> : tensor<2x2xi32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_max_2_inputs() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %2 = "onnx.Max"(%0, %1) : (tensor<2x2xi32>, tensor<i32>) -> tensor<2x2xi32>
+  "onnx.Return"(%2) : (tensor<2x2xi32>) -> ()
+
+// CHECK-LABEL:  func.func @test_max_2_inputs
+// CHECK-SAME:   () -> tensor<2x2xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[1, 2], [3, 4]{{.}}> : tensor<2x2xi32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_max_3_inputs() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %2 = "onnx.Constant"() {value = dense<[[5], [6]]> : tensor<2x1xi32>} : () -> tensor<2x1xi32>
+  %3 = "onnx.Max"(%0, %1, %2) : (tensor<2x2xi32>, tensor<i32>, tensor<2x1xi32>) -> tensor<2x2xi32>
+  "onnx.Return"(%3) : (tensor<2x2xi32>) -> ()
+
+// CHECK-LABEL:  func.func @test_max_3_inputs
+// CHECK-SAME:   () -> tensor<2x2xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[5, 5], [6, 6]{{.}}> : tensor<2x2xi32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xi32>
+// CHECK:         }
+
+}
+
+// -----
+
+func.func @test_min_1_input() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %2 = "onnx.Min"(%0) : (tensor<2x2xi32>) -> tensor<2x2xi32>
+  "onnx.Return"(%2) : (tensor<2x2xi32>) -> ()
+
+// CHECK-LABEL:  func.func @test_min_1_input
+// CHECK-SAME:   () -> tensor<2x2xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[1, 2], [3, 4]{{.}}> : tensor<2x2xi32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_min_2_inputs() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<2> : tensor<i32>} : () -> tensor<i32>
+  %2 = "onnx.Min"(%0, %1) : (tensor<2x2xi32>, tensor<i32>) -> tensor<2x2xi32>
+  "onnx.Return"(%2) : (tensor<2x2xi32>) -> ()
+
+// CHECK-LABEL:  func.func @test_min_2_inputs
+// CHECK-SAME:   () -> tensor<2x2xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[1, 2], [2, 2]{{.}}> : tensor<2x2xi32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_min_3_inputs() -> tensor<2x2xi32> {
+  %0 = "onnx.Constant"() {value = dense<[[1, 2], [3, 4]]> : tensor<2x2xi32>} : () -> tensor<2x2xi32>
+  %1 = "onnx.Constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %2 = "onnx.Constant"() {value = dense<[[1], [6]]> : tensor<2x1xi32>} : () -> tensor<2x1xi32>
+  %3 = "onnx.Min"(%0, %1, %2) : (tensor<2x2xi32>, tensor<i32>, tensor<2x1xi32>) -> tensor<2x2xi32>
+  "onnx.Return"(%3) : (tensor<2x2xi32>) -> ()
+
+// CHECK-LABEL:  func.func @test_min_3_inputs
+// CHECK-SAME:   () -> tensor<2x2xi32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<2x2xi32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xi32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_sum_1_input() -> tensor<2x2xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %2 = "onnx.Sum"(%0) : (tensor<2x2xf32>) -> tensor<2x2xf32>
+  "onnx.Return"(%2) : (tensor<2x2xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_sum_1_input
+// CHECK-SAME:   () -> tensor<2x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[1.000000e+00, 2.000000e+00], [3.000000e+00, 4.000000e+00]{{.}}> : tensor<2x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_sum_2_inputs() -> tensor<2x2xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %1 = "onnx.Constant"() {value = dense<2.0> : tensor<f32>} : () -> tensor<f32>
+  %2 = "onnx.Sum"(%0, %1) : (tensor<2x2xf32>, tensor<f32>) -> tensor<2x2xf32>
+  "onnx.Return"(%2) : (tensor<2x2xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_sum_2_inputs
+// CHECK-SAME:   () -> tensor<2x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[3.000000e+00, 4.000000e+00], [5.000000e+00, 6.000000e+00]{{.}}> : tensor<2x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_sum_3_inputs() -> tensor<2x2xf32> {
+  %0 = "onnx.Constant"() {value = dense<[[1.0, 2.0], [3.0, 4.0]]> : tensor<2x2xf32>} : () -> tensor<2x2xf32>
+  %1 = "onnx.Constant"() {value = dense<1.0> : tensor<f32>} : () -> tensor<f32>
+  %2 = "onnx.Constant"() {value = dense<[[1.0], [6.0]]> : tensor<2x1xf32>} : () -> tensor<2x1xf32>
+  %3 = "onnx.Sum"(%0, %1, %2) : (tensor<2x2xf32>, tensor<f32>, tensor<2x1xf32>) -> tensor<2x2xf32>
+  "onnx.Return"(%3) : (tensor<2x2xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_sum_3_inputs
+// CHECK-SAME:   () -> tensor<2x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[3.000000e+00, 4.000000e+00], [1.000000e+01, 1.100000e+01]{{.}}> : tensor<2x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xf32>
+// CHECK:         }
+}
