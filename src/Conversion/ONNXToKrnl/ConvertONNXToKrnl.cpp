@@ -189,13 +189,13 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
-  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTriluOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD);
   populateLoweringONNXMatMulIntegerOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
