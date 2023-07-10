@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -39,19 +40,35 @@ namespace {
 /// Check if a value is from or transitively from a zTensor without value
 /// modification.
 bool valueFromZTensor(Value tensor) {
-  if (!tensor.dyn_cast<BlockArgument>()) {
-    Operation *op = tensor.getDefiningOp();
-    // From a zTensor.
-    if (isa<ZHighUnstickOp>(op))
-      return true;
-    // Concat/Transpose does not change the input precision. So we can consider
-    // that the input is already in the dlfloat range if it comes from zTensor.
-    if (isa<ONNXConcatOp, ONNXTransposeOp>(op)) {
-      return llvm::all_of(
-          op->getOperands(), [&](Value v) { return valueFromZTensor(v); });
-    }
+  // Function arguments are always CPU tensors.
+  if (tensor.dyn_cast<BlockArgument>())
+    return false;
+
+  Operation *op = tensor.getDefiningOp();
+
+  // Base case: From a zTensor.
+  if (isa<ZHighUnstickOp>(op))
+    return true;
+
+  // Recursion case: There are operations (e.g. transpose, reshape, etc.) that
+  // do not change the input precision. So we can consider that the input is
+  // already in the dlfloat range if it comes from zTensor.
+
+  // For these operations, only the first input form the output. These ops may
+  // have additional inputs, but they are like attributes.
+  if (isa<ONNXExpandOp, ONNXFlattenOp, ONNXGatherOp, ONNXReshapeOp, ONNXSplitOp,
+          ONNXSqueezeOp, ONNXTransposeOp, ONNXUnsqueezeOp>(op))
+    return valueFromZTensor(op->getOperand(0));
+  // PadOp
+  if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
+    Value padVal = padOp.getConstantValue();
+    // Only support default constant value that is 0 at this moment.
+    if (isNoneValue(padVal))
+      return valueFromZTensor(op->getOperand(0));
   }
-  return false;
+  // For all remaining operations, do a conservative check.
+  return llvm::all_of(
+      op->getOperands(), [&](Value v) { return valueFromZTensor(v); });
 }
 
 class ZHighClipToDLFloatPattern : public OpRewritePattern<ZHighStickOp> {
