@@ -50,15 +50,24 @@ bool valueFromZTensor(Value tensor) {
   if (isa<ZHighUnstickOp>(op))
     return true;
 
+  // Base case: ReluOp clipped the lowerbound to zero.
+  if (isa<ONNXReluOp>(op))
+    return true;
+
+  // Base case: Operations having no input, e.g., Constant, ConstantOfShape.
+  if (op->getOperands().size() == 0)
+    return false;
+
   // Recursion case: There are operations (e.g. transpose, reshape, etc.) that
   // do not change the input precision. So we can consider that the input is
   // already in the dlfloat range if it comes from zTensor.
 
-  // For these operations, only the first input form the output. These ops may
+  // Operations whose only the first input form the output. These ops may
   // have additional inputs, but they are like attributes.
-  if (isa<ONNXExpandOp, ONNXFlattenOp, ONNXGatherOp, ONNXReshapeOp, ONNXSplitOp,
-          ONNXSqueezeOp, ONNXTransposeOp, ONNXUnsqueezeOp>(op))
+  if (isa<ONNXExpandOp, ONNXFlattenOp, ONNXGatherOp, ONNXReshapeOp, ONNXSliceOp,
+          ONNXSplitOp, ONNXSqueezeOp, ONNXTransposeOp, ONNXUnsqueezeOp>(op))
     return valueFromZTensor(op->getOperand(0));
+
   // PadOp
   if (auto padOp = dyn_cast<ONNXPadOp>(op)) {
     Value padVal = padOp.getConstantValue();
@@ -66,6 +75,7 @@ bool valueFromZTensor(Value tensor) {
     if (isNoneValue(padVal))
       return valueFromZTensor(op->getOperand(0));
   }
+
   // For all remaining operations, do a conservative check.
   return llvm::all_of(
       op->getOperands(), [&](Value v) { return valueFromZTensor(v); });
@@ -81,7 +91,13 @@ public:
     Location loc = genericOp->getLoc();
 
     Value input = stickOp.getIn();
+    Value output = stickOp.getOut();
     Type inputElementType = getElementType(input.getType());
+
+    // Only clip if the consummer is Softmax with which we have seen NaNs.
+    if (llvm::none_of(output.getUsers(),
+            [&](Operation *op) { return isa<ZHighSoftmaxOp>(op); }))
+      return failure();
 
     // Do not clip if the input tensor is already in the dlfloat range.
     // For example, the input was unstickified from a zTensor.
