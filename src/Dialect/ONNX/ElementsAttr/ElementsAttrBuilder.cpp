@@ -339,7 +339,7 @@ ElementsAttr ElementsAttrBuilder::clip(
   return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
     using cpptype = decltype(wideZero);
     return doTransform(
-        elms, elms.getElementType(), functionTransformer([&](WideNum n) {
+        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
           constexpr BType TAG = toBType<cpptype>;
           cpptype x = n.narrow<TAG>();
           if (x < min.narrow<TAG>())
