@@ -88,5 +88,8 @@ mlir::Operation *getFirstEntryOpInBlock(mlir::ModuleOp &module,
 /// Get rawData from a DenseElementsAttr or a DenseResourceElementsAttr.
 llvm::ArrayRef<char> getRawData(mlir::KrnlGlobalOp &op);
 
+/// Check if the module is for z/OS or not.
+bool isZOS(mlir::ModuleOp module);
+
 } // namespace krnl
 } // namespace onnx_mlir

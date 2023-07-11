@@ -18,6 +18,7 @@
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "onnx/onnx_pb.h"
 
@@ -295,6 +296,9 @@ Operation *getFirstEntryOpInBlock(
   for (auto entryGlobalOp : entryGlobalOps) {
     std::string entryName =
         entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+    // Entry point name is encoded in EBCDIC on z/OS.
+    entryName = isZOS(module) ? krnl::e2a_s(entryName) : entryName;
+
     // Erase the null symbol.
     entryName.erase(
         std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
@@ -325,6 +329,13 @@ ArrayRef<char> getRawData(KrnlGlobalOp &op) {
       })
       .Default([&](Attribute attr) { return; });
   return rawData;
+}
+
+bool isZOS(ModuleOp module) {
+  bool zOS = false;
+  if (Attribute mtripleAttr =
+          module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
+    zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
 }
 
 } // namespace krnl

@@ -583,9 +583,12 @@ void loadConstantsFromFile(ModuleOp &module,
     b.setInsertionPoint(firstEntryPointOp);
     funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
     // Call loadAllConstantsFuncName in each entry point function.
+    bool zOS = isZOS(module);
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
           entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+      // Entry point name is encoded in EBCDIC on z/OS.
+      entryName = (zOS) ? krnl::e2a_s(entryName) : entryName;
       // Erase the null symbol.
       entryName.erase(
           std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());

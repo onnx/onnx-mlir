@@ -20,7 +20,6 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/TargetParser/Triple.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -556,11 +555,7 @@ private:
       return globalOp;
     };
 
-    bool zOS = false;
-    if (Attribute mtripleAttr =
-            module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
-      zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
-
+    bool zOS = isZOS(module);
     // NULL terminated entry point name.
     std::string terminatedEntryPointName = currentEntryPointName + '\0';
     terminatedEntryPointName = (zOS) ? krnl::a2e_s(terminatedEntryPointName)
