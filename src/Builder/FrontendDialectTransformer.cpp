@@ -1271,10 +1271,13 @@ private:
   void ImportNode(const onnx::NodeProto &node) {
     std::string opName = node.op_type() + GetImportVersionOfNode(node);
     auto handler = import_handler_map_.find(opName);
-    if (handler != import_handler_map_.end()) {
-      // It's a regular op with a registered handler.
-      (this->*(handler->second))(node);
-      return;
+    std::vector<std::string> funcs = options_.functionsToDecompose;
+    if (!(std::find(funcs.begin(), funcs.end(), opName) != funcs.end())) {
+      if (handler != import_handler_map_.end()) {
+        // It's a regular op with a registered handler.
+        (this->*(handler->second))(node);
+        return;
+      }
     }
 
     const onnx::OpSchema *schema = GetOpSchema(node);
