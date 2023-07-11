@@ -1028,7 +1028,8 @@ User must be aware of precision loss and value change caused by range difference
 For example, a 64-bit float 3.1415926459 may be round to a 32-bit float 3.141592. Similarly, converting
 an integer 36 to Boolean may produce 1 because we truncate bits which can't be stored in the targeted type.
 
-In more detail, the conversion among numerical types should follow these rules:
+In more detail, the conversion among numerical types should follow these rules
+if the destination type is not a float 8 type.
 
 * Casting from floating point to:
   * floating point: +/- infinity if OOR (out of range).
@@ -1044,6 +1045,34 @@ In more detail, the conversion among numerical types should follow these rules:
   * fixed point: `{1, 0}`.
   * bool: no change.
 
+Float 8 type were introduced to speed up the training of
+deep models. By default the conversion of a float *x* obeys
+to the following rules. `[x]` means the value rounded to
+the target mantissa width.
+
+| x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+|------|----|----|----|----|
+| 0 | 0 | 0 | 0 | 0 |
+|-0 | -0 | 0 | -0 | 0 |
+| NaN | NaN | NaN | NaN | NaN |
+| +/- Inf | +/- FLT_MAX | NaN | FLT_MAX | NaN |
+| [x] > FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX |
+| [x] < -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+| else | RNE | RNE | RNE | RNE |
+
+The behavior changes if the parameter 'saturate' is set to False.
+The rules then become:
+
+| x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+|------|----|----|----|----|
+| 0 | 0 | 0 | 0 | 0 |
+|-0 | -0 | 0 | -0 | 0 |
+| NaN | NaN | NaN | NaN | NaN |
+| +/- Inf | NaN | NaN | +/- Inf | NaN |
+| [x] > FLT_MAX | NaN | NaN | Inf | NaN |
+| [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
+| else | RNE | RNE | RNE | RNE |
+
 Traits: AlwaysSpeculatableImplTrait
 
 Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ResultTypeInferenceOpInterface, ShapeHelperOpInterface, ShapeInferenceOpInterface
@@ -1054,19 +1083,20 @@ Effects: MemoryEffects::Effect{}
 
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
+| `saturate` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 | `to` | ::mlir::TypeAttr | any type attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.CategoryMapper` (::mlir::ONNXCategoryMapperOp)
 
@@ -1565,7 +1595,7 @@ Effects: MemoryEffects::Effect{}
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.ConvInteger` (::mlir::ONNXConvIntegerOp)
 
