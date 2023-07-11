@@ -814,7 +814,8 @@ def ONNXCastOp:ONNX_Op<"Cast",
   For example, a 64-bit float 3.1415926459 may be round to a 32-bit float 3.141592. Similarly, converting
   an integer 36 to Boolean may produce 1 because we truncate bits which can't be stored in the targeted type.
   
-  In more detail, the conversion among numerical types should follow these rules:
+  In more detail, the conversion among numerical types should follow these rules
+  if the destination type is not a float 8 type.
   
   * Casting from floating point to:
     * floating point: +/- infinity if OOR (out of range).
@@ -829,10 +830,39 @@ def ONNXCastOp:ONNX_Op<"Cast",
     * floating point: `{1.0, 0.0}`.
     * fixed point: `{1, 0}`.
     * bool: no change.
+  
+  Float 8 type were introduced to speed up the training of
+  deep models. By default the conversion of a float *x* obeys
+  to the following rules. `[x]` means the value rounded to
+  the target mantissa width.
+  
+  | x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+  |------|----|----|----|----|
+  | 0 | 0 | 0 | 0 | 0 |
+  |-0 | -0 | 0 | -0 | 0 |
+  | NaN | NaN | NaN | NaN | NaN |
+  | +/- Inf | +/- FLT_MAX | NaN | FLT_MAX | NaN |
+  | [x] > FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX |
+  | [x] < -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+  | else | RNE | RNE | RNE | RNE |
+  
+  The behavior changes if the parameter 'saturate' is set to False.
+  The rules then become:
+  
+  | x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+  |------|----|----|----|----|
+  | 0 | 0 | 0 | 0 | 0 |
+  |-0 | -0 | 0 | -0 | 0 |
+  | NaN | NaN | NaN | NaN | NaN |
+  | +/- Inf | NaN | NaN | +/- Inf | NaN |
+  | [x] > FLT_MAX | NaN | NaN | Inf | NaN |
+  | [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
+  | else | RNE | RNE | RNE | RNE |
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$input,
+    DefaultValuedAttr<SI64Attr, "1">:$saturate,
     TypeAttr:$to);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -853,9 +883,9 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
   }];
    let builders = [
-  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
+  OpBuilder<(ins "Value":$input, "IntegerAttr":$saturate, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build($_builder, $_state, resultType, input, to);
+   build($_builder, $_state, resultType, input, saturate, to);
   }] >
   ];
 }
