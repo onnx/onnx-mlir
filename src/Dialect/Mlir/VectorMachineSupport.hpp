@@ -71,18 +71,22 @@ protected:
   virtual ~VectorMachineSupport() = default;
 
 public:
-  // The class encapsulate a single static vector machine support
-  static VectorMachineSupport *getGlobalVectorMachineSupport() {
-    assert(globalVectorMachineSupport && "expected nonnull ptr");
-    return globalVectorMachineSupport;
-  }
+  // Must call setGlobalVectorMachineSupport once before using any calls below.
   static void setGlobalVectorMachineSupport(
       std::string arch, std::string cpu, std::string attr);
+  // Get the defined vector machine support.
+  static VectorMachineSupport *getGlobalVectorMachineSupport() {
+    assert(globalVectorMachineSupport && "vector machine support undefined");
+    return globalVectorMachineSupport;
+  }
   static void clearGlobalVectorMachineSupport();
+
+  // Determine if the machine has simd. Requires an initialized vector machine
+  // support.
   static bool hasSimd();
 
-  // Has simd (check num registers>0). Requires an initialized vector machine
-  // support.
+  // When querying Vector length for machines with unsupported simd, UNSUPPORTED
+  // (aka 0) is returned.
   static const int64_t UNSUPPORTED = 0;
 
   // Number of vector registers available.

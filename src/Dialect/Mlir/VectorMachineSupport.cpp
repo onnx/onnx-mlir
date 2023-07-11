@@ -42,7 +42,7 @@ namespace onnx_mlir {
       // Default seems to be SSE
       globalVectorMachineSupport = new SSE42x86VectorMachineSupport();
     // Arm uses arch
-  } else if (arch.compare("aarch64") == 0 || arch.compare("arm64")) {
+  } else if (arch.compare("aarch64") == 0 || arch.compare("arm64") == 0) {
     // Arm arch
     globalVectorMachineSupport = new NeonVectorMachineSupport();
   } else {
@@ -261,7 +261,6 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
   llvm_unreachable("should have handled all cases above");
 }
 
-
 // =============================================================================
 // Arm with Neon.
 // This may be an approximation of the actual capabilities.
@@ -286,7 +285,7 @@ int64_t NeonVectorMachineSupport::getVectorLength(
 
   // Support for float.
   if (isFloat) {
-    // Supports only 32 and 64 bit Floats; 
+    // Supports only 32 and 64 bit Floats;
     if (!(bitWidth == 32 || bitWidth == 64 ||
             (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
       return UNSUPPORTED;

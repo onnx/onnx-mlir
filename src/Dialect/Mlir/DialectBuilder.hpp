@@ -426,11 +426,12 @@ struct VectorBuilder final : DialectBuilder {
   // indicates how many inner dimensions of the memref are considered for
   // vectorization. If all of them are considered and padding is possible, then
   // we can always generate SIMD code with the maxSIMD unroll factor. Otherwise,
-  // we must ensure that the cumulative static size of the array is a multiple
-  // of the Vector Length associated with this type. If it is not, then no SIMD
-  // code gen is possible (return 0). If it is possible, return the largest SIMD
-  // unroll factor (starting at maxSimdUnroll) that divide the cumulative
-  // static size of the memref being collapsed for SIMD.
+  // we must ensure that the cumulative static size (dynamic sizes are ignored
+  // here ) of the array is a multiple of the Vector Length associated with this
+  // type. If it is not, then no SIMD code gen is possible (return 0). If it is
+  // possible, return the largest SIMD unroll factor (starting at maxSimdUnroll)
+  // that divide the cumulative static size of the memref being collapsed for
+  // SIMD.
   int64_t SuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
       int64_t collapsedInnermostLoops, int64_t maxSimdUnroll,

@@ -230,11 +230,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     //////////////////////////////////////////////////////////////////////
     // Handle type conversion.
     MemRefType memRefInType = input.getType().cast<MemRefType>();
-    Type convertedType =
+    Type convertedOutType =
         this->typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedOutType && convertedOutType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefOutType = convertedType.cast<MemRefType>();
+    MemRefType memRefOutType = convertedOutType.cast<MemRefType>();
     int64_t inRank = memRefInType.getRank();
     int64_t outRank = memRefOutType.getRank();
     auto memRefOutShape = memRefOutType.getShape();
@@ -295,19 +295,18 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     }
 
     //////////////////////////////////////////////////////////////////////
-    // Find out if we have constant axes: make unique and within [0, inRank).
+    // Characterize literal axes: make unique and within [0, inRank).
     std::vector<int64_t> uniqueLitAxes;
-    // The noRedInnerSpan = x indicates that the x innermost dimensions have
-    // no reduction in them.
-    int64_t noRedInnerSpan = inRank; // Until proven otherwise, no reduction
+    llvm::BitVector litAxes(inRank, false);
     if (hasNoAxes) {
       if (isNoop) {
         // No axes and is noop, should we not just return the input array?
       } else {
         // No axes, perform a full reduction.
-        for (int64_t i = 0; i < inRank; ++i)
+        for (int64_t i = 0; i < inRank; ++i) {
           uniqueLitAxes.push_back(i);
-        noRedInnerSpan = 0; // No dimensions without a reduction.
+          litAxes[i] = true;
+        }
       }
     } else if (!dynamicAxes) {
       // Check raw axes.
@@ -315,58 +314,76 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       for (int64_t i = 0; i < rawAxesRank; ++i) {
         if (!rawAxesIE[i].isLiteral()) {
           dynamicAxes = true; // Unknown axes is being reduced.
-          noRedInnerSpan = 0; // Possibly no dimension without a reduction.
           break;
         }
-        // Has a literal, normalize it; make sure it is unique
+        // Has a literal, normalize it.
         int64_t axis = rawAxesIE[i].getLiteral();
         if (axis < -inRank || axis > inRank - 1) {
           return emitError(loc, "axes value out of range");
         }
         int64_t newAxis = axis >= 0 ? axis : (inRank + axis);
-        if (std::find(uniqueLitAxes.begin(), uniqueLitAxes.end(), newAxis) ==
-            uniqueLitAxes.end()) {
-          // Has a new unique literal axes, save it.
+        // Record it if new.
+        if (!litAxes[newAxis]) {
           uniqueLitAxes.push_back(newAxis);
-          int64_t span = inRank - (newAxis + 1);
-          noRedInnerSpan = span < noRedInnerSpan ? span : noRedInnerSpan;
+          litAxes[newAxis] = true;
         }
       }
-    } else {
-      // Already dynamic.
-      noRedInnerSpan = 0; // Possibly no dimension without a reduction.
     }
 
     //////////////////////////////////////////////////////////////////////
     // Process axes.
     // With static axes, use this
     std::map<int64_t, int64_t> outInDimMap;
+    // Info for SIMD (requires static).
+    bool horizontalSimd = false;
+    bool parallelSimd = false;
+    int64_t innermostLoopCollapse = 0;
+    int64_t VL = 0;
+
     // With dynamic axes, use this
     Value maskVal = nullptr;
     Value falseVal = nullptr;
     Value trueVal = nullptr;
     Value valueOne = nullptr;
-    int64_t VL = 0; // No SIMD.
     if (!dynamicAxes) {
       // All axes are static, fill in the outInDimMap appropriately.
-      assert(noRedInnerSpan >= 0 && noRedInnerSpan <= inRank && "bad span");
       outInDimMap =
           getReductionMapping(memRefInType, uniqueLitAxes, isKeepdims);
       // Analyze possibility of using SIMD execution.
-      if (enableSIMD && noRedInnerSpan > 0) {
-        LLVM_DEBUG(llvm::dbgs() << "  SIMD: study if possible along the "
-                                << noRedInnerSpan << " innermost dim(s)\n";);
-
+      if (enableSIMD) {
+        LLVM_DEBUG(llvm::dbgs() << "  SIMD: study if possible\n");
+        // Look for horizontal reduction: innermost loops with reduction only.
+        int64_t hNum = 0;
+        for (int64_t i = inRank - 1; i >= 0; --i) {
+          if (!litAxes[i])
+            break; // Found first innermost dim without a reduction.
+          hNum++;
+        }
+        horizontalSimd = (hNum > 0);
+        // Look for parallel reduction: innermost loops without reduction.
+        int64_t pNum = 0;
+        for (int64_t i = inRank - 1; i >= 0; --i) {
+          if (litAxes[i])
+            break; // Found first innermost dim with a reduction.
+          pNum++;
+        }
+        parallelSimd = (pNum > 0);
+        assert((horizontalSimd != parallelSimd) &&
+               "expected one of horizontal or parallel SIMD");
+        innermostLoopCollapse = hNum + pNum; // Only one nonzero.
+        LLVM_DEBUG(llvm::dbgs() << "  SIMD: found " << innermostLoopCollapse
+                                << " inner loop for possible "
+                                << (horizontalSimd ? "horizontal" : "parallel")
+                                << " simd exploitation\n");
         VectorMachineSupport *vms =
             VectorMachineSupport::getGlobalVectorMachineSupport();
         DimsExpr inputDims;
         create.krnlIE.getShapeAsSymbols(input, inputDims);
         VL = create.vec.SuitableUnrollFactor(
-            vms, memRefInType, inputDims, noRedInnerSpan, 4, /*canPad*/ false);
+            vms, memRefInType, inputDims, innermostLoopCollapse, 2, /*canPad*/ false);
       }
     } else {
       // Has one or more dynamic axes.
-      assert(noRedInnerSpan == 0 && "expected no span");
       if (!isKeepdims)
         return emitError(
             loc, "dynamic axes without getKeepdims() not implemented");
@@ -588,7 +605,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     Value flatInput = create.mem.reshapeToFlat(
         input, inputDims, flattenInputDims, collapsedInnermostLoops);
-    int64_t
   }
 };
 
@@ -609,5 +625,4 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
       ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
       typeConverter, ctx, enableSIMD, /*computeMean=*/true);
 }
-
 } // namespace onnx_mlir

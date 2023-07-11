@@ -30,7 +30,7 @@
 
 #include <algorithm>
 
-#define DEBUG_TYPE "dialect_builder"
+#define DEBUG_TYPE "dialect-builder"
 
 using namespace mlir;
 
