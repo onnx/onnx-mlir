@@ -386,6 +386,9 @@ struct VectorBuilder final : DialectBuilder {
   int64_t getMachineVectorLength(const mlir::VectorType &vecType) const;
   int64_t getMachineVectorLength(mlir::Value vecValue) const;
 
+  // Vector load: memref is expected to be scalar, will load a vector's worth of
+  // values: e.g.
+  // %result = vector.load %base[%i, %j] : memref<100x100xf32>, vector<8xf32>.
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
       mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.
@@ -393,6 +396,7 @@ struct VectorBuilder final : DialectBuilder {
       mlir::ValueRange indices, mlir::ValueRange offsets) const;
   mlir::Value loadIE(mlir::VectorType vecType, mlir::Value memref,
       llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+  // Vector store: memref can be a scalar, will store the vector values.
   void store(
       mlir::Value val, mlir::Value memref, mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.

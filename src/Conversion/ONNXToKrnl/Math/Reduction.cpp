@@ -352,18 +352,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       assert(noRedInnerSpan >= 0 && noRedInnerSpan <= inRank && "bad span");
       outInDimMap =
           getReductionMapping(memRefInType, uniqueLitAxes, isKeepdims);
+      // Analyze possibility of using SIMD execution.
       if (enableSIMD && noRedInnerSpan > 0) {
         LLVM_DEBUG(llvm::dbgs() << "  SIMD: study if possible along the "
                                 << noRedInnerSpan << " innermost dim(s)\n";);
+
         VectorMachineSupport *vms =
             VectorMachineSupport::getGlobalVectorMachineSupport();
         DimsExpr inputDims;
         create.krnlIE.getShapeAsSymbols(input, inputDims);
         VL = create.vec.SuitableUnrollFactor(
             vms, memRefInType, inputDims, noRedInnerSpan, 4, /*canPad*/ false);
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  SIMD " << (VL ? "" : "im")
-                   << "possible with vector length " << VL << "\n");
       }
     } else {
       // Has one or more dynamic axes.
@@ -440,6 +439,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         }
       }
     }
+    LLVM_DEBUG(llvm::dbgs() << "  SIMD " << (VL ? "" : "im")
+                            << "possible with vector length " << VL << "\n");
 
     //////////////////////////////////////////////////////////////////////
     // Insert an allocation and deallocation for the result of this operation.
@@ -573,16 +574,22 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
   void SimdReduction(ConversionPatternRewriter &rewriter, MDBuilder &create,
       Operation *op, Type elementType, Value input, Value alloc, int64_t inRank,
-      int64_t outRank, int64_t VL,
+      int64_t outRank, int64_t VL, int64_t collapsedInnermostLoops,
       std::map<int64_t, int64_t> &outInDimMap) const {
 
-      assert(VL>1 && "expected simd here");
-            VectorType vecType = VectorType::get({VL}, elementType);
-      Value identity = getIdentityValue<ONNXReductionOp>(
-              rewriter, create.getLoc(), elementType);
-      Value identityVec = create.vec.splat(vecType, identity);
+    assert(VL > 1 && "expected simd here");
+    VectorType vecType = VectorType::get({VL}, elementType);
+    Value identity = getIdentityValue<ONNXReductionOp>(
+        rewriter, create.getLoc(), elementType);
+    Value identityVec = create.vec.splat(vecType, identity);
+    // Flatten the input
+    DimsExpr inputDims, flattenInputDims;
+    create.krnlIE.getShapeAsSymbols(input, inputDims);
 
-      }
+    Value flatInput = create.mem.reshapeToFlat(
+        input, inputDims, flattenInputDims, collapsedInnermostLoops);
+    int64_t
+  }
 };
 
 void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
