@@ -389,4 +389,55 @@ void IndexExprBuilder::getShapeAsDims(
     list.emplace_back(getShapeAsDim(tensorOrMemrefValue, i));
 }
 
+//===----------------------------------------------------------------------===//
+// Support tiles.
+
+// Determined if we have a full tile (affine expression compared to >=0)
+IndexExpr IndexExprBuilder::isTileFull(
+    IndexExpr i, IndexExpr block, IndexExpr UB) {
+  // Determine if the current tile is full. It is full if the beginning of
+  // the tile (i) is smaller or equal to UB - bloc, namely
+  //   PredicateIndexExpr nIsFullTile = (i<= (nUB - nBlock));
+  // However, if UB is divisible by Block, then its full no matter what.
+  if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
+    // Last tile is guaranteed to be full because UB is divisible by block.
+    return LiteralIndexExpr(1); // 1 >= 0 is true
+  }
+  // True if i <= (UB - block), namely UB - block - i >= 0.
+  // Affine expressions compared to >= 0
+  IndexExpr res = UB - block - i;
+  return res;
+}
+
+// If tile is not full, the remaining trip count within the tile.
+IndexExpr IndexExprBuilder::partialTileSize(
+    IndexExpr i, IndexExpr block, IndexExpr UB) {
+  // Trip count for partial tiles: leftover = UB - i in general. If UB is
+  // known at compile time, then without loss of generality, leftover = (UB-
+  // i) % Block, and since i is by definition a multiple of Block (i is
+  // index at beginning of tile), then leftover = UB % Block.
+  if (UB.isLiteral()) {
+    IndexExpr partialTrip = UB % block;
+    assert(partialTrip.isLiteral() && "op on 2 literals has to be literal");
+    return partialTrip;
+  }
+  // don't have to take the mod since we know we have a partial tile already.
+  return UB - i;
+}
+
+// Regardless of if the tile is full or partial, the trip count withint the
+// tile.
+IndexExpr IndexExprBuilder::tileSize(
+    IndexExpr i, IndexExpr block, IndexExpr UB) {
+  // Trip count in general: min(UB - i, Block).
+  // UB.debugPrint("trip UB");
+  // block.debugPrint("trip block");
+  // i.debugPrint("trip GI");
+  if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
+    // Last tile is guaranteed to be full, so trip is always full.
+    return block;
+  }
+  return IndexExpr::min(UB - i, block);
+}
+
 } // namespace onnx_mlir

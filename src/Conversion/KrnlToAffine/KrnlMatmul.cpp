@@ -38,37 +38,6 @@ static constexpr int BUFFER_ALIGN = 64;
 extern UnrollAndJamMap unrollAndJamMap;
 extern std::mutex unrollAndJamMutex;
 
-// Affine expressions compared to >= 0.
-static IndexExpr isFullTile(IndexExpr UB, IndexExpr block, IndexExpr GI) {
-  // Determine if the current tile is full. It is full if the beginning of
-  // the tile (nGI) is smaller or equal to UB - bloc, namely
-  //   PredicateIndexExpr nIsFullTile = (nGI <= (nUB - nBlock));
-  // However, if UB is divisible by Block, then its full no matter what.
-  if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
-    // Last tile is guaranteed to be full because UB is divisible by block.
-    return LiteralIndexExpr(1); // 1 >= 0 is true
-  }
-  // True if GI <= (UB - block), namely UB - block - GI >= 0.
-  // Affine expressions compared to >= 0
-  IndexExpr res = UB - block - GI;
-  return res;
-}
-
-static IndexExpr partialTrip(IndexExpr UB, IndexExpr block, IndexExpr GI) {
-  // Trip count for partial tiles: leftover = UB - GI in general. If UB is
-  // known at compile time, then without loss of generality, leftover = (UB-
-  // GI) % Block, and since GI is by definition a multiple of Block (GI is
-  // index at beginning of tile), then leftover = UB % Block.
-  //   IndexExpr nPartialTrip = nUB.isLiteral() ? nUB % nBlock : nUB - nGI;
-  if (UB.isLiteral()) {
-    IndexExpr partialTrip = UB % block;
-    assert(partialTrip.isLiteral() && "op on 2 literals has to be literal");
-    return partialTrip;
-  }
-  // don't have to take the mod since we know we have a partial tile already.
-  return UB - GI;
-}
-
 // KrnlMatmul will be lowered to vector and affine expressions
 class KrnlMatmulLowering : public ConversionPattern {
 public:
@@ -231,26 +200,26 @@ public:
     // outer dimensions of the original computations, as by definition tiling
     // within the buffer always results in full tiles. In other words, partial
     // tiles only occurs because of "running out" of the original data.
-    IndexExpr iIsFullTile =
-        isFullTile(iGlobalUB, iComputeTileSize, iGlobalIndexComputeStart);
-    IndexExpr jIsFullTile =
-        isFullTile(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
-    IndexExpr kIsFullTile =
-        isFullTile(kGlobalUB, kComputeTileSize, kGlobalIndexComputeStart);
+    IndexExpr iIsTileFull = create.krnlIE.isTileFull(
+        iGlobalIndexComputeStart, iComputeTileSize, iGlobalUB);
+    IndexExpr jIsTileFull = create.krnlIE.isTileFull(
+        jGlobalIndexComputeStart, jComputeTileSize, jGlobalUB);
+    IndexExpr kIsTileFull = create.krnlIE.isTileFull(
+        kGlobalIndexComputeStart, kComputeTileSize, kGlobalUB);
     SmallVector<IndexExpr, 3> allFullTiles = {
-        iIsFullTile, jIsFullTile, kIsFullTile};
+        iIsTileFull, jIsTileFull, kIsTileFull};
 
-    SmallVector<IndexExpr, 1> jFullTiles = {jIsFullTile};
+    SmallVector<IndexExpr, 1> jFullTiles = {jIsTileFull};
     // And if the tiles are not full, determine how many elements to compute.
     // With over-compute, this could be relaxed.
-    IndexExpr iTrip = trip(iGlobalUB, iComputeTileSize,
-        iGlobalIndexComputeStart); // May or may not be full.
-    IndexExpr jTrip = trip(jGlobalUB, jComputeTileSize,
-        jGlobalIndexComputeStart); // May or may not be full.
-    IndexExpr kTrip = trip(kGlobalUB, kComputeTileSize,
-        kGlobalIndexComputeStart); // May or may not be full.
-    IndexExpr jPartialTrip =
-        partialTrip(jGlobalUB, jComputeTileSize, jGlobalIndexComputeStart);
+    IndexExpr iTrip = create.krnlIE.tileSize(iGlobalIndexComputeStart,
+        iComputeTileSize, iGlobalUB); // May or may not be full.
+    IndexExpr jTrip = create.krnlIE.tileSize(jGlobalIndexComputeStart,
+        jComputeTileSize, jGlobalUB); // May or may not be full.
+    IndexExpr kTrip = create.krnlIE.tileSize(kGlobalIndexComputeStart,
+        kComputeTileSize, kGlobalUB); // May or may not be full.
+    IndexExpr jPartialTrip = create.krnlIE.partialTileSize(
+        jGlobalIndexComputeStart, jComputeTileSize, jGlobalUB);
 
     if (simdize) {
       // SIMD code generator.

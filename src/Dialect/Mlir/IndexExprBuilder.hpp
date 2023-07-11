@@ -185,6 +185,19 @@ struct IndexExprBuilder : DialectBuilder {
   void getShapeAsSymbols(mlir::Value tensorOrMemrefValue, IndexExprList &list);
   void getShapeAsDims(mlir::Value tensorOrMemrefValue, IndexExprList &list);
 
+  //===--------------------------------------------------------------------===//
+  // Index expression helpers for tiled data. In the expressions below:
+  //   i:     the index at the start of the tile
+  //   block: the size of the tile block
+  //   UB:    the upper bound of the index space.
+
+  // Determined if we have a full tile (affine expression compared to >=0)
+  IndexExpr isTileFull(IndexExpr i, IndexExpr block, IndexExpr UB);
+  // Only if tile is not full, the remaining trip count within the tile.
+  IndexExpr partialTileSize(IndexExpr i, IndexExpr block, IndexExpr UB);
+  // The trip count within the tile, regardless of if full or partial
+  IndexExpr tileSize(IndexExpr i, IndexExpr block, IndexExpr UB);
+
 protected:
   //===--------------------------------------------------------------------===//
   // Subclasses must define these pure virtual functions.
