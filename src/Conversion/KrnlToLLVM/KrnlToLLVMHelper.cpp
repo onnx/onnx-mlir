@@ -336,6 +336,7 @@ bool isZOS(ModuleOp module) {
   if (Attribute mtripleAttr =
           module->getAttrOfType<::mlir::Attribute>("llvm.target_triple"))
     zOS = llvm::Triple(mtripleAttr.cast<StringAttr>().getValue()).isOSzOS();
+  return zOS;
 }
 
 } // namespace krnl
