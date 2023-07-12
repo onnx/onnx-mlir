@@ -3,6 +3,33 @@
 from onnx import helper
 import unittest
 
+class TestF8E4M3FN(unittest.TestCase):
+
+    @staticmethod
+    def toF8(f, saturate=True):
+        return helper.float32_to_float8e4m3(f, saturate=saturate)
+
+    def assertF8Equal(self, f, i, j=None):
+        if j is None:
+            j = i
+        self.assertEqual(self.toF8(f), i)
+        self.assertEqual(self.toF8(f, saturate=False), j)
+
+    def test_zero(self):
+        self.assertF8Equal(0.0, 0)
+        self.assertF8Equal(-0.0, 0x80)
+
+    def test_max(self):
+        self.assertF8Equal(57344.0, 0x7E, 0x7F)
+        self.assertF8Equal(-57344.0, 0xFE, 0xFF)
+
+    def test_inf(self):
+        self.assertF8Equal(float('inf'), 0x7E, 0x7F)
+        self.assertF8Equal(-float('inf'), 0xFE, 0XFF)
+
+    def test_nan(self):
+        self.assertF8Equal(float('nan'), 0x7F)
+
 class TestF8E5M2(unittest.TestCase):
 
     @staticmethod
