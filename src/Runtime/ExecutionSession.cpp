@@ -36,10 +36,13 @@ const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
 
+  fprintf(stderr, "hi alex from execution session 1\n");
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
+  fprintf(stderr, "hi alex from execution session 2\n");
   if (!_sharedLibraryHandle.isValid())
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
+  fprintf(stderr, "hi alex from execution session 3\n");
 
   if (defaultEntryPoint)
     setEntryPoint("run_main_graph");

@@ -19,6 +19,8 @@ namespace onnx_mlir {
 
 PyExecutionSession::PyExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint)
-    : onnx_mlir::PyExecutionSessionBase(sharedLibPath, defaultEntryPoint) {}
+    : onnx_mlir::PyExecutionSessionBase(sharedLibPath, defaultEntryPoint) {
+        fprintf(stderr, "hi alex from py execution session\n");
+    }
 
 } // namespace onnx_mlir

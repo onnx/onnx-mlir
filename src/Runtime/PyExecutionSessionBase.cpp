@@ -25,12 +25,15 @@ namespace onnx_mlir {
 
 PyExecutionSessionBase::PyExecutionSessionBase(
     std::string sharedLibPath, bool defaultEntryPoint)
-    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
+    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {
+  fprintf(stderr, "hi alex from py execution session base\n");
+}
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray) {
   assert(_entryPointFunc && "Entry point not loaded.");
 
+  // 1. Process inputs.
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
     assert(inputPyArray.flags() && py::array::c_style &&
@@ -107,10 +110,13 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     omts.emplace_back(inputOMTensor);
   }
 
+  // 2. Call entry point.
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());
+
+  // 3. Process outputs.
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);

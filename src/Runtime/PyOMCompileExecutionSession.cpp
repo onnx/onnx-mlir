@@ -27,13 +27,16 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     std::string inputFileName, std::string sharedLibPath, std::string flags,
     bool defaultEntryPoint)
     : onnx_mlir::PyExecutionSessionBase(sharedLibPath, defaultEntryPoint) {
+  fprintf(stderr, "hi alex 0\n");
   this->inputFileName = inputFileName;
+  fprintf(stderr, "hi alex 1\n");
   if (this->inputFileName.empty()) {
     errorMessage = "No OMCompileExecuteSession was created with the input file "
                    "name specified.";
   }
   const char *outputName, *errorMsg;
   int64_t rc;
+  fprintf(stderr, "hi alex 2\n");
   rc = omCompileFromFile(
       inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
   if (rc == 0) {
@@ -47,6 +50,7 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     // Empty output file name.
     this->sharedLibPath = std::string();
   }
+  fprintf(stderr, "hi alex 3\n");
 }
 
 int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
