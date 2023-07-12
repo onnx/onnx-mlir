@@ -35,7 +35,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **BitwiseOr** |18 | | |
 | **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
-| **Cast** |13 |Cast only between float and double types. Some platforms support float16. | |
+| **Cast** |19 |Cast only between float and double types. Some platforms support float16. | |
 | **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
 | **CategoryMapper** | |unsupported | |
