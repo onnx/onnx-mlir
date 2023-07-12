@@ -123,6 +123,78 @@ int isLessSlice(
   return 0;
 }
 
+//
+// If the axis attr is given in onnx.Unique, it should compare slices 
+// according to the specified axis. "getSliceData" is called to get a slice
+// according to the given axis if the axis attr is given. This function gets
+// slice data according to the specified slice axis(sliceAxis), and fills them
+// to the specified pointer. Slice data's shape is the following.
+// - Input data: [x, y, z] (asumming sliceAxis= 1, the "y" axis is the slice.)
+// - Sliced data: [x, z, count] (s.t. count is numer of unique slice shape)
+//
+void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
+    int64_t idxInSliceAxis, void *sliceData) {
+  const int64_t inputRank = omTensorGetRank(inputTensor);
+  const int64_t *inputShape = omTensorGetShape(inputTensor);
+  const int64_t *inputStrides = omTensorGetStrides(inputTensor);
+  const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
+  void *inputPtr = omTensorGetDataPtr(inputTensor);
+  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+  assert(inputRank <= 6 && "rank should be 6 or less");
+  assert(sliceAxis < inputRank && "rank should be less thatn rank");
+
+  // To support input Tensor with various ranks in a uniform way.
+  // If the input rank < 6, upgrade the rank to 6 virtually without changing
+  // the physical memory layout by inserting length=1 ranks at lower ranks.
+  uint64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
+  uint64_t strides[6] = {0, 0, 0, 0, 0, 0};
+  int64_t sliceStride = 1;
+  for (int64_t i = 0; i < inputRank; i++) {
+    shapeInUniqueAxis[i] = (i == sliceAxis) ? 1 : inputShape[i];
+    sliceStride *= shapeInUniqueAxis[i];
+    strides[i] = inputStrides[i];
+  }
+  // Gather all data in the slice
+  uint64_t dim[6];
+  int64_t outputIdx = 0;
+
+  for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
+    for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
+      for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
+        for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
+          for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
+            for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
+              uint64_t tdim[6] = {
+                  dim[0], dim[1], dim[2], dim[3], dim[4], dim[5]};
+              tdim[sliceAxis] = idxInSliceAxis;
+              // calculate the input and output pointers
+              uint64_t off = tdim[0] * strides[0] + tdim[1] * strides[1] +
+                             tdim[2] * strides[2] + tdim[3] * strides[3] +
+                             tdim[4] * strides[4] + tdim[5] * strides[5];
+              void *currInputPtr = ((char *)inputPtr) + off * dataSize;
+              void *outputPtr = ((char *)sliceData) + outputIdx * dataSize;
+              memcpy(outputPtr, currInputPtr, dataSize);
+              outputIdx++;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+//
+// "sliceTableRegister" registers (1) a given slice returned by getSliceData if// the axis attr is given or (2) a single element if the axis atter is not
+// given.  It compares the current slice with all of the registered slices to
+// investigate an identical slice is registered or not, and returns a bool if
+// it is found or not.  If the sorted attr is given, this function keeps
+// slices in sorted order. Otherwise it keeps them in the coming order. 
+// This function also generates outputs of onnx.Unique, such as indices,
+// inverse_indeces and counts. However it does not generate Y if the axis
+// attr is specified, since this function simply keeps registered slices in
+// the table. The output Y is generated from input Tensor, indices and axis
+// in another function.
+//
 int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
   uint64_t dataSize = OM_DATA_TYPE_SIZE[table->dataType];
   char *sliceDataPtr = (char *)table->sliceDataPtr;
@@ -177,64 +249,10 @@ int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
 }
 
 //
-// Get slice data according to the specified slice axis(sliceAxis), and fill
-// them to the specified pointer. Slice data's shape is the following. Input
-// data: [x, y, z] (asumming sliceAxis= 1, the "y" axis is the slice.) Sliced
-// data: [x, z, count] (s.t. count is numer of unique slice shape)
-//
-void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
-    int64_t idxInSliceAxis, void *sliceData) {
-  const int64_t inputRank = omTensorGetRank(inputTensor);
-  const int64_t *inputShape = omTensorGetShape(inputTensor);
-  const int64_t *inputStrides = omTensorGetStrides(inputTensor);
-  const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
-  void *inputPtr = omTensorGetDataPtr(inputTensor);
-  uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
-  assert(inputRank <= 6 && "rank should be 6 or less");
-  assert(sliceAxis < inputRank && "rank should be less thatn rank");
-
-  // To support input Tensor with various ranks in a uniform way.
-  // If the input rank < 6, upgrade the rank to 6 virtually without changing
-  // the physical memory layout by inserting length=1 ranks at lower ranks.
-  uint64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
-  uint64_t strides[6] = {0, 0, 0, 0, 0, 0};
-  int64_t sliceStride = 1;
-  for (int64_t i = 0; i < inputRank; i++) {
-    shapeInUniqueAxis[i] = (i == sliceAxis) ? 1 : inputShape[i];
-    sliceStride *= shapeInUniqueAxis[i];
-    strides[i] = inputStrides[i];
-  }
-  // Gather all data in the slice
-  uint64_t dim[6];
-  int64_t outputIdx = 0;
-
-  for (dim[5] = 0; dim[5] < shapeInUniqueAxis[5]; dim[5]++) {
-    for (dim[4] = 0; dim[4] < shapeInUniqueAxis[4]; dim[4]++) {
-      for (dim[3] = 0; dim[3] < shapeInUniqueAxis[3]; dim[3]++) {
-        for (dim[2] = 0; dim[2] < shapeInUniqueAxis[2]; dim[2]++) {
-          for (dim[1] = 0; dim[1] < shapeInUniqueAxis[1]; dim[1]++) {
-            for (dim[0] = 0; dim[0] < shapeInUniqueAxis[0]; dim[0]++) {
-              uint64_t tdim[6] = {
-                  dim[0], dim[1], dim[2], dim[3], dim[4], dim[5]};
-              tdim[sliceAxis] = idxInSliceAxis;
-              // calculate the input and output pointers
-              uint64_t off = tdim[0] * strides[0] + tdim[1] * strides[1] +
-                             tdim[2] * strides[2] + tdim[3] * strides[3] +
-                             tdim[4] * strides[4] + tdim[5] * strides[5];
-              void *currInputPtr = ((char *)inputPtr) + off * dataSize;
-              void *outputPtr = ((char *)sliceData) + outputIdx * dataSize;
-              memcpy(outputPtr, currInputPtr, dataSize);
-              outputIdx++;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-//
-// Produce OMTensor Y from input tensor, indices and sliceAxis
+// "produceY" produces output Y from input tensor, indices and sliceAxis
+// if the axis attr is given and output Y is required.
+// If the axis attr is not given, sliceTableRegister generates the output Y
+//  directly, since the output is a simple array of unique elements.
 //
 void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
     OMTensor *Y) {
@@ -303,6 +321,18 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
   }
 }
 
+//
+// "omTensorUnique" handles two cases, where are (1) case with no axis given
+// (2) case with axis given.
+// -  case with no axis given
+// In this case, omTensorUnique gets one element in the input Tensor in turn,
+// calls sliceTableRegister using an element as a slice. The registered
+// elements are used as the output Y.
+// - case with axis given
+// In this case, omTensorUnique gets a slice with getSliceData, registers it
+// with getSliceData, The outputs indices, inverse_indices and counts are set
+// by getSliceData. If the output Y is necessary, it is created by produceY.
+//
 void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     OMTensor *inverse_indices, OMTensor *counts, const OMTensor *inputTensor,
     int64_t sliceAxis, uint64_t sorted) {
