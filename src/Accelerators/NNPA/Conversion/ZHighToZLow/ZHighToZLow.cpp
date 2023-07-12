@@ -1057,6 +1057,55 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
+// Lower ZHigh AsyncMatMul
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
+  ZHighToZLowAsyncMatMulOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighAsyncMatMulOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ZHighAsyncMatMulOpAdaptor operandAdaptor(operands);
+
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
+
+    // Compute shape.
+    ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    Type convertedTypeY = typeConverter->convertType(op->getResultTypes()[0]);
+    assert(convertedTypeY && convertedTypeY.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefTypeY = convertedTypeY.cast<MemRefType>();
+    Value Y =
+        create.mem.alignedAlloc(memRefTypeY, shapeHelper.getOutputDims(0));
+
+    Type convertedTypeTick =
+        typeConverter->convertType(op->getResultTypes()[1]);
+    assert(convertedTypeTick && convertedTypeTick.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefTypeTick = convertedTypeTick.cast<MemRefType>();
+    Value Tick =
+        create.mem.alignedAlloc(memRefTypeTick, shapeHelper.getOutputDims(1));
+
+    Value A = operandAdaptor.getA();
+    Value B = operandAdaptor.getB();
+    SmallVector<Value, 2> results = {Y, Tick};
+    SmallVector<Value, 3> parameters = {Y, Tick, A, B}; // Add C later
+    rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
+    // rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", results, op,
+    // operands, false);
+    rewriter.replaceOp(op, results);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Lower ZHigh LSTM to ZLow LSTM
 //===----------------------------------------------------------------------===//
 struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
@@ -1335,6 +1384,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowSoftmaxOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowAsyncMatMulOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBatchNormOpLowering>(typeConverter, ctx);
