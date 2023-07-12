@@ -50,6 +50,8 @@ class TestF8E4M3FNUZ(unittest.TestCase):
         self.assertF8Equal(240.0, 0x7F)
         self.assertF8Equal(-240.0, 0xFF)
 
+    # Shows difference from spec which says
+    # inf should become NaN with saturate=True
     def test_inf(self):
         self.assertF8Equal(float('inf'), 0x7F, 0x80)
         self.assertF8Equal(-float('inf'), 0XFF, 0x80)
@@ -104,6 +106,8 @@ class TestF8E5M2FNUZ(unittest.TestCase):
         self.assertF8Equal(57344.0, 0x7F)
         self.assertF8Equal(-57344.0, 0xFF)
 
+    # Shows difference from spec which says
+    # inf should become NaN with saturate=True
     def test_inf(self):
         self.assertF8Equal(float('inf'), 0x7F, 0x80)
         self.assertF8Equal(-float('inf'), 0xFF, 0x80)
