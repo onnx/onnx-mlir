@@ -46,7 +46,9 @@ Value OnnxBuilder::cast(Value input, TypeAttr to) const {
         input.getType().cast<ShapedType>().getShape(), to.getValue());
   else
     resultType = UnrankedTensorType::get(to.getValue());
-  return createTypedOpAndInferShapes<ONNXCastOp>(resultType, input, to);
+  IntegerAttr saturate = nullptr;
+  return createTypedOpAndInferShapes<ONNXCastOp>(
+      resultType, input, saturate, to);
 }
 
 Value OnnxBuilder::cast(Value input, Type to) const {

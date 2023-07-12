@@ -76,7 +76,7 @@ func.func @test_pass_dims_through_cast(%arg0: tensor<?x256xi64>) -> (tensor<2xf3
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x256xi64>) -> tensor<2xf32> {
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2.560000e+02> : tensor<1xf32>
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {to = f32} : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {saturate = 1 : si64, to = f32} : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_1_]], [[VAR_2_]]) {axis = 0 : si64} : (tensor<1xf32>, tensor<1xf32>) -> tensor<2xf32>
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<2xf32>
 // CHECK:         }
