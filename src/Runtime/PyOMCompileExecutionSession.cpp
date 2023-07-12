@@ -23,44 +23,48 @@ SUPPRESS_WARNINGS_POP
 
 namespace onnx_mlir {
 
+// =============================================================================
+// Constructor
+
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     std::string inputFileName, std::string sharedLibPath, std::string flags,
     bool defaultEntryPoint)
-    : onnx_mlir::PyExecutionSessionBase(sharedLibPath, defaultEntryPoint) {
-  fprintf(stderr, "hi alex 0\n");
+    : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
+  // First compile the onnx file.
   this->inputFileName = inputFileName;
-  fprintf(stderr, "hi alex 1\n");
   if (this->inputFileName.empty()) {
     errorMessage = "No OMCompileExecuteSession was created with the input file "
                    "name specified.";
   }
   const char *outputName, *errorMsg;
   int64_t rc;
-  fprintf(stderr, "hi alex 2\n");
   rc = omCompileFromFile(
       inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
-  if (rc == 0) {
-    // Compilation success: save output file name.
-    this->sharedLibPath = std::string(outputName);
-    // Empty error.
-    errorMessage = std::string();
-  } else {
+  if (rc != 0) {
     // Compilation failure: save error message.
     errorMessage = std::string(errorMsg);
     // Empty output file name.
     this->sharedLibPath = std::string();
+    throw std::runtime_error(reportCompilerError(errorMessage));
   }
-  fprintf(stderr, "hi alex 3\n");
+  // Compilation success: save output file name.
+  this->sharedLibPath = std::string(outputName);
+  errorMessage = std::string();
+  // Now that we have a .so, initialize execution session.
+  Init(this->sharedLibPath, defaultEntryPoint);
 }
 
-int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
+// =============================================================================
+// Custom getters
+
+int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return rc; }
 
 std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
-  return this->sharedLibPath;
+  return sharedLibPath;
 }
 
 std::string PyOMCompileExecutionSession::pyGetErrorMessage() {
-  return this->errorMessage;
+  return errorMessage;
 }
 
 } // namespace onnx_mlir

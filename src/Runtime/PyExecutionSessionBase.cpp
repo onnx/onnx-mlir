@@ -56,17 +56,22 @@ namespace onnx_mlir {
 
 PyExecutionSessionBase::PyExecutionSessionBase(
     std::string sharedLibPath, bool defaultEntryPoint)
-    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {
-  fprintf(stderr, "hi alex from py execution session base\n");
-}
+    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
+
+// =============================================================================
+// Run.
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray) {
-  assert(_entryPointFunc && "Entry point not loaded.");
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
+  if (!_entryPointFunc)
+    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
 
   // 1. Process inputs.
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
+    // TODO: should use error throwing like for the other errors.
     assert(inputPyArray.flags() && py::array::c_style &&
            "Expect contiguous python array.");
 
@@ -117,6 +122,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_COMPLEX128;
     // Missing bfloat16 support
     else {
+      // TODO: should use error throwing like for the other errors.
       std::cerr << "Numpy type not supported: " << inputPyArray.dtype()
                 << ".\n";
       exit(1);
@@ -204,6 +210,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = py::dtype("cdouble");
       break;
     default:
+      // TODO: should use error throwing like for the other errors.
       std::cerr << "Unsupported ONNX type in OMTensor: "
                 << omTensorGetDataType(omt) << ".\n";
       exit(1);
@@ -218,11 +225,16 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   return outputPyArrays;
 }
 
+// =============================================================================
+// Setter and getter.
+
 void PyExecutionSessionBase::pySetEntryPoint(std::string entryPointName) {
   setEntryPoint(entryPointName);
 }
 
 std::vector<std::string> PyExecutionSessionBase::pyQueryEntryPoints() {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
   assert(_queryEntryPointsFunc && "Query entry point not loaded.");
   const char **entryPointArr = _queryEntryPointsFunc(NULL);
 
@@ -236,12 +248,10 @@ std::vector<std::string> PyExecutionSessionBase::pyQueryEntryPoints() {
 }
 
 std::string PyExecutionSessionBase::pyInputSignature() {
-  assert(_inputSignatureFunc && "Input signature entry point not loaded.");
   return inputSignature();
 }
 
 std::string PyExecutionSessionBase::pyOutputSignature() {
-  assert(_outputSignatureFunc && "Output signature entry point not loaded.");
   return outputSignature();
 }
 

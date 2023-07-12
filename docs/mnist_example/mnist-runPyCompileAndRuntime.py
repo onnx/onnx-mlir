@@ -8,9 +8,7 @@ inputFileName = './mnist.onnx'
 # Set the full name of compiled model
 sharedLibPath = './mnist.so'
 # Set the compile option as "-O3"
-print("hi alex from script 1")
 session = OMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
-print("hi alex from script 2")
 if session.get_compiled_result():
     print("error with :" + session.get_error_message())
     exit(1)

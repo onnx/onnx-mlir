@@ -33,16 +33,23 @@ const std::string ExecutionSession::_queryEntryPointsName =
 const std::string ExecutionSession::_inputSignatureName = "omInputSignature";
 const std::string ExecutionSession::_outputSignatureName = "omOutputSignature";
 
+// =============================================================================
+// Constructor, destructor, and init.
+
 ExecutionSession::ExecutionSession(
     std::string sharedLibPath, bool defaultEntryPoint) {
+  Init(sharedLibPath, defaultEntryPoint);
+}
 
-  fprintf(stderr, "hi alex from execution session 1\n");
+void ExecutionSession::Init(std::string sharedLibPath, bool defaultEntryPoint) {
+  if (isInitialized)
+    throw std::runtime_error(reportInitError());
+  isInitialized = true;
+
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
-  fprintf(stderr, "hi alex from execution session 2\n");
   if (!_sharedLibraryHandle.isValid())
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
-  fprintf(stderr, "hi alex from execution session 3\n");
 
   if (defaultEntryPoint)
     setEntryPoint("run_main_graph");
@@ -75,12 +82,24 @@ ExecutionSession::ExecutionSession(
   }
 }
 
+ExecutionSession::~ExecutionSession() {
+  if (_sharedLibraryHandle.isValid())
+    llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
+}
+
+// =============================================================================
+// Setter and getter.
+
 const std::string *ExecutionSession::queryEntryPoints(
     int64_t *numOfEntryPoints) const {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
   return (const std::string *)_queryEntryPointsFunc(numOfEntryPoints);
 }
 
 void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
   _entryPointFunc = reinterpret_cast<entryPointFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(entryPointName.c_str()));
   if (!_entryPointFunc)
@@ -89,8 +108,31 @@ void ExecutionSession::setEntryPoint(const std::string &entryPointName) {
   errno = 0; // No errors.
 }
 
+const std::string ExecutionSession::inputSignature() const {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
+  if (!_entryPointFunc)
+    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
+  errno = 0; // No errors.
+  return _inputSignatureFunc(_entryPointName.c_str());
+}
+
+const std::string ExecutionSession::outputSignature() const {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
+  if (!_entryPointFunc)
+    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
+  errno = 0; // No errors.
+  return _outputSignatureFunc(_entryPointName.c_str());
+}
+
+// =============================================================================
+// Run.
+
 std::vector<OMTensorUniquePtr> ExecutionSession::run(
     std::vector<OMTensorUniquePtr> ins) {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
   if (!_entryPointFunc)
     throw std::runtime_error(reportUndefinedEntryPointIn("run"));
 
@@ -99,6 +141,7 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
     omts.emplace_back(inOmt.get());
   auto *wrappedInput = omTensorListCreate(omts.data(), (int64_t)omts.size());
 
+  // Run inference.
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
 
   // We created a wrapper for the input list, but the input list does not really
@@ -106,11 +149,10 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
   // need to simply deallocate the list structure without touching the
   // OMTensors.
   omTensorListDestroyShallow(wrappedInput);
-
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());
-  std::vector<OMTensorUniquePtr> outs;
 
+  std::vector<OMTensorUniquePtr> outs;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     outs.emplace_back(OMTensorUniquePtr(
         omTensorListGetOmtByIndex(wrappedOutput, i), omTensorDestroy));
@@ -128,42 +170,27 @@ std::vector<OMTensorUniquePtr> ExecutionSession::run(
 // Run using public interface. Explicit calls are needed to free tensor & tensor
 // lists.
 OMTensorList *ExecutionSession::run(OMTensorList *input) {
-  if (!_entryPointFunc) {
-    std::stringstream errStr;
-    errStr << "Must set the entry point before calling run function"
-           << std::endl;
-    errno = EINVAL;
-    throw std::runtime_error(errStr.str());
-  }
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
+  if (!_entryPointFunc)
+    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
+
+  // Run inference.
   OMTensorList *output = _entryPointFunc(input);
-  if (!output) {
-    std::stringstream errStr;
-    std::string errMessageStr = std::string(strerror(errno));
-    errStr << "Runtime error during inference returning with ERRNO code '"
-           << errMessageStr << "'" << std::endl;
-    throw std::runtime_error(errStr.str());
-  }
+  if (!output)
+    throw std::runtime_error(reportErrnoError());
   errno = 0; // No errors.
   return output;
 }
 
-const std::string ExecutionSession::inputSignature() const {
-  if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
-  errno = 0; // No errors.
-  return _inputSignatureFunc(_entryPointName.c_str());
-}
+// =============================================================================
+// Error reporting
 
-const std::string ExecutionSession::outputSignature() const {
-  if (!_entryPointFunc)
-    throw std::runtime_error(reportUndefinedEntryPointIn("signature"));
-  errno = 0; // No errors.
-  return _outputSignatureFunc(_entryPointName.c_str());
-}
-
-ExecutionSession::~ExecutionSession() {
-  if (_sharedLibraryHandle.isValid())
-    llvm::sys::DynamicLibrary::closeLibrary(_sharedLibraryHandle);
+std::string ExecutionSession::reportInitError() const {
+  errno = EFAULT; // Bad Address.
+  std::stringstream errStr;
+  errStr << "Execution session must be initialized once." << std::endl;
+  return errStr.str();
 }
 
 std::string ExecutionSession::reportLibraryOpeningError(
@@ -196,6 +223,15 @@ std::string ExecutionSession::reportErrnoError() const {
   std::stringstream errStr;
   errStr << "Runtime error during inference returning with ERRNO code '"
          << errMessageStr << "'." << std::endl;
+  return errStr.str();
+}
+
+std::string ExecutionSession::reportCompilerError(
+    const std::string &errorMessage) const {
+  errno = EFAULT; // Bad Address.
+  std::stringstream errStr;
+  errStr << "Compiler failed with error message '" << errorMessage << "'."
+         << std::endl;
   return errStr.str();
 }
 
