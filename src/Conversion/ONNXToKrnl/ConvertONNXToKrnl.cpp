@@ -68,7 +68,7 @@ private:
   // data type list:
   //     "i1" / "i8" / "i16" / "i32" / "i64"
   //     "ui8" / "ui16" / "ui32" / "ui64"
-  //     "f32" / "f64"
+  //     "f16" / "f32" / "f64"
   void concatTypeString(
       Type argType, Attribute attr, llvm::raw_ostream &dstream) const {
     std::string comma = std::string("");
@@ -159,6 +159,7 @@ private:
 };
 
 std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
+    {std::string(" f16 "), std::string(" \"f16\" ")},
     {std::string(" f32 "), std::string(" \"f32\" ")},
     {std::string(" f64 "), std::string(" \"f64\" ")},
     {std::string(" i32 "), std::string(" \"i32\" ")},
