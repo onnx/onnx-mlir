@@ -379,8 +379,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             VectorMachineSupport::getGlobalVectorMachineSupport();
         DimsExpr inputDims;
         create.krnlIE.getShapeAsSymbols(input, inputDims);
-        VL = create.vec.SuitableUnrollFactor(
-            vms, memRefInType, inputDims, innermostLoopCollapse, 2, /*canPad*/ false);
+        VL = create.vec.SuitableUnrollFactor(vms, memRefInType, inputDims,
+            innermostLoopCollapse, 2, /*canPad*/ false);
       }
     } else {
       // Has one or more dynamic axes.
