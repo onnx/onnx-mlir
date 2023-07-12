@@ -138,6 +138,13 @@ parser.add_argument('--upper-bound',
                     " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
                     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
                     " uint64, int64, float16, float32, float64")
+parser.add_argument('--warmup',
+                    action='store_true',
+                    help="Whether to include a warmup inference run or not")
+parser.add_argument('--n-iteration',
+                    type=int,
+                    default="1",
+                    help="The number of inference runs")
 
 args = parser.parse_args()
 if (args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value)):
@@ -600,11 +607,20 @@ def main():
                     'x'.join([str(i) for i in inp.shape]), inp.dtype, inp))
 
         # Running inference.
-        print("Running inference ...")
-        start = time.perf_counter()
-        outs = sess.run(inputs)
-        end = time.perf_counter()
-        print("  took ", end - start, " seconds.\n")
+        if args.warmup:
+            print("Running inference (warmup) ...")
+            start = time.perf_counter()
+            outs = sess.run(inputs)
+            end = time.perf_counter()
+            print("  took ", end - start, " seconds.\n")
+
+        for i in range(args.n_iteration):
+            print("Running inference ({} iteration) ...".format(ordinal(i+1)))
+            start = time.perf_counter()
+            outs = sess.run(inputs)
+            end = time.perf_counter()
+            print("  took ", end - start, " seconds.\n")
+
 
         # Print the output if required.
         if (args.print_output):
