@@ -20,6 +20,9 @@ class TestF8E5M2(unittest.TestCase):
         self.assertF8Equal(float('inf'), 0x7B)
         self.assertF8Equal(-float('inf'), 0xFB)
 
+    def test_nan(self):
+        self.assertF8Equal(float('nan'), 0x7F)
+
 class TestF8E5M2FNUZ(unittest.TestCase):
 
     @staticmethod
@@ -36,6 +39,9 @@ class TestF8E5M2FNUZ(unittest.TestCase):
     def test_inf(self):
         self.assertF8Equal(float('inf'), 0x7F)
         self.assertF8Equal(-float('inf'), 0xFF)
+
+    def test_nan(self):
+        self.assertF8Equal(float('nan'), 0x80)
 
 if __name__ == '__main__':
     unittest.main()
