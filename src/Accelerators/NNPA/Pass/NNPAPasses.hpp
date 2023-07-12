@@ -40,6 +40,8 @@ std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
+/// Pass for clipping values to dlfloat before stickification at ZHighIR.
+std::unique_ptr<mlir::Pass> createZHighClipToDLFloatPass();
 } // end namespace zhigh
 
 namespace zlow {
