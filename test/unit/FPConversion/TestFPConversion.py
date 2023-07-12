@@ -20,8 +20,8 @@ class TestF8E4M3FN(unittest.TestCase):
         self.assertF8Equal(-0.0, 0x80)
 
     def test_max(self):
-        self.assertF8Equal(57344.0, 0x7E, 0x7F)
-        self.assertF8Equal(-57344.0, 0xFE, 0xFF)
+        self.assertF8Equal(448.0, 0x7E)
+        self.assertF8Equal(-448.0, 0xFE)
 
     def test_inf(self):
         self.assertF8Equal(float('inf'), 0x7E, 0x7F)
@@ -47,8 +47,8 @@ class TestF8E4M3FNUZ(unittest.TestCase):
         self.assertF8Equal(-0.0, 0)
 
     def test_max(self):
-        self.assertF8Equal(57344.0, 0x7F, 0x80)
-        self.assertF8Equal(-57344.0, 0xFF, 0x80)
+        self.assertF8Equal(240.0, 0x7F)
+        self.assertF8Equal(-240.0, 0xFF)
 
     def test_inf(self):
         self.assertF8Equal(float('inf'), 0x7F, 0x80)
