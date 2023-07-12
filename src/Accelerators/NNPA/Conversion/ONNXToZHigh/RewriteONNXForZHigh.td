@@ -236,9 +236,6 @@ def rewriteMatMulNDto3D_Broadcast_2: Pat<
 // Rules to turn ONNXSoftmaxOp with N-D inputs into the one with 2-D inputs.
 //===----------------------------------------------------------------------===//
 
-/**
-* Disable this rule for now since we see NNAP Softmax produces NaNs for very small values that are out of range of DLFLoat16.
-
 def SoftmaxAxisMinusOne: NativeCodeCall<
  "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), APInt(64, -1, /*isSigned=*/true))">;
 
@@ -255,7 +252,6 @@ def rewriteSoftmaxNDto3D: Pat<
                  (GetZeroI64Attr)),
   [(HasRankGT<3> $input)]
 >;
-*/
 
 //===----------------------------------------------------------------------===//
 // Rules to conver ONNXConvOp with pads to ONNXConvOp with no pads

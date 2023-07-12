@@ -1356,6 +1356,79 @@ func.func @test_cast_i64_f32() -> tensor<3x2xf32> {
 
 // -----
 
+// Among the float literals below
+// 0x7F800000, 0xFF800000 mean +/-infinity,
+// 0x7F800001, 0xFF800001 mean NaN,
+// see https://en.wikipedia.org/wiki/Single-precision_floating-point_format
+
+func.func @test_cast_f32_f8E4M3FN() -> (tensor<12xf8E4M3FN>, tensor<12xf8E4M3FN>) {
+  %0 = onnx.Constant dense<[0.0, -0.0, 400.0, -400.0, 448.0, -448.0, 600.0, -600.0, 0x7F800000, 0xFF800000, 0x7F800001, 0xFF800001]> : tensor<12xf32>
+  %1 = "onnx.Cast"(%0) {to = f8E4M3FN, saturate = 0 : si64} : (tensor<12xf32>) -> tensor<12xf8E4M3FN>
+  %2 = "onnx.Cast"(%0) {to = f8E4M3FN, saturate = 1 : si64} : (tensor<12xf32>) -> tensor<12xf8E4M3FN>
+  onnx.Return %1, %2 : tensor<12xf8E4M3FN>, tensor<12xf8E4M3FN>
+
+// f8E4M3FN literals 0x7F, 0xFF mean NaN
+// CHECK-LABEL:  func.func @test_cast_f32_f8E4M3FN
+// CHECK-SAME:   () -> (tensor<12xf8E4M3FN>, tensor<12xf8E4M3FN>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0.000000e+00, -0.000000e+00, 3.840000e+02, -3.840000e+02, 4.480000e+02, -4.480000e+02, 0x7F, 0xFF, 0x7F, 0xFF, 0x7F, 0xFF]> : tensor<12xf8E4M3FN>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0.000000e+00, -0.000000e+00, 3.840000e+02, -3.840000e+02, 4.480000e+02, -4.480000e+02, 4.480000e+02, -4.480000e+02, 4.480000e+02, -4.480000e+02, 0x7F, 0xFF]> : tensor<12xf8E4M3FN>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<12xf8E4M3FN>, tensor<12xf8E4M3FN>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_cast_f32_f8E4M3FNUZ() -> (tensor<12xf8E4M3FNUZ>, tensor<12xf8E4M3FNUZ>) {
+  %0 = onnx.Constant dense<[0.0, -0.0, 200.0, -200.0, 240.0, -240.0, 400.0, -400.0, 0x7F800000, 0xFF800000, 0x7F800001, 0xFF800001]> : tensor<12xf32>
+  %1 = "onnx.Cast"(%0) {to = f8E4M3FNUZ, saturate = 0 : si64} : (tensor<12xf32>) -> tensor<12xf8E4M3FNUZ>
+  %2 = "onnx.Cast"(%0) {to = f8E4M3FNUZ, saturate = 1 : si64} : (tensor<12xf32>) -> tensor<12xf8E4M3FNUZ>
+  onnx.Return %1, %2 : tensor<12xf8E4M3FNUZ>, tensor<12xf8E4M3FNUZ>
+
+// f8E4M3FNUZ literal 0x80 means NaN
+// CHECK-LABEL:  func.func @test_cast_f32_f8E4M3FNUZ
+// CHECK-SAME:   () -> (tensor<12xf8E4M3FNUZ>, tensor<12xf8E4M3FNUZ>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 1.920000e+02, -1.920000e+02, 2.400000e+02, -2.400000e+02, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]> : tensor<12xf8E4M3FNUZ>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 1.920000e+02, -1.920000e+02, 2.400000e+02, -2.400000e+02, 2.400000e+02, -2.400000e+02, 2.400000e+02, -2.400000e+02, 0x80, 0x80]> : tensor<12xf8E4M3FNUZ>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<12xf8E4M3FNUZ>, tensor<12xf8E4M3FNUZ>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_cast_f32_f8E5M2() -> (tensor<12xf8E5M2>, tensor<12xf8E5M2>) {
+  %0 = onnx.Constant dense<[0.0, -0.0, 40000.0, -40000.0, 57344.0, -57344.0, 70000.0, -70000.0, 0x7F800000, 0xFF800000, 0x7F800001, 0xFF800001]> : tensor<12xf32>
+  %1 = "onnx.Cast"(%0) {to = f8E5M2, saturate = 0 : si64} : (tensor<12xf32>) -> tensor<12xf8E5M2>
+  %2 = "onnx.Cast"(%0) {to = f8E5M2, saturate = 1 : si64} : (tensor<12xf32>) -> tensor<12xf8E5M2>
+  onnx.Return %1, %2 : tensor<12xf8E5M2>, tensor<12xf8E5M2>
+
+// f8E5M2 literals 0x7C, 0xFC mean +/-INF and 0x7E, 0xFE mean NaN
+// CHECK-LABEL:  func.func @test_cast_f32_f8E5M2
+// CHECK-SAME:   () -> (tensor<12xf8E5M2>, tensor<12xf8E5M2>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0.000000e+00, -0.000000e+00, 4.096000e+04, -4.096000e+04, 5.734400e+04, -5.734400e+04, 0x7C, 0xFC, 0x7C, 0xFC, 0x7E, 0xFE]> : tensor<12xf8E5M2>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0.000000e+00, -0.000000e+00, 4.096000e+04, -4.096000e+04, 5.734400e+04, -5.734400e+04, 5.734400e+04, -5.734400e+04, 5.734400e+04, -5.734400e+04, 0x7E, 0xFE]> : tensor<12xf8E5M2>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<12xf8E5M2>, tensor<12xf8E5M2>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_cast_f32_f8E5M2FNUZ() -> (tensor<12xf8E5M2FNUZ>, tensor<12xf8E5M2FNUZ>) {
+  %0 = onnx.Constant dense<[0.0, -0.0, 40000.0, -40000.0, 57344.0, -57344.0, 70000.0, -70000.0, 0x7F800000, 0xFF800000, 0x7F800001, 0xFF800001]> : tensor<12xf32>
+  %1 = "onnx.Cast"(%0) {to = f8E5M2FNUZ, saturate = 0 : si64} : (tensor<12xf32>) -> tensor<12xf8E5M2FNUZ>
+  %2 = "onnx.Cast"(%0) {to = f8E5M2FNUZ, saturate = 1 : si64} : (tensor<12xf32>) -> tensor<12xf8E5M2FNUZ>
+  onnx.Return %1, %2 : tensor<12xf8E5M2FNUZ>, tensor<12xf8E5M2FNUZ>
+
+// f8E5M2FNUZ literal 0x80 means NaN
+// CHECK-LABEL:  func.func @test_cast_f32_f8E5M2FNUZ
+// CHECK-SAME:   () -> (tensor<12xf8E5M2FNUZ>, tensor<12xf8E5M2FNUZ>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 4.096000e+04, -4.096000e+04, 5.734400e+04, -5.734400e+04, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]> : tensor<12xf8E5M2FNUZ>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0.000000e+00, 0.000000e+00, 4.096000e+04, -4.096000e+04, 5.734400e+04, -5.734400e+04, 5.734400e+04, -5.734400e+04, 5.734400e+04, -5.734400e+04, 0x80, 0x80]> : tensor<12xf8E5M2FNUZ>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]] : tensor<12xf8E5M2FNUZ>, tensor<12xf8E5M2FNUZ>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_slice() -> tensor<*xf32> {
   %0 = onnx.Constant dense<[[2.0, 3.0], [4.0, 5.0], [6.0, 7.0]]> : tensor<3x2xf32>
   %starts = onnx.Constant dense<[0, 0]> : tensor<2xi64>
