@@ -3,11 +3,11 @@ from onnx import helper
 from onnx import AttributeProto, TensorProto, GraphProto
 
 # Create one input (ValueInfoProto)
-X1 = helper.make_tensor_value_info('X1', TensorProto.FLOAT, [3, 2])
-X2 = helper.make_tensor_value_info('X2', TensorProto.FLOAT, [3, 2])
+X1 = helper.make_tensor_value_info('X1', TensorProto.FLOAT16, [3, 2])
+X2 = helper.make_tensor_value_info('X2', TensorProto.FLOAT16, [3, 2])
 
 # Create one output (ValueInfoProto)
-Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT, [3, 2])
+Y = helper.make_tensor_value_info('Y', TensorProto.FLOAT16, [3, 2])
 
 # Create a node (NodeProto) - This is based on Pad-11
 node_def = helper.make_node(

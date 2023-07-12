@@ -5,6 +5,7 @@
 #include <OnnxMlirRuntime.h>
 
 #include "src/Runtime/ExecutionSession.hpp"
+#include "src/Support/SmallFPConversion.h"
 
 // Read the arguments from the command line and return a std::string
 std::string readArgs(int argc, char *argv[]) {
@@ -62,11 +63,13 @@ int main(int argc, char *argv[]) {
   int64_t shape[] = {3, 2};
   int64_t rank = 2;
   // Construct x1 omt filled with 1.
-  float x1Data[] = {1., 1., 1., 1., 1., 1.};
-  OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT);
+  const uint16_t one = om_f32_to_f16(1.0);
+  uint16_t x1Data[] = {one, one, one, one, one, one};
+  OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT16);
   // Construct x2 omt filled with 2.
-  float x2Data[] = {2., 2., 2., 2., 2., 2.};
-  OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);
+  const uint16_t two = om_f32_to_f16(2.0);
+  uint16_t x2Data[] = {two, two, two, two, two, two};
+  OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT16);
   // Construct a list of omts as input.
   OMTensor *list[2] = {x1, x2};
   OMTensorList *input = omTensorListCreate(list, 2);
@@ -87,12 +90,12 @@ int main(int argc, char *argv[]) {
   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
   omTensorPrint("Result tensor: ", y);
   std::cout << std::endl;
-  float *outputPtr = (float *)omTensorGetDataPtr(y);
+  uint16_t *outputPtr = (uint16_t *)omTensorGetDataPtr(y);
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++) {
-    if (outputPtr[i] != 3.0) {
-      std::cerr << "Iteration " << i << ": expected 3.0, got " << outputPtr[i]
-                << "." << std::endl;
+    if (om_f16_to_f32(outputPtr[i]) != 3.0) {
+      std::cerr << "Iteration " << i << ": expected 3.0, got "
+                << om_f16_to_f32(outputPtr[i]) << "." << std::endl;
       return 100;
     }
   }

@@ -1,4 +1,7 @@
 #include <OnnxMlirRuntime.h>
+
+#include "src/Support/SmallFPConversion.h"
+
 #include <stdio.h>
 
 OMTensorList *run_main_graph(OMTensorList *);
@@ -10,12 +13,12 @@ OMTensorList *create_input_list() {
   int64_t rank = 2;
 
   // Construct float arrays filled with 1s or 2s.
-  float *x1Data = (float *)malloc(sizeof(float) * num_elements);
+  uint16_t *x1Data = (uint16_t *)malloc(sizeof(uint16_t) * num_elements);
   for (int i = 0; i < num_elements; i++)
-    x1Data[i] = 1.0;
-  float *x2Data = (float *)malloc(sizeof(float) * num_elements);
+    x1Data[i] = om_f32_to_f16(1.0);
+  uint16_t *x2Data = (uint16_t *)malloc(sizeof(uint16_t) * num_elements);
   for (int i = 0; i < num_elements; i++)
-    x2Data[i] = 2.0;
+    x2Data[i] = om_f32_to_f16(2.0);
 
   // Use omTensorCreateWithOwnership "true" so float arrays are automatically
   // freed when the Tensors are destroyed.
@@ -43,11 +46,11 @@ int main() {
   // Get the first tensor from output list.
   OMTensor *y = omTensorListGetOmtByIndex(output_list, 0);
   omTensorPrint("Result tensor: ", y);
-  float *outputPtr = (float *)omTensorGetDataPtr(y);
+  uint16_t *outputPtr = (uint16_t *)omTensorGetDataPtr(y);
 
   // Print its content, should be all 3.
   for (int i = 0; i < 6; i++) {
-    float f = outputPtr[i];
+    float f = om_f16_to_f32(outputPtr[i]);
     if (f != 3.0) {
       fprintf(stderr, "Iteration %d: expected 3.0, got %f.\n", i, f);
       exit(100);
