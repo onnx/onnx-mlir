@@ -303,6 +303,7 @@ compareFunctionType *getCompareFunction(
                          : compareFunction(Double, double, Descending);
     break;
   default:
+    // TODO: support ONNX_TYPE_FLOAT16
     assert(false && "unexpected data type in getCompareFunction");
   }
   return compFunc;
