@@ -1071,8 +1071,9 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ZHighAsyncMatMulOpAdaptor operandAdaptor(operands);
 
-    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
 
     // Compute shape.
     ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -1095,11 +1096,18 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
 
     Value A = operandAdaptor.getA();
     Value B = operandAdaptor.getB();
+    // Create C assuming Y is unstacked case (2D (m x p))
+    Value fZero = create.math.constant(memRefTypeY.getElementType(), 0);
+    ArrayRef<int64_t> shape = memRefTypeY.getShape();
+    MemRefType memRefTypeC =
+        MemRefType::get({shape[1]}, memRefTypeY.getElementType());
+    SmallVector<IndexExpr, 1> dims;
+    dims.emplace_back(shapeHelper.getOutputDims(0)[1]);
+    Value C = create.mem.alignedAlloc(memRefTypeC, dims);
+    create.krnl.memset(C, fZero);
     SmallVector<Value, 2> results = {Y, Tick};
-    SmallVector<Value, 3> parameters = {Y, Tick, A, B}; // Add C later
+    SmallVector<Value, 3> parameters = {Y, Tick, A, B, C};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
-    // rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", results, op,
-    // operands, false);
     rewriter.replaceOp(op, results);
     return success();
   }

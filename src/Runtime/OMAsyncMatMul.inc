@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- OMAsyncMatMul.cpp - OMTensor C/C++ Implementation ----------===//
+//===--------- OMAsyncMatMul.cpp - OMTensor C/C++ Implementation ----------===//
 //
 // Copyright 2022-2023 The IBM Research Authors.
 //
@@ -26,7 +26,7 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 void omTensorMatMulAsync(
-    OMTensor *Y, OMTensor *tick, OMTensor *A, OMTensor *B) {
+    OMTensor *Y, OMTensor *tick, OMTensor *A, OMTensor *B, OMTensor *C) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(A);
   assert(dataType == ONNX_TYPE_FLOAT &&
          "omTensorMatmul assumes ONNX_TYPE_FLOAT type");
@@ -34,9 +34,11 @@ void omTensorMatMulAsync(
          (omTensorGetRank(A) == 2) && "omTensorMatmul assumes rank 2 tensors");
   const int64_t *shapeA = omTensorGetShape(A);
   const int64_t *shapeB = omTensorGetShape(B);
+  const int64_t *shapeC = omTensorGetShape(C);
   const int64_t *shapeY = omTensorGetShape(Y);
   void *dataA = omTensorGetDataPtr(A);
   void *dataB = omTensorGetDataPtr(B);
+  void *dataC = omTensorGetDataPtr(C);
   void *dataY = omTensorGetDataPtr(Y);
   assert(shapeA[1] == shapeB[0] && "omTensorMatmul: inconsistent input shapes");
   int dim_m = shapeA[0];
