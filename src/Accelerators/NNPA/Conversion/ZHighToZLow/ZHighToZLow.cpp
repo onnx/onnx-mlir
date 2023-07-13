@@ -178,7 +178,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
             ZTensorEncodingAttr::get(op->getContext(), layout));
     ZMemRefType zMemRefType = convertZTensorToMemRefType(tensorType);
     MemRefType resType = affine::normalizeMemRefType(
-        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
+        zMemRefType.value.cast<MemRefType>());
 
     // Create a ZHighStickifiedConstantOp.
     ZHighStickifiedConstantOp stickifiedConstant =
@@ -661,7 +661,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
     assert(zMemRefType.value.cast<MemRefType>().getNumDynamicDims() == 0 &&
            "MemRefType has dynamic dimensions");
     MemRefType normalizedType = affine::normalizeMemRefType(
-        zMemRefType.value.cast<MemRefType>(), /*numSymbolicOperands=*/0);
+        zMemRefType.value.cast<MemRefType>());
     ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
 
     // Get dense resource attribute.
