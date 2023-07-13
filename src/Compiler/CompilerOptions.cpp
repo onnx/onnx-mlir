@@ -285,6 +285,10 @@ llvm::cl::opt<std::string> reportHeapAfter("report-heap-after",
                    "<output-files-base-path>.heap.log"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::list<std::string> functionsToDecompose("functions-to-decompose",
+    llvm::cl::desc("Specify ONNX functions to decompose"),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
