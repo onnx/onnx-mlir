@@ -38,6 +38,20 @@ def valid_onnx_input(fname):
     return fname
 
 
+def check_positive(argname, value):
+    value = int(value)
+    if value <= 0:
+        parser.error("Value passed to {} must be positive".format(argname))
+    return value
+
+
+def check_non_negative(argname, value):
+    value = int(value)
+    if value < 0:
+        parser.error("Value passed to {} must be non-negative".format(argname))
+    return value
+
+
 # Command arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument('--log-to-file',
@@ -138,6 +152,14 @@ parser.add_argument('--upper-bound',
                     " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
                     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
                     " uint64, int64, float16, float32, float64")
+parser.add_argument('--warmup',
+                    type=lambda s: check_non_negative("--warmup", s),
+                    default=0,
+                    help="The number of warmup inference runs")
+parser.add_argument('--n-iteration',
+                    type=lambda s: check_positive("--n-iteration", s),
+                    default=1,
+                    help="The number of inference runs excluding warmup")
 
 args = parser.parse_args()
 if (args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value)):
@@ -601,10 +623,29 @@ def main():
 
         # Running inference.
         print("Running inference ...")
-        start = time.perf_counter()
-        outs = sess.run(inputs)
-        end = time.perf_counter()
-        print("  took ", end - start, " seconds.\n")
+        for i in range(args.warmup):
+            start = time.perf_counter()
+            outs = sess.run(inputs)
+            end = time.perf_counter()
+            print("  {} warmup: {} seconds".format(
+                ordinal(i+1), end - start))
+
+        perf_results = []
+        for i in range(args.n_iteration):
+            start = time.perf_counter()
+            outs = sess.run(inputs)
+            end = time.perf_counter()
+            elapsed = end - start
+            perf_results += [elapsed]
+            print("  {} iteration: {} seconds".format(ordinal(i+1), elapsed))
+
+        # Print statistics info, e.g., min/max/stddev inference time.
+        if args.n_iteration > 1 :
+            print("  Statistics (excluding warmup):"
+                  " min {}, max {}, mean {}, stddev {}".format(
+                np.min(perf_results), np.max(perf_results),
+                np.mean(perf_results), np.std(perf_results, dtype=np.float64)))
+
 
         # Print the output if required.
         if (args.print_output):
