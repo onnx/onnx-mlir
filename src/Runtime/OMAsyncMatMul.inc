@@ -42,7 +42,21 @@ void omTensorMatMulAsync(
   int dim_m = shapeA[0];
   int dim_n = shapeA[1];
   int dim_p = shapeB[1];
+  printf("dim_m = %d, dim_n = %d, dim_p = %d\n", dim_m, dim_n, dim_p);
+  // Compute Matmul A(mxn) * B(nxp).
+  for (int64_t m = 0; m < dim_m; ++m) {
+    for (int64_t p = 0; p < dim_p; ++p) {
+      float *y = (float *)dataY + m * dim_p + p;
+      *y = 0;
+      for (int64_t n = 0; n < dim_n; n++) {
+        float *tmpA = (float *)dataA + m * dim_n + n;
+        float *tmpB = (float *)dataB + n * dim_p + p;
+        *y += (*tmpA) * (*tmpB);
+      }
+    }
+  }
 }
+
 #if 0
 //
 // Calculate matrix multiplication asynchronously: Y = A * B
