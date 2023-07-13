@@ -270,7 +270,7 @@ public:
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
-    int chunkSize = 2048;
+    int chunkSize = 256; // 2048;
     bool nExceeded = N > chunkSize;
     bool mExceeded = M > chunkSize;
     if (!(nExceeded || mExceeded))
@@ -322,6 +322,7 @@ public:
         SmallVector<int64_t> concatShape(outputShape);
         concatShape[outputRank - 2] = subAShape[aRank - 2];
         Type concatTy = RankedTensorType::get(concatShape, elementType);
+        // res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
         res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
       }
       resSubAs.emplace_back(res);

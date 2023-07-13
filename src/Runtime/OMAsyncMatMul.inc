@@ -26,7 +26,7 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 void omTensorMatMulAsync(
-    OMTensor *Y, OMTensor *tick, OMTensor *A, OMTensor *B, OMTensor *C) {
+    OMTensor *Y, OMTensor *token, OMTensor *A, OMTensor *B, OMTensor *C) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(A);
   assert(dataType == ONNX_TYPE_FLOAT &&
          "omTensorMatmul assumes ONNX_TYPE_FLOAT type");
@@ -57,6 +57,10 @@ void omTensorMatMulAsync(
       }
     }
   }
+}
+
+void omTensorAsyncWait(OMTensor *threadID) {
+  //  pthread_join((pthread_t *) threadID, NULL);
 }
 
 #if 0

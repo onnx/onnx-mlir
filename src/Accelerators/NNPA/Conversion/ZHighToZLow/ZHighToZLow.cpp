@@ -1086,13 +1086,13 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
     Value Y =
         create.mem.alignedAlloc(memRefTypeY, shapeHelper.getOutputDims(0));
 
-    Type convertedTypeTick =
+    Type convertedTypeToken =
         typeConverter->convertType(op->getResultTypes()[1]);
-    assert(convertedTypeTick && convertedTypeTick.isa<MemRefType>() &&
+    assert(convertedTypeToken && convertedTypeToken.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefTypeTick = convertedTypeTick.cast<MemRefType>();
-    Value Tick =
-        create.mem.alignedAlloc(memRefTypeTick, shapeHelper.getOutputDims(1));
+    MemRefType memRefTypeToken = convertedTypeToken.cast<MemRefType>();
+    Value Token =
+        create.mem.alignedAlloc(memRefTypeToken, shapeHelper.getOutputDims(1));
 
     Value A = operandAdaptor.getA();
     Value B = operandAdaptor.getB();
@@ -1105,9 +1105,42 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
     dims.emplace_back(shapeHelper.getOutputDims(0)[1]);
     Value C = create.mem.alignedAlloc(memRefTypeC, dims);
     create.krnl.memset(C, fZero);
-    SmallVector<Value, 2> results = {Y, Tick};
-    SmallVector<Value, 3> parameters = {Y, Tick, A, B, C};
+    SmallVector<Value, 2> results = {Y, Token};
+    SmallVector<Value, 3> parameters = {Y, Token, A, B, C};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
+    rewriter.replaceOp(op, results);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Lower ZHigh Wait
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowWaitOpLowering : public ConversionPattern {
+  ZHighToZLowWaitOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighWaitOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ZHighWaitOpAdaptor operandAdaptor(operands);
+
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
+
+    // Compute shape.
+    ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    Value In = operandAdaptor.getIn();
+    Value Token = operandAdaptor.getToken();
+
+    SmallVector<Value, 1> results = {In};
+    SmallVector<Value, 1> parameters = {Token};
+    rewriter.create<KrnlCallOp>(loc, "omTensorAsyncWait", 1, parameters);
     rewriter.replaceOp(op, results);
     return success();
   }
@@ -1393,6 +1426,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowAsyncMatMulOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowWaitOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBatchNormOpLowering>(typeConverter, ctx);
