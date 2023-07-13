@@ -334,6 +334,23 @@ ElementsAttr ElementsAttrBuilder::castElementType(
       std::move(transformer));
 }
 
+ElementsAttr ElementsAttrBuilder::clip(
+    ElementsAttr elms, WideNum min, WideNum max) {
+  return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    return doTransform(
+        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
+          constexpr BType TAG = toBType<cpptype>;
+          cpptype x = n.narrow<TAG>();
+          if (x < min.narrow<TAG>())
+            return min;
+          if (x > max.narrow<TAG>())
+            return max;
+          return n;
+        }));
+  });
+}
+
 namespace {
 bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
   for (size_t i = 0; i < perm.size(); ++i) {

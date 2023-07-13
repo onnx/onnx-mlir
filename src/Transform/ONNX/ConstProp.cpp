@@ -831,16 +831,48 @@ public:
 // Code to perform constant propagation for CastOp.
 //===----------------------------------------------------------------------===//
 
-Value ConstPropCast(
-    PatternRewriter &rewriter, Value replacingValue, Value constValue) {
+Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
+    Value constValue, IntegerAttr saturate, TypeAttr to) {
   ConstPropCounters::count("Cast", {constValue});
-  Type replacingElemType =
-      replacingValue.getType().cast<ShapedType>().getElementType();
+  Type toType = to.getValue();
+  assert(toType == getElementType(replacingValue.getType()) &&
+         "result element type mismatch");
 
   ElementsAttr constElements = getConstValueElements(constValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr castElements =
-      elementsBuilder.castElementType(constElements, replacingElemType);
+      elementsBuilder.castElementType(constElements, toType);
+
+  // 'saturate' is ignored unless toType is a 8 bits float type.
+  if (saturate.getSInt() != 0 && isa<FloatType>(toType) &&
+      toType.getIntOrFloatBitWidth() == 8) {
+    float max =
+        dispatchByBType(btypeOfMlirType(toType), [&](auto btype) -> float {
+          using cpptype = CppType<btype>;
+          if constexpr (isSmallFPType<cpptype>) {
+            return cpptype::max;
+          } else {
+            llvm_unreachable("unsupported 8 bits floating point type");
+          }
+        });
+    // Clipping after cast relies on that cast is lazy and represents
+    // elements as doubles until they are materialized, so it's not too
+    // late to clip them here.
+    // TODO: Clean up the contracts to make it clearer what's going on.
+    //
+    // Note that we saturate by clipping which isn't 100% faithful to the
+    // onnx spec here: https://onnx.ai/onnx/technical/float8.html
+    // and here: https://github.com/onnx/onnx/blob/main/docs/Operators.md#Cast
+    // which, in the case of E4M3FNUZ and E5M2FNUZ, requires infinite values
+    // to saturate to NaN, whereas we saturate them to lowest/highest with
+    // clipping. Our clipping implementation matchint the reference
+    // implementation in onnx/reference/ops/op_cast.py.
+    // TODO: Change our implementation to match the spec, or change the spec.
+    WideNum lowest = WideNum::widen<BType::FLOAT>(-max);
+    WideNum highest = WideNum::widen<BType::FLOAT>(max);
+    castElements = elementsBuilder.clip(castElements, lowest, highest);
+  }
+
   return createReplacingConstantOp(rewriter, replacingValue, castElements);
 }
 

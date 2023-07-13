@@ -119,6 +119,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::IEEEhalf();
   }
+  static constexpr float max = 65504.0f;
 
 protected:
   friend class detail::SmallFPBase<float_16, 16>;
@@ -144,6 +145,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::BFloat();
   }
+  static constexpr float max = 3.38953139e38f; // ldexpf(255.0, 120)
 
 protected:
   friend class detail::SmallFPBase<bfloat_16, 16>;
@@ -169,6 +171,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E4M3FN();
   }
+  static constexpr float max = 448.0f;
 };
 static_assert(
     sizeof(float_8e4m3fn) * CHAR_BIT == 8, "float_8e4m3fn is 8 bits wide");
@@ -184,6 +187,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E4M3FNUZ();
   }
+  static constexpr float max = 240.0f;
 };
 static_assert(
     sizeof(float_8e4m3fnuz) * CHAR_BIT == 8, "float_8e4m3fnuz is 8 bits wide");
@@ -199,6 +203,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E5M2();
   }
+  static constexpr float max = 57344.0f;
 };
 static_assert(
     sizeof(float_8e5m2) * CHAR_BIT == 8, "float_8e5m2 is 8 bits wide");
@@ -214,6 +219,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E5M2FNUZ();
   }
+  static constexpr float max = 57344.0f;
 };
 static_assert(
     sizeof(float_8e5m2fnuz) * CHAR_BIT == 8, "float_8e5m2fnuz is 8 bits wide");

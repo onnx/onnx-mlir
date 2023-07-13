@@ -19,6 +19,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
 
 ARG NPROC=4
 ARG ACCEL=NNPA
+ARG TEST_NOFLOAT16
 ARG TEST_MCPU
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
@@ -44,15 +45,20 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        fi \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
+# FLOAT16 backend tests only work on ppc64le platform at the moment
+    && TEST_NOFLOAT16=${TEST_NOFLOAT16:-$([ "$(uname -m)" = "s390x" ] && echo true || \
+                                         ([ "$(uname -m)" = "x86_64" ] &&  echo true || \
+                                         ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
 # Dev image is built without SIMD, placeholder for easy SIMD enablement
     && TEST_MCPU=$([ "$(uname -m)" = "s390x" ] && echo || \
-                   [ "$(uname -m)" = "x86_64" ] &&  echo || \
-                   [ "$(uname -m)" = "ppc64le" ] && echo || echo) \
+                  ([ "$(uname -m)" = "x86_64" ] &&  echo || \
+                  ([ "$(uname -m)" = "ppc64le" ] && echo || echo))) \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
     && TEST_OPTLEVEL=0 \
     && make check-docs \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
+            TEST_NOFLOAT16=${TEST_NOFLOAT16} \
             TEST_MCPU=${TEST_MCPU} \
             TEST_ARGS="${TEST_ARGS}" \
             TEST_OPTLEVEL=${TEST_OPTLEVEL} \
