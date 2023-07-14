@@ -56,12 +56,7 @@ static std::string deriveOutputFileName(
   return getTargetFilename(outputBasename, emissionTarget);
 }
 
-extern "C" {
-
-ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
-    const char *flags, const char **outputFilename, const char **errorMessage) {
-  // Process the flags, saving each space-separated text in a separate
-  // entry in the string vector flagVect.
+static std::vector<std::string> parseFlags(const char *flags) {
   std::vector<std::string> flagVect;
   const char *str = flags;
   do {
@@ -76,6 +71,23 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
     if (begin != str)
       flagVect.push_back(std::string(begin, str));
   } while (*str);
+  return flagVect;
+}
+
+extern "C" {
+
+ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
+    const char *flags, const char **outputFilename, const char **errorMessage) {
+  // Ensure known values in filename and error message if provided.
+  if (outputFilename)
+    *outputFilename = nullptr;
+  if (errorMessage)
+    *errorMessage = nullptr;
+
+  // Process the flags, saving each space-separated text in a separate
+  // entry in the string vector flagVect.
+  std::vector<std::string> flagVect = parseFlags(flags);
+
   // Use 'onnx-mlir' command to compile the model.
   std::string onnxMlirPath;
   const auto &envDir = getEnvVar("ONNX_MLIR_BIN_PATH");
@@ -90,17 +102,33 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   onnxMlirCompile.appendStr(inputFilenameStr);
   // Run command.
   int rc = onnxMlirCompile.exec();
-  if (rc == CompilerSuccess && outputFilename) {
+  if (rc != CompilerSuccess) {
+    // Failure to compile.
+    if (errorMessage) {
+      std::string errorStr =
+          "Compiler failed with error code " + std::to_string(rc);
+      *errorMessage = strdup(errorStr.c_str());
+    }
+    return CompilerFailureInLLVMOpt;
+  }
+  // Success.
+  if (outputFilename) {
     std::string name = deriveOutputFileName(flagVect, inputFilenameStr);
     *outputFilename = strdup(name.c_str());
   }
-  return rc != 0 ? CompilerFailureInLLVMOpt : CompilerSuccess;
+  return CompilerSuccess;
 }
 
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int64_t bufferSize, const char *outputBaseName,
     EmissionTargetType emissionTarget, const char **outputFilename,
     const char **errorMessage) {
+  // Ensure known values in filename and error message if provided.
+  if (outputFilename)
+    *outputFilename = nullptr;
+  if (errorMessage)
+    *errorMessage = nullptr;
+
   mlir::OwningOpRef<mlir::ModuleOp> module;
   mlir::MLIRContext context;
   registerDialects(context);
@@ -122,6 +150,14 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     *outputFilename = strdup(name.c_str());
   }
   return rc;
+}
+
+ONNX_MLIR_EXPORT char *omCompileOutputFileName(
+    const char *inputFilename, const char *flags) {
+  std::vector<std::string> flagVect = parseFlags(flags);
+  std::string inputFilenameStr(inputFilename);
+  std::string name = deriveOutputFileName(flagVect, inputFilenameStr);
+  return strdup(name.c_str());
 }
 
 } // extern C

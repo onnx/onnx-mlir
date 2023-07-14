@@ -44,15 +44,12 @@ ExecutionSession::ExecutionSession(
 void ExecutionSession::Init(std::string sharedLibPath, bool defaultEntryPoint) {
   if (isInitialized)
     throw std::runtime_error(reportInitError());
-  isInitialized = true;
 
+  // Init symbols used by execution session.
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
   if (!_sharedLibraryHandle.isValid())
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
-
-  if (defaultEntryPoint)
-    setEntryPoint("run_main_graph");
 
   _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(_queryEntryPointsName.c_str()));
@@ -80,6 +77,12 @@ void ExecutionSession::Init(std::string sharedLibPath, bool defaultEntryPoint) {
     setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
 #endif
   }
+  // Successful completion of initialization.
+  isInitialized = true;
+
+  // Set default entry point if requested.
+  if (defaultEntryPoint)
+    setEntryPoint("run_main_graph");
 }
 
 ExecutionSession::~ExecutionSession() {

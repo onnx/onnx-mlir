@@ -44,5 +44,6 @@ protected:
   // Constructor that build the object without initialization (for use by
   // subclass only).
   PyExecutionSessionBase() : onnx_mlir::ExecutionSession() {}
+  std::string reportPythonError(std::string errorStr) const;
 };
 } // namespace onnx_mlir

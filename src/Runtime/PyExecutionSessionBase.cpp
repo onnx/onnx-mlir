@@ -71,9 +71,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   // 1. Process inputs.
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
-    // TODO: should use error throwing like for the other errors.
-    assert(inputPyArray.flags() && py::array::c_style &&
-           "Expect contiguous python array.");
+    if (!inputPyArray.flags() || !py::array::c_style)
+      throw std::runtime_error(
+          reportPythonError("Expect contiguous python array."));
 
     void *dataPtr;
     int64_t ownData = 0;
@@ -122,10 +122,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_COMPLEX128;
     // Missing bfloat16 support
     else {
-      // TODO: should use error throwing like for the other errors.
-      std::cerr << "Numpy type not supported: " << inputPyArray.dtype()
-                << ".\n";
-      exit(1);
+      std::stringstream errStr;
+      errStr << "Numpy type not supported: " << inputPyArray.dtype()
+             << std::endl;
+      throw std::runtime_error(reportPythonError(errStr.str()));
     }
 
     // Convert Py_ssize_t to int64_t if necessary
@@ -209,11 +209,13 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX128:
       dtype = py::dtype("cdouble");
       break;
-    default:
-      // TODO: should use error throwing like for the other errors.
-      std::cerr << "Unsupported ONNX type in OMTensor: "
-                << omTensorGetDataType(omt) << ".\n";
-      exit(1);
+    default: {
+      std::stringstream errStr;
+      errStr << "Unsupported ONNX type in OMTensor: "
+             << omTensorGetDataType(omt) << std::endl;
+
+      throw std::runtime_error(reportPythonError(errStr.str()));
+    }
     }
 
     outputPyArrays.emplace_back(
@@ -253,6 +255,18 @@ std::string PyExecutionSessionBase::pyInputSignature() {
 
 std::string PyExecutionSessionBase::pyOutputSignature() {
   return outputSignature();
+}
+
+// =============================================================================
+// Error reporting
+
+std::string PyExecutionSessionBase::reportPythonError(
+    std::string errorStr) const {
+  errno = EFAULT; // Bad Address.
+  std::stringstream errStr;
+  errStr << "Execution session: encountered python error `" << errorStr << "'."
+         << std::endl;
+  return errStr.str();
 }
 
 } // namespace onnx_mlir

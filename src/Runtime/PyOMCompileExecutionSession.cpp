@@ -28,24 +28,34 @@ namespace onnx_mlir {
 
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     std::string inputFileName, std::string sharedLibPath, std::string flags,
-    bool defaultEntryPoint)
+    bool defaultEntryPoint, bool reuseCompiledModel)
     : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
   // First compile the onnx file.
   this->inputFileName = inputFileName;
-  if (this->inputFileName.empty()) {
-    errorMessage = "No OMCompileExecuteSession was created with the input file "
-                   "name specified.";
-  }
+  if (this->inputFileName.empty())
+    throw std::runtime_error(reportLibraryOpeningError(inputFileName));
+
   const char *outputName, *errorMsg;
-  int64_t rc;
-  rc = omCompileFromFile(
-      inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
-  if (rc != 0) {
-    // Compilation failure: save error message.
-    errorMessage = std::string(errorMsg);
-    // Empty output file name.
-    this->sharedLibPath = std::string();
-    throw std::runtime_error(reportCompilerError(errorMessage));
+  if (reuseCompiledModel) {
+    // see if there is a model to reuse.
+    outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
+    bool fileExists = access(outputName, F_OK) != -1;
+    if (!fileExists) {
+      // fprintf(stderr, "file `%s' does not exists, compile.\n", outputName);
+      reuseCompiledModel = false;
+    }
+  }
+  if (!reuseCompiledModel) {
+    int64_t rc;
+    rc = omCompileFromFile(
+        inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
+    if (rc != 0) {
+      // Compilation failure: save error message.
+      errorMessage = std::string(errorMsg);
+      // Empty output file name.
+      this->sharedLibPath = std::string();
+      throw std::runtime_error(reportCompilerError(errorMessage));
+    }
   }
   // Compilation success: save output file name.
   this->sharedLibPath = std::string(outputName);
