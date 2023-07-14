@@ -27,8 +27,8 @@ namespace onnx_mlir {
 // Constructor
 
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
-    std::string inputFileName, std::string flags,
-    bool defaultEntryPoint, bool reuseCompiledModel)
+    std::string inputFileName, std::string flags, bool defaultEntryPoint,
+    bool reuseCompiledModel)
     : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
   // First compile the onnx file.
   this->inputFileName = inputFileName;
