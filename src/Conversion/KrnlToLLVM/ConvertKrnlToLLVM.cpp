@@ -231,6 +231,29 @@ bool hasSingleEntryPoint(ModuleOp &module) {
   return (i == 1);
 }
 
+void PostfixEntrypointNames(ModuleOp &module) {
+  module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
+    Operation *op = entryOp.getOperation();
+    std::string entryPointFuncName =
+        op->getAttrOfType<SymbolRefAttr>(
+              KrnlEntryPointOp::getEntryPointFuncAttrName())
+            .getLeafReference()
+            .getValue()
+            .str();
+    func::FuncOp entryPointFunc =
+        dyn_cast<func::FuncOp>(module.lookupSymbol(entryPointFuncName));
+    assert(entryPointFunc && "entry point func must exist");
+    // Update the function name.
+    entryPointFunc.setSymName(
+        StringRef(LLVMBuilder::SymbolPostfix(module, entryPointFuncName)));
+    // Reflect the new function name in the entry point.
+    op->setAttr(KrnlEntryPointOp::getEntryPointFuncAttrName(),
+        FlatSymbolRefAttr::get(entryPointFunc));
+    return WalkResult::advance();
+  });
+  return;
+}
+
 /// Keep original MemRefTypes for inputs and outputs. These information will be
 /// used for constructing OMTensors for inputs and outputs. We have to record
 /// this information at this point before they are disappeared during the
@@ -330,8 +353,8 @@ void genSignatureFunction(ModuleOp &module,
     // Emit the function type.
     Type llvmFnType =
         LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp =
-        create.llvm.func("omQueryEntryPoints", llvmFnType);
+    LLVM::LLVMFuncOp funcOp = create.llvm.func(
+        "omQueryEntryPoints", llvmFnType, /*createUniqueFunc=*/true);
     // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
@@ -367,7 +390,8 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
     Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp = create.llvm.func(funcNames[i], llvmFnType);
+    LLVM::LLVMFuncOp funcOp =
+        create.llvm.func(funcNames[i], llvmFnType, /*createUniqueFunc=*/true);
 
     // 2. Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
@@ -581,7 +605,8 @@ void loadConstantsFromFile(ModuleOp &module,
         getFirstEntryOpInBlock(module, entryGlobalOps);
     assert(firstEntryPointOp && "No entry function exists");
     b.setInsertionPoint(firstEntryPointOp);
-    funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
+    funcOp = create.llvm.func(
+        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
     // Call loadAllConstantsFuncName in each entry point function.
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
@@ -601,7 +626,8 @@ void loadConstantsFromFile(ModuleOp &module,
   } else {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
-    funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
+    funcOp = create.llvm.func(
+        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
   }
 
   // Emit the body of the function.
@@ -771,6 +797,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Remove this once MLIR/LLVM completely uses opaque pointers.
   options.useOpaquePointers = useOpaquePointers; // for LLVMTypeConverter.
   LLVM_USE_OPAQUE_POINTER = useOpaquePointers; // for onnx-mlir util functions.
+
+  // Append a unique string to each entry point function.
+  // The string is getting from the module's attribute
+  // `onnx-mlir.symbol_postfix`.
+  PostfixEntrypointNames(module);
 
   KRNL_ENTRY_POINT_ID = 0;
 
