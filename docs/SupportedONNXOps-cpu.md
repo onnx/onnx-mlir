@@ -35,7 +35,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **BitwiseOr** |18 | | |
 | **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
-| **Cast** |19 |Cast only between float and double types. | |
+| **Cast** |19 |Cast only between float and double types. Some platforms support float16. | |
 | **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
 | **CategoryMapper** | |unsupported | |
@@ -113,16 +113,16 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **LpPool** | |unsupported | |
 | **MatMul** |13 | | |
 | **MatMulInteger** |10 | | |
-| **Max** |13 |No support for short floats and unsigned int. | |
+| **Max** |13 |No support for unsigned int. Only some platforms support float16. | |
 | **MaxPool** |12 |Does not support argmax and short ints. Support single output only. | |
 | **MaxRoiPool** | |unsupported | |
 | **MaxUnpool** | |unsupported | |
 | **Mean** |13 | | |
 | **MeanVarianceNormalization** | |unsupported | |
 | **MelWeightMatrix** | |unsupported | |
-| **Min** |13 |Does not support short floats and unsigned numbers. | |
+| **Min** |13 |Does not support unsigned numbers. Only some platforms support float16. | |
 | **Mish** | |unsupported | |
-| **Mod** |13 |Support float and double only. | |
+| **Mod** |13 |Support float and double only. Some platforms support float16. | |
 | **Momentum** | |unsupported | |
 | **Mul** |14 |Does not support short integers. | |
 | **Multinomial** | |unsupported | |

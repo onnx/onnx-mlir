@@ -81,6 +81,9 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     case ONNX_TYPE_INT64:                                                      \
       LOG_BUF_C_TYPE(long, hex ? " %016x" : " %ld", buf, data, n);             \
       break;                                                                   \
+    case ONNX_TYPE_FLOAT16:                                                    \
+      LOG_BUF_C_TYPE(short, " %04x", buf, data, n);                            \
+      break;                                                                   \
     case ONNX_TYPE_FLOAT:                                                      \
       LOG_BUF_C_TYPE(float, hex ? " %08x" : " %f", buf, data, n);              \
       break;                                                                   \
