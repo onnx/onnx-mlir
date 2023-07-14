@@ -51,6 +51,10 @@ namespace onnx_mlir {
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
 
+/* static */ bool MathBuilder::isVector(Type type) {
+  return type.dyn_cast<VectorType>() != nullptr;
+}
+
 /* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
   VectorType vectorType = elementOrVectorType.dyn_cast<VectorType>();
   if (vectorType)
@@ -1499,6 +1503,64 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
       mask[i++] = secondHalf + VL + p * step + e;
   }
   return shuffle(lhs, rhs, mask);
+}
+
+Value VectorBuilder::reduction(
+    VectorBuilder::CombiningKind kind, Value value) const {
+  Type type = value.getType();
+  switch (kind) {
+  case CombiningKind::ADD: {
+    return b().create<vector::ReductionOp>(
+        loc(), vector::CombiningKind::ADD, value);
+  }
+  case CombiningKind::MUL: {
+    return b().create<vector::ReductionOp>(
+        loc(), vector::CombiningKind::MUL, value);
+  }
+  case CombiningKind::MAX: {
+    if (MathBuilder::isUnsignedIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXUI, value);
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXSI, value);
+    if (MathBuilder::isFloatWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXF, value);
+    llvm_unreachable("unknown type in max");
+  }
+  case CombiningKind::MIN: {
+    if (MathBuilder::isUnsignedIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINUI, value);
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINSI, value);
+    if (MathBuilder::isFloatWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINF, value);
+    llvm_unreachable("unknown type in min");
+  }
+  case CombiningKind::AND: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::AND, value);
+    llvm_unreachable("unknown type in and");
+  }
+  case CombiningKind::OR: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::OR, value);
+    llvm_unreachable("unknown type in or");
+  }
+  case CombiningKind::XOR: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::XOR, value);
+    llvm_unreachable("unknown type in xor");
+  }
+  } // Switch.
+  llvm_unreachable("unknown combining kind");
 }
 
 // Do a parallel-simd reduction of N vectors of SIMD length VL.

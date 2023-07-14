@@ -91,7 +91,7 @@ struct MathBuilder final : DialectBuilder {
 
   // Support for vectors: we provide queries that work regardless of if we have
   // (1) a scalar or (2) a vector of a basic element type.
-
+  static bool isVector(mlir::Type type);
   // The method belows ignore the vectors part of the type to provide answer on
   // the basic element types alone.
   static bool isIntegerWithVector(mlir::Type elementOrVectorType);
@@ -379,6 +379,7 @@ struct VectorBuilder final : DialectBuilder {
   virtual ~VectorBuilder() {}
 
   using F2 = std::function<mlir::Value(mlir::Value const, mlir::Value const)>;
+  enum CombiningKind { ADD, MUL, MAX, MIN, AND, OR, XOR };
 
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
@@ -417,6 +418,7 @@ struct VectorBuilder final : DialectBuilder {
   // Composite functions.
   mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
+  mlir::Value reduction(CombiningKind kind, mlir::Value value) const;
   void multiReduction(llvm::SmallVectorImpl<mlir::Value> &inputVecArray,
       F2 reductionFct, llvm::SmallVectorImpl<mlir::Value> &outputVecArray);
 
