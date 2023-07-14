@@ -18,16 +18,27 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
+// Derive the name; base name is either given by a "-o" option, or is taken as
+// the model name. The extention depends on the target; e.g. -EmitLib will
+// generate a .so, other targets may generate a .mlir.
 static std::string deriveOutputFileName(
     std::vector<std::string> &flagVect, std::string inputFilename) {
   // Get output file name.
   std::string outputBasename;
   int num = flagVect.size();
-  for (int i = 0; i < num - 1;
-       ++i) { // Skip last as need 2 consecutive entries.
-    if (flagVect[i].find("-o") == 0) {
-      outputBasename = flagVect[i + 1];
-      break;
+  for (int i = 0; i < num; ++i) {
+    if (flagVect[i].find("-o=", 0, 3) == 0) {
+      if (flagVect[i].length() > 3) {
+        outputBasename = flagVect[i].substr(3);
+        break;
+      } else
+        llvm::errs() << "Parsing `-o=` option, expected a name. Use default.\n";
+    } else if (flagVect[i].find("-o") == 0) {
+      if (i < num - 1) {
+        outputBasename = flagVect[i + 1];
+        break;
+      } else
+        llvm::errs() << "Parsing `-o` option, expected a name. Use default.\n";
     }
   }
   // If no output file name, derive it from input file name

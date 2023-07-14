@@ -27,7 +27,7 @@ namespace onnx_mlir {
 // Constructor
 
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
-    std::string inputFileName, std::string sharedLibPath, std::string flags,
+    std::string inputFileName, std::string flags,
     bool defaultEntryPoint, bool reuseCompiledModel)
     : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
   // First compile the onnx file.
@@ -41,7 +41,7 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
     outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
     bool fileExists = access(outputName, F_OK) != -1;
     if (!fileExists) {
-      // fprintf(stderr, "file `%s' does not exists, compile.\n", outputName);
+      fprintf(stderr, "file `%s' does not exists, compile.\n", outputName);
       reuseCompiledModel = false;
     }
   }
@@ -53,15 +53,15 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
       // Compilation failure: save error message.
       errorMessage = std::string(errorMsg);
       // Empty output file name.
-      this->sharedLibPath = std::string();
+      this->outputFileName = std::string();
       throw std::runtime_error(reportCompilerError(errorMessage));
     }
   }
   // Compilation success: save output file name.
-  this->sharedLibPath = std::string(outputName);
+  this->outputFileName = std::string(outputName);
   errorMessage = std::string();
   // Now that we have a .so, initialize execution session.
-  Init(this->sharedLibPath, defaultEntryPoint);
+  Init(this->outputFileName, defaultEntryPoint);
 }
 
 // =============================================================================
@@ -70,7 +70,7 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
 int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return rc; }
 
 std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
-  return sharedLibPath;
+  return outputFileName;
 }
 
 std::string PyOMCompileExecutionSession::pyGetErrorMessage() {

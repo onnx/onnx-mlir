@@ -29,7 +29,7 @@ namespace onnx_mlir {
 class PyOMCompileExecutionSession : public onnx_mlir::PyExecutionSessionBase {
 public:
   PyOMCompileExecutionSession(std::string inputFileName,
-      std::string sharedLibPath, std::string flags,
+      std::string flags,
       bool defaultEntryPoint = true, bool reuseCompiledModel = true);
   std::string pyGetCompiledFileName();
   std::string pyGetErrorMessage();
@@ -37,7 +37,7 @@ public:
 
 private:
   std::string inputFileName;
-  std::string sharedLibPath;
+  std::string outputFileName;
   std::string errorMessage;
   int64_t rc;
 };
@@ -47,9 +47,9 @@ PYBIND11_MODULE(PyCompileAndRuntime, m) {
   py::class_<onnx_mlir::PyOMCompileExecutionSession>(
       m, "OMCompileExecutionSession")
       .def(py::init<const std::string &, const std::string &,
-               const std::string &, const bool, const bool>(),
-          py::arg("input_model_path"), py::arg("compiled_file_path"),
-          py::arg("flags"), py::arg("use_default_entry_point") = 1,
+               const bool, const bool>(),
+          py::arg("input_model_name"), py::arg("flags"), 
+          py::arg("use_default_entry_point") = 1,
           py::arg("reuse_compiled_model") = 1)
       .def("get_compiled_result",
           &onnx_mlir::PyOMCompileExecutionSession::pyGetCompiledResult)
