@@ -1510,6 +1510,9 @@ Value VectorBuilder::reduction(
   Type type = value.getType();
   switch (kind) {
   case CombiningKind::ADD: {
+    fprintf(stderr, "hi alex, contract this op with add\n");
+    value.dump();
+    fprintf(stderr, "hi alex, printed\n");
     return b().create<vector::ReductionOp>(
         loc(), vector::CombiningKind::ADD, value);
   }

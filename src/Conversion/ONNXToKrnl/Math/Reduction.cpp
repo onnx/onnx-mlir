@@ -551,12 +551,48 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       alloc = create.mem.alignedAlloc(memRefOutType, allocOperands);
     }
 
-    if (horizontalSimd)
+    // Used if compute mean
+    Value divisorForMean = nullptr;
+    if (computeMean) {
+      // Compute the divisor that is the number of elements participated in
+      // reduction, i.e., 'divisor = size of input / size of output'.
+      IndexExprScope scope(create.krnl);
+      IndexExpr inputSizeExpr = LiteralIndexExpr(1);
+      for (unsigned i = 0; i < inRank; i++) {
+        IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(input, i);
+        inputSizeExpr = inputSizeExpr * dimExpr;
+      }
+      IndexExpr outputSizeExpr = LiteralIndexExpr(1);
+      for (unsigned i = 0; i < outRank; i++) {
+        IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(alloc, i);
+        outputSizeExpr = outputSizeExpr * dimExpr;
+      }
+      IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
+#if 1
+       divisorForMean =
+          create.math.cast(elementOutType, divisorExpr.getValue());
+#else
+      divisorForMean = divisorExpr.getValue();
+      if (elementOutType.isa<FloatType>()) {
+        divisorForMean =
+            create.getBuilder().create<arith::IndexCastOp>(create.getLoc(),
+                create.getBuilder().getIntegerType(64), divisorForMean);
+        divisorForMean = create.getBuilder().create<arith::UIToFPOp>(
+            create.getLoc(), elementOutType, divisorForMean);
+      } else if (elementOutType.isa<IntegerType>())
+        divisorForMean = create.math.cast(elementOutType, divisorForMean);
+      else
+        llvm_unreachable("unsupported element type");
+#endif
+    }
+
+    if (horizontalSimd && false)
       HorizontalSimdReduction(rewriter, create, op, elementOutType, input,
-          alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims);
+          alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
+          divisorForMean);
     else
       ScalarReduction(rewriter, create, op, elementOutType, input, alloc,
-          inRank, outRank, dynamicAxes, maskVal, outInDimMap);
+          inRank, outRank, dynamicAxes, maskVal, outInDimMap, divisorForMean);
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -564,7 +600,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   void ScalarReduction(ConversionPatternRewriter &rewriter, MDBuilder &create,
       Operation *op, Type elementType, Value input, Value alloc, int64_t inRank,
       int64_t outRank, bool dynamicAxes, Value maskVal,
-      std::map<int64_t, int64_t> &outInDimMap) const {
+      std::map<int64_t, int64_t> &outInDimMap, Value divisorForMean) const {
     //////////////////////////////////////////////////////////////////////
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -618,31 +654,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     // 3. Define an Krnl loop to compute mean (optional).
     if (computeMean) {
-      // Compute the divisor that is the number of elements participated in
-      // reduction, i.e., 'divisor = size of input / size of output'.
-      IndexExprScope scope(create.krnl);
-      IndexExpr inputSizeExpr = LiteralIndexExpr(1);
-      for (unsigned i = 0; i < inRank; i++) {
-        IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(input, i);
-        inputSizeExpr = inputSizeExpr * dimExpr;
-      }
-      IndexExpr outputSizeExpr = LiteralIndexExpr(1);
-      for (unsigned i = 0; i < outRank; i++) {
-        IndexExpr dimExpr = create.krnlIE.getShapeAsSymbol(alloc, i);
-        outputSizeExpr = outputSizeExpr * dimExpr;
-      }
-      IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
-      Value divisor = divisorExpr.getValue();
-      if (elementType.isa<FloatType>()) {
-        divisor = create.getBuilder().create<arith::IndexCastOp>(
-            create.getLoc(), create.getBuilder().getIntegerType(64), divisor);
-        divisor = create.getBuilder().create<arith::UIToFPOp>(
-            create.getLoc(), elementType, divisor);
-      } else if (elementType.isa<IntegerType>())
-        divisor = create.math.cast(elementType, divisor);
-      else
-        llvm_unreachable("unsupported element type");
-
       // Compute mean
       ValueRange loop3Def = create.krnl.defineLoops(outRank);
       SmallVector<IndexExpr, 4> lbs3(outRank, LiteralIndexExpr(0));
@@ -652,7 +663,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           [&](KrnlBuilder &kb, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
             Value loadData = create.krnl.load(alloc, loopInd);
-            Value meanVal = create.math.div(loadData, divisor);
+            Value meanVal = create.math.div(loadData, divisorForMean);
             create.krnl.store(meanVal, alloc, loopInd);
           });
     }
@@ -661,37 +672,53 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   void HorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
-      int64_t collapsedInnermostLoops, bool isKeepDims) const {
+      int64_t collapsedInnermostLoops, bool isKeepDims,
+      Value divisorForMean) const {
 
     assert(VL > 1 && "expected simd here");
     VectorType vecType = VectorType::get({VL}, elementType);
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
     DimsExpr inDims, flatInDims;
     create.krnlIE.getShapeAsSymbols(input, inDims);
+    fprintf(stderr, "input\n");
+    input.dump();
     Value flatInput = create.mem.reshapeToFlat(
         input, inDims, flatInDims, collapsedInnermostLoops);
+    fprintf(stderr, "flat input\n");
+    flatInput.dump();
     int64_t flatInRank = flatInDims.size();
     // Flatten the output: only the non-reduced dims of in: -> [N][M]
     DimsExpr outDims, flatOutDims;
     create.krnlIE.getShapeAsSymbols(alloc, outDims);
     int64_t collapseOutInnermostLoop =
-        isKeepDims ? 1 : collapsedInnermostLoops + 1;
+        isKeepDims ? collapsedInnermostLoops + 1 : 1;
     Value flatAlloc = create.mem.reshapeToFlat(
         alloc, outDims, flatOutDims, collapseOutInnermostLoop);
+    fprintf(stderr, "flat output, orig dim %d, collapse %d, flat size %d\n",
+        (int)outRank, (int)collapseOutInnermostLoop, (int)flatOutDims.size());
+    flatAlloc.dump();
+
+    // Alloca a small temp vector.
+    MemRefType tmpType = MemRefType::get({VL}, elementType);
+    Value tmpAlloca = create.mem.alignedAlloca(tmpType);
+    Value zero = create.math.constantIndex(0);
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange loopDef = create.krnl.defineLoops(flatInRank);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[flatInRank - 1], VL);
-    SmallVector<Value, 4> outputLoopDef(loopDef);
-    // Iterate only over the output bounds.
+    SmallVector<Value, 4> outputLoopDef;
+    for (int64_t i = 0; i < flatInRank - 1; ++i)
+      outputLoopDef.emplace_back(loopDef[i]);
+    // Iterate only over all but the inner loop of the flattened input.
     SmallVector<IndexExpr, 4> lbs(flatInRank, LiteralIndexExpr(0));
     create.krnl.iterateIE(loopDef, outputLoopDef, lbs, flatInDims,
         [&](KrnlBuilder &ck, ValueRange outLoopInd) {
           MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
-          Value accumulatedVec = create.vec.splat(vecType, identity);
+          Value initVec = create.vec.splat(vecType, identity);
+          create.vec.store(initVec, tmpAlloca, {zero});
           // Iterate over the SIMD blocks
-          create.krnl.iterateIE({}, blockedLoopDef[0], {}, {},
+          create.krnl.iterate({}, blockedLoopDef[0], {}, {},
               [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
                 MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
                 // Input values, loaded as a vector.
@@ -699,15 +726,22 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 inAccessVals.emplace_back(simdLoopInd[0]);
                 Value inputVec =
                     create.vec.load(vecType, flatInput, inAccessVals);
+                fprintf(stderr, "input vec\n");
+                inputVec.dump();
+                Value tmpVec = create.vec.load(vecType, tmpAlloca, {zero});
                 // Sum into redVec
-                accumulatedVec =
-                    emitScalarOpFor<ONNXReductionOp>(rewriter, create.getLoc(),
-                        op, elementType, {accumulatedVec, inputVec});
+                Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
+                    rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
+                create.vec.store(accumulatedVec, tmpAlloca, {zero});
               });
           // Horizontal sum
+          Value reductionVec = create.vec.load(vecType, tmpAlloca, {zero});
           Value accumulatedVal = create.vec.reduction(
-              getCombiningKind<ONNXReductionOp>(), accumulatedVec);
+              getCombiningKind<ONNXReductionOp>(), reductionVec);
           // other operation...
+          if (computeMean) {
+          }
+
           create.krnl.store(accumulatedVal, flatAlloc, outLoopInd);
         });
   }
