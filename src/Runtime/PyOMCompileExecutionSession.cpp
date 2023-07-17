@@ -39,11 +39,13 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
   if (reuseCompiledModel) {
     // see if there is a model to reuse.
     outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
-    bool fileExists = access(outputName, F_OK) != -1;
-    if (!fileExists) {
-      fprintf(stderr, "file `%s' does not exists, compile.\n", outputName);
+    FILE *file = fopen(outputName, "r");
+    if (file)
+      // File exists, we are ok.
+      fclose(file);
+    else
+      // File does not exist, cannot reuse compilation.
       reuseCompiledModel = false;
-    }
   }
   if (!reuseCompiledModel) {
     int64_t rc;
