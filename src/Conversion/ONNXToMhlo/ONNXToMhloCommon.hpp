@@ -19,6 +19,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -113,6 +114,8 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
     llvm::SmallVector<Value, 4> &operands, Type outputType,
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
 
+mlir::ElementsAttr getElementAttributeFromMhloValue(mlir::Value value);
+
 // `Math` directory methods:
 void populateLoweringONNXClipOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
@@ -148,8 +151,11 @@ void populateLoweringONNXFlattenOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGatherOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXGatherElementsOpToMhloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXIdentityOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXPadOpToMhloPattern(RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReshapeOpToMhloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXShapeOpToMhloPattern(
