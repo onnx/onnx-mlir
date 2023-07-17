@@ -75,6 +75,9 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
 
+  // ONNXMaxOp
+  mlir::Value max(mlir::ValueRange inputs) const;
+
   // ONNXMinOp
   mlir::Value min(mlir::ValueRange inputs) const;
 

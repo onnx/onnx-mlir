@@ -1661,7 +1661,7 @@ func.func @test_cast_1(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_cast_1
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f32} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f32} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf32>
 }
 
@@ -1672,7 +1672,7 @@ func.func @test_cast_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xui8> {
   "onnx.Return"(%1) : (tensor<*xui8>) -> ()
 
   // CHECK-LABEL: test_cast_2
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = ui8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = ui8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xui8>
 }
 
@@ -1683,7 +1683,7 @@ func.func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi8> {
   "onnx.Return"(%1) : (tensor<*xi8>) -> ()
 
   // CHECK-LABEL: test_cast_3
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = i8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = i8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xi8>
 }
 
@@ -1694,7 +1694,7 @@ func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
   "onnx.Return"(%1) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: test_cast_10
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f16} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f16} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf16>
 }
 

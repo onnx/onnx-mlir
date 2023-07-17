@@ -73,6 +73,15 @@ void addONNXToZHighPasses(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
+  // Clip zhigh.Stick inputs if required. This is to avoid out-of-range of
+  // dlfloat. Do constant propagation after clipping to remove ONNX ops used for
+  // clipping such as ONNXMax if applicable.
+  if (nnpaClipToDLFloatRange) {
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighClipToDLFloatPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
+  }
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
   bool isBE = llvm::support::endian::system_endianness() ==
