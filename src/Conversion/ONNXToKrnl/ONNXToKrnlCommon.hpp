@@ -183,6 +183,8 @@ template <typename FOp>
 using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
+template <typename SOp>
+using ScalarSOp = typename ScalarOp<SOp>::SOp;
 
 // Get the identity element of an operation.
 // Return NULL if the function does not have identity.
