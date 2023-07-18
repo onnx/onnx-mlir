@@ -568,25 +568,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         outputSizeExpr = outputSizeExpr * dimExpr;
       }
       IndexExpr divisorExpr = inputSizeExpr.floorDiv(outputSizeExpr);
-#if 1
-       divisorForMean =
-          create.math.cast(elementOutType, divisorExpr.getValue());
-#else
-      divisorForMean = divisorExpr.getValue();
-      if (elementOutType.isa<FloatType>()) {
-        divisorForMean =
-            create.getBuilder().create<arith::IndexCastOp>(create.getLoc(),
-                create.getBuilder().getIntegerType(64), divisorForMean);
-        divisorForMean = create.getBuilder().create<arith::UIToFPOp>(
-            create.getLoc(), elementOutType, divisorForMean);
-      } else if (elementOutType.isa<IntegerType>())
-        divisorForMean = create.math.cast(elementOutType, divisorForMean);
-      else
-        llvm_unreachable("unsupported element type");
-#endif
+      divisorForMean = create.math.cast(elementOutType, divisorExpr.getValue());
     }
 
-    if (horizontalSimd && false)
+    if (horizontalSimd)
       HorizontalSimdReduction(rewriter, create, op, elementOutType, input,
           alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
           divisorForMean);
@@ -712,7 +697,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     SmallVector<IndexExpr, 4> lbs(flatInRank, LiteralIndexExpr(0));
     create.krnl.iterateIE(loopDef, outputLoopDef, lbs, flatInDims,
         [&](KrnlBuilder &ck, ValueRange outLoopInd) {
-          MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+          MultiDialectBuilder<KrnlBuilder, VectorBuilder, MathBuilder> create(
+              ck);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
@@ -740,6 +726,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               getCombiningKind<ONNXReductionOp>(), reductionVec);
           // other operation...
           if (computeMean) {
+            accumulatedVal = create.math.div(accumulatedVal, divisorForMean);
           }
 
           create.krnl.store(accumulatedVal, flatAlloc, outLoopInd);
