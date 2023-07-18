@@ -37,7 +37,7 @@ set_target_properties(cruntime
   )
 
 add_onnx_mlir_library(OMTensorUtils
-  OMAsyncMatMul.c
+  OMAsyncMatMul.cpp
   OMExternalConstant.cpp
   OMIndexLookup.cpp
   OMInstrument.cpp
@@ -55,6 +55,9 @@ add_onnx_mlir_library(OMTensorUtils
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMCompilerUtils
   )
 set_target_properties(OMTensorUtils
   PROPERTIES
