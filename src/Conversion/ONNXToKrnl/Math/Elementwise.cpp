@@ -49,7 +49,7 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
       return;
     llvm_unreachable("this op does not support custom scalar for floats");
   }
-  if (actualElementType.isa<StringType>()) {
+  if (actualElementType.isa<krnl::StringType>()) {
     if constexpr (std::is_same<ScalarSOp<Op>, KrnlStrncmpOp>::value)
       return;
     llvm_unreachable("this op does not support custom scalar for strings");
