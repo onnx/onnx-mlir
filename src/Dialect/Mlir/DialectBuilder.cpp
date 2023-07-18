@@ -1692,7 +1692,7 @@ LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
   // generated LLVMIR.
   ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
   if (StringAttr postfixAttr =
-          module->getAttrOfType<StringAttr>("onnx-mlir.symbol_postfix")) {
+          module->getAttrOfType<StringAttr>("onnx-mlir.symbol-postfix")) {
     StringRef postfix = postfixAttr.getValue();
     gop.setName(StringRef(name.str() + "_" + postfix.str()));
   }

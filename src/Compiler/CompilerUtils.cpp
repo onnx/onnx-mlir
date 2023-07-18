@@ -885,9 +885,13 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
   // LLVMIR. By default, use the filename (without extension) of the input onnx
   // model.
   // This postfix makes the symbols unique across multiple generated models.
-  // In particular, it will be appended to global variable names and functions.
+  // In particular, it will be appended to global variable and function names.
+  // For example, we will have two entry points: `run_main_graph` and
+  // `run_main_graph_postfix`, doing the same computation.
+  if (symbolPostfix == "")
+    symbolPostfix = llvm::sys::path::filename(outputNameNoExt).str();
   moduleOp.setAttr(
-      "onnx-mlir.symbol_postfix", StringAttr::get(&context, outputNameNoExt));
+      "onnx-mlir.symbol-postfix", StringAttr::get(&context, symbolPostfix));
 
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;

@@ -596,13 +596,13 @@ struct LLVMBuilder final : DialectBuilder {
   void ifThenElse(valueFuncRef cond, voidFuncRef thenFn,
       voidFuncRef elseFn = nullptr) const;
 
-  /// Postfix a symbol with the value of `onnx-mlir.symbol_postfix` in the
+  /// Postfix a symbol with the value of `onnx-mlir.symbol-postfix` in the
   /// module attribute.
   static inline std::string SymbolPostfix(
       mlir::ModuleOp &module, std::string symbol) {
     std::string postfix = "";
     if (mlir::StringAttr postfixAttr = module->getAttrOfType<mlir::StringAttr>(
-            "onnx-mlir.symbol_postfix")) {
+            "onnx-mlir.symbol-postfix")) {
       postfix = "_" + postfixAttr.getValue().str();
     }
     return symbol + postfix;

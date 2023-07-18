@@ -104,13 +104,18 @@ public:
     // When there is only a single entry point function in a model, use
     // DEFAULT_DYN_ENTRY_POINT.
     std::string dynEntryPointName = "run_" + staticEntryPointFuncName.str();
-    if (singleEntryPoint)
-      dynEntryPointName = DEFAULT_DYN_ENTRY_POINT;
 
     // Record entry point name, input and output signatures in order to emit
     // signature-related functions later.
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
+
+    // If single entry point, add a default entry point,
+    // DEFAULT_DYN_ENTRY_POINT, that calls the dynamic entry point.
+    if (singleEntryPoint) {
+      recordEntryPointSignatures(module, DEFAULT_DYN_ENTRY_POINT, op,
+          entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
+    }
 
     // If `useOpaquePointers=true` in LowerToLLVMOptions, all memref arguments
     // are converted to opaque types, e.g. `!llvm.ptr`, so we lost the
@@ -127,8 +132,13 @@ public:
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
-    LLVM::LLVMFuncOp dynamicEntryPointFunc =
-        create.llvm.func(dynEntryPointName, dynEntryPointFuncTy);
+    LLVM::LLVMFuncOp dynamicEntryPointFunc;
+    if (singleEntryPoint)
+      dynamicEntryPointFunc = create.llvm.func(DEFAULT_DYN_ENTRY_POINT,
+          dynEntryPointFuncTy, /*createUniqueFunc=*/true);
+    else
+      dynamicEntryPointFunc = create.llvm.func(
+          dynEntryPointName, dynEntryPointFuncTy, /*createUniqueFunc=*/false);
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);

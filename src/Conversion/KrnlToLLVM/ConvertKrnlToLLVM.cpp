@@ -800,7 +800,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // Append a unique string to each entry point function.
   // The string is getting from the module's attribute
-  // `onnx-mlir.symbol_postfix`.
+  // `onnx-mlir.symbol-postfix`.
   PostfixEntrypointNames(module);
 
   KRNL_ENTRY_POINT_ID = 0;
