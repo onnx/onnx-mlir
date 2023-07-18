@@ -219,11 +219,7 @@ template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
     mlir::Value &lhs, mlir::Value &rhs);
 
 static bool containsNonZero(llvm::SmallVectorImpl<int64_t> &values) {
-  for (int64_t value : values) {
-    if (value != 0)
-      return true;
-  }
-  return false;
+  return llvm::any_of(values, [](int64_t value) { return value != 0; });
 }
 
 FailureOr<Value> TosaBuilder::resizeWindowBasedOps(mlir::Value &value,
@@ -233,6 +229,7 @@ FailureOr<Value> TosaBuilder::resizeWindowBasedOps(mlir::Value &value,
     const llvm::ArrayRef<int64_t> strides,
     const llvm::ArrayRef<int64_t> dilation) {
 
+  // Returns the number of unused values at the end of a dimension
   auto getOffset = [](int64_t inputDimension, int64_t outputDimension,
                        int64_t kernelDimension, int64_t padFront,
                        int64_t padBack, int64_t stride, int64_t dilation) {
@@ -254,6 +251,8 @@ FailureOr<Value> TosaBuilder::resizeWindowBasedOps(mlir::Value &value,
         return outputSpatialDimension;
       };
 
+  // Only the end of a dimension is cut or padded differently. The beginning
+  // is unchanged.
   llvm::SmallVector<int64_t, 2> cellsToCut;
   llvm::SmallVector<int64_t, 2> cellsToPad;
   for (int i = 0; i < 2; i++) {
@@ -273,11 +272,14 @@ FailureOr<Value> TosaBuilder::resizeWindowBasedOps(mlir::Value &value,
     }
   }
 
+  // Edge case where the kernel only uses padding values and none of the actual
+  // input values
   if ((inputShape[1] - cellsToCut[0] == 0) ||
       (inputShape[2] - cellsToCut[1] == 0))
     return rewriter().notifyMatchFailure(
         loc(), "the operation does not use any value of the input tensor");
 
+  // Only slice if we actually need it
   if (containsNonZero(cellsToCut)) {
     value = this->slice(value,
         {inputShape[0], inputShape[1] - cellsToCut[0],
