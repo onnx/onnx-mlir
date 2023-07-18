@@ -80,8 +80,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
           pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
                pytest-xdist typing-extensions && \
           yum remove -q -y \
-              adwaita-icon-theme autoconf automake cmake diffutils file \
-              git libtool make python39 && \
+              adwaita-icon-theme autoconf automake cmake file \
+              git libtool python39 && \
           rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
        fi \
     && rm -rf /tmp/* /usr/bin/python \
