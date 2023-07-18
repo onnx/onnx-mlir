@@ -2791,7 +2791,6 @@ func.func @test_cumsum_constant_axis_reverse_mode(%arg0: tensor<2x3xf64>) -> ten
 
 // -----
 
-
 func.func @test_cumsum_constant_axis_exclusive_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
   %axis = onnx.Constant dense<1> : tensor<i32>
   %0 = "onnx.CumSum"(%arg0, %axis) {exclusive = 1 : si64} : (tensor<2x3xf64>, tensor<i32>) -> tensor<*xf64>
@@ -2847,7 +2846,6 @@ func.func @test_cumsum_constant_axis_exclusive_mode(%arg0: tensor<2x3xf64>) -> t
 }
 
 // -----
-
 
 func.func @test_cumsum_constant_axis_exclusive_reverse_mode(%arg0: tensor<2x3xf64>) -> tensor<*xf64> {
   %axis = onnx.Constant dense<1> : tensor<i32>
@@ -3245,7 +3243,6 @@ func.func @test_cumsum_dynamic_axis_exclusive_reverse_mode(%arg0: tensor<2x3xf64
 
 // -----
 
-
 func.func @test_cumsum_dynamic_dims(%arg0: tensor<?x?xf64>, %arg1:tensor<i32>) -> tensor<*xf64> {
   %0 = "onnx.CumSum"(%arg0, %arg1) : (tensor<?x?xf64>, tensor<i32>) -> tensor<*xf64>
   return %0 : tensor<*xf64>
@@ -3588,7 +3585,6 @@ func.func @compress_no_axis_enough_cond(%arg0: tensor<3x2xf32>, %arg1: tensor<6x
 
 // -----
 
-
 func.func @test_hardmax_axis_1(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
   %0 = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<3x4x5xf32>) -> tensor<*xf32>
   return %0 : tensor<*xf32>
@@ -3629,7 +3625,6 @@ func.func @test_hardmax_axis_1(%arg0: tensor<3x4x5xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func @test_hardmax_unknown_dims(%arg0: tensor<?x?x?xf32>) -> tensor<*xf32> {
   %0 = "onnx.Hardmax"(%arg0) {axis = 1 : si64} : (tensor<?x?x?xf32>) -> tensor<*xf32>
@@ -3887,7 +3882,6 @@ func.func @test_transpose_lowered_to_a_view_op_inv(%arg0: tensor<?x1x1x384xf32>)
 
 // -----
 
-
 func.func @test_transpose_block_1_last_dim(%arg0: tensor<?x256x12x64xf32>) -> tensor<?x12x256x64xf32> {
     %1 = "onnx.Transpose"(%arg0) {perm = [0, 2, 1, 3] } : (tensor<?x256x12x64xf32>) -> tensor<?x12x256x64xf32>
     return %1 : tensor<?x12x256x64xf32>
@@ -4073,7 +4067,6 @@ func.func @test_dequantizelinear_i32(%arg0: tensor<4xi32>, %arg1: tensor<f32>, %
 }
 
 // -----
-
 
 func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xui8>, tensor<f32>, tensor<ui8>) {
   %y, %y_scale, %y_zero_point = "onnx.DynamicQuantizeLinear"(%arg0) : (tensor<?x2xf32>) -> (tensor<?x2xui8>, tensor<f32>, tensor<ui8>)
@@ -4774,7 +4767,6 @@ func.func private @test_exp(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Tanh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -4799,7 +4791,6 @@ func.func private @test_tanh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sinh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -4832,7 +4823,6 @@ func.func private @test_sinh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Cosh"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -4864,7 +4854,6 @@ func.func private @test_cosh(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Cos"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -4889,7 +4878,6 @@ func.func private @test_cos(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sin"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -4916,7 +4904,6 @@ func.func private @test_sin(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Log"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -4941,7 +4928,6 @@ func.func private @test_log(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sigmoid"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -4973,7 +4959,6 @@ func.func private @test_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5000,7 +4985,6 @@ func.func private @test_relu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Elu"(%arg0) {alpha=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -5034,7 +5018,6 @@ func.func private @test_elu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.LeakyRelu"(%arg0) {alpha=1.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5058,7 +5041,6 @@ func.func private @test_leakyrelu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Selu"(%arg0) {alpha=1.0:f32, gamma=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -5092,7 +5074,6 @@ func.func private @test_selu(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.HardSigmoid"(%arg0) {alpha=1.0:f32, beta=2.0:f32} : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5125,7 +5106,6 @@ func.func private @test_hardsigmoid(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Reciprocal"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5151,7 +5131,6 @@ func.func private @test_reciprocal(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softplus"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -5181,7 +5160,6 @@ func.func private @test_softplus(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Softsign"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5210,7 +5188,6 @@ func.func private @test_softsign(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5235,7 +5212,6 @@ func.func private @test_sqrt(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -5268,7 +5244,6 @@ func.func private @test_sign_f(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
   %0 = "onnx.Sign"(%arg0) : (tensor<?x10xi32>) -> tensor<*xi32>
   "func.return"(%0) : (tensor<*xi32>) -> ()
@@ -5299,7 +5274,6 @@ func.func private @test_sign_i(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 }
 
 // -----
-
 
 func.func private @test_abs_float(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -5352,7 +5326,6 @@ func.func private @test_abs_int(%arg0 : tensor<?x10xi32>) -> tensor<*xi32> {
 
 // -----
 
-
 func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Floor"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5377,7 +5350,6 @@ func.func private @test_floor(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 }
 
 // -----
-
 
 func.func private @test_ceil(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Ceil"(%arg0) : (tensor<?x10xf32>) -> tensor<*xf32>
@@ -5456,7 +5428,6 @@ func.func @test_trilu_upper(%arg0: tensor<4x5xi64>, %arg1: tensor<i64>) -> tenso
 
 // -----
 
-
 func.func private @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMaxV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5485,7 +5456,6 @@ func.func private @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32
 }
 
 // -----
-
 
 func.func private @test_reducemin_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceMinV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
@@ -5516,7 +5486,6 @@ func.func private @test_reducemin_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32
 
 // -----
 
-
 func.func private @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %cst = onnx.Constant dense<[1]> : tensor<1xi64>
   %0 ="onnx.ReduceSum"(%arg0, %cst) {keepdims = 0 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<1xi64>)-> tensor<*xf32>
@@ -5546,7 +5515,6 @@ func.func private @test_reducesum(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
 
 // -----
 
-
 func.func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceSumV11"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5574,7 +5542,6 @@ func.func private @test_reducesumV11(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32>
 }
 
 // -----
-
 
 func.func private @test_reducesum1(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> tensor<3x1x2xf32> {
   %0 = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 1 : si64, noop_with_empty_axes = 1 : si64} : (tensor<3x2x2xf32>, tensor<?xi64>) -> tensor<3x1x2xf32>
@@ -5637,7 +5604,6 @@ func.func private @test_reducesum1(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64
 
 // -----
 
-
 func.func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> tensor<3x1x2xf32> {
   %0 = "onnx.ReduceSum"(%arg0, %arg1) {keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<3x2x2xf32>, tensor<?xi64>) -> tensor<3x1x2xf32>
   return %0 : tensor<3x1x2xf32>
@@ -5699,7 +5665,6 @@ func.func @test_reducesum2(%arg0: tensor<3x2x2xf32>, %arg1: tensor<?xi64>) -> te
 
 // -----
 
-
 func.func private @test_reduceprod_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32> {
   %0 ="onnx.ReduceProdV13"(%arg0) {axes=[1], keepdims = 0 : si64} : (tensor<3x2x2xf32>)-> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -5756,7 +5721,6 @@ func.func @test_cumstom_multiple_output(%arg0: tensor<4x2xf32>) -> tensor<4x2xf3
 // CHECK:           return [[RES_2_]] : memref<4x2xf32>
 // CHECK:         }
 
-
 // -----
 
 // Test attributes
@@ -5773,7 +5737,6 @@ func.func @test_custom3(%arg0: tensor<1024xi32>, %arg1: tensor<4xf32>) -> tensor
 
 // -----
 
-
 // Test dynamic dim
 func.func @test_custom_dynamic1(%arg0: tensor<1024xi32>, %arg1: tensor<?x4xf32>) -> tensor<*xf32> {
   %0 = "onnx.Custom"(%arg0, %arg1) {function_name = "testcall", inputs_for_infer = [1], shape_infer_pattern = "SameAs"} : (tensor<1024xi32>, tensor<?x4xf32>) -> tensor<*xf32>
@@ -5787,4 +5750,3 @@ func.func @test_custom_dynamic1(%arg0: tensor<1024xi32>, %arg1: tensor<?x4xf32>)
 // CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]]) {funcName = "testcall", numOfOutput = 1 : si64} : (memref<?x4xf32>, memref<1024xi32>, memref<?x4xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<?x4xf32>
 // CHECK:         }
-
