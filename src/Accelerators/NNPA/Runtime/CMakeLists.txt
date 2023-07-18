@@ -4,6 +4,7 @@
 
 add_onnx_mlir_library(RuntimeNNPA STATIC
   OMRuntimeNNPA.c
+  OMMatMulAsyncNNPA.c
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -12,6 +13,7 @@ add_onnx_mlir_library(RuntimeNNPA STATIC
 
   INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
+  ${ONNX_MLIR_SRC_ROOT}/include
   )
 set_target_properties(RuntimeNNPA
   PROPERTIES

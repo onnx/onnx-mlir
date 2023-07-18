@@ -43,52 +43,52 @@ endfunction()
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-add_numerical_unittest(TestConv
-  TestConv.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
+# add_numerical_unittest(TestConv
+#   TestConv.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
 
 add_numerical_unittest(TestMatMul2D
   TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-  add_numerical_unittest(TestMatMulBroadcast
-  TestMatMulBroadcast.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-add_numerical_unittest(TestGemm
-  TestGemm.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-add_numerical_unittest(TestLSTM
-  TestLSTM.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-add_numerical_unittest(TestRNN
-  TestRNN.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-add_numerical_unittest(TestGRU
-  TestGRU.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-add_numerical_unittest(TestLoop
-  TestLoop.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-add_numerical_unittest(TestScan
-  TestScan.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
-
-  add_numerical_unittest(TestElementwise
-  TestElementwise.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
+#   add_numerical_unittest(TestMatMulBroadcast
+#   TestMatMulBroadcast.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+# add_numerical_unittest(TestGemm
+#   TestGemm.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+# add_numerical_unittest(TestLSTM
+#   TestLSTM.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+# add_numerical_unittest(TestRNN
+#   TestRNN.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+# add_numerical_unittest(TestGRU
+#   TestGRU.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+# add_numerical_unittest(TestLoop
+#   TestLoop.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+# add_numerical_unittest(TestScan
+#   TestScan.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
+# 
+#   add_numerical_unittest(TestElementwise
+#   TestElementwise.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )

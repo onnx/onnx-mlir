@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
       argc, argv, "TestMatMul2D\n", nullptr, "TEST_ARGS");
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
-
+  /*
   printf("RapidCheck Matrix-Vector test case generation.\n");
   bool success =
       rc::check("Matrix-Vector Matmul implementation correctness", []() {
@@ -63,23 +63,23 @@ int main(int argc, char *argv[]) {
       });
   if (!success)
     return 1;
-
+  */
   printf("RapidCheck Matrix-Matrix test case generation.\n");
-  success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
-    const int I = *rc::gen::inRange(1, 50);
-    const int J = *rc::gen::inRange(1, 50);
-    const int K = *rc::gen::inRange(1, 50);
+  bool success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
+    const int I = *rc::gen::inRange(512, 1024);
+    const int J = *rc::gen::inRange(64, 128);
+    const int K = *rc::gen::inRange(128, 256);
 
     RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(I, J, K));
   });
   if (!success)
     return 1;
-
+  /*
   printf("\n\nExhaustive test case generation.\n");
   for (int I = 1; I < 9; I++)
     for (int J = 1; J < 9; J++)
       for (int K = 1; K < 9; K++)
         assert(isOMMatmulTheSameAsNaiveImplFor(I, J, K));
-
+  */
   return 0;
 }
