@@ -881,17 +881,17 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
 
-  // Set the postfix that will be used to postfix symbols in the generated
+  // Set a tag that will be used to postfix symbols in the generated
   // LLVMIR. By default, use the filename (without extension) of the input onnx
-  // model.
-  // This postfix makes the symbols unique across multiple generated models.
+  // model or the value passed to `-o`.
+  // This tag makes the symbols unique across multiple generated models.
   // In particular, it will be appended to global variable and function names.
   // For example, we will have two entry points: `run_main_graph` and
-  // `run_main_graph_postfix`, doing the same computation.
-  if (symbolPostfix == "")
-    symbolPostfix = llvm::sys::path::filename(outputNameNoExt).str();
+  // `run_main_graph_tag`, doing the same computation.
+  if (modelTag == "")
+    modelTag = llvm::sys::path::filename(outputNameNoExt).str();
   moduleOp.setAttr(
-      "onnx-mlir.symbol-postfix", StringAttr::get(&context, symbolPostfix));
+      "onnx-mlir.symbol-postfix", StringAttr::get(&context, modelTag));
 
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;

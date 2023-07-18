@@ -289,17 +289,17 @@ llvm::cl::list<std::string> functionsToDecompose("functions-to-decompose",
     llvm::cl::desc("Specify ONNX functions to decompose"),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
-llvm::cl::opt<std::string> symbolPostfix("symbol-postfix",
+llvm::cl::opt<std::string> modelTag("tag",
     llvm::cl::desc(
-        "Set a postfix that will be used to postfix symbols in the generated "
+        "Set a tag that will be used to postfix symbols in the generated "
         "LLVMIR to make the symbols unique across multiple generated models. "
         "By default, use the filename (without extension) of the input onnx "
-        "model or the value passed to `-o`. The postfix will be appended to "
+        "model or the value passed to `-o`. The tag will be appended to "
         "global variable and function names. For backward compability, each "
         "function has two versions with the same signature and doing the same "
         "computation. For example, we will have two entry points: "
-        "`run_main_graph` and `run_main_graph_postfix`, where `run_main_graph` "
-        "is just a wrapper of `run_main_graph_postfix`. Users can call one of "
+        "`run_main_graph` and `run_main_graph_tag`, where `run_main_graph` "
+        "is just a wrapper of `run_main_graph_tag`. Users can call one of "
         "the entry points and expect the same result."),
     llvm::cl::value_desc("a valid symbol name without spaces"),
     llvm::cl::cat(OnnxMlirOptions));

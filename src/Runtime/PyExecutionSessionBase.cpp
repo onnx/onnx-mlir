@@ -55,8 +55,8 @@ struct npy_format_descriptor<onnx_mlir::float_16> {
 namespace onnx_mlir {
 
 PyExecutionSessionBase::PyExecutionSessionBase(
-    std::string sharedLibPath, bool defaultEntryPoint)
-    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
+    std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
+    : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray) {

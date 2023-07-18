@@ -46,7 +46,8 @@ class ExecutionSession {
 public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
-  ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
+  ExecutionSession(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_subtraction", NULL}
@@ -89,6 +90,10 @@ protected:
 protected:
   // Handler to the shared library file being loaded.
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
+
+  // Tag used to compile the model. By default, it is the model filename without
+  // extension.
+  std::string tag;
 
   // Entry point function.
   std::string _entryPointName;

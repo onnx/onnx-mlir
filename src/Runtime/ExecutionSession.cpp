@@ -21,6 +21,7 @@
 #include <sstream>
 #include <vector>
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 
@@ -29,7 +30,15 @@
 
 namespace onnx_mlir {
 ExecutionSession::ExecutionSession(
-    std::string sharedLibPath, bool defaultEntryPoint) {
+    std::string sharedLibPath, std::string tag, bool defaultEntryPoint) {
+
+  // If there is no tag, use the model filename without extension as a tag.
+  if (tag == "") {
+    std::string fname = llvm::sys::path::filename(sharedLibPath).str();
+    llvm::SmallString<256> fnameWithoutExt(fname);
+    llvm::sys::path::replace_extension(fnameWithoutExt, "");
+    tag = fnameWithoutExt.str().str();
+  }
 
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
@@ -37,23 +46,31 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
 
   if (defaultEntryPoint)
-    setEntryPoint("run_main_graph");
+    setEntryPoint("run_main_graph_" + tag);
 
+  std::string queryEntryPointsNameWithTag = _queryEntryPointsName + "_" + tag;
   _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(_queryEntryPointsName.c_str()));
+      _sharedLibraryHandle.getAddressOfSymbol(
+          queryEntryPointsNameWithTag.c_str()));
   if (!_queryEntryPointsFunc)
-    throw std::runtime_error(reportSymbolLoadingError(_queryEntryPointsName));
+    throw std::runtime_error(
+        reportSymbolLoadingError(queryEntryPointsNameWithTag));
 
+  std::string inputSignatureNameWithTag = _inputSignatureName + "_" + tag;
   _inputSignatureFunc = reinterpret_cast<signatureFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(_inputSignatureName.c_str()));
+      _sharedLibraryHandle.getAddressOfSymbol(
+          inputSignatureNameWithTag.c_str()));
   if (!_inputSignatureFunc)
-    throw std::runtime_error(reportSymbolLoadingError(_inputSignatureName));
+    throw std::runtime_error(
+        reportSymbolLoadingError(inputSignatureNameWithTag));
 
+  std::string outputSignatureNameWithTag = _outputSignatureName + "_" + tag;
   _outputSignatureFunc = reinterpret_cast<signatureFuncType>(
-      _sharedLibraryHandle.getAddressOfSymbol(_outputSignatureName.c_str()));
+      _sharedLibraryHandle.getAddressOfSymbol(
+          outputSignatureNameWithTag.c_str()));
   if (!_outputSignatureFunc)
-    throw std::runtime_error(reportSymbolLoadingError(_outputSignatureName));
-  errno = 0; // No errors.
+    throw std::runtime_error(
+        reportSymbolLoadingError(outputSignatureNameWithTag));
 
   // Set OM_CONSTANT_PATH for loading constants from file if required.
   std::size_t found = sharedLibPath.find_last_of("/\\");
@@ -65,6 +82,8 @@ ExecutionSession::ExecutionSession(
     setenv("OM_CONSTANT_PATH", basePath.c_str(), /*overwrite=*/0);
 #endif
   }
+
+  errno = 0; // No errors.
 }
 
 const std::string *ExecutionSession::queryEntryPoints(
