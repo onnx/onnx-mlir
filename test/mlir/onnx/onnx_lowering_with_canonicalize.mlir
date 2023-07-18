@@ -2626,9 +2626,9 @@ func.func @test_expand_with_arith_constant(%arg0 : tensor<2x1x6x1xf32>) -> tenso
 
 // -----
 
-  func.func @expand_dyn(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi64>) -> tensor<?x?xf32>  {
-    %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<2xi64>) -> tensor<?x?xf32>
-    return %0 : tensor<?x?xf32>
+func.func @expand_dyn(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi64>) -> tensor<?x?xf32>  {
+  %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<2xi64>) -> tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
 // mlir2FileCheck.py -a'["input", "shape"]'
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1, s0)>
 // CHECK-LABEL:  func @expand_dyn
@@ -4671,6 +4671,43 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:             krnl.store [[LOAD_RES_7_MEM_1_]], [[RES_6_]]{{.}}[[VAR_7_6_]]#0, [[VAR_7_6_]]#1] : memref<16x64xi32>
 // CHECK:           }
 // CHECK:           return [[RES_6_]] : memref<16x64xi32>
+// CHECK:         }
+}
+
+// -----
+
+// Test whether lowering is correct for a string tensor input.
+func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x!onnx.String>) -> tensor<*xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2x!onnx.String>, tensor<2x2x!onnx.String>) -> tensor<*xi1>
+   return %0 : tensor<*xi1>
+}
+
+// -----
+
+// Test whether lowering is correct for a int64_t tensor input.
+func.func @test_equal_int64(%arg0: tensor<2x2xi64>, %arg1: tensor<2x2xi64>) -> tensor<*xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<*xi1>
+   return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_int64
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x2xi64>, [[PARAM_1_:%.+]]: tensor<2x2xi64>) -> tensor<2x2xi1> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Equal"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi1>
+// CHECK:           return [[VAR_0_]] : tensor<2x2xi1>
+// CHECK:         }
+}
+
+// -----
+
+// Test whether lowering is correct for a f32 tensor input.
+func.func @test_equal_float32(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<*xi1>
+   return %0 : tensor<*xi1>
+
+// CHECK-LABEL:  func.func @test_equal_float32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x2xf32>, [[PARAM_1_:%.+]]: tensor<2x2xf32>) -> tensor<2x2xi1> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Equal"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xi1>
+// CHECK:           return [[VAR_0_]] : tensor<2x2xi1>
 // CHECK:         }
 }
 
