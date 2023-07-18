@@ -665,12 +665,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
     DimsExpr inDims, flatInDims;
     create.krnlIE.getShapeAsSymbols(input, inDims);
-    fprintf(stderr, "input\n");
-    input.dump();
     Value flatInput = create.mem.reshapeToFlat(
         input, inDims, flatInDims, collapsedInnermostLoops);
-    fprintf(stderr, "flat input\n");
-    flatInput.dump();
     int64_t flatInRank = flatInDims.size();
     // Flatten the output: only the non-reduced dims of in: -> [N][M]
     DimsExpr outDims, flatOutDims;
@@ -679,9 +675,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         isKeepDims ? collapsedInnermostLoops + 1 : 1;
     Value flatAlloc = create.mem.reshapeToFlat(
         alloc, outDims, flatOutDims, collapseOutInnermostLoop);
-    fprintf(stderr, "flat output, orig dim %d, collapse %d, flat size %d\n",
-        (int)outRank, (int)collapseOutInnermostLoop, (int)flatOutDims.size());
-    flatAlloc.dump();
 
     // Alloca a small temp vector.
     MemRefType tmpType = MemRefType::get({VL}, elementType);
@@ -712,8 +705,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 inAccessVals.emplace_back(simdLoopInd[0]);
                 Value inputVec =
                     create.vec.load(vecType, flatInput, inAccessVals);
-                fprintf(stderr, "input vec\n");
-                inputVec.dump();
                 Value tmpVec = create.vec.load(vecType, tmpAlloca, {zero});
                 // Sum into redVec
                 Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
