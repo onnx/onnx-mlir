@@ -574,7 +574,7 @@ def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
       Type elementType = A.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       Type i64Ty = $_builder.getI64Type();
-      RankedTensorType tokenType = RankedTensorType::get({1}, i64Ty);
+      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
       build($_builder, $_state, resType, tokenType, A, B);
     }]>
   ];

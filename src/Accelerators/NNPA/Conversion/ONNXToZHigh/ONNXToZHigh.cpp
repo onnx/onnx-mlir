@@ -296,7 +296,7 @@ public:
       for (Value b : subBs) {
         // Create ZHighAsymcMatMul op
         RankedTensorType tokenType =
-            RankedTensorType::get({1}, rewriter.getI64Type());
+            RankedTensorType::get({8}, rewriter.getI64Type());
         zhigh::ZHighAsyncMatMulOp asyncMatMulOp =
             rewriter.create<zhigh::ZHighAsyncMatMulOp>(
                 loc, unrankedType, tokenType, a, b);
