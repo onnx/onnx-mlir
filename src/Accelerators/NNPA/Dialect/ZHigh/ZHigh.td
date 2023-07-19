@@ -568,13 +568,18 @@ def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
                        TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
                        TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
-                      TensorOf<[I64]>:$Token);
+                      TensorOf<[F32]>:$Token);
+// TODO: Temporary change
+//                      TensorOf<[I64]>:$Token);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$A, "::mlir::Value":$B), [{
       Type elementType = A.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      Type i64Ty = $_builder.getI64Type();
-      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
+// TODO: Temporary change
+//      Type i64Ty = $_builder.getI64Type();
+//      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
+      Type f32Ty = $_builder.getF32Type();
+      RankedTensorType tokenType = RankedTensorType::get({32}, f32Ty);
       build($_builder, $_state, resType, tokenType, A, B);
     }]>
   ];

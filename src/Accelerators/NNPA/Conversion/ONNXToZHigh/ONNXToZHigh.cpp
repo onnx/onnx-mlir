@@ -295,8 +295,11 @@ public:
       SmallVector<Value> subMatrices, tokens;
       for (Value b : subBs) {
         // Create ZHighAsymcMatMul op
+        // TODO: Temporary change
         RankedTensorType tokenType =
-            RankedTensorType::get({8}, rewriter.getI64Type());
+            RankedTensorType::get({32}, rewriter.getF32Type());
+        // RankedTensorType tokenType =
+        //    RankedTensorType::get({8}, rewriter.getI64Type());
         zhigh::ZHighAsyncMatMulOp asyncMatMulOp =
             rewriter.create<zhigh::ZHighAsyncMatMulOp>(
                 loc, unrankedType, tokenType, a, b);
