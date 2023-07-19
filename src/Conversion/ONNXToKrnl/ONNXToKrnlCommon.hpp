@@ -177,6 +177,7 @@ template <typename Op>
 struct ScalarOp {
   using FOp = NotSuportedScalarOp;
   using IOp = NotSuportedScalarOp;
+  using SOp = NotSuportedScalarOp;
 };
 
 template <typename FOp>
