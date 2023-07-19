@@ -71,7 +71,7 @@ namespace onnx_mlir {
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
-    const char *flags, const char **outputFilename, const char **errorMessage);
+    const char *flags, char **outputFilename, char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array. This method is not thread
@@ -96,8 +96,8 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int64_t bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **outputFilename,
-    const char **errorMessage);
+    EmissionTargetType emissionTarget, char **outputFilename,
+    char **errorMessage);
 
 /*!
  * Compute the file name of the compiled output for the given

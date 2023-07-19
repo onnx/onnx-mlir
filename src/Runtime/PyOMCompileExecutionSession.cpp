@@ -35,7 +35,8 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
   if (this->inputFileName.empty())
     throw std::runtime_error(reportLibraryOpeningError(inputFileName));
 
-  const char *outputName, *errorMsg;
+  char *outputName = nullptr;
+  char *errorMsg = nullptr;
   if (reuseCompiledModel) {
     // see if there is a model to reuse.
     outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
@@ -56,6 +57,8 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
       errorMessage = std::string(errorMsg);
       // Empty output file name.
       this->outputFileName = std::string();
+      free(outputName);
+      free(errorMsg);
       throw std::runtime_error(reportCompilerError(errorMessage));
     }
   }
@@ -64,6 +67,8 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
   errorMessage = std::string();
   // Now that we have a .so, initialize execution session.
   Init(this->outputFileName, defaultEntryPoint);
+  free(outputName);
+  free(errorMsg);
 }
 
 // =============================================================================
