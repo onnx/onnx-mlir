@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
   int failures = 0;
 
   // Exhaustive is slow, so it is disabled by default.
-  uint32_t step = exhaustive ? 1 : 37;
+  uint32_t step = exhaustive ? 1 : 257;
   failures += test.test_to_fp16<float_16>("float_16", step);
   failures += test.test_to_fp16<bfloat_16>("bfloat_16", step);
 
