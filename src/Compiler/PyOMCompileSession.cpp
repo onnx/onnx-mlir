@@ -36,7 +36,7 @@ int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
     return -1;
   }
   char *outputName = nullptr;
-  char  *errorMsg = nullptr;
+  char *errorMsg = nullptr;
   int64_t rc;
   rc = omCompileFromFile(
       inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
@@ -79,7 +79,7 @@ int64_t PyOMCompileSession::pyCompileFromArray(
     // Empty output file name.
     outputFileName = std::string();
   }
-  free (outputName);
+  free(outputName);
   free(errorMsg);
   return rc;
 }
