@@ -37,7 +37,7 @@ ExecutionSession::ExecutionSession(
     std::string fname = llvm::sys::path::filename(sharedLibPath).str();
     llvm::SmallString<256> fnameWithoutExt(fname);
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
-    tag = fnameWithoutExt.str().str();
+    tag = fnameWithoutExt.str().lower();
   }
 
   _sharedLibraryHandle =

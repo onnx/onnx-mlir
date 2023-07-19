@@ -889,7 +889,7 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
   // For example, we will have two entry points: `run_main_graph` and
   // `run_main_graph_tag`, doing the same computation.
   if (modelTag == "")
-    modelTag = llvm::sys::path::filename(outputNameNoExt).str();
+    modelTag = llvm::sys::path::filename(outputNameNoExt).lower();
   moduleOp.setAttr(
       "onnx-mlir.symbol-postfix", StringAttr::get(&context, modelTag));
 
