@@ -27,8 +27,9 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
 
-#define USE_NNPA
-#undef USE_THREAD
+// #define USE_NNPA
+#define USE_THREAD
+// #undef USE_THREAD
 
 #ifndef USE_NNPA
 #include <unistd.h>
@@ -67,7 +68,7 @@ void *emit_zdnn_matmul_op(void *_args) {
   int dim_m = args->dim_m;
   int dim_n = args->dim_n;
   int dim_p = args->dim_p;
-
+  printf("emit_zdnn  m %d, n %d, p %d\n", dim_m, dim_n, dim_p);
 #ifndef USE_NNPA
   // wait random(0.0-1.0) sec to simulate NNPA execution
   // usleep(random() % 1000000);
@@ -76,12 +77,37 @@ void *emit_zdnn_matmul_op(void *_args) {
   float *c = (float *)args->data_c;
   float *y = (float *)args->data_y;
   for (int i = 0; i < dim_m; i++) {
+    for (int k = 0; k < dim_n; k++) {
+      if (a[i * dim_n + k] != 1.0) {
+        printf("i,k= %d, %d; a[i * dim_n + k] = %f\n", i, k, a[i * dim_n + k]);
+        // a[i * dim_n + k] = 1.0;
+      }
+    }
+  }
+  for (int j = 0; j < dim_p; j++) {
+    for (int k = 0; k < dim_n; k++) {
+      if (b[k * dim_p + j] != 1.0) {
+        printf("k, j= %d, %d; b[k * dim_p + j] = %f\n", k, j, b[k * dim_p + j]);
+        // b[k * dim_p + j] = 1.0;
+      }
+    }
+  }
+  for (int p = 0; p < dim_p; p++) {
+    if (c[p] != 0.0) {
+      printf("p= %d; c[p] = %f\n", p, c[p]);
+      // c[p] = 0.0;
+    }
+  }
+
+  for (int i = 0; i < dim_m; i++) {
     for (int j = 0; j < dim_p; j++) {
       float ans = 0.0;
       for (int k = 0; k < dim_n; k++) {
         ans += a[i * dim_n + k] * b[k * dim_p + j];
       }
       ans += c[j];
+      if (ans != 2.0)
+        printf("i,j,ans = %d, %d, %f\n", i, j, ans);
       y[i * dim_p + j] = ans;
     }
   }
@@ -175,8 +201,10 @@ static int zdnn_init_done = 0;
 // Calculate matrix multiplication asynchronously: Y = A * B
 // omTensorAsyncWait need to be called before asscsing the results.
 //
-void omTensorMatMulAsync(OMTensor *Y, OMThreadHandler *threadHdr, OMTensor *A,
+void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
     OMTensor *B, OMTensor *C) {
+  printf("Call C code\n");
+  OMThreadHandler *threadHdr = omTensorGetDataPtr(threadTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(A);
   assert(dataType == ONNX_TYPE_FLOAT &&
          "omTensorMatmul assumes ONNX_TYPE_FLOAT type");
@@ -206,6 +234,7 @@ void omTensorMatMulAsync(OMTensor *Y, OMThreadHandler *threadHdr, OMTensor *A,
     zdnn_init_done++;
   }
 #endif
+  printf("Call C code. m %d, n %d, p %d\n", dim_m, dim_n, dim_p);
   // transfer inputs into ztensor, call zdnn_matmul_op, and transfer outputs
   // from ztensor to normal buffer
   struct emit_zdnn_matmul_op_args *args =
@@ -218,14 +247,18 @@ void omTensorMatMulAsync(OMTensor *Y, OMThreadHandler *threadHdr, OMTensor *A,
   args->data_c = dataC;
   args->data_y = dataY;
 #ifndef USE_THREAD
+  printf("Call C code. NO thread\n");
   emit_zdnn_matmul_op((void *)args);
 #else
+  printf("Call ThreadHdr %p\n", threadHdr);
   pthread_create(&threadHdr->threadID, NULL, emit_zdnn_matmul_op, (void *)args);
 #endif
 }
 
-void omTensorAsyncWait(OMThreadHandler *threadHdr) {
+void omTensorAsyncWait(OMTensor *threadTensor) {
 #ifdef USE_THREAD
+  OMThreadHandler *threadHdr = omTensorGetDataPtr(threadTensor);
+  printf("Wait ThreadHdr %p\n", threadHdr);
   pthread_join(threadHdr->threadID, NULL);
 #endif
 }

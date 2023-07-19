@@ -73,8 +73,9 @@ bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
 }
 
 bool MatMul2DLibBuilder::prepareInputs() {
-  return MatMul2DLibBuilder::prepareInputs(
-      -omDefaultRangeBound, omDefaultRangeBound);
+  // TODO : Temporary change for debugging
+  return MatMul2DLibBuilder::prepareInputs(1.0, 1.0);
+  //      -omDefaultRangeBound, omDefaultRangeBound);
 }
 
 bool MatMul2DLibBuilder::prepareInputsFromEnv(const std::string envDataRange) {

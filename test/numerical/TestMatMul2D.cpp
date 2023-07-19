@@ -64,6 +64,9 @@ int main(int argc, char *argv[]) {
   if (!success)
     return 1;
   */
+  // TODO: temprary change for debugging
+  RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(2, 512, 2));
+  /*
   printf("RapidCheck Matrix-Matrix test case generation.\n");
   bool success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
     const int I = *rc::gen::inRange(512, 1024);
@@ -74,6 +77,7 @@ int main(int argc, char *argv[]) {
   });
   if (!success)
     return 1;
+  */
   /*
   printf("\n\nExhaustive test case generation.\n");
   for (int I = 1; I < 9; I++)

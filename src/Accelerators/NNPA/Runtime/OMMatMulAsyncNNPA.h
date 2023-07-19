@@ -43,14 +43,14 @@ typedef struct _OMThreadHandler {
 // Calculate matrix multiplication asynchronously: Y = A * B
 // omTensorAsyncWait need to be called before asscsing the results.
 //
-void omTensorMatMulAsync(OMTensor *Y, OMThreadHandler *threadID, OMTensor *A,
-    OMTensor *B, OMTensor *C);
+void omTensorMatMulAsync(
+    OMTensor *Y, OMTensor *threadTensor, OMTensor *A, OMTensor *B, OMTensor *C);
 
 //
 // Wait completion of the corresponding omTensorMatMulAsync call.
 // It need to be called before asscsing the results.
 //
-void omTensorAsyncWait(OMThreadHandler *threadID);
+void omTensorAsyncWait(OMTensor *threadTensor);
 
 #ifdef __cplusplus
 }
