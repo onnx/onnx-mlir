@@ -319,6 +319,9 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  exportedFuncs.emplace_back(StringRef("omInputSignature_" + modelTag));
+  exportedFuncs.emplace_back(StringRef("omOutputSignature_" + modelTag));
+  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints_" + modelTag));
   // Entry point funtions.
   if (llvm::GlobalVariable *GV = llvmModule.getNamedGlobal(
           StringRef("_entry_point_arrays_" + modelTag))) {
