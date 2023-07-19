@@ -1106,7 +1106,7 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
     Value C = create.mem.alignedAlloc(memRefTypeC, dims);
     create.krnl.memset(C, fZero);
     SmallVector<Value, 2> results = {Y, Token};
-    SmallVector<Value, 3> parameters = {Y, Token, A, B, C};
+    SmallVector<Value, 5> parameters = {Y, Token, A, B, C};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
     rewriter.replaceOp(op, results);
     return success();

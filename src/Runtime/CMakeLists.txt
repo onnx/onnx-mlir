@@ -11,7 +11,6 @@ add_subdirectory(jni)
 # such static library in a shared library can cause runtime failure on some architectures,
 # such as z. So we override the default and explicitly compile with -fPIC.
 add_onnx_mlir_library(cruntime STATIC
-  OMAsyncMatMul.c
   OMExternalConstant.c
   OMIndexLookup.c
   OMInstrument.c
@@ -37,7 +36,6 @@ set_target_properties(cruntime
   )
 
 add_onnx_mlir_library(OMTensorUtils
-  OMAsyncMatMul.cpp
   OMExternalConstant.cpp
   OMIndexLookup.cpp
   OMInstrument.cpp
@@ -55,9 +53,6 @@ add_onnx_mlir_library(OMTensorUtils
 
   INCLUDE_DIRS PUBLIC
   ${ONNX_MLIR_SRC_ROOT}/include
-
-  LINK_LIBS PUBLIC
-  OMCompilerUtils
   )
 set_target_properties(OMTensorUtils
   PROPERTIES
