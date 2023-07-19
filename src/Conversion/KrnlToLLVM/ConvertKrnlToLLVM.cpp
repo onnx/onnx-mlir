@@ -619,7 +619,8 @@ void loadConstantsFromFile(ModuleOp &module,
       b.setInsertionPoint(
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
       FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-          module, loadAllConstantsFuncName, llvmVoidTy, {},
+          module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
+          llvmVoidTy, {},
           /*isVarArg=*/false);
       create.llvm.call({}, loadAllConstantsRef, {});
     }
@@ -636,12 +637,14 @@ void loadConstantsFromFile(ModuleOp &module,
   b.setInsertionPointToStart(entryBlock);
 
   // Get the constant file name.
-  std::string fnameSymbol = EXTERNAL_CONSTANT_PREFIX + "filename";
+  std::string fnameSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filename");
   auto fnameGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
   assert(fnameGlobalOp && "Could not find the global op for filename");
   Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobalOp, loc, b);
   // Get the file size.
-  std::string fsizeSymbol = EXTERNAL_CONSTANT_PREFIX + "filesize";
+  std::string fsizeSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filesize");
   auto fsizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fsizeSymbol);
   assert(fsizeGlobalOp && "Could not find the global op for filesize");
   int64_t dataSize = fsizeGlobalOp.getValue()
@@ -650,7 +653,8 @@ void loadConstantsFromFile(ModuleOp &module,
                          .getValue()
                          .getSExtValue();
   // Get the global op for isLE.
-  std::string isleSymbol = EXTERNAL_CONSTANT_PREFIX + "isLE";
+  std::string isleSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "isLE");
   auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
   assert(isleGlobalOp && "Could not find the global op for data isle");
   int64_t isle = isleGlobalOp.getValue()
@@ -659,7 +663,8 @@ void loadConstantsFromFile(ModuleOp &module,
                      .getValue()
                      .getSExtValue();
   // Get the packedConst global.
-  std::string packedSymbol = EXTERNAL_CONSTANT_PREFIX + "packedConst";
+  std::string packedSymbol = LLVMBuilder::SymbolPostfix(
+      module, EXTERNAL_CONSTANT_PREFIX + "packedConst");
   auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
   Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
   Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);

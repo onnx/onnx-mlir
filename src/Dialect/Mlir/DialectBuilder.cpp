@@ -1669,12 +1669,15 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
   TypeRange resultTypes = uniqueFuncType.getReturnTypes();
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
          "LLVM:CallOp must return either 0 or 1 value");
-  LLVM::CallOp callOp =
-      b().create<LLVM::CallOp>(loc(), resultTypes, uniqueFuncName, args);
-  if (resultTypes.size() == 0)
+  if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
+    b().create<LLVM::CallOp>(loc(), ArrayRef<Type>({}), uniqueFuncName, args);
     b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({}));
-  else if (resultTypes.size() == 1)
+  } else {
+    LLVM::CallOp callOp =
+        b().create<LLVM::CallOp>(loc(), resultTypes, uniqueFuncName, args);
     b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({callOp.getResult()}));
+  }
+
   return uniqueFuncOp;
 }
 
