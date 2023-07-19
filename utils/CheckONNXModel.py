@@ -63,8 +63,6 @@ VERBOSITY_LEVEL = { 'debug':    10,
                     'error':    0,
                     'critical': 0 }
 
-
-
 def valid_onnx_input(fname):
     valid_exts = ['onnx', 'mlir']
     ext = os.path.splitext(fname)[1][1:]
@@ -75,24 +73,25 @@ def valid_onnx_input(fname):
                 valid_exts))
     return fname
 
-
-
 # Command arguments.
-parser = argparse.ArgumentParser()
-parser.add_argument('--model',
+parser = argparse.ArgumentParser(prog="CheckONNXModel.py",
+    description="Compile and run an ONNX/MLIR model twice. " 
+                "Once with reference compiler options (-r) to set the reference values. "
+                "And once with test compiler options (-t) to verify the validity of these options.")
+parser.add_argument('-m', '--model',
                     type=lambda s: valid_onnx_input(s),
                     help="Path to an ONNX model (.onnx or .mlir)")
-parser.add_argument('--ref-compile-args',
+parser.add_argument('-r', '--ref-compile-args',
                     type=str,
                     default="-O0",
                     help="Reference arguments passed directly to onnx-mlir command."
                     " See bin/onnx-mlir --help")
-parser.add_argument('--test-compile-args',
+parser.add_argument('-t', '--test-compile-args',
                     type=str,
                     default="-O3",
                     help="Reference arguments passed directly to onnx-mlir command."
                     " See bin/onnx-mlir --help")
-parser.add_argument('--save-ref',
+parser.add_argument('-s', '--save-ref',
                     metavar='PATH',
                     type=str,
                     help="Path to a folder to save the inputs and outputs"
@@ -101,15 +100,14 @@ parser.add_argument('--shape-info',
                     type=str,
                     help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
                     "Used to generate random inputs for the model if --load-ref is not set")
+parser.add_argument('--skip-ref',
+                    action='store_true',
+                    help="Skip building the ref compilation, assuming it was built before.")
 parser.add_argument('-l',
                      '--log-level',
                      choices=[ 'debug', 'info', 'warning', 'error', 'critical' ],
                      default='info',
                      help="log level, default info")
-parser.add_argument('--skip-ref',
-                    action='store_true',
-                    help="Skip building the ref compilation, assuming it was built before.")
-
 
 args = parser.parse_args()
 
@@ -214,7 +212,7 @@ def main():
             print("Filed while executing reference compile and run")
             print(msg)
             exit(1)
-        print("> Successfully ran the reference example, saved refs in \"" + 
+        print(">   Successfully ran the reference example, saved refs in \"" + 
               test_dir + "\"." )
 
     # Execute ref
@@ -222,13 +220,14 @@ def main():
     print("> Test command:", print_cmd(test_cmd))
     ok, msg = execute_commands(test_cmd)
     if not ok:
-        print("Filed while executing test compile and run")
+        print(">  Failed while executing test compile and run")
         print(msg)
+        print(">   Failed test command:", print_cmd(test_cmd))
         print()
-        print("> Failed test command:", print_cmd(test_cmd))
         exit(1)
-    print("> Successfully ran the test example and verified against \"" +
+    print(">   Successfully ran the test example and verified against \"" +
             test_dir + "\"." )
+    print()
 
 if __name__ == '__main__':
     main()
