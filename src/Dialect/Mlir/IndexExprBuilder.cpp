@@ -186,7 +186,9 @@ IndexExpr IndexExprBuilder::getValFromArray(
     assert(isa<FloatType>(elType) && "array element type mismatch");
   else
     assert(isa<IntegerType>(elType) && "array element type mismatch");
+    fprintf(stderr, "hi alex, get size\n");
   uint64_t size = getArraySize(array, /*static only*/ true);
+    fprintf(stderr, "hi alex, got size %d\n", (int) size);
   if (i >= size)
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
