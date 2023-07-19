@@ -23,7 +23,7 @@ namespace zhigh {
 // Shape inference
 //===----------------------------------------------------------------------===//
 
-LogicalResult ZHighAsyncMatMulOp::inferShapes(
+LogicalResult ZHighMatMulAsyncOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   if (!hasRankedType(getA()) || !hasRankedType(getB()))
     return success();

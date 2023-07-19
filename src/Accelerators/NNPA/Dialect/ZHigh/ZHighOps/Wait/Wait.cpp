@@ -22,7 +22,7 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 // Shape inference
 //===----------------------------------------------------------------------===//
-LogicalResult ZHighWaitOp::inferShapes(
+LogicalResult ZHighMatMulWaitOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }

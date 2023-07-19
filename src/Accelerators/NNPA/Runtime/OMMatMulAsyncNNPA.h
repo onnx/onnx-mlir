@@ -2,8 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- OMMatMulAsyncNNPA.h
-//------------------------===//
+//===-------------------------- OMMatMulAsyncNNPA.h -----------------------===//
 //
 // Copyright 2023 The IBM Research Authors.
 //
@@ -50,7 +49,8 @@ void omTensorMatMulAsync(
 // Wait completion of the corresponding omTensorMatMulAsync call.
 // It need to be called before asscsing the results.
 //
-void omTensorAsyncWait(OMTensor *threadTensor);
+void omTensorAsyncWait(
+    OMTensor *threadTensor, OMTensor *A, OMTensor *B, OMTensor *C);
 
 #ifdef __cplusplus
 }

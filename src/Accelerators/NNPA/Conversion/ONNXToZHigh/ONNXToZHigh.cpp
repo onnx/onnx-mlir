@@ -15,6 +15,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -292,17 +293,27 @@ public:
       ArrayRef<int64_t> subAShape = getShape(a.getType());
       // For each matrix along dimension N, do MatMul for sub matrices along
       // dimension M.
-      SmallVector<Value> subMatrices, tokens;
+      SmallVector<Value> subMatrices, tokens, subCZeros;
       for (Value b : subBs) {
-        // Create ZHighAsymcMatMul op
+        // Create ZHighMatMulAsync op
         // TODO: Temporary change
         RankedTensorType tokenType =
             RankedTensorType::get({32}, rewriter.getF32Type());
         // RankedTensorType tokenType =
         //    RankedTensorType::get({8}, rewriter.getI64Type());
-        zhigh::ZHighAsyncMatMulOp asyncMatMulOp =
-            rewriter.create<zhigh::ZHighAsyncMatMulOp>(
-                loc, unrankedType, tokenType, a, b);
+        // Create C with zero
+        SmallVector<int64_t, 3> cShape;
+        Type subBType = b.getType();
+        int64_t subBRank = getRank(subBType);
+        ArrayRef<int64_t> subBShape = getShape(subBType);
+        cShape.emplace_back(subBShape[subBRank - 1]);
+        Type cType = RankedTensorType::get(cShape, elementType);
+        Value cZero =
+            onnx_mlir::zhigh::getConstantOfType(rewriter, loc, cType, 0.0);
+        subCZeros.emplace_back(cZero);
+        zhigh::ZHighMatMulAsyncOp asyncMatMulOp =
+            rewriter.create<zhigh::ZHighMatMulAsyncOp>(
+                loc, unrankedType, tokenType, a, b, cZero);
         (void)asyncMatMulOp.inferShapes([](Region &region) {});
         Value sm = asyncMatMulOp.getResults()[0];
         subMatrices.emplace_back(sm);
@@ -313,12 +324,14 @@ public:
       if (subMatrices.size() > 1) {
         // Wait op
         SmallVector<Value> waitOps;
-        for (auto it : llvm::zip(subMatrices, tokens)) {
+        for (auto it : llvm::zip(subMatrices, tokens, subBs, subCZeros)) {
           Value subMatrix = std::get<0>(it);
           Value token = std::get<1>(it);
-          onnx_mlir::zhigh::ZHighWaitOp waitOp =
-              rewriter.create<onnx_mlir::zhigh::ZHighWaitOp>(
-                  loc, subMatrix.getType(), subMatrix, token);
+          Value b = std::get<2>(it);
+          Value c = std::get<3>(it);
+          onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
+              rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(
+                  loc, subMatrix.getType(), subMatrix, token, a, b, c);
           waitOps.emplace_back(waitOp.getResult());
         }
         // Concat sub results along dimension M of B.

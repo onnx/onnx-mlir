@@ -553,7 +553,7 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
   }];
 }
 
-def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
+def ZHighMatMulAsyncOp:ZHigh_Op<"MatMulAsync", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
   let summary = "ZHigh Asynchronous MatMul operation";
   let description = [{
@@ -564,7 +564,10 @@ def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
                         TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$A,
                        AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
                         TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B);
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$C);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
                        TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
                        TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
@@ -572,7 +575,7 @@ def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
 // TODO: Temporary change
 //                      TensorOf<[I64]>:$Token);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$A, "::mlir::Value":$B), [{
+    OpBuilder<(ins "::mlir::Value":$A, "::mlir::Value":$B, "::mlir::Value":$C), [{
       Type elementType = A.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
 // TODO: Temporary change
@@ -580,32 +583,42 @@ def ZHighAsyncMatMulOp:ZHigh_Op<"AsyncMatMul", [Pure,
 //      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
       Type f32Ty = $_builder.getF32Type();
       RankedTensorType tokenType = RankedTensorType::get({32}, f32Ty);
-      build($_builder, $_state, resType, tokenType, A, B);
+      build($_builder, $_state, resType, tokenType, A, B, C);
     }]>
   ];
 }
 
-def ZHighWaitOp:ZHigh_Op<"Wait", [Pure,
+def ZHighMatMulWaitOp:ZHigh_Op<"MatMulWait", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ZHigh Wait operation";
+  let summary = "ZHigh MatMul Wait operation";
   let description = [{
-    ZHigh operation to wait for token for asynchronous execution.
+    ZHigh operation to wait for token for MatMul asynchronous execution.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
                        TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
-                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$In,
+                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
                        AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
                         TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Token);
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Token,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$A,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$C);
+
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
                        TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
                        TensorOf<[I64]>, TensorOf<[BF16]>]>:$Out);
 
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In, "::mlir::Value":$Token), [{
-      Type elementType = In.getType().cast<ShapedType>().getElementType();
+    OpBuilder<(ins "::mlir::Value":$Y, "::mlir::Value":$Token, "::mlir::Value":$A, "::mlir::Value":$B, "::mlir::Value":$C), [{
+      Type elementType = Y.getType().cast<ShapedType>().getElementType();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, In, Token);
+      build($_builder, $_state, resType, Y, Token, A, B, C);
     }]>
   ];
 }

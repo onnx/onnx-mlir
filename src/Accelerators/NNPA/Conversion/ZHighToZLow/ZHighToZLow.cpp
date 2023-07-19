@@ -1060,16 +1060,16 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 // Lower ZHigh AsyncMatMul
 //===----------------------------------------------------------------------===//
 
-struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
-  ZHighToZLowAsyncMatMulOpLowering(
+struct ZHighToZLowMatMulAsyncOpLowering : public ConversionPattern {
+  ZHighToZLowMatMulAsyncOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, ZHighAsyncMatMulOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighMatMulAsyncOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighAsyncMatMulOpAdaptor operandAdaptor(operands);
+    ZHighMatMulAsyncOpAdaptor operandAdaptor(operands);
 
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
         MemRefBuilder>
@@ -1096,15 +1096,16 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
 
     Value A = operandAdaptor.getA();
     Value B = operandAdaptor.getB();
+    Value C = operandAdaptor.getC();
     // Create C assuming Y is unstacked case (2D (m x p))
-    Value fZero = create.math.constant(memRefTypeY.getElementType(), 0);
-    ArrayRef<int64_t> shape = memRefTypeY.getShape();
-    MemRefType memRefTypeC =
-        MemRefType::get({shape[1]}, memRefTypeY.getElementType());
-    SmallVector<IndexExpr, 1> dims;
-    dims.emplace_back(shapeHelper.getOutputDims(0)[1]);
-    Value C = create.mem.alignedAlloc(memRefTypeC, dims);
-    create.krnl.memset(C, fZero);
+    // Value fZero = create.math.constant(memRefTypeY.getElementType(), 0);
+    // ArrayRef<int64_t> shape = memRefTypeY.getShape();
+    // MemRefType memRefTypeC =
+    //     MemRefType::get({shape[1]}, memRefTypeY.getElementType());
+    // SmallVector<IndexExpr, 1> dims;
+    // dims.emplace_back(shapeHelper.getOutputDims(0)[1]);
+    // Value C = create.mem.alignedAlloc(memRefTypeC, dims);
+    // create.krnl.memset(C, fZero);
     SmallVector<Value, 2> results = {Y, Token};
     SmallVector<Value, 5> parameters = {Y, Token, A, B, C};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
@@ -1117,15 +1118,16 @@ struct ZHighToZLowAsyncMatMulOpLowering : public ConversionPattern {
 // Lower ZHigh Wait
 //===----------------------------------------------------------------------===//
 
-struct ZHighToZLowWaitOpLowering : public ConversionPattern {
-  ZHighToZLowWaitOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+struct ZHighToZLowMatMulWaitOpLowering : public ConversionPattern {
+  ZHighToZLowMatMulWaitOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, ZHighWaitOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighMatMulWaitOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    ZHighWaitOpAdaptor operandAdaptor(operands);
+    ZHighMatMulWaitOpAdaptor operandAdaptor(operands);
 
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
         MemRefBuilder>
@@ -1135,11 +1137,13 @@ struct ZHighToZLowWaitOpLowering : public ConversionPattern {
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value In = operandAdaptor.getIn();
+    Value Y = operandAdaptor.getY();
     Value Token = operandAdaptor.getToken();
-
-    SmallVector<Value, 1> results = {In};
-    SmallVector<Value, 1> parameters = {Token};
+    Value A = operandAdaptor.getA();
+    Value B = operandAdaptor.getB();
+    Value C = operandAdaptor.getC();
+    SmallVector<Value, 1> results = {Y};
+    SmallVector<Value, 1> parameters = {Token, A, B, C};
     rewriter.create<KrnlCallOp>(loc, "omTensorAsyncWait", 1, parameters);
     rewriter.replaceOp(op, results);
     return success();
@@ -1425,8 +1429,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowSoftmaxOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMeanReduce2DOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowMatMulOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowAsyncMatMulOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowWaitOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowMatMulAsyncOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowMatMulWaitOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBatchNormOpLowering>(typeConverter, ctx);

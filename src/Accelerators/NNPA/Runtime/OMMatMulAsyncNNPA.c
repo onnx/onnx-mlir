@@ -227,7 +227,6 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
   int dim_m = shapeA[0];
   int dim_n = shapeA[1];
   int dim_p = shapeB[1];
-
 #ifdef USE_NNPA
   if (zdnn_init_done == 0) {
     zdnn_init();
@@ -246,6 +245,7 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
   args->data_b = dataB;
   args->data_c = dataC;
   args->data_y = dataY;
+
 #ifndef USE_THREAD
   printf("Call C code. NO thread\n");
   emit_zdnn_matmul_op((void *)args);
@@ -255,7 +255,8 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
 #endif
 }
 
-void omTensorAsyncWait(OMTensor *threadTensor) {
+void omTensorAsyncWait(
+    OMTensor *threadTensor, OMTensor *A, OMTensor *B, OMTensor *C) {
 #ifdef USE_THREAD
   OMThreadHandler *threadHdr = omTensorGetDataPtr(threadTensor);
   printf("Wait ThreadHdr %p\n", threadHdr);
