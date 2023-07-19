@@ -320,14 +320,14 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
   // Entry point funtions.
-  if (llvm::GlobalVariable *GV =
-          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays"))) {
+  if (llvm::GlobalVariable *GV = llvmModule.getNamedGlobal(
+          StringRef("_entry_point_arrays_" + modelTag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-            StringRef("_entry_point_" + std::to_string(i)));
+            StringRef("_entry_point_" + std::to_string(i) + "_" + modelTag));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
