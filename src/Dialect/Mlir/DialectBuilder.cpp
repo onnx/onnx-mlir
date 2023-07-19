@@ -1650,10 +1650,13 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
   if (!createUniqueFunc)
     return funcOp;
 
-  // Create uniqueFuncOp.
+  // Create uniqueFuncOp if there exists a postfix.
   ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
   std::string uniqueFuncName =
       LLVMBuilder::SymbolPostfix(module, funcName.str());
+  if (uniqueFuncName == funcName.str())
+    return funcOp;
+
   auto uniqueFuncType = cast<LLVM::LLVMFunctionType>(funcType);
   LLVM::LLVMFuncOp uniqueFuncOp =
       b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
@@ -1691,11 +1694,7 @@ LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
   // Append to `name` a unique string to make it unique across multiple
   // generated LLVMIR.
   ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
-  if (StringAttr postfixAttr =
-          module->getAttrOfType<StringAttr>("onnx-mlir.symbol-postfix")) {
-    StringRef postfix = postfixAttr.getValue();
-    gop.setName(StringRef(name.str() + "_" + postfix.str()));
-  }
+  gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
   return gop;
 }
 
