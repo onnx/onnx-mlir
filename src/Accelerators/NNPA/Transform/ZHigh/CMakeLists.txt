@@ -39,3 +39,14 @@ add_onnx_mlir_library(OMZHighLayoutPropagation
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
   )
+
+add_onnx_mlir_rewriter(ZHighClipToDLFloat)
+add_onnx_mlir_library(OMZHighClipToDLFloat
+  ZHighClipToDLFloat.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZHighOps
+  OMONNXOps
+  )

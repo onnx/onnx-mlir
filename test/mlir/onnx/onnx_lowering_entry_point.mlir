@@ -67,7 +67,7 @@ module {
     return %arg0, %arg1 : tensor<?x3xf16>, tensor<?x3xf16>
   }
 
-// CHECK: "krnl.entry_point"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 2 : i32, signature = "[    { \22type\22 : f16 , \22dims\22 : [-1 , 3] , \22name\22 : \22a\22 }\0A ,    { \22type\22 : f16 , \22dims\22 : [-1 , 3] , \22name\22 : \22b\22 }\0A\0A]\00@[   { \22type\22 : f16 , \22dims\22 : [-1 , 3] , \22name\22 : \22c\22 }\0A ,    { \22type\22 : f16 , \22dims\22 : [-1 , 3] , \22name\22 : \22d\22 }\0A\0A]\00"} : () -> ()
+// CHECK: "krnl.entry_point"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 2 : i32, signature = "[    { \22type\22 : \22f16\22 , \22dims\22 : [-1 , 3] , \22name\22 : \22a\22 }\0A ,    { \22type\22 : \22f16\22 , \22dims\22 : [-1 , 3] , \22name\22 : \22b\22 }\0A\0A]\00@[   { \22type\22 : \22f16\22 , \22dims\22 : [-1 , 3] , \22name\22 : \22c\22 }\0A ,    { \22type\22 : \22f16\22 , \22dims\22 : [-1 , 3] , \22name\22 : \22d\22 }\0A\0A]\00"} : () -> ()
   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 }
 

@@ -16,14 +16,14 @@ set_target_properties(check-onnx-numerical-nnpa PROPERTIES FOLDER "Tests")
 
 add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-numerical-nnpa)
 
-# add_numerical_unittest(test_name sources... options...
+# add_numerical_test(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
 #   all the rest of the arguments are passed directly to add_onnx_mlir_executable.
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
 #   )
-function(add_numerical_unittest test_name)
+function(add_numerical_test test_name)
   add_onnx_mlir_executable(${test_name}
     ${ARGN}
 
@@ -64,54 +64,54 @@ endfunction()
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-# # Conv2D
-# set(TestConvNNPA_instruction zdnn_conv2d)
-# set(TestConvNNPA_data_range -0.1,0.1)
-# # Automatically set following config when using --maccel=NNPA
-# # set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
-# add_numerical_unittest(TestConvNNPA
-#    ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
-#    LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#    )
+# Conv2D
+set(TestConvNNPA_instruction zdnn_conv2d)
+set(TestConvNNPA_data_range -0.1,0.1)
+# Automatically set following config when using --maccel=NNPA
+# set(TestConvNNPA_config "-dim=static -dilation=1 -padding=valid_upper")
+add_numerical_test(TestConvNNPA
+   ${ONNX_NUMERICALTEST_SRC_DIR}/TestConv.cpp
+   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+   )
 
 # MatMul2D
-# set(TestMatMul2DNNPA_instruction zdnn_matmul_op)
-add_numerical_unittest(TestMatMul2DNNPA
+set(TestMatMul2DNNPA_instruction zdnn_matmul_op)
+add_numerical_test(TestMatMul2DNNPA
   ${ONNX_NUMERICALTEST_SRC_DIR}/TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-# # Gemm
-# set(TestGemmNNPA_instruction zdnn_matmul_op)
-# # Automatically set following config when using --maccel=NNPA
-# # set(TestGemmNNPA_config "-alpha=1 -beta=1")
-# add_numerical_unittest(TestGemmNNPA
-#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# # LSTM
-# set(TestLSTMNNPA_instruction zdnn_lstm)
-# # Automatically set following config when using --maccel=NNPA
-# # set(TestLSTMNNPA_config "-peephole=0")
-# add_numerical_unittest(TestLSTMNNPA
-#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# # GRU
-# set(TestGRUNNPA_instruction zdnn_gru)
-# # Automatically set following config when using --maccel=NNPA
-# # set(TestGRUNNPA_config "-linearBeforeReset=1")
-# add_numerical_unittest(TestGRUNNPA
-#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# # LeakyRelu
-# set(TestLeakyReluNNPA_instruction zdnn_mul)
-# # Automatically set following config when using --maccel=NNPA
-# add_numerical_unittest(TestLeakyReluNNPA
-#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLeakyRelu.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
+# Gemm
+set(TestGemmNNPA_instruction zdnn_matmul_op)
+# Automatically set following config when using --maccel=NNPA
+# set(TestGemmNNPA_config "-alpha=1 -beta=1")
+add_numerical_test(TestGemmNNPA
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestGemm.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+# LSTM
+set(TestLSTMNNPA_instruction zdnn_lstm)
+# Automatically set following config when using --maccel=NNPA
+# set(TestLSTMNNPA_config "-peephole=0")
+add_numerical_test(TestLSTMNNPA
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+# GRU
+set(TestGRUNNPA_instruction zdnn_gru)
+# Automatically set following config when using --maccel=NNPA
+# set(TestGRUNNPA_config "-linearBeforeReset=1")
+add_numerical_test(TestGRUNNPA
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+# LeakyRelu
+set(TestLeakyReluNNPA_instruction zdnn_mul)
+# Automatically set following config when using --maccel=NNPA
+add_numerical_test(TestLeakyReluNNPA
+  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLeakyRelu.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )

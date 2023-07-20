@@ -15,14 +15,14 @@ set_target_properties(check-onnx-numerical PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD
 
 add_dependencies(check-onnx-backend-numerical check-onnx-numerical)
 
-# add_numerical_unittest(test_name sources... options...
+# add_numerical_test(test_name sources... options...
 #   This function (generally) has the same semantic as add_onnx_mlir_executable.
 #   A test with test_name is added as a ctest to the numerical testsuite and
 #   all the rest of the arguments are passed directly to add_onnx_mlir_executable.
 #   The function usage is meant to look like a call to add_onnx_mlir_executable
 #   for readability.
 #   )
-function(add_numerical_unittest test_name)
+function(add_numerical_test test_name)
   add_onnx_mlir_executable(${test_name} NO_INSTALL ${ARGN})
 
   add_dependencies(numerical ${test_name})
@@ -43,52 +43,52 @@ endfunction()
 # but it did not compile when I removed these two. TODO, figure out why.
 set(TEST_LINK_LIBS rapidcheck ModelLib)
 
-# add_numerical_unittest(TestConv
-#   TestConv.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
+add_numerical_test(TestConv
+  TestConv.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
 
-add_numerical_unittest(TestMatMul2D
+add_numerical_test(TestMatMul2D
   TestMatMul2D.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
 
-#   add_numerical_unittest(TestMatMulBroadcast
-#   TestMatMulBroadcast.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# add_numerical_unittest(TestGemm
-#   TestGemm.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# add_numerical_unittest(TestLSTM
-#   TestLSTM.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# add_numerical_unittest(TestRNN
-#   TestRNN.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# add_numerical_unittest(TestGRU
-#   TestGRU.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# add_numerical_unittest(TestLoop
-#   TestLoop.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-# add_numerical_unittest(TestScan
-#   TestScan.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
-# 
-#   add_numerical_unittest(TestElementwise
-#   TestElementwise.cpp
-#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-#   )
+add_numerical_test(TestMatMulBroadcast
+  TestMatMulBroadcast.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_test(TestGemm
+  TestGemm.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_test(TestLSTM
+  TestLSTM.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_test(TestRNN
+  TestRNN.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_test(TestGRU
+  TestGRU.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_test(TestLoop
+  TestLoop.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+add_numerical_test(TestScan
+  TestScan.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
+
+  add_numerical_test(TestElementwise
+  TestElementwise.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
