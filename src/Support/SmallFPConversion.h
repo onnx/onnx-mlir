@@ -12,6 +12,10 @@
 
 #include <stdint.h>
 
+#ifdef __MVS__
+#define static_assert _Static_assert
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
