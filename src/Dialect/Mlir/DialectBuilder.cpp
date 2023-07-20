@@ -1651,6 +1651,9 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
     return funcOp;
 
   // Create uniqueFuncOp if there exists a postfix.
+  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition before
+  // `funcOp`.
+  b().setInsertionPoint(funcOp);
   ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
   std::string uniqueFuncName =
       LLVMBuilder::SymbolPostfix(module, funcName.str());

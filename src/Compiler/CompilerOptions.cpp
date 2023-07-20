@@ -296,7 +296,7 @@ llvm::cl::opt<std::string> modelTag("tag",
         "`run_main_graph` and `run_main_graph_tag`, where `run_main_graph` "
         "is just a wrapper of `run_main_graph_tag`. Users can call one of "
         "the entry points and expect the same result."),
-    llvm::cl::value_desc("a string that matches regex ([0-9a-z_-]+)"),
+    llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::cat(OnnxMlirOptions));
 
 // Configuration states associated with certain options.

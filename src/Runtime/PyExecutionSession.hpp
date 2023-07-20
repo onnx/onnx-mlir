@@ -28,12 +28,9 @@ public:
 
 PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "OMExecutionSession")
-      .def(py::init<const std::string &>(), py::arg("shared_lib_path"))
-      .def(py::init<const std::string &, const std::string &>(),
-          py::arg("shared_lib_path"), py::arg("tag"))
       .def(py::init<const std::string &, const std::string &, const bool>(),
-          py::arg("shared_lib_path"), py::arg("tag"),
-          py::arg("use_default_entry_point"))
+          py::arg("shared_lib_path"), py::arg("tag") = "",
+          py::arg("use_default_entry_point") = 1)
       .def("entry_points", &onnx_mlir::PyExecutionSession::pyQueryEntryPoints)
       .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint,
           py::arg("name"))
