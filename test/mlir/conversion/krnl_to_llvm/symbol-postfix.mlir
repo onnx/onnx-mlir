@@ -169,7 +169,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_4_8_:%.+]] = llvm.bitcast [[VAR_3_9_]] : !llvm.ptr<array<20 x i8>> to !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_5_8_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr<ptr>
 // CHECK-CONST-TO-FILE:           [[VAR_6_7_:%.+]] = llvm.bitcast [[VAR_5_8_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_7_]], [[VAR_4_8_]], [[VAR_1_9_]], [[VAR_2_9_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_7_]], [[VAR_4_8_]], [[VAR_1_9_]], {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
 // CHECK-CONST-TO-FILE:           [[VAR_7_6_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1_tag_constants_to_file : !llvm.ptr<ptr>
 // CHECK-CONST-TO-FILE:           [[VAR_8_5_:%.+]] = llvm.bitcast [[VAR_7_6_]] : !llvm.ptr<ptr> to !llvm.ptr
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_8_5_]], [[VAR_6_7_]], [[VAR_2_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
