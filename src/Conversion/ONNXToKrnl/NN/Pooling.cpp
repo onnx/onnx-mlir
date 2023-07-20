@@ -39,6 +39,7 @@ template <>
 struct ScalarOp<ONNXAveragePoolOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
+  using SOp = NotSuportedScalarOp;
 };
 
 template <>

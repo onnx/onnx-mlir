@@ -243,6 +243,12 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       return rewriter.create<ScalarFOp<Op>>(
           loc, elementType, scalarOperands, std::nullopt);
     llvm_unreachable("unsupported float operation");
+  } else if (actualElementType.isa<krnl::StringType>()) {
+    if constexpr (!(std::is_same<ScalarSOp<Op>, NotSuportedScalarOp>::value) &&
+                  !(std::is_same<ScalarSOp<Op>, mlir::KrnlStrncmpOp>::value))
+      return rewriter.create<ScalarSOp<Op>>(
+          loc, elementType, scalarOperands, std::nullopt);
+    llvm_unreachable("unsupported string operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
