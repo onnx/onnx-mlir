@@ -41,6 +41,8 @@ include "src/Dialect/ONNX/ONNX.td"
 
 // Useful test definitions:
 
+def IsNoneType : Constraint<CPred<"isa<NoneType>(($_self).getType())">>;
+
 def IsNotAConstant :
   Constraint<CPred<"! isa_and_nonnull<ONNXConstantOp>(($_self).getDefiningOp())">,
   "operation is not a constant">;
@@ -185,6 +187,9 @@ def CreateSqueezeOfConst:
 
 def CreateSliceOfConst:
    NativeCodeCall<"ConstPropSlice($_builder, $0, $1)">;
+
+def CreatePadOfConst:
+   NativeCodeCall<"ConstPropPad($_builder, $0, $1, $2)">;
 
 def CreateConcatOfConst:
    NativeCodeCall<"ConstPropConcat($_builder, $0, $1, $2)">;
@@ -779,6 +784,24 @@ def SliceofConst :  Pat<
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$starts),
      (IsFromDenseONNXConstantOp:$ends), (IsFromDenseONNXConstantOpOrNone:$axes),
      (IsFromDenseONNXConstantOpOrNone:$steps), (HasStaticShape:$resOp)]>;
+
+//===----------------------------------------------------------------------===//
+// Patterns for Pad.
+//===----------------------------------------------------------------------===//
+
+class StrAttrEquals<string val>: Constraint<CPred<"$_self == \"" # val # "\"">>;
+
+// TODO: Support axes. For now it's required to be none.
+def PadOfConst : Pat<
+    // From Pad (x, pads, constant_value, axes)
+    (ONNXPadOp:$resOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_),
+                      $pads, $constant_value, $axes, $mode),
+    // To c where c is the padded value.
+    (CreatePadOfConst $resOp, $input, $constant_value),
+    [(IsFromDenseONNXConstantOp:$pads),
+     (IsFromDenseONNXConstantOpOrNone:$constant_value),
+     (IsNoneType:$axes),
+     (StrAttrEquals<"constant">:$mode)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.
