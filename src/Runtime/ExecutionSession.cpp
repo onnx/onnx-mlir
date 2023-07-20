@@ -39,7 +39,11 @@ ExecutionSession::ExecutionSession(
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
     tag = fnameWithoutExt.str().lower();
   }
-  std::string lowDashTag = "_" + tag;
+
+  // tag = "NONE" to use functions without tag.
+  std::string lowDashTag;
+  if (!llvm::StringRef(tag).equals_insensitive("NONE"))
+    lowDashTag = "_" + tag;
 
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());

@@ -92,6 +92,8 @@ for entry_point in entry_points:
     print(output.shape)
 ```
 
+### Using model tags
+
 If a model was compiled by using `--tag`, the value of `--tag` must be passed to OMExecutionSession.
 Using tags is useful when there are multiple sessions for multiple models in the same python script.
 Below is an example of doing multiple inferences using tags.
@@ -108,7 +110,7 @@ encoder_sess = OMExecutionSession(shared_lib_path=encoder_model, tag="encoder")
 decoder_sess = OMExecutionSession(shared_lib_path=decoder_model, tag="decoder")
 ```
 
-In case that two models were NOT compiled by using `--tag`, they must be compiled
+In case two models were NOT compiled by using `--tag`, they must be compiled
 with different .so filenames so that they can be used in the same python script.
 Below is an example of doing multiple inferences without using tags.
 ```python
@@ -123,6 +125,8 @@ encoder_sess = OMExecutionSession(shared_lib_path=encoder_model) # tag will be `
 # Create a session for the decoder model.
 decoder_sess = OMExecutionSession(shared_lib_path=decoder_model) # tag will be `my_decoder` by default.
 ```
+
+To use functions without tags, e.g. `run_main_graph`, set `tag = "NONE"`.
 
 ## PyRuntime model API
 The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.

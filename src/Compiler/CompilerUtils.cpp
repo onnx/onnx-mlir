@@ -315,22 +315,27 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
+  std::string tag = "";
+  if (!StringRef(modelTag).equals_insensitive("NONE"))
+    tag = "_" + modelTag;
   // Signature functions.
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
-  exportedFuncs.emplace_back(StringRef("omInputSignature_" + modelTag));
-  exportedFuncs.emplace_back(StringRef("omOutputSignature_" + modelTag));
-  exportedFuncs.emplace_back(StringRef("omQueryEntryPoints_" + modelTag));
+  if (!tag.empty()) {
+    exportedFuncs.emplace_back(StringRef("omInputSignature" + tag));
+    exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
+    exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
+  }
   // Entry point funtions.
-  if (llvm::GlobalVariable *GV = llvmModule.getNamedGlobal(
-          StringRef("_entry_point_arrays_" + modelTag))) {
+  if (llvm::GlobalVariable *GV =
+          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-            StringRef("_entry_point_" + std::to_string(i) + "_" + modelTag));
+            StringRef("_entry_point_" + std::to_string(i) + tag));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
@@ -891,10 +896,11 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
   // In particular, it will be appended to global variable and function names.
   // For example, we will have two entry points: `run_main_graph` and
   // `run_main_graph_tag`, doing the same computation.
-  if (modelTag == "")
+  if (modelTag.empty())
     modelTag = llvm::sys::path::filename(outputNameNoExt).lower();
   // Verify modelTag value.
-  if (!std::regex_match(modelTag, std::regex("([a-z0-9_.-]+)"))) {
+  if (!modelTag.empty() &&
+      !std::regex_match(modelTag, std::regex("([a-z0-9_.-]+)"))) {
     llvm::outs() << "Tag is " << modelTag << "\n";
     emitError(loc,
         "Invalid value for --tag. If --tag is not given, it takes "
@@ -902,8 +908,11 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
         "matches regex ([0-9a-z_.-]+)");
     return InvalidCompilerOption;
   }
-  moduleOp.setAttr(
-      "onnx-mlir.symbol-postfix", StringAttr::get(&context, modelTag));
+  if (StringRef(modelTag).equals_insensitive("NONE"))
+    moduleOp.setAttr("onnx-mlir.symbol-postfix", StringAttr::get(&context, ""));
+  else
+    moduleOp.setAttr(
+        "onnx-mlir.symbol-postfix", StringAttr::get(&context, modelTag));
 
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;

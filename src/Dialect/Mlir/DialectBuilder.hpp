@@ -603,7 +603,8 @@ struct LLVMBuilder final : DialectBuilder {
     std::string postfix = "";
     if (mlir::StringAttr postfixAttr = module->getAttrOfType<mlir::StringAttr>(
             "onnx-mlir.symbol-postfix")) {
-      postfix = "_" + postfixAttr.getValue().lower();
+      if (!postfixAttr.getValue().empty())
+        postfix = "_" + postfixAttr.getValue().lower();
     }
     return symbol + postfix;
   }

@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   const char *errorMessage = NULL;
   const char *compiledFilename;
   std::string flags = readArgs(argc, argv);
-  flags += "-o add-cpp-interface";
+  flags += "-o add-cpp-interface --tag=NONE";
   std::cout << "Compile with options \"" << flags << "\"\n";
   int rc = onnx_mlir::omCompileFromFile(
       "add.onnx", flags.c_str(), &compiledFilename, &errorMessage);
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
   // Prepare the execution session.
   onnx_mlir::ExecutionSession *session;
   try {
-    session = new onnx_mlir::ExecutionSession("./" + libFilename);
+    session = new onnx_mlir::ExecutionSession("./" + libFilename, "NONE");
   } catch (const std::runtime_error &error) {
     std::cerr << "error while creating execution session: " << error.what()
               << " and errno " << errno << std::endl;
