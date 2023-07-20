@@ -11,6 +11,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
 #include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -536,6 +537,52 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
     }
     for (auto &idxoffs : StridesRange<1>(shape, {strides}))
       dst[idxoffs.flattenedIndex] = *(start + idxoffs[0]);
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::pad(
+    ElementsAttr elms, ArrayRef<int64_t> pads, WideNum padValue) {
+  ArrayRef<int64_t> inputShape = elms.getShapedType().getShape();
+  size_t rank = inputShape.size();
+  ArrayRef<int64_t> leftPads = pads.take_front(rank);
+  ArrayRef<int64_t> rightPads = pads.take_back(rank);
+  SmallVector<int64_t> outShape(inputShape);
+  for (size_t axis = 0; axis < rank; ++axis)
+    outShape[axis] += leftPads[axis] + rightPads[axis];
+  ShapedType outType = elms.getShapedType().clone(outShape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    auto out = dst.begin();
+    int64_t beginPad = 0;
+    for (size_t axis = 0; axis < rank; ++axis)
+      beginPad = beginPad * outShape[axis] + leftPads[axis];
+    out = std::fill_n(out, beginPad, padValue);
+
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    StridesRange<1> range(inputShape, {strides});
+    auto begin = range.begin(), end = range.end(), it = begin;
+    while (it != end) {
+      if (it != begin) {
+        int64_t pad = 0, multiplier = 1;
+        for (int axis = rank - 1; axis >= 0; --axis) {
+          if (it->index[axis] != 0)
+            break;
+          pad += (leftPads[axis] + rightPads[axis]) * multiplier;
+          multiplier *= outShape[axis];
+        }
+        out = std::fill_n(out, pad, padValue);
+      }
+
+      int64_t numCols = inputShape.back();
+      for (int64_t col = 0; col < numCols; ++col, ++out, ++it)
+        *out = src.get()[it->at(0)];
+    }
+
+    int64_t endPad = 0;
+    for (size_t axis = 0; axis < rank; ++axis)
+      endPad = endPad * outShape[axis] + rightPads[axis];
+    out = std::fill_n(out, endPad, padValue);
+    assert(out == dst.end());
   });
 }
 
