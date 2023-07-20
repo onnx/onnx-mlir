@@ -39,6 +39,7 @@ ExecutionSession::ExecutionSession(
     llvm::sys::path::replace_extension(fnameWithoutExt, "");
     tag = fnameWithoutExt.str().lower();
   }
+  std::string lowDashTag = "_" + tag;
 
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
@@ -46,9 +47,9 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(reportLibraryOpeningError(sharedLibPath));
 
   if (defaultEntryPoint)
-    setEntryPoint("run_main_graph_" + tag);
+    setEntryPoint("run_main_graph" + lowDashTag);
 
-  std::string queryEntryPointsNameWithTag = _queryEntryPointsName + "_" + tag;
+  std::string queryEntryPointsNameWithTag = _queryEntryPointsName + lowDashTag;
   _queryEntryPointsFunc = reinterpret_cast<queryEntryPointsFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           queryEntryPointsNameWithTag.c_str()));
@@ -56,7 +57,7 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(
         reportSymbolLoadingError(queryEntryPointsNameWithTag));
 
-  std::string inputSignatureNameWithTag = _inputSignatureName + "_" + tag;
+  std::string inputSignatureNameWithTag = _inputSignatureName + lowDashTag;
   _inputSignatureFunc = reinterpret_cast<signatureFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           inputSignatureNameWithTag.c_str()));
@@ -64,7 +65,7 @@ ExecutionSession::ExecutionSession(
     throw std::runtime_error(
         reportSymbolLoadingError(inputSignatureNameWithTag));
 
-  std::string outputSignatureNameWithTag = _outputSignatureName + "_" + tag;
+  std::string outputSignatureNameWithTag = _outputSignatureName + lowDashTag;
   _outputSignatureFunc = reinterpret_cast<signatureFuncType>(
       _sharedLibraryHandle.getAddressOfSymbol(
           outputSignatureNameWithTag.c_str()));

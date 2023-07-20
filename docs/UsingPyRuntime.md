@@ -92,16 +92,49 @@ for entry_point in entry_points:
     print(output.shape)
 ```
 
+If a model was compiled by using `--tag`, the value of `--tag` must be passed to OMExecutionSession.
+Using tags is useful when there are multiple sessions for multiple models in the same python script.
+Below is an example of doing multiple inferences using tags.
+```python
+import numpy as np
+from PyRuntime import OMExecutionSession
+
+encoder_model = 'encoder/model.so' # Assumed that the model was compiled using `--tag=encoder`
+decoder_model = 'decoder/model.so' # Assumed that the model was compiled using `--tag=decoder`
+
+# Create a session for the encoder model.
+encoder_sess = OMExecutionSession(shared_lib_path=encoder_model, tag="encoder")
+# Create a session for the decoder model.
+decoder_sess = OMExecutionSession(shared_lib_path=decoder_model, tag="decoder")
+```
+
+In case that two models were NOT compiled by using `--tag`, they must be compiled
+with different .so filenames so that they can be used in the same python script.
+Below is an example of doing multiple inferences without using tags.
+```python
+import numpy as np
+from PyRuntime import OMExecutionSession
+
+encoder_model = 'my_encoder.so'
+decoder_model = 'my_decoder.so'
+
+# Create a session for the encoder model.
+encoder_sess = OMExecutionSession(shared_lib_path=encoder_model) # tag will be `my_encoder` by default.
+# Create a session for the decoder model.
+decoder_sess = OMExecutionSession(shared_lib_path=decoder_model) # tag will be `my_decoder` by default.
+```
+
 ## PyRuntime model API
 The complete interface to `OMExecutionSession` can be seen in the sources mentioned previously.
 However, using the constructor and run method is enough to perform inferences.
 
 ```python
-def __init__(self, shared_lib_path: str, use_default_entry_point: bool):
+def __init__(self, shared_lib_path: str, tag: str, use_default_entry_point: bool):
     """
     Args:
         shared_lib_path: relative or absolute path to your .so model.
-        use_default_entry_point: use the default entry point that is `run_main_graph` or not. Set to True by default.
+        tag: a string that was passed to `--tag` when compiling the .so model. By default, it is `filename` in `filename.so`
+        use_default_entry_point: use the default entry point that is `run_main_graph_{tag}` or not. Set to True by default.
     """
 
 def run(self, input: List[ndarray]) -> List[ndarray]:
