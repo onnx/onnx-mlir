@@ -159,4 +159,3 @@ jobs:
     workingDirectory: $(Agent.BuildDirectory)
     env:
       CTEST_PARALLEL_LEVEL: ${{ parameters.CTEST_PARALLEL_LEVEL }}
-      TEST_ARGS: "--tag=NONE"
