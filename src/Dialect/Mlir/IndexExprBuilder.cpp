@@ -112,14 +112,10 @@ int64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
 // Size from 1D value array.
 int64_t IndexExprBuilder::getArraySize(Value array, bool staticSizeOnly) {
   uint64_t rank = getShapedTypeRank(array);
-  fprintf(stderr, "hi alex get array size: rank %d\n", (int)rank);
-  array.dump();
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   if (rank == 0)
     return 1;
-  fprintf(stderr, "hi alex get shape\n");
   int64_t shape = getShape(array, 0);
-  fprintf(stderr, "hi alex got shape %d\n", (int)shape);
   if (staticSizeOnly)
     assert(shape != ShapedType::kDynamic && "expected static size");
   return shape;
@@ -190,22 +186,20 @@ IndexExpr IndexExprBuilder::getValFromArray(
     assert(isa<FloatType>(elType) && "array element type mismatch");
   else
     assert(isa<IntegerType>(elType) && "array element type mismatch");
-  fprintf(stderr, "hi alex, get size, given arraySize %d \n", (int)arraySize);
   int64_t size = getArraySize(array, /*static only*/ false);
-  fprintf(stderr, "hi alex, got size %d\n", (int)size);
-  if (size != ShapedType::kDynamic) {
-    if (arraySize < 0)
-      // Could not derive array size from array value, use the given one.
+  if (arraySize >= 0) {
+    // Was given a defined arraySize value.
+    if (size == ShapedType::kDynamic)
+      // Could not derive an array size from value, use given arraySize.
       size = arraySize;
     else
-      // Was able to derive an array size from the array value, check it is the
-      // same
+      // Was able to derive an array size from array value.
       assert(arraySize == size && "expected given size to be the same as the "
                                   "one detected from the array value");
   }
-  fprintf(stderr, "hi alex, use size %d\n", (int)size);
-  if (size == ShapedType::kDynamic || i >= (uint64_t)size)
+  if (size == ShapedType::kDynamic || i >= (uint64_t)size) {
     return UndefinedIndexExpr();
+  }
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
       double floatVal =
@@ -356,12 +350,6 @@ bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
 int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
   uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   assert(i < rank && "expected index smaller than memref rank");
-  // hi alex
-  fprintf(stderr, "\nhi alex: getShape for value and index %d\n  ",(int) i);
-  tensorOrMemrefValue.dump();
-  for (int ii = 0; ii < (int)rank; ++ii)
-    fprintf(stderr, "  %d: size %d\n", (int) ii,
-        (int)tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[ii]);
   return tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[i];
 }
 

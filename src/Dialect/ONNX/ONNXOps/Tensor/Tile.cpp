@@ -31,23 +31,14 @@ LogicalResult ONNXTileOpShapeHelper::computeShape() {
   Value input = operandAdaptor.getInput();
   int64_t inputRank = createIE->getShapedTypeRank(input);
   Value repeats = operandAdaptor.getRepeats();
-  fprintf(stderr, "hi alex: input and repeat\n");
-  input.dump();
-  repeats.dump();
   // Compute outputDims
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  fprintf(stderr, "hi alex, input rank is %d\n", (int) inputRank);
   for (int64_t i = 0; i < inputRank; i++) {
-    fprintf(stderr, "\nhi alex, start iter %d\n", (int) i);
     IndexExpr dimInput = createIE->getShapeAsDim(input, i);
-    dimInput.debugPrint("  dim input from tile");
     IndexExpr repeatsValue =
         createIE->getIntFromArrayAsSymbol(repeats, i, inputRank);
-    fprintf(stderr, "  done computing repeat value\n");
-    repeatsValue.debugPrint("  repeat value");
     outputDims[i] = dimInput * repeatsValue;
-    fprintf(stderr, "hi alex, done with iter %d\n\n", (int) i);
   }
   setOutputDims(outputDims);
   return success();
