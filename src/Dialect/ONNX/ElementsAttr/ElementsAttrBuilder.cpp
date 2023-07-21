@@ -568,13 +568,27 @@ ElementsAttr ElementsAttrBuilder::pad(
   if (elms.empty())
     return splat(outType, padValue);
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
-    SmallVector<int64_t> betweenPads(rank, 0);
+    // The following unrolls the recurse(dst.begin(), elms.getValues())
+    // recursive algorithm described by the pseudo code:
+    //
+    //   def recurse(DstIter &out, SrcIter &inp, int axis = 0):
+    //     auto subSize = numElements(outShape.drop_front(axis + 1))
+    //     out = std::fill_n(out, leftPads[axis] * subSize)
+    //     if axis == rank - 1:
+    //       nunCols = inputShape.back()
+    //       out = std::copy(inp, inp += numCols, out)
+    //     else:
+    //       for i in range(inputShape[axis]):
+    //         recurse(out, inp, axis + 1)
+    //     out = std::fill_n(out, rightPads[axis] * subSize)
+
+    SmallVector<int64_t> betweenRowsPads(rank, 0);
     int64_t beginPad = 0, endPad = 0;
     int64_t multiplier = 1;
     for (int64_t axis = rank - 1; axis >= 0; --axis) {
       beginPad += leftPads[axis] * multiplier;
       endPad += rightPads[axis] * multiplier;
-      betweenPads[axis] = beginPad + endPad;
+      betweenRowsPads[axis] = beginPad + endPad;
       multiplier *= outShape[axis];
     }
 
@@ -585,9 +599,12 @@ ElementsAttr ElementsAttrBuilder::pad(
     ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
     StridesRange<1> range(inputShape, {strides});
     auto it = range.begin(), end = range.end();
+    assert(it != end && "elms must be non-empty");
+    assert(!inputShape.empty() && "elms must have rank > 0");
+    const int numCols = inputShape.back();
     for (;;) {
-      for (int64_t numCols = inputShape.back(), col = 0; col < numCols;
-           ++col, ++out, ++it) {
+      // Copy next row from elms to dst.
+      for (int64_t col = 0; col < numCols; ++col, ++out, ++it) {
         *out = src.get()[it->at(0)];
       }
 
@@ -598,7 +615,7 @@ ElementsAttr ElementsAttrBuilder::pad(
       int lastZero = rank - 1;
       while (lastZero > 0 && it->index[lastZero - 1] == 0)
         --lastZero;
-      out = std::fill_n(out, betweenPads[lastZero], padValue);
+      out = std::fill_n(out, betweenRowsPads[lastZero], padValue);
     }
 
     out = std::fill_n(out, endPad, padValue);
