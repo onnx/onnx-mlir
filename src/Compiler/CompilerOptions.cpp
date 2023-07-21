@@ -519,6 +519,11 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+// Support for model tag
+void setModelTag(const std::string &str) { modelTag = str; }
+void clearModelTag() { modelTag = ""; }
+std::string getModelTag() { return modelTag; }
+
 // Support for Verbose Option
 void setVerboseOption() { VerboseOutput = true; }
 void clearVerboseOption() { VerboseOutput = false; }
@@ -559,6 +564,9 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
+  case OptionKind::ModelTag:
+    setModelTag(val);
+    break;
   case OptionKind::Verbose:
     setVerboseOption();
     break;
@@ -593,6 +601,9 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::LLVMFlag:
     clearLLVMOption();
     break;
+  case OptionKind::ModelTag:
+    clearModelTag();
+    break;
   case OptionKind::Verbose:
     clearVerboseOption();
     break;
@@ -626,6 +637,8 @@ std::string getCompilerOption(const OptionKind kind) {
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
+  case OptionKind::ModelTag:
+    return getModelTag();
   case OptionKind::Verbose:
     return getVerboseOption();
   }
