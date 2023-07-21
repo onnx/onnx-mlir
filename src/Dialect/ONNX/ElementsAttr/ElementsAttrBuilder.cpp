@@ -20,6 +20,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <algorithm>
 #include <numeric>
 
 using namespace mlir;
