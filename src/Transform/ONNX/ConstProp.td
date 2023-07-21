@@ -95,6 +95,8 @@ def IsMatMulIntegerRhsZero: Constraint<
 def SatisfiesExpansionBound: Constraint<
   CPred<"satisfiesExpansionBound($_self)">>;
 
+class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
+
 // Creation helpers:
 
 def CreateZeroTensorOfType: NativeCodeCall<
@@ -789,8 +791,6 @@ def SliceofConst :  Pat<
 // Patterns for Pad.
 //===----------------------------------------------------------------------===//
 
-class StrAttrEquals<string val>: Constraint<CPred<"$_self == \"" # val # "\"">>;
-
 // TODO: Support axes. For now it's required to be none.
 def PadOfConst : Pat<
     // From Pad (x, pads, constant_value, axes)
@@ -801,7 +801,7 @@ def PadOfConst : Pat<
     [(IsFromDenseONNXConstantOp:$pads),
      (IsFromDenseONNXConstantOpOrNone:$constant_value),
      (IsNoneType:$axes),
-     (StrAttrEquals<"constant">:$mode)]>;
+     (EqualString<"constant"> $mode)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Concat operations.
