@@ -112,10 +112,14 @@ int64_t IndexExprBuilder::getArraySize(ArrayAttr attrArray) {
 // Size from 1D value array.
 int64_t IndexExprBuilder::getArraySize(Value array, bool staticSizeOnly) {
   uint64_t rank = getShapedTypeRank(array);
+  fprintf(stderr, "hi alex get array size: rank %d\n", (int)rank);
+  array.dump();
   assert(rank < 2 && "expected a scalar or a 1 dimension array of int values");
   if (rank == 0)
     return 1;
+  fprintf(stderr, "hi alex get shape\n");
   int64_t shape = getShape(array, 0);
+  fprintf(stderr, "hi alex got shape %d\n", (int)shape);
   if (staticSizeOnly)
     assert(shape != ShapedType::kDynamic && "expected static size");
   return shape;
@@ -180,16 +184,27 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 // Function that perform the work, creating Literal (int/float), Symbol(int),
 // Dim(int), NonAffine (float) IndexExpr.
 IndexExpr IndexExprBuilder::getValFromArray(
-    Value array, uint64_t i, bool makeSymbol, bool isFloat) {
+    Value array, uint64_t i, bool makeSymbol, bool isFloat, int64_t arraySize) {
   Type elType = getElementTypeOrSelf(array);
   if (isFloat)
     assert(isa<FloatType>(elType) && "array element type mismatch");
   else
     assert(isa<IntegerType>(elType) && "array element type mismatch");
-    fprintf(stderr, "hi alex, get size\n");
-  uint64_t size = getArraySize(array, /*static only*/ true);
-    fprintf(stderr, "hi alex, got size %d\n", (int) size);
-  if (i >= size)
+  fprintf(stderr, "hi alex, get size, given arraySize %d \n", (int)arraySize);
+  int64_t size = getArraySize(array, /*static only*/ false);
+  fprintf(stderr, "hi alex, got size %d\n", (int)size);
+  if (size != ShapedType::kDynamic) {
+    if (arraySize < 0)
+      // Could not derive array size from array value, use the given one.
+      size = arraySize;
+    else
+      // Was able to derive an array size from the array value, check it is the
+      // same
+      assert(arraySize == size && "expected given size to be the same as the "
+                                  "one detected from the array value");
+  }
+  fprintf(stderr, "hi alex, use size %d\n", (int)size);
+  if (size == ShapedType::kDynamic || i >= (uint64_t)size)
     return UndefinedIndexExpr();
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
@@ -234,34 +249,38 @@ IndexExpr IndexExprBuilder::getFloatAsNonAffine(Value value) {
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
-    Value intArray, uint64_t i) {
-  return getValFromArray(intArray, i, /*makeSymbol*/ true, /*isFloat*/ false);
+    Value intArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      intArray, i, /*makeSymbol*/ true, /*isFloat*/ false, arraySize);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value intArray, uint64_t i) {
-  return getValFromArray(intArray, i, /*makeSymbol*/ false, /*isFloat*/ false);
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+    Value intArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      intArray, i, /*makeSymbol*/ false, /*isFloat*/ false, arraySize);
 }
 
 IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
-    Value floatArray, uint64_t i) {
-  return getValFromArray(floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true);
+    Value floatArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true, arraySize);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbolWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+IndexExpr IndexExprBuilder::getIntFromArrayAsDimWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
+IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffineWithOutOfBound(
     Value floatArray, uint64_t i, double defaultLiteral) {
   IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
   // Undefined value are set to default value.
@@ -337,6 +356,12 @@ bool IndexExprBuilder::isLiteralShape(Value tensorOrMemrefValue) {
 int64_t IndexExprBuilder::getShape(Value tensorOrMemrefValue, uint64_t i) {
   uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   assert(i < rank && "expected index smaller than memref rank");
+  // hi alex
+  fprintf(stderr, "\nhi alex: getShape for value and index %d\n  ",(int) i);
+  tensorOrMemrefValue.dump();
+  for (int ii = 0; ii < (int)rank; ++ii)
+    fprintf(stderr, "  %d: size %d\n", (int) ii,
+        (int)tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[ii]);
   return tensorOrMemrefValue.getType().cast<ShapedType>().getShape()[i];
 }
 
