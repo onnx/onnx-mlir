@@ -540,47 +540,66 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
   });
 }
 
+namespace {
+ElementsAttr splat(ShapedType type, WideNum num) {
+  Type elemType = type.getElementType();
+  BType btype = btypeOfMlirType(elemType);
+  if (isFloatBType(btype))
+    return DenseElementsAttr::get(type, num.toAPFloat(btype));
+  if (isIntBType(btype))
+    return DenseElementsAttr::get(type, num.toAPInt(btype));
+  llvm_unreachable("unsupported element type");
+}
+} // namespace
+
 ElementsAttr ElementsAttrBuilder::pad(
     ElementsAttr elms, ArrayRef<int64_t> pads, WideNum padValue) {
   ArrayRef<int64_t> inputShape = elms.getShapedType().getShape();
   size_t rank = inputShape.size();
+  if (rank == 0)
+    return elms;
   ArrayRef<int64_t> leftPads = pads.take_front(rank);
   ArrayRef<int64_t> rightPads = pads.take_back(rank);
   SmallVector<int64_t> outShape(inputShape);
   for (size_t axis = 0; axis < rank; ++axis)
     outShape[axis] += leftPads[axis] + rightPads[axis];
   ShapedType outType = elms.getShapedType().clone(outShape);
+  if (elms.empty())
+    return splat(outType, padValue);
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    SmallVector<int64_t> betweenPads(rank, 0);
+    int64_t beginPad = 0, endPad = 0;
+    int64_t multiplier = 1;
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      beginPad += leftPads[axis] * multiplier;
+      endPad += rightPads[axis] * multiplier;
+      betweenPads[axis] = beginPad + endPad;
+      multiplier *= outShape[axis];
+    }
+
     auto out = dst.begin();
-    int64_t beginPad = 0;
-    for (size_t axis = 0; axis < rank; ++axis)
-      beginPad = beginPad * outShape[axis] + leftPads[axis];
     out = std::fill_n(out, beginPad, padValue);
 
     SmallVector<int64_t> strides;
     ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
     StridesRange<1> range(inputShape, {strides});
-    auto begin = range.begin(), end = range.end(), it = begin;
-    while (it != end) {
-      if (it != begin) {
-        int64_t pad = 0, multiplier = 1;
-        for (int axis = rank - 1; axis >= 0; --axis) {
-          if (it->index[axis] != 0)
-            break;
-          pad += (leftPads[axis] + rightPads[axis]) * multiplier;
-          multiplier *= outShape[axis];
-        }
-        out = std::fill_n(out, pad, padValue);
+    auto it = range.begin(), end = range.end();
+    for (;;) {
+      for (int64_t numCols = inputShape.back(), col = 0; col < numCols;
+           ++col, ++out, ++it) {
+        *out = src.get()[it->at(0)];
       }
 
-      int64_t numCols = inputShape.back();
-      for (int64_t col = 0; col < numCols; ++col, ++out, ++it)
-        *out = src.get()[it->at(0)];
+      if (it == end)
+        break;
+
+      assert(it->index.back() == 0 && "it is at the start of a row");
+      int lastZero = rank - 1;
+      while (lastZero > 0 && it->index[lastZero - 1] == 0)
+        --lastZero;
+      out = std::fill_n(out, betweenPads[lastZero], padValue);
     }
 
-    int64_t endPad = 0;
-    for (size_t axis = 0; axis < rank; ++axis)
-      endPad = endPad * outShape[axis] + rightPads[axis];
     out = std::fill_n(out, endPad, padValue);
     assert(out == dst.end());
   });
