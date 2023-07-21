@@ -47,7 +47,8 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   // TODO: support dynamic shape.
   MemRefType affineMemRefType =
       MemRefType::get(inputDims, elementType, AffineMapAttr::get(indexMap));
-  MemRefType flatMemRefType = affine::normalizeMemRefType(affineMemRefType);
+  MemRefType flatMemRefType =
+      affine::normalizeMemRefType(affineMemRefType, /*numSymbols=*/0);
   assert((flatMemRefType.getRank() == outputRank) && "Normalization failed");
 
   DimsExpr outputIEs(outputRank);
