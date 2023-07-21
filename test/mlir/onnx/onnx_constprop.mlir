@@ -1526,6 +1526,24 @@ func.func @test_pad_empty() -> tensor<*xf16> {
 // CHECK:         }
 }
 
+// pad const prop doesn't support edge mode
+func.func @test_pad_edge() -> tensor<*xf16> {
+  %data = onnx.Constant dense<3.14> : tensor<3x2xf16>
+  %pads = onnx.Constant dense<[0, 0, 0, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) { mode = "edge" } : (tensor<3x2xf16>, tensor<4xi64>, none, none) -> tensor<*xf16>
+  onnx.Return %1 : tensor<*xf16>
+
+// CHECK-LABEL:  func.func @test_pad_edge
+// CHECK-SAME:   () -> tensor<3x2xf16> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3.140630e+00> : tensor<3x2xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Pad"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_2_]]) {mode = "edge"} : (tensor<3x2xf16>, tensor<4xi64>, none, none) -> tensor<3x2xf16>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<3x2xf16>
+// CHECK:         }
+}
+
 // -----
 
 func.func @test_concat() -> tensor<*xf32> {
