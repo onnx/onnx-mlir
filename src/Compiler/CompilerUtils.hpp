@@ -14,39 +14,16 @@
 
 #pragma once
 
-#include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/Support/FileUtilities.h"
-
-#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
-#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
-#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
-#include "mlir/Parser/Parser.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
-#include "mlir/Target/LLVMIR/Export.h"
-#include "mlir/Transforms/Passes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
-#include "src/Builder/FrontendDialectTransformer.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
-#include "src/Compiler/CompilerPasses.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
-#include "src/Pass/Passes.hpp"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/Program.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Target/TargetMachine.h"
 
-#include "src/Accelerators/Accelerator.hpp"
-#include "src/Version/Version.hpp"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/OwningOpRef.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Path.h"
+
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace onnx_mlir {
 

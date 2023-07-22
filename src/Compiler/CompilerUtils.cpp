@@ -12,14 +12,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CompilerUtils.hpp"
+#include "ExternalUtil.hpp"
+
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
@@ -27,21 +32,16 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 
-#include "ExternalUtil.hpp"
-
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Builder/FrontendDialectTransformer.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
-#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
 
 #include <fstream>
-#include <regex>
-
-#define DEBUG_TYPE "compiler_utils"
 
 using namespace mlir;
 using namespace onnx_mlir;

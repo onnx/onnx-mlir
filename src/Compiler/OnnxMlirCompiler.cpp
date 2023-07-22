@@ -13,6 +13,7 @@
 #include "ExternalUtil.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "llvm/Support/FileSystem.h"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -141,9 +142,9 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   if (errorMessage)
     *errorMessage = nullptr;
 
-  mlir::OwningOpRef<mlir::ModuleOp> module;
-  mlir::MLIRContext context(registerDialects(maccel));
-  context.loadAllAvailableDialects();
+  OwningOpRef<ModuleOp> module;
+  MLIRContext context;
+  loadDialects(context);
 
   std::string internalErrorMessage;
   int rc = processInputArray(

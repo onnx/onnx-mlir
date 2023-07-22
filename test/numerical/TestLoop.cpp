@@ -18,6 +18,8 @@
 
 #include "src/Runtime/OMTensorHelper.hpp"
 
+#include "mlir/Parser/Parser.h"
+
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace mlir;
