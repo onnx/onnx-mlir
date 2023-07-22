@@ -23,40 +23,65 @@ SUPPRESS_WARNINGS_POP
 
 namespace onnx_mlir {
 
+// =============================================================================
+// Constructor
+
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
-    std::string inputFileName, std::string sharedLibPath, std::string flags,
-    bool defaultEntryPoint)
-    : onnx_mlir::PyExecutionSessionBase(sharedLibPath, defaultEntryPoint) {
+    std::string inputFileName, std::string flags, bool defaultEntryPoint,
+    bool reuseCompiledModel)
+    : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
+  // First compile the onnx file.
   this->inputFileName = inputFileName;
-  if (this->inputFileName.empty()) {
-    errorMessage = "No OMCompileExecuteSession was created with the input file "
-                   "name specified.";
+  if (this->inputFileName.empty())
+    throw std::runtime_error(reportLibraryOpeningError(inputFileName));
+
+  char *outputName = nullptr;
+  char *errorMsg = nullptr;
+  if (reuseCompiledModel) {
+    // see if there is a model to reuse.
+    outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
+    FILE *file = fopen(outputName, "r");
+    if (file)
+      // File exists, we are ok.
+      fclose(file);
+    else
+      // File does not exist, cannot reuse compilation.
+      reuseCompiledModel = false;
   }
-  const char *outputName, *errorMsg;
-  int64_t rc;
-  rc = omCompileFromFile(
-      inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
-  if (rc == 0) {
-    // Compilation success: save output file name.
-    this->sharedLibPath = std::string(outputName);
-    // Empty error.
-    errorMessage = std::string();
-  } else {
-    // Compilation failure: save error message.
-    errorMessage = std::string(errorMsg);
-    // Empty output file name.
-    this->sharedLibPath = std::string();
+  if (!reuseCompiledModel) {
+    int64_t rc;
+    rc = omCompileFromFile(
+        inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
+    if (rc != 0) {
+      // Compilation failure: save error message.
+      errorMessage = std::string(errorMsg);
+      // Empty output file name.
+      this->outputFileName = std::string();
+      free(outputName);
+      free(errorMsg);
+      throw std::runtime_error(reportCompilerError(errorMessage));
+    }
   }
+  // Compilation success: save output file name.
+  this->outputFileName = std::string(outputName);
+  errorMessage = std::string();
+  // Now that we have a .so, initialize execution session.
+  Init(this->outputFileName, defaultEntryPoint);
+  free(outputName);
+  free(errorMsg);
 }
 
-int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
+// =============================================================================
+// Custom getters
+
+int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return rc; }
 
 std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
-  return this->sharedLibPath;
+  return outputFileName;
 }
 
 std::string PyOMCompileExecutionSession::pyGetErrorMessage() {
-  return this->errorMessage;
+  return errorMessage;
 }
 
 } // namespace onnx_mlir
