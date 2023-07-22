@@ -45,4 +45,4 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   return registry;
 }
 
-}
+} // namespace onnx_mlir
