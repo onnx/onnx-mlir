@@ -90,6 +90,31 @@ struct ConstPropCounters {
 
 std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
 
+// Populated by configureConstPropONNXToONNXPass().
+struct ConstPropONNXToONNXPassConfiguration {
+  static int expansionBound;
+};
+
+int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
+
+// Precondition: result has ranked tensor type with static shape and int or
+// float element type.
+bool satisfiesExpansionBound(Value result) {
+  if (ConstPropONNXToONNXPassConfiguration::expansionBound < 0) {
+    return true; // -1 == no bound
+  }
+  auto resultType = cast<RankedTensorType>(result.getType());
+  assert(resultType.hasStaticShape() && "expansion bound needs static shape");
+  int64_t sum = 0;
+  for (auto operand : result.getDefiningOp()->getOperands()) {
+    if (auto type = dyn_cast<RankedTensorType>(operand.getType()))
+      if (type.hasStaticShape())
+        sum += getSizeInBytes(type);
+  }
+  return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
+         getSizeInBytes(resultType);
+}
+
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
   return constOp.getValueAttr().cast<ElementsAttr>();
@@ -1081,6 +1106,10 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
   if (report)
     ConstPropCounters::dump(llvm::outs());
+}
+
+void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound) {
+  ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
 }
 
 /*!
