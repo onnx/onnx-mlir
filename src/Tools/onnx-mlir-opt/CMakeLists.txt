@@ -12,7 +12,6 @@ add_onnx_mlir_executable(onnx-mlir-opt
   OMCompilerOptions
   OMCompilerPasses
   OMAccelerator
-  OMInitAccelerators
   OMVersion
   MLIRAffineTransforms
   MLIRLinalgTransforms

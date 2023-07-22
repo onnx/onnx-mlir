@@ -11,7 +11,6 @@
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
@@ -74,9 +73,6 @@ int main(int argc, char *argv[]) {
     llvm::errs()
         << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
            "--EmitLLVMIR, or binary-generating emit commands.\n";
-
-  // Initialize accelerator(s) if required.
-  accel::initAccelerators(maccel);
 
   // Create context after MLIRContextCLOptions are registered and parsed.
   mlir::MLIRContext context;

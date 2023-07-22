@@ -14,6 +14,7 @@
 namespace onnx_mlir {
 
 // Adds the mlir and onnx-mlir dialects needed to compile end to end.
+// Initializes accelerator(s) if required.
 mlir::DialectRegistry registerDialects(llvm::ArrayRef<accel::Accelerator::Kind> accels);
 
 }
