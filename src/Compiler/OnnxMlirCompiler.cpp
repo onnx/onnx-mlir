@@ -11,6 +11,7 @@
 
 #include "include/OnnxMlirCompiler.h"
 #include "ExternalUtil.hpp"
+#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 
 using namespace mlir;
@@ -141,8 +142,8 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     *errorMessage = nullptr;
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
-  mlir::MLIRContext context;
-  registerDialects(context);
+  mlir::MLIRContext context(registerDialects(maccel));
+  context.loadAllAvailableDialects();
 
   std::string internalErrorMessage;
   int rc = processInputArray(

@@ -30,6 +30,7 @@
 #include "ExternalUtil.hpp"
 
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -48,15 +49,6 @@ using namespace onnx_mlir;
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
-
-// Return the vendor name if specified during make processing or the default.
-std::string getVendorName() {
-#if defined(ONNX_MLIR_VENDOR)
-  return ONNX_MLIR_VENDOR;
-#else
-  return "ONNX-MLIR";
-#endif
-}
 
 std::optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
@@ -641,18 +633,9 @@ static int compileModuleToJniJar(
   return genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
-void registerDialects(mlir::MLIRContext &context) {
-  // Load our Dialect in this MLIR Context.
-  context.getOrLoadDialect<mlir::affine::AffineDialect>();
-  context.getOrLoadDialect<mlir::vector::VectorDialect>();
-  context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
-  context.getOrLoadDialect<mlir::scf::SCFDialect>();
-  context.getOrLoadDialect<mlir::func::FuncDialect>();
-  context.getOrLoadDialect<mlir::shape::ShapeDialect>();
-  context.getOrLoadDialect<mlir::math::MathDialect>();
-  context.getOrLoadDialect<mlir::memref::MemRefDialect>();
-  context.getOrLoadDialect<mlir::ONNXDialect>();
-  context.getOrLoadDialect<mlir::KrnlDialect>();
+void loadDialects(mlir::MLIRContext &context) {
+  context.appendDialectRegistry(registerDialects(maccel));
+  context.loadAllAvailableDialects();
 }
 
 namespace {
@@ -951,10 +934,6 @@ static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     EmissionTargetType emissionTarget) {
-  // Initialize accelerator(s) if required.
-  if (!maccel.empty())
-    onnx_mlir::accel::initAccelerators(maccel);
-
   int rc = setupModule(module, context, outputNameNoExt);
   if (rc != CompilerSuccess)
     return rc;
@@ -968,7 +947,6 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   bool hasAccel = false;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     hasAccel = true;
-    accel->getOrLoadDialects(context);
     accel->addPasses(module, pm, emissionTarget, outputNameNoExt);
   }
   if (!hasAccel)

@@ -11,6 +11,7 @@
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
@@ -74,13 +75,16 @@ int main(int argc, char *argv[]) {
         << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
            "--EmitLLVMIR, or binary-generating emit commands.\n";
 
-  // Create context after registerMLIRContextCLOptions() is called.
+  // Initialize accelerator(s) if required.
+  accel::initAccelerators(maccel);
+
+  // Create context after MLIRContextCLOptions are registered and parsed.
   mlir::MLIRContext context;
   if (!context.isMultithreadingEnabled()) {
     assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
     LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");
   }
-  registerDialects(context);
+  loadDialects(context);
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;

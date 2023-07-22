@@ -20,7 +20,6 @@
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
-#include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
@@ -51,8 +50,6 @@
 
 namespace onnx_mlir {
 
-std::string getVendorName();
-
 std::optional<std::string> getEnvVar(std::string name);
 
 struct Command {
@@ -71,7 +68,7 @@ struct Command {
   int exec(std::string wdir = "") const;
 };
 
-void registerDialects(mlir::MLIRContext &context);
+void loadDialects(mlir::MLIRContext &context);
 
 // Get Tool path, see comments in CompilerUtils.cpp for more details.
 std::string getToolPath(

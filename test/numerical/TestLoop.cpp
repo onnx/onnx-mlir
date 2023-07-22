@@ -97,7 +97,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  loadDialects(ctx);
 
   auto module = mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));
