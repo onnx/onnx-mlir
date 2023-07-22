@@ -30,6 +30,7 @@
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
+#include "RegisterPasses.hpp"
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -37,9 +38,6 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/InitMLIRPasses.hpp"
-#include "src/InitOMPasses.hpp"
-#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -113,10 +111,13 @@ void scanAndSetMAccel(int argc, char **argv) {
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
-  // Scan Opt Level manually now as it is needed for initializing the OM
-  // Passes.
+
+  // Scan Opt Level manually now as it is needed to register passes
+  // before command line options are parsed.
   scanAndSetOptLevel(argc, argv);
-  // Scan maccel manually now as it is needed for initializing the OM Passes.
+
+  // Scan maccel manually now as it is needed to initialize accelerators
+  // before ParseCommandLineOptions() is called.
   scanAndSetMAccel(argc, argv);
 
   // Hide unrelated options except common ones and the onnx-mlir-opt options
@@ -147,20 +148,9 @@ int main(int argc, char **argv) {
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
 
-  registerTransformsPasses();
-  affine::registerAffinePasses();
-  func::registerFuncPasses();
-  registerLinalgPasses();
-  memref::registerMemRefPasses();
-  registerSCFPasses();
-  bufferization::registerBufferizationPasses();
-
-  onnx_mlir::initOMPasses(OptimizationLevel);
-  onnx_mlir::initMLIRPasses();
-
-  // Initialize passes for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    accel->initPasses(OptimizationLevel);
+  // Registered passes can be expressed as command line flags, so they must
+  // must be registered before command line options are parsed.
+  registerPasses(OptimizationLevel);
 
   // Register any command line options.
   mlir::registerAsmPrinterCLOptions();
