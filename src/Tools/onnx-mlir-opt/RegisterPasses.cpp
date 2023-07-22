@@ -169,7 +169,7 @@ void registerPasses(int optLevel) {
 
   registerOMPasses(optLevel);
 
-  // Initialize passes for accelerators.
+  // Register passes for accelerators.
   for (auto *accel : accel::Accelerator::getAccelerators())
     accel->registerPasses(optLevel);
 }
