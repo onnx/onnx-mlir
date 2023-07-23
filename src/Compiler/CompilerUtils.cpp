@@ -23,6 +23,8 @@
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
