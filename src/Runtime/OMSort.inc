@@ -17,8 +17,7 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
-#define TRUE 1
-#define FALSE 0
+#include "src/Support/SmallFPConversion.h"
 
 //
 // Declare compare functions for data types and sorting directions.
@@ -39,78 +38,85 @@
 // This comparison functions guarantee the input order among the same values
 // and makes sorting algorithms stable.
 //
+#define compareFunctionBody(typeName, direction, convert, datap, idx1p, idx2p) \
+  {                                                                            \
+    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
+    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
+    typeName *data = (typeName *)datap;                                        \
+    convert(typeName, v1, data[idx1]);                                         \
+    convert(typeName, v2, data[idx2]);                                         \
+    return (direction(v1, v2) || (v1 == v2 && idx1 < idx2)) ? -1 : 1;          \
+  }
 #if defined(__APPLE__)
 typedef int(
     compareFunctionType(void *dataPtr, const void *idx1, const void *idx2));
-#define declare_compare_function(fname, typeName, direction, symbol)           \
+#define declare_compare_function(fname, typeName, direction, convert)          \
   int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    return ((data[idx1] symbol data[idx2]) ||                                  \
-               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
-               ? 1                                                             \
-               : -1;                                                           \
-  }
+      void *dataPtr, const void *idx1p, const void *idx2p)                     \
+  compareFunctionBody(typeName, direction, convert, dataPtr, idx1p, idx2p)
 #elif defined(_MSC_VER)
 typedef int(__cdecl compareFunctionType)(void *, const void *, const void *);
-#define declare_compare_function(fname, typeName, direction, symbol)           \
+#define declare_compare_function(fname, typeName, direction, convert)          \
   int compare##fname##direction(                                               \
-      void *dataPtr, const void *idx1p, const void *idx2p) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    return ((data[idx1] symbol data[idx2]) ||                                  \
-               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
-               ? 1                                                             \
-               : -1;                                                           \
-  }
+      void *dataPtr, const void *idx1p, const void *idx2p)                     \
+  compareFunctionBody(typeName, direction, convert, dataPtr, idx1p, idx2p)
 #else
 typedef int(
     compareFunctionType(const void *idx1, const void *idx2, void *dataPtr));
-#define declare_compare_function(fname, typeName, direction, symbol)           \
+#define declare_compare_function(fname, typeName, direction, convert)          \
   int compare##fname##direction(                                               \
-      const void *idx1p, const void *idx2p, void *dataPtr) {                   \
-    uint64_t idx1 = *((uint64_t *)idx1p);                                      \
-    uint64_t idx2 = *((uint64_t *)idx2p);                                      \
-    typeName *data = (typeName *)dataPtr;                                      \
-    return ((data[idx1] symbol data[idx2]) ||                                  \
-               ((data[idx1] == data[idx2]) && (idx1 > idx2)))                  \
-               ? 1                                                             \
-               : -1;                                                           \
-  }
+      const void *idx1p, const void *idx2p, void *dataPtr)                     \
+  compareFunctionBody(typeName, direction, convert, dataPtr, idx1p, idx2p)
 #endif
-#define compareFunction(fname, typeName, direction) compare##fname##direction
+#define compareFunction(fname, direction) compare##fname##direction
 // clang-format off
-// declare ascending functions
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcast-qual"
 #endif
-declare_compare_function(Bool, bool, Ascending, >)
-declare_compare_function(Uint8, uint8_t, Ascending, >)
-declare_compare_function(Int8, int8_t, Ascending, >)
-declare_compare_function(Uint16, uint16_t, Ascending, >)
-declare_compare_function(Int16, int16_t, Ascending, >)
-declare_compare_function(Uint32, uint32_t, Ascending, >)
-declare_compare_function(Int32, int32_t, Ascending, >)
-declare_compare_function(Uint64, uint64_t, Ascending, >)
-declare_compare_function(Int64, int64_t, Ascending, >)
-declare_compare_function(Float, float, Ascending, >)
-declare_compare_function(Double, double, Ascending, >)
+
+#define Convert(typeName, to, from) \
+  typeName to = from
+
+// Convert f16 elements to f32 for comparison because we don't have logic to
+// compare f16 elements directly on all platforms.
+// TODO: Use Convert(_Float16, to, from) on supported platforms.
+//       Or consider converting the whole tensor to f32, sort as f32, and then
+//       convert the sorted tensor back to f16. That may be faster than
+//       converting elements for each comparison during sorting.
+#define ConvertF16(typeName, to, from) \
+  float to = om_f16_to_f32(from)
+
+// declare ascending functions
+#define Ascending(lhs, rhs) ((lhs) < (rhs))
+declare_compare_function(Bool, bool, Ascending, Convert)
+declare_compare_function(Uint8, uint8_t, Ascending, Convert)
+declare_compare_function(Int8, int8_t, Ascending, Convert)
+declare_compare_function(Uint16, uint16_t, Ascending, Convert)
+declare_compare_function(Int16, int16_t, Ascending, Convert)
+declare_compare_function(Uint32, uint32_t, Ascending, Convert)
+declare_compare_function(Int32, int32_t, Ascending, Convert)
+declare_compare_function(Uint64, uint64_t, Ascending, Convert)
+declare_compare_function(Int64, int64_t, Ascending, Convert)
+declare_compare_function(Float, float, Ascending, Convert)
+declare_compare_function(Double, double, Ascending, Convert)
+declare_compare_function(Float16, uint16_t, Ascending, ConvertF16)
+
 // declare descending functions
-declare_compare_function(Bool, bool, Descending, <)
-declare_compare_function(Uint8, uint8_t, Descending, <)
-declare_compare_function(Int8, int8_t, Descending, <)
-declare_compare_function(Uint16, uint16_t, Descending, <)
-declare_compare_function(Int16, int16_t, Descending, <)
-declare_compare_function(Uint32, uint32_t, Descending, <)
-declare_compare_function(Int32, int32_t, Descending, <)
-declare_compare_function(Uint64, uint64_t, Descending, <)
-declare_compare_function(Int64, int64_t, Descending, <)
-declare_compare_function(Float, float, Descending, <)
-declare_compare_function(Double, double, Descending, <)
+#define Descending(lhs, rhs) ((lhs) > (rhs))
+declare_compare_function(Bool, bool, Descending, Convert)
+declare_compare_function(Uint8, uint8_t, Descending, Convert)
+declare_compare_function(Int8, int8_t, Descending, Convert)
+declare_compare_function(Uint16, uint16_t, Descending, Convert)
+declare_compare_function(Int16, int16_t, Descending, Convert)
+declare_compare_function(Uint32, uint32_t, Descending, Convert)
+declare_compare_function(Int32, int32_t, Descending, Convert)
+declare_compare_function(Uint64, uint64_t, Descending, Convert)
+declare_compare_function(Int64, int64_t, Descending, Convert)
+declare_compare_function(Float, float, Descending, Convert)
+declare_compare_function(Double, double, Descending, Convert)
+declare_compare_function(Float16, uint16_t, Descending, ConvertF16)
+
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -259,51 +265,54 @@ compareFunctionType *getCompareFunction(
 
   switch (dataType) {
   case ONNX_TYPE_BOOL:
-    compFunc = ascending ? compareFunction(Bool, bool, Ascending)
-                         : compareFunction(Bool, bool, Descending);
+    compFunc = ascending ? compareFunction(Bool, Ascending)
+                         : compareFunction(Bool, Descending);
     break;
   case ONNX_TYPE_UINT8:
-    compFunc = ascending ? compareFunction(Uint8, uint8_t, Ascending)
-                         : compareFunction(Uint8, uint8_t, Descending);
+    compFunc = ascending ? compareFunction(Uint8, Ascending)
+                         : compareFunction(Uint8, Descending);
     break;
   case ONNX_TYPE_INT8:
-    compFunc = ascending ? compareFunction(Int8, int8_t, Ascending)
-                         : compareFunction(Int8, int8_t, Descending);
+    compFunc = ascending ? compareFunction(Int8, Ascending)
+                         : compareFunction(Int8, Descending);
     break;
   case ONNX_TYPE_UINT16:
-    compFunc = ascending ? compareFunction(Uint16, uint16, Ascending)
-                         : compareFunction(Uint16, uint16, Descending);
+    compFunc = ascending ? compareFunction(Uint16, Ascending)
+                         : compareFunction(Uint16, Descending);
     break;
   case ONNX_TYPE_INT16:
-    compFunc = ascending ? compareFunction(Int16, int16, Ascending)
-                         : compareFunction(Int16, int16, Descending);
+    compFunc = ascending ? compareFunction(Int16, Ascending)
+                         : compareFunction(Int16, Descending);
     break;
   case ONNX_TYPE_UINT32:
-    compFunc = ascending ? compareFunction(Uint32, uint32, Ascending)
-                         : compareFunction(Uint32, uint32, Descending);
+    compFunc = ascending ? compareFunction(Uint32, Ascending)
+                         : compareFunction(Uint32, Descending);
     break;
   case ONNX_TYPE_INT32:
-    compFunc = ascending ? compareFunction(Int32, int32, Ascending)
-                         : compareFunction(Int32, int32, Descending);
+    compFunc = ascending ? compareFunction(Int32, Ascending)
+                         : compareFunction(Int32, Descending);
     break;
   case ONNX_TYPE_UINT64:
-    compFunc = ascending ? compareFunction(Uint64, uint64, Ascending)
-                         : compareFunction(Uint64, uint64, Descending);
+    compFunc = ascending ? compareFunction(Uint64, Ascending)
+                         : compareFunction(Uint64, Descending);
     break;
   case ONNX_TYPE_INT64:
-    compFunc = ascending ? compareFunction(Int64, int64, Ascending)
-                         : compareFunction(Int64, int64, Descending);
+    compFunc = ascending ? compareFunction(Int64, Ascending)
+                         : compareFunction(Int64, Descending);
     break;
   case ONNX_TYPE_FLOAT:
-    compFunc = ascending ? compareFunction(Float, float, Ascending)
-                         : compareFunction(Float, float, Descending);
+    compFunc = ascending ? compareFunction(Float, Ascending)
+                         : compareFunction(Float, Descending);
     break;
   case ONNX_TYPE_DOUBLE:
-    compFunc = ascending ? compareFunction(Double, double, Ascending)
-                         : compareFunction(Double, double, Descending);
+    compFunc = ascending ? compareFunction(Double, Ascending)
+                         : compareFunction(Double, Descending);
+    break;
+  case ONNX_TYPE_FLOAT16:
+    compFunc = ascending ? compareFunction(Float16, Ascending)
+                         : compareFunction(Float16, Descending);
     break;
   default:
-    // TODO: support ONNX_TYPE_FLOAT16
     assert(false && "unexpected data type in getCompareFunction");
   }
   return compFunc;
