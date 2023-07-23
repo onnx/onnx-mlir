@@ -45,6 +45,8 @@ struct Command {
   int exec(std::string wdir = "") const;
 };
 
+// Registers and loads the mlir and onnx-mlir dialects needed to compile
+// end to end. Initializes accelerator(s) if required.
 void loadDialects(mlir::MLIRContext &context);
 
 // Get Tool path, see comments in CompilerUtils.cpp for more details.
