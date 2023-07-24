@@ -188,6 +188,12 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     create.krnl.store(iZero, uniqueCount, {});
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
         outputY, indices, inverseIndices, counts, /*count_only=*/false);
+    if (isNoneValue(indices))
+      indices = noneValue;
+    if (isNoneValue(inverseIndices))
+      inverseIndices = noneValue;
+    if (isNoneValue(counts))
+      counts = noneValue;
     rewriter.replaceOp(op, {outputY, indices, inverseIndices, counts});
     return success();
   }
