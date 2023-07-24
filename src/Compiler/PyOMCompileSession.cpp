@@ -35,7 +35,8 @@ int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
         "No OMCompileSession was created with the input file name specified.";
     return -1;
   }
-  const char *outputName, *errorMsg;
+  char *outputName = nullptr;
+  char *errorMsg = nullptr;
   int64_t rc;
   rc = omCompileFromFile(
       inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
@@ -50,6 +51,8 @@ int64_t PyOMCompileSession::pyCompileFromFile(std::string flags) {
     // Empty output file name.
     outputFileName = std::string();
   }
+  free(outputName);
+  free(errorMsg);
   return rc;
 }
 
@@ -60,7 +63,8 @@ int64_t PyOMCompileSession::pyCompileFromArray(
         "No OMCompileSession was created with the input buffer specified.";
     return -1;
   }
-  const char *outputName, *errorMsg;
+  char *outputName = nullptr;
+  char *errorMsg = nullptr;
   int64_t rc;
   rc = omCompileFromArray(inputBuffer, inputBufferSize, outputBaseName.c_str(),
       emissionTarget, &outputName, &errorMsg);
@@ -75,6 +79,8 @@ int64_t PyOMCompileSession::pyCompileFromArray(
     // Empty output file name.
     outputFileName = std::string();
   }
+  free(outputName);
+  free(errorMsg);
   return rc;
 }
 

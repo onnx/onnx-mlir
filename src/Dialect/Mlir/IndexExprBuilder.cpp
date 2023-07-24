@@ -180,15 +180,26 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 // Function that perform the work, creating Literal (int/float), Symbol(int),
 // Dim(int), NonAffine (float) IndexExpr.
 IndexExpr IndexExprBuilder::getValFromArray(
-    Value array, uint64_t i, bool makeSymbol, bool isFloat) {
+    Value array, uint64_t i, bool makeSymbol, bool isFloat, int64_t arraySize) {
   Type elType = getElementTypeOrSelf(array);
   if (isFloat)
     assert(isa<FloatType>(elType) && "array element type mismatch");
   else
     assert(isa<IntegerType>(elType) && "array element type mismatch");
-  uint64_t size = getArraySize(array, /*static only*/ true);
-  if (i >= size)
+  int64_t size = getArraySize(array, /*static only*/ false);
+  if (arraySize >= 0) {
+    // Was given a defined arraySize value.
+    if (size == ShapedType::kDynamic)
+      // Could not derive an array size from value, use given arraySize.
+      size = arraySize;
+    else
+      // Was able to derive an array size from array value.
+      assert(arraySize == size && "expected given size to be the same as the "
+                                  "one detected from the array value");
+  }
+  if (size == ShapedType::kDynamic || i >= (uint64_t)size) {
     return UndefinedIndexExpr();
+  }
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
       double floatVal =
@@ -232,34 +243,38 @@ IndexExpr IndexExprBuilder::getFloatAsNonAffine(Value value) {
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
-    Value intArray, uint64_t i) {
-  return getValFromArray(intArray, i, /*makeSymbol*/ true, /*isFloat*/ false);
+    Value intArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      intArray, i, /*makeSymbol*/ true, /*isFloat*/ false, arraySize);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value intArray, uint64_t i) {
-  return getValFromArray(intArray, i, /*makeSymbol*/ false, /*isFloat*/ false);
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+    Value intArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      intArray, i, /*makeSymbol*/ false, /*isFloat*/ false, arraySize);
 }
 
 IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
-    Value floatArray, uint64_t i) {
-  return getValFromArray(floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true);
+    Value floatArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true, arraySize);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbolWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+IndexExpr IndexExprBuilder::getIntFromArrayAsDimWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
+IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffineWithOutOfBound(
     Value floatArray, uint64_t i, double defaultLiteral) {
   IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
   // Undefined value are set to default value.
