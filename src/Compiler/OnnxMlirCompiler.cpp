@@ -171,5 +171,21 @@ ONNX_MLIR_EXPORT char *omCompileOutputFileName(
   return strdup(name.c_str());
 }
 
+ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags) {
+  std::string modelTag = "";
+  std::vector<std::string> flagVect = parseFlags(flags);
+  for (int i = 0; i < flagVect.size(); ++i) {
+    if (flagVect[i].find("--tag=") == 0) {
+      modelTag = flagVect[i].substr(6);
+      break;
+    }
+    if (flagVect[i].find("-tag=") == 0) {
+      modelTag = flagVect[i].substr(5);
+      break;
+    }
+  }
+  return strdup(modelTag.c_str());
+}
+
 } // extern C
 } // namespace onnx_mlir
