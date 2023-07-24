@@ -3,13 +3,13 @@
 import numpy as np
 from PyCompileAndRuntime import OMCompileExecutionSession
 
-# Load onnx model and create CompileExecutionSession object.
-inputFileName = './mnist.onnx'
-# Set the full name of compiled model
-sharedLibPath = './mnist.so'
-# Set the compile option as "-O3"
-session = OMCompileExecutionSession(inputFileName,sharedLibPath,"-O3")
-
+# Load onnx model and create CompileExecutionSession object,
+# by first compiling the mnist.onnx model with the "-O3" options.
+session = OMCompileExecutionSession("./mnist.onnx" ,"-O3 -o=mnist2",
+                                    reuse_compiled_model=1)
+if session.get_compiled_result():
+    print("error with :" + session.get_error_message())
+    exit(1)
 # Print the models input/output signature, for display.
 # Signature functions for info only, commented out if they cause problems.
 print("input signature in json", session.input_signature())
