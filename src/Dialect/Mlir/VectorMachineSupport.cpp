@@ -67,6 +67,8 @@ namespace onnx_mlir {
 // Methods shared among all VectorMachineSupport classes and subclasses
 
 int64_t VectorMachineSupport::getVectorLength(Type elementType) {
+  if (!hasSimd())
+    return 0;
   int64_t simdBitSize = getVectorBitWidth();
   int64_t typeBitSize = elementType.getIntOrFloatBitWidth();
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
@@ -79,6 +81,11 @@ double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
     int64_t &scalarOpNum) {
   assert(gopsNum.size() == gops.size() && "expect same length for both lists");
   int64_t gopsSize = gops.size();
+  if (!hasSimd()) {
+    vectorizedOpNum = 0;
+    scalarOpNum = gopsSize;
+    return 0;
+  }
   int64_t totProcessedValues = 0.0;
   vectorizedOpNum = 0;
   scalarOpNum = 0;

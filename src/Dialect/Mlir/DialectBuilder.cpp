@@ -1623,6 +1623,12 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
     int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad) const {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  Type elementType = memRefType.getElementType();
+  int64_t VL = vms->getVectorLength(elementType);
+  if (VL == 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
+    return 0;
+  }
   MemRefBuilder createMem(*this);
   int64_t staticSize;
   IndexExpr dynSize;
@@ -1633,8 +1639,6 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
                             << " too short \n");
     return 0;
   }
-  Type elementType = memRefType.getElementType();
-  int64_t VL = vms->getVectorLength(elementType);
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     return maxSimdUnroll * VL;
