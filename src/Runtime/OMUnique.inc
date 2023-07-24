@@ -33,8 +33,9 @@ typedef struct sliceTable {
 } sliceTable;
 
 void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
-    uint64_t numberOfElementsInSlice, uint64_t maxNumberOfSlices, void *sliceDataPtr,
-    uint64_t *indicesPtr, uint64_t *inverseIndicesPtr, uint64_t *countsPtr) {
+    uint64_t numberOfElementsInSlice, uint64_t maxNumberOfSlices,
+    void *sliceDataPtr, uint64_t *indicesPtr, uint64_t *inverseIndicesPtr,
+    uint64_t *countsPtr) {
   table->dataType = dataType;
   table->sorted = sorted;
   table->numberOfElementsInSlice = numberOfElementsInSlice;
@@ -46,11 +47,11 @@ void sliceTableInit(sliceTable *table, OM_DATA_TYPE dataType, uint64_t sorted,
   table->countsPtr = countsPtr;
 }
 
-
 #ifdef _DEBUG_SLICE_TABLE
 void sliceTablePrint(sliceTable *table) {
-  printf("sliceTablePrint: dataType=%d, sorted=%ld, numberOfElementsInSlice=%ld, "
-         "numberOfSlices=%ld, maxNumberOfSlices=%ld, sliceTable = [\n",
+  printf(
+      "sliceTablePrint: dataType=%d, sorted=%ld, numberOfElementsInSlice=%ld, "
+      "numberOfSlices=%ld, maxNumberOfSlices=%ld, sliceTable = [\n",
       table->dataType, table->sorted, table->numberOfElementsInSlice,
       table->maxNumberOfSlices, table->numberOfSlices);
   for (uint64_t i = 0; i < table->numberOfSlices; i++) {
@@ -59,10 +60,12 @@ void sliceTablePrint(sliceTable *table) {
       switch (table->dataType) {
       case ONNX_TYPE_INT64:
       case ONNX_TYPE_UINT64:
-        printf("%ld,", ((int64_t *)(table->sliceDataPtr))[i * table->numberOfElementsInSlice + j]);
+        printf("%ld,", ((int64_t *)(table->sliceDataPtr))
+                           [i * table->numberOfElementsInSlice + j]);
         break;
       case ONNX_TYPE_FLOAT:
-        printf("%f,", ((float *)(table->sliceDataPtr))[i * table->numberOfElementsInSlice + j]);
+        printf("%f,", ((float *)(table->sliceDataPtr))
+                          [i * table->numberOfElementsInSlice + j]);
         break;
       default:
         printf("XX, ");
@@ -124,7 +127,7 @@ int isLessSlice(
 }
 
 //
-// If the axis attr is given in onnx.Unique, it should compare slices 
+// If the axis attr is given in onnx.Unique, it should compare slices
 // according to the specified axis. "getSliceData" is called to get a slice
 // according to the given axis if the axis attr is given. This function gets
 // slice data according to the specified slice axis(sliceAxis), and fills them
@@ -184,11 +187,12 @@ void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
 }
 
 //
-// "sliceTableRegister" registers (1) a given slice returned by getSliceData if// the axis attr is given or (2) a single element if the axis atter is not
+// "sliceTableRegister" registers (1) a given slice returned by getSliceData
+// if// the axis attr is given or (2) a single element if the axis atter is not
 // given.  It compares the current slice with all of the registered slices to
 // investigate an identical slice is registered or not, and returns a bool if
 // it is found or not.  If the sorted attr is given, this function keeps
-// slices in sorted order. Otherwise it keeps them in the coming order. 
+// slices in sorted order. Otherwise it keeps them in the coming order.
 // This function also generates outputs of onnx.Unique, such as indices,
 // inverse_indeces and counts. However it does not generate Y if the axis
 // attr is specified, since this function simply keeps registered slices in
@@ -204,16 +208,15 @@ int sliceTableRegister(sliceTable *table, void *slice, uint64_t off) {
   uint64_t insertIdx;
   int found = 0;
   for (insertIdx = 0; insertIdx < table->numberOfSlices; insertIdx++) {
-    void *sliceInTable =
-        (void *)(sliceDataPtr + sliceSizeInBytes  * insertIdx);
+    void *sliceInTable = (void *)(sliceDataPtr + sliceSizeInBytes * insertIdx);
     if (!memcmp(sliceInTable, slice, sliceSizeInBytes)) {
       found = 1;
       if (table->countsPtr != NULL)
         ((table->countsPtr)[insertIdx])++;
       break;
     }
-    if (table->sorted && !isLessSlice(sliceInTable, slice,
-                             sliceSizeInBytes, table->dataType)) {
+    if (table->sorted &&
+        !isLessSlice(sliceInTable, slice, sliceSizeInBytes, table->dataType)) {
       break;
     }
   }
@@ -359,7 +362,8 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
       elementNum *= inputShape[i];
     void *sliceDataPtr = (YPtr == NULL) ? alloca(dataSize * elementNum) : YPtr;
     sliceTableInit(&sliceTable, dataType, sorted, 1, elementNum, sliceDataPtr,
-        (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr, (uint64_t *)countsPtr);
+        (uint64_t *)indicesPtr, (uint64_t *)inverseIndicesPtr,
+        (uint64_t *)countsPtr);
     for (uint64_t off = 0; off < elementNum; off++) {
       void *elemPtr = ((char *)inputPtr) + dataSize * off;
       if (sliceTableRegister(&sliceTable, elemPtr, off) == 0) {
@@ -371,15 +375,15 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
     int64_t numOfElementsInSlice = 1;
     for (int64_t i = 0; i < inputRank; i++)
       numOfElementsInSlice *= (i == sliceAxis) ? 1 : inputShape[i];
-    void *sliceDataPtr = (YPtr == NULL)
-                         ? alloca(numOfElementsInSlice * numOfSlices * dataSize)
-                         : YPtr;
+    void *sliceDataPtr =
+        (YPtr == NULL) ? alloca(numOfElementsInSlice * numOfSlices * dataSize)
+                       : YPtr;
     if ((Y != NULL) && (indices == NULL)) {
       // temporal indices buffer is necessary to generate Y from indices
       indicesPtr = alloca(numOfSlices * sizeof(int64_t));
     }
-    sliceTableInit(&sliceTable, dataType, sorted,
-        numOfElementsInSlice, numOfSlices, sliceDataPtr, (uint64_t *)indicesPtr,
+    sliceTableInit(&sliceTable, dataType, sorted, numOfElementsInSlice,
+        numOfSlices, sliceDataPtr, (uint64_t *)indicesPtr,
         (uint64_t *)inverseIndicesPtr, (uint64_t *)countsPtr);
     void *sliceData = alloca(numOfElementsInSlice * dataSize);
     for (int idxInSliceAxis = 0; idxInSliceAxis < numOfSlices;

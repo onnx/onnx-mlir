@@ -172,17 +172,23 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     }
     Type i64Type = rewriter.getI64Type();
     MemRefType memrefType = MemRefType::get({ShapedType::kDynamic}, i64Type);
-    Value indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
-    Value inverse_indices =
-        create.mem.alignedAlloc(memrefType, outputInverseIndexDims);
-    Value counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
+    Value indices = uniqueOp.getIndices();
+    Value inverseIndices = uniqueOp.getInverseIndices();
+    Value counts = uniqueOp.getCounts();
+    if (!isNoneValue(indices))
+      indices = create.mem.alignedAlloc(memrefType, outputIndexDims);
+    if (!isNoneValue(inverseIndices))
+      inverseIndices =
+          create.mem.alignedAlloc(memrefType, outputInverseIndexDims);
+    if (!isNoneValue(counts))
+      counts = create.mem.alignedAlloc(memrefType, outputIndexDims);
     //
     // Emit a Unique call to get the outputs
     //
     create.krnl.store(iZero, uniqueCount, {});
     emitArgUnique(rewriter, loc, uniqueCount, X, axis, /*sorted=*/sorted,
-        outputY, indices, inverse_indices, counts, /*count_only=*/false);
-    rewriter.replaceOp(op, {outputY, indices, inverse_indices, counts});
+        outputY, indices, inverseIndices, counts, /*count_only=*/false);
+    rewriter.replaceOp(op, {outputY, indices, inverseIndices, counts});
     return success();
   }
 };
