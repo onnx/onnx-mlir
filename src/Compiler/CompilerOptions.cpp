@@ -230,7 +230,7 @@ llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
     llvm::cl::init(3), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
-    llvm::cl::desc("Report diagnostic info for op transform passes."),
+    llvm::cl::desc("Report diagnostic info for ONNX op transform/optimization passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> onnxConstPropReport("onnx-const-prop-report",
