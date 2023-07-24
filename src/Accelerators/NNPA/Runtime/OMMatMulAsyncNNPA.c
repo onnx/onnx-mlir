@@ -16,9 +16,13 @@
 #ifdef __MVS__
 #define _OPEN_THREADS
 #endif
+#define _GNU_SOURCE
+
 #include <assert.h>
+#include <err.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,9 +31,10 @@
 #include "onnx-mlir/Runtime/OMTensor.h"
 #include "onnx-mlir/Runtime/OnnxDataType.h"
 
-// #define USE_NNPA
+#define USE_NNPA
 #define USE_THREAD
 // #undef USE_THREAD
+#define SET_THREAD_AFFINITY
 
 #ifndef USE_NNPA
 #include <unistd.h>
@@ -46,8 +51,6 @@ zdnn_status set_zdnn_status(zdnn_status status, const char *func_name,
   set_zdnn_status(status, __func__, __FILE__, __LINE__, format, __VA_ARGS__)
 #endif
 
-#define MAX_THREAD_NUM 32
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -62,13 +65,13 @@ struct emit_zdnn_matmul_op_args {
   void *data_y;
 };
 
+static int threadCount = 0;
 void *emit_zdnn_matmul_op(void *_args) {
   struct emit_zdnn_matmul_op_args *args =
       (struct emit_zdnn_matmul_op_args *)_args;
   int dim_m = args->dim_m;
   int dim_n = args->dim_n;
   int dim_p = args->dim_p;
-  printf("emit_zdnn  m %d, n %d, p %d\n", dim_m, dim_n, dim_p);
 #ifndef USE_NNPA
   // wait random(0.0-1.0) sec to simulate NNPA execution
   // usleep(random() % 1000000);
@@ -76,28 +79,6 @@ void *emit_zdnn_matmul_op(void *_args) {
   float *b = (float *)args->data_b;
   float *c = (float *)args->data_c;
   float *y = (float *)args->data_y;
-  for (int i = 0; i < dim_m; i++) {
-    for (int k = 0; k < dim_n; k++) {
-      if (a[i * dim_n + k] != 1.0) {
-        printf("i,k= %d, %d; a[i * dim_n + k] = %f\n", i, k, a[i * dim_n + k]);
-        // a[i * dim_n + k] = 1.0;
-      }
-    }
-  }
-  for (int j = 0; j < dim_p; j++) {
-    for (int k = 0; k < dim_n; k++) {
-      if (b[k * dim_p + j] != 1.0) {
-        printf("k, j= %d, %d; b[k * dim_p + j] = %f\n", k, j, b[k * dim_p + j]);
-        // b[k * dim_p + j] = 1.0;
-      }
-    }
-  }
-  for (int p = 0; p < dim_p; p++) {
-    if (c[p] != 0.0) {
-      printf("p= %d; c[p] = %f\n", p, c[p]);
-      // c[p] = 0.0;
-    }
-  }
 
   for (int i = 0; i < dim_m; i++) {
     for (int j = 0; j < dim_p; j++) {
@@ -106,8 +87,6 @@ void *emit_zdnn_matmul_op(void *_args) {
         ans += a[i * dim_n + k] * b[k * dim_p + j];
       }
       ans += c[j];
-      if (ans != 2.0)
-        printf("i,j,ans = %d, %d, %f\n", i, j, ans);
       y[i * dim_p + j] = ans;
     }
   }
@@ -201,9 +180,9 @@ static int zdnn_init_done = 0;
 // Calculate matrix multiplication asynchronously: Y = A * B
 // omTensorAsyncWait need to be called before asscsing the results.
 //
+// static int threadCount = 0;
 void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
     OMTensor *B, OMTensor *C) {
-  printf("Call C code\n");
   OMThreadHandler *threadHdr = omTensorGetDataPtr(threadTensor);
   const OM_DATA_TYPE dataType = omTensorGetDataType(A);
   assert(dataType == ONNX_TYPE_FLOAT &&
@@ -233,7 +212,7 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
     zdnn_init_done++;
   }
 #endif
-  printf("Call C code. m %d, n %d, p %d\n", dim_m, dim_n, dim_p);
+  // printf("Call C code. m %d, n %d, p %d\n", dim_m, dim_n, dim_p);
   // transfer inputs into ztensor, call zdnn_matmul_op, and transfer outputs
   // from ztensor to normal buffer
   struct emit_zdnn_matmul_op_args *args =
@@ -245,13 +224,27 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
   args->data_b = dataB;
   args->data_c = dataC;
   args->data_y = dataY;
-
 #ifndef USE_THREAD
-  printf("Call C code. NO thread\n");
   emit_zdnn_matmul_op((void *)args);
 #else
-  printf("Call ThreadHdr %p\n", threadHdr);
   pthread_create(&threadHdr->threadID, NULL, emit_zdnn_matmul_op, (void *)args);
+#ifdef SET_THREAD_AFFINITY
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  int cpu_base = (8 * threadCount++) % 16;
+  for (int i = cpu_base; i < (cpu_base + 8); i++)
+    CPU_SET(i, &cpuset);
+}
+pthread_setaffinity_np(&threadHdr->threadID, sizeof(cpuset), &cpuset);
+/*
+int s;
+s = pthread_getaffinity_np(&threadHdr->threadID, sizeof(cpuset), &cpuset);
+printf("Set returned by pthread_getaffinity_np() contained:\n");
+for (size_t j = 0; j < CPU_SETSIZE; j++)
+  if (CPU_ISSET(j, &cpuset))
+    printf("    CPU %zu\n", j);
+*/
+#endif
 #endif
 }
 
@@ -259,7 +252,6 @@ void omTensorAsyncWait(
     OMTensor *threadTensor, OMTensor *A, OMTensor *B, OMTensor *C) {
 #ifdef USE_THREAD
   OMThreadHandler *threadHdr = omTensorGetDataPtr(threadTensor);
-  printf("Wait ThreadHdr %p\n", threadHdr);
   pthread_join(threadHdr->threadID, NULL);
 #endif
 }
