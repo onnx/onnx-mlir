@@ -28,7 +28,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "index_expr"
+#define DEBUG_TYPE "index-expr"
 
 using namespace mlir;
 
