@@ -17,8 +17,15 @@ OnnxMlirNodeTestCase = namedtuple("OnnxMlirTestCase", ["model", "inputs", "outpu
 # Graph names must start with "test_" and we also prefix with
 # "onnxmlir_" to avoid name clashes with onnx node tests.
 test_onnxmlir_top_k_float16 = """
-test_onnxmlir_top_k_float16 (float16[3,4] x, int64[1] k) => (float16[3,3] values, int64[3,3] indices) {
+test_onnxmlir_top_k_float16
+(float16[3,4] x, int64[1] k) => (float16[3,3] values, int64[3,3] indices) {
     values, indices = TopK <axis = 1> (x, k)
+}
+"""
+test_onnxmlir_top_k_smallest_float16 = """
+test_onnxmlir_top_k_smallest_float16
+(float16[3,4] x, int64[1] k) => (float16[3,3] values, int64[3,3] indices) {
+    values, indices = TopK <largest = 0> (x, k)
 }
 """
 
@@ -37,6 +44,14 @@ def load_onnxmlir_node_tests():
             ], [
                 np.array([[3,2,1],[1,1,0],[3,2,1]], np.float16),
                 np.array([[1,2,0],[0,2,1],[3,2,1]], np.int64),
+            ],
+        ),
+        make_onnxmlir_node_test(test_onnxmlir_top_k_smallest_float16, [
+                np.array([[1,3,2,0],[1,0,1,0],[0,1,2,3]], np.float16),
+                np.array([3], np.int64),
+            ], [
+                np.array([[0,1,2],[0,0,1],[0,1,2]], np.float16),
+                np.array([[3,0,2],[1,3,0],[0,1,2]], np.int64),
             ],
         ),
         # add more onnxmlir node tests here
