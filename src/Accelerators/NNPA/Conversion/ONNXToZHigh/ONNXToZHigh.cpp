@@ -271,7 +271,8 @@ public:
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
-    int chunkSize = 256; // 2048;
+    // TODO : Change the way to set chunkSize
+    int chunkSize = 512; // 2048; // 4096; // 8192;(2 zAIU) // 16384 (1 zAIU);
     bool nExceeded = N > chunkSize;
     bool mExceeded = M > chunkSize;
     if (!(nExceeded || mExceeded))
@@ -320,26 +321,25 @@ public:
         Value token = asyncMatMulOp.getResults()[1];
         tokens.emplace_back(token);
       }
-      Value res = subMatrices[0];
+      // Wait op
+      SmallVector<Value> waitBOps;
+      for (auto it : llvm::zip(subMatrices, tokens, subBs, subCZeros)) {
+        Value subMatrix = std::get<0>(it);
+        Value token = std::get<1>(it);
+        Value b = std::get<2>(it);
+        Value c = std::get<3>(it);
+        onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
+            rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(
+                loc, subMatrix.getType(), subMatrix, token, a, b, c);
+        waitBOps.emplace_back(waitOp.getResult());
+      }
+      Value res = waitBOps[0];
       if (subMatrices.size() > 1) {
-        // Wait op
-        SmallVector<Value> waitOps;
-        for (auto it : llvm::zip(subMatrices, tokens, subBs, subCZeros)) {
-          Value subMatrix = std::get<0>(it);
-          Value token = std::get<1>(it);
-          Value b = std::get<2>(it);
-          Value c = std::get<3>(it);
-          onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
-              rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(
-                  loc, subMatrix.getType(), subMatrix, token, a, b, c);
-          waitOps.emplace_back(waitOp.getResult());
-        }
         // Concat sub results along dimension M of B.
         SmallVector<int64_t> concatShape(outputShape);
         concatShape[outputRank - 2] = subAShape[aRank - 2];
         Type concatTy = RankedTensorType::get(concatShape, elementType);
-        // res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
-        res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
+        res = create.onnx.concat(concatTy, waitBOps, outputRank - 1);
       }
       resSubAs.emplace_back(res);
     }
