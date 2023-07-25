@@ -33,7 +33,7 @@ def load_onnxmlir_node_tests():
     return [
         make_onnxmlir_node_test(test_onnxmlir_top_k_float16, [
                 np.array([[1,3,2,0],[1,0,1,0],[0,1,2,3]], np.float16),
-                np.array([1], np.int64),
+                np.array([3], np.int64),
             ], [
                 np.array([[3,2,1],[1,1,0],[3,2,1]], np.float16),
                 np.array([[1,2,0],[0,2,1],[3,2,1]], np.int64),
