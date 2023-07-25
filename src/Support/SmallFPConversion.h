@@ -13,17 +13,26 @@
 
 #include <stdint.h>
 
-#ifdef __MVS__
-#define static_assert _Static_assert
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#ifdef ONNX_MLIR_HAS_Float16
+
+inline float om_f16_to_f32(uint16_t u16) { return *(_Float16 *)&u16; }
+
+inline uint16_t om_f32_to_f16(float f32) {
+  _Float16 f16 = f32;
+  return *(uint16_t *)&f16;
+}
+
+#else // ONNX_MLIR_HAS_Float16
+
 float om_f16_to_f32(uint16_t u16);
 
 uint16_t om_f32_to_f16(float f32);
+
+#endif // ONNX_MLIR_HAS_Float16
 
 float om_bf16_to_f32(uint16_t u16);
 
@@ -33,4 +42,4 @@ uint16_t om_f32_to_bf16(float f32);
 }
 #endif
 
-#endif
+#endif // ONNX_MLIR_SMALLFPCONVERSION_H

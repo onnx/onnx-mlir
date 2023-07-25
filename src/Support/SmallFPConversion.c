@@ -12,8 +12,11 @@
 
 #include <assert.h>
 #include <math.h>
-#include <stdbool.h>
 #include <string.h>
+
+#ifdef __MVS__
+#define static_assert _Static_assert
+#endif
 
 // Defines variable TO of type TO_TYPE and copies bytes from variable FROM.
 // Using memcpy because the simpler definition
@@ -26,17 +29,17 @@
   static_assert(sizeof(TO) == sizeof(FROM), "only bit cast same sizes");       \
   memcpy(&TO, &FROM, sizeof(FROM))
 
-// When the CPU is known to support native conversion between float and float_16
-// we define FLOAT16_TO_FLOAT32(u16) and FLOAT32_TO_FLOAT16(f32) macros, used in
-// class float_16 below to override the slow default APFloat-based conversions.
-//
-// FLOAT16_TO_FLOAT32(u16) takes a bit cast float_16 number as uint16_t and
-// evaluates to a float.
-//
-// FLOAT32_TO_FLOAT16(f32) takes a float f32 number and evaluates to a bit cast
-// float_16 number as uint16_t.
-//
-#if defined(__x86_64__) && defined(__F16C__)
+#ifdef ONNX_MLIR_HAS_Float16
+
+#include <limits.h>
+
+static_assert(sizeof(_Float16) * CHAR_BIT == 16, "_Float16 has 16 bits");
+
+extern inline float om_f16_to_f32(uint16_t u16);
+
+extern inline uint16_t om_f32_to_f16(float f32);
+
+#elif defined(__x86_64__) && defined(__F16C__)
 // On x86-64 build config -DCMAKE_CXX_FLAGS=-march=native defines __F16C__.
 
 // https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-9/details-about-intrinsics-for-half-floats.html
@@ -65,6 +68,8 @@ uint16_t om_f32_to_f16(float f32) {
 }
 
 #else
+
+#include <stdbool.h>
 
 // Implementation adapted from https://stackoverflow.com/a/3542975
 

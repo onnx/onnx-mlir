@@ -120,6 +120,14 @@ else()
   message(WARNING "Java Development component or JNI not found, JNI targets will not work")
 endif()
 
+include (CheckTypeSize)
+check_type_size(_Float16 Float16)
+if (HAVE_Float16)
+  # Used in src/Support/SmallFPConversion.h and by those who include it.
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DONNX_MLIR_HAS_Float16")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DONNX_MLIR_HAS_Float16")
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   # Use the new MSVC preprocessor to improve standard conformance.
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zc:preprocessor")
