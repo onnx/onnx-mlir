@@ -120,7 +120,7 @@ else()
   message(WARNING "Java Development component or JNI not found, JNI targets will not work")
 endif()
 
-include (CheckTypeSize)
+include(CheckTypeSize)
 check_type_size(_Float16 Float16)
 if (HAVE_Float16)
   # Used in src/Support/SmallFPConversion.h and by those who include it.
