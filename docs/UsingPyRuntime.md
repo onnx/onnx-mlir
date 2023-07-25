@@ -111,7 +111,8 @@ decoder_sess = OMExecutionSession(shared_lib_path=decoder_model, tag="decoder")
 ```
 
 In case two models were NOT compiled by using `--tag`, they must be compiled
-with different .so filenames so that they can be used in the same python script.
+with different .so filenames if they are to be used in the same process. Indeed,
+when no tags are given, we use the file name as its default tag.
 Below is an example of doing multiple inferences without using tags.
 ```python
 import numpy as np
@@ -137,7 +138,7 @@ def __init__(self, shared_lib_path: str, tag: str, use_default_entry_point: bool
     """
     Args:
         shared_lib_path: relative or absolute path to your .so model.
-        tag: a string that was passed to `--tag` when compiling the .so model. By default, it is `filename` in `filename.so`
+        tag: a string that was passed to `--tag` when compiling the .so model. By default, it is the output file name without its extension, namely, `filename` in `filename.so`
         use_default_entry_point: use the default entry point that is `run_main_graph_{tag}` or not. Set to True by default.
     """
 

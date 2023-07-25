@@ -900,7 +900,7 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
     modelTag = llvm::sys::path::filename(outputNameNoExt).lower();
   // Verify modelTag value.
   if (!StringRef(modelTag).equals_insensitive("NONE") &&
-      !std::regex_match(modelTag, std::regex("([a-z0-9_.-]+)"))) {
+      !std::regex_match(modelTag, std::regex("([0-9a-z_.-]+)"))) {
     llvm::outs() << "Tag is " << modelTag << "\n";
     emitError(loc,
         "Invalid value for --tag. If --tag is not given, it takes "
