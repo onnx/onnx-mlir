@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #include "OMMatMulAsyncNNPA.h"
 #include "onnx-mlir/Runtime/OMTensor.h"
@@ -72,6 +73,8 @@ void *emit_zdnn_matmul_op(void *_args) {
   int dim_m = args->dim_m;
   int dim_n = args->dim_n;
   int dim_p = args->dim_p;
+  static struct timeval startTime, endTime, result;
+  gettimeofday(&startTime, NULL);
 #ifndef USE_NNPA
   // wait random(0.0-1.0) sec to simulate NNPA execution
   // usleep(random() % 1000000);
@@ -169,6 +172,10 @@ void *emit_zdnn_matmul_op(void *_args) {
   free(ztensor_c.buffer);
   free(ztensor_y.buffer);
 #endif
+  gettimeofday(&endTime, NULL);
+  timersub(&endTime, &startTime, &result);
+  printf("MatMul C code Time elapsed: %ld.%06ld sec\n", (long int)result.tv_sec,
+      (long int)result.tv_usec);
   return NULL;
 }
 
@@ -234,8 +241,7 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
   int cpu_base = (8 * threadCount++) % 16;
   for (int i = cpu_base; i < (cpu_base + 8); i++)
     CPU_SET(i, &cpuset);
-}
-pthread_setaffinity_np(&threadHdr->threadID, sizeof(cpuset), &cpuset);
+  pthread_setaffinity_np(&threadHdr->threadID, sizeof(cpuset), &cpuset);
 /*
 int s;
 s = pthread_getaffinity_np(&threadHdr->threadID, sizeof(cpuset), &cpuset);
