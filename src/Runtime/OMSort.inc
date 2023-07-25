@@ -78,15 +78,6 @@ typedef int(
 #define Convert(typeName, to, from) \
   typeName to = from
 
-// Convert f16 elements to f32 for comparison because we don't have logic to
-// compare f16 elements directly on all platforms.
-// TODO: Use Convert(_Float16, to, from) on supported platforms.
-//       Or consider converting the whole tensor to f32, sort as f32, and then
-//       convert the sorted tensor back to f16. That may be faster than
-//       converting elements for each comparison during sorting.
-#define ConvertF16(typeName, to, from) \
-  float to = om_f16_to_f32(from)
-
 // declare ascending functions
 #define Ascending(lhs, rhs) ((lhs) < (rhs))
 declare_compare_function(Bool, bool, Ascending, Convert)
@@ -100,7 +91,6 @@ declare_compare_function(Uint64, uint64_t, Ascending, Convert)
 declare_compare_function(Int64, int64_t, Ascending, Convert)
 declare_compare_function(Float, float, Ascending, Convert)
 declare_compare_function(Double, double, Ascending, Convert)
-declare_compare_function(Float16, uint16_t, Ascending, ConvertF16)
 
 // declare descending functions
 #define Descending(lhs, rhs) ((lhs) > (rhs))
@@ -115,7 +105,20 @@ declare_compare_function(Uint64, uint64_t, Descending, Convert)
 declare_compare_function(Int64, int64_t, Descending, Convert)
 declare_compare_function(Float, float, Descending, Convert)
 declare_compare_function(Double, double, Descending, Convert)
+
+#ifdef ONNX_MLIR_HAS_Float16
+declare_compare_function(Float16, _Float16, Ascending, Convert)
+declare_compare_function(Float16, _Float16, Descending, Convert)
+#else
+// Convert f16 elements to f32 for comparison because we don't have logic to
+// compare f16 elements directly on all platforms.
+// TODO: Or consider converting the whole tensor to f32, sort as f32, and then
+//       convert the sorted tensor back to f16. That may be faster than
+//       converting elements for each comparison during sorting.
+#define ConvertF16(typeName, to, from) float to = om_f16_to_f32(from)
+declare_compare_function(Float16, uint16_t, Ascending, ConvertF16)
 declare_compare_function(Float16, uint16_t, Descending, ConvertF16)
+#endif
 
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
