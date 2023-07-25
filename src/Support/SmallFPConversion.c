@@ -12,22 +12,16 @@
 
 #include <assert.h>
 #include <math.h>
-#include <string.h>
 
 #ifdef __MVS__
 #define static_assert _Static_assert
 #endif
 
 // Defines variable TO of type TO_TYPE and copies bytes from variable FROM.
-// Using memcpy because the simpler definition
-//
-//   #define BIT_CAST(TO_TYPE, TO, FROM) TO_TYPE TO = *(const TO_TYPE *)&FROM
-//
-// might violate the rules about strict aliasing in C++.
+// Might violate C++ strict aliasing rules, but everybody does it :-)
 #define BIT_CAST(TO_TYPE, TO, FROM)                                            \
-  TO_TYPE TO;                                                                  \
-  static_assert(sizeof(TO) == sizeof(FROM), "only bit cast same sizes");       \
-  memcpy(&TO, &FROM, sizeof(FROM))
+  static_assert(sizeof(TO_TYPE) == sizeof(FROM), "only bit cast same sizes");  \
+  TO_TYPE TO = *(TO_TYPE *)&FROM
 
 #ifdef ONNX_MLIR_HAS_Float16
 
