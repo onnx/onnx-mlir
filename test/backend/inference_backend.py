@@ -1302,9 +1302,9 @@ class InferenceBackendTest(BackendTest):
             prepared_model = self.backend.prepare(model, device)
             outputs = list(prepared_model.run(model_test.inputs))
             ref_outputs = model_test.outputs
-            rtol = float(os.getenv("TEST_RTOL", model_test.rtol))
-            atol = float(os.getenv("TEST_ATOL", model_test.atol))
-            self.assert_similar_outputs(ref_outputs, outputs, rtol=rtol, atol=atol)
+            rtol = model_test.rtol
+            atol = model_test.atol
+            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol)
 
         model_name = model_test.model.graph.name
         self._add_test(kind + "Model", model_name, run, model_marker)
