@@ -248,7 +248,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   bool computeMean = false;
 
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MathBuilder, MemRefBuilder, VectorBuilder>;
+      MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem>;
 
   ONNXReductionOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableSIMD, bool computeMean = false)
@@ -571,13 +571,19 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       divisorForMean = create.math.cast(elementOutType, divisorExpr.getValue());
     }
 
-    if (horizontalSimd)
-      HorizontalSimdReduction(rewriter, create, op, elementOutType, input,
-          alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
-          divisorForMean);
-    else
+    if (horizontalSimd) {
+      if (1)
+        ShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
+            input, alloc, inRank, outRank, VL, innermostLoopCollapse,
+            isKeepdims, divisorForMean);
+      else
+        HorizontalSimdReduction(rewriter, create, op, elementOutType, input,
+            alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
+            divisorForMean);
+    } else {
       ScalarReduction(rewriter, create, op, elementOutType, input, alloc,
           inRank, outRank, dynamicAxes, maskVal, outInDimMap, divisorForMean);
+    }
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -721,6 +727,136 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           }
 
           create.krnl.store(accumulatedVal, flatAlloc, outLoopInd);
+        });
+  }
+
+  // Solution when there is no horizontal SIMD op support and that shuffle ops
+  // are needed.
+  void ShuffleHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
+      MDBuilder &create, Operation *op, Type elementType, Value input,
+      Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
+      int64_t collapsedInnermostLoops, bool isKeepDims,
+      Value divisorForMean) const {
+
+    assert(VL > 1 && "expected simd here");
+    IndexExpr VLIndexExpr = LiteralIndexExpr(VL);
+    VectorType vecType = VectorType::get({VL}, elementType);
+    // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
+    DimsExpr inDims, flatInDims;
+    create.krnlIE.getShapeAsSymbols(input, inDims);
+    Value flatInput = create.mem.reshapeToFlat(
+        input, inDims, flatInDims, collapsedInnermostLoops);
+    int64_t flatInRank = flatInDims.size();
+    // Flatten the output: only the non-reduced dims of in: -> [N][M]
+    DimsExpr outDims, flatOutDims;
+    create.krnlIE.getShapeAsSymbols(alloc, outDims);
+    int64_t collapseOutInnermostLoop =
+        isKeepDims ? collapsedInnermostLoops + 1 : 1;
+    Value flatAlloc = create.mem.reshapeToFlat(
+        alloc, outDims, flatOutDims, collapseOutInnermostLoop);
+    assert(flatInRank > 1 && "expected at least one dim to block");
+
+    // Alloca a small temp vector.
+    MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
+    Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
+    Value zero = create.math.constantIndex(0);
+    // Define loops for input dimensions, blocking the 2 inner dim by VL
+    ValueRange loopDef = create.krnl.defineLoops(flatInRank);
+    ValueRange blockedLoopDef = create.krnl.block(loopDef[flatInRank - 2], VL);
+    ValueRange blockedSIMDLoopDef =
+        create.krnl.block(loopDef[flatInRank - 1], VL);
+    // All of the non-blocked loops, plus the blocked nonSIMD loop
+    SmallVector<Value, 4> outputBlockedLoopDef;
+    for (int64_t i = 0; i < flatInRank - 2; ++i)
+      outputBlockedLoopDef.emplace_back(loopDef[i]);
+    outputBlockedLoopDef.emplace_back(blockedLoopDef[0]);
+    // Iterate only over all but the inner loop of the flattened input.
+    SmallVector<IndexExpr, 4> lbs(flatInRank, LiteralIndexExpr(0));
+    create.krnl.iterateIE(loopDef, outputBlockedLoopDef, lbs, flatInDims,
+        [&](KrnlBuilder &ck, ValueRange outputBlockedLoopInd) {
+          MDBuilder create(ck);
+          // IndexExprScope outLoopScope();
+          // DimsExpr outLoopIndIE;
+          // getIndexExprList<SymbolIndexExpr>(outputBlockedLoopInd,
+          // outputBlockedLoopIndIE);
+          //  Init all VL simd vectors.
+          Value identity = getIdentityValue<ONNXReductionOp>(
+              rewriter, create.getLoc(), elementType);
+          Value initVec = create.vec.splat(vecType, identity);
+          for (int64_t i = 0; i < VL; ++i)
+            create.vec.store(initVec, tmpBlockedAlloca,
+                {create.math.constantIndex(i), zero});
+          // Loop over inner blockedNonSIMDLoopDef, outer blockedSIMDLoopDef
+          create.krnl.iterate({}, {blockedLoopDef[1], blockedSIMDLoopDef[0]},
+              {}, {}, [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
+                SmallVector<Value, 4> inAccessVals;
+                // All of the non-blocked loop, plus the inter tile index of the
+                // blocked loop, and the blocked simd loop.
+                for (int64_t i = 0; i < flatInRank - 2; ++i)
+                  inAccessVals.emplace_back(outputBlockedLoopInd[i]);
+                inAccessVals.emplace_back(simdLoopInd[0]);
+                inAccessVals.emplace_back(simdLoopInd[1]);
+                Value inputVec =
+                    create.vec.load(vecType, flatInput, inAccessVals);
+                Value tmpVec = create.vec.load(
+                    vecType, tmpBlockedAlloca, {simdLoopInd[0], zero});
+                // Sum into redVec
+                Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
+                    rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
+                create.vec.store(
+                    accumulatedVec, tmpBlockedAlloca, {simdLoopInd[0], zero});
+              });
+          // Load all temp vectors.
+          SmallVector<Value, 4> redIn, redOut;
+          for (int64_t i = 0; i < VL; ++i) {
+            Value val = create.vec.load(vecType, tmpBlockedAlloca,
+                {create.math.constantIndex(i), zero});
+            redIn.emplace_back(val);
+          }
+)
+
+#if 0
+          // Iterate over the SIMD blocks
+          IndexExpr isFull =
+              create.krnlIE.isTileFull(outLoopInd[flatInRank - 1], VLIndexExpr,
+                  flatInDims[flatInRank - 2]);
+          create.affineKMem.ifThenElse(
+              scope, {isFull},
+              /* then full tiles */
+              [&](AffineBuilderKrnlMem &createAffine) {
+
+              },
+              /* else has partial tiles */
+              [&](AffineBuilderKrnlMem &createAffine) {
+
+              });
+#endif
+#if 0
+          create.krnl.iterate({}, blockedLoopDef[0], {}, {},
+              [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
+                MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+                // Input values, loaded as a vector.
+                SmallVector<Value, 4> inAccessVals(outLoopInd);
+                inAccessVals.emplace_back(simdLoopInd[0]);
+                Value inputVec =
+                    create.vec.load(vecType, flatInput, inAccessVals);
+                Value tmpVec = create.vec.load(vecType, tmpAlloca, {zero});
+                // Sum into redVec
+                Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
+                    rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
+                create.vec.store(accumulatedVec, tmpAlloca, {zero});
+              });
+          // Horizontal sum
+          Value reductionVec = create.vec.load(vecType, tmpAlloca, {zero});
+          Value accumulatedVal = create.vec.reduction(
+              getCombiningKind<ONNXReductionOp>(), reductionVec);
+          // other operation...
+          if (computeMean) {
+            accumulatedVal = create.math.div(accumulatedVal, divisorForMean);
+          }
+
+          create.krnl.store(accumulatedVal, flatAlloc, outLoopInd);
+#endif
         });
   }
 };
