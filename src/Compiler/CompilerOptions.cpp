@@ -296,7 +296,8 @@ llvm::cl::opt<std::string> modelTag("tag",
         "`run_main_graph` and `run_main_graph_tag`, where `run_main_graph` "
         "is just a wrapper of `run_main_graph_tag`. Users can call one of "
         "the entry points and expect the same result. Passing `NONE` to "
-        "`--tag` will disable tag completely."),
+        "`--tag` will disable tag completely, meaning no tag is appended to "
+        "the symbols."),
     llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 

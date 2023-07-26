@@ -88,8 +88,8 @@ if args.run_models:
         from PyCompileAndRuntime import OMCompileExecutionSession
     except ImportError as ie:
         raise ie
-    add_sess = OMCompileExecutionSession(add_model, reuse_compiled_model=0)
-    sub_sess = OMCompileExecutionSession(sub_model, reuse_compiled_model=0)
+    add_sess = OMCompileExecutionSession(add_model, "", reuse_compiled_model=0)
+    sub_sess = OMCompileExecutionSession(sub_model, "", reuse_compiled_model=0)
     a = np.array([10, 20, 30, 40, 50, 60], dtype=np.int64).reshape((3,2))
     b = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64).reshape((3,2))
     
