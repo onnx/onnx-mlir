@@ -76,8 +76,8 @@ void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
   registry.insert<zlow::ZLowDialect>();
 }
 
-void NNPAAccelerator::initPasses(int optLevel) const {
-  LLVM_DEBUG(llvm::dbgs() << "Initializing passes for NNPA accelerator\n");
+void NNPAAccelerator::registerPasses(int optLevel) const {
+  LLVM_DEBUG(llvm::dbgs() << "Registering passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::createONNXToZHighPass();
   });

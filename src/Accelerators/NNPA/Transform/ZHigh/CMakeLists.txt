@@ -7,8 +7,8 @@ add_onnx_mlir_library(OMZHighConstPropagation
   ZHighConstPropagation.cpp
 
   DEPENDS
+  OMLayoutHelper
   OMONNXZHighConstPropagationIncGen
-  libzdnn
 
   LINK_LIBS PUBLIC
   MLIRRewrite
