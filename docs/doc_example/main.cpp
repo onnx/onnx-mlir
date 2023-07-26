@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   char *errorMessage = nullptr;
   char *compiledFilename = nullptr;
   std::string flags = readArgs(argc, argv);
-  flags += "-o add_cpp_interface";
+  flags += "-o add_cpp";
   std::cout << "Compile with options \"" << flags << "\"\n";
   int rc = onnx_mlir::omCompileFromFile(
       "add.onnx", flags.c_str(), &compiledFilename, &errorMessage);
