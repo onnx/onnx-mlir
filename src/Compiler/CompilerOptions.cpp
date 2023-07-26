@@ -298,7 +298,7 @@ llvm::cl::opt<std::string> modelTag("tag",
         "the entry points and expect the same result. Passing `NONE` to "
         "`--tag` will disable tag completely, meaning no tag is appended to "
         "the symbols."),
-    llvm::cl::value_desc("a string that matches regex ([0-9a-z_-]+)"),
+    llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 // Configuration states associated with certain options.
