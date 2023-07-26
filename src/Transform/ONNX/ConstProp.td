@@ -90,6 +90,9 @@ def IsMatMulIntegerRhsZero: Constraint<
     CPred<"isMatMulIntegerRhsZero($0, $1)">,
     "MatMulInteger rhs matrix is zero for given zero point">;
 
+def SatisfiesExpansionBound: Constraint<
+  CPred<"satisfiesExpansionBound($_self)">>;
+
 // Creation helpers:
 
 def CreateZeroTensorOfType: NativeCodeCall<
@@ -270,7 +273,8 @@ def AddConstProp : Pat<
     // To c1+c2
     (CreateAddOfTwoConst $addOp, $lhs, $rhs),
     // Additional constraints (dense)
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$addOp)]>;
 
 // TODO: Expand $x to $result's shape instead of requiring ValuesHaveSameType.
 def AddZerosOnRhs : Pat<
@@ -294,7 +298,8 @@ def SubConstProp : Pat<
                       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     // To c1-c2
     (CreateSubOfTwoConst $subOp, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$subOp)]>;
 
 // TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
 def SubZerosOnRhs : Pat<
@@ -359,7 +364,8 @@ def MaxConstProp : Pat<
     // To c = max(c1, c2)
     (CreateMaxOfConst $maxOp, $operandList),
     // Constraints
-    [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
+    [(IsVariadicOperandDenseONNXConstantOp:$operandList),
+     (SatisfiesExpansionBound:$maxOp)]>;
 
 // Constant Propagation for Min
 def MinConstProp : Pat<
@@ -368,7 +374,8 @@ def MinConstProp : Pat<
     // To c = min(c1, c2)
     (CreateMinOfConst $minOp, $operandList),
     // Constraints
-    [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
+    [(IsVariadicOperandDenseONNXConstantOp:$operandList),
+     (SatisfiesExpansionBound:$minOp)]>;
 
 // Constant Propagation for Sum
 def SumConstProp : Pat<
@@ -377,7 +384,8 @@ def SumConstProp : Pat<
     // To c = sum(c1, c2)
     (CreateSumOfConst $sumOp, $operandList),
     // Constraints
-    [(IsVariadicOperandDenseONNXConstantOp:$operandList)]>;
+    [(IsVariadicOperandDenseONNXConstantOp:$operandList),
+     (SatisfiesExpansionBound:$sumOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise MUL operations.
@@ -446,9 +454,10 @@ def MulConstProp : Pat<
     // To c1+c2
     (CreateMulOfTwoConst $mulOp, $lhs, $rhs),
     // Multiplication constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$mulOp)]>;
 
-// TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
+// TODO: Expand $x to $result's shape instead of requiring ValuesHaveSameType.
 def MulOnesOnRhs : Pat<
     // From mul(x, c).
     (ONNXMulOp:$result
@@ -470,9 +479,10 @@ def DivConstProp : Pat<
     // To c1/c2
     (CreateDivOfTwoConst $divOp, $lhs, $rhs),
     // Division constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$divOp)]>;
 
-// TODO: Expand $a to $result's shape instead of requiring ValuesHaveSameType.
+// TODO: Expand $x to $result's shape instead of requiring ValuesHaveSameType.
 def DivOnesOnRhs : Pat<
     // From div(x, c).
     (ONNXDivOp:$result
@@ -498,7 +508,8 @@ def EqualConstProp : Pat<
     // To c1 == c2
     (CreateEqualOfTwoConst $result, $lhs, $rhs),
     // constraints
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXLessOp
@@ -509,7 +520,8 @@ def LessConstPropPattern: Pat<
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     (CreateLessOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXGreaterOp
@@ -520,7 +532,8 @@ def GreaterConstPropPattern: Pat<
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     (CreateGreaterOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXLessOrEqualOp
@@ -531,7 +544,8 @@ def LessOrEqualConstPropPattern: Pat<
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     (CreateLessOrEqualOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXGreaterOrEqualOp
@@ -542,7 +556,8 @@ def GreaterOrEqualConstPropPattern: Pat<
       (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
     (CreateGreaterOrEqualOfTwoConst $result, $lhs, $rhs),
-    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns for Where.
@@ -558,7 +573,8 @@ def WhereConstProp : Pat<
     (CreateWhereOfThreeConst $whereOp, $condition, $X, $Y),
     // Where constraints
     [(IsFromDenseONNXConstantOp:$condition),
-     (IsFromDenseONNXConstantOp:$X), (IsFromDenseONNXConstantOp:$Y)]>;
+     (IsFromDenseONNXConstantOp:$X), (IsFromDenseONNXConstantOp:$Y),
+     (SatisfiesExpansionBound:$whereOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns for Reduce ops.
@@ -646,7 +662,8 @@ def MatMulOfConsts : Pat<
       (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_)
     ),
     (CreateMatMulOfConsts $resOp, $A, $B),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B)]
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
+     (SatisfiesExpansionBound:$resOp)]
     >;
 
 //===----------------------------------------------------------------------===//
@@ -683,7 +700,8 @@ def MatMulIntegerOfConsts : Pat<
     ),
     (CreateMatMulIntegerOfConsts $resOp, $A, $B, $a_zero_point, $b_zero_point),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOpOrNone:$a_zero_point),
-     (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point)]
+     (IsFromDenseONNXConstantOp:$B), (IsFromDenseONNXConstantOpOrNone:$b_zero_point),
+     (SatisfiesExpansionBound:$resOp)]
     >;
 
 //===----------------------------------------------------------------------===//
@@ -698,7 +716,8 @@ def GemmConstProp : Pat<
       $C, $alpha, $beta, $transA, $transB),
     (CreateGemmOfConsts $gemmOp, $A, $B, $C),
     [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
-     (IsFromDenseONNXConstantOpOrNone:$C)]>;
+     (IsFromDenseONNXConstantOpOrNone:$C),
+     (SatisfiesExpansionBound:$gemmOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Transpose operations.
@@ -782,7 +801,8 @@ def ExpandofConst :  Pat<
     // To c where c is the expanded value.
     (CreateExpandOfConst $resOp, $input),
     [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$shape),
-     (HasStaticShape:$resOp)]>;
+     (HasStaticShape:$resOp),
+     (SatisfiesExpansionBound:$resOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Gather operations.
