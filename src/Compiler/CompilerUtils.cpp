@@ -315,19 +315,28 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
+  std::string tag = "";
+  assert(!modelTag.empty() && "Model tag was not set");
+  if (!StringRef(modelTag).equals_insensitive("NONE"))
+    tag = "_" + modelTag;
   // Signature functions.
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  if (!tag.empty()) {
+    exportedFuncs.emplace_back(StringRef("omInputSignature" + tag));
+    exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
+    exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
+  }
   // Entry point funtions.
   if (llvm::GlobalVariable *GV =
-          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays"))) {
+          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-            StringRef("_entry_point_" + std::to_string(i)));
+            StringRef("_entry_point_" + std::to_string(i) + tag));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
@@ -880,6 +889,31 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
       StringAttr::get(&context, getTargetTriple()));
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
+
+  // Set a tag that will be used to postfix symbols in the generated
+  // LLVMIR. By default, use the filename (without extension) of the input onnx
+  // model or the value passed to `-o`.
+  // This tag makes the symbols unique across multiple generated models.
+  // In particular, it will be appended to global variable and function names.
+  // For example, we will have two entry points: `run_main_graph` and
+  // `run_main_graph_tag`, doing the same computation.
+  if (modelTag.empty())
+    modelTag = llvm::sys::path::filename(outputNameNoExt).lower();
+  // Verify modelTag value.
+  if (!StringRef(modelTag).equals_insensitive("NONE") &&
+      !std::regex_match(modelTag, std::regex("([0-9a-z_.-]+)"))) {
+    llvm::outs() << "Tag is " << modelTag << "\n";
+    emitError(loc,
+        "Invalid value for --tag. If --tag is not given, it takes "
+        "value from the model's filename or -o option. Make sure the tag value "
+        "matches regex ([0-9a-z_.-]+)");
+    return InvalidCompilerOption;
+  }
+  if (StringRef(modelTag).equals_insensitive("NONE"))
+    moduleOp.setAttr("onnx-mlir.symbol-postfix", StringAttr::get(&context, ""));
+  else
+    moduleOp.setAttr(
+        "onnx-mlir.symbol-postfix", StringAttr::get(&context, modelTag));
 
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;

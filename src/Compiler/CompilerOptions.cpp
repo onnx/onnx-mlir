@@ -284,6 +284,23 @@ llvm::cl::list<std::string> functionsToDecompose("functions-to-decompose",
     llvm::cl::desc("Specify ONNX functions to decompose"),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<std::string> modelTag("tag",
+    llvm::cl::desc(
+        "Set a tag that will be used to postfix symbols in the generated "
+        "LLVMIR to make the symbols unique across multiple generated models. "
+        "By default, use the filename (without extension) of the input onnx "
+        "model or the value passed to `-o`. The tag will be appended to "
+        "global variable and function names. For backward compability, each "
+        "function has two versions with the same signature and doing the same "
+        "computation. For example, we will have two entry points: "
+        "`run_main_graph` and `run_main_graph_tag`, where `run_main_graph` "
+        "is just a wrapper of `run_main_graph_tag`. Users can call one of "
+        "the entry points and expect the same result. Passing `NONE` to "
+        "`--tag` will disable tag completely, meaning no tag is appended to "
+        "the symbols."),
+    llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
@@ -503,6 +520,11 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+// Support for model tag
+void setModelTag(const std::string &str) { modelTag = str; }
+void clearModelTag() { modelTag = ""; }
+std::string getModelTag() { return modelTag; }
+
 // Support for Verbose Option
 void setVerboseOption() { VerboseOutput = true; }
 void clearVerboseOption() { VerboseOutput = false; }
@@ -543,6 +565,9 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
+  case OptionKind::ModelTag:
+    setModelTag(val);
+    break;
   case OptionKind::Verbose:
     setVerboseOption();
     break;
@@ -577,6 +602,9 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::LLVMFlag:
     clearLLVMOption();
     break;
+  case OptionKind::ModelTag:
+    clearModelTag();
+    break;
   case OptionKind::Verbose:
     clearVerboseOption();
     break;
@@ -610,6 +638,8 @@ std::string getCompilerOption(const OptionKind kind) {
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
+  case OptionKind::ModelTag:
+    return getModelTag();
   case OptionKind::Verbose:
     return getVerboseOption();
   }
