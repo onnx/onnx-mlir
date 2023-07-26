@@ -44,6 +44,7 @@
 #include "src/Version/Version.hpp"
 
 #include <fstream>
+#include <regex>
 
 using namespace mlir;
 using namespace onnx_mlir;
