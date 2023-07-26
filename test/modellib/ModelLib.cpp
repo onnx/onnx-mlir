@@ -46,7 +46,8 @@ bool ModelLibBuilder::compileAndLoad() {
     return false;
   std::string libFilename =
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
-  exec = new ExecutionSession(libFilename);
+  std::string modelTag = getCompilerOption(OptionKind::ModelTag);
+  exec = new ExecutionSession(libFilename, modelTag);
   return exec != nullptr;
 }
 

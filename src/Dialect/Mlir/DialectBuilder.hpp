@@ -565,7 +565,8 @@ struct LLVMBuilder final : DialectBuilder {
       llvm::ArrayRef<int64_t> position) const;
 
   // FuncOp
-  mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type) const;
+  mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type,
+      bool createUniqueFunc = false) const;
 
   // GEPOp
   mlir::Value getElemPtr(mlir::Type resultType, mlir::Type elemType,
@@ -574,7 +575,7 @@ struct LLVMBuilder final : DialectBuilder {
   // GlobalOp
   mlir::LLVM::GlobalOp globalOp(mlir::Type resultType, bool isConstant,
       mlir::LLVM::Linkage, llvm::StringRef name, mlir::Attribute attr,
-      uint64_t alignment = 0) const;
+      uint64_t alignment = 0, bool uniqueName = true) const;
 
   // ICmpOp
   mlir::Value icmp(
@@ -631,6 +632,19 @@ struct LLVMBuilder final : DialectBuilder {
   /// ```
   void ifThenElse(valueFuncRef cond, voidFuncRef thenFn,
       voidFuncRef elseFn = nullptr) const;
+
+  /// Postfix a symbol with the value of `onnx-mlir.symbol-postfix` in the
+  /// module attribute.
+  static inline std::string SymbolPostfix(
+      mlir::ModuleOp &module, std::string symbol) {
+    std::string postfix = "";
+    if (mlir::StringAttr postfixAttr = module->getAttrOfType<mlir::StringAttr>(
+            "onnx-mlir.symbol-postfix")) {
+      if (!postfixAttr.getValue().empty())
+        postfix = "_" + postfixAttr.getValue().lower();
+    }
+    return symbol + postfix;
+  }
 };
 
 //===----------------------------------------------------------------------===//
