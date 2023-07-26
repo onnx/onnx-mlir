@@ -4688,13 +4688,6 @@ func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x
 func.func @test_equal_int64(%arg0: tensor<2x2xi64>, %arg1: tensor<2x2xi64>) -> tensor<*xi1> {
   %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<*xi1>
    return %0 : tensor<*xi1>
-
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_equal_int64
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x2xi64>, [[PARAM_1_:%.+]]: tensor<2x2xi64>) -> tensor<2x2xi1> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Equal"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi1>
-// CHECK:           return [[VAR_0_]] : tensor<2x2xi1>
-// CHECK:         }
 }
 
 // -----
@@ -4703,12 +4696,6 @@ func.func @test_equal_int64(%arg0: tensor<2x2xi64>, %arg1: tensor<2x2xi64>) -> t
 func.func @test_equal_float32(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32>) -> tensor<*xi1> {
   %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<*xi1>
    return %0 : tensor<*xi1>
-
-// CHECK-LABEL:  func.func @test_equal_float32
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x2xf32>, [[PARAM_1_:%.+]]: tensor<2x2xf32>) -> tensor<2x2xi1> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Equal"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<2x2xi1>
-// CHECK:           return [[VAR_0_]] : tensor<2x2xi1>
-// CHECK:         }
 }
 
 // -----

@@ -428,7 +428,7 @@ template <>
 Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
-  
+
   CheckIfCustomScalarOpIsSupported<ONNXCastOp>(elementType);
   // TODO: currently don't support String to * or * to String
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
@@ -1109,13 +1109,24 @@ template <>
 Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+
   CheckIfCustomScalarOpIsSupported<ONNXEqualOp>(elementType);
+  Value results;
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  return create.math.eq(lhs, rhs);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  Type inputElemType = getElementType(lhs.getType());
+  OpBuilder builder = create.krnl.getBuilder();
 
-  // The results of string compare should be binary either 0 or 1 for the outcome for string type. 
+  if (inputElemType.isa<krnl::StringType>()) {
+    Value strlenRes = create.krnl.strlen(lhs);
+    Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
+    Value zeroVal = create.math.constant(builder.getIntegerType(32), 0);
+    results = create.math.eq(strncmpRes, zeroVal);
+  } else {
+    results = create.math.eq(lhs, rhs);
+  }
+  return results;
 }
 
 //===----------------------------------------------------------------------===//
