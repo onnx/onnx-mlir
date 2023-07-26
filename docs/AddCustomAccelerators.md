@@ -65,9 +65,9 @@ virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
 /// Register the MLIR dialects required to support an accelerator.
 virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
 
-/// Initialize the transformation passes required to generate code for an
-/// accelerator.
-virtual void initPasses(int optLevel) const = 0;
+/// Register accelerator transformation passes to make available as
+/// command line options.
+virtual void registerPasses(int optLevel) const = 0;
 
 //===--------------------------------------------------------------------===//
 // Hooks for onnx-to-krnl pass

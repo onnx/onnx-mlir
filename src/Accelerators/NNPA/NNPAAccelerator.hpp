@@ -56,7 +56,7 @@ public:
   // Hooks for onnx-mlir-opt driver
   //===--------------------------------------------------------------------===//
   virtual void registerDialects(mlir::DialectRegistry &registry) const final;
-  virtual void initPasses(int optLevel) const final;
+  virtual void registerPasses(int optLevel) const final;
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass
   //===--------------------------------------------------------------------===//
