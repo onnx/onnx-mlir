@@ -4,12 +4,12 @@
 // REQUIRES: system-windows
 // CHECK-DAG: define dso_local dllexport ptr @run_main_graph_1_test
 // CHECK-DAG: define dso_local dllexport ptr @run_main_graph_2_test
-// CHECK-DAG: define dso_local dllexport ptr @omQueryEntryPoints
-// CHECK-DAG: define dso_local dllexport ptr @omInputSignature
-// CHECK-DAG: define dso_local dllexport ptr @omOutputSignature
-// CHECK-DAG: define dso_local dllexport ptr @omQueryEntryPoints_test
-// CHECK-DAG: define dso_local dllexport ptr @omInputSignature_test
-// CHECK-DAG: define dso_local dllexport ptr @omOutputSignature_test
+// CHECK: define dso_local dllexport ptr @omQueryEntryPoints_test
+// CHECK: define dso_local dllexport ptr @omQueryEntryPoints
+// CHECK: define dso_local dllexport ptr @omInputSignature_test
+// CHECK: define dso_local dllexport ptr @omInputSignature
+// CHECK: define dso_local dllexport ptr @omOutputSignature_test
+// CHECK: define dso_local dllexport ptr @omOutputSignature
 module  {
   func.func @main_graph_1(%arg0: tensor<1x1xf32>) -> tensor<1x1xf32> {
     %0 = "onnx.Relu"(%arg0) : (tensor<1x1xf32>) -> tensor<1x1xf32>
