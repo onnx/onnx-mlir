@@ -36,6 +36,7 @@
 #define USE_THREAD
 // #undef USE_THREAD
 #define SET_THREAD_AFFINITY
+#define PRINT_TIME
 
 #ifndef USE_NNPA
 #include <unistd.h>
@@ -57,6 +58,7 @@ extern "C" {
 #endif
 
 struct emit_zdnn_matmul_op_args {
+  int dim_s;
   int dim_m;
   int dim_n;
   int dim_p;
@@ -67,33 +69,91 @@ struct emit_zdnn_matmul_op_args {
 };
 
 static int threadCount = 0;
+//
+// Emit zdnn_matmul_op or zdnn_matmul_bcast_op according to the dim_s value.
+// If dim_s == 0: Emit zdnn_matmul_op(unstacked)
+// If dim_s > 0: Emit zdnn_matmul_op(stacked)
+// If dim_s < 0: Emit zdnn_matmul_bcast_op
+//
 void *emit_zdnn_matmul_op(void *_args) {
   struct emit_zdnn_matmul_op_args *args =
       (struct emit_zdnn_matmul_op_args *)_args;
+  int dim_s = args->dim_s;
   int dim_m = args->dim_m;
   int dim_n = args->dim_n;
   int dim_p = args->dim_p;
-  static struct timeval startTime, endTime, result;
-  gettimeofday(&startTime, NULL);
 #ifndef USE_NNPA
-  // wait random(0.0-1.0) sec to simulate NNPA execution
-  // usleep(random() % 1000000);
+#ifdef PRINT_TIME
+  struct timeval startTime, endTime, totalTime;
+  gettimeofday(&startTime, NULL);
+#endif
   float *a = (float *)args->data_a;
   float *b = (float *)args->data_b;
   float *c = (float *)args->data_c;
   float *y = (float *)args->data_y;
 
-  for (int i = 0; i < dim_m; i++) {
-    for (int j = 0; j < dim_p; j++) {
-      float ans = 0.0;
-      for (int k = 0; k < dim_n; k++) {
-        ans += a[i * dim_n + k] * b[k * dim_p + j];
+  if (dim_s == 0) { // unstacked case
+    // a[m, n] * b[n, p] + c[p] = y[m, p]
+    for (int m = 0; m < dim_m; m++) {
+      for (int p = 0; p < dim_p; p++) {
+        float ans = 0.0;
+        for (int n = 0; n < dim_n; n++) {
+          ans += a[m * dim_n + n] * b[n * dim_p + p];
+        }
+        ans += c[p];
+        y[m * dim_p + p] = ans;
       }
-      ans += c[j];
-      y[i * dim_p + j] = ans;
+    }
+  } else if (dims_s > 0) { // stacked case
+    // a[s, m, n] * b[s, n, p] + c[s, p] = y[s, m, p]
+    for (int s = 0; s < dim_s; s++) {
+      for (int m = 0; m < dim_m; m++) {
+        for (int p = 0; p < dim_p; p++) {
+          float ans = 0.0;
+          for (int n = 0; n < dim_n; n++) {
+            ans += a[s * (dim_m * dim_n) + m * dim_n + n] *
+                   b[s * (dim_n * dim_p) + n * dim_p + p];
+          }
+          ans += c[s * dim_p + p];
+          y[s * (dim_m * dim_p) + m * dim_p + p] = ans;
+        }
+      }
+    }
+  } else { // bcast case
+    dim_s = -dim_s;
+    // a[s, m, n] * b[n, p] + c[p] = y[s, m, p]
+    for (int s = 0; s < dim_s; s++) {
+      for (int m = 0; m < dim_m; m++) {
+        for (int p = 0; p < dim_p; p++) {
+          float ans = 0.0;
+          for (int n = 0; n < dim_n; n++) {
+            ans += a[s * (dim_m * dim_n) + m * dim_n + n] * b[n * dim_p + p];
+          }
+          ans += c[p];
+          y[s * (dim_m * dim_p) + m * dim_p + p] = ans;
+        }
+      }
     }
   }
-#else
+#ifdef PRINT_TIME
+  gettimeofday(&endTime, NULL);
+  timersub(&endTime, &startTime, &totalTime);
+  printf("MatMul C code Time elapsed: %ld.%06ld sec = %ld.06ld (stick) + "
+         "%ld.%06ld (op) "
+         " %ld.06ld (unstick)\n",
+      (long int)totalTime.tv_sec, (long int)totalTime.tv_usec);
+#endif
+#else // if defined(USE_NNPA)
+#ifdef PRINT_TIME
+  struct timeval startTime, stickEndTime, opEndTime, unstickEndTime;
+  struct timeval stickTime, opTime, unstickTime, totalTime;
+  gettimeofday(&startTime, NULL);
+#endif
+  bool is_bcast = false;
+  if (args->dim_s < 0) { // zdnn_matmul_bcast_op case
+    dim_s = -args->dim_s;
+    is_bcast = true;
+  }
   void *data_a = args->data_a;
   void *data_b = args->data_b;
   void *data_c = args->data_c;
@@ -157,10 +217,21 @@ void *emit_zdnn_matmul_op(void *_args) {
   assert(status == ZDNN_OK);
   status = zdnn_transform_ztensor(&ztensor_c, data_c);
   assert(status == ZDNN_OK);
+#ifdef PRINT_TIME
+  gettimeofday(&stickEndTime, NULL);
+#endif
 
   // perform matrix multiplication between the two input tensors
-  status = zdnn_matmul_op(&ztensor_a, &ztensor_b, &ztensor_c, ops, &ztensor_y);
+  if (is_bcast)
+    status =
+        zdnn_matmul_op(&ztensor_a, &ztensor_b, &ztensor_c, ops, &ztensor_y);
+  else
+    status = zdnn_matmul_bcast_op(
+        &ztensor_a, &ztensor_b, &ztensor_c, ops, &ztensor_y);
   assert(status == ZDNN_OK);
+#ifdef PRINT_TIME
+  gettimeofday(&opEndTime, NULL);
+#endif
 
   // transform resultant zTensor back to original data format
   status = zdnn_transform_origtensor(&ztensor_y, data_y);
@@ -171,11 +242,21 @@ void *emit_zdnn_matmul_op(void *_args) {
   free(ztensor_b.buffer);
   free(ztensor_c.buffer);
   free(ztensor_y.buffer);
+#ifdef PRINT_TIME
+  gettimeofday(&unstickEndTime, NULL);
+  timersub(&unstickEndTime, &startTime, &totalTime);
+  timersub(&stickEndTime, &startTime, &stickTime);
+  timersub(&opEndTime, &unstickEndTime, &opTime);
+  timersub(&unstickEndTime, &opEndTime, &unstickTime);
+  printf("MatMul C code Time elapsed: %ld.%06ld sec = %ld.06ld (stick) + "
+         "%ld.%06ld (op) "
+         " %ld.%06ld (unstick)\n",
+      (long int)totalTime.tv_sec, (long int)totalTime.tv_usec,
+      (long int)stickTime.tv_sec, (long int)stickTime.tv_usec,
+      (long int)opTime.tv_sec, (long int)opTime.tv_usec,
+      (long int)unstickTime.tv_sec, (long int)unstickTime.tv_usec);
 #endif
-  gettimeofday(&endTime, NULL);
-  timersub(&endTime, &startTime, &result);
-  printf("MatMul C code Time elapsed: %ld.%06ld sec\n", (long int)result.tv_sec,
-      (long int)result.tv_usec);
+#endif
   return NULL;
 }
 
@@ -194,8 +275,17 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
   const OM_DATA_TYPE dataType = omTensorGetDataType(A);
   assert(dataType == ONNX_TYPE_FLOAT &&
          "omTensorMatmul assumes ONNX_TYPE_FLOAT type");
-  assert((omTensorGetRank(A) == 2) && (omTensorGetRank(A) == 2) &&
-         (omTensorGetRank(A) == 2) && "omTensorMatmul assumes rank 2 tensors");
+  const int64_t rankA = omTensorGetRank(A);
+  const int64_t rankB = omTensorGetRank(B);
+  const int64_t rankC = omTensorGetRank(C);
+  const int64_t rankY = omTensorGetRank(Y);
+  assert((((rankA == 2) && (rankB == 2) && (rankC == 1) &&
+              (rankY == 2)) || // unstacked
+             ((rankA == 3) && (rankB == 3) && (rankC == 2) &&
+                 (rankY == 3)) || // stacked
+             ((rankA == 3) && (rankB == 2) && (rankC == 1) &&
+                 (rankY == 3))) && // bcast
+         "omTensorMatmul: inconsistent ranks of input/output tensors");
   const int64_t *shapeA = omTensorGetShape(A);
   const int64_t *shapeB = omTensorGetShape(B);
   const int64_t *shapeC = omTensorGetShape(C);
@@ -210,20 +300,29 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
          "omTensorMatmul: inconsistent input shapes (dim_n)");
   assert(shapeB[1] == shapeY[1] && shapeB[1] == shapeC[0] &&
          "omTensorMatmul: inconsistent input shapes (dim_p)");
-  int dim_m = shapeA[0];
-  int dim_n = shapeA[1];
-  int dim_p = shapeB[1];
-#ifdef USE_NNPA
-  if (zdnn_init_done == 0) {
-    zdnn_init();
-    zdnn_init_done++;
+  int dim_s, dim_m, dim_n, dim_p;
+  if (rankA == 2) { // zdnn_matmul_op(unstacked) case
+    dim_s = 0;
+    dim_m = shapeA[0];
+    dim_n = shapeA[1];
+    dim_p = shapeB[1];
   }
-#endif
-  // printf("Call C code. m %d, n %d, p %d\n", dim_m, dim_n, dim_p);
+  if (rankB == 3) { // zdmm_matmul_op(stacked) case
+    dim_s = shapeA[0];
+    dim_m = shapeA[1];
+    dim_n = shapeA[2];
+    dim_p = shapeB[2];
+  } else { // zdnn_matmul_bcast_op case
+    dim_s = shapeA[0];
+    dim_m = shapeA[1];
+    dim_n = shapeA[2];
+    dim_p = shapeB[1];
+  }
   // transfer inputs into ztensor, call zdnn_matmul_op, and transfer outputs
   // from ztensor to normal buffer
   struct emit_zdnn_matmul_op_args *args =
       (struct emit_zdnn_matmul_op_args *)(&threadHdr->threadArgs);
+  args->dim_s = dim_s;
   args->dim_m = dim_m;
   args->dim_n = dim_n;
   args->dim_p = dim_p;
