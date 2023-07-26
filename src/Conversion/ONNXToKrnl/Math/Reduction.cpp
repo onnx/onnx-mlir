@@ -437,8 +437,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               VectorMachineSupport::getGlobalVectorMachineSupport();
           DimsExpr inputDims;
           create.krnlIE.getShapeAsSymbols(input, inputDims);
+          // hi alex: unroll should be a factor of scheme used
           VL = create.vec.SuitableUnrollFactor(vms, memRefInType, inputDims,
-              innermostLoopCollapse, 2, /*canPad*/ false);
+              innermostLoopCollapse, 1, /*canPad*/ false);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, VL " << VL << "\n");
           if (!VL) {
@@ -730,6 +731,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         });
   }
 
+  void pushPerm(SmallVectorImpl<Value> &perm, SmallVectorImpl<int64_t> &order,
+      Value loopDef, int num) const {
+    perm.emplace_back(loopDef);
+    order.emplace_back(num);
+  }
+
   // Solution when there is no horizontal SIMD op support and that shuffle ops
   // are needed.
   void ShuffleHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
@@ -765,6 +772,21 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     ValueRange blockedLoopDef = create.krnl.block(loopDef[flatInRank - 2], VL);
     ValueRange blockedSIMDLoopDef =
         create.krnl.block(loopDef[flatInRank - 1], VL);
+    // Permute blocked loops
+    SmallVector<Value, 4> permDef;
+    SmallVector<int64_t> permOrder;
+#if 0
+    // Non-blocked in normal order
+    for (int64_t i = 0; i < flatInRank - 2; ++i)
+      pushPerm(permDef, permOrder, loopDef[i], i);
+    // Blocked loop: inter / intra tile.
+    pushPerm(permDef, permOrder, blockedLoopDef[0], flatInRank -2);
+    pushPerm(permDef, permOrder, blockedLoopDef[0], flatInRank + 0);
+    // Blocked SIMD loop.
+    pushPerm(permDef, permOrder, blockedSIMDLoopDef[0], flatInRank - 1);
+    pushPerm(permDef, permOrder, blockedSIMDLoopDef[0], flatInRank + 1);
+    create.krnl.permute(permDef, permOrder);
+#endif
     // All of the non-blocked loops, plus the blocked nonSIMD loop
     SmallVector<Value, 4> outputBlockedLoopDef;
     for (int64_t i = 0; i < flatInRank - 2; ++i)
@@ -775,6 +797,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnl.iterateIE(loopDef, outputBlockedLoopDef, lbs, flatInDims,
         [&](KrnlBuilder &ck, ValueRange outputBlockedLoopInd) {
           MDBuilder create(ck);
+          int64_t outputBlockedLoopIndRank = outputBlockedLoopInd.size();
           // IndexExprScope outLoopScope();
           // DimsExpr outLoopIndIE;
           // getIndexExprList<SymbolIndexExpr>(outputBlockedLoopInd,
@@ -787,6 +810,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             create.vec.store(initVec, tmpBlockedAlloca,
                 {create.math.constantIndex(i), zero});
           // Loop over inner blockedNonSIMDLoopDef, outer blockedSIMDLoopDef
+          // create.krnl.permute(
+          //    {blockedLoopDef[1], blockedSIMDLoopDef[0],
+          //    blockedSIMDLoopDef[1]}, {1, 0, 2});
           create.krnl.iterate({}, {blockedLoopDef[1], blockedSIMDLoopDef[0]},
               {}, {}, [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
                 SmallVector<Value, 4> inAccessVals;
@@ -798,13 +824,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 inAccessVals.emplace_back(simdLoopInd[1]);
                 Value inputVec =
                     create.vec.load(vecType, flatInput, inAccessVals);
-                Value tmpVec = create.vec.load(
-                    vecType, tmpBlockedAlloca, {simdLoopInd[0], zero});
+                // The tmpInd value is between 0 and VL-1, and is local index -
+                // blocked index.
+                Value tmpInd = create.math.sub(simdLoopInd[0],
+                    outputBlockedLoopInd[outputBlockedLoopIndRank - 1]);
+                Value tmpVec =
+                    create.vec.load(vecType, tmpBlockedAlloca, {tmpInd, zero});
                 // Sum into redVec
                 Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
                     rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
                 create.vec.store(
-                    accumulatedVec, tmpBlockedAlloca, {simdLoopInd[0], zero});
+                    accumulatedVec, tmpBlockedAlloca, {tmpInd, zero});
               });
           // Load all temp vectors.
           SmallVector<Value, 4> redIn, redOut;
@@ -813,7 +843,22 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 {create.math.constantIndex(i), zero});
             redIn.emplace_back(val);
           }
-)
+          // Reduce all of the temp vectors at once.
+          auto redFct = [&](Value a, Value b) -> Value {
+            return emitScalarOpFor<ONNXReductionOp>(
+                rewriter, create.getLoc(), op, vecType, {a, b});
+          };
+          create.vec.multiReduction(redIn, redFct, redOut);
+          // The redOut list should have one value with SIMD of VL.
+          assert(redOut.size() == 1 && "expected only one val");
+          Value accumulatedVal = redOut[0];
+          // Perform the mean computation if required.
+          if (computeMean) {
+            Value divisorForMeanVec = create.vec.splat(vecType, divisorForMean);
+            accumulatedVal = create.math.div(accumulatedVal, divisorForMeanVec);
+          }
+          // Store final values.
+          create.vec.store(accumulatedVal, flatAlloc, outputBlockedLoopInd);
 
 #if 0
           // Iterate over the SIMD blocks
