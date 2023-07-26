@@ -29,7 +29,7 @@ ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
       exec(nullptr) {
-  registerDialects(ctx);
+  loadDialects(ctx);
 }
 
 ModelLibBuilder::~ModelLibBuilder() {

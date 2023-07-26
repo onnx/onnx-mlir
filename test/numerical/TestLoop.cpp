@@ -18,6 +18,8 @@
 
 #include "src/Runtime/OMTensorHelper.hpp"
 
+#include "mlir/Parser/Parser.h"
+
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace mlir;
@@ -97,7 +99,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  loadDialects(ctx);
 
   auto module = mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));

@@ -85,9 +85,6 @@ public:
   // Hooks for onnx-mlir driver
   //===--------------------------------------------------------------------===//
 
-  /// Load the MLIR dialects necessary to generate code for an accelerator.
-  virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
-
   /// Add the transformations necessary to support the accelerator.
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
