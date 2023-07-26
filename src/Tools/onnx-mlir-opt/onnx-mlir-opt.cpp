@@ -153,13 +153,13 @@ int main(int argc, char **argv) {
   auto file = openInputFile(input_filename, &error_message);
   if (!error_message.empty()) {
     llvm::errs() << "Failure to open file; " << error_message << "\n";
-    return failed(LogicalResult::failure());
+    return 1;
   }
 
   auto output = openOutputFile(output_filename, &error_message);
   if (!error_message.empty()) {
     llvm::errs() << "Failure to compile file; " << error_message << "\n";
-    return failed(LogicalResult::failure());
+    return 1;
   }
 
   auto passManagerSetupFn = [&](PassManager &pm) {
@@ -185,8 +185,8 @@ int main(int argc, char **argv) {
       .useExplicitModule(false);
 
   if (failed(MlirOptMain(output->os(), std::move(file), registry, config)))
-    return asMainReturnCode(failure());
+    return 1;
 
   output->keep();
-  return asMainReturnCode(success());
+  return 0;
 }
