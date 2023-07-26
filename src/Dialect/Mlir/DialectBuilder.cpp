@@ -1777,8 +1777,49 @@ Value LLVMBuilder::extractValue(
       loc(), resultType, container, position);
 }
 
-LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
-  return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
+LLVM::LLVMFuncOp LLVMBuilder::func(
+    StringRef funcName, Type funcType, bool createUniqueFunc) const {
+  // If createUniqueFunc, we create two functions: name and name_postfix.
+  // They have the same signatures and `name` will call `name_postfix`.
+  // `name_postfix` funtion is expected to be unique across all generated
+  // modules, allowing to run multiple models at the same time.
+  LLVM::LLVMFuncOp funcOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), funcName, funcType);
+  if (!createUniqueFunc)
+    return funcOp;
+
+  // Create uniqueFuncOp if there exists a postfix.
+  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition before
+  // `funcOp`.
+  b().setInsertionPoint(funcOp);
+  ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
+  std::string uniqueFuncName =
+      LLVMBuilder::SymbolPostfix(module, funcName.str());
+  if (uniqueFuncName == funcName.str())
+    return funcOp;
+
+  auto uniqueFuncType = cast<LLVM::LLVMFunctionType>(funcType);
+  LLVM::LLVMFuncOp uniqueFuncOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
+
+  // Call uniqueFuncOp inside funcOp.
+  Block *entryBlock = funcOp.addEntryBlock();
+  OpBuilder::InsertionGuard bodyGuard(b());
+  b().setInsertionPointToStart(entryBlock);
+  ValueRange args = entryBlock->getArguments();
+  TypeRange resultTypes = uniqueFuncType.getReturnTypes();
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
+    b().create<LLVM::CallOp>(loc(), ArrayRef<Type>({}), uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({}));
+  } else {
+    LLVM::CallOp callOp =
+        b().create<LLVM::CallOp>(loc(), resultTypes, uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({callOp.getResult()}));
+  }
+
+  return uniqueFuncOp;
 }
 
 Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
@@ -1788,9 +1829,17 @@ Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
-    uint64_t alignment) const {
-  return b().create<LLVM::GlobalOp>(loc(), resultType,
+    uint64_t alignment, bool uniqueName) const {
+  LLVM::GlobalOp gop = b().create<LLVM::GlobalOp>(loc(), resultType,
       /*isConstant=*/isConstant, linkage, name, valueAttr);
+  if (!uniqueName)
+    return gop;
+
+  // Append to `name` a unique string to make it unique across multiple
+  // generated LLVMIR.
+  ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
+  gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
+  return gop;
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
