@@ -2,22 +2,36 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- InitOMPasses.hpp - Init onnx-mlir passes  ----------------===//
+//===------------------------- RegisterPasses.cpp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
+// Beware that we cannot access CompilerOptions or other command line options
+// the functions below because they are called before command line options are
+// parsed, because passes must be registered first as they instruct command
+// line parsing: registered passes can be expressed as command line flags.
+//
+// In particular the --O flag value is passed as a function argument optLevel
+// so we can avoid reading the OptimizationLevel command-line option here.
+//
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#include "RegisterPasses.hpp"
 
-#include "mlir/Pass/Pass.h"
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
+
+#include "mlir/InitAllPasses.h"
+#include "mlir/Pass/PassRegistry.h"
 #include "src/Pass/Passes.hpp"
+
+using namespace mlir;
 
 namespace onnx_mlir {
 
-void initOMPasses(int optLevel) {
+void registerOMPasses(int optLevel) {
   // All passes implemented within onnx-mlir should register within this
   // function to make themselves available as a command-line option.
 
@@ -122,6 +136,42 @@ void initOMPasses(int optLevel) {
   mlir::registerPass(
       []() -> std::unique_ptr<mlir::Pass> { return createLowerToMhloPass(); });
 #endif
+}
+
+void registerMLIRPasses() {
+  registerTransformsPasses();
+  affine::registerAffinePasses();
+  func::registerFuncPasses();
+  registerLinalgPasses();
+  memref::registerMemRefPasses();
+  registerSCFPasses();
+  bufferization::registerBufferizationPasses();
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertVectorToSCFPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createLowerAffinePass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertSCFToCFPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertVectorToLLVMPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createPrintOpStatsPass();
+  });
+}
+
+void registerPasses(int optLevel) {
+  registerMLIRPasses();
+
+  registerOMPasses(optLevel);
+
+  // Register passes for accelerators.
+  for (auto *accel : accel::Accelerator::getAccelerators())
+    accel->registerPasses(optLevel);
 }
 
 } // namespace onnx_mlir
