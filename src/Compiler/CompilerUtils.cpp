@@ -941,6 +941,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
+  configurePasses();
+
   mlir::PassManager pm(
       module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
   // TODO(tung): Revise adding passes. The current mechanism does not work if
