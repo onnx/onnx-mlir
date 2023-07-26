@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "llvm/ADT/StringRef.h"
-
 #include <memory>
 #include <string>
 
@@ -25,8 +23,6 @@ class Pass;
 } // namespace mlir
 
 namespace onnx_mlir {
-
-class DisposablePool;
 
 /// Pass for removing DisposableElementsAttr attributes.
 std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter = true);
@@ -50,7 +46,7 @@ std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
 std::unique_ptr<mlir::Pass> createInstrumentPass(
-    llvm::StringRef ops, unsigned actions);
+    const std::string &ops, unsigned actions);
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
