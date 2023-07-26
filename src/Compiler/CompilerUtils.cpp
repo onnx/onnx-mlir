@@ -316,6 +316,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
   std::string tag = "";
+  assert(modelTag.empty() && "Model tag was not set");
   if (!StringRef(modelTag).equals_insensitive("NONE"))
     tag = "_" + modelTag;
   // Signature functions.
