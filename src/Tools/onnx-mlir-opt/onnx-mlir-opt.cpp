@@ -34,6 +34,7 @@
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
@@ -161,6 +162,10 @@ int main(int argc, char **argv) {
     llvm::errs() << "Failure to compile file; " << error_message << "\n";
     return 1;
   }
+
+  // Passes are configured with command line options so they must be configured
+  // after command line parsing but before any passes are run.
+  configurePasses();
 
   auto passManagerSetupFn = [&](PassManager &pm) {
     MLIRContext *ctx = pm.getContext();
