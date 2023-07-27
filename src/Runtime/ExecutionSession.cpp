@@ -57,8 +57,8 @@ void ExecutionSession::Init(
 
 #if defined(_WIN32)
   // Use functions without tags on Windows since we cannot define at compile
-  // time the tagged functions in header files in `include/onnx-mlir/Runtime` to
-  // make the tagged functions visible.
+  // time the tagged functions in the header files in
+  // `include/onnx-mlir/Runtime` to make the tagged functions visible.
   lowDashTag = "";
 #endif
 
