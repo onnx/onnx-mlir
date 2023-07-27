@@ -1294,16 +1294,16 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-// Return SIMD unroll; no simd -> return 0;
+// Return unrolled vector length; no simd -> return 0;
 // collapsedLiteralSize is ignored when we can collapse every loop iterations as
 // we then rely on padding of the allocated memory to enable arbitrary output
 // array simdization. When partial simd is requested, then we must ensure that
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
-    int64_t collapsedLiteralSize) {
-  int64_t simdUnroll = 0;
+    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops) {
+  int64_t simdUnroll;
+  int64_t uVL = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
@@ -1325,50 +1325,17 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
-  // Test if there is enough work.
-  int64_t staticSize;
-  IndexExpr dynSize;
-  bool isStaticSize = create.mem.getStaticAndDynamicMemSize(
-      memRefType, shapeHelper.getOutputDims(), staticSize, dynSize);
-  if (isStaticSize && staticSize < simdUnroll) {
-    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
-                            << " too short \n");
-    return 0;
-  }
-  if (collapsedInnermostLoops > 0 &&
-      collapsedInnermostLoops < (int64_t)memRefType.getRank()) {
-    // We have a partially flattened operator. Since we do only simdize entire
-    // loops (i.e. we don't support scalar epilogues at this time), make sure
-    // the static size is a multiple of the VL. Get the VL of the store
-    // (output's element type).
-    int64_t VL = vms->getVectorLength(elementType);
-    if (collapsedLiteralSize % VL != 0) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "  simd disabled: partial flattened dims "
-                 << collapsedInnermostLoops << " with size "
-                 << collapsedLiteralSize << " is not 0 mod VL " << VL << "\n");
-      return 0;
-    }
-    // See if we can get a unroll factor.
-    bool gotOne = false;
-    for (int64_t u = simdUnroll; u > 0; --u) {
-      if (collapsedLiteralSize % (u * VL) == 0) {
-        LLVM_DEBUG(llvm::dbgs()
-                   << "  partial flattened dims " << collapsedInnermostLoops
-                   << " with size " << collapsedLiteralSize << " works with VL "
-                   << VL << " and unroll " << u << "\n");
-        simdUnroll = u;
-        gotOne = true;
-        break;
-      }
-    }
-    // Since we passed the test collapsedLiteralSize % VL == 0 above, this
-    // assert is expected to hold true.
-    assert(gotOne && "expected at least 1 *VL to work");
-  }
-  LLVM_DEBUG(llvm::dbgs() << "  SIMD with avg width " << avgSimdWidth
-                          << " and unroll " << simdUnroll << "\n");
-  return simdUnroll;
+  uVL = create.vec.SuitableUnrollFactor(vms, memRefType,
+      shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
+      /*canPad*/ true);
+  LLVM_DEBUG({
+    if (uVL)
+      llvm::dbgs() << "  simd enabled with vector length " << uVL << "\n";
+    else
+      LLVM_DEBUG(
+          llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
+  });
+  return uVL;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1380,7 +1347,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     ConversionPatternRewriter &rewriter, MDBuilder &create,
     ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
     MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
-    int64_t simdUnroll, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
+    int64_t VL, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
     bool isUnaryOp) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
@@ -1390,8 +1357,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
 
   // generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
-  int64_t VL =
-      create.vec.getMachineVectorLength(outputElementType) * simdUnroll;
+  DimsExpr outputDims;
+  getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
+
   // Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
@@ -1399,7 +1367,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // will change if we do partial flattening with non-multiple of VL *
   // simdUnroll.
   Value alloc = create.mem.alignedAllocWithSimdPadding(
-      outputMemRefType, shapeHelper->getOutputDims(), simdUnroll, alignment);
+      outputMemRefType, outputDims, VL, alignment);
   // Create flat inputs in the last innerDinNum dims.
   llvm::SmallVector<Value, 4> flatOperands;
   for (Value oper : operands) {
@@ -1408,39 +1376,35 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       flatOperands.emplace_back(oper);
       continue;
     }
-    llvm::SmallVector<IndexExpr, 4> operDims;
-    Value operSize;
+    DimsExpr operDims, flattenOperDims;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
     Value flatOper = create.mem.reshapeToFlat(
-        oper, operDims, operSize, collapsedInnermostLoops);
+        oper, operDims, flattenOperDims, collapsedInnermostLoops);
     flatOperands.emplace_back(flatOper);
   }
+
   // Create flat output.
-  Value flattenedOutputSize;
-  DimsExpr outputDims = shapeHelper->getOutputDims();
-  Value flatAlloc = create.mem.reshapeToFlat(
-      alloc, outputDims, flattenedOutputSize, collapsedInnermostLoops);
-  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
-  // one and blocked by mVL.
   int64_t rank = outputDims.size() - collapsedInnermostLoops + 1;
   LLVM_DEBUG(
       llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
   int64_t flattenedDim = rank - 1;
+  SmallVector<IndexExpr, 4> flattenedOutputDims;
+  Value flatAlloc = create.mem.reshapeToFlat(
+      alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
+  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
+  // one and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(rank);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
   SmallVector<Value, 4> optimizedLoopDef;
-  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-  SmallVector<IndexExpr, 4> ubs;
   for (int64_t r = 0; r < rank - 1; ++r) {
     optimizedLoopDef.emplace_back(loopDef[r]);
-    ubs.emplace_back(SymbolIndexExpr(outputDims[r]));
   }
   optimizedLoopDef.emplace_back(blockedLoopDef[0]);
-  ubs.emplace_back(SymbolIndexExpr(flattenedOutputSize));
   // Create the vector type to operate over.
   VectorType vecElementType = VectorType::get({VL}, outputElementType);
   // Iterate only over the blocks.
-  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, ubs,
+  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
       [&](KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
         SmallVector<IndexExpr, 4> outputAccessExprs;
@@ -1934,14 +1898,12 @@ struct ONNXElementwiseUnaryOpLowering
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
-      int64_t simdUnroll =
-          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, create, op, outputMemRefType, outputRank,
-              /*collapsedInnermostLoops, ignored*/ 1);
-      if (simdUnroll > 0)
+      int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
+          shapeHelper, create, op, outputMemRefType, outputRank);
+      if (uVL > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, /*collapsedInnermostLoop*/ outputRank,
+            uVL, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
@@ -2083,14 +2045,14 @@ struct ONNXElementwiseBinaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
-      int64_t simdUnroll =
+      int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops, collapsedLiteralSize);
-      if (simdUnroll > 0)
+              collapsedInnermostLoops);
+      if (uVL > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, collapsedInnermostLoops, hasNoBroadcast,
+            uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
@@ -2224,14 +2186,14 @@ struct ONNXElementwiseVariadicOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
-      int64_t simdUnroll =
+      int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops, collapsedLiteralSize);
-      if (simdUnroll > 0)
+              collapsedInnermostLoops);
+      if (uVL > 0)
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            simdUnroll, collapsedInnermostLoops, hasNoBroadcast,
+            uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");

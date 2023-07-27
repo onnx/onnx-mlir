@@ -32,8 +32,8 @@ class PyExecutionSessionBase
 #endif
     : public onnx_mlir::ExecutionSession {
 public:
-  PyExecutionSessionBase(
-      std::string sharedLibPath, bool defaultEntryPoint = true);
+  PyExecutionSessionBase(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
   std::vector<std::string> pyQueryEntryPoints();
   void pySetEntryPoint(std::string entryPointName);
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);

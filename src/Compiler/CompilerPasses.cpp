@@ -8,9 +8,9 @@
 //
 // =============================================================================
 //
-// Functions for adding passes.
+// Functions for configuring and adding passes.
 //
-// REQUEST: to the extend possible, passes here should not sample global
+// REQUEST: To the extent possible, passes here should not sample global
 // optimization parameters specified in CompilerOptions.hpp. The passes should
 // use parameters that are set by these global options where these passes are
 // called. The idea is to keep our code as free of "rogue" global options used
@@ -40,6 +40,10 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+void configurePasses() {
+  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound);
+}
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // This is a transition from previous static passes to full dynamic passes

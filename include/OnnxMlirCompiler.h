@@ -113,6 +113,17 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
 ONNX_MLIR_EXPORT char *omCompileOutputFileName(
     const char *inputFilename, const char *flags);
 
+/*!
+ * Compute the model tag from the given compile options.
+ * User is responsible for freeing the string.
+ *
+ *  @param flags A char * contains all the options provided to compile the
+ *  model.
+ *  @return string containing the model tag. User is responsible for freeing the
+ *  string.
+ */
+ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags);
+
 #ifdef __cplusplus
 } // namespace onnx_mlir
 } // extern C

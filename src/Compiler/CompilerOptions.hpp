@@ -86,11 +86,13 @@ extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<bool> onnxConstPropReport;
+extern llvm::cl::opt<int> onnxConstPropExpansionBound;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 extern llvm::cl::list<std::string> functionsToDecompose;
+extern llvm::cl::opt<std::string> modelTag;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

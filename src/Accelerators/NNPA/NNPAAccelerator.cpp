@@ -57,12 +57,6 @@ NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
 uint64_t NNPAAccelerator::getVersionNumber() const { return ZDNN_VERNUM; }
 
-void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
-  LLVM_DEBUG(llvm::dbgs() << "Loading dialects for NNPA accelerator\n");
-  context.getOrLoadDialect<zhigh::ZHighDialect>();
-  context.getOrLoadDialect<zlow::ZLowDialect>();
-}
-
 void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) const {
@@ -76,8 +70,8 @@ void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
   registry.insert<zlow::ZLowDialect>();
 }
 
-void NNPAAccelerator::initPasses(int optLevel) const {
-  LLVM_DEBUG(llvm::dbgs() << "Initializing passes for NNPA accelerator\n");
+void NNPAAccelerator::registerPasses(int optLevel) const {
+  LLVM_DEBUG(llvm::dbgs() << "Registering passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::createONNXToZHighPass();
   });
