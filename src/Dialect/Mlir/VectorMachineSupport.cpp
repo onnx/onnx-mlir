@@ -8,8 +8,8 @@
 //
 // =============================================================================
 
-#include "mlir/IR/BuiltinTypes.h"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+#include "mlir/IR/BuiltinTypes.h"
 #include <algorithm>
 
 #define DEBUG_TYPE "dialect_builder"

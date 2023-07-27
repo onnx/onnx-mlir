@@ -593,9 +593,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
             divisorForMean);
       } else {
-        genShufflegenHorizontalSimdReduction(rewriter, create, op, elementOutType,
-            input, alloc, inRank, outRank, VL, innermostLoopCollapse,
-            isKeepdims, divisorForMean);
+        genShufflegenHorizontalSimdReduction(rewriter, create, op,
+            elementOutType, input, alloc, inRank, outRank, VL,
+            innermostLoopCollapse, isKeepdims, divisorForMean);
       }
     } else {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
@@ -605,10 +605,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     return success();
   }
 
-  void genScalarReduction(ConversionPatternRewriter &rewriter, MDBuilder &create,
-      Operation *op, Type elementType, Value input, Value alloc, int64_t inRank,
-      int64_t outRank, bool dynamicAxes, Value maskVal,
-      std::map<int64_t, int64_t> &outInDimMap, Value divisorForMean) const {
+  void genScalarReduction(ConversionPatternRewriter &rewriter,
+      MDBuilder &create, Operation *op, Type elementType, Value input,
+      Value alloc, int64_t inRank, int64_t outRank, bool dynamicAxes,
+      Value maskVal, std::map<int64_t, int64_t> &outInDimMap,
+      Value divisorForMean) const {
     //////////////////////////////////////////////////////////////////////
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -768,8 +769,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
-          genOnegenHorizontalSimdReduction(rewriter, create, op, elementType, vecType,
-              tmpAlloca, flatInput, flatAlloc, initVec, divisorForMean,
+          genOnegenHorizontalSimdReduction(rewriter, create, op, elementType,
+              vecType, tmpAlloca, flatInput, flatAlloc, initVec, divisorForMean,
               blockedSimdLoopDef[0], outLoopInd);
         });
   }
