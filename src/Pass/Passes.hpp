@@ -41,6 +41,9 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
+// To configure ConstPropONNXToONNXPass at program start.
+void configureConstPropONNXToONNXPass(int expansionBound);
+
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
 
 /// Pass for instrument the ops in specific stage.
