@@ -99,42 +99,36 @@ template <>
 struct ScalarOp<ONNXReduceProdV13Op> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceProdOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceSumV11Op> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceSumOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceMeanV13Op> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXReduceMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 //===----------------------------------------------------------------------===//

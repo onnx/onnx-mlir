@@ -4677,25 +4677,76 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // -----
 
 // Test whether lowering is correct for a string tensor input.
+
 func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x!onnx.String>) -> tensor<*xi1> {
   %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2x!onnx.String>, tensor<2x2x!onnx.String>) -> tensor<*xi1>
    return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_string
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2x!krnl.string>, [[PARAM_1_:%.+]]: memref<2x2x!krnl.string>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2x!krnl.string>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2x!krnl.string>
+// CHECK:             [[VAR_4_:%.+]] = "krnl.strlen"([[LOAD_PARAM_0_MEM_]]) : (!krnl.string) -> i64
+// CHECK:             [[VAR_5_:%.+]] = "krnl.strncmp"([[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]], [[VAR_4_]]) : (!krnl.string, !krnl.string, i64) -> i32
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpi eq, [[VAR_5_]], [[CST_0_]] : i32
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xi1>
+// CHECK:         }
 }
 
 // -----
 
 // Test whether lowering is correct for a int64_t tensor input.
+
 func.func @test_equal_int64(%arg0: tensor<2x2xi64>, %arg1: tensor<2x2xi64>) -> tensor<*xi1> {
   %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<*xi1>
    return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_int64
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2xi64>, [[PARAM_1_:%.+]]: memref<2x2xi64>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi64>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi64>
+// CHECK:             [[VAR_4_:%.+]] = arith.cmpi eq, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : i64
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xi1>
+// CHECK:         }
 }
 
 // -----
 
 // Test whether lowering is correct for a f32 tensor input.
+
 func.func @test_equal_float32(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32>) -> tensor<*xi1> {
   %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<*xi1>
    return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_float32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2xf32>, [[PARAM_1_:%.+]]: memref<2x2xf32>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.cmpf oeq, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xi1>
+// CHECK:         }
 }
 
 // -----

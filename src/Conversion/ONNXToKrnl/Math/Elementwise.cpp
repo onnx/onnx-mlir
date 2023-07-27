@@ -49,11 +49,6 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
       return;
     llvm_unreachable("this op does not support custom scalar for floats");
   }
-  if (actualElementType.isa<krnl::StringType>()) {
-    if constexpr (std::is_same<ScalarSOp<Op>, KrnlStrncmpOp>::value)
-      return;
-    llvm_unreachable("this op does not support custom scalar for strings");
-  }
 }
 
 // =============================================================================
@@ -91,7 +86,6 @@ template <>
 struct ScalarOp<ONNXTanhOp> {
   using FOp = math::TanhOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXTanhOp>(
@@ -103,7 +97,6 @@ template <>
 struct ScalarOp<ONNXAddOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXAddOp>(
@@ -115,7 +108,6 @@ template <>
 struct ScalarOp<ONNXAbsOp> {
   using FOp = math::AbsFOp;
   using IOp = math::AbsIOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXAbsOp>(
@@ -127,7 +119,6 @@ template <>
 struct ScalarOp<ONNXMulOp> {
   using FOp = arith::MulFOp;
   using IOp = arith::MulIOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXMulOp>(
@@ -139,7 +130,6 @@ template <>
 struct ScalarOp<ONNXDivOp> {
   using FOp = arith::DivFOp;
   using IOp = arith::DivSIOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXDivOp>(
@@ -151,7 +141,6 @@ template <>
 struct ScalarOp<ONNXSubOp> {
   using FOp = arith::SubFOp;
   using IOp = arith::SubIOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSubOp>(
@@ -163,49 +152,42 @@ template <>
 struct ScalarOp<ONNXAndOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::AndIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXOrOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::OrIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXXorOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::XOrIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXBitwiseAndOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::AndIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXBitwiseOrOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::OrIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXBitwiseXorOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = arith::XOrIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXExpOp> {
   using FOp = math::ExpOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXExpOp>(
@@ -217,7 +199,6 @@ template <>
 struct ScalarOp<ONNXSumOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSumOp>(
@@ -229,7 +210,6 @@ template <>
 struct ScalarOp<ONNXCosOp> {
   using FOp = math::CosOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXCosOp>(
@@ -241,7 +221,6 @@ template <>
 struct ScalarOp<ONNXLogOp> {
   using FOp = math::LogOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXLogOp>(
@@ -253,7 +232,6 @@ template <>
 struct ScalarOp<ONNXSqrtOp> {
   using FOp = math::SqrtOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSqrtOp>(
@@ -265,14 +243,12 @@ template <>
 struct ScalarOp<ONNXAtanOp> {
   using FOp = KrnlAtanOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXCeilOp> {
   using FOp = math::CeilOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXCeilOp>(
@@ -284,7 +260,6 @@ template <>
 struct ScalarOp<ONNXFloorOp> {
   using FOp = math::FloorOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXFloorOp>(
@@ -296,7 +271,6 @@ template <>
 struct ScalarOp<ONNXSinOp> {
   using FOp = math::SinOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXSinOp>(
@@ -308,7 +282,6 @@ template <>
 struct ScalarOp<ONNXPowOp> {
   using FOp = math::PowFOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 template <>
 double analyzeSimdFor<ONNXPowOp>(
@@ -320,49 +293,42 @@ template <>
 struct ScalarOp<ONNXIsNaNOp> {
   using FOp = KrnlIsNaNOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcosOp> {
   using FOp = KrnlAcosOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAcoshOp> {
   using FOp = KrnlAcoshOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinOp> {
   using FOp = KrnlAsinOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAsinhOp> {
   using FOp = KrnlAsinhOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXAtanhOp> {
   using FOp = KrnlAtanhOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
 struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 //===----------------------------------------------------------------------===//
@@ -372,7 +338,6 @@ template <>
 struct ScalarOp<ONNXIsInfOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 // Currently, SIMD code gen does not support handling operations where the data
@@ -421,7 +386,6 @@ template <>
 struct ScalarOp<ONNXCastOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = KrnlStrncmpOp;
 };
 
 template <>
@@ -442,7 +406,6 @@ template <>
 struct ScalarOp<ONNXSinhOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -477,7 +440,6 @@ template <>
 struct ScalarOp<ONNXCoshOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -512,7 +474,6 @@ template <>
 struct ScalarOp<ONNXSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -546,7 +507,6 @@ template <>
 struct ScalarOp<ONNXHardSigmoidOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -593,7 +553,6 @@ template <>
 struct ScalarOp<ONNXEluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -632,7 +591,6 @@ template <>
 struct ScalarOp<ONNXReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -661,7 +619,6 @@ template <>
 struct ScalarOp<ONNXLeakyReluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -697,7 +654,6 @@ template <>
 struct ScalarOp<ONNXPReluOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -730,7 +686,6 @@ template <>
 struct ScalarOp<ONNXSeluOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -773,7 +728,6 @@ template <>
 struct ScalarOp<ONNXReciprocalOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -801,7 +755,6 @@ template <>
 struct ScalarOp<ONNXSoftplusOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -833,7 +786,6 @@ template <>
 struct ScalarOp<ONNXSoftsignOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -865,7 +817,6 @@ template <>
 struct ScalarOp<ONNXSignOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -910,7 +861,6 @@ template <>
 struct ScalarOp<ONNXErfOp> {
   using FOp = math::ErfOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -926,7 +876,6 @@ template <>
 struct ScalarOp<ONNXMaxOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -959,7 +908,6 @@ template <>
 struct ScalarOp<ONNXMinOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -992,7 +940,6 @@ template <>
 struct ScalarOp<ONNXNegOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1018,7 +965,6 @@ template <>
 struct ScalarOp<ONNXLessOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1039,7 +985,6 @@ template <>
 struct ScalarOp<ONNXLessOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1060,7 +1005,6 @@ template <>
 struct ScalarOp<ONNXGreaterOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1081,7 +1025,6 @@ template <>
 struct ScalarOp<ONNXGreaterOrEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1102,7 +1045,6 @@ template <>
 struct ScalarOp<ONNXEqualOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = KrnlStrncmpOp;
 };
 
 template <>
@@ -1118,10 +1060,14 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   Type inputElemType = getElementType(lhs.getType());
   OpBuilder builder = create.krnl.getBuilder();
 
+  // If the two input values are a string then we want to use the krnlstrncmp.
+  // However, if the input values are a float or an int we can simply use the equal function. 
   if (inputElemType.isa<krnl::StringType>()) {
     Value strlenRes = create.krnl.strlen(lhs);
     Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
     Value zeroVal = create.math.constant(builder.getIntegerType(32), 0);
+    // Determine whether the results returned are valid.
+    // The results are valid if the "lhs" string equals to the "rhs" string. 
     results = create.math.eq(strncmpRes, zeroVal);
   } else {
     results = create.math.eq(lhs, rhs);
@@ -1136,7 +1082,6 @@ template <>
 struct ScalarOp<ONNXNotOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1157,7 +1102,6 @@ template <>
 struct ScalarOp<ONNXModOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1205,7 +1149,6 @@ template <>
 struct ScalarOp<ONNXMeanOp> {
   using FOp = arith::AddFOp;
   using IOp = arith::AddIOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1231,7 +1174,6 @@ template <>
 struct ScalarOp<ONNXRoundOp> {
   using FOp = CustomScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1296,7 +1238,6 @@ template <>
 struct ScalarOp<ONNXClipOp> {
   using FOp = CustomScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>
@@ -1332,7 +1273,6 @@ template <>
 struct ScalarOp<ONNXDequantizeLinearOp> {
   using FOp = NotSuportedScalarOp;
   using IOp = CustomScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <>

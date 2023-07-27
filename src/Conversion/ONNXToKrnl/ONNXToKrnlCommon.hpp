@@ -177,15 +177,12 @@ template <typename Op>
 struct ScalarOp {
   using FOp = NotSuportedScalarOp;
   using IOp = NotSuportedScalarOp;
-  using SOp = NotSuportedScalarOp;
 };
 
 template <typename FOp>
 using ScalarFOp = typename ScalarOp<FOp>::FOp;
 template <typename IOp>
 using ScalarIOp = typename ScalarOp<IOp>::IOp;
-template <typename SOp>
-using ScalarSOp = typename ScalarOp<SOp>::SOp;
 
 // Get the identity element of an operation.
 // Return NULL if the function does not have identity.
@@ -243,12 +240,6 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       return rewriter.create<ScalarFOp<Op>>(
           loc, elementType, scalarOperands, std::nullopt);
     llvm_unreachable("unsupported float operation");
-  } else if (actualElementType.isa<krnl::StringType>()) {
-    if constexpr (!(std::is_same<ScalarSOp<Op>, NotSuportedScalarOp>::value) &&
-                  !(std::is_same<ScalarSOp<Op>, mlir::KrnlStrncmpOp>::value))
-      return rewriter.create<ScalarSOp<Op>>(
-          loc, elementType, scalarOperands, std::nullopt);
-    llvm_unreachable("unsupported string operation");
   } else {
     llvm_unreachable("unsupported element type");
   }
