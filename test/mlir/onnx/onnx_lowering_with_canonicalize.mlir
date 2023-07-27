@@ -3792,13 +3792,9 @@ func.func @unique_without_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<4xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<4xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
 // CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<?xi64>
 // CHECK:         }
 
@@ -3820,13 +3816,9 @@ func.func @unique_with_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?x2xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
 // CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?x2xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?x2xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<?x2xi64>
 // CHECK:         }
 
@@ -3848,16 +3840,11 @@ func.func @unique_with_axis_3d(%arg0: tensor<2x2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?x2x2xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
 // CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?x2x2xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?x2x2xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<?x2x2xi64>
 // CHECK:         }
-
 
 // -----
 
@@ -3876,13 +3863,9 @@ func.func @unique_with_negative_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
 // CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<2x?xi64>
 // CHECK:         }
 
@@ -3904,13 +3887,9 @@ func.func @unique_with_sort(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<4xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<4xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
 // CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<?xi64>
 // CHECK:         }
 
@@ -3931,13 +3910,10 @@ func.func @unique_with_indices(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
 // CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_1, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<?xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<2x?xi64>
 // CHECK:         }
 
@@ -3958,13 +3934,11 @@ func.func @unique_with_inverse_indices(%arg0: tensor<2x2xi64>) -> tensor<*xi64> 
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
 // CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
 // CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_0, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<0xi64>, memref<?xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<2x?xi64>
 // CHECK:         }
 
@@ -3985,13 +3959,10 @@ func.func @unique_with_counts(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
 // CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
 // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
-// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
-// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
-// CHECK-DAG:       [[RES_4_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
 // CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
-// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_2, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<?xi64>, memref<?xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_1, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<0xi64>, memref<0xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
 // CHECK:           return [[RES_1_]] : memref<2x?xi64>
 // CHECK:         }
 
