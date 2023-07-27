@@ -55,10 +55,10 @@ void ExecutionSession::Init(
   if (!llvm::StringRef(tag).equals_insensitive("NONE"))
     lowDashTag = "_" + tag;
 
-  // Use functions without tags on Windows since we cannot define at compile
-  // time the tagged functions in header files `include/onnx-mlir/Runtime` to
-  // make the tagged functions visible.
 #if defined(_WIN32)
+  // Use functions without tags on Windows since we cannot define at compile
+  // time the tagged functions in header files in `include/onnx-mlir/Runtime` to
+  // make the tagged functions visible.
   lowDashTag = "";
 #endif
 
