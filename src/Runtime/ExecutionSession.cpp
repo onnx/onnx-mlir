@@ -55,6 +55,13 @@ void ExecutionSession::Init(
   if (!llvm::StringRef(tag).equals_insensitive("NONE"))
     lowDashTag = "_" + tag;
 
+  // Use functions without tags on Windows since we cannot define at compile
+  // time the tagged functions in header files `include/onnx-mlir/Runtime` to
+  // make the tagged functions visible.
+#if defined(_WIN32)
+  lowDashTag = "";
+#endif
+
   // Init symbols used by execution session.
   _sharedLibraryHandle =
       llvm::sys::DynamicLibrary::getLibrary(sharedLibPath.c_str());
