@@ -246,9 +246,9 @@ void *emit_zdnn_matmul_op(void *_args) {
   gettimeofday(&unstickEndTime, NULL);
   timersub(&unstickEndTime, &startTime, &totalTime);
   timersub(&stickEndTime, &startTime, &stickTime);
-  timersub(&opEndTime, &unstickEndTime, &opTime);
+  timersub(&opEndTime, &stickEndTime, &opTime);
   timersub(&unstickEndTime, &opEndTime, &unstickTime);
-  printf("MatMul C code Time elapsed: %ld.%06ld sec = %ld.06ld (stick) + "
+  printf("MatMul C code Time elapsed: %ld.%06ld sec = %ld.%06ld (stick) + "
          "%ld.%06ld (op) "
          " %ld.%06ld (unstick)\n",
       (long int)totalTime.tv_sec, (long int)totalTime.tv_usec,
@@ -294,25 +294,37 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
   void *dataB = omTensorGetDataPtr(B);
   void *dataC = omTensorGetDataPtr(C);
   void *dataY = omTensorGetDataPtr(Y);
-  assert(shapeA[0] == shapeY[0] &&
-         "omTensorMatmul: inconsistent input shapes (dim_m)");
-  assert(shapeA[1] == shapeB[0] &&
-         "omTensorMatmul: inconsistent input shapes (dim_n)");
-  assert(shapeB[1] == shapeY[1] && shapeB[1] == shapeC[0] &&
-         "omTensorMatmul: inconsistent input shapes (dim_p)");
   int dim_s, dim_m, dim_n, dim_p;
   if (rankA == 2) { // zdnn_matmul_op(unstacked) case
+    assert(shapeA[0] == shapeY[0] &&
+           "omTensorMatmul: inconsistent input shapes (dim_m)");
+    assert(shapeA[1] == shapeB[0] &&
+           "omTensorMatmul: inconsistent input shapes (dim_n)");
+    assert(shapeB[1] == shapeY[1] && shapeB[1] == shapeC[0] &&
+           "omTensorMatmul: inconsistent input shapes (dim_p)");
     dim_s = 0;
     dim_m = shapeA[0];
     dim_n = shapeA[1];
     dim_p = shapeB[1];
   }
   if (rankB == 3) { // zdmm_matmul_op(stacked) case
+    assert(shapeA[1] == shapeY[1] &&
+           "omTensorMatmul: inconsistent input shapes (dim_m)");
+    assert(shapeA[2] == shapeB[1] &&
+           "omTensorMatmul: inconsistent input shapes (dim_n)");
+    assert(shapeB[2] == shapeY[2] && shapeB[1] == shapeC[0] &&
+           "omTensorMatmul: inconsistent input shapes (dim_p)");
     dim_s = shapeA[0];
     dim_m = shapeA[1];
     dim_n = shapeA[2];
     dim_p = shapeB[2];
   } else { // zdnn_matmul_bcast_op case
+    assert(shapeA[1] == shapeY[1] &&
+           "omTensorMatmul: inconsistent input shapes (dim_m)");
+    assert(shapeA[2] == shapeB[0] &&
+           "omTensorMatmul: inconsistent input shapes (dim_n)");
+    assert(shapeB[1] == shapeY[2] && shapeB[1] == shapeC[0] &&
+           "omTensorMatmul: inconsistent input shapes (dim_p)");
     dim_s = shapeA[0];
     dim_m = shapeA[1];
     dim_n = shapeA[2];
