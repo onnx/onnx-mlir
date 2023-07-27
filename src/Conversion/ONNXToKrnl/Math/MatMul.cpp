@@ -30,11 +30,13 @@ namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
   ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      DimAnalysis *dimAnalysis, bool enableTiling)
+      DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD)
       : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
-        enableTiling(enableTiling) {}
+        enableTiling(enableTiling), enableSIMD(enableSIMD) {}
   DimAnalysis *dimAnalysis;
   bool enableTiling;
+  bool enableSIMD;
+
   // Handle the generic cases, including when there are broadcasts.
   void replaceGenericMatmul(ONNXMatMulOpAdaptor &operandAdaptor,
       Type elementType, ONNXMatMulOpShapeHelper &shapeHelper, Value alloc,
@@ -242,7 +244,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
-    bool simdize = true;
+    bool simdize = enableSIMD;
 
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
@@ -311,7 +313,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
-    bool simdize = true;
+    bool simdize = enableSIMD;
 
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
@@ -466,9 +468,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
-    bool enableTiling) {
+    bool enableTiling, bool enableSIMD) {
   patterns.insert<ONNXMatMulOpLowering>(
-      typeConverter, ctx, dimAnalysis, enableTiling);
+      typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD);
 }
 
 } // namespace onnx_mlir

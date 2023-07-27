@@ -40,7 +40,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && rm -rf build && mkdir -p build && cd build \
 # NNPA acclerator is built on all archs to enable lit tests
 # (dependent libzdnn is built on s390x only)
-    && cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
+    && CC=clang CXX=clang++ \
+       cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
              -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_INSTALL_MESSAGE=NEVER \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
@@ -56,6 +57,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
     && make check-docs \
+    && make check-unittest \
+    && make check-multiple-models \
     && make NPROC=${NPROC} \
             CTEST_PARALLEL_LEVEL=${NPROC} \
             TEST_NOFLOAT16=${TEST_NOFLOAT16} \
@@ -78,8 +81,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
           pip3 uninstall -q -y Cython pybind11 pytest pytest-forked \
                pytest-xdist typing-extensions && \
           yum remove -q -y \
-              adwaita-icon-theme autoconf automake cmake diffutils file \
-              git libtool make python39 && \
+              adwaita-icon-theme autoconf automake cmake file \
+              git libtool python39 && \
           rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
        fi \
     && rm -rf /tmp/* /usr/bin/python \

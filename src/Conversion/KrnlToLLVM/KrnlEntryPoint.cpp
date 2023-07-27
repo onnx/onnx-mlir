@@ -111,6 +111,14 @@ public:
     // signature-related functions later.
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
+    // Record the postfixed entry point name if available.
+    if (singleEntryPoint) {
+      std::string dynEntryPointPostfixName =
+          LLVMBuilder::SymbolPostfix(module, dynEntryPointName);
+      if (dynEntryPointPostfixName != dynEntryPointName)
+        recordEntryPointSignatures(module, dynEntryPointPostfixName, op,
+            entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
+    }
 
     // If `useOpaquePointers=true` in LowerToLLVMOptions, all memref arguments
     // are converted to opaque types, e.g. `!llvm.ptr`, so we lost the
@@ -127,8 +135,9 @@ public:
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
-    LLVM::LLVMFuncOp dynamicEntryPointFunc =
-        create.llvm.func(dynEntryPointName, dynEntryPointFuncTy);
+    LLVM::LLVMFuncOp dynamicEntryPointFunc;
+    dynamicEntryPointFunc = create.llvm.func(dynEntryPointName,
+        dynEntryPointFuncTy, /*createUniqueFunc=*/singleEntryPoint);
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);

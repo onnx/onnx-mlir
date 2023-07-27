@@ -88,7 +88,6 @@ public:
 
     // Size.
     Value sizeInBytes = create.llvm.mul(elemsToCopy, eltSizeInBytes);
-    sizeInBytes = create.llvm.sext(i64Ty, sizeInBytes);
 
     // Is volatile (set to false).
     Value isVolatile = create.llvm.constant(i1Ty, (int64_t)0);

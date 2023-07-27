@@ -33,6 +33,7 @@ namespace onnx_mlir {
     globalVectorMachineSupport = new Z15VectorMachineSupport();
   } else if (cpu.compare("z16") == 0) {
     globalVectorMachineSupport = new Z16VectorMachineSupport();
+    // Intel uses arch
   } else if (arch.compare("x86-64") == 0) {
     // Intel arch
     if (cpu.compare("skylake") == 0 && attr.compare("avx2") == 0)
@@ -40,6 +41,10 @@ namespace onnx_mlir {
     else
       // Default seems to be SSE
       globalVectorMachineSupport = new SSE42x86VectorMachineSupport();
+    // Arm uses arch
+  } else if (arch.compare("aarch64") == 0 || arch.compare("arm64") == 0) {
+    // Arm arch
+    globalVectorMachineSupport = new NeonVectorMachineSupport();
   } else {
     // Unknown: disable
     globalVectorMachineSupport = new NoVectorMachineSupport();
@@ -62,6 +67,8 @@ namespace onnx_mlir {
 // Methods shared among all VectorMachineSupport classes and subclasses
 
 int64_t VectorMachineSupport::getVectorLength(Type elementType) {
+  if (!hasSimd())
+    return 0;
   int64_t simdBitSize = getVectorBitWidth();
   int64_t typeBitSize = elementType.getIntOrFloatBitWidth();
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
@@ -74,6 +81,11 @@ double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
     int64_t &scalarOpNum) {
   assert(gopsNum.size() == gops.size() && "expect same length for both lists");
   int64_t gopsSize = gops.size();
+  if (!hasSimd()) {
+    vectorizedOpNum = 0;
+    scalarOpNum = gopsSize;
+    return 0;
+  }
   int64_t totProcessedValues = 0.0;
   vectorizedOpNum = 0;
   scalarOpNum = 0;
@@ -209,6 +221,90 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
     case GenericOps::ConversionGop:
     case GenericOps::CopySignGop:
     case GenericOps::DivGop:
+    case GenericOps::FloorGop:
+    case GenericOps::FmaGop:
+    case GenericOps::MinMaxGop:
+    case GenericOps::MulGop:
+    case GenericOps::RoundGop:
+    case GenericOps::SqrtGop:
+    case GenericOps::SumAcrossGop:
+      return abstractVL;
+    default:
+      // Unsupported float op.
+      return UNSUPPORTED;
+    }
+  }
+  // Support for integer (we consider bit-wide ops as byte wide ops).
+  switch (Gop) {
+    // 1 - 16 byte operations.
+  case GenericOps::ArithmeticGop: /* Add/sub,... */
+  case GenericOps::ConversionGop:
+  case GenericOps::LogicalGop:
+  case GenericOps::MinMaxGop:
+  case GenericOps::CompareGop:
+  case GenericOps::AbsGop:
+    return abstractVL;
+
+    // 1 - 8 byte operations.
+  case GenericOps::ShiftGop:
+    return bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+
+    // 1 - 4 byte operations.
+  case GenericOps::FmaGop:
+    return bitWidth <= 32 ? abstractVL : UNSUPPORTED;
+
+    // 4 - 16 byte operations.
+  case GenericOps::MulGop:
+    return bitWidth >= 32 && bitWidth <= 128 ? abstractVL : UNSUPPORTED;
+
+    // 4 - 8 byte operations.
+  case GenericOps::SumAcrossGop:
+    return bitWidth >= 32 && bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+
+  default:
+    // Unsupported integer op.
+    return UNSUPPORTED;
+  }
+  llvm_unreachable("should have handled all cases above");
+}
+
+// =============================================================================
+// Arm with Neon.
+// This may be an approximation of the actual capabilities.
+// =============================================================================
+
+int64_t NeonVectorMachineSupport::getVectorLength(
+    GenericOps Gop, mlir::Type elementType) {
+  int64_t bitWidth = elementType.getIntOrFloatBitWidth();
+  int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
+  bool isFloat = elementType.isa<FloatType>();
+
+  // Support shared between int and float.
+  switch (Gop) {
+    // 1 - 16 byte operations.
+  case GenericOps::SelectGop:
+  case GenericOps::ShuffleGop:
+    return abstractVL;
+  default:
+    // Continue with typed tests.
+    break;
+  }
+
+  // Support for float.
+  if (isFloat) {
+    // Supports only 32 and 64 bit Floats;
+    if (!(bitWidth == 32 || bitWidth == 64 ||
+            (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
+      return UNSUPPORTED;
+    // Now we have a supported length, test for specific operations.
+    switch (Gop) {
+    case GenericOps::AbsGop:
+    case GenericOps::ArithmeticGop: /* Add/sub,... */
+    case GenericOps::CeilGop:
+    case GenericOps::CompareGop:
+    case GenericOps::ConversionGop:
+    case GenericOps::CopySignGop:
+    // case GenericOps::DivGop:
     case GenericOps::FloorGop:
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:

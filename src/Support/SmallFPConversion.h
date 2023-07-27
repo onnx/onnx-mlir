@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SMALLFPCONVERSION_H
+#define ONNX_MLIR_SMALLFPCONVERSION_H
 
 #include <stdint.h>
 
@@ -27,3 +28,5 @@ uint16_t om_f32_to_bf16(float f32);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // ONNX_MLIR_SMALLFPCONVERSION_H

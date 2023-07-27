@@ -1,4 +1,4 @@
-// RUN: onnx-mlir -v %s -o %t 2>&1 | FileCheck %s
+// RUN: onnx-mlir -tag="test" -v %s -o %t 2>&1 | FileCheck %s
 
 // REQUIRES: system-linux
 // CHECK:      opt {{.*}} -o {{.*}}check_verbosity{{.*}}.bc

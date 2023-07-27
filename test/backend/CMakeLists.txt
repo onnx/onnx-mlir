@@ -11,11 +11,6 @@ file(GENERATE
   )
 
 file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/inference_backend.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/inference_backend.py
-  )
-
-file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/signature_backend.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/signature_backend.py
   )
@@ -23,6 +18,16 @@ file(GENERATE
 file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/input_verification_backend.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/input_verification_backend.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/inference_backend.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/inference_backend.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/onnxmlir_node_tests.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlir_node_tests.py
   )
 
 file(GENERATE
