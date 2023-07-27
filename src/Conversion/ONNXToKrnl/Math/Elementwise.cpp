@@ -1061,13 +1061,14 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   OpBuilder builder = create.krnl.getBuilder();
 
   // If the two input values are a string then we want to use the krnlstrncmp.
-  // However, if the input values are a float or an int we can simply use the equal function. 
+  // However, if the input values are a float or an int we can simply use the
+  // equal function.
   if (inputElemType.isa<krnl::StringType>()) {
     Value strlenRes = create.krnl.strlen(lhs);
     Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
     Value zeroVal = create.math.constant(builder.getIntegerType(32), 0);
     // Determine whether the results returned are valid.
-    // The results are valid if the "lhs" string equals to the "rhs" string. 
+    // The results are valid if the "lhs" string equals to the "rhs" string.
     results = create.math.eq(strncmpRes, zeroVal);
   } else {
     results = create.math.eq(lhs, rhs);
