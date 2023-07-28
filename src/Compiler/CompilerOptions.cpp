@@ -309,6 +309,24 @@ llvm::cl::opt<std::string> modelTag("tag",
     llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enableConvOptPass("enable-conv-opt-pass",
+    llvm::cl::desc("Enable the ConvOptPass. Default is true."),
+    llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> extraLibDirs("extra-lib-dirs",
+    llvm::cl::desc("Specify extra directories for libraries when compiling"
+                   "an onnx model. Will be add used as -L in the linkage step."
+                   "Each directory can be specified with one extra-lib-dirs"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> extraLibs("extra-libs",
+    llvm::cl::desc("Specify extra libraries when compiling an onnx model."
+                   "Will be add used as -l in the linkage step."
+                   "Each lib can be specified with one extra-libs"),
+    llvm::cl::cat(OnnxMlirOptions));
+
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
@@ -316,6 +334,8 @@ llvm::cl::opt<std::string> modelTag("tag",
 // If it gets more complicated in the future, it can be
 // replaced by a class of its own.
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
+
+
 
 // Must match ModelSize enum
 const std::string modelSizeStr[] = {"small", "medium", "large", "huge"};
