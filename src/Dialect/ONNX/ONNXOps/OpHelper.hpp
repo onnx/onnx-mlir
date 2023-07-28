@@ -47,6 +47,18 @@
 
 namespace onnx_mlir {
 
+/// This function returns a location with the corresponding ONNX operator name
+/// inside. This is useful when tracing what expanded MLIR instructions
+/// correspond to what ONNX operator.
+///
+///
+template <typename OP_TYPE>
+mlir::Location ONNXLoc(mlir::Operation *op) {
+  return mlir::NameLoc::get(
+      mlir::StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
+      op->getLoc());
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 

@@ -1110,3 +1110,148 @@ func.func @mul_broadcast_axis_unsqueeze(%279: tensor<1x64x112x112xf32>, %138: te
 // CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
 // CHECK:         }
 }
+
+// -----
+
+// Check rewriting sequence_lens from tensor<bsxi32> to none when bs = 1.
+// Check with LSTM, GRU and RNN.
+
+func.func @test_lstm_seq_lens_bs1_in_X(%X: tensor<7x1x3xf32>, %W: tensor<1x16x3xf32>, %R: tensor<1x16x4xf32>, %B: tensor<1x32xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %seq_lens, %initial_h, %none, %none) {hidden_size = 4 : si64} : (tensor<7x1x3xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, tensor<?xi32>, tensor<1x?x4xf32>, none, none) -> (none, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_lstm_seq_lens_bs1_in_X
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<7x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x16x3xf32>, [[PARAM_2_:%.+]]: tensor<1x16x4xf32>, [[PARAM_3_:%.+]]: tensor<1x32xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_:%.+]], [[Y_h_:%.+]], [[VAR_Y_c_:%.+]] = "onnx.LSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]], [[VAR_0_]], [[VAR_0_]]) {direction = "forward", hidden_size = 4 : si64, input_forget = 0 : si64, layout = 0 : si64} : (tensor<7x1x3xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x?x4xf32>, none, none) -> (none, tensor<*xf32>, none)
+// CHECK:           return [[Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_lstm_seq_lens_bs1_in_seq_lens(%X: tensor<*xf32>, %W: tensor<1x16x3xf32>, %R: tensor<1x16x4xf32>, %B: tensor<1x32xf32>, %seq_lens: tensor<1xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %seq_lens, %initial_h, %none, %none) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, tensor<1xi32>, tensor<1x?x4xf32>, none, none) -> (none, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_lstm_seq_lens_bs1_in_seq_lens
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x16x3xf32>, [[PARAM_2_:%.+]]: tensor<1x16x4xf32>, [[PARAM_3_:%.+]]: tensor<1x32xf32>, [[PARAM_4_:%.+]]: tensor<1xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_:%.+]], [[Y_h_:%.+]], [[VAR_Y_c_:%.+]] = "onnx.LSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]], [[VAR_0_]], [[VAR_0_]]) {direction = "forward", hidden_size = 4 : si64, input_forget = 0 : si64, layout = 0 : si64} : (tensor<*xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x?x4xf32>, none, none) -> (none, tensor<*xf32>, none)
+// CHECK:           return [[Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_lstm_seq_lens_bs1_in_initial_h(%X: tensor<*xf32>, %W: tensor<1x16x3xf32>, %R: tensor<1x16x4xf32>, %B: tensor<1x32xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x1x4xf32>) -> tensor<*xf32> {
+  %none = "onnx.NoValue"() {value} : () -> none
+  %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %seq_lens, %initial_h, %none, %none) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, tensor<?xi32>, tensor<1x1x4xf32>, none, none) -> (none, tensor<*xf32>, none)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_lstm_seq_lens_bs1_in_initial_h
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x16x3xf32>, [[PARAM_2_:%.+]]: tensor<1x16x4xf32>, [[PARAM_3_:%.+]]: tensor<1x32xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x1x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[Y_h_:%.+]], [[VAR_Y_c_:%.+]] = "onnx.LSTM"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]], [[VAR_0_]], [[VAR_0_]]) {direction = "forward", hidden_size = 4 : si64, input_forget = 0 : si64, layout = 0 : si64} : (tensor<*xf32>, tensor<1x16x3xf32>, tensor<1x16x4xf32>, tensor<1x32xf32>, none, tensor<1x1x4xf32>, none, none) -> (none, tensor<*xf32>, none)
+// CHECK:           return [[Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gru_seq_lens_bs1_in_X(%X: tensor<7x1x3xf32>, %W: tensor<1x12x3xf32>, %R: tensor<1x12x4xf32>, %B: tensor<1x24xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<7x1x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, tensor<?xi32>, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_gru_seq_lens_bs1_in_X
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<7x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x12x3xf32>, [[PARAM_2_:%.+]]: tensor<1x12x4xf32>, [[PARAM_3_:%.+]]: tensor<1x24xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.GRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) {direction = "forward", hidden_size = 4 : si64, layout = 0 : si64, linear_before_reset = 0 : si64} : (tensor<7x1x3xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gru_seq_lens_bs1_in_seq_lens(%X: tensor<*xf32>, %W: tensor<1x12x3xf32>, %R: tensor<1x12x4xf32>, %B: tensor<1x24xf32>, %seq_lens: tensor<1xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, tensor<1xi32>, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_gru_seq_lens_bs1_in_seq_lens
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x12x3xf32>, [[PARAM_2_:%.+]]: tensor<1x12x4xf32>, [[PARAM_3_:%.+]]: tensor<1x24xf32>, [[PARAM_4_:%.+]]: tensor<1xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.GRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) {direction = "forward", hidden_size = 4 : si64, layout = 0 : si64, linear_before_reset = 0 : si64} : (tensor<*xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gru_seq_lens_bs1_in_initial_h(%X: tensor<*xf32>, %W: tensor<1x12x3xf32>, %R: tensor<1x12x4xf32>, %B: tensor<1x24xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x1x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, tensor<?xi32>, tensor<1x1x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_gru_seq_lens_bs1_in_initial_h
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x12x3xf32>, [[PARAM_2_:%.+]]: tensor<1x12x4xf32>, [[PARAM_3_:%.+]]: tensor<1x24xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x1x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.GRU"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) {direction = "forward", hidden_size = 4 : si64, layout = 0 : si64, linear_before_reset = 0 : si64} : (tensor<*xf32>, tensor<1x12x3xf32>, tensor<1x12x4xf32>, tensor<1x24xf32>, none, tensor<1x1x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_rnn_seq_lens_bs1_in_X(%X: tensor<7x1x3xf32>, %W: tensor<1x4x3xf32>, %R: tensor<1x4x4xf32>, %B: tensor<1x8xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.RNN"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<7x1x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, tensor<?xi32>, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_rnn_seq_lens_bs1_in_X
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<7x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64} : (tensor<7x1x3xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_rnn_seq_lens_bs1_in_seq_lens(%X: tensor<*xf32>, %W: tensor<1x4x3xf32>, %R: tensor<1x4x4xf32>, %B: tensor<1x8xf32>, %seq_lens: tensor<1xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.RNN"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, tensor<1xi32>, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_rnn_seq_lens_bs1_in_seq_lens
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<1xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64} : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_rnn_seq_lens_bs1_in_initial_h(%X: tensor<*xf32>, %W: tensor<1x4x3xf32>, %R: tensor<1x4x4xf32>, %B: tensor<1x8xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x1x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.RNN"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, tensor<?xi32>, tensor<1x1x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_rnn_seq_lens_bs1_in_initial_h
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x1x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[VAR_0_]], [[PARAM_5_]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64} : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, none, tensor<1x1x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_rnn_seq_lens_not_rewrite(%X: tensor<*xf32>, %W: tensor<1x4x3xf32>, %R: tensor<1x4x4xf32>, %B: tensor<1x8xf32>, %seq_lens: tensor<?xi32>, %initial_h: tensor<1x?x4xf32>) -> tensor<*xf32> {
+  %Y, %Y_h = "onnx.RNN"(%X, %W, %R, %B, %seq_lens, %initial_h) {hidden_size = 4 : si64} : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, tensor<?xi32>, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+  return %Y_h : tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_rnn_seq_lens_not_rewrite
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<1x4x3xf32>, [[PARAM_2_:%.+]]: tensor<1x4x4xf32>, [[PARAM_3_:%.+]]: tensor<1x8xf32>, [[PARAM_4_:%.+]]: tensor<?xi32>, [[PARAM_5_:%.+]]: tensor<1x?x4xf32>) -> tensor<*xf32> {
+// CHECK:           [[Y_]], [[VAR_Y_h_:%.+]] = "onnx.RNN"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]]) {activations = ["Tanh", "Tanh"], direction = "forward", hidden_size = 4 : si64, layout = 0 : si64} : (tensor<*xf32>, tensor<1x4x3xf32>, tensor<1x4x4xf32>, tensor<1x8xf32>, tensor<?xi32>, tensor<1x?x4xf32>) -> (none, tensor<*xf32>)
+// CHECK:           return [[VAR_Y_h_]] : tensor<*xf32>
+// CHECK:         }
+}
