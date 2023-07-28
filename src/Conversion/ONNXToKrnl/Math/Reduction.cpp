@@ -18,6 +18,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 1
 
 using namespace mlir;
 
@@ -441,10 +442,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           create.krnlIE.getShapeAsSymbols(input, inputDims);
           int64_t unroll = 4;
           if (horizontalSimd) {
+#if ! DEBUG_FORCE_SHUFFLE_REDUCTION
             VectorBuilder::CombiningKind kind =
                 getCombiningKind<ONNXReductionOp>();
             hasHorizontalSimdSupport =
                 supportedHorizontalSIMDOp(vms, kind, elementOutType);
+#endif
             if (!hasHorizontalSimdSupport) {
               // Does not have SIMD horizontal support, so use a scheme that
               // unroll the innermost non-simd loop by VL. Because trip counts
@@ -453,7 +456,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               unroll = 1;
             }
           }
-          LLVM_DEBUG(llvm::dbgs() << "  SIMD: study with init unroll " << unroll << "\n");
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  SIMD: study with init unroll " << unroll << "\n");
           VL = create.vec.SuitableUnrollFactor(vms, memRefInType, inputDims,
               innermostLoopCollapse, unroll, /*canPad*/ false);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
