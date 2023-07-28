@@ -145,8 +145,10 @@ void *emit_zdnn_matmul_op(void *_args) {
 #endif
 #else // if defined(USE_NNPA)
 #ifdef PRINT_TIME
-  struct timeval startTime, stickEndTime, opEndTime, unstickEndTime;
-  struct timeval stickTime, opTime, unstickTime, totalTime;
+  struct timeval startTime, opEndTime, unstickEndTime;
+  struct timeval stickAEndTime, stickBEndTime, stickCEndTime, stickYEndTime;
+  struct timeval opTime, unstickTime, totalTime;
+  struct timeval stickATime, stickBTime, stickCTime, stickYTime;
   gettimeofday(&startTime, NULL);
 #endif
   bool is_bcast = false;
@@ -163,71 +165,81 @@ void *emit_zdnn_matmul_op(void *_args) {
   zdnn_tensor_desc tfrmd_desc_a, tfrmd_desc_b, tfrmd_desc_c, tfrmd_desc_y;
   zdnn_ztensor ztensor_a, ztensor_b, ztensor_c, ztensor_y;
   zdnn_data_types type = FP32;
-  zdnn_matmul_ops ops = NNPA_MATMUL_OP_ADDITION;
+  // zdnn_matmul_ops ops = NNPA_MATMUL_OP_ADDITION;
+  zdnn_matmul_ops ops = NNPA_MATMUL_BCAST_OP_ADDITION;
   zdnn_status status;
   int64_t size;
-  // generate transformed shape information for input 1, input 2 and output
+  // TODO: Support stacked and unstacked case. Currently support only bcast
+  // case.
+  // 1. generate transformed shape information for input 1, input 2 and output
+  // 2. initialize zTensors and allocate 4k-aligned storage via helper function
+  // 3. Allocate zTensor buffers
+  // 4. transform the feature tensor
+  // input 1
   zdnn_init_pre_transformed_desc(
-      ZDNN_2D, type, &pre_tfrmd_desc_a, dim_m, dim_n);
+      ZDNN_3DS, type, &pre_tfrmd_desc_a, dim_s, dim_m, dim_n);
+  //        ZDNN_2D, type, &pre_tfrmd_desc_a, dim_m, dim_n);
   status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_a, &tfrmd_desc_a);
   assert(status == ZDNN_OK);
-  zdnn_init_pre_transformed_desc(
-      ZDNN_2D, type, &pre_tfrmd_desc_b, dim_n, dim_p);
-  status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_b, &tfrmd_desc_b);
-  assert(status == ZDNN_OK);
-  zdnn_init_pre_transformed_desc(ZDNN_1D, type, &pre_tfrmd_desc_c, dim_p);
-  status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_c, &tfrmd_desc_c);
-  assert(status == ZDNN_OK);
-  zdnn_init_pre_transformed_desc(
-      ZDNN_2D, type, &pre_tfrmd_desc_y, dim_m, dim_p);
-  status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_y, &tfrmd_desc_y);
-  assert(status == ZDNN_OK);
-
-  // initialize zTensors and allocate 4k-aligned storage via helper function
   zdnn_init_ztensor(&pre_tfrmd_desc_a, &tfrmd_desc_a, &ztensor_a);
-  zdnn_init_ztensor(&pre_tfrmd_desc_b, &tfrmd_desc_b, &ztensor_b);
-  zdnn_init_ztensor(&pre_tfrmd_desc_c, &tfrmd_desc_c, &ztensor_c);
-  zdnn_init_ztensor(&pre_tfrmd_desc_y, &tfrmd_desc_y, &ztensor_y);
-
-  // Allocate zTensor buffers
   size = zdnn_getsize_ztensor(ztensor_a.transformed_desc);
   ztensor_a.buffer_size = size;
   if (posix_memalign(&ztensor_a.buffer, 4096, size))
     assert("Unable to allocate buffer for ztensor_a");
-
+  status = zdnn_transform_ztensor(&ztensor_a, data_a);
+  assert(status == ZDNN_OK);
+#ifdef PRINT_TIME
+  gettimeofday(&stickAEndTime, NULL);
+#endif
+  // input 2
+  zdnn_init_pre_transformed_desc(
+      ZDNN_2D, type, &pre_tfrmd_desc_b, dim_n, dim_p);
+  status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_b, &tfrmd_desc_b);
+  assert(status == ZDNN_OK);
+  zdnn_init_ztensor(&pre_tfrmd_desc_b, &tfrmd_desc_b, &ztensor_b);
   size = zdnn_getsize_ztensor(ztensor_b.transformed_desc);
   ztensor_b.buffer_size = size;
   if (posix_memalign(&ztensor_b.buffer, 4096, size))
     assert("Unable to allocate buffer for ztensor_b");
-
+  status = zdnn_transform_ztensor(&ztensor_b, data_b);
+  assert(status == ZDNN_OK);
+#ifdef PRINT_TIME
+  gettimeofday(&stickBEndTime, NULL);
+#endif
+  // input C
+  zdnn_init_pre_transformed_desc(ZDNN_1D, type, &pre_tfrmd_desc_c, dim_p);
+  status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_c, &tfrmd_desc_c);
+  assert(status == ZDNN_OK);
+  zdnn_init_ztensor(&pre_tfrmd_desc_c, &tfrmd_desc_c, &ztensor_c);
   size = zdnn_getsize_ztensor(ztensor_c.transformed_desc);
   ztensor_c.buffer_size = size;
   if (posix_memalign(&ztensor_c.buffer, 4096, size))
     assert("Unable to allocate buffer for ztensor_c");
-
+  status = zdnn_transform_ztensor(&ztensor_c, data_c);
+  assert(status == ZDNN_OK);
+#ifdef PRINT_TIME
+  gettimeofday(&stickCEndTime, NULL);
+#endif
+  // output
+  zdnn_init_pre_transformed_desc(
+      ZDNN_3DS, type, &pre_tfrmd_desc_y, dim_s, dim_m, dim_p);
+  status = zdnn_generate_transformed_desc(&pre_tfrmd_desc_y, &tfrmd_desc_y);
+  zdnn_init_ztensor(&pre_tfrmd_desc_y, &tfrmd_desc_y, &ztensor_y);
+  assert(status == ZDNN_OK);
   size = zdnn_getsize_ztensor(ztensor_y.transformed_desc);
   ztensor_y.buffer_size = size;
   if (posix_memalign(&ztensor_y.buffer, 4096, size))
     assert("Unable to allocate buffer for ztensor_y");
-
-  // transform the feature tensor
-  status = zdnn_transform_ztensor(&ztensor_a, data_a);
-  assert(status == ZDNN_OK);
-  status = zdnn_transform_ztensor(&ztensor_b, data_b);
-  assert(status == ZDNN_OK);
-  status = zdnn_transform_ztensor(&ztensor_c, data_c);
-  assert(status == ZDNN_OK);
 #ifdef PRINT_TIME
-  gettimeofday(&stickEndTime, NULL);
+  gettimeofday(&stickYEndTime, NULL);
 #endif
-
   // perform matrix multiplication between the two input tensors
   if (is_bcast)
-    status =
-        zdnn_matmul_op(&ztensor_a, &ztensor_b, &ztensor_c, ops, &ztensor_y);
-  else
     status = zdnn_matmul_bcast_op(
         &ztensor_a, &ztensor_b, &ztensor_c, ops, &ztensor_y);
+  else
+    status =
+        zdnn_matmul_op(&ztensor_a, &ztensor_b, &ztensor_c, ops, &ztensor_y);
   assert(status == ZDNN_OK);
 #ifdef PRINT_TIME
   gettimeofday(&opEndTime, NULL);
@@ -245,14 +257,21 @@ void *emit_zdnn_matmul_op(void *_args) {
 #ifdef PRINT_TIME
   gettimeofday(&unstickEndTime, NULL);
   timersub(&unstickEndTime, &startTime, &totalTime);
-  timersub(&stickEndTime, &startTime, &stickTime);
-  timersub(&opEndTime, &stickEndTime, &opTime);
+  timersub(&stickAEndTime, &startTime, &stickATime);
+  timersub(&stickBEndTime, &stickAEndTime, &stickBTime);
+  timersub(&stickCEndTime, &stickBEndTime, &stickCTime);
+  timersub(&stickYEndTime, &stickCEndTime, &stickYTime);
+  timersub(&opEndTime, &stickYEndTime, &opTime);
   timersub(&unstickEndTime, &opEndTime, &unstickTime);
-  printf("MatMul C code Time elapsed: %ld.%06ld sec = %ld.%06ld (stick) + "
+  printf("MatMul C code Time elapsed: %ld.%06ld sec = %ld.%06ld (stickA) + "
+         "%ld.%06ld (stickB) + %ld.%06ld (stickC) + %ld.%06ld (stickY) + "
          "%ld.%06ld (op) "
          " %ld.%06ld (unstick)\n",
       (long int)totalTime.tv_sec, (long int)totalTime.tv_usec,
-      (long int)stickTime.tv_sec, (long int)stickTime.tv_usec,
+      (long int)stickATime.tv_sec, (long int)stickATime.tv_usec,
+      (long int)stickBTime.tv_sec, (long int)stickBTime.tv_usec,
+      (long int)stickCTime.tv_sec, (long int)stickCTime.tv_usec,
+      (long int)stickYTime.tv_sec, (long int)stickYTime.tv_usec,
       (long int)opTime.tv_sec, (long int)opTime.tv_usec,
       (long int)unstickTime.tv_sec, (long int)unstickTime.tv_usec);
 #endif
@@ -325,7 +344,7 @@ void omTensorMatMulAsync(OMTensor *Y, OMTensor *threadTensor, OMTensor *A,
            "omTensorMatmul: inconsistent input shapes (dim_n)");
     assert(shapeB[1] == shapeY[2] && shapeB[1] == shapeC[0] &&
            "omTensorMatmul: inconsistent input shapes (dim_p)");
-    dim_s = shapeA[0];
+    dim_s = -shapeA[0];
     dim_m = shapeA[1];
     dim_n = shapeA[2];
     dim_p = shapeB[1];
