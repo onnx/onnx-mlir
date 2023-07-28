@@ -687,7 +687,7 @@ public:
   LogicalResult matchAndRewrite(
       ONNXOp onnxOp, PatternRewriter &rewriter) const override {
     if (onnxOp.getLayout() == 0) {
-      return success();
+      return failure();
     }
 
     InputOutputTransposer transposer(rewriter, onnxOp.getLoc());
@@ -732,6 +732,61 @@ public:
     }
 
     return success();
+  }
+};
+
+// Rewrites sequence_lens from tensor<bsxi32> to none when bs = 1. It works
+// because by definition all batches (meaning one) has the same sequence length.
+// This rewrite helps the compiler not need to handle sequence_lens.
+template <typename ONNXOp>
+class RNNOpRewriteSeqLenPattern : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp onnxOp, PatternRewriter &rewriter) const override {
+    Operation *op = onnxOp.getOperation();
+    Location loc = ONNXLoc<ONNXOp>(op);
+    Value X = onnxOp.getX();
+    Value initialH = onnxOp.getInitialH();
+    Value seqLen = onnxOp.getSequenceLens();
+
+    // sequence_lens is already none. Pattern does not match.
+    if (isNoneValue(seqLen))
+      return failure();
+
+    // Check if batchsize is 1. Batchsize can be in:
+    // - X: [seq_length, batch_size, input_size],
+    // - intial_h: [num_directions, batch_size, hidden_size]
+    // - sequence_lens: [batch_size], or
+    bool oneInX = false, oneInSeqLen = false, oneInInitalH = false;
+    if (isRankedShapedType(X.getType())) {
+      ArrayRef<int64_t> shape = getShape(X.getType());
+      oneInX = shape[1] == 1;
+    }
+    if (isRankedShapedType(seqLen.getType())) {
+      ArrayRef<int64_t> shape = getShape(seqLen.getType());
+      oneInSeqLen = (shape.size() == 1) && (shape[0] == 1);
+    }
+    if (!isNoneValue(initialH) && isRankedShapedType(initialH.getType())) {
+      ArrayRef<int64_t> shape = getShape(initialH.getType());
+      oneInInitalH = shape[1] == 1;
+    }
+    if (!oneInX && !oneInInitalH && !oneInSeqLen)
+      return failure();
+
+    // We know batchsize is 1. Rewrite now.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Find the operand index of sequence_lens and update it with none.
+    bool updated = false;
+    for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+      if (op->getOperand(i) != seqLen)
+        continue;
+      op->setOperand(i, create.onnx.none());
+      updated = true;
+      break;
+    }
+    return updated ? success() : failure();
   }
 };
 
@@ -912,6 +967,7 @@ void ONNXGreaterOp::getCanonicalizationPatterns(
 void ONNXGRUOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXGRUOp>>(context);
 }
 
 /// on the ONNXIdentityOp.
@@ -943,6 +999,7 @@ void ONNXLoopOp::getCanonicalizationPatterns(
 void ONNXLSTMOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXLSTMOp>>(context);
 }
 
 /// on the ONNXMulOp.
@@ -977,6 +1034,7 @@ void ONNXResizeOp::getCanonicalizationPatterns(
 void ONNXRNNOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXRNNOp>>(context);
 }
 
 /// on the ONNXShapeOp.
