@@ -1624,8 +1624,10 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
     int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad) const {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
   if (VL == 0) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
     return 0;
@@ -1635,9 +1637,9 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
   IndexExpr dynSize;
   bool isStaticSize = createMem.getStaticAndDynamicMemSize(
       memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
-  if (isStaticSize && staticSize < maxSimdUnroll) {
+  if (isStaticSize && staticSize < VL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
-                            << " too short \n");
+                            << " too short for a VL of " << VL << "\n");
     return 0;
   }
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
@@ -1655,7 +1657,6 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     return 0;
   }
   // See if we can get a unroll factor.
-  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   for (int64_t u = maxSimdUnroll; u > 0; --u) {
     if (staticSize % (u * VL) == 0) {
       LLVM_DEBUG(llvm::dbgs()

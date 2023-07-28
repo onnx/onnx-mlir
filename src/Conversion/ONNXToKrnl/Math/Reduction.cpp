@@ -453,6 +453,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               unroll = 1;
             }
           }
+          LLVM_DEBUG(llvm::dbgs() << "  SIMD: study with init unroll " << unroll << "\n");
           VL = create.vec.SuitableUnrollFactor(vms, memRefInType, inputDims,
               innermostLoopCollapse, unroll, /*canPad*/ false);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
