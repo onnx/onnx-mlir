@@ -745,7 +745,8 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXOp onnxOp, PatternRewriter &rewriter) const override {
-    Location loc = ONNXLoc<ONNXOp>(onnxOp.getOperation());
+    Operation *op = onnxOp.getOperation();
+    Location loc = ONNXLoc<ONNXOp>(op);
     Value X = onnxOp.getX();
     Value initialH = onnxOp.getInitialH();
     Value seqLen = onnxOp.getSequenceLens();
@@ -776,8 +777,16 @@ public:
 
     // We know batchsize is 1. Rewrite now.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    rewriter.replaceAllUsesWith(seqLen, create.onnx.none());
-    return success();
+    // Find the operand index of sequence_lens and update it with none.
+    bool updated = false;
+    for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+      if (op->getOperand(i) != seqLen)
+        continue;
+      op->setOperand(i, create.onnx.none());
+      updated = true;
+      break;
+    }
+    return updated ? success() : failure();
   }
 };
 
