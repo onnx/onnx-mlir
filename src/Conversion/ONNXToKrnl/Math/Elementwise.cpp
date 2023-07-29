@@ -1065,7 +1065,8 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   if (inputElemType.isa<krnl::StringType>()) {
     Value strlenRes = create.krnl.strlen(lhs);
     Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
-    // We need to covert the results to return *i1 since krnlstrncmp returns i32.
+    // We need to covert the results to return *i1 since krnlstrncmp returns
+    // i32.
     results = create.math.cast(rewriter.getI1Type(), strncmpRes);
   } else {
     results = create.math.eq(lhs, rhs);
