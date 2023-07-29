@@ -490,14 +490,14 @@ static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
     std::vector<std::string> libs, std::vector<std::string> libDirs) {
 
-// Add user specified libs and their path
-// Multiple lib or directory can be specified with multiple options.
-// For example, --extr-libs="extra1", --extra-libs="extra2"
+  // Add user specified libs and their path
+  // Multiple lib or directory can be specified with multiple options.
+  // For example, --extr-libs="extra1", --extra-libs="extra2"
 
-  for(std::string lib : extraLibs)
+  for (std::string lib : extraLibs)
     libs.push_back(lib);
 
-  for(std::string dir : extraLibDirs) 
+  for (std::string dir : extraLibDirs)
     libDirs.push_back(dir);
 
 #ifdef _WIN32
