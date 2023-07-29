@@ -442,7 +442,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           create.krnlIE.getShapeAsSymbols(input, inputDims);
           int64_t unroll = 4;
           if (horizontalSimd) {
-#if ! DEBUG_FORCE_SHUFFLE_REDUCTION
+#if !DEBUG_FORCE_SHUFFLE_REDUCTION
             VectorBuilder::CombiningKind kind =
                 getCombiningKind<ONNXReductionOp>();
             hasHorizontalSimdSupport =
@@ -881,9 +881,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     ValueRange blockedLoopDef = create.krnl.block(loopDef[flatInRank - 2], VL);
     ValueRange blockedSimdLoopDef =
         create.krnl.block(loopDef[flatInRank - 1], VL);
-    // Permute blocked loops
-    SmallVector<Value, 4> permDef;
-    SmallVector<int64_t> permOrder;
     // All of the non-blocked loops, plus the blocked nonSIMD loop
     SmallVector<Value, 4> outputBlockedLoopDef;
     for (int64_t i = 0; i < flatInRank - 2; ++i)
