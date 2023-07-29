@@ -1058,7 +1058,6 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   Value rhs = scalarOperands[1];
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
   Type inputElemType = getElementType(lhs.getType());
-  OpBuilder builder = create.krnl.getBuilder();
 
   // If the two input values are a string then we want to use the krnlstrncmp.
   // However, if the input values are a float or an int we can simply use the
@@ -1066,10 +1065,8 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   if (inputElemType.isa<krnl::StringType>()) {
     Value strlenRes = create.krnl.strlen(lhs);
     Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
-    Value zeroVal = create.math.constant(builder.getIntegerType(32), 0);
-    // Determine whether the results returned are valid.
-    // The results are valid if the "lhs" string equals to the "rhs" string.
-    results = create.math.eq(strncmpRes, zeroVal);
+    // We need to covert the results to return *i1 since krnlstrncmp returns i32.
+    results = create.math.cast(rewriter.getI1Type(), strncmpRes);
   } else {
     results = create.math.eq(lhs, rhs);
   }

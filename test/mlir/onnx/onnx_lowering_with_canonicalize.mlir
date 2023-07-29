@@ -4712,7 +4712,7 @@ func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x
 // CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2x!krnl.string>
 // CHECK:             [[VAR_4_:%.+]] = "krnl.strlen"([[LOAD_PARAM_0_MEM_]]) : (!krnl.string) -> i64
 // CHECK:             [[VAR_5_:%.+]] = "krnl.strncmp"([[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]], [[VAR_4_]]) : (!krnl.string, !krnl.string, i64) -> i32
-// CHECK:             [[VAR_6_:%.+]] = arith.cmpi eq, [[VAR_5_]], [[CST_0_]] : i32
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpi ne, [[VAR_5_]], [[CST_0_]] : i32
 // CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x2xi1>
