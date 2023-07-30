@@ -28,7 +28,6 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
