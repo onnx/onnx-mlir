@@ -1056,7 +1056,7 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   Value results;
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
   Type inputElemType = getElementType(lhs.getType());
 
   // If the two input values are a string then we want to use the krnlstrncmp.
@@ -1068,7 +1068,7 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
     // We need to convert the results to return *i1 since krnlstrncmp returns
     // i32.
     Value convertedRes = create.math.cast(elementType, strncmpRes);
-    Value oneVal = create.math.constant(elementType, 1);
+    Value oneVal = create.math.constant(elementType, 0);
     results = create.math.eq(convertedRes, oneVal);
   } else {
     results = create.math.eq(lhs, rhs);
