@@ -233,10 +233,6 @@ llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc("Report diagnostic info for op transform passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> onnxConstPropReport("onnx-const-prop-report",
-    llvm::cl::desc("Report diagnostic info for constant propagation passes."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
 llvm::cl::opt<int> onnxConstPropExpansionBound(
     "onnx-const-prop-expansion-bound",
     llvm::cl::desc("ONNX dialect constant propagation maximum expansion factor."
