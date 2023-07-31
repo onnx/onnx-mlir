@@ -900,6 +900,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
+#define DEBUG_WITH_IF 0 /* 1, with if, normal code */
+#if DEBUG_WITH_IF
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex = SymbolIndexExpr(
               outputBlockedLoopInd[outputBlockedLoopIndRank - 1]);
@@ -914,14 +916,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               isFullVal,
               [&](SCFBuilder &scf) {
                 MDBuilder create(scf);
+#endif
                 // create.krnl.printf("full tile\n");
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,
                     vecType, tmpBlockedAlloca, flatInput, flatAlloc, initVec,
                     divisorForMean, blockedLoopDef[1], blockedSimdLoopDef[0],
                     outputBlockedLoopInd, VL, flatInRank);
+#if DEBUG_WITH_IF
               },
               [&](SCFBuilder &scf) {
                 MDBuilder create(scf);
+#endif
                 // create.krnl.printf("partial tile\n");
                 create.krnl.iterate({}, blockedLoopDef[1], {}, {},
                     [&](KrnlBuilder &ck, ValueRange intraTile) {
@@ -939,7 +944,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                           flatAlloc, initVec, divisorForMean,
                           blockedSimdLoopDef[0], outLoopInd);
                     });
+#if DEBUG_WITH_IF
               });
+#endif
         });
   }
 };
