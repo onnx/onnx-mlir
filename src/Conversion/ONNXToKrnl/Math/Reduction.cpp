@@ -857,17 +857,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       create.vec.store(
           initVec, tmpBlockedAlloca, {create.math.constantIndex(i), zero});
     }
-    // Loop over blocked output loop, block guaranteed to be full.
-    IndexExpr ub = blockedCurrIndex + LiteralIndexExpr(VL);
-    create.scf.forLoop(blockedCurrIndex.getValue(), ub.getValue(), 1,
-        [&](SCFBuilder &scf, Value blockLocalInd) {
-          // Blocked Simd loop.
-          ValueRange simdLoopDef = create.krnl.defineLoops(1);
-          ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], VL);
-          create.krnl.iterate(simdLoopDef, {blockedSimdLoopDef[0]}, {zero},
-              {simdUB}, [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
-                MDBuilder create(ck);
-
+    // Blocked Simd loop.
+    ValueRange simdLoopDef = create.krnl.defineLoops(1);
+    ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], VL);
+    create.krnl.iterate(simdLoopDef, {blockedSimdLoopDef[0]}, {zero}, {simdUB},
+        [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
+          MDBuilder create(ck);
+          // Loop over blocked output loop, block guaranteed to be full.
+          IndexExpr ub = blockedCurrIndex + LiteralIndexExpr(VL);
+          create.scf.forLoop(blockedCurrIndex.getValue(), ub.getValue(), 1,
+              [&](SCFBuilder &scf, Value blockLocalInd) {
+                MDBuilder create(scf);
                 // All of the non-blocked loop, plus the inter tile index of the
                 // blocked loop, and the blocked simd loop.
                 SmallVector<Value, 4> inAccessVals =
@@ -887,8 +887,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                     rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
                 create.vec.store(
                     accumulatedVec, tmpBlockedAlloca, {tmpInd, zero});
-              }); /* blocked simd loop */
-        });       /* intra block output loop */
+              }); /* intra block output loop */
+        });       /* blocked simd loop */
     // Load all temp vectors.
     SmallVector<Value, 4> redIn, redOut;
     for (int64_t i = 0; i < VL; ++i) {
@@ -979,7 +979,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               isNotFullVal,
               [&](SCFBuilder &scf) {
                 MDBuilder create(scf);
-                create.krnl.printf("partial tile\n");
+                //create.krnl.printf("partial tile\n");
                 Value startOfLastBlockVal = blockedCurrIndex.getValue();
                 Value blockedUBVal = blockedUB.getValue();
                 create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
@@ -996,19 +996,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                           flatAlloc, initVec, divisorForMean, outLoopInd,
                           simdUB, VL);
                     }); /* for inside blocked loop */
-                create.krnl.printf("  done partial tile\n");
               },
               [&](SCFBuilder &scf) {
                 MDBuilder create(scf);
-                create.krnl.printf("full tile\n");
+                //create.krnl.printf("full tile\n");
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,
                     vecType, tmpBlockedAlloca, flatInput, flatAlloc, initVec,
                     divisorForMean, blockedOutLoopInd, blockedCurrIndex, simdUB,
                     VL);
-                create.krnl.printf("  done full tile\n");
               });
         }); /* blocked out loop */
-    create.krnl.printf("done\n");
   }
 
 }; /* struct ONNXReductionOpLowering */
