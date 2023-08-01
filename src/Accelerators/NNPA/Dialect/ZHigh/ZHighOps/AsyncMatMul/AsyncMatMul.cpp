@@ -25,18 +25,26 @@ namespace zhigh {
 
 LogicalResult ZHighMatMulAsyncOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(getA()) || !hasRankedType(getB()))
+  if (!hasRankedType(getX()) || !hasRankedType(getY()))
     return success();
 
-  ONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
+  ZHighMatMulOpShapeHelper shapeHelper(getOperation());
   shapeHelper.computeShapeAndAssertOnFailure();
 
   SmallVector<int64_t, 4> outputDims;
   IndexExpr::getShape(shapeHelper.getOutputDims(), outputDims);
   Type elementType =
       getResults()[0].getType().cast<ShapedType>().getElementType();
-  updateType(getResults()[0], outputDims, elementType);
 
+  ZTensorEncodingAttr encoding;
+  if (outputDims.size() == 2)
+    encoding = ZTensorEncodingAttr::get(
+        this->getContext(), ZTensorEncodingAttr::DataLayout::_2D);
+  else if (outputDims.size() == 3)
+    encoding = ZTensorEncodingAttr::get(
+        this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
+
+  updateType(getResults()[0], outputDims, elementType, encoding);
   return success();
 }
 } // namespace zhigh

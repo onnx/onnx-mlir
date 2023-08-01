@@ -1071,21 +1071,69 @@ struct ZHighToZLowMatMulAsyncOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     ZHighMatMulAsyncOpAdaptor operandAdaptor(operands);
 
+    // Helper builders.
     MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
 
     // Compute shape.
-    ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    ZHighMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Type convertedTypeY = typeConverter->convertType(op->getResultTypes()[0]);
-    assert(convertedTypeY && convertedTypeY.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType memRefTypeY = convertedTypeY.cast<MemRefType>();
-    Value Y =
-        create.mem.alignedAlloc(memRefTypeY, shapeHelper.getOutputDims(0));
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(op->getResultTypes()[0]);
 
+    Value alloc = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(0), op, rewriter);
+
+    // Get the original shape before it is vanished by lower passes.
+    // Create a 1D MemRef containing necessary dimensions for constructing
+    // original shapes.
+    // - In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
+    // shape is a 1D MemRef (memref<3xindex>) whose items are:
+    //   - 1st item: m
+    //   - 2nd item: n
+    //   - 3rd item: p
+    // - In case of stacked: X(s, m, n) * Y(s, n, p) + Bias(s, p)
+    //      or broadcasting: X(s, m, n) * Y(n, p) + Bias(p)
+    // shape is a 1D MemRef (memref<4xindex>) whose items are:
+    //   - 1st item: s
+    //   - 2nd item: m
+    //   - 3rd item: n
+    //   - 4th item: p
+    Value shapeMemRef =
+        insertShapeMemRefI64(rewriter, loc, shapeHelper.allOriginalDims);
+
+    // Prepare optional bias.
+    Value bias = operandAdaptor.getB();
+    if (bias.getType().isa<NoneType>()) {
+      SmallVector<IndexExpr, 4> resDims, biasDims;
+      create.krnlIE.getShapeAsDims(alloc, resDims);
+      ZTensorEncodingAttr::DataLayout biasLayout;
+      if (shapeHelper.isStacked) {
+        // Bias type is 2DS.
+        biasDims.emplace_back(resDims[0]);
+        biasDims.emplace_back(resDims[2]);
+        biasLayout = ZTensorEncodingAttr::DataLayout::_2DS;
+      } else {
+        // Bias type is 1D. Get the last dim size.
+        biasDims.emplace_back(resDims[resDims.size() - 1]);
+        biasLayout = ZTensorEncodingAttr::DataLayout::_1D;
+      }
+      // Allocate bias.
+      bias = insertAllocOrEmitZeroConstant(
+          biasDims, biasLayout, op, rewriter, loc);
+    }
+    // Attributes.
+    /* Not used now, but will be used later
+    int64_t bcast = (shapeHelper.isBroadcasted) ? -1 : 0;
+    int64_t stacked = (shapeHelper.isStacked) ? -1 : 0;
+    IntegerAttr is_bcastAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), bcast);
+    IntegerAttr is_stackedAttr =
+        rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), stacked);
+    */
     Type convertedTypeToken =
         typeConverter->convertType(op->getResultTypes()[1]);
     assert(convertedTypeToken && convertedTypeToken.isa<MemRefType>() &&
@@ -1094,20 +1142,12 @@ struct ZHighToZLowMatMulAsyncOpLowering : public ConversionPattern {
     Value Token =
         create.mem.alignedAlloc(memRefTypeToken, shapeHelper.getOutputDims(1));
 
-    Value A = operandAdaptor.getA();
+    Value X = operandAdaptor.getX();
+    Value Y = operandAdaptor.getY();
     Value B = operandAdaptor.getB();
-    Value C = operandAdaptor.getC();
-    // Create C assuming Y is unstacked case (2D (m x p))
-    // Value fZero = create.math.constant(memRefTypeY.getElementType(), 0);
-    // ArrayRef<int64_t> shape = memRefTypeY.getShape();
-    // MemRefType memRefTypeC =
-    //     MemRefType::get({shape[1]}, memRefTypeY.getElementType());
-    // SmallVector<IndexExpr, 1> dims;
-    // dims.emplace_back(shapeHelper.getOutputDims(0)[1]);
-    // Value C = create.mem.alignedAlloc(memRefTypeC, dims);
-    // create.krnl.memset(C, fZero);
-    SmallVector<Value, 2> results = {Y, Token};
-    SmallVector<Value, 5> parameters = {Y, Token, A, B, C};
+    // TODO: Need to pass original shape and attribute
+    SmallVector<Value, 2> results = {alloc, Token};
+    SmallVector<Value, 5> parameters = {alloc, Token, X, Y, B};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
     rewriter.replaceOp(op, results);
     return success();

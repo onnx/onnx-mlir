@@ -492,11 +492,12 @@ void RewriteONNXForZHighPass::runOnOperation() {
       return false;
     // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic or
     // exceeds NNPA limitation.
+    /* Comment out here to disable original matmul splitting
     if ((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3) &&
         ((aShape[aRank - 2] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) ||
             (bShape[bRank - 1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
       return false;
-
+    */
     // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
     if (aRank > 3 && (aRank == bRank)) {
       bool sameBatchDims = true;
@@ -535,7 +536,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
-  patterns.insert<SplitLargeMatMulPattern>(&getContext());
+  // Comment out here to disable original matmul splitting
+  // patterns.insert<SplitLargeMatMulPattern>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

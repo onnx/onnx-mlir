@@ -17,6 +17,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
@@ -221,6 +222,20 @@ SmallVector<int64_t, 2> getArrayStrides(OP op) {
   return shapeHelper.strides;
 }
 
+// Get LayoutStringAttr for MatMul
+StringAttr getMatMulLayoutAttr(PatternRewriter &rewriter, Value input) {
+  int64_t rank = getRank(input.getType());
+  return rewriter.getStringAttr((rank == 2) ? LAYOUT_2D : LAYOUT_3DS);
+}
+
+StringAttr getMatMulBiasLayoutAttr(
+    PatternRewriter &rewriter, Value a, Value b) {
+  int64_t rankA = getRank(a.getType());
+  int64_t rankB = getRank(b.getType());
+  return rewriter.getStringAttr(
+      ((rankA == 3) && (rankB == 3)) ? LAYOUT_2DS : LAYOUT_1D);
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX to ZHigh Lowering Pass
 //===----------------------------------------------------------------------===//
@@ -272,7 +287,8 @@ public:
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
     // TODO : Change the way to set chunkSize
-    int chunkSize = 512; // 2048; // 4096; // 8192;(2 zAIU) // 16384 (1 zAIU);
+    int chunkSize =
+        25129; // 50257; // gpt2-lm-head-10 dim 50257(orig) 25129 (half)
     bool nExceeded = N > chunkSize;
     bool mExceeded = M > chunkSize;
     if (!(nExceeded || mExceeded))
@@ -294,14 +310,19 @@ public:
       ArrayRef<int64_t> subAShape = getShape(a.getType());
       // For each matrix along dimension N, do MatMul for sub matrices along
       // dimension M.
-      SmallVector<Value> subMatrices, tokens, subCZeros;
+      SmallVector<Value> stickedOuts, tokens, stickedBs, stickedCZeros;
+      Value stickedA = rewriter.create<zhigh::ZHighStickOp>(
+          loc, a, getMatMulLayoutAttr(rewriter, a));
       for (Value b : subBs) {
         // Create ZHighMatMulAsync op
-        // TODO: Temporary change
+        // TODO: Temporary change. I64 might be ok.
         RankedTensorType tokenType =
             RankedTensorType::get({32}, rewriter.getF32Type());
         // RankedTensorType tokenType =
         //    RankedTensorType::get({8}, rewriter.getI64Type());
+        Value stickedB = rewriter.create<zhigh::ZHighStickOp>(
+            loc, b, getMatMulLayoutAttr(rewriter, b));
+        stickedBs.emplace_back(stickedB);
         // Create C with zero
         SmallVector<int64_t, 3> cShape;
         Type subBType = b.getType();
@@ -311,35 +332,40 @@ public:
         Type cType = RankedTensorType::get(cShape, elementType);
         Value cZero =
             onnx_mlir::zhigh::getConstantOfType(rewriter, loc, cType, 0.0);
-        subCZeros.emplace_back(cZero);
+        Value stickedC = rewriter.create<zhigh::ZHighStickOp>(
+            loc, cZero, getMatMulBiasLayoutAttr(rewriter, a, b));
+        stickedCZeros.emplace_back(stickedC);
         zhigh::ZHighMatMulAsyncOp asyncMatMulOp =
             rewriter.create<zhigh::ZHighMatMulAsyncOp>(
-                loc, unrankedType, tokenType, a, b, cZero);
+                loc, unrankedType, tokenType, stickedA, stickedB, stickedC);
         (void)asyncMatMulOp.inferShapes([](Region &region) {});
         Value sm = asyncMatMulOp.getResults()[0];
-        subMatrices.emplace_back(sm);
+        stickedOuts.emplace_back(sm);
         Value token = asyncMatMulOp.getResults()[1];
         tokens.emplace_back(token);
       }
       // Wait op
-      SmallVector<Value> waitBOps;
-      for (auto it : llvm::zip(subMatrices, tokens, subBs, subCZeros)) {
-        Value subMatrix = std::get<0>(it);
+      SmallVector<Value> waitOps;
+      for (auto it : llvm::zip(stickedOuts, tokens, stickedBs, stickedCZeros)) {
+        Value stickedOut = std::get<0>(it);
         Value token = std::get<1>(it);
-        Value b = std::get<2>(it);
-        Value c = std::get<3>(it);
+        Value stickedB = std::get<2>(it);
+        Value stickedC = std::get<3>(it);
         onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
-            rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(
-                loc, subMatrix.getType(), subMatrix, token, a, b, c);
-        waitBOps.emplace_back(waitOp.getResult());
+            rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(loc,
+                stickedOut.getType(), stickedOut, token, stickedA, stickedB,
+                stickedC);
+        Value unstickedOut =
+            rewriter.create<zhigh::ZHighUnstickOp>(loc, waitOp.getResult());
+        waitOps.emplace_back(unstickedOut);
       }
-      Value res = waitBOps[0];
-      if (subMatrices.size() > 1) {
+      Value res = waitOps[0];
+      if (stickedOuts.size() > 1) {
         // Concat sub results along dimension M of B.
         SmallVector<int64_t> concatShape(outputShape);
         concatShape[outputRank - 2] = subAShape[aRank - 2];
         Type concatTy = RankedTensorType::get(concatShape, elementType);
-        res = create.onnx.concat(concatTy, waitBOps, outputRank - 1);
+        res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
       }
       resSubAs.emplace_back(res);
     }

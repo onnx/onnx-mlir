@@ -37,7 +37,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
       if (exists)
         return true;
     }
-
+    /* Comment out here to disable original matmul splitting
     // Check zDNN limitations
     // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
     bool exceedLimit =
@@ -55,7 +55,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
         });
     if (exceedLimit)
       return true;
-
+    */
     return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
   });
 }

@@ -559,6 +559,36 @@ def ZHighMatMulAsyncOp:ZHigh_Op<"MatMulAsync", [Pure,
   let description = [{
     ZHigh operation to perform a MatMul asynchronously.
   }];
+  let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$X,
+                       AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Y,
+                       AnyTypeOf<[ZTensor_1D, ZTensor_2DS, NoneType]>:$B);
+
+  let results = (outs AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Out,
+                      TensorOf<[F32]>:$Token);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Y, "::mlir::Value":$B), [{
+      Type elementType = X.getType().cast<ShapedType>().getElementType();
+      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
+// TODO: Temporary change
+//      Type i64Ty = $_builder.getI64Type();
+//      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
+      Type f32Ty = $_builder.getF32Type();
+      RankedTensorType tokenType = RankedTensorType::get({32}, f32Ty);
+      build($_builder, $_state, resType, tokenType, X, Y, B);
+    }]>
+  ];
+/*
+  let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMatMulAsyncOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighMatMulAsyncOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+*/
+/*
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
                         TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
                         TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$A,
@@ -586,6 +616,7 @@ def ZHighMatMulAsyncOp:ZHigh_Op<"MatMulAsync", [Pure,
       build($_builder, $_state, resType, tokenType, A, B, C);
     }]>
   ];
+*/
 }
 
 def ZHighMatMulWaitOp:ZHigh_Op<"MatMulWait", [Pure,
@@ -594,6 +625,17 @@ def ZHighMatMulWaitOp:ZHigh_Op<"MatMulWait", [Pure,
   let description = [{
     ZHigh operation to wait for token for MatMul asynchronous execution.
   }];
+  let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Y,
+                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
+                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
+                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Token,
+                       AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$A,
+                       AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$B,
+                       AnyTypeOf<[ZTensor_1D, ZTensor_2DS, NoneType]>:$C);
+
+  let results = (outs AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Out);
+
+/*
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
                        TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
                        TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
@@ -613,7 +655,7 @@ def ZHighMatMulWaitOp:ZHigh_Op<"MatMulWait", [Pure,
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
                        TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
                        TensorOf<[I64]>, TensorOf<[BF16]>]>:$Out);
-
+*/
   let builders = [
     OpBuilder<(ins "::mlir::Value":$Y, "::mlir::Value":$Token, "::mlir::Value":$A, "::mlir::Value":$B, "::mlir::Value":$C), [{
       Type elementType = Y.getType().cast<ShapedType>().getElementType();

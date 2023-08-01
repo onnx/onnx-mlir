@@ -48,7 +48,7 @@ def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
 def KrnlCallOp : Op<Krnl_Dialect, "call",
-    [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+    [MemRefsNormalizable,DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
   > {
   let summary = "call operation";
   let description = [{
