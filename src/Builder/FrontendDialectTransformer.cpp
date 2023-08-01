@@ -1175,6 +1175,14 @@ private:
       if (it != caller_attr_map.end())
         attr_map[attrName] = it->second;
     }
+    for (const onnx::AttributeProto &attr : functionProto.attribute_proto()) {
+      const std::string &attrName = attr.name();
+      auto it = caller_attr_map.find(attrName);
+      if (it != caller_attr_map.end())
+        attr_map[attrName] = it->second;
+      else
+        attr_map[attrName] = &attr;
+    }
     replaceAttrRefs(graph, attr_map);
 
     OpsetImportsMap function_opset_map =
