@@ -649,6 +649,22 @@ using ONNXSqueezeV11OpShapeHelper = ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqu
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// Unique ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+struct ONNXUniqueOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXUniqueOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXUniqueOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for UniqueOp:
+};
+
+//===----------------------------------------------------------------------===//
 // Unsqueeze ops
 //===----------------------------------------------------------------------===//
 
