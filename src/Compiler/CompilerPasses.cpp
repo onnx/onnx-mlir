@@ -8,9 +8,9 @@
 //
 // =============================================================================
 //
-// Functions for adding passes.
+// Functions for configuring and adding passes.
 //
-// REQUEST: to the extend possible, passes here should not sample global
+// REQUEST: To the extent possible, passes here should not sample global
 // optimization parameters specified in CompilerOptions.hpp. The passes should
 // use parameters that are set by these global options where these passes are
 // called. The idea is to keep our code as free of "rogue" global options used
@@ -40,6 +40,10 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+void configurePasses() {
+  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound);
+}
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // This is a transition from previous static passes to full dynamic passes
@@ -74,8 +78,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   }
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
 
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
@@ -88,12 +91,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
+          onnx_mlir::createConstPropONNXToONNXPass());
     }
   }
 
   // Simplify shape-related ops.
-  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
+  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
   // Replace ONNXReturnOp with func::ReturnOp.
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());

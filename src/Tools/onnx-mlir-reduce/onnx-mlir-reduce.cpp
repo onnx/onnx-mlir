@@ -17,7 +17,6 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Tools/mlir-reduce/MlirReduceMain.h"
-#include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -26,10 +25,6 @@ using namespace mlir;
 static void registerDialects(DialectRegistry &registry) {
   registry.insert<mlir::ONNXDialect>();
   registry.insert<mlir::KrnlDialect>();
-
-  // Initialize and register dialects used by accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    accel->registerDialects(registry);
 }
 
 int main(int argc, char **argv) {

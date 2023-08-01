@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --maccel=NNPA --printIR --EmitZLowIR --instrument-stage=ZHigh --instrument-ops="zhigh.*" --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime %s  | FileCheck %s
+// RUN: onnx-mlir --maccel=NNPA --printIR --EmitZLowIR --instrument-stage=ZHigh --instrument-ops="zhigh.*" --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime -tag="test" %s  | FileCheck %s
 
 func.func @test_instrument_add_zhigh(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>

@@ -74,13 +74,13 @@ int main(int argc, char *argv[]) {
         << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
            "--EmitLLVMIR, or binary-generating emit commands.\n";
 
-  // Create context after registerMLIRContextCLOptions() is called.
+  // Create context after MLIRContextCLOptions are registered and parsed.
   mlir::MLIRContext context;
   if (!context.isMultithreadingEnabled()) {
     assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
     LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");
   }
-  registerDialects(context);
+  loadDialects(context);
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;

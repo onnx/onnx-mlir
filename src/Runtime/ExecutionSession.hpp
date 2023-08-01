@@ -46,7 +46,8 @@ class ExecutionSession {
 public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
-  ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
+  ExecutionSession(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
   ~ExecutionSession();
 
   // Get a NULL-terminated array of entry point names.
@@ -82,7 +83,7 @@ protected:
   ExecutionSession() = default;
 
   // Initialization of library. Called by public constructor, or by subclasses.
-  void Init(std::string sharedLibPath, bool defaultEntryPoint);
+  void Init(std::string sharedLibPath, std::string tag, bool defaultEntryPoint);
 
   // Error reporting processing when throwing runtime errors. Set errno as
   // appropriate.
@@ -100,17 +101,21 @@ protected:
   // Handler to the shared library file being loaded.
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
 
+  // Tag used to compile the model. By default, it is the model filename without
+  // extension.
+  std::string tag;
+
   // Entry point function.
   std::string _entryPointName;
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Query entry point function.
-  static const std::string _queryEntryPointsName;
+  const std::string _queryEntryPointsName = "omQueryEntryPoints";
   queryEntryPointsFuncType _queryEntryPointsFunc = nullptr;
 
   // Entry point for input/output signatures
-  static const std::string _inputSignatureName;
-  static const std::string _outputSignatureName;
+  const std::string _inputSignatureName = "omInputSignature";
+  const std::string _outputSignatureName = "omOutputSignature";
   signatureFuncType _inputSignatureFunc = nullptr;
   signatureFuncType _outputSignatureFunc = nullptr;
 };
