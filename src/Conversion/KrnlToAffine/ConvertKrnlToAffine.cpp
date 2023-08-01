@@ -645,16 +645,11 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
       UnitAttr::get(&getContext()));
 
-
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
   funcOp.walk([&](KrnlIterateOp loopOp) {
     moveLoopInvariantCode(cast<LoopLikeOpInterface>(loopOp.getOperation()));
   });
-  // hi alex
-  fprintf(stderr, "//> after move invariant (start)\n");
-  //funcOp.dump();
-  fprintf(stderr, "//> after move invariant (end)\n");
 
   // We use the end of the function body as a staging area for movable ops.
   builder.setInsertionPoint(&funcOp.getBody().front(),
@@ -662,11 +657,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   LoopBodyMover mover;
   funcOp.walk(
       [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
-
-  // hi alex
-  fprintf(stderr, "//> after mark as movable (start)\n");
-  funcOp.dump();
-  fprintf(stderr, "//> after mark as movable (end)\n");
 
   // Interpret krnl dialect operations while looping recursively through
   // operations within the current function, note that erasing operations
@@ -680,11 +670,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     signalPassFailure();
     return;
   }
-
-    // hi alex
-  fprintf(stderr, "//> after interpretation (start)\n");
-  funcOp.dump();
-  fprintf(stderr, "//> interpretation (end)\n");
 
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =

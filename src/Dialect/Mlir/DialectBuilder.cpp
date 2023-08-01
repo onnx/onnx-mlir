@@ -1591,7 +1591,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
   uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
-  // hi alex, should relax this
+  // TODO alex, should relax this
   assert(VL == machineVL && "only natural sizes supported at this time");
   assert(N % machineVL == 0 &&
          "can only reduces multiple of VL vectors at this time");
