@@ -44,7 +44,7 @@ std::unique_ptr<mlir::Pass> createShapeInferencePass();
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(int expansionBound);
 
-std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass(bool report = false);
+std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
 /// Pass for instrument the ops in specific stage.
 std::unique_ptr<mlir::Pass> createInstrumentPass();
@@ -56,8 +56,7 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
 
 /// Pass for simplifying shape-related ONNX operations.
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(
-    bool report = false);
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
 
 /// Pass for replacing ONNXReturnOp with func::ReturnOp.
 std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
