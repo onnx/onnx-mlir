@@ -1348,6 +1348,20 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
+
+void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
+    function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
+  MathBuilder createMath(*this);
+  Value stepVal = createMath.constantIndex(step);
+  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+      [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
+          ValueRange args) {
+        SCFBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVar);
+        yield();
+      });
+}
+
 void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
