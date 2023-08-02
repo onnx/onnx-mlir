@@ -4895,6 +4895,7 @@ func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_equal_string
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2x!krnl.string>, [[PARAM_1_:%.+]]: memref<2x2x!krnl.string>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[VAR_false_:%.+]] = arith.constant false
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
@@ -4905,11 +4906,14 @@ func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x
 // CHECK:             [[VAR_4_:%.+]] = "krnl.strlen"([[LOAD_PARAM_0_MEM_]]) : (!krnl.string) -> i64
 // CHECK:             [[VAR_5_:%.+]] = "krnl.strncmp"([[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]], [[VAR_4_]]) : (!krnl.string, !krnl.string, i64) -> i32
 // CHECK:             [[VAR_6_:%.+]] = arith.cmpi ne, [[VAR_5_]], [[CST_0_]] : i32
-// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:             [[VAR_7_:%.+]] = arith.cmpi eq, [[VAR_6_]], [[VAR_false_]] : i1
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x2xi1>
 // CHECK:         }
 }
+
+// -----
 
 // Test whether lowering is correct for a int64_t tensor input.
 
