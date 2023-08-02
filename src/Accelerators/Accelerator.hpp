@@ -85,9 +85,6 @@ public:
   // Hooks for onnx-mlir driver
   //===--------------------------------------------------------------------===//
 
-  /// Load the MLIR dialects necessary to generate code for an accelerator.
-  virtual void getOrLoadDialects(mlir::MLIRContext &context) const = 0;
-
   /// Add the transformations necessary to support the accelerator.
   virtual void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
       mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
@@ -100,9 +97,9 @@ public:
   /// Register the MLIR dialects required to support an accelerator.
   virtual void registerDialects(mlir::DialectRegistry &registry) const = 0;
 
-  /// Initialize the transformation passes required to generate code for an
-  /// accelerator.
-  virtual void initPasses(int optLevel) const = 0;
+  /// Register accelerator transformation passes to make available as
+  /// command line options.
+  virtual void registerPasses(int optLevel) const = 0;
 
   //===--------------------------------------------------------------------===//
   // Hooks for onnx-to-krnl pass

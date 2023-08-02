@@ -28,7 +28,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "index_expr"
+#define DEBUG_TYPE "index-expr"
 
 using namespace mlir;
 
@@ -42,6 +42,8 @@ namespace onnx_mlir {
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), parentScope(getCurrentScopePtr()),
       loc(loc), container() {
+  LLVM_DEBUG(
+      llvm::dbgs() << "IES: build scope: " << ((long long)this) << "\n";);
   getCurrentScopePtr() = this;
 }
 
@@ -54,10 +56,8 @@ IndexExprScope::IndexExprScope(
     : dims(), symbols(), rewriter(innerRewriter),
       parentScope(enclosingScope ? enclosingScope : getCurrentScopePtr()),
       loc(parentScope->loc), container() {
-  // if (!parentScope)
-  //  // Enclosing scope not provided, fetch from environment.
-  //  parentScope = getCurrentScopePtr();
-  // else
+  LLVM_DEBUG(
+      llvm::dbgs() << "IES: build scope: " << ((long long)this) << "\n";);
   // Check the provided enclosing scope is the current one.
   assert(parentScope == getCurrentScopePtr() &&
          "provided parent scope was not the enclosing active scope");
@@ -79,6 +79,8 @@ IndexExprScope::~IndexExprScope() {
   container.clear();
   // no need to clear the cached copies as they are also in the container.
   getCurrentScopePtr() = parentScope;
+  LLVM_DEBUG(
+      llvm::dbgs() << "IES: delete scope: " << ((long long)this) << "\n";);
 }
 
 /*static*/ IndexExprScope &IndexExprScope::getCurrentScope() {

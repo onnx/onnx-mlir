@@ -92,23 +92,25 @@ public class OMRunner
 	    put("u4", OMTensor.ONNX_TYPE_UINT32);
 	    put("i8", OMTensor.ONNX_TYPE_INT64);
 	    put("u8", OMTensor.ONNX_TYPE_UINT64);
+	    put("f2", OMTensor.ONNX_TYPE_FLOAT16);
 	    put("f4", OMTensor.ONNX_TYPE_FLOAT);
 	    put("f8", OMTensor.ONNX_TYPE_DOUBLE);
 	}};
 
     private static final HashMap<Integer, String> onnx2numpyType =
 	new HashMap<Integer, String>() {{
-	    put(OMTensor.ONNX_TYPE_BOOL,              "|b1");
-	    put(OMTensor.ONNX_TYPE_INT8,              "|i1");
-	    put(OMTensor.ONNX_TYPE_UINT8,             "|u1");
-	    put(OMTensor.ONNX_TYPE_INT16,  numpyEndian+"i2");
-	    put(OMTensor.ONNX_TYPE_UINT16, numpyEndian+"u2");
-	    put(OMTensor.ONNX_TYPE_INT32,  numpyEndian+"i4");
-	    put(OMTensor.ONNX_TYPE_UINT32, numpyEndian+"u4");
-	    put(OMTensor.ONNX_TYPE_INT64,  numpyEndian+"i8");
-	    put(OMTensor.ONNX_TYPE_UINT64, numpyEndian+"u8");
-	    put(OMTensor.ONNX_TYPE_FLOAT,  numpyEndian+"f4");
-	    put(OMTensor.ONNX_TYPE_DOUBLE, numpyEndian+"f8");
+	    put(OMTensor.ONNX_TYPE_BOOL,               "|b1");
+	    put(OMTensor.ONNX_TYPE_INT8,               "|i1");
+	    put(OMTensor.ONNX_TYPE_UINT8,              "|u1");
+	    put(OMTensor.ONNX_TYPE_INT16,   numpyEndian+"i2");
+	    put(OMTensor.ONNX_TYPE_UINT16,  numpyEndian+"u2");
+	    put(OMTensor.ONNX_TYPE_INT32,   numpyEndian+"i4");
+	    put(OMTensor.ONNX_TYPE_UINT32,  numpyEndian+"u4");
+	    put(OMTensor.ONNX_TYPE_INT64,   numpyEndian+"i8");
+	    put(OMTensor.ONNX_TYPE_UINT64,  numpyEndian+"u8");
+	    put(OMTensor.ONNX_TYPE_FLOAT16, numpyEndian+"f2");
+	    put(OMTensor.ONNX_TYPE_FLOAT,   numpyEndian+"f4");
+	    put(OMTensor.ONNX_TYPE_DOUBLE,  numpyEndian+"f8");
 	}};
 
     private static OMTensor createTensor(String buffer, long[] shape, String dtype) {

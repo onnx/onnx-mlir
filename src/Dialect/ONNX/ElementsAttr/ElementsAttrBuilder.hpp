@@ -122,6 +122,11 @@ public:
   mlir::ElementsAttr castElementType(
       mlir::ElementsAttr elms, mlir::Type newElementType);
 
+  // Returns an ElementsAttr with the values clipped to the range [min, max].
+  //
+  // Reuses elms' underlying data without a data copy.
+  mlir::ElementsAttr clip(mlir::ElementsAttr elms, WideNum min, WideNum max);
+
   // Returns a transposed ElementsAttr.
   //
   // Reuses elms' underlying data without a data copy.

@@ -835,32 +835,32 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 // Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
-// Create a list of IndexExpr of kind INDEXEXPR from an ArrayRef of block args.
-template <class INDEXEXPR>
+// Create a list of IndexExpr of kind INDEX_EXPR from an ArrayRef of block args.
+template <class INDEX_EXPR>
 void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
-    outputList.emplace_back(INDEXEXPR(item));
+    outputList.emplace_back(INDEX_EXPR(item));
 }
 
-// Create a list of IndexExpr of kind INDEXEXPR from a value range (list of
+// Create a list of IndexExpr of kind INDEX_EXPR from a value range (list of
 // values).
-template <class INDEXEXPR>
+template <class INDEX_EXPR>
 void getIndexExprList(
     mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : range)
-    outputList.emplace_back(INDEXEXPR(item));
+    outputList.emplace_back(INDEX_EXPR(item));
 }
 
-// Create a list of IndexExpr of kind INDEXEXPR from another list of IndexExpr.
-template <class INDEXEXPR>
+// Create a list of IndexExpr of kind INDEX_EXPR from another list of IndexExpr.
+template <class INDEX_EXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
-    outputList.emplace_back(INDEXEXPR(item));
+    outputList.emplace_back(INDEX_EXPR(item));
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.

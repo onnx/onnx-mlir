@@ -18,6 +18,7 @@ import base64
 import numpy as np
 import re
 import onnx
+import onnx.parser
 import subprocess
 from onnx.backend.base import Device, DeviceType, Backend
 from onnx.backend.test import BackendTest
@@ -25,6 +26,7 @@ from onnx import numpy_helper
 import variables
 from variables import *
 from common import compile_model
+from onnxmlir_node_tests import load_onnxmlir_node_tests
 from typing import Sequence, Any
 
 def get_test_models():
@@ -178,13 +180,13 @@ def get_test_models():
 
 
         # ==OP== Cast
-        # ==LIM== Cast only between float and double types
+        # ==LIM== Cast only between float and double types. Some platforms support float16.
         "test_cast_FLOAT_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_cast_DOUBLE_to_FLOAT_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        "test_cast_FLOAT_to_FLOAT16_cpu": {}, # appears unsupported at this time
-        "test_cast_FLOAT16_to_FLOAT_cpu": {}, # appears unsupported at this time
-        "test_cast_FLOAT16_to_DOUBLE_cpu": {}, # appears unsupported at this time
-        "test_cast_DOUBLE_to_FLOAT16_cpu": {}, # appears unsupported at this time
+        "test_cast_FLOAT_to_FLOAT16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
+        "test_cast_FLOAT16_to_FLOAT_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
+        "test_cast_FLOAT16_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
+        "test_cast_DOUBLE_to_FLOAT16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
         "test_cast_FLOAT_to_STRING_cpu": {}, # appears unsupported at this time
         "test_cast_STRING_to_FLOAT_cpu": {}, # appears unsupported at this time
 
@@ -527,12 +529,11 @@ def get_test_models():
         "test_matmulinteger_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Max
-        # ==LIM== No support for short floats and unsigned int.
+        # ==LIM== No support for unsigned int. Only some platforms support float16.
         "test_max_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
-        # "test_max_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_max_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
         "test_max_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_int8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -575,12 +576,11 @@ def get_test_models():
         # MeanVarianceNormalization
 
         # ==OP== Min
-        # ==LIM== Does not support short floats and unsigned numbers.
+        # ==LIM== Does not support unsigned numbers. Only some platforms support float16.
         "test_min_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
-        # "test_min_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_min_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
         "test_min_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_int8_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -595,11 +595,10 @@ def get_test_models():
         # "test_min_uint64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Mod
-        # ==LIM==  Support float and double only.
+        # ==LIM==  Support float and double only. Some platforms support float16.
         "test_mod_mixed_sign_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_mod_mixed_sign_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # float16 failed on Z. It seems LLVM on Z does not have fp16 simulation.
-        # "test_mod_mixed_sign_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_mod_mixed_sign_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
         # Not yet support integers since MLIR integers are signless.
         # "test_mod_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_mod_int64_fmod_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -1066,6 +1065,12 @@ def get_test_models():
         #"test_triu_zero_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # Unique
+        # ==OP== Unique
+        "test_unique_not_sorted_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_with_axis_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Unsqueeze
         # ==LIM== Does not support static and dynamic shape.
@@ -1105,6 +1110,15 @@ def get_test_models():
         "test_xor_bcast4v2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_xor_bcast4v3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_xor_bcast4v4d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+
+        ############################################################
+        # Custom onnx-mlir node tests
+
+        # No need to label this test FLOAT16 because it only passes the float16
+        # data through to a call to omTensorSort, it doesn't generate any of the
+        # float16 LLVM instructions that are unsupported on some platforms.
+        "test_onnxmlir_top_k_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_onnxmlir_top_k_smallest_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
     }
 
         ############################################################
@@ -1182,6 +1196,24 @@ def get_test_models():
         model_test_to_enable = variables.model_test_for_constants_to_file
         test_to_enable = variables.test_for_constants_to_file
 
+    # Build check-onnx-backend with env TEST_NOFLOAT16=true to set args.nofloat16
+    # on platforms like IBM Z where LLVM float16 conversions don't yet work.
+    if args.nofloat16:
+        if args.verbose:
+            print("float16 tests disabled:",
+                  [x for x in test_to_enable if FLOAT16 in variables.test_to_enable_dict[x]],
+                  file=sys.stderr)
+        variables.test_with_no_float16 = [
+            x for x in test_to_enable if FLOAT16 not in variables.test_to_enable_dict[x]]
+        variables.node_test_with_no_float16 = [
+            x for x in variables.test_with_no_float16 if x in node_test_to_enable ]
+        variables.model_test_with_no_float16 = [
+            x for x in variables.test_with_no_float16 if x in model_test_to_enable ]
+
+        node_test_to_enable = variables.node_test_with_no_float16
+        model_test_to_enable = variables.model_test_with_no_float16
+        test_to_enable = variables.test_with_no_float16
+
     # User can specify a list of test cases with TEST_CASE_BY_USER
     TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
     if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "":
@@ -1237,6 +1269,7 @@ def JniExecutionSession(jar_name, inputs):
         "u4": np.uint32,
         "i8": np.int64,
         "u8": np.uint64,
+        "f2": np.float16,
         "f4": np.float32,
         "f8": np.float64,
     }
@@ -1255,11 +1288,32 @@ def JniExecutionSession(jar_name, inputs):
 
 
 class InferenceBackendTest(BackendTest):
+    def __init__(self, backend, parent_module=None):
+        super(InferenceBackendTest, self).__init__(backend, parent_module)
+        for rt in load_onnxmlir_node_tests():
+            self._add_onnxmlir_model_test(rt, "Node")
+
     @classmethod
     def assert_similar_outputs(cls, ref_outputs: Sequence[Any], outputs: Sequence[Any], rtol: float, atol: float) -> None:
         rtol =float(os.getenv("TEST_RTOL", rtol))
         atol =float(os.getenv("TEST_ATOL", atol))
         super(InferenceBackendTest, cls).assert_similar_outputs(ref_outputs, outputs, rtol, atol)
+
+    def _add_onnxmlir_model_test(self, model_test, kind):  # type: (OnnxMlirTestCase, Text) -> None
+        model_marker = [None]  # type: List[Optional[Union[ModelProto, NodeProto]]]
+
+        def run(test_self, device):  # type: (Any, Text) -> None
+            model = model_test.model
+            model_marker[0] = model
+            prepared_model = self.backend.prepare(model, device)
+            outputs = list(prepared_model.run(model_test.inputs))
+            ref_outputs = model_test.outputs
+            rtol = model_test.rtol
+            atol = model_test.atol
+            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol)
+
+        model_name = model_test.model.graph.name
+        self._add_test(kind + "Model", model_name, run, model_marker)
 
 # There are two issues, which necessitates the adoption of this endianness
 # aware wrapper around Execution Session:

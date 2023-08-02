@@ -33,13 +33,14 @@ namespace onnx_mlir {
 
 template <typename GemmOp>
 struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
-  ONNXGemmOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
+  ONNXGemmOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableTiling, bool enableSIMD)
       : OpConversionPattern<GemmOp>(typeConverter, ctx),
-        enableTiling(enableTiling) {}
+        enableTiling(enableTiling), enableSIMD(enableSIMD) {}
 
   using OpAdaptor = typename GemmOp::Adaptor;
   bool enableTiling;
+  bool enableSIMD;
 
   void genericGemm(ONNXGemmOpAdaptor &adaptor, Type elementType,
       ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
@@ -135,7 +136,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
 
     bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
     // Simdize with jRegTile as the vector length.
-    bool simdize = DEBUG_SIMD_OFF ? false : true;
+    bool simdize = DEBUG_SIMD_OFF ? false : enableSIMD;
 
     bool mustTileR = false;
     if (!J.isLiteral()) {
@@ -383,9 +384,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
 };
 
 void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
+    bool enableSIMD) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
-      typeConverter, ctx, enableTiling);
+      typeConverter, ctx, enableTiling, enableSIMD);
 }
 
 } // namespace onnx_mlir

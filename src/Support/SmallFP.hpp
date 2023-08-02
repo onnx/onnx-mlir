@@ -11,33 +11,8 @@
 #pragma once
 
 #include "mlir/IR/BuiltinAttributes.h"
+#include "src/Support/SmallFPConversion.h"
 #include "llvm/ADT/APFloat.h"
-
-// When the CPU is known to support native conversion between float and float_16
-// we define FLOAT16_TO_FLOAT32(u16) and FLOAT32_TO_FLOAT16(f32) macros, used in
-// class float_16 below to override the slow default APFloat-based conversions.
-//
-// FLOAT16_TO_FLOAT32(u16) takes a bit cast float_16 number as uint16_t and
-// evaluates to a float.
-//
-// FLOAT32_TO_FLOAT16(f32) takes a float f32 number and evaluates to a bit cast
-// float_16 number as uint16_t.
-//
-// clang-format off
-// On x86-64 build config -DCMAKE_CXX_FLAGS=-march=native defines __F16C__.
-#if defined(__x86_64__) && defined(__F16C__)
-// https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-9/details-about-intrinsics-for-half-floats.html
-#include <immintrin.h>
-#define FLOAT16_TO_FLOAT32(u16) _cvtsh_ss(u16)
-#define FLOAT32_TO_FLOAT16(f32) _cvtss_sh(f32, /*ROUND TO NEAREST EVEN*/ 0)
-#endif
-// On MacBook Pro no build config is needed to define __ARM_FP16_FORMAT_IEEE.
-#if defined(__ARM_FP16_FORMAT_IEEE)
-// https://arm-software.github.io/acle/main/acle.html#half-precision-floating-point
-#define FLOAT16_TO_FLOAT32(u16) static_cast<float>(detail::bitcast<__fp16>(u16))
-#define FLOAT32_TO_FLOAT16(f32) detail::bitcast<uint16_t>(static_cast<__fp16>(f32))
-#endif
-// clang-format on
 
 namespace onnx_mlir {
 
@@ -64,28 +39,36 @@ public:
   // Use FP::fromFloat() in case FP overrides fromFloat().
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
   explicit SmallFPBase(const T &x)
-      : SmallFPBase(FP::fromFloat(static_cast<float>(x))) {}
+      : SmallFPBase(fromFloat(static_cast<float>(x))) {}
 
   // Support static_cast<T>(*this) for any T that float converts to.
   template <typename T, typename = std::enable_if_t<!std::is_same_v<T, FP>>>
   explicit operator T() const {
-    // Down cast in case FP overrides FP::toFloat().
+    return static_cast<float>(toFloat());
+  }
+
+  bool isNaN() const {
+    // Down cast in case FP overrides isNaNImpl().
     FP fp = FP::bitcastFromUInt(ui);
-    return static_cast<float>(fp.toFloat());
+    return fp.isNaNImpl();
+  }
+
+  // Same as static_cast<float>(*this).
+  float toFloat() const {
+    // Down cast in case FP overrides toFloatImpl().
+    FP fp = FP::bitcastFromUInt(ui);
+    return fp.toFloatImpl();
   }
 
   llvm::APFloat toAPFloat() const;
 
-  // Same as static_cast<float>(*this).
-  float toFloat() const { return toAPFloat().convertToFloat(); }
-
   // Same as bitcast<bitcasttype>(*this).
   constexpr bitcasttype bitcastToUInt() const { return ui; }
 
-  static FP fromAPFloat(llvm::APFloat a);
-
   // Same as static_cast<FP>(f).
-  static FP fromFloat(float f) { return fromAPFloat(llvm::APFloat(f)); }
+  static FP fromFloat(float f) { return FP::fromFloatImpl(f); }
+
+  static FP fromAPFloat(llvm::APFloat a);
 
   // Same as bitcast<FP>(u).
   static constexpr FP bitcastFromUInt(bitcasttype u) {
@@ -101,6 +84,13 @@ public:
 
   bool operator!=(FP other) const { return !(*this == other); }
 
+protected:
+  float isNaNImpl() const { return toAPFloat().isNaN(); }
+
+  float toFloatImpl() const { return toAPFloat().convertToFloat(); }
+
+  static FP fromFloatImpl(float f) { return fromAPFloat(llvm::APFloat(f)); }
+
 private:
   bitcasttype ui;
 };
@@ -111,12 +101,6 @@ extern template class SmallFPBase<float_8e4m3fn, 8>;
 extern template class SmallFPBase<float_8e4m3fnuz, 8>;
 extern template class SmallFPBase<float_8e5m2, 8>;
 extern template class SmallFPBase<float_8e5m2fnuz, 8>;
-
-// TODO: Replace with std::bit_cast in C++20.
-template <class To, class From>
-To bitcast(From x) {
-  return *reinterpret_cast<To *>(&x);
-}
 
 } // namespace detail
 
@@ -135,14 +119,18 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::IEEEhalf();
   }
-#if defined(FLOAT16_TO_FLOAT32)
-  float toFloat() const { return FLOAT16_TO_FLOAT32(bitcastToUInt()); }
-#endif
-#if defined(FLOAT32_TO_FLOAT16)
-  static float_16 fromFloat(float f) {
-    return bitcastFromUInt(FLOAT32_TO_FLOAT16(f));
+  static constexpr float max = 65504.0f;
+
+protected:
+  friend class detail::SmallFPBase<float_16, 16>;
+  float isNaNImpl() const {
+    uint16_t u16 = bitcastToUInt();
+    return (u16 & 0x7C00) == 0x7C00 && (u16 & 0x03FF) != 0;
   }
-#endif
+  float toFloatImpl() const { return om_f16_to_f32(bitcastToUInt()); }
+  static float_16 fromFloatImpl(float f) {
+    return bitcastFromUInt(om_f32_to_f16(f));
+  }
 };
 static_assert(sizeof(float_16) * CHAR_BIT == 16, "float_16 is 16 bits wide");
 
@@ -156,6 +144,18 @@ public:
   using Base::Base;
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::BFloat();
+  }
+  static constexpr float max = 3.38953139e38f; // ldexpf(255.0, 120)
+
+protected:
+  friend class detail::SmallFPBase<bfloat_16, 16>;
+  float isNaNImpl() const {
+    uint16_t u16 = bitcastToUInt();
+    return (u16 & 0x7F80) == 0x7F80 && (u16 & 0x007F) != 0;
+  }
+  float toFloatImpl() const { return om_bf16_to_f32(bitcastToUInt()); }
+  static bfloat_16 fromFloatImpl(float f) {
+    return bitcastFromUInt(om_f32_to_bf16(f));
   }
 };
 static_assert(sizeof(bfloat_16) * CHAR_BIT == 16, "bfloat_16 is 16 bits wide");
@@ -171,6 +171,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E4M3FN();
   }
+  static constexpr float max = 448.0f;
 };
 static_assert(
     sizeof(float_8e4m3fn) * CHAR_BIT == 8, "float_8e4m3fn is 8 bits wide");
@@ -186,6 +187,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E4M3FNUZ();
   }
+  static constexpr float max = 240.0f;
 };
 static_assert(
     sizeof(float_8e4m3fnuz) * CHAR_BIT == 8, "float_8e4m3fnuz is 8 bits wide");
@@ -201,6 +203,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E5M2();
   }
+  static constexpr float max = 57344.0f;
 };
 static_assert(
     sizeof(float_8e5m2) * CHAR_BIT == 8, "float_8e5m2 is 8 bits wide");
@@ -216,6 +219,7 @@ public:
   static const llvm::fltSemantics &semantics() {
     return llvm::APFloat::Float8E5M2FNUZ();
   }
+  static constexpr float max = 57344.0f;
 };
 static_assert(
     sizeof(float_8e5m2fnuz) * CHAR_BIT == 8, "float_8e5m2fnuz is 8 bits wide");

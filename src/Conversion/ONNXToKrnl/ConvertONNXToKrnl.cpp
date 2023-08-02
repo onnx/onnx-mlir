@@ -68,7 +68,7 @@ private:
   // data type list:
   //     "i1" / "i8" / "i16" / "i32" / "i64"
   //     "ui8" / "ui16" / "ui32" / "ui64"
-  //     "f32" / "f64"
+  //     "f16" / "f32" / "f64"
   void concatTypeString(
       Type argType, Attribute attr, llvm::raw_ostream &dstream) const {
     std::string comma = std::string("");
@@ -159,6 +159,7 @@ private:
 };
 
 std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
+    {std::string(" f16 "), std::string(" \"f16\" ")},
     {std::string(" f32 "), std::string(" \"f32\" ")},
     {std::string(" f64 "), std::string(" \"f64\" ")},
     {std::string(" i32 "), std::string(" \"i32\" ")},
@@ -189,13 +190,13 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
-  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD);
   populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTriluOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD);
   populateLoweringONNXMatMulIntegerOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
@@ -245,6 +246,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
@@ -263,6 +265,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
   // clang-format on
 }
 

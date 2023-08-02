@@ -73,14 +73,14 @@ void RegisterFunSchema() {
   registered = true;
 }
 
-void registerDialects(mlir::MLIRContext &context) {
+void loadDialects(mlir::MLIRContext &context) {
   context.getOrLoadDialect<mlir::func::FuncDialect>();
   context.getOrLoadDialect<mlir::ONNXDialect>();
 }
 
 int check(ModelProto &model) {
   mlir::MLIRContext context;
-  registerDialects(context);
+  loadDialects(context);
   mlir::OwningOpRef<mlir::ModuleOp> module;
 
   onnx_mlir::ImportOptions options;

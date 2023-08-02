@@ -43,7 +43,7 @@ struct ONNXTransposeOpLoweringToMhlo : public ConversionPattern {
     int64_t rank = outputShapedType.getShape().size();
 
     // Attributes
-    llvm::Optional<ArrayAttr> permAttr = transposeOp.getPerm();
+    std::optional<ArrayAttr> permAttr = transposeOp.getPerm();
     DenseIntElementsAttr permAxis;
     RankedTensorType permAxisType =
         RankedTensorType::get({rank}, rewriter.getI64Type());

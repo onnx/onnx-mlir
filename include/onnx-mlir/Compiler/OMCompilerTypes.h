@@ -42,6 +42,7 @@ typedef enum {
   OPTFlag,          /* Kind for -Xopt string. */
   LLCFlag,          /* Kind for -Xllc string. */
   LLVMFlag,         /* Kind for -mllvm string. */
+  ModelTag,         /* Kind for tag string. */
   Verbose,          /* Kind for enabling -v verbose mode (boolean option)*/
 } OptionKind;
 

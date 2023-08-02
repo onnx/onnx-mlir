@@ -410,11 +410,10 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
   // Actual computation of the pool shape and parameters using every different
   // switches that differs between pooling and conv ops.
   mlir::LogicalResult customComputeShape(mlir::Value X /* image */,
-      mlir::Value W /* filter */,
-      mlir::Optional<mlir::ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
-      mlir::Optional<mlir::ArrayAttr> padOpt,
-      mlir::Optional<mlir::ArrayAttr> strideOpt,
-      mlir::Optional<mlir::ArrayAttr> dilationOpt,
+      mlir::Value W /* filter */, std::optional<mlir::ArrayAttr> kernelShapeOpt,
+      llvm::StringRef autoPad, std::optional<mlir::ArrayAttr> padOpt,
+      std::optional<mlir::ArrayAttr> strideOpt,
+      std::optional<mlir::ArrayAttr> dilationOpt,
       bool hasFilter, // If has filter, it also has CO and optional kernel.
       bool ceilMode); // Use ceil or floor for auto_pad=NOTSET policy.
 
@@ -648,6 +647,22 @@ struct ONNXCommonSqueezeOpShapeHelper : public ONNXOpShapeHelper {
 using ONNXSqueezeOpShapeHelper = ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeOp>;
 using ONNXSqueezeV11OpShapeHelper = ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqueezeV11Op>;
 // clang-format on
+
+//===----------------------------------------------------------------------===//
+// Unique ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+struct ONNXUniqueOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXUniqueOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXUniqueOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for UniqueOp:
+};
 
 //===----------------------------------------------------------------------===//
 // Unsqueeze ops
