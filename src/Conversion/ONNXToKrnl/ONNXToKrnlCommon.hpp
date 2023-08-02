@@ -445,6 +445,8 @@ void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLayoutTransformOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXUniqueOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 // `Additional` directory methods:
 void populateLoweringONNXShapeTransformOpPattern(

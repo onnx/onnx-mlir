@@ -1065,6 +1065,12 @@ def get_test_models():
         #"test_triu_zero_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # Unique
+        # ==OP== Unique
+        "test_unique_not_sorted_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_without_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_with_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_with_negative_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_unique_sorted_with_axis_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE: {0:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Unsqueeze
         # ==LIM== Does not support static and dynamic shape.
