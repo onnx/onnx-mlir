@@ -1348,7 +1348,6 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
-
 void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
     function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
   MathBuilder createMath(*this);

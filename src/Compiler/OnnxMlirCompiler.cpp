@@ -176,7 +176,7 @@ ONNX_MLIR_EXPORT char *omCompileOutputFileName(
 ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags) {
   std::string modelTag = "";
   std::vector<std::string> flagVect = parseFlags(flags);
-  for (int i = 0; i < (int) flagVect.size(); ++i) {
+  for (int i = 0; i < (int)flagVect.size(); ++i) {
     if (flagVect[i].find("--tag=") == 0) {
       modelTag = flagVect[i].substr(6);
       break;
