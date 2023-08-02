@@ -3055,6 +3055,27 @@ func.func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @unique(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
+  return %Y : tensor<*xi64>
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique
+// CHECK: {{.*}}, {{.*}}, {{.*}}, {{.*}} = "onnx.Unique"({{.*}}) {axis = 0 : si64, sorted = 1 : si64} : (tensor<2x2xi64>) -> (tensor<?x2xi64>, tensor<?xi64>, tensor<?xi64>, tensor<?xi64>)
+}
+
+// -----
+
+func.func @unique_3d(%arg0: tensor<2x2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
+  return %Y : tensor<*xi64>
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_3d
+// CHECK: {{.*}}, {{.*}}, {{.*}}, {{.*}} = "onnx.Unique"({{.*}}) {axis = 1 : si64, sorted = 1 : si64} : (tensor<2x2x2xi64>) -> (tensor<2x?x2xi64>, tensor<?xi64>, tensor<?xi64>, tensor<?xi64>)
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for CategoryMapper.
 //===----------------------------------------------------------------------===//
