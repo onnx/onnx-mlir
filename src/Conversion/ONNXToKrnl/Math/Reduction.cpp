@@ -18,7 +18,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
-#define DEBUG_FORCE_SHUFFLE_REDUCTION 0
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 1
 
 using namespace mlir;
 
@@ -883,30 +883,44 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           MDBuilder create(ck);
           // Loop over blocked output loop, block guaranteed to be full.
           IndexExpr ub = blockedCurrIndex + LiteralIndexExpr(VL);
+#define ALEX_INLINE 1
+#if ALEX_INLINE
+          for (int64_t i = 0; i < VL; ++i) {
+            IndexExpr offset = LiteralIndexExpr(i);
+            IndexExpr blockLocalIndIE = blockedCurrIndex + offset;
+            Value blockLocalInd = blockLocalIndIE.getValue();
+#else
           create.scf.forLoop(blockedCurrIndex.getValue(), ub.getValue(), 1,
               [&](SCFBuilder &scf, Value blockLocalInd) {
                 MDBuilder create(scf);
-                // All of the non-blocked loop, plus the inter tile index of the
-                // blocked loop, and the blocked simd loop.
-                SmallVector<Value, 4> inAccessVals =
-                    firstFew<Value, 4>(blockedOutLoopInd, -2);
-                inAccessVals.emplace_back(blockLocalInd);
-                inAccessVals.emplace_back(simdLoopInd[0]);
-                Value inputVec =
-                    create.vec.load(vecType, flatInput, inAccessVals);
-                // The tmpInd value is between 0 and VL-1, and is local index -
-                // blocked index.
+#endif
+            // All of the non-blocked loop, plus the inter tile index of the
+            // blocked loop, and the blocked simd loop.
+            SmallVector<Value, 4> inAccessVals =
+                firstFew<Value, 4>(blockedOutLoopInd, -2);
+            inAccessVals.emplace_back(blockLocalInd);
+            inAccessVals.emplace_back(simdLoopInd[0]);
+            Value inputVec = create.vec.load(vecType, flatInput, inAccessVals);
+        // The tmpInd value is between 0 and VL-1, and is local index -
+        // blocked index.
+#if ALEX_INLINE
+            Value tmpInd = offset.getValue();
+#else
                 Value tmpInd =
                     create.math.sub(blockLocalInd, blockedCurrIndex.getValue());
-                Value tmpVec =
-                    create.vec.load(vecType, tmpBlockedAlloca, {tmpInd, zero});
-                // Sum into redVec
-                Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
-                    rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
-                create.vec.store(
-                    accumulatedVec, tmpBlockedAlloca, {tmpInd, zero});
+#endif
+            Value tmpVec =
+                create.vec.load(vecType, tmpBlockedAlloca, {tmpInd, zero});
+            // Sum into redVec
+            Value accumulatedVec = emitScalarOpFor<ONNXReductionOp>(
+                rewriter, create.getLoc(), op, vecType, {tmpVec, inputVec});
+            create.vec.store(accumulatedVec, tmpBlockedAlloca, {tmpInd, zero});
+#if ALEX_INLINE
+          }
+#else
               }); /* intra block output loop */
-        });       /* blocked simd loop */
+#endif
+        }); /* blocked simd loop */
     // Load all temp vectors.
     SmallVector<Value, 4> redIn, redOut;
     for (int64_t i = 0; i < VL; ++i) {
