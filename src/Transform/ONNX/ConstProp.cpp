@@ -896,7 +896,6 @@ Value ConstPropSlice(
 
 Value ConstPropPad(PatternRewriter &rewriter, Value replacingValue, Value data,
     Value padValue) {
-  ConstPropCounters::count("Pad", {data});
   Operation *op = replacingValue.getDefiningOp();
 
   // Get pads via ShapeHelper.
