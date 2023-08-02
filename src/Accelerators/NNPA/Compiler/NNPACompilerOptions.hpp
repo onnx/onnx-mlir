@@ -16,10 +16,12 @@
 #include "llvm/Support/CommandLine.h"
 
 // clang-format off
+
 #define INSTRUMENTSTAGE_EUM_NNPA                                               \
     ,                                                                          \
     ZHigh,                                                                     \
-    ZLow                                                                       \
+    ZLow
+
 // clang-format on
 
 #define INSTRUMENTSTAGE_CL_ENUM_NNPA                                           \
@@ -39,5 +41,6 @@ extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
 extern llvm::cl::opt<bool> nnpaClipToDLFloatRange;
+extern llvm::cl::opt<bool> profileZHighIR;
 
 } // namespace onnx_mlir

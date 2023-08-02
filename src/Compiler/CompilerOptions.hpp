@@ -92,6 +92,7 @@ extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 extern llvm::cl::list<std::string> functionsToDecompose;
 extern llvm::cl::opt<std::string> modelTag;
+extern llvm::cl::opt<bool> profileONNXIR;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

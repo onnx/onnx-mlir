@@ -106,6 +106,19 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(createScrubDisposablePass());
+
+  // Add instrumentation for Onnx Ops
+  // Keep this pass at the end of this function.
+  unsigned instrumentActions = instrumentControlBits.getBits();
+  if (profileONNXIR) {
+    instrumentStage = onnx_mlir::InstrumentStages::Onnx;
+    instrumentOps = "onnx.*";
+    // Enable all four bits for four values in InstrumentActions enum.
+    instrumentActions = (1 << 4) - 1;
+  }
+  if (maccel.empty() && instrumentStage == Onnx)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -132,10 +145,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
                    << ONNXOpsStatFormat << "\"\n";
     }
   }
-  // Add instrumentation for Onnx Ops
-  if (maccel.empty() && instrumentStage == Onnx)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        instrumentOps, instrumentControlBits.getBits()));
 
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
