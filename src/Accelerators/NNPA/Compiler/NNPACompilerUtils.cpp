@@ -56,21 +56,17 @@ void addONNXToZHighPasses(
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
 
-  // Insert an instrumentation before lowering onnx to zhigh to get onnx level
-  // profiling.
+  // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits.getBits();
-  if (profileONNXIR) {
-    instrumentStage = onnx_mlir::InstrumentStages::Onnx;
-    instrumentOps = "onnx.*";
-    // Enable all four bits for four values in InstrumentActions enum.
-    instrumentActions = (1 << 4) - 1;
-  } else if (profileZHighIR) {
+  if (profileZHighIR) {
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
     instrumentOps = "onnx.*,zhigh.*";
     // Enable all four bits for four values in InstrumentActions enum.
     instrumentActions = (1 << 4) - 1;
   }
 
+  // Insert an instrumentation before lowering onnx to zhigh to get onnx level
+  // profiling.
   if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
