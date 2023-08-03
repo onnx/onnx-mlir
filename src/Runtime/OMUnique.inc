@@ -107,7 +107,7 @@ int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
   // case ONNX_TYPE_COMPLEX64:
   // case ONNX_TYPE_COMPLEX128:
   default:
-    assert("Unsupported ONNX type in OMTensor");
+    assert(false && "Unsupported ONNX type in OMTensor");
   }
   return 0;
 }
@@ -133,7 +133,7 @@ int isLessSlice(
 // slice data according to the specified slice axis(sliceAxis), and fills them
 // to the specified pointer. Slice data's shape is the following.
 // - Input data: [x, y, z] (asumming sliceAxis= 1, the "y" axis is the slice.)
-// - Sliced data: [x, z, count] (s.t. count is numer of unique slice shape)
+// - Sliced data: [x, z, count] (s.t. count is number of unique slice shape)
 //
 void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
     int64_t idxInSliceAxis, void *sliceData) {
@@ -144,17 +144,15 @@ void getSliceData(const OMTensor *inputTensor, int64_t sliceAxis,
   void *inputPtr = omTensorGetDataPtr(inputTensor);
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
   assert(inputRank <= 6 && "rank should be 6 or less");
-  assert(sliceAxis < inputRank && "rank should be less thatn rank");
+  assert(sliceAxis < inputRank && "rank should be less than rank");
 
   // To support input Tensor with various ranks in a uniform way.
   // If the input rank < 6, upgrade the rank to 6 virtually without changing
   // the physical memory layout by inserting length=1 ranks at lower ranks.
   uint64_t shapeInUniqueAxis[6] = {1, 1, 1, 1, 1, 1};
   uint64_t strides[6] = {0, 0, 0, 0, 0, 0};
-  int64_t sliceStride = 1;
   for (int64_t i = 0; i < inputRank; i++) {
     shapeInUniqueAxis[i] = (i == sliceAxis) ? 1 : inputShape[i];
-    sliceStride *= shapeInUniqueAxis[i];
     strides[i] = inputStrides[i];
   }
   // Gather all data in the slice
