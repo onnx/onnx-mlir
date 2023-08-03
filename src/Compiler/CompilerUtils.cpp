@@ -490,16 +490,6 @@ static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
     std::vector<std::string> libs, std::vector<std::string> libDirs) {
 
-  // Add user specified libs and their path
-  // Multiple lib or directory can be specified with multiple options.
-  // For example, --extr-libs="extra1", --extra-libs="extra2"
-
-  for (std::string lib : extraLibs)
-    libs.push_back(lib);
-
-  for (std::string dir : extraLibDirs)
-    libDirs.push_back(dir);
-
 #ifdef _WIN32
   std::vector<std::string> outputOpt = {"/Fe:" + sharedLibNameWithExt};
   // link has to be before libpath since they need to be passed through to the
@@ -593,7 +583,8 @@ static int compileModuleToSharedLibrary(
       modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
   libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
   return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getLibraryPath()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS),
+      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS));
 }
 
 // Return 0 on success, error code on failure
@@ -636,7 +627,7 @@ static int compileModuleToJniJar(
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      {getLibraryPath()});
+      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS));
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelSharedLibRemover(
@@ -769,6 +760,13 @@ static int emitOutputFiles(std::string outputNameNoExt,
   } break;
   case EmitLib: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, {getLibraryPath()});
+    // Add user specified libs and their path
+    // Multiple lib or directory can be specified with multiple options.
+    // For example, -lextra1, -lextra2, -Lpath1, -Lpath2
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, extraLibs);
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, extraLibPaths);
+
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
         module, outputNameNoExt, sharedLibNameWithExt);
@@ -785,6 +783,13 @@ static int emitOutputFiles(std::string outputNameNoExt,
   } break;
   case EmitJNI: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, {getLibraryPath()});
+    // Add user specified libs and their path
+    // Multiple lib or directory can be specified with multiple options.
+    // For example, -lextra1, -lextra2, -Lpath1, -Lpath2
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, extraLibs);
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, extraLibPaths);
+
     int rc = compileModuleToJniJar(module, outputNameNoExt);
     if (rc != CompilerSuccess)
       return rc;

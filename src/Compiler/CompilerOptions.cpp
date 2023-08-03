@@ -309,7 +309,7 @@ llvm::cl::opt<bool> enableConvOptPass("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::list<std::string> extraLibDirs("L",
+llvm::cl::list<std::string> extraLibPaths("L",
     llvm::cl::desc("Specify extra directories for libraries when compiling"
                    "an onnx model. Will be add used as -L in the linkage step."
                    "Each directory can be specified with one extra-lib-dirs"),
