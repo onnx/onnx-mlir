@@ -1065,14 +1065,11 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   if (inputElemType.isa<krnl::StringType>()) {
     Value strlenRes = create.krnl.strlen(lhs);
     Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
-    // We need to convert the results to return *i1 since krnlstrncmp returns
-    // i32.
-    Value convertedRes = create.math.cast(elementType, strncmpRes);
     // Confirm the strncmp is indeed valid. strncmp returns a value of 0 if the
     // strings are equal. So we need to verify the returned results is equal to
     // 0.
-    Value zeroVal = create.math.constant(elementType, 0);
-    results = create.math.eq(convertedRes, zeroVal);
+    Value zeroVal = create.math.constant(strncmpRes.getType(), 0);
+    results = create.math.eq(strncmpRes, zeroVal);
   } else {
     results = create.math.eq(lhs, rhs);
   }
