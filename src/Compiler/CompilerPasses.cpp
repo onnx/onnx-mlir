@@ -110,7 +110,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // Add instrumentation for Onnx Ops
   // Keep this pass at the end of this function.
   unsigned instrumentActions = instrumentControlBits.getBits();
-  if (profileONNXIR) {
+  if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
     // Enable all four bits for four values in InstrumentActions enum.

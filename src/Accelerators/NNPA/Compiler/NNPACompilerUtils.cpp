@@ -58,7 +58,7 @@ void addONNXToZHighPasses(
 
   // Profiling ZHighIR.
   unsigned instrumentActions = instrumentControlBits.getBits();
-  if (profileZHighIR) {
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
     instrumentOps = "onnx.*,zhigh.*";
     // Enable all four bits for four values in InstrumentActions enum.
