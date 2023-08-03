@@ -337,12 +337,14 @@ public:
     // Expect 2D or 3D input.
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
       return failure();
+    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
+    int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
 
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
-    bool nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
-    bool mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    bool nExceeded = N > serialChunkSize;
+    bool mExceeded = M > serialChunkSize;
     if (!(nExceeded || mExceeded))
       return failure();
 
@@ -351,11 +353,11 @@ public:
     ValueRange subAs(A), subBs(B);
     if (nExceeded) {
       // Split A along the dimension N.
-      subAs = splitAlongAxis(create, A, aRank - 2);
+      subAs = splitAlongAxis(create, A, aRank - 2, serialChunkSize);
     }
     if (mExceeded) {
       // Split B along the dimension M.
-      subBs = splitAlongAxis(create, B, bRank - 1);
+      subBs = splitAlongAxis(create, B, bRank - 1, serialChunkSize);
     }
     // Emit sub matrix multiplication.
     SmallVector<Value> resSubAs;
@@ -492,12 +494,12 @@ void RewriteONNXForZHighPass::runOnOperation() {
       return false;
     // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic or
     // exceeds NNPA limitation.
-    /* Comment out here to disable original matmul splitting
+    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
+    int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
     if ((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3) &&
-        ((aShape[aRank - 2] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) ||
-            (bShape[bRank - 1] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE)))
+        ((aShape[aRank - 2] > serialChunkSize) ||
+            (bShape[bRank - 1] > serialChunkSize)))
       return false;
-    */
     // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
     if (aRank > 3 && (aRank == bRank)) {
       bool sameBatchDims = true;
@@ -536,8 +538,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
-  // Comment out here to disable original matmul splitting
-  // patterns.insert<SplitLargeMatMulPattern>(&getContext());
+  patterns.insert<SplitLargeMatMulPattern>(&getContext());
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

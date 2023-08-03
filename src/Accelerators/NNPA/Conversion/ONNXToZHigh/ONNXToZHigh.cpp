@@ -287,8 +287,8 @@ public:
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
     // TODO : Change the way to set chunkSize
-    int chunkSize =
-        25129; // 50257; // gpt2-lm-head-10 dim 50257(orig) 25129 (half)
+    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
+    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
     bool nExceeded = N > chunkSize;
     bool mExceeded = M > chunkSize;
     if (!(nExceeded || mExceeded))

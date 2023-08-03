@@ -43,7 +43,7 @@ typedef struct _OMThreadHandler {
 // omTensorAsyncWait need to be called before asscsing the results.
 //
 void omTensorMatMulAsync(
-    OMTensor *Y, OMTensor *threadTensor, OMTensor *A, OMTensor *B, OMTensor *C);
+    void *Y, OMTensor *threadTensor, void *A, void *B, void *C);
 
 //
 // Wait completion of the corresponding omTensorMatMulAsync call.
