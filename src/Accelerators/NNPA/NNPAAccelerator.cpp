@@ -144,9 +144,9 @@ void NNPAAccelerator::conversionTargetKrnlToLLVM(
 
 void NNPAAccelerator::rewritePatternKrnlToLLVM(
     mlir::RewritePatternSet &patterns, mlir::LLVMTypeConverter &typeConverter,
-    mlir::MLIRContext *ctx) const {
+    mlir::MLIRContext *ctx, bool funcCallErrorExit) const {
   onnx_mlir::zlow::populateZLowToLLVMConversionPattern(
-      patterns, typeConverter, ctx);
+      patterns, typeConverter, ctx, funcCallErrorExit);
 }
 
 } // namespace accel

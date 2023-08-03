@@ -305,6 +305,11 @@ llvm::cl::opt<std::string> modelTag("tag",
     llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> funcCallErrorExit("func-call-error-exit",
+    llvm::cl::desc("Execution failed when external function call failed."
+                   " Currently only zDNN calls in NNPA are supported."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
