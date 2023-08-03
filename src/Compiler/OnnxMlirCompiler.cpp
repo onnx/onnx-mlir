@@ -11,7 +11,9 @@
 
 #include "include/OnnxMlirCompiler.h"
 #include "ExternalUtil.hpp"
+#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
+#include "llvm/Support/FileSystem.h"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -140,9 +142,9 @@ ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
   if (errorMessage)
     *errorMessage = nullptr;
 
-  mlir::OwningOpRef<mlir::ModuleOp> module;
-  mlir::MLIRContext context;
-  registerDialects(context);
+  OwningOpRef<ModuleOp> module;
+  MLIRContext context;
+  loadDialects(context);
 
   std::string internalErrorMessage;
   int rc = processInputArray(
@@ -169,6 +171,22 @@ ONNX_MLIR_EXPORT char *omCompileOutputFileName(
   std::string inputFilenameStr(inputFilename);
   std::string name = deriveOutputFileName(flagVect, inputFilenameStr);
   return strdup(name.c_str());
+}
+
+ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags) {
+  std::string modelTag = "";
+  std::vector<std::string> flagVect = parseFlags(flags);
+  for (int i = 0; i < flagVect.size(); ++i) {
+    if (flagVect[i].find("--tag=") == 0) {
+      modelTag = flagVect[i].substr(6);
+      break;
+    }
+    if (flagVect[i].find("-tag=") == 0) {
+      modelTag = flagVect[i].substr(5);
+      break;
+    }
+  }
+  return strdup(modelTag.c_str());
 }
 
 } // extern C

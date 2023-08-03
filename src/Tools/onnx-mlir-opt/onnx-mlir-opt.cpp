@@ -19,10 +19,10 @@
 #include <llvm/Support/ToolOutputFile.h>
 #include <mlir/Dialect/Bufferization/Transforms/Passes.h>
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
+#include <mlir/Dialect/Tosa/IR/TosaOps.h>
 #include <mlir/IR/AsmState.h>
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/MLIRContext.h>
-#include <mlir/InitAllDialects.h>
 #include <mlir/InitAllPasses.h>
 #include <mlir/Interfaces/ViewLikeInterface.h>
 #include <mlir/Pass/Pass.h>
@@ -30,16 +30,16 @@
 #include <mlir/Support/FileUtilities.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
+#include "RegisterPasses.hpp"
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
-#include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
-#include "src/InitMLIRPasses.hpp"
-#include "src/InitOMPasses.hpp"
-#include "src/Pass/Passes.hpp"
+#include "src/Version/Version.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -86,7 +86,7 @@ void scanAndSetOptLevel(int argc, char **argv) {
       num = atoi(&argv[i][2]); // Get the number starting 2 char down.
     // Silently ignore out of bound opt levels.
     if (num >= 0 && num <= 3) {
-      OptimizationLevel = (onnx_mlir::OptLevel)num;
+      OptimizationLevel = (OptLevel)num;
       return;
     }
   }
@@ -113,62 +113,33 @@ void scanAndSetMAccel(int argc, char **argv) {
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
-  // Scan Opt Level manually now as it is needed for initializing the OM
-  // Passes.
+
+  // Scan Opt Level manually now as it is needed to register passes
+  // before command line options are parsed.
   scanAndSetOptLevel(argc, argv);
-  // Scan maccel manually now as it is needed for initializing the OM Passes.
+
+  // Scan maccel manually now as it is needed to initialize accelerators
+  // before ParseCommandLineOptions() is called.
   scanAndSetMAccel(argc, argv);
 
   // Hide unrelated options except common ones and the onnx-mlir-opt options
   // defined above.
-  llvm::cl::HideUnrelatedOptions(
-      {&onnx_mlir::OnnxMlirCommonOptions, &OnnxMlirOptOptions});
+  llvm::cl::HideUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptOptions});
 
-  mlir::DialectRegistry registry;
-  registry.insert<mlir::arith::ArithDialect>();
-  registry.insert<mlir::linalg::LinalgDialect>();
-  registry.insert<mlir::affine::AffineDialect>();
-  registry.insert<mlir::LLVM::LLVMDialect>();
-  registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::func::FuncDialect>();
-  registry.insert<mlir::vector::VectorDialect>();
-  registry.insert<mlir::shape::ShapeDialect>();
-  registry.insert<mlir::math::MathDialect>();
-  registry.insert<mlir::memref::MemRefDialect>();
-  registry.insert<mlir::ONNXDialect>();
-  registry.insert<mlir::KrnlDialect>();
-  registry.insert<mlir::tosa::TosaDialect>();
-  registry.insert<mlir::cf::ControlFlowDialect>();
+  DialectRegistry registry = registerDialects(maccel);
+  registry.insert<tosa::TosaDialect>();
 
-  // Initialize accelerators if they exist.
-  onnx_mlir::accel::initAccelerators(maccel);
-
-  // Register dialects for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    accel->registerDialects(registry);
-
-  registerTransformsPasses();
-  affine::registerAffinePasses();
-  func::registerFuncPasses();
-  registerLinalgPasses();
-  memref::registerMemRefPasses();
-  registerSCFPasses();
-  bufferization::registerBufferizationPasses();
-
-  onnx_mlir::initOMPasses(OptimizationLevel);
-  onnx_mlir::initMLIRPasses();
-
-  // Initialize passes for accelerators.
-  for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-    accel->initPasses(OptimizationLevel);
+  // Registered passes can be expressed as command line flags, so they must
+  // must be registered before command line options are parsed.
+  registerPasses(OptimizationLevel);
 
   // Register any command line options.
-  mlir::registerAsmPrinterCLOptions();
-  mlir::registerMLIRContextCLOptions();
-  mlir::registerPassManagerCLOptions();
-  mlir::registerDefaultTimingManagerCLOptions();
+  registerAsmPrinterCLOptions();
+  registerMLIRContextCLOptions();
+  registerPassManagerCLOptions();
+  registerDefaultTimingManagerCLOptions();
 
-  mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
+  PassPipelineCLParser passPipeline("", "Compiler passes to run");
 
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
@@ -180,24 +151,27 @@ int main(int argc, char **argv) {
 
   // Set up the input file.
   std::string error_message;
-  auto file = mlir::openInputFile(input_filename, &error_message);
+  auto file = openInputFile(input_filename, &error_message);
   if (!error_message.empty()) {
     llvm::errs() << "Failure to open file; " << error_message << "\n";
-    return failed(LogicalResult::failure());
+    return 1;
   }
 
-  auto output = mlir::openOutputFile(output_filename, &error_message);
+  auto output = openOutputFile(output_filename, &error_message);
   if (!error_message.empty()) {
     llvm::errs() << "Failure to compile file; " << error_message << "\n";
-    return failed(LogicalResult::failure());
+    return 1;
   }
 
+  // Passes are configured with command line options so they must be configured
+  // after command line parsing but before any passes are run.
+  configurePasses();
+
   auto passManagerSetupFn = [&](PassManager &pm) {
-    mlir::MLIRContext *ctx = pm.getContext();
-    registerDialects(*ctx);
-    ctx->getOrLoadDialect<mlir::tosa::TosaDialect>();
-    for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
-      accel->getOrLoadDialects(*ctx);
+    MLIRContext *ctx = pm.getContext();
+    // MlirOptMain constructed ctx with our registry so we just load all our
+    // already registered dialects.
+    ctx->loadAllAvailableDialects();
     pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
     auto errorHandler = [ctx](const Twine &msg) {
       emitError(UnknownLoc::get(ctx)) << msg;
@@ -215,10 +189,9 @@ int main(int argc, char **argv) {
       .emitBytecode(false)
       .useExplicitModule(false);
 
-  if (failed(
-          mlir::MlirOptMain(output->os(), std::move(file), registry, config)))
-    return mlir::asMainReturnCode(failure());
+  if (failed(MlirOptMain(output->os(), std::move(file), registry, config)))
+    return 1;
 
   output->keep();
-  return mlir::asMainReturnCode(success());
+  return 0;
 }

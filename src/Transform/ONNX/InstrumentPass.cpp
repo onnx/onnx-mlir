@@ -14,6 +14,7 @@
 
 #include <regex>
 #include <set>
+#include <string>
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -24,7 +25,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -68,8 +68,8 @@ public:
   InstrumentPass() = default;
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(StringRef ops, unsigned actions) {
-    this->instrumentOps = ops.str();
+  InstrumentPass(const std::string &ops, unsigned actions) {
+    this->instrumentOps = ops;
     this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
     this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
     this->reportTime = actions & (1 << onnx_mlir::InstrumentReportTime);
@@ -155,6 +155,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    StringRef ops, unsigned actions) {
+    const std::string &ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(ops, actions);
 }

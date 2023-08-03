@@ -74,6 +74,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Squeeze.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
+  Tensor/Unique.cpp
   Tensor/Unsqueeze.cpp
 
   LINK_LIBS PUBLIC
