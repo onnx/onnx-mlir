@@ -107,17 +107,36 @@ Value ConstZeroTensor(
           type, rewriter.getZeroAttr(type.getElementType())));
 }
 
+WideNum asWideNum(double n, Type elemType) {
+  return wideZeroDispatch(elemType, [n](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return WideNum::widen<TAG>(static_cast<cpptype>(n));
+  });
+}
+
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(Value constValue, double n) {
   ElementsAttr constElements = getConstValueElements(constValue);
   Type elemType = constElements.getElementType();
   assert(!elemType.isInteger(1) && "booleans are not supported");
-  WideNum w = wideZeroDispatchNonBool(elemType, [n](auto wideZero) {
-    using cpptype = decltype(wideZero);
-    constexpr BType TAG = toBType<cpptype>;
-    return WideNum::widen<TAG>(static_cast<cpptype>(n));
-  });
+  WideNum w = asWideNum(n, elemType);
   return ElementsAttrBuilder::allEqual(constElements, w);
+}
+
+// Extracts number from a scalar constant value.
+WideNum getScalarNum(Value constValue) {
+  ElementsAttr elements = getConstValueElements(constValue);
+  Type elementType = elements.getElementType();
+  if (isa<FloatType>(elementType)) {
+    APFloat f = *elements.value_begin<APFloat>();
+    return WideNum::fromAPFloat(f);
+  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
+    APInt i = *elements.value_begin<APInt>();
+    return WideNum::fromAPInt(i, !itype.isUnsigned());
+  } else {
+    llvm_unreachable("Only integer and float types are supported");
+  }
 }
 
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
@@ -872,6 +891,30 @@ Value ConstPropSlice(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for PadOp.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropPad(PatternRewriter &rewriter, Value replacingValue, Value data,
+    Value padValue) {
+  Operation *op = replacingValue.getDefiningOp();
+
+  // Get pads via ShapeHelper.
+  ONNXPadOpShapeHelper shapeHelper(op, {});
+  auto outcome = shapeHelper.computeShape();
+  assert(succeeded(outcome) && "Failed to scan pad op parameters");
+  SmallVector<int64_t> shape, pads;
+  IndexExpr::getLiteral(shapeHelper.pads, pads);
+
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr dataElements = getConstValueElements(data);
+  WideNum padNum = isa<NoneType>(padValue.getType())
+                       ? asWideNum(0, dataElements.getElementType())
+                       : getScalarNum(padValue);
+  ElementsAttr paddedElements = elementsBuilder.pad(dataElements, pads, padNum);
+  return createReplacingConstantOp(rewriter, replacingValue, paddedElements);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ConcatOp.
 //===----------------------------------------------------------------------===//
 
@@ -963,20 +1006,6 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for Range.
 //===----------------------------------------------------------------------===//
-
-WideNum getScalarNum(Value constValue) {
-  ElementsAttr elements = getConstValueElements(constValue);
-  Type elementType = elements.getElementType();
-  if (isa<FloatType>(elementType)) {
-    APFloat f = *elements.value_begin<APFloat>();
-    return WideNum::fromAPFloat(f);
-  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
-    APInt i = *elements.value_begin<APInt>();
-    return WideNum::fromAPInt(i, !itype.isUnsigned());
-  } else {
-    llvm_unreachable("Only integer and float types are supported");
-  }
-}
 
 Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
     Value start, Value limit, Value delta) {
