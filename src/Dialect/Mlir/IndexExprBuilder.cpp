@@ -180,15 +180,26 @@ void IndexExprBuilder::getIntFromArrayAsLiterals(ArrayAttr intAttrArray,
 // Function that perform the work, creating Literal (int/float), Symbol(int),
 // Dim(int), NonAffine (float) IndexExpr.
 IndexExpr IndexExprBuilder::getValFromArray(
-    Value array, uint64_t i, bool makeSymbol, bool isFloat) {
+    Value array, uint64_t i, bool makeSymbol, bool isFloat, int64_t arraySize) {
   Type elType = getElementTypeOrSelf(array);
   if (isFloat)
     assert(isa<FloatType>(elType) && "array element type mismatch");
   else
     assert(isa<IntegerType>(elType) && "array element type mismatch");
-  uint64_t size = getArraySize(array, /*static only*/ true);
-  if (i >= size)
+  int64_t size = getArraySize(array, /*static only*/ false);
+  if (arraySize >= 0) {
+    // Was given a defined arraySize value.
+    if (size == ShapedType::kDynamic)
+      // Could not derive an array size from value, use given arraySize.
+      size = arraySize;
+    else
+      // Was able to derive an array size from array value.
+      assert(arraySize == size && "expected given size to be the same as the "
+                                  "one detected from the array value");
+  }
+  if (size == ShapedType::kDynamic || i >= (uint64_t)size) {
     return UndefinedIndexExpr();
+  }
   if (ElementsAttr elementsAttr = getConst(array)) {
     if (isFloat) {
       double floatVal =
@@ -232,34 +243,38 @@ IndexExpr IndexExprBuilder::getFloatAsNonAffine(Value value) {
 }
 
 IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
-    Value intArray, uint64_t i) {
-  return getValFromArray(intArray, i, /*makeSymbol*/ true, /*isFloat*/ false);
+    Value intArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      intArray, i, /*makeSymbol*/ true, /*isFloat*/ false, arraySize);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(Value intArray, uint64_t i) {
-  return getValFromArray(intArray, i, /*makeSymbol*/ false, /*isFloat*/ false);
+IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+    Value intArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      intArray, i, /*makeSymbol*/ false, /*isFloat*/ false, arraySize);
 }
 
 IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
-    Value floatArray, uint64_t i) {
-  return getValFromArray(floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true);
+    Value floatArray, uint64_t i, int64_t arraySize) {
+  return getValFromArray(
+      floatArray, i, /*makeSymbol*/ false, /*isFloat*/ true, arraySize);
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsSymbol(
+IndexExpr IndexExprBuilder::getIntFromArrayAsSymbolWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsSymbol(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-IndexExpr IndexExprBuilder::getIntFromArrayAsDim(
+IndexExpr IndexExprBuilder::getIntFromArrayAsDimWithOutOfBound(
     Value intArray, uint64_t i, int64_t defaultLiteral) {
   IndexExpr indexExpr = getIntFromArrayAsDim(intArray, i);
   // Undefined value are set to default value.
   return indexExpr.isUndefined() ? LiteralIndexExpr(defaultLiteral) : indexExpr;
 }
 
-IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffine(
+IndexExpr IndexExprBuilder::getFloatFromArrayAsNonAffineWithOutOfBound(
     Value floatArray, uint64_t i, double defaultLiteral) {
   IndexExpr indexExpr = getFloatFromArrayAsNonAffine(floatArray, i);
   // Undefined value are set to default value.
@@ -387,6 +402,57 @@ void IndexExprBuilder::getShapeAsDims(
   uint64_t rank = getShapedTypeRank(tensorOrMemrefValue);
   for (uint64_t i = 0; i < rank; ++i)
     list.emplace_back(getShapeAsDim(tensorOrMemrefValue, i));
+}
+
+//===----------------------------------------------------------------------===//
+// Support tiles.
+
+// Determined if we have a full tile (affine expression compared to >=0)
+IndexExpr IndexExprBuilder::isTileFull(
+    IndexExpr i, IndexExpr block, IndexExpr UB) {
+  // Determine if the current tile is full. It is full if the beginning of
+  // the tile (i) is smaller or equal to UB - bloc, namely
+  //   PredicateIndexExpr nIsFullTile = (i<= (nUB - nBlock));
+  // However, if UB is divisible by Block, then its full no matter what.
+  if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
+    // Last tile is guaranteed to be full because UB is divisible by block.
+    return LiteralIndexExpr(1); // 1 >= 0 is true
+  }
+  // True if i <= (UB - block), namely UB - block - i >= 0.
+  // Affine expressions compared to >= 0
+  IndexExpr res = UB - block - i;
+  return res;
+}
+
+// If tile is not full, the remaining trip count within the tile.
+IndexExpr IndexExprBuilder::partialTileSize(
+    IndexExpr i, IndexExpr block, IndexExpr UB) {
+  // Trip count for partial tiles: leftover = UB - i in general. If UB is
+  // known at compile time, then without loss of generality, leftover = (UB-
+  // i) % Block, and since i is by definition a multiple of Block (i is
+  // index at beginning of tile), then leftover = UB % Block.
+  if (UB.isLiteral()) {
+    IndexExpr partialTrip = UB % block;
+    assert(partialTrip.isLiteral() && "op on 2 literals has to be literal");
+    return partialTrip;
+  }
+  // don't have to take the mod since we know we have a partial tile already.
+  return UB - i;
+}
+
+// Regardless of if the tile is full or partial, the trip count withint the
+// tile.
+IndexExpr IndexExprBuilder::tileSize(
+    IndexExpr i, IndexExpr block, IndexExpr UB) {
+  // Trip count in general: min(UB - i, Block).
+  // UB.debugPrint("trip UB");
+  // block.debugPrint("trip block");
+  // i.debugPrint("trip GI");
+  if (UB.isLiteral() && (UB.getLiteral() % block.getLiteral() == 0)) {
+    // Last tile is guaranteed to be full, so trip is always full.
+    return block;
+  }
+  return IndexExpr::min(UB - i, block);
 }
 
 } // namespace onnx_mlir

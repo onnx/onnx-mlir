@@ -50,7 +50,7 @@ func.func @test_dim_analysis_with_bert(%arg0: tensor<?x256xi64>, %arg1: tensor<?
 // CHECK:           [[VAR_8_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_7_]]) {allowzero = 0 : si64} : (tensor<?x256xi64>, tensor<3xi64>) -> tensor<?x1x256xi64>
 // CHECK:           "onnx.DimGroup"([[VAR_8_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x1x256xi64>) -> ()
 
-// CHECK:           [[VAR_9_:%.+]] = "onnx.Cast"([[VAR_8_]]) {to = f32} : (tensor<?x1x256xi64>) -> tensor<?x1x256xf32>
+// CHECK:           [[VAR_9_:%.+]] = "onnx.Cast"([[VAR_8_]]) {saturate = 1 : si64, to = f32} : (tensor<?x1x256xi64>) -> tensor<?x1x256xf32>
 // CHECK:           "onnx.DimGroup"([[VAR_9_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x1x256xf32>) -> ()
 
 // CHECK:           [[VAR_10_:%.+]] = "onnx.Mul"([[VAR_4_]], [[VAR_9_]]) : (tensor<?x256x1xf32>, tensor<?x1x256xf32>) -> tensor<?x256x256xf32>

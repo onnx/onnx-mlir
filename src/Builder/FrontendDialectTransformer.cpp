@@ -32,6 +32,7 @@
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
@@ -226,6 +227,15 @@ private:
     return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
   }
 
+  Value createConstantValue(ElementsAttr value, Location loc) {
+    OnnxBuilder createONNX(builder_, loc);
+    return createONNX.constant(value);
+  }
+
+  Value createConstantValue(ElementsAttr value) {
+    return createConstantValue(value, UnknownLoc());
+  }
+
   void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
     if (allowExist && onnx_type_map.ContainsKey(vi.name()))
       return;
@@ -269,8 +279,7 @@ private:
     // Use the tensor name as Location.
     auto loc =
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
-    Value initializer =
-        builder_.create<ONNXConstantOp>(loc, Attribute(), mlirAttr);
+    Value initializer = createConstantValue(mlirAttr, loc);
     num_of_parameters_ += mlirAttr.getShapedType().getNumElements();
     return initializer;
   }
@@ -352,14 +361,14 @@ private:
     }
   }
 
-  llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
+  std::optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
       if (const onnx::TypeProto *onnxTypePtr =
               onnx_type_map.GetByOnnxName(onnx_name)) {
-        return llvm::Optional<Type>(ImportType(*onnxTypePtr));
+        return std::optional<Type>(ImportType(*onnxTypePtr));
       }
     }
-    return llvm::Optional<Type>();
+    return std::optional<Type>();
   }
 
   NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
@@ -912,9 +921,7 @@ private:
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
+      Value constantResult = createConstantValue(constantDenseAttribute);
       inputs.push_back(constantResult);
     }
 
@@ -929,9 +936,7 @@ private:
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
+      Value constantResult = createConstantValue(constantDenseAttribute);
       inputs.push_back(constantResult);
     }
     int nOut = ONNXDropoutOp::getNumberOfResults();
@@ -962,9 +967,7 @@ private:
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
 
       // Use the special builder defined in ONNXOp.td.inc.
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
+      Value constantResult = createConstantValue(constantDenseAttribute);
       inputs.push_back(constantResult);
 
       int nIn = ONNXPadOp::getNumberOfOperands();
@@ -1000,9 +1003,7 @@ private:
             RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
         auto constantDenseAttribute =
             DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-        auto constantOp = builder_.create<ONNXConstantOp>(
-            UnknownLoc(), Attribute(), constantDenseAttribute);
-        Value constantValue = constantOp.getOutput();
+        Value constantValue = createConstantValue(constantDenseAttribute);
 
         // Map from ONNX attributes to indices, which are
         // matched with ONNXSliceOp::build ordering.
@@ -1174,6 +1175,14 @@ private:
       if (it != caller_attr_map.end())
         attr_map[attrName] = it->second;
     }
+    for (const onnx::AttributeProto &attr : functionProto.attribute_proto()) {
+      const std::string &attrName = attr.name();
+      auto it = caller_attr_map.find(attrName);
+      if (it != caller_attr_map.end())
+        attr_map[attrName] = it->second;
+      else
+        attr_map[attrName] = &attr;
+    }
     replaceAttrRefs(graph, attr_map);
 
     OpsetImportsMap function_opset_map =
@@ -1270,10 +1279,13 @@ private:
   void ImportNode(const onnx::NodeProto &node) {
     std::string opName = node.op_type() + GetImportVersionOfNode(node);
     auto handler = import_handler_map_.find(opName);
-    if (handler != import_handler_map_.end()) {
-      // It's a regular op with a registered handler.
-      (this->*(handler->second))(node);
-      return;
+    std::vector<std::string> funcs = options_.functionsToDecompose;
+    if (!(std::find(funcs.begin(), funcs.end(), opName) != funcs.end())) {
+      if (handler != import_handler_map_.end()) {
+        // It's a regular op with a registered handler.
+        (this->*(handler->second))(node);
+        return;
+      }
     }
 
     const onnx::OpSchema *schema = GetOpSchema(node);

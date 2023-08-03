@@ -1661,7 +1661,7 @@ func.func @test_cast_1(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf32> {
   "onnx.Return"(%1) : (tensor<*xf32>) -> ()
 
   // CHECK-LABEL: test_cast_1
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f32} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f32} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf32>
 }
 
@@ -1672,7 +1672,7 @@ func.func @test_cast_2(%arg0 : tensor<2x3x4xf32>) -> tensor<*xui8> {
   "onnx.Return"(%1) : (tensor<*xui8>) -> ()
 
   // CHECK-LABEL: test_cast_2
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = ui8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = ui8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xui8>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xui8>
 }
 
@@ -1683,7 +1683,7 @@ func.func @test_cast_3(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi8> {
   "onnx.Return"(%1) : (tensor<*xi8>) -> ()
 
   // CHECK-LABEL: test_cast_3
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = i8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = i8} : (tensor<2x3x4xf32>) -> tensor<2x3x4xi8>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xi8>
 }
 
@@ -1694,7 +1694,7 @@ func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
   "onnx.Return"(%1) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: test_cast_10
-  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {to = f16} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f16} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf16>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf16>
 }
 
@@ -3051,6 +3051,27 @@ func.func @topk_constant_k(%X: tensor<3x4x5xf32>) -> tensor<*xf32> {
   onnx.Return %value : tensor<*xf32>
   // CHECK-LABEL: topk_constant_k
   // CHECK: {{.*}} = "onnx.TopK"({{.*}}, {{.*}}) {axis = 1 : si64, largest = 1 : si64, sorted = 1 : si64} : (tensor<3x4x5xf32>, tensor<i64>) -> (tensor<3x2x5xf32>, tensor<3x2x5xi64>)
+}
+
+// -----
+
+func.func @unique(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
+  return %Y : tensor<*xi64>
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique
+// CHECK: {{.*}}, {{.*}}, {{.*}}, {{.*}} = "onnx.Unique"({{.*}}) {axis = 0 : si64, sorted = 1 : si64} : (tensor<2x2xi64>) -> (tensor<?x2xi64>, tensor<?xi64>, tensor<?xi64>, tensor<?xi64>)
+}
+
+// -----
+
+func.func @unique_3d(%arg0: tensor<2x2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>, tensor<*xi64>)
+  return %Y : tensor<*xi64>
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_3d
+// CHECK: {{.*}}, {{.*}}, {{.*}}, {{.*}} = "onnx.Unique"({{.*}}) {axis = 1 : si64, sorted = 1 : si64} : (tensor<2x2x2xi64>) -> (tensor<2x?x2xi64>, tensor<?xi64>, tensor<?xi64>, tensor<?xi64>)
 }
 
 // -----

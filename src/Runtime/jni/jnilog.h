@@ -81,6 +81,9 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     case ONNX_TYPE_INT64:                                                      \
       LOG_BUF_C_TYPE(long, hex ? " %016x" : " %ld", buf, data, n);             \
       break;                                                                   \
+    case ONNX_TYPE_FLOAT16:                                                    \
+      LOG_BUF_C_TYPE(short, " %04x", buf, data, n);                            \
+      break;                                                                   \
     case ONNX_TYPE_FLOAT:                                                      \
       LOG_BUF_C_TYPE(float, hex ? " %08x" : " %f", buf, data, n);              \
       break;                                                                   \
@@ -114,12 +117,11 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
 
 /* Main macro for log output */
 #define LOG_PRINTF(level, ...)                                                 \
-  log_printf(level, (char *)__FILE__, (char *)__FUNCTION__, __LINE__,          \
-      (char *)__VA_ARGS__)
+  log_printf(level, __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
 
 /* Generic log routine */
 extern void log_init(void);
-extern void log_printf(
-    int level, char *file, const char *func, int line, char *fmt, ...);
+extern void log_printf(int level, const char *file, const char *func, int line,
+    const char *fmt, ...);
 
 #endif

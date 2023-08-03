@@ -30,6 +30,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -230,6 +231,29 @@ bool hasSingleEntryPoint(ModuleOp &module) {
   return (i == 1);
 }
 
+void PostfixEntrypointNames(ModuleOp &module) {
+  module->walk([&](KrnlEntryPointOp entryOp) -> WalkResult {
+    Operation *op = entryOp.getOperation();
+    std::string entryPointFuncName =
+        op->getAttrOfType<SymbolRefAttr>(
+              KrnlEntryPointOp::getEntryPointFuncAttrName())
+            .getLeafReference()
+            .getValue()
+            .str();
+    func::FuncOp entryPointFunc =
+        dyn_cast<func::FuncOp>(module.lookupSymbol(entryPointFuncName));
+    assert(entryPointFunc && "entry point func must exist");
+    // Update the function name.
+    entryPointFunc.setSymName(
+        StringRef(LLVMBuilder::SymbolPostfix(module, entryPointFuncName)));
+    // Reflect the new function name in the entry point.
+    op->setAttr(KrnlEntryPointOp::getEntryPointFuncAttrName(),
+        FlatSymbolRefAttr::get(entryPointFunc));
+    return WalkResult::advance();
+  });
+  return;
+}
+
 /// Keep original MemRefTypes for inputs and outputs. These information will be
 /// used for constructing OMTensors for inputs and outputs. We have to record
 /// this information at this point before they are disappeared during the
@@ -329,8 +353,8 @@ void genSignatureFunction(ModuleOp &module,
     // Emit the function type.
     Type llvmFnType =
         LLVM::LLVMFunctionType::get(i8PtrPtrTy, {i64PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp =
-        create.llvm.func("omQueryEntryPoints", llvmFnType);
+    LLVM::LLVMFuncOp funcOp = create.llvm.func(
+        "omQueryEntryPoints", llvmFnType, /*createUniqueFunc=*/true);
     // Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
     OpBuilder::InsertionGuard bodyGuard(b);
@@ -366,7 +390,8 @@ void genSignatureFunction(ModuleOp &module,
     b.setInsertionPointToEnd(module.getBody());
     // 1. Emit the function type.
     Type llvmFnType = LLVM::LLVMFunctionType::get(i8PtrTy, {i8PtrTy}, false);
-    LLVM::LLVMFuncOp funcOp = create.llvm.func(funcNames[i], llvmFnType);
+    LLVM::LLVMFuncOp funcOp =
+        create.llvm.func(funcNames[i], llvmFnType, /*createUniqueFunc=*/true);
 
     // 2. Emit the body of the function.
     Block *entryBlock = funcOp.addEntryBlock();
@@ -580,7 +605,8 @@ void loadConstantsFromFile(ModuleOp &module,
         getFirstEntryOpInBlock(module, entryGlobalOps);
     assert(firstEntryPointOp && "No entry function exists");
     b.setInsertionPoint(firstEntryPointOp);
-    funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
+    funcOp = create.llvm.func(
+        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
     // Call loadAllConstantsFuncName in each entry point function.
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
@@ -593,14 +619,16 @@ void loadConstantsFromFile(ModuleOp &module,
       b.setInsertionPoint(
           &entryFunc.getBody().front(), entryFunc.getBody().front().begin());
       FlatSymbolRefAttr loadAllConstantsRef = create.llvm.getOrInsertSymbolRef(
-          module, loadAllConstantsFuncName, llvmVoidTy, {},
+          module, LLVMBuilder::SymbolPostfix(module, loadAllConstantsFuncName),
+          llvmVoidTy, {},
           /*isVarArg=*/false);
       create.llvm.call({}, loadAllConstantsRef, {});
     }
   } else {
     OpBuilder::InsertionGuard guard(b);
     b.setInsertionPointToEnd(module.getBody());
-    funcOp = create.llvm.func(loadAllConstantsFuncName, llvmFnType);
+    funcOp = create.llvm.func(
+        loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
   }
 
   // Emit the body of the function.
@@ -609,12 +637,14 @@ void loadConstantsFromFile(ModuleOp &module,
   b.setInsertionPointToStart(entryBlock);
 
   // Get the constant file name.
-  std::string fnameSymbol = EXTERNAL_CONSTANT_PREFIX + "filename";
+  std::string fnameSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filename");
   auto fnameGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fnameSymbol);
   assert(fnameGlobalOp && "Could not find the global op for filename");
   Value fnameI8Ptr = krnl::getPtrToGlobalString(fnameGlobalOp, loc, b);
   // Get the file size.
-  std::string fsizeSymbol = EXTERNAL_CONSTANT_PREFIX + "filesize";
+  std::string fsizeSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filesize");
   auto fsizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fsizeSymbol);
   assert(fsizeGlobalOp && "Could not find the global op for filesize");
   int64_t dataSize = fsizeGlobalOp.getValue()
@@ -623,7 +653,8 @@ void loadConstantsFromFile(ModuleOp &module,
                          .getValue()
                          .getSExtValue();
   // Get the global op for isLE.
-  std::string isleSymbol = EXTERNAL_CONSTANT_PREFIX + "isLE";
+  std::string isleSymbol =
+      LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "isLE");
   auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
   assert(isleGlobalOp && "Could not find the global op for data isle");
   int64_t isle = isleGlobalOp.getValue()
@@ -632,7 +663,8 @@ void loadConstantsFromFile(ModuleOp &module,
                      .getValue()
                      .getSExtValue();
   // Get the packedConst global.
-  std::string packedSymbol = EXTERNAL_CONSTANT_PREFIX + "packedConst";
+  std::string packedSymbol = LLVMBuilder::SymbolPostfix(
+      module, EXTERNAL_CONSTANT_PREFIX + "packedConst");
   auto packedGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(packedSymbol);
   Value packedGlobalAddr = create.llvm.addressOf(packedGlobalOp);
   Value packedGlobalPtr = create.llvm.bitcast(llvmI8PtrTy, packedGlobalAddr);
@@ -713,6 +745,10 @@ struct ConvertKrnlToLLVMPass
 
   void runOnOperation() final;
 
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<cf::ControlFlowDialect>();
+  }
+
   Option<bool> useOpaquePointers{*this, "use-opaque-pointers",
       llvm::cl::desc("Whether to use opaque pointers instead of typed pointers "
                      "when lowering to LLVM. Default: true"),
@@ -773,6 +809,11 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // Remove this once MLIR/LLVM completely uses opaque pointers.
   options.useOpaquePointers = useOpaquePointers; // for LLVMTypeConverter.
   LLVM_USE_OPAQUE_POINTER = useOpaquePointers; // for onnx-mlir util functions.
+
+  // Append a unique string to each entry point function.
+  // The string is getting from the module's attribute
+  // `onnx-mlir.symbol-postfix`.
+  PostfixEntrypointNames(module);
 
   KRNL_ENTRY_POINT_ID = 0;
 

@@ -16,6 +16,7 @@
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -45,7 +46,9 @@ Value OnnxBuilder::cast(Value input, TypeAttr to) const {
         input.getType().cast<ShapedType>().getShape(), to.getValue());
   else
     resultType = UnrankedTensorType::get(to.getValue());
-  return createTypedOpAndInferShapes<ONNXCastOp>(resultType, input, to);
+  IntegerAttr saturate = nullptr;
+  return createTypedOpAndInferShapes<ONNXCastOp>(
+      resultType, input, saturate, to);
 }
 
 Value OnnxBuilder::cast(Value input, Type to) const {
@@ -75,6 +78,8 @@ Value OnnxBuilder::concat(
 }
 
 Value OnnxBuilder::constant(Attribute denseAttr) const {
+  assert((isa<DenseElementsAttr, DisposableElementsAttr>(denseAttr)) &&
+         "unsupported onnx constant value attribute");
   return createOpAndInferShapes<ONNXConstantOp>(Attribute(), denseAttr);
 }
 
@@ -131,17 +136,18 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   return createOpAndInferShapes<ONNXMatMulOp>(toTensor(Y), aValue, bValue);
 }
 
-Value OnnxBuilder::min(ValueRange inputs) const {
-  assert(inputs.size() >= 2 && "Expect at least two inputs");
+Value OnnxBuilder::max(ValueRange inputs) const {
+  assert(inputs.size() >= 1 && "Expect at least one input");
   Type elementType = getElementType(inputs[0].getType());
-  assert(llvm::all_of(inputs, [elementType](Value v) {
-    return (v.getType().cast<ShapedType>().getElementType() == elementType);
-  }) && "All inputs must have the same element type");
-  Type outputType = inputs[0].getType();
-  for (uint64_t i = 1; i < inputs.size(); ++i)
-    outputType = mlir::OpTrait::util::getBroadcastedType(
-        toTensor(outputType), inputs[i].getType());
-  return createTypedOpAndInferShapes<ONNXMinOp>(toTensor(outputType), inputs);
+  UnrankedTensorType outputType = UnrankedTensorType::get(elementType);
+  return createTypedOpAndInferShapes<ONNXMaxOp>(outputType, inputs);
+}
+
+Value OnnxBuilder::min(ValueRange inputs) const {
+  assert(inputs.size() >= 1 && "Expect at least one input");
+  Type elementType = getElementType(inputs[0].getType());
+  UnrankedTensorType outputType = UnrankedTensorType::get(elementType);
+  return createTypedOpAndInferShapes<ONNXMinOp>(outputType, inputs);
 }
 
 Value OnnxBuilder::mul(Value A, Value B) const {

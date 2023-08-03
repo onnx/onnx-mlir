@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
@@ -96,7 +96,7 @@ version_dict = {
  'BitwiseOr': [18],
  'BitwiseXor': [18],
  'BlackmanWindow': [17],
- 'Cast': [13],
+ 'Cast': [19],
  'CastLike': [15],
  'CastMap': [1],
  'CategoryMapper': [1],
@@ -532,9 +532,9 @@ custom_definition_misc = dict([ ('Constant',
   ];'''),
   ('Cast',
  '''   let builders = [
-  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
+  OpBuilder<(ins "Value":$input, "IntegerAttr":$saturate, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build($_builder, $_state, resultType, input, to);
+   build($_builder, $_state, resultType, input, saturate, to);
   }] >
   ];'''
  )])

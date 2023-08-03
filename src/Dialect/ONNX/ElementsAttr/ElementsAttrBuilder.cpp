@@ -11,6 +11,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
 #include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -19,6 +20,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <algorithm>
 #include <numeric>
 
 using namespace mlir;
@@ -334,6 +336,23 @@ ElementsAttr ElementsAttrBuilder::castElementType(
       std::move(transformer));
 }
 
+ElementsAttr ElementsAttrBuilder::clip(
+    ElementsAttr elms, WideNum min, WideNum max) {
+  return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    return doTransform(
+        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
+          constexpr BType TAG = toBType<cpptype>;
+          cpptype x = n.narrow<TAG>();
+          if (x < min.narrow<TAG>())
+            return min;
+          if (x > max.narrow<TAG>())
+            return max;
+          return n;
+        }));
+  });
+}
+
 namespace {
 bool isIdentityPermutation(ArrayRef<uint64_t> perm) {
   for (size_t i = 0; i < perm.size(); ++i) {
@@ -519,6 +538,88 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
     }
     for (auto &idxoffs : StridesRange<1>(shape, {strides}))
       dst[idxoffs.flattenedIndex] = *(start + idxoffs[0]);
+  });
+}
+
+namespace {
+ElementsAttr splat(ShapedType type, WideNum num) {
+  Type elemType = type.getElementType();
+  BType btype = btypeOfMlirType(elemType);
+  if (isFloatBType(btype))
+    return DenseElementsAttr::get(type, num.toAPFloat(btype));
+  if (isIntBType(btype))
+    return DenseElementsAttr::get(type, num.toAPInt(btype));
+  llvm_unreachable("unsupported element type");
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::pad(
+    ElementsAttr elms, ArrayRef<int64_t> pads, WideNum padValue) {
+  ArrayRef<int64_t> inputShape = elms.getShapedType().getShape();
+  size_t rank = inputShape.size();
+  if (rank == 0)
+    return elms;
+  ArrayRef<int64_t> leftPads = pads.take_front(rank);
+  ArrayRef<int64_t> rightPads = pads.take_back(rank);
+  SmallVector<int64_t> outShape(inputShape);
+  for (size_t axis = 0; axis < rank; ++axis)
+    outShape[axis] += leftPads[axis] + rightPads[axis];
+  ShapedType outType = elms.getShapedType().clone(outShape);
+  if (elms.empty())
+    return splat(outType, padValue);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    // The following unrolls the recurse(dst.begin(), elms.getValues())
+    // recursive algorithm described by the pseudo code:
+    //
+    //   def recurse(DstIter &out, SrcIter &inp, int axis = 0):
+    //     auto subSize = numElements(outShape.drop_front(axis + 1))
+    //     out = std::fill_n(out, leftPads[axis] * subSize)
+    //     if axis == rank - 1:
+    //       nunCols = inputShape.back()
+    //       out = std::copy(inp, inp += numCols, out)
+    //     else:
+    //       for i in range(inputShape[axis]):
+    //         recurse(out, inp, axis + 1)
+    //     out = std::fill_n(out, rightPads[axis] * subSize)
+
+    SmallVector<int64_t> betweenRowsPads(rank, 0);
+    int64_t beginPad = 0, endPad = 0;
+    int64_t multiplier = 1;
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      beginPad += leftPads[axis] * multiplier;
+      endPad += rightPads[axis] * multiplier;
+      betweenRowsPads[axis] = beginPad + endPad;
+      multiplier *= outShape[axis];
+    }
+
+    auto out = dst.begin();
+    out = std::fill_n(out, beginPad, padValue);
+
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    StridesRange<1> range(inputShape, {strides});
+    auto it = range.begin(), end = range.end();
+    assert(it != end && "elms must be non-empty");
+    assert(!inputShape.empty() && "elms must have rank > 0");
+    const int numCols = inputShape.back();
+    for (;;) {
+      // Copy next row from elms to dst.
+      for (int64_t col = 0; col < numCols; ++col, ++out, ++it) {
+        *out = src.get()[it->at(0)];
+      }
+
+      if (it == end)
+        break;
+
+      assert(it->index.back() == 0 && "it is at the start of a row");
+      int lastZero = rank - 1;
+      while (lastZero > 0 && it->index[lastZero - 1] == 0)
+        --lastZero;
+      out = std::fill_n(out, betweenRowsPads[lastZero], padValue);
+    }
+
+    out = std::fill_n(out, endPad, padValue);
+    assert(out == dst.end());
   });
 }
 

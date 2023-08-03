@@ -3,7 +3,7 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitations are listed when applicable.
+Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitations are listed when applicable.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * Opset indicates, for each operation, the ONNX opset that (1) last modified that operation and (2) is supported by the current version of onnx-mlir. For example, "Add" was modified in Opset 14 and carries on unmodified to Opset 16. If onnx-mlir supports Opset 14, we thus list "14" as the Opset associated with the "Add" operation.
@@ -35,7 +35,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **BitwiseOr** |18 | | |
 | **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
-| **Cast** |13 |Cast only between float and double types. | |
+| **Cast** |19 |Cast only between float and double types. Some platforms support float16. | |
 | **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
 | **CategoryMapper** | |unsupported | |
@@ -47,7 +47,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **Compress** |11 | | |
 | **Concat** |13 | | |
 | **ConcatFromSequence** | |unsupported | |
-| **Constant** |13 | | |
+| **Constant** |19 | | |
 | **ConstantOfShape** |9 | | |
 | **Conv** |11 | | |
 | **ConvInteger** | |unsupported | |
@@ -113,16 +113,16 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 | **LpPool** | |unsupported | |
 | **MatMul** |13 | | |
 | **MatMulInteger** |10 | | |
-| **Max** |13 |No support for short floats and unsigned int. | |
+| **Max** |13 |No support for unsigned int. Only some platforms support float16. | |
 | **MaxPool** |12 |Does not support argmax and short ints. Support single output only. | |
 | **MaxRoiPool** | |unsupported | |
 | **MaxUnpool** | |unsupported | |
 | **Mean** |13 | | |
 | **MeanVarianceNormalization** | |unsupported | |
 | **MelWeightMatrix** | |unsupported | |
-| **Min** |13 |Does not support short floats and unsigned numbers. | |
+| **Min** |13 |Does not support unsigned numbers. Only some platforms support float16. | |
 | **Mish** | |unsupported | |
-| **Mod** |13 |Support float and double only. | |
+| **Mod** |13 |Support float and double only. Some platforms support float16. | |
 | **Momentum** | |unsupported | |
 | **Mul** |14 |Does not support short integers. | |
 | **Multinomial** | |unsupported | |

@@ -31,5 +31,14 @@ add_onnx_mlir_library(OMMlirUtilities
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
+  OMSmallFPConversion
   MLIRIR
+  )
+
+add_onnx_mlir_library(OMSmallFPConversion
+  SmallFPConversion.c
+  )
+set_target_properties(OMSmallFPConversion
+  PROPERTIES
+  LANGUAGE C
   )

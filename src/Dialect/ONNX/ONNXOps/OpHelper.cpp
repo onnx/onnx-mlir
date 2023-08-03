@@ -289,13 +289,13 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
 size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 
-size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.value().size(); }
+size_t ArrayAttrSize(std::optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
+int64_t ArrayAttrIntVal(std::optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
@@ -476,33 +476,6 @@ void getDims(Value val, SmallVectorImpl<Value> &dims) {
     dims.emplace_back(val);
 }
 
-Value normalizeConstantOp(
-    PatternRewriter &rewriter, Value output, Attribute attr) {
-  ShapedType outputType = output.getType().cast<ShapedType>();
-  Type elementType = outputType.getElementType();
-
-  DenseElementsAttr denseAttr;
-  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
-    int64_t dim = arrayAttr.size();
-    auto tensorType = RankedTensorType::get({dim}, elementType);
-    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-  } else {
-    auto tensorType = RankedTensorType::get({}, elementType);
-    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
-    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
-    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
-    } else {
-      llvm_unreachable("unexpected Attribute");
-    }
-  }
-  return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(),
-      Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
-      ArrayAttr(), StringAttr(), ArrayAttr());
-}
-
 // Create a DenseElementsAttr based on the shape of type at the given index.
 DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
     PatternRewriter &rewriter, Value value, IntegerAttr indexAttr) {
@@ -534,10 +507,13 @@ bool isDenseONNXConstant(Value result) {
   if (!constOp)
     return false;
 
-  // The value attribute must be an ElementsAttr (which is one of
-  // DenseElementsAttr, DenseResourceElementsAttr, DisposableElementsAttr).
-  if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
+  // Must have value attribute.
+  Attribute value = constOp.getValueAttr();
+  if (!value)
     return false;
+
+  assert((isa<DenseElementsAttr, DisposableElementsAttr>(value)) &&
+         "unsupported onnx constant value attribute");
 
   // No other attribute must be set.
   return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
@@ -554,10 +530,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
     return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isF32()) {
-    auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToFloat();
-  } else if (elementaryType.isF64()) {
+  } else if (elementaryType.isa<FloatType>()) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
   }

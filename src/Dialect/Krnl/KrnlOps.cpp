@@ -103,7 +103,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   } else {
     std::vector<NamedAttribute> attributes;
     auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
-    auto namedAttr2 = builder.getNamedAttr("numOfOuptut", funcNameAttr);
+    auto namedAttr2 = builder.getNamedAttr("numOfOutput", numOfOutputAttr);
     attributes.emplace_back(namedAttr1);
     attributes.emplace_back(namedAttr2);
     for (auto namedAttr : op->getAttrs()) {
@@ -124,9 +124,15 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 
   std::vector<NamedAttribute> attributes;
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
-  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
+  attributes.emplace_back(namedAttr1);
 
-  attributes.emplace_back(namedAttr);
+  IntegerAttr numOfOutputAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, /*value=*/resultVals.size(), /*isSigned=*/true));
+  auto namedAttr2 = builder.getNamedAttr("numOfOutput", numOfOutputAttr);
+  attributes.emplace_back(namedAttr2);
+
   for (auto attributeName : attributeNames) {
     if (Attribute attr = op->getAttr(attributeName)) {
       attributes.emplace_back(builder.getNamedAttr(attributeName, attr));
@@ -907,14 +913,15 @@ void KrnlSeqExtractOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   MultiDialectBuilder<MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqExtractOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }
@@ -932,14 +939,15 @@ void KrnlSeqAllocOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
+std::optional<Operation *> KrnlSeqAllocOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
   return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqAllocOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }

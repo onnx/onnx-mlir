@@ -14,17 +14,17 @@
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
+#include "llvm/Support/Debug.h"
 #include <iostream>
 #include <regex>
+
+#define DEBUG_TYPE "onnx_mlir_main"
 
 using namespace onnx_mlir;
 
 extern llvm::cl::OptionCategory onnx_mlir::OnnxMlirOptions;
 
 int main(int argc, char *argv[]) {
-  mlir::MLIRContext context;
-  registerDialects(context);
-
   llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
       llvm::cl::desc("<input file>"), llvm::cl::init("-"),
       llvm::cl::cat(OnnxMlirOptions));
@@ -73,6 +73,14 @@ int main(int argc, char *argv[]) {
     llvm::errs()
         << "Warning: --onnx-op-stats requires targets like --EmitMLIR, "
            "--EmitLLVMIR, or binary-generating emit commands.\n";
+
+  // Create context after MLIRContextCLOptions are registered and parsed.
+  mlir::MLIRContext context;
+  if (!context.isMultithreadingEnabled()) {
+    assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
+    LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");
+  }
+  loadDialects(context);
 
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
