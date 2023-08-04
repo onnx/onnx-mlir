@@ -29,10 +29,13 @@ namespace onnx_mlir {
 
 typedef enum {
   // clang-format off
+  None,
   Onnx
   APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_ENUM)
   // clang-format on
 } InstrumentStages;
+
+using ProfileIRs = InstrumentStages;
 
 typedef enum {
   // clang-format off
@@ -85,7 +88,6 @@ extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
-extern llvm::cl::opt<bool> onnxConstPropReport;
 extern llvm::cl::opt<int> onnxConstPropExpansionBound;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> disableSimdOption;
@@ -93,6 +95,7 @@ extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 extern llvm::cl::list<std::string> functionsToDecompose;
 extern llvm::cl::opt<std::string> modelTag;
+extern llvm::cl::opt<ProfileIRs> profileIR;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

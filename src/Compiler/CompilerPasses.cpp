@@ -78,8 +78,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   }
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
 
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
@@ -92,12 +91,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass(onnxConstPropReport));
+          onnx_mlir::createConstPropONNXToONNXPass());
     }
   }
 
   // Simplify shape-related ops.
-  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass(onnxConstPropReport));
+  pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
   // Replace ONNXReturnOp with func::ReturnOp.
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());
@@ -107,6 +106,19 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(createScrubDisposablePass());
+
+  // Add instrumentation for Onnx Ops
+  // Keep this pass at the end of this function.
+  unsigned instrumentActions = instrumentControlBits.getBits();
+  if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
+    instrumentStage = onnx_mlir::InstrumentStages::Onnx;
+    instrumentOps = "onnx.*";
+    // Enable all four bits for four values in InstrumentActions enum.
+    instrumentActions = (1 << 4) - 1;
+  }
+  if (maccel.empty() && instrumentStage == Onnx)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -133,10 +145,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
                    << ONNXOpsStatFormat << "\"\n";
     }
   }
-  // Add instrumentation for Onnx Ops
-  if (maccel.empty() && instrumentStage == Onnx)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        instrumentOps, instrumentControlBits.getBits()));
 
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.

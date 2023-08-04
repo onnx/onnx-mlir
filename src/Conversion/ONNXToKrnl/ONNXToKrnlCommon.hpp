@@ -445,6 +445,8 @@ void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLayoutTransformOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXUniqueOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 // `Additional` directory methods:
 void populateLoweringONNXShapeTransformOpPattern(
@@ -465,18 +467,6 @@ bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
 /// %d0, %d1 and %d2. Their indices 0, 1, 2 correspond to `index` values
 /// 1, 2 and 4 in the MemRef shape respectively
 int64_t getAllocArgIndex(mlir::memref::AllocOp allocOp, int64_t index);
-
-/// This function returns a location with the corresponding ONNX operator name
-/// inside. This is useful when tracing what expanded MLIR instructions
-/// correspond to what ONNX operator.
-///
-///
-template <typename OP_TYPE>
-mlir::Location ONNXLoc(mlir::Operation *op) {
-  return mlir::NameLoc::get(
-      mlir::StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
-      op->getLoc());
-}
 
 /// This function returns a scalar of type 'dtype' from an optional value.
 /// Optional value must be: NoneType, memref<1xdtype> or memref<dtype>.
