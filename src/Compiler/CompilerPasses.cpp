@@ -113,8 +113,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
-    // Enable all four bits for four values in InstrumentActions enum.
-    instrumentActions = (1 << 4) - 1;
+    // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
+    // InstrumentReportTime.
+    // Disable the last bit for InstrumentReportMemory because of its big
+    // oeverhead. Users can optionally enable the last bit by using
+    // --InstrumentReportMemory option.
+    instrumentActions |= (1 << 3) - 1;
   }
   if (maccel.empty() && instrumentStage == Onnx)
     pm.addNestedPass<func::FuncOp>(
