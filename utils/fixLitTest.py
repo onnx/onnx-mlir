@@ -119,7 +119,7 @@ def run_mlir2FileCheck(model_file_name, compiled_file_name,
     m2fc_command = re.sub(r'\s*,\s*', r',', m2fc_command)
     m2fc_command = re.sub(r'\s*:\s*', r':', m2fc_command)
     # Gen command from string.
-    command = ["python"]
+    command = ["python3"]
     command.extend(m2fc_command.split())
     command.extend(["-i", compiled_file_name])
     command.extend(["-m", model_file_name])
