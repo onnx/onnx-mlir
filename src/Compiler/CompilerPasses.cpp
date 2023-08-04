@@ -116,7 +116,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
     // InstrumentReportTime.
     // Disable the last bit for InstrumentReportMemory because of its big
-    // oeverhead. Users can optionally enable the last bit by using
+    // overhead. Users can optionally enable the last bit by using
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
