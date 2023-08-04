@@ -205,6 +205,35 @@ def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable]> {
                        DefaultValuedAttr<SI64Attr, "-1">:$is_stacked);
 }
 
+def ZLowMatMulAsyncOp:ZLow_Op<"asyncMatmul", [MemRefsNormalizable]> {
+  let summary = "ZLow matmul asynchronous operation";
+  let description = [{
+  ZLow operation to perform a matmul asynchronously.
+  * In case of unstacked: X(m, n) * Y(n, p) + Bias(p)
+  shape is a 1D MemRef (memref<3xi64>) whose items are:
+    * 1st item: m
+    * 2nd item: n
+    * 3rd item: p
+  * In case of stacked: X(s, m, n) * Y(s, n, p) + Bias(s, p)
+       or broadcasting: X(s, m, n) * Y(n, p) + Bias(p)
+  shape is a 1D MemRef (memref<4xi64>) whose items are:
+    * 1st item: s
+    * 2nd item: m
+    * 3rd item: n
+    * 4th item: p
+  * is_bcast: -1 broadcasting, 0: no broadcasting.
+  * is_stacked: -1 stacked, 0: unstacked.
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
+                       AnyTypeOf<[AnyMemRef]>:$Y,
+                       AnyTypeOf<[AnyMemRef]>:$Bias,
+                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
+                       AnyTypeOf<[AnyMemRef]>:$Out,
+		       AnyTypeOf<[MemRefOf<[F32]>]>:$Token,
+                       DefaultValuedAttr<SI64Attr, "-1">:$is_bcast,
+                       DefaultValuedAttr<SI64Attr, "-1">:$is_stacked);
+}
+
 def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
   let summary = "ZLow lstm operation";
   let description = [{

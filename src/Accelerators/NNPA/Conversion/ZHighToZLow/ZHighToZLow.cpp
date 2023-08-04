@@ -1058,6 +1058,7 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 
 //===----------------------------------------------------------------------===//
 // Lower ZHigh AsyncMatMul
+// TODO: Consider to reuse or merge with MatMul lowering
 //===----------------------------------------------------------------------===//
 
 struct ZHighToZLowMatMulAsyncOpLowering : public ConversionPattern {
@@ -1126,14 +1127,13 @@ struct ZHighToZLowMatMulAsyncOpLowering : public ConversionPattern {
           biasDims, biasLayout, op, rewriter, loc);
     }
     // Attributes.
-    /* Not used now, but will be used later
     int64_t bcast = (shapeHelper.isBroadcasted) ? -1 : 0;
     int64_t stacked = (shapeHelper.isStacked) ? -1 : 0;
     IntegerAttr is_bcastAttr =
         rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), bcast);
     IntegerAttr is_stackedAttr =
         rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), stacked);
-    */
+
     Type convertedTypeToken =
         typeConverter->convertType(op->getResultTypes()[1]);
     assert(convertedTypeToken && convertedTypeToken.isa<MemRefType>() &&
@@ -1145,10 +1145,16 @@ struct ZHighToZLowMatMulAsyncOpLowering : public ConversionPattern {
     Value X = operandAdaptor.getX();
     Value Y = operandAdaptor.getY();
     Value B = operandAdaptor.getB();
+    rewriter.create<ZLowMatMulAsyncOp>(loc, operandAdaptor.getX(),
+        operandAdaptor.getY(), bias, shapeMemRef, alloc, Token, is_bcastAttr,
+        is_stackedAttr);
+    SmallVector<Value, 2> results = {alloc, Token};
+    /*
     // TODO: Need to pass original shape and attribute
     SmallVector<Value, 2> results = {alloc, Token};
     SmallVector<Value, 5> parameters = {alloc, Token, X, Y, B};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
+    */
     rewriter.replaceOp(op, results);
     return success();
   }

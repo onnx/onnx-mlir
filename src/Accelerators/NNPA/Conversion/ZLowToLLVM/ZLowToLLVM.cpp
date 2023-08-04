@@ -1092,6 +1092,155 @@ private:
   ApiRegistry apiRegistry;
 };
 
+class ZLowMatMulAsyncLowering : public ConvertToLLVMPattern {
+public:
+  explicit ZLowMatMulAsyncLowering(MLIRContext *context,
+      LLVMTypeConverter &lowering_, ApiRegistry apiRegistry)
+      : ConvertToLLVMPattern(
+            ZLowMatMulAsyncOp::getOperationName(), context, lowering_) {
+    this->apiRegistry = apiRegistry;
+  }
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Location loc = op->getLoc();
+    ZLowMatMulAsyncOp matmulAsyncOp = cast<ZLowMatMulAsyncOp>(op);
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    ZLowMatMulAsyncOpAdaptor operandAdaptor(operands);
+    Type llvmElementTy = typeConverter->convertType(
+        matmulAsyncOp.getX().getType().cast<MemRefType>().getElementType());
+
+    bool stacked, broadcasting;
+    if (matmulAsyncOp.getIsStacked() == -1)
+      stacked = true;
+    else
+      stacked = false;
+    if (matmulAsyncOp.getIsBcast() == -1)
+      broadcasting = true;
+    else
+      broadcasting = false;
+
+    ZTensorHelper zTensorHelper =
+        ZTensorHelper(rewriter, loc, module, apiRegistry);
+
+    // Some frequently used types and constants.
+    Type llvmI64Ty = rewriter.getI64Type();
+
+    // Get the dimensions of the original shape (the shape before stickifying)
+    // used for creating zTensors.
+    int dimCount = 3;
+    if (stacked || broadcasting)
+      dimCount = 4;
+    std::vector<Value> dims = getDimsFromShapeMemRefBySize(
+        rewriter, loc, module, operandAdaptor.getShape(), /*size=*/dimCount);
+    // Dimensions: s, m, n, p;
+    Value S, M, N, P;
+    if (stacked || broadcasting) {
+      S = dims[0];
+      M = dims[1];
+      N = dims[2];
+      P = dims[3];
+    } else {
+      M = dims[0];
+      N = dims[1];
+      P = dims[2];
+    }
+
+    // Get zDNN data type.
+    zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
+
+    // Create zTensors.
+    ZTensor xZTensor, yZTensor, biasZTensor, outputZTensor;
+    // X
+    Value stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getX());
+    if (stacked || broadcasting)
+      xZTensor = zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+          /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, N},
+          /*isTransformed=*/true);
+    else
+      xZTensor = zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+          /*layout=*/ZDNN_2D, /*originalDims=*/{M, N},
+          /*isTransformed=*/true);
+    // Y
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getY());
+    if (stacked)
+      yZTensor = zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+          /*layout=*/ZDNN_3DS, /*originalDims=*/{S, N, P},
+          /*isTransformed=*/true);
+    else
+      yZTensor = zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+          /*layout=*/ZDNN_2D, /*originalDims=*/{N, P},
+          /*isTransformed=*/true);
+    // Bias
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getBias());
+    if (stacked)
+      biasZTensor =
+          zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+              /*layout=*/ZDNN_2DS, /*originalDims=*/{S, P},
+              /*isTransformed=*/true);
+    else
+      biasZTensor =
+          zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+              /*layout=*/ZDNN_1D, /*originalDims=*/{P},
+              /*isTransformed=*/true);
+    // Op_type
+    Value op_type;
+    if (broadcasting)
+      op_type = create.llvm.constant(
+          llvmI64Ty, (int64_t)NNPA_MATMUL_BCAST_OP_ADDITION);
+    else
+      op_type =
+          create.llvm.constant(llvmI64Ty, (int64_t)NNPA_MATMUL_OP_ADDITION);
+    // Output
+    stickI8Ptr = zTensorHelper.getAlignedI8Ptr(operandAdaptor.getOut());
+    if (stacked || broadcasting)
+      outputZTensor =
+          zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+              /*layout=*/ZDNN_3DS, /*originalDims=*/{S, M, P},
+              /*isTransformed=*/true);
+    else
+      outputZTensor =
+          zTensorHelper.getZTensor(stickI8Ptr, /*dataType=*/zDNNDataType,
+              /*layout=*/ZDNN_2D, /*originalDims=*/{M, P},
+              /*isTransformed=*/true);
+
+    // Ready to call zDNN MatMul.
+    /*
+    if (broadcasting) {
+      callApi(rewriter, loc, module, apiRegistry, API::ZDNN_MATMUL_BCAST_OP,
+          {toOpaquePtr(rewriter, loc, module, xZTensor.val),
+              toOpaquePtr(rewriter, loc, module, yZTensor.val),
+              toOpaquePtr(rewriter, loc, module, biasZTensor.val), op_type,
+              toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+    } else {
+      callApi(rewriter, loc, module, apiRegistry, API::ZDNN_MATMUL_OP,
+          {toOpaquePtr(rewriter, loc, module, xZTensor.val),
+              toOpaquePtr(rewriter, loc, module, yZTensor.val),
+              toOpaquePtr(rewriter, loc, module, biasZTensor.val), op_type,
+              toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
+    }
+    */
+    Value Token = operandAdaptor.getToken();
+    //    SmallVector<Value, 2> results = {outputZTensor.val, Token};
+    // SmallVector<Value, 5> parameters = {outputZTensor.val, Token,
+    // xZTensor.val, yZTensor.val, biasZTensor.val}; SmallVector<Value, 5>
+    // parameters = {toOpaquePtr(rewriter, loc, module, outputZTensor.val),
+    // Token, toOpaquePtr(rewriter, loc, module, xZTensor.val),
+    // toOpaquePtr(rewriter, loc, module, yZTensor.val), toOpaquePtr(rewriter,
+    // loc, module, biasZTensor.val)};
+    SmallVector<Value, 5> parameters = {
+        outputZTensor.val, Token, xZTensor.val, yZTensor.val, biasZTensor.val};
+    rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
+    rewriter.eraseOp(op);
+    return success();
+  }
+
+private:
+  ApiRegistry apiRegistry;
+};
+
 class ZLowConv2DLowering : public ConvertToLLVMPattern {
 public:
   explicit ZLowConv2DLowering(MLIRContext *context,
@@ -1510,6 +1659,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowGRULowering,
       // Other operations
       ZLowMatMulLowering,
+      ZLowMatMulAsyncLowering,
       ZLowConv2DLowering,
       ZLowMeanReduce2DLowering,
       ZLowBatchNormLowering
