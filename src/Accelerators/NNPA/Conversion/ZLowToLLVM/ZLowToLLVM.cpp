@@ -1230,8 +1230,10 @@ public:
     // Token, toOpaquePtr(rewriter, loc, module, xZTensor.val),
     // toOpaquePtr(rewriter, loc, module, yZTensor.val), toOpaquePtr(rewriter,
     // loc, module, biasZTensor.val)};
-    SmallVector<Value, 5> parameters = {
-        outputZTensor.val, Token, xZTensor.val, yZTensor.val, biasZTensor.val};
+    Value broadcastingVal =
+        create.llvm.constant(llvmI64Ty, (int64_t)(broadcasting ? 1 : 0));
+    SmallVector<Value, 5> parameters = {outputZTensor.val, Token, xZTensor.val,
+        yZTensor.val, biasZTensor.val, broadcastingVal};
     rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
     rewriter.eraseOp(op);
     return success();
