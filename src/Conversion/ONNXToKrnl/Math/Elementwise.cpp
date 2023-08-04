@@ -42,12 +42,12 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
   if (actualElementType.isa<mlir::IntegerType>()) {
     if constexpr (std::is_same<ScalarIOp<Op>, CustomScalarOp>::value)
       return;
-    llvm_unreachable("this op does not supports custom scalar for integers");
+    llvm_unreachable("this op does not support custom scalar for integers");
   }
   if (actualElementType.isa<mlir::FloatType>()) {
     if constexpr (std::is_same<ScalarFOp<Op>, CustomScalarOp>::value)
       return;
-    llvm_unreachable("this op does not supports custom scalar for floats");
+    llvm_unreachable("this op does not support custom scalar for floats");
   }
 }
 
@@ -393,6 +393,7 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
 
+  CheckIfCustomScalarOpIsSupported<ONNXCastOp>(elementType);
   // TODO: currently don't support String to * or * to String
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   return create.math.cast(elementType, scalarOperands[0]);
@@ -958,7 +959,7 @@ Value emitScalarOpFor<ONNXNegOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXLessOp
+// Scalar binary ops for lowering ONNXLessOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXLessOp> {
@@ -978,7 +979,7 @@ Value emitScalarOpFor<ONNXLessOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXLessOrEqualOp
+// Scalar binary ops for lowering ONNXLessOrEqualOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXLessOrEqualOp> {
@@ -998,7 +999,7 @@ Value emitScalarOpFor<ONNXLessOrEqualOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXGreaterOp
+// Scalar binary ops for lowering ONNXGreaterOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXGreaterOp> {
@@ -1018,7 +1019,7 @@ Value emitScalarOpFor<ONNXGreaterOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXGreaterOrEqualOp
+// Scalar binary ops for lowering ONNXGreaterOrEqualOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXGreaterOrEqualOp> {
@@ -1038,7 +1039,7 @@ Value emitScalarOpFor<ONNXGreaterOrEqualOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXEqualOp
+// Scalar binary ops for lowering ONNXEqualOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXEqualOp> {
@@ -1050,11 +1051,29 @@ template <>
 Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Type elementType,
     ArrayRef<Value> scalarOperands) {
+
   CheckIfCustomScalarOpIsSupported<ONNXEqualOp>(elementType);
+  Value results;
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  return create.math.eq(lhs, rhs);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  Type inputElemType = getElementType(lhs.getType());
+
+  // If the two input values are a string then we want to use the krnlstrncmp.
+  // However, if the input values are a float or an int we can simply use the
+  // equal function.
+  if (inputElemType.isa<krnl::StringType>()) {
+    Value strlenRes = create.krnl.strlen(lhs);
+    Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
+    // Confirm the strncmp is indeed valid. strncmp returns a value of 0 if the
+    // strings are equal. So we need to verify the returned results is equal to
+    // 0.
+    Value zeroVal = create.math.constant(strncmpRes.getType(), 0);
+    results = create.math.eq(strncmpRes, zeroVal);
+  } else {
+    results = create.math.eq(lhs, rhs);
+  }
+  return results;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1078,7 +1097,7 @@ Value emitScalarOpFor<ONNXNotOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXModOp
+// Scalar binary ops for lowering ONNXModOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXModOp> {

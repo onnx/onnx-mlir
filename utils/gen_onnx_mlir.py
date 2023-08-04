@@ -126,7 +126,7 @@ version_dict = {
  'DynamicQuantizeLinear': [11],
  'Einsum': [12],
  'Elu': [6],
- 'Equal': [13],
+ 'Equal': [19],
  'Erf': [13],
  'Exp': [13],
  'Expand': [13],

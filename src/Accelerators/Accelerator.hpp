@@ -45,9 +45,11 @@
 #define ACCEL_CL_ENUM_TO_STRING(name, map)                                     \
   map[accel::Accelerator::Kind::name] = #name;
 
-#define ACCEL_INSTRUMENTSTAGE_ENUM(name) INSTRUMENTSTAGE_EUM_##name
+#define ACCEL_INSTRUMENTSTAGE_ENUM(name) INSTRUMENTSTAGE_ENUM_##name
 
 #define ACCEL_INSTRUMENTSTAGE_CL_ENUM(name) INSTRUMENTSTAGE_CL_ENUM_##name
+
+#define ACCEL_PROFILEIR_CL_ENUM(name) PROFILEIR_CL_ENUM_##name
 
 namespace onnx_mlir {
 namespace accel {

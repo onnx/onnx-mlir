@@ -55,11 +55,22 @@ void addONNXToZHighPasses(
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
   }
+
+  // Profiling ZHighIR.
+  unsigned instrumentActions = instrumentControlBits.getBits();
+  if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
+    instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
+    instrumentOps = "onnx.*,zhigh.*";
+    // Enable all four bits for four values in InstrumentActions enum.
+    instrumentActions = (1 << 4) - 1;
+  }
+
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
   // profiling.
   if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        instrumentOps, instrumentControlBits.getBits()));
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
+
   pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
@@ -88,6 +99,13 @@ void addONNXToZHighPasses(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
+
+  // Insert an instrumentation after lowering onnx to zhigh to get profiling
+  // for onnx and zhigh ops.
+  // Keep this pass at the end of this function.
+  if (instrumentStage == onnx_mlir::InstrumentStages::ZHigh)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void normalizeMemRefsPasses(mlir::PassManager &pm) {
@@ -114,11 +132,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
     addONNXToZHighPasses(pm, execNodesOnCpu);
-    // Insert an instrumentation after lowering onnx to zhigh to get profiling
-    // for onnx and zhigh ops.
-    if (instrumentStage == onnx_mlir::InstrumentStages::ZHigh)
-      pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-          instrumentOps, instrumentControlBits.getBits()));
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
