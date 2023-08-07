@@ -499,6 +499,12 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   llvm::for_each(libs, [](std::string &lib) { lib = lib + ".lib"; });
   llvm::for_each(libDirs,
       [](std::string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
+
+  // Temporary add print to debug failure on Windows
+  llvm::for_each(libs,
+      [](std::string &lib) { std::cout<<"lib "<<lib<<"\n"; });
+  llvm::for_each(libDirs,
+      [](std::string &libDir) { std::cout<<"libDir "<<libDir<<"\n"; });
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
