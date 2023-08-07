@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"

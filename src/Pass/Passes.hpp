@@ -73,8 +73,8 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
-std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool enableTiling, bool enableSIMD, bool enableParallel, std::string opsForCall);
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
+    bool enableSIMD, bool enableParallel, std::string opsForCall);
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
 /// Add pass for lowering to Mhlo IR.
