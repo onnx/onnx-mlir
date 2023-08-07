@@ -246,7 +246,8 @@ bool checkOpToCall(mlir::Operation *op, std::string opsForCall) {
     return false;
   if (opsForCall == "*")
     return true;
-  std::string opName = op->getName().getStringRef().str();
+  // Get the name for op and remove the leading "onnx."
+  std::string opName = op->getName().getStringRef().str().substr(5);
   // To handle the case that onnx ops may have common part in name, a space
   // is added as delimiter to search
   std::string str = opsForCall + " ";
