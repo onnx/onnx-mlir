@@ -178,9 +178,8 @@ def get_test_models():
         "test_bitwise_xor_i32_2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_bitwise_xor_i16_3d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
-
         # ==OP== Cast
-        # ==LIM== Cast only between float and double types. Some platforms support float16.
+        # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_cast_FLOAT_to_DOUBLE_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_cast_DOUBLE_to_FLOAT_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_cast_FLOAT_to_FLOAT16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
@@ -532,7 +531,7 @@ def get_test_models():
         "test_matmulinteger_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Max
-        # ==LIM== No support for unsigned int. Only some platforms support float16.
+        # ==LIM== No support for unsigned int. Only ppc64le and MacOS platforms support float16.
         "test_max_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_max_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -579,7 +578,7 @@ def get_test_models():
         # MeanVarianceNormalization
 
         # ==OP== Min
-        # ==LIM== Does not support unsigned numbers. Only some platforms support float16.
+        # ==LIM== Does not support unsigned numbers. Only ppc64le and MacOS platforms support float16.
         "test_min_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_one_input_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_min_two_inputs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -598,7 +597,7 @@ def get_test_models():
         # "test_min_uint64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Mod
-        # ==LIM==  Support float and double only. Some platforms support float16.
+        # ==LIM==  Support float and double only. Only ppc64le and MacOS platforms support float16.
         "test_mod_mixed_sign_float32_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_mod_mixed_sign_float64_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_mod_mixed_sign_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, FLOAT16:{}},
@@ -1200,7 +1199,7 @@ def get_test_models():
         test_to_enable = variables.test_for_constants_to_file
 
     # Build check-onnx-backend with env TEST_NOFLOAT16=true to set args.nofloat16
-    # on platforms like IBM Z where LLVM float16 conversions don't yet work.
+    # on platforms like IBM Z and Linux x86_64 where LLVM float16 conversions don't yet work.
     if args.nofloat16:
         if args.verbose:
             print("float16 tests disabled:",
