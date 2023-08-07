@@ -20,11 +20,12 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
-  ONNXConvOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+  ONNXConvOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, std::string opsForCall)
+      : OpConversionPattern(typeConverter, ctx), enableParallel(enableParallel),
+        opsForCall(opsForCall) {}
   bool enableParallel;
+  std::string opsForCall;
 
   void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
@@ -249,6 +250,18 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
+    if (checkOpToCall(op, opsForCall)) {
+      // Create krnl.call here.
+      // You may customize the krnl.call according to the library
+
+      // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
+      std::string funcName = op->getName().getStringRef().str().substr(5);
+      rewriter.create<KrnlCallOp>(loc, funcName, alloc, op, operands,
+          /*keep all attributes*/ true);
+      rewriter.replaceOp(op, alloc);
+      return success();
+    }
+
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
@@ -257,8 +270,10 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
 };
 
 void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    std::string opsForCall) {
+  patterns.insert<ONNXConvOpLowering>(
+      typeConverter, ctx, enableParallel, opsForCall);
 }
 
 } // namespace onnx_mlir

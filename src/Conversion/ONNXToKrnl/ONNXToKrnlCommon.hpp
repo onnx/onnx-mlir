@@ -123,6 +123,10 @@ void defineLoops(mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
 mlir::Value getDimOrConstant(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value operand, int64_t axis, mlir::Type type);
 
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(mlir::Operation *op, std::string opsForCall);
+
 //===----------------------------------------------------------------------===//
 // Fold and emit support.
 //===----------------------------------------------------------------------===//
@@ -332,7 +336,8 @@ void populateLoweringONNXCategoryMapperOpPattern(
 
 // `NN` directory methods:
 void populateLoweringONNXConvOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    std::string opsForCall);
 void populateLoweringONNXNormalizationOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXPoolingOpPattern(

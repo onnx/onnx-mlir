@@ -91,6 +91,7 @@ extern llvm::cl::opt<bool> onnxOpTransformReport;
 extern llvm::cl::opt<int> onnxConstPropExpansionBound;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> disableSimdOption;
+extern llvm::cl::opt<std::string> opsForCall;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 extern llvm::cl::list<std::string> functionsToDecompose;

@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
@@ -236,6 +236,27 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
              : create.math.constant(type, shape[axis]);
+}
+
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(mlir::Operation *op, std::string opsForCall) {
+  // Special cases for none or all
+  if (opsForCall == "")
+    return false;
+  if (opsForCall == "*")
+    return true;
+  std::string opName = op->getName().getStringRef().str();
+  // To handle the case that onnx ops may have common part in name, a space
+  // is added as delimiter to search
+  std::string str = opsForCall + " ";
+  std::string sub = opName + " ";
+  int index = str.find(sub);
+  if (index == -1) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 namespace {
