@@ -683,6 +683,11 @@ int setCompilerOptions(const CompilerOptionList &list) {
   return CompilerSuccess;
 }
 
+// Clear the map for CompilerConfig. It is used for each invocation of compile
+void clearCompilerConfig() {
+  CompilerConfigMap.clear();
+}
+
 // Get the string vector associated with the specified key
 std::vector<std::string> getCompilerConfig(std::string k) {
   return CompilerConfigMap[k];
