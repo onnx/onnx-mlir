@@ -61,8 +61,12 @@ void addONNXToZHighPasses(
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
     instrumentOps = "onnx.*,zhigh.*";
-    // Enable all four bits for four values in InstrumentActions enum.
-    instrumentActions = (1 << 4) - 1;
+    // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
+    // InstrumentReportTime.
+    // Disable the last bit for InstrumentReportMemory because of its big
+    // overhead. Users can optionally enable the last bit by using
+    // --InstrumentReportMemory option.
+    instrumentActions |= (1 << 3) - 1;
   }
 
   // Insert an instrumentation before lowering onnx to zhigh to get onnx level
