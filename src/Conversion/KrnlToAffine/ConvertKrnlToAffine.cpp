@@ -156,19 +156,19 @@ public:
     std::optional<KrnlMovableOp> movableOp;
     std::optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
 
-    // AEE: Movable that stores a KrnlMovableOp.
+    // Movable that stores a KrnlMovableOp.
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
 
-    // AEE: Alternate Movable that stores a list of loopRefs for all its
+    // Alternate Movable that stores a list of loopRefs for all its
     // optimized loops (except if that optimized loop is an KrnlUnrollOp),
     explicit Movable(KrnlIterateOp op) {
       auto operandRange = op->getOperands();
       SmallVector<Value, 4> values;
       for (int64_t i = 0; i < op.getNumOptimizedLoops(); ++i) {
-        // AEE Note, KrnlIterateOp have their loopRef for optimized loops as
+        // Note, KrnlIterateOp have their loopRef for optimized loops as
         // first operands [0..getNumOptimizedLoops).
         Value val = operandRange[i];
-        // Only skip non-unroll loops. AEE Loops that are unrolled are by
+        // Only skip non-unroll loops.  Loops that are unrolled are by
         // definitions a loop whose loopRef is used by a KrnlUnrollOp.
         if (llvm::all_of(val.getUsers(), [&](Operation *user) {
               return dyn_cast_or_null<KrnlUnrollOp>(user);
@@ -187,7 +187,7 @@ public:
    * content of the movable op in the lowered IR.
    */
   void toMoveUnder(const Movable &movable, KrnlIterateOp loop) {
-    // AEE Set movable in the moving plan of the innermost optimized loop.
+    // Set movable in the moving plan of the innermost optimized loop.
     Value innerMostLoopHandler =
         loop.getOperand(loop.getNumOptimizedLoops() - 1);
     movingPlan[innerMostLoopHandler].push_back(movable);
@@ -207,13 +207,13 @@ public:
   void moveOne(Value loopRef,
       llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
       bool erase = true) {
-    // AEE Find the forOp associated with loopRef, get ready to insert into
+    // Find the forOp associated with loopRef, get ready to insert into
     // forOp body.
     AffineForOp forOp = loopRefToOp[loopRef];
     Block &loopBody = forOp.getLoopBody().front();
     auto insertPt = loopBody.begin();
 
-    // AEE: Find the ops to transfer (saved into a Movable) associated with
+    // Find the ops to transfer (saved into a Movable) associated with
     // loopRef.
     auto opsToTransfer = movingPlan[loopRef];
     if (erase)
@@ -225,7 +225,7 @@ public:
                  transferPt.movableOp.has_value() &&
              "Expecting non-equal values");
       if (transferPt.movableOp.has_value()) {
-        // AEE: This Movable is the kind that record one MovableOp.
+        // This Movable is the kind that record one MovableOp.
         KrnlMovableOp movableOp = transferPt.movableOp.value();
 
         loopBody.getOperations().splice(insertPt,
@@ -244,7 +244,7 @@ public:
           insertPt++;
         movableOp->erase();
       } else if (transferPt.loopsToSkip.has_value()) {
-        // AEE This Movable is the kind that record a list of loopRefs
+        // This Movable is the kind that record a list of loopRefs
         // associated with a KrnlIterate.
         std::optional<AffineForOp> loopToSkip;
         loopToSkip = transferPt.loopsToSkip.value().empty()
@@ -347,7 +347,7 @@ static void lowerGetInductionVariableValueOp(
 static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &refToOps) {
   builder.setInsertionPointAfter(iterateOp);
-  // AEE Map from unoptimizedLoopRef to the (original, unoptimized) AffineForOp.
+  // Map from unoptimizedLoopRef to the (original, unoptimized) AffineForOp.
   SmallVector<std::pair<Value, AffineForOp>, 4> currentNestedForOps;
   ArrayRef<Attribute> boundMapAttrs =
       iterateOp->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
@@ -355,7 +355,7 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   auto operandItr =
       iterateOp.operand_begin() + iterateOp.getNumOptimizedLoops();
 
-  // AEE For each bounds, create an original loop with its original bounds using
+  // For each bounds, create an original loop with its original bounds using
   // an affine.for. This affine.for will be transformed if any optimizations are
   // present on the loop nest (aka permute, tile, ...).
   for (size_t boundIdx = 0; boundIdx < boundMapAttrs.size(); boundIdx += 2) {
