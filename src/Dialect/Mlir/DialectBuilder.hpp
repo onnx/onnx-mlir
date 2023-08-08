@@ -360,7 +360,10 @@ struct SCFBuilder final : DialectBuilder {
   void ifThenElse(mlir::Value cond,
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
-
+  // Create a for loop.
+  void forLoop(mlir::Value lowerBound, mlir::Value upperBound, int64_t step,
+      mlir::function_ref<void(SCFBuilder &, mlir::Value)> bodyFn) const;
+  // Create a parallel for loop.
   void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
       mlir::ValueRange steps,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;

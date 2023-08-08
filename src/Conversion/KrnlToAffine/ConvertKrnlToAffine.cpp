@@ -156,13 +156,20 @@ public:
     std::optional<KrnlMovableOp> movableOp;
     std::optional<llvm::SmallVector<mlir::Value, 4>> loopsToSkip;
 
+    // Movable that stores a KrnlMovableOp.
     explicit Movable(KrnlMovableOp op) : movableOp(op) {}
+
+    // Alternate Movable that stores a list of loopRefs for all its
+    // optimized loops (except if that optimized loop is an KrnlUnrollOp),
     explicit Movable(KrnlIterateOp op) {
       auto operandRange = op->getOperands();
       SmallVector<Value, 4> values;
       for (int64_t i = 0; i < op.getNumOptimizedLoops(); ++i) {
+        // Note, KrnlIterateOp have their loopRef for optimized loops as
+        // first operands [0..getNumOptimizedLoops).
         Value val = operandRange[i];
-        // Only skip non-unroll loops.
+        // Only skip non-unroll loops.  Loops that are unrolled are by
+        // definitions a loop whose loopRef is used by a KrnlUnrollOp.
         if (llvm::all_of(val.getUsers(), [&](Operation *user) {
               return dyn_cast_or_null<KrnlUnrollOp>(user);
             }))
@@ -176,10 +183,11 @@ public:
    * Register in our moving plan that content in the movable op should be moved
    * under the concrete loops corresponding to loop.
    * @param movable IR blocks enclosed in krnl.movable op to move around.
-   * @param loop The Krnl Loop referring to the concrete loop sourrounding the
+   * @param loop The Krnl Loop referring to the concrete loop surrounding the
    * content of the movable op in the lowered IR.
    */
   void toMoveUnder(const Movable &movable, KrnlIterateOp loop) {
+    // Set movable in the moving plan of the innermost optimized loop.
     Value innerMostLoopHandler =
         loop.getOperand(loop.getNumOptimizedLoops() - 1);
     movingPlan[innerMostLoopHandler].push_back(movable);
@@ -199,13 +207,14 @@ public:
   void moveOne(Value loopRef,
       llvm::SmallDenseMap<Value, AffineForOp, 4> &loopRefToOp,
       bool erase = true) {
-    // Commented out because count is an unsigned int, and its by def >= 0.
-    // assert(loopRefToOp.count(loopRef) >= 0 &&
-    //       "Can't find affine for operation associated with .");
+    // Find the forOp associated with loopRef, get ready to insert into
+    // forOp body.
     AffineForOp forOp = loopRefToOp[loopRef];
     Block &loopBody = forOp.getLoopBody().front();
     auto insertPt = loopBody.begin();
 
+    // Find the ops to transfer (saved into a Movable) associated with
+    // loopRef.
     auto opsToTransfer = movingPlan[loopRef];
     if (erase)
       movingPlan.erase(loopRef);
@@ -216,6 +225,7 @@ public:
                  transferPt.movableOp.has_value() &&
              "Expecting non-equal values");
       if (transferPt.movableOp.has_value()) {
+        // This Movable is the kind that record one MovableOp.
         KrnlMovableOp movableOp = transferPt.movableOp.value();
 
         loopBody.getOperations().splice(insertPt,
@@ -234,6 +244,8 @@ public:
           insertPt++;
         movableOp->erase();
       } else if (transferPt.loopsToSkip.has_value()) {
+        // This Movable is the kind that record a list of loopRefs
+        // associated with a KrnlIterate.
         std::optional<AffineForOp> loopToSkip;
         loopToSkip = transferPt.loopsToSkip.value().empty()
                          ? loopToSkip
@@ -290,7 +302,7 @@ static void markLoopBodyAsMovable(
   for (auto &block : bodyRegion.getBlocks()) {
     assert(!block.empty() && "IterateOp body block shouldn't be empty.");
 
-    // Delimeter ops are delimeters of a movable chunk of code.
+    // Delimeter ops are delimeter of a movable chunk of code.
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
     delimeterOps.push_back(block.getTerminator());
     Operation *movableBeginOp = &block.front();
@@ -335,12 +347,17 @@ static void lowerGetInductionVariableValueOp(
 static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     llvm::SmallDenseMap<Value, AffineForOp, 4> &refToOps) {
   builder.setInsertionPointAfter(iterateOp);
+  // Map from unoptimizedLoopRef to the (original, unoptimized) AffineForOp.
   SmallVector<std::pair<Value, AffineForOp>, 4> currentNestedForOps;
   ArrayRef<Attribute> boundMapAttrs =
       iterateOp->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
           .getValue();
   auto operandItr =
       iterateOp.operand_begin() + iterateOp.getNumOptimizedLoops();
+
+  // For each bounds, create an original loop with its original bounds using
+  // an affine.for. This affine.for will be transformed if any optimizations are
+  // present on the loop nest (aka permute, tile, ...).
   for (size_t boundIdx = 0; boundIdx < boundMapAttrs.size(); boundIdx += 2) {
     // Consume input loop operand, at this stage, do not do anything with it.
     auto unoptimizedLoopRef = *(operandItr++);
