@@ -56,7 +56,7 @@ llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
 
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
     llvm::cl::desc(

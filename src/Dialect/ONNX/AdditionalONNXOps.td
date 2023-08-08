@@ -153,7 +153,8 @@ def ONNXCustomOp:ONNX_Op<"Custom",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {30};
+      // Assume the element type of the output is the same as the first input
+      return {30}; 
     }
   }];
 
