@@ -487,4 +487,8 @@ bool hasNonIdentityLayout(mlir::Value val);
 // every layout is an identity layout.
 bool hasNonIdentityLayout(mlir::ValueRange operands);
 
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
 } // namespace onnx_mlir
