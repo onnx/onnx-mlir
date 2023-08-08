@@ -65,7 +65,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **DynamicQuantizeLinear** |11 | | |
 | **Einsum** |12 |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
 | **Elu** |6 | | |
-| **Equal** |13 | | |
+| **Equal** |19 | | |
 | **Erf** |13 | | |
 | **Exp** |13 | | |
 | **Expand** |13 | | |

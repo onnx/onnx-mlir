@@ -47,6 +47,7 @@ enum class GenericOps {
   LogGop,
   LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
   MinMaxGop,
+  MinMaxAcrossGop, /* compute min/max across vector */
   MulGop,
   PowGop,
   RemGop,

@@ -71,7 +71,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
   // Convolution Optimization for CPU: enable when there are no accelerators.
-  if (targetCPU) {
+  if (targetCPU && enableConvOptPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
         enableSimdDataLayout && !disableSimdOption));
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -106,6 +106,23 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(createScrubDisposablePass());
+
+  // Add instrumentation for Onnx Ops
+  // Keep this pass at the end of this function.
+  unsigned instrumentActions = instrumentControlBits.getBits();
+  if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
+    instrumentStage = onnx_mlir::InstrumentStages::Onnx;
+    instrumentOps = "onnx.*";
+    // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
+    // InstrumentReportTime.
+    // Disable the last bit for InstrumentReportMemory because of its big
+    // overhead. Users can optionally enable the last bit by using
+    // --InstrumentReportMemory option.
+    instrumentActions |= (1 << 3) - 1;
+  }
+  if (maccel.empty() && instrumentStage == Onnx)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
@@ -132,10 +149,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
                    << ONNXOpsStatFormat << "\"\n";
     }
   }
-  // Add instrumentation for Onnx Ops
-  if (maccel.empty() && instrumentStage == Onnx)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-        instrumentOps, instrumentControlBits.getBits()));
 
   // Print Signatures of each op at runtime if enabled. Should not run signature
   // and instrument passes at the same time.
