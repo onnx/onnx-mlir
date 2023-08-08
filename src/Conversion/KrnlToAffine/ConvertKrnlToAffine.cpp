@@ -256,13 +256,13 @@ public:
                           loopRefToOp[transferPt.loopsToSkip.value().front()]);
 
         // Move iterator to point to the next AffineFor Op.
-          while (insertPt != loopBody.end() &&
-               (!dyn_cast_or_null<AffineForOp>(&*insertPt) ||
-               !dyn_cast_or_null<AffineParallelOp>(&*insertPt))
-               && loopToSkip) {
-            assert(dyn_cast_or_null<KrnlMovableOp>(&*insertPt) &&
-                  "Expecting a KrnlMovableOp");
-            insertPt++;
+        while (insertPt != loopBody.end() &&
+              (!dyn_cast_or_null<AffineForOp>(&*insertPt) ||
+              !dyn_cast_or_null<AffineParallelOp>(&*insertPt))
+              && loopToSkip) {
+          assert(dyn_cast_or_null<KrnlMovableOp>(&*insertPt) &&
+                "Expecting a KrnlMovableOp");
+          insertPt++;
         }
 
         // Assert that now insertion point points to the loop to skip.
@@ -385,15 +385,15 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
           operands.end(), operandItr, operandItr + map.getNumInputs());
       std::advance(operandItr, map.getNumInputs());
     }
-      auto forOp = builder.create<AffineForOp>(
-          iterateOp.getLoc(), lbOperands, lbMap, ubOperands, ubMap);
+    auto forOp = builder.create<AffineForOp>(
+        iterateOp.getLoc(), lbOperands, lbMap, ubOperands, ubMap);
 
-      currentNestedForOps.emplace_back(std::make_pair(unoptimizedLoopRef, forOp));
-      builder.setInsertionPoint(
-        llvm::cast<AffineForOp>(currentNestedForOps.back().second).getBody(),
-        llvm::cast<AffineForOp>(currentNestedForOps.back().second).getBody()
-        ->begin()
-      );
+    currentNestedForOps.emplace_back(std::make_pair(unoptimizedLoopRef, forOp));
+    builder.setInsertionPoint(
+      llvm::cast<AffineForOp>(currentNestedForOps.back().second).getBody(),
+      llvm::cast<AffineForOp>(currentNestedForOps.back().second).getBody()
+      ->begin()
+    );
   }
 
   // Replace induction variable references from those introduced by a
@@ -404,8 +404,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     BlockArgument forIV =
         llvm::cast<AffineForOp>(currentNestedForOps[i].second).getBody()
         ->getArgument(0);
-      iterateIV.replaceAllUsesWith(forIV);
-      iterateOp.getBodyRegion().front().eraseArgument(0);
+    iterateIV.replaceAllUsesWith(forIV);
+    iterateOp.getBodyRegion().front().eraseArgument(0);
     }
     
   // Pop krnl.iterate body region block arguments, leave the last one
@@ -428,10 +428,10 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     // Transfer krnl.iterate region to innermost for op.
     auto innermostForOp = llvm::cast<AffineForOp>(
                                 currentNestedForOps.back().second); 
-      innermostForOp.getRegion().getBlocks().clear();
-      Region &innerMostRegion = innermostForOp.getRegion();
-      innerMostRegion.getBlocks().splice(
-          innerMostRegion.end(), iterateOp.getBodyRegion().getBlocks());
+    innermostForOp.getRegion().getBlocks().clear();
+    Region &innerMostRegion = innermostForOp.getRegion();
+    innerMostRegion.getBlocks().splice(
+        innerMostRegion.end(), iterateOp.getBodyRegion().getBlocks());
     }
 
   for (const auto &pair : currentNestedForOps) 
