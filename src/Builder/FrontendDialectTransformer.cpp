@@ -1389,15 +1389,15 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
   }
 
   // Note: when options.useOnnxModelTypes is true, the onnx::shape_inference
-  // cannot handle non onnx operations (represented as CustomOp in onnx-mlir)
+  // cannot handle non-onnx operations (represented as CustomOp in onnx-mlir)
   // Assertion error if the model contains a such operation.
-  // onnx-mlir handleds the CustomOp in a different way. It assumes the common
+  // onnx-mlir handles the CustomOp in a different way. It assumes the common
   // pattern that the element type of the output is the same
   // as the the first input. And later shape inference will use the
   // shape-inference-pattern attribute to perform shape inference on CustomOp.
-  // The type assumption of the Importer may be incorrect and cause
+  // The type assumption in the Importer may be incorrect and cause
   // trouble.
-  // ToFix: the shape-nference-pattern should be added and used in Importer.
+  // ToFix: the shape-inference-pattern should be added and used in Importer.
 
   // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
