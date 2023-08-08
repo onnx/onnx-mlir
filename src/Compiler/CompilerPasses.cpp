@@ -71,7 +71,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
   // Convolution Optimization for CPU: enable when there are no accelerators.
-  if (targetCPU) {
+  if (targetCPU && enableConvOptPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
         enableSimdDataLayout && !disableSimdOption));
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());

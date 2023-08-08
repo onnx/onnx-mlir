@@ -305,6 +305,22 @@ llvm::cl::opt<std::string> modelTag("tag",
     llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> enableConvOptPass("enable-conv-opt-pass",
+    llvm::cl::desc("Enable the ConvOptPass. Default is true."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> extraLibPaths("L",
+    llvm::cl::desc("Specify extra directories for libraries when compiling"
+                   "an onnx model. Will be add used as -L in the linkage step."
+                   "Each directory can be specified with one extra-lib-dirs"),
+    llvm::cl::Prefix, llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> extraLibs("l",
+    llvm::cl::desc("Specify extra libraries when compiling an onnx model."
+                   "Will be add used as -l in the linkage step."
+                   "Each lib can be specified with one extra-libs"),
+    llvm::cl::Prefix, llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<ProfileIRs> profileIR("profile-ir",
     llvm::cl::desc("Profile operations in an IR"),
     llvm::cl::values(clEnumVal(None, "No profiling. Default value."),
@@ -666,6 +682,9 @@ int setCompilerOptions(const CompilerOptionList &list) {
   }
   return CompilerSuccess;
 }
+
+// Clear the map for CompilerConfig. It is used for each invocation of compile
+void clearCompilerConfig() { CompilerConfigMap.clear(); }
 
 // Get the string vector associated with the specified key
 std::vector<std::string> getCompilerConfig(std::string k) {
