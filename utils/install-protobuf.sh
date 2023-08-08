@@ -1,4 +1,4 @@
-# Check out protobuf v3.18.3
+# Check out protobuf
 PROTOBUF_VERSION=3.20.3
 git clone -b v${PROTOBUF_VERSION} --depth 1 --recursive https://github.com/protocolbuffers/protobuf.git
 
