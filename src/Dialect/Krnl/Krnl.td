@@ -500,6 +500,23 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   }];
 }
 
+def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
+  let summary = "Krnl parallel operation";
+  let description = [{
+    Parallelize the specified loops.
+    ```
+    krnl.parallel %i
+    ```
+  }];
+
+  let arguments = (ins AnyType:$loop);
+
+  let assemblyFormat = [{
+      $loop attr-dict `:` type($loop)
+  }];
+}
+
+
 def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
   let summary = "Krnl dimensions operation.";
   let description = [{

@@ -1367,7 +1367,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
     MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
     int64_t VL, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
-    bool isUnaryOp) {
+    bool isUnaryOp, bool enableParallel = false) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
   LLVM_DEBUG(llvm::dbgs() << "  partial SIMD code for elementwise op "
@@ -1423,6 +1423,10 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   VectorType vecElementType = VectorType::get({VL}, outputElementType);
   // Iterate only over the blocks.
   SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+  if (enableParallel) {
+    create.krnl.parallel(optimizedLoopDef[0]);
+    LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+  }
   create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
       [&](KrnlBuilder &ck, ValueRange loopInd) {
         MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
@@ -1858,11 +1862,13 @@ struct ONNXElementwiseUnaryOpLowering
   using OpAdaptor = typename ElementwiseUnaryOp::Adaptor;
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
+  bool enableParallel = false;
 
   ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      DimAnalysis *dimAnalysis, bool enableSIMD)
+      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel = false)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
 
   LogicalResult matchAndRewrite(ElementwiseUnaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1923,7 +1929,7 @@ struct ONNXElementwiseUnaryOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, /*collapsedInnermostLoop*/ outputRank,
-            /*ruleOutBroadcast*/ true, /*unary*/ true);
+            /*ruleOutBroadcast*/ true, /*unary*/ true, enableParallel);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
@@ -1942,6 +1948,10 @@ struct ONNXElementwiseUnaryOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
+      if (enableParallel) {
+        create.krnl.parallel(loopDef[0]);
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             SmallVector<Value> args;
@@ -2006,13 +2016,14 @@ struct ONNXElementwiseBinaryOpLowering
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
   bool isUniBroadcasting = false;
+  bool enableParallel = false;
 
   ONNXElementwiseBinaryOpLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
-      bool isUniBroadcasting = false)
+      bool isUniBroadcasting = false, bool enableParallel = false)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
         dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        isUniBroadcasting(isUniBroadcasting) {}
+        isUniBroadcasting(isUniBroadcasting), enableParallel(enableParallel) {}
 
   LogicalResult matchAndRewrite(ElementwiseBinaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -2072,7 +2083,7 @@ struct ONNXElementwiseBinaryOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false);
+            /*unary*/ false, enableParallel);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
@@ -2091,6 +2102,11 @@ struct ONNXElementwiseBinaryOpLowering
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
+      // TODO adjust in the future
+      if (enableParallel) {
+        create.krnl.parallel(loopDef[0]);
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
@@ -2150,11 +2166,14 @@ struct ONNXElementwiseVariadicOpLowering
   using OpAdaptor = typename ElementwiseVariadicOp::Adaptor;
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
+  bool enableParallel = false;
 
   ONNXElementwiseVariadicOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD)
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
+      bool enableParallel = false)
       : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
 
   LogicalResult matchAndRewrite(ElementwiseVariadicOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -2213,7 +2232,7 @@ struct ONNXElementwiseVariadicOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false);
+            /*unary*/ false, enableParallel);
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
@@ -2233,6 +2252,11 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
+      // FIXME fix in the future
+      if (enableParallel) {
+        create.krnl.parallel(loopDef[0]);
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(createKrnl, shapeHelper.getScope());
@@ -2299,12 +2323,14 @@ struct ONNXElementwiseVariadicOpLowering
 struct ONNXWhereOpLowering : public ConversionPattern {
   DimAnalysis *dimAnalysis;
   bool enableSIMD = false;
+  bool enableParallel = false;
 
   ONNXWhereOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      DimAnalysis *dimAnalysis, bool enableSIMD)
+      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel = false)
       : ConversionPattern(
             typeConverter, ONNXWhereOp::getOperationName(), 1, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -2337,6 +2363,11 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
+      // FIXME in the future
+      if (enableParallel) {
+        create.krnl.parallel(loopDef[0]);
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             IndexExprScope innerScope(&rewriter, shapeHelper.getScope());
@@ -2402,7 +2433,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
 void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
-    bool enableSIMD) {
+    bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXElementwiseUnaryOpLowering<mlir::ONNXAbsOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAddOp>,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXAndOp>,
@@ -2461,9 +2492,10 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXTanhOp>, ONNXWhereOpLowering,
       ONNXElementwiseVariadicOpLowering<mlir::ONNXXorOp>>(
-      typeConverter, ctx, dimAnalysis, enableSIMD);
+      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   patterns.insert<ONNXElementwiseBinaryOpLowering<mlir::ONNXPReluOp>>(
-      typeConverter, ctx, dimAnalysis, enableSIMD, /*isUniBroadcasting=*/true);
+      typeConverter, ctx, dimAnalysis, enableSIMD, /*isUniBroadcasting=*/true,
+      enableParallel);
 }
 
 } // namespace onnx_mlir

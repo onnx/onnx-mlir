@@ -16,13 +16,18 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
 
 struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
-  ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+  bool enableParallel = false)
+      : OpConversionPattern(typeConverter, ctx),
+        enableParallel(enableParallel) {}
+  bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
       ONNXConcatOpAdaptor adaptor,
@@ -79,6 +84,10 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different
       commonUB[axis] = ubs[axis];
+      if (enableParallel) {
+        create.krnl.parallel(loopDef[0]);
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Concat \n");
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
@@ -108,8 +117,8 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
 };
 
 void populateLoweringONNXConcatOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
