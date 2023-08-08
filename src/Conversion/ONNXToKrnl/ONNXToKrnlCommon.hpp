@@ -491,4 +491,27 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
+// Populated by configureConstPropONNXToONNXPass().
+struct OnnxToKrnlLoweringConfiguration {
+  static int reportOnParallel;
+  static int reportOnSimd;
+};
+
+int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
+int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
+
+void onnxToKrnlParallelReport(
+    mlir::Operation *op, bool successful, std::string comment) {
+  if (!OnnxToKrnlLoweringConfiguration::reportOnParallel)
+    return;
+      std::string opName(op->getOpName().data());
+
+}
+
+void onnxToKrnlSimdReport(
+    mlir::Operation *op, bool successful, std::string comment) {
+  if (!OnnxToKrnlLoweringConfiguration::reportOnSIMD)
+    return;
+}
+
 } // namespace onnx_mlir

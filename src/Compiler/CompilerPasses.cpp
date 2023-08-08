@@ -43,6 +43,8 @@ namespace onnx_mlir {
 
 void configurePasses() {
   configureConstPropONNXToONNXPass(onnxConstPropExpansionBound);
+  configureOnnxToKrnlLoweringPass(onnxOpReport == OnnxOpReport::Parallel,
+      onnxOpReport == OnnxOpReport::Simd);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
