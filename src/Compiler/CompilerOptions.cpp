@@ -718,8 +718,8 @@ void popCompilerConfig(std::string k) {
   assert(
       !CompilerConfigStack[k].empty() && "pop an empty CompilerConfig stack");
   size_t top = CompilerConfigStack[k].back();
+  assert(top <= CompilerConfigMap[k].size() && "incorrect top for stack");
   CompilerConfigStack[k].pop_back();
-  assert(top < CompilerConfigMap[k].size() && "incorrect top for stack");
   std::vector<std::string> u = CompilerConfigMap[k];
   while (u.size() > top)
     u.pop_back();
