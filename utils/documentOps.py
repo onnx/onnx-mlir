@@ -41,9 +41,19 @@ import subprocess
 # ==TODO== <text>
 #   where <text> add "private" info about what needs to be fixed. 
 #
+# ==MIN== <num>
+#   where <num> is the minimum release version supported
+#
+# ==MAX== <num>
+#   where <num> is the maximum release version supported
 #
 ################################################################################
 # Usage.
+
+################################################################################
+# Default min/max opset supported (when not explicitly specified).
+min_opset_default = "9" # Use that value if no ==MIN== value is given.
+max_opset_default = "19" # Use that val if no ==MAX== value and no version are given
 
 def print_usage():
     print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
@@ -60,9 +70,11 @@ def print_usage():
 ################################################################################
 # Handling of info: global dictionaries.
 
-hightest_opset = 1   # Highest opset is.
+hightest_opset = 1     # Highest opset found in the description.
 opset_dict = {}        # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}        # <op> -> <text> in "==LIM== <text>".
+min_dict = {}          # <op> -> <num> in "==MIN== <num>".
+max_dict = {}          # <op> -> <num> in "==MAX== <num>".
 todo_dict = {}         # <op> -> <text> in "==TODO== <text>".
 list_op_version = {}   # List of operation versions from gen_onnx_mlir;
                        # <op> -> [supported versions]
@@ -132,6 +144,24 @@ def parse_file(file_name):
             if debug:
                 print("got todo for op", op, ":", todo_dict[op])
             continue
+        # Min release supported.
+        p = re.search(r'==MIN==\s+(\d+)\s*$', l)
+        if p is not None:
+            assert op is not None, "Min without op."
+            assert op not in min_dict, "Redefinition of min for op " + op
+            min_dict[op] = p[1]
+            if debug:
+                print("Got min for op", op, ":", min_dict[op])
+            continue
+        # Max release supported.
+        p = re.search(r'==MAX==\s+(\d+)\s*$', l)
+        if p is not None:
+            assert op is not None, "Max without op."
+            assert op not in max_dict, "Redefinition of max for op " + op
+            max_dict[op] = p[1]
+            if debug:
+                print("Got max for op", op, ":", max_dict[op])
+            continue
 
 ################################################################################
 # Print info.
@@ -165,8 +195,8 @@ def print_md():
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Up to Opset", "Limitations"]
-    separator = ["---", "---", "---"]
+    header = ["Op", "From Opset", "Up to Opset", "Limitations"]
+    separator = ["---", "---", "---", "---"]
     if emit_notes:
         header.append("Notes")
         separator.append("---")
@@ -175,7 +205,15 @@ def print_md():
     for op in sorted(list_op_version.keys()):
         supported_op = op in opset_dict;
         if supported_op:
-            info = ["**"+op+"**", opset_dict[op]]
+            min = min_opset_default
+            if op in min_dict:
+                min = min_dict[op]
+            max = max_opset_default
+            if op in max_dict:
+                max = max_dict[op]
+            elif op in opset_dict:
+                max = opset_dict[op]
+            info = ["**"+op+"**", min, max]
         else:
             if not emit_unsupported:
                 continue

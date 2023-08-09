@@ -77,6 +77,7 @@ def get_test_models():
         # ==ARCH== cpu
 
         # ==OP== Abs
+        # ==MIN== 9
         "test_abs_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 
         # ==OP== Acos
