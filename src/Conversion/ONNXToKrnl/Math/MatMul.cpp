@@ -42,8 +42,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       Type elementType, ONNXMatMulOpShapeHelper &shapeHelper, Value alloc,
       Value fZero, ConversionPatternRewriter &rewriter, Location loc) const {
 
-    onnxToKrnlSimdReport(
-        op, /*successful*/ false, 0, 0, "no simd generic algo");
+    onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+        "no simd generic algo");
 
     // Define loops and bounds.
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
