@@ -83,6 +83,8 @@ you can pass `-DCMAKE_CXX_FLAGS=-march=native` to the `cmake -G Ninja ..` build 
 
 ### Known MacOS Issues
 
+#### jsoniter issue
+
 There is a known issue when building onnx-mlir. If you see an error of this sorts:
 
 ``` shell
@@ -96,6 +98,22 @@ make: *** [Makefile:146: all] Error 2.
 ```
 
 The suggested workaround until jsoniter is fixed is as follows: install maven (e.g. `brew install maven`) and run `alias nproc="sysctl -n hw.logicalcpu"` in your shell.
+
+#### Protobuf issue (Mac M1, specific to protobuf 3.20.3 which is currently required)
+
+On Mac M1, you may have some issues building protobuf. In particular, you may fail to install onnx (via `pip install -e third_party/onnx`) or you may fail to compile `onnx-mlir` (no arm64 symbol for `InternalMetadata::~InternalMetadata`).
+
+The first failure is likely an issue with having multiple versions of protobuf.
+Installing a version with `brew` was not helpful (version 3.20.3 because of a known bug that can be corrected with a patch below).
+Uninstall the brew version, and make sure you install the right one with pip: `pip install protobuf==3.20.3`.
+
+The second failure can be remediated by downloading protobuf source code, applying a patch, and installing it on the local machine.
+See [Dockerfile.llvm-project](../docker/Dockerfile.llvm-project) on line 66 for cloning instructions. After cloning the right version, you should apply a patch [patch](https://github.com/protocolbuffers/protobuf/commit/0574167d92a232cb8f5a9107aabda0aefbc39e8b) by downloading from the link above and applying it.
+Then you should follow the steps in the [Dockerfile.llvm-project](../docker/Dockerfile.llvm-project) file (skipped the `ldconfig` step without consequences).
+You may have to brew a couple of the tools, see the `yum install` in the `Dockerfile.llvm-project` file above.
+You should then be able to successfully install protobuf and compile `onnx-mlir`.
+As the dependences between `third_party` and `onnx-mlir` might cause issues, it is always safe to delete the `third_party` directory, reinstall using `git submodule update --init --recursive`, reinstall `onnx`, delete `onnx-mlir/build` and rebuild `onnx-mlir` from scratch.
+
 
 ### Trouble shooting build issues
 
