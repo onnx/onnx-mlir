@@ -448,4 +448,33 @@ std::unique_ptr<Pass> createLowerToKrnlPass(
       enableTiling, enableSIMD, enableParallel);
 }
 
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
+int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
+std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
+std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
+
+void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
+    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
+  OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
+  OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
+  if (reportOnParallel && !parallelIsEnabled)
+    OnnxToKrnlLoweringConfiguration::defaultParallelComment =
+        "parallelism is disabled";
+  if (reportOnSimd) {
+    if (!simdIsEnabled) {
+      OnnxToKrnlLoweringConfiguration::defaultSimdComment = "simd is disabled";
+    } else {
+      VectorMachineSupport *vms =
+          VectorMachineSupport::getGlobalVectorMachineSupport();
+      if (!vms->hasSimd())
+        OnnxToKrnlLoweringConfiguration::defaultSimdComment =
+            "cpu with unspecified simd ISA";
+    }
+  }
+}
+
 } // namespace onnx_mlir

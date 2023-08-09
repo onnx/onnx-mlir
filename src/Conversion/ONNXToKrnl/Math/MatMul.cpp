@@ -38,9 +38,12 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
   bool enableSIMD;
 
   // Handle the generic cases, including when there are broadcasts.
-  void replaceGenericMatmul(ONNXMatMulOpAdaptor &operandAdaptor,
+  void replaceGenericMatmul(Operation *op, ONNXMatMulOpAdaptor &operandAdaptor,
       Type elementType, ONNXMatMulOpShapeHelper &shapeHelper, Value alloc,
       Value fZero, ConversionPatternRewriter &rewriter, Location loc) const {
+
+    onnxToKrnlSimdReport(
+        op, /*successful*/ false, 0, 0, "no simd generic algo");
 
     // Define loops and bounds.
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
@@ -230,9 +233,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
   // Handle the cases with 2x2 matrices both for A, B, and C without
   // broadcast. Implementation here uses the efficient 1d tiling plus kernel
   // substitution.
-  void replace2x2Matmul2d(ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+  void replace2x2Matmul2d(Operation *op, ONNXMatMulOpAdaptor &operandAdaptor,
+      Type elementType, ONNXMatMulOpShapeHelper &shapeHelper, Value alloc,
+      Value zeroVal, ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
@@ -288,9 +291,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
   // broadcasting ranks. In such case, sameStaticBroadcast is true, and the
   // value of broadcastingB does not matter as they treated as both
   // broadcasting.
-  void replace2x2Matmul2dBroadcasting(ONNXMatMulOpAdaptor &operandAdaptor,
-      Type elementType, ONNXMatMulOpShapeHelper &shapeHelper,
-      bool broadcastingB, bool sameStaticBroadcast, Value alloc, Value zeroVal,
+  void replace2x2Matmul2dBroadcasting(Operation *op,
+      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
+      ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB,
+      bool sameStaticBroadcast, Value alloc, Value zeroVal,
       ConversionPatternRewriter &rewriter, Location loc) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
@@ -423,41 +427,41 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
       replace2x2Matmul2d(
-          adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc);
+          op, adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc);
     } else if (enableTiling && aRank == 2 && bRank > 2) {
       // Broadcasting B.
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
-      replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
+      replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,
           /*broadcasting B*/ true,
           /*same static broadcast*/ false, alloc, zero, rewriter, loc);
     } else if (enableTiling && aRank > 2 && bRank == 2) {
       // Broadcasting A.
       assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
-      replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
+      replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,
           /*broadcasting B*/ false,
           /*same static broadcast*/ false, alloc, zero, rewriter, loc);
     } else {
       // Test if have A and B have identical batch size.
-      bool sameBatchsize = (enableTiling && aRank > 2 && aRank == bRank);
-      if (sameBatchsize) {
+      bool sameBatchSize = (enableTiling && aRank > 2 && aRank == bRank);
+      if (sameBatchSize) {
         for (int i = 0; i < aRank - 2; ++i)
           // Note that using A and B from the operation instead of adaptor.
           // It's because DimAnalysis has been done on operations.
           if (!dimAnalysis->sameDim(matMulOp.getA(), i, matMulOp.getB(), i)) {
-            sameBatchsize = false;
+            sameBatchSize = false;
             break;
           }
       }
       // While there is technically no broadcasting there, we can use nearly the
       // same logic as in replace2x2Matmul2dBroadcasting. So reuse that code.
-      if (sameBatchsize) {
+      if (sameBatchSize) {
         assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
-        replace2x2Matmul2dBroadcasting(adaptor, elementType, shapeHelper,
+        replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,
             /*broadcasting B*/ true,
             /*same static broadcast*/ true, alloc, zero, rewriter, loc);
       } else {
         replaceGenericMatmul(
-            adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc);
+            op, adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc);
       }
     }
     // Done.

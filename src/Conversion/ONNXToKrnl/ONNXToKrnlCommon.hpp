@@ -491,27 +491,28 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
-// Populated by configureConstPropONNXToONNXPass().
+// Populated by configureOnnxToKrnlLoweringPass().
+
 struct OnnxToKrnlLoweringConfiguration {
-  static int reportOnParallel;
+  static int reportOnParallel; 
+  static std::string defaultParallelComment; 
   static int reportOnSimd;
+  static std::string defaultSimdComment; 
 };
 
-int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
-int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
+// Loop level: -1: none; 0: outermost; 1: next to outermost...
+// Parallel loop trip count; 0: none; -1: runtime only; >0: min number known at
+// compile time.
+// Comment: explanation of how parallelism was achieved / or failed.
+void onnxToKrnlParallelReport(mlir::Operation *op, bool successful = false,
+    int64_t loopLevel = -1, int64_t parallelLoopTripCount = 0,
+    const std::string &comment = "");
 
-void onnxToKrnlParallelReport(
-    mlir::Operation *op, bool successful, std::string comment) {
-  if (!OnnxToKrnlLoweringConfiguration::reportOnParallel)
-    return;
-      std::string opName(op->getOpName().data());
-
-}
-
-void onnxToKrnlSimdReport(
-    mlir::Operation *op, bool successful, std::string comment) {
-  if (!OnnxToKrnlLoweringConfiguration::reportOnSIMD)
-    return;
-}
+// Vector Length: 0: none; -1: runtime only; >0 min number known at compile
+// time. Simd loop trip count; 0: none; -1: runtime only; >0: min number known
+// at compile time. Comment: explanation of how SIMD was achieved / or failed.
+void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
+    int64_t vectorLength = -1, int64_t simdLoopTripCount = 0,
+    const std::string &comment = "");
 
 } // namespace onnx_mlir

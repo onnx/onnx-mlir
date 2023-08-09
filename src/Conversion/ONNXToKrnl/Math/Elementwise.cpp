@@ -1919,13 +1919,18 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
           shapeHelper, create, op, outputMemRefType, outputRank);
-      if (uVL > 0)
+      if (uVL > 0) {
+        onnxToKrnlSimdReport(
+            op, /*successful*/ true, uVL, -1, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true);
+      }
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
+    onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+        "unary failed because scalar/layouts");
 
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
@@ -2068,11 +2073,19 @@ struct ONNXElementwiseBinaryOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops);
-      if (uVL > 0)
+      if (uVL > 0) {
+        onnxToKrnlSimdReport(op, /*successful*/ true, uVL, -1,
+            "binary with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false);
+      }
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "binary failed because no beneficial VL");
+    } else {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "binary failed because no manageable broadcast/layout ");
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
@@ -2209,11 +2222,20 @@ struct ONNXElementwiseVariadicOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops);
-      if (uVL > 0)
+      if (uVL > 0) {
+        onnxToKrnlSimdReport(op, /*successful*/ true, uVL, -1,
+            "variadic with manageable broadcast");
+
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false);
+      }
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "variadic failed because no beneficial VL");
+    } else {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "variadic failed because no manageable broadcast/layout ");
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 

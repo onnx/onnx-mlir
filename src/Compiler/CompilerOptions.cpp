@@ -229,7 +229,6 @@ llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
         "static iteration will be used"),
     llvm::cl::init(3), llvm::cl::cat(OnnxMlirOptions));
 
-// hi alex remove
 llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
     llvm::cl::desc(
         "Report diagnostic info for ONNX op transform/optimization passes."),

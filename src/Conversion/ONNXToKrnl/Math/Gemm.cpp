@@ -42,10 +42,13 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
   bool enableTiling;
   bool enableSIMD;
 
-  void genericGemm(ONNXGemmOpAdaptor &adaptor, Type elementType,
+  void genericGemm(Operation *op, ONNXGemmOpAdaptor &adaptor, Type elementType,
       ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
       Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
       Location loc) const {
+    onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+        "simd disabled tiling is disabled");
+
     // R is result (alloc).
     Value A(adaptor.getA()), B(adaptor.getB()), R(alloc);
 
@@ -110,10 +113,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
         });
   }
 
-  void tiledTransposedGemm(ONNXGemmOpAdaptor &adaptor, Type elementType,
-      ONNXGemmOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
-      Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
-      Location loc) const {
+  void tiledTransposedGemm(Operation *op, ONNXGemmOpAdaptor &adaptor,
+      Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
+      Value zeroVal, Value alphaVal, Value betaVal,
+      ConversionPatternRewriter &rewriter, Location loc) const {
 
     // R is result (alloc).
     Value A(adaptor.getA()), B(adaptor.getB()), R(alloc);
@@ -137,6 +140,9 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     bool unrollAndJam = DEBUG_UNROLL_OFF ? false : true;
     // Simdize with jRegTile as the vector length.
     bool simdize = DEBUG_SIMD_OFF ? false : enableSIMD;
+    if (!simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+          /*trip count*/ 0, "simd disabled");
 
     bool mustTileR = false;
     if (!J.isLiteral()) {
@@ -144,18 +150,31 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       // multiple of the vector length, we must tile C into a smaller block of
       // known dimensions that are compatible with SIMD.
       mustTileR = true;
+      if (simdize)
+        onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ jRegTile,
+            /*trip count*/ -1, "simd for copied tiles due to runtime j dim");
     } else {
       int64_t jVal = J.getLiteral();
       if (jVal < jRegTile) {
         // Very small computation, give up on SIMD.
+        if (simdize)
+          onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+              /*trip count*/ jVal,
+              "simd disabled because of small j trip count");
         simdize = false;
       } else if (jVal % jRegTile != 0) {
         // Unfortunately, J is not divisible by the vector length. Could try
         // to change the vector length, but right now, just go to buffering.
         mustTileR = true;
+        if (simdize)
+          onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ jRegTile,
+              /*trip count*/ jVal, "simd for copied tiles due to j dim");
       } else {
         // Best of all world, large computation, of sizes compatible with vector
         // length.
+        if (simdize)
+          onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ jRegTile,
+              /*trip count*/ jVal, "simd directly in output tiles");
       }
     }
 
@@ -372,11 +391,11 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     });
 
     if (enableTiling && !DEBUG_OPTIMIZED_OFF) {
-      tiledTransposedGemm(adaptor, elementType, shapeHelper, alloc, zero, alpha,
-          beta, rewriter, loc);
+      tiledTransposedGemm(op, adaptor, elementType, shapeHelper, alloc, zero,
+          alpha, beta, rewriter, loc);
     } else {
-      genericGemm(adaptor, elementType, shapeHelper, alloc, zero, alpha, beta,
-          rewriter, loc);
+      genericGemm(op, adaptor, elementType, shapeHelper, alloc, zero, alpha,
+          beta, rewriter, loc);
     }
     rewriter.replaceOp(op, alloc);
     return success();

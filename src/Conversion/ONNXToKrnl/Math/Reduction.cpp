@@ -680,14 +680,20 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         genHorizontalSimdReduction(rewriter, create, op, elementOutType, input,
             alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
             divisorForMean);
+        onnxToKrnlSimdReport(
+            op, /*successful*/ true, VL, /*trip*/ -1, "horizontal");
       } else {
         genShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
             input, alloc, inRank, outRank, VL, innermostLoopCollapse,
             isKeepdims, divisorForMean);
+        onnxToKrnlSimdReport(
+            op, /*successful*/ true, VL, /*trip*/ -1, "shuffle-horizontal");
       }
     } else {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
           inRank, outRank, dynamicAxes, maskVal, outInDimMap, divisorForMean);
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip*/ 0,
+          (parallelSimd ? "unsupported parallel scheme" : "unsupported"));
     }
     rewriter.replaceOp(op, alloc);
     return success();

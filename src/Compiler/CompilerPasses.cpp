@@ -34,6 +34,7 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -42,9 +43,11 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void configurePasses() {
+  // Set global vector machine support.
+  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
   configureConstPropONNXToONNXPass(onnxConstPropExpansionBound);
   configureOnnxToKrnlLoweringPass(onnxOpReport == OnnxOpReport::Parallel,
-      onnxOpReport == OnnxOpReport::Simd);
+      enableParallel, onnxOpReport == OnnxOpReport::Simd, !disableSimdOption);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
