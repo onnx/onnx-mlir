@@ -603,7 +603,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         ValueRange loopDef = createKrnl.defineLoops(1);
         if (enableParallel) {
           create.krnl.parallel(loopDef[0]);
-          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+          LLVM_DEBUG(
+              llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
         }
         createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)},
             {axisShape0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -704,8 +705,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       MDBuilder &create, Operation *op, Type elementType, Value input,
       Value alloc, int64_t inRank, int64_t outRank, bool dynamicAxes,
       Value maskVal, std::map<int64_t, int64_t> &outInDimMap,
-      Value divisorForMean,
-      bool enableParallel = false) const {
+      Value divisorForMean, bool enableParallel = false) const {
     //////////////////////////////////////////////////////////////////////
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -843,8 +843,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   void genHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
-      int64_t collapsedInnermostLoops, bool isKeepDims,
-      Value divisorForMean, bool enableParallel = false) const {
+      int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
+      bool enableParallel = false) const {
 
     assert(VL > 1 && "expected simd here");
     VectorType vecType = VectorType::get({VL}, elementType);
@@ -959,8 +959,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   void genShuffleHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
-      int64_t collapsedInnermostLoops, bool isKeepDims,
-      Value divisorForMean, bool enableParallel = false) const {
+      int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
+      bool enableParallel = false) const {
 
     assert(VL > 1 && "expected simd here");
     IndexExpr VLIndexExpr = LiteralIndexExpr(VL);
