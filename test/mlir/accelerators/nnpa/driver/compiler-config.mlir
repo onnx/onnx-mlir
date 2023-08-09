@@ -1,5 +1,5 @@
 
-// RUN: onnx-mlir --maccel=NNPA -v %s -o %t 2>&1 | FileCheck %s
+// RUN: onnx-mlir --maccel=NNPA -v -tag="test" %s -o %t 2>&1 | FileCheck %s
 
 // -----
 module {
@@ -9,5 +9,6 @@ module {
   }
   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 }
-// CHECK-NEXT {{clang|c|g}}++{{.*}} compile-config.o -o compile-config.so -shared -fPIC -L{{.*}}/lib -lRuntimeNNPA -lzdnn -lcruntime 
-
+// CHECK: {{.*}} opt {{.*}} -o {{.*}}.bc
+// CHECK-NEXT: {{.*}} llc {{.*}}  {{.*}} {{.*}}.bc
+// CHECK-NEXT: {{.*}} {{clang|c|g}}++{{.*}} {{.*}}.o -o {{.*}}.so -shared -fPIC -L{{.*}}/lib -lRuntimeNNPA -lzdnn -lcruntime 
