@@ -83,3 +83,5 @@ func.func @test_matmul_parallel(%arg0 : tensor<4x8xf32>, %arg1 : tensor<8x16xf32
   // CHECK:           return [[RES_]] : memref<4x16xf32>
   // CHECK:         }
 }
+
+//TODO add test for transpose, softmax, reduction, concatenate, element wise

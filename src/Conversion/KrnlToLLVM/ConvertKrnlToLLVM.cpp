@@ -874,11 +874,14 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
 
+  // omp::ParallelOp can only be legalized when its region is legal
   target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsLoopOp>(
       [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
-  target.addLegalOp<mlir::omp::TerminatorOp, mlir::omp::TaskyieldOp,
-      mlir::omp::FlushOp, mlir::omp::YieldOp, mlir::omp::BarrierOp, 
-      mlir::omp::TaskwaitOp>();
+  // Currently, only minimum required OpenMP Ops are marked as legal, in the
+  // future integration of OpenMP, probably more OpenMP Ops are required to be
+  // marked as legal. Please refer the OpenMPtoLLVM.cpp in MLIR repo to see see
+  // how to legalize them.
+  target.addLegalOp<omp::TerminatorOp, omp::YieldOp>();
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(ctx);

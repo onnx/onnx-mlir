@@ -295,9 +295,9 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     }
     ValueRange outerLoops = create.krnl.defineLoops(2);
     if (enableParallel) {
-        create.krnl.parallel(outerLoops[0]);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM\n");
-      }
+      create.krnl.parallel(outerLoops[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM\n");
+    }
     create.krnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           // Handle alpha/beta coefficients.
@@ -403,7 +403,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
 };
 
 void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling, 
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
     bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
       typeConverter, ctx, enableTiling, enableSIMD, enableParallel);

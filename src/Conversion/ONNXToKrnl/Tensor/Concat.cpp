@@ -24,7 +24,7 @@ namespace onnx_mlir {
 
 struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
   ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-  bool enableParallel = false)
+      bool enableParallel = false)
       : OpConversionPattern(typeConverter, ctx),
         enableParallel(enableParallel) {}
   bool enableParallel = false;

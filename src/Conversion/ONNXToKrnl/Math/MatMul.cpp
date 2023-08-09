@@ -30,10 +30,10 @@ namespace onnx_mlir {
 
 struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
   ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD, 
+      DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD,
       bool enableParallel = false)
       : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
-        enableTiling(enableTiling), enableSIMD(enableSIMD), 
+        enableTiling(enableTiling), enableSIMD(enableSIMD),
         enableParallel(enableParallel) {}
   DimAnalysis *dimAnalysis;
   bool enableTiling;
@@ -70,7 +70,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       create.krnl.parallel(outerLoops[0]);
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
     }
-  
+
     // Non-reduction loop iterations: output-rank.
     create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
@@ -240,7 +240,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
   // substitution.
   void replace2x2Matmul2d(ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
-      ConversionPatternRewriter &rewriter,Location loc,
+      ConversionPatternRewriter &rewriter, Location loc,
       bool enableParallel = false) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
@@ -440,9 +440,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
-      replace2x2Matmul2d(
-          adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc,
-          enableParallel);
+      replace2x2Matmul2d(adaptor, elementType, shapeHelper, alloc, zero,
+          rewriter, loc, enableParallel);
     } else if (enableTiling && aRank == 2 && bRank > 2) {
       // Broadcasting B.
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
@@ -478,9 +477,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
             /*same static broadcast*/ true, alloc, zero, rewriter, loc,
             enableParallel);
       } else {
-        replaceGenericMatmul(
-            adaptor, elementType, shapeHelper, alloc, zero, rewriter, loc,
-            enableParallel);
+        replaceGenericMatmul(adaptor, elementType, shapeHelper, alloc, zero,
+            rewriter, loc, enableParallel);
       }
     }
     // Done.
@@ -492,9 +490,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel) {
-  patterns.insert<ONNXMatMulOpLowering>(
-      typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD, 
-      enableParallel);
+  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, dimAnalysis,
+      enableTiling, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

@@ -2252,7 +2252,6 @@ struct ONNXElementwiseVariadicOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
-      // FIXME fix in the future
       if (enableParallel) {
         create.krnl.parallel(loopDef[0]);
         LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
@@ -2363,7 +2362,6 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
-      // FIXME in the future
       if (enableParallel) {
         create.krnl.parallel(loopDef[0]);
         LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");

@@ -304,7 +304,7 @@ void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
     bool enableParallel);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling, 
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
     bool enableSIMD, bool enableParallel);
 void populateLoweringONNXHardmaxOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
@@ -322,9 +322,8 @@ void populateLoweringONNXRandomNormalLikeOpPattern(
 void populateLoweringONNXReductionOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
     bool enableParallel);
-void populateLoweringONNXSoftmaxOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
-    bool enableParallel);
+void populateLoweringONNXSoftmaxOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXTopKOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTriluOpPattern(
@@ -381,9 +380,8 @@ void populateLoweringONNXUnsqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXUnsqueezeV11OpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXTransposeOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
-    bool enableParallel);
+void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXGatherOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherElementsOpPattern(
@@ -404,9 +402,8 @@ void populateLoweringONNXConstantOfShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXConcatOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
-    bool enableParallel);
+void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXConcatShapeTransposeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpPattern(
