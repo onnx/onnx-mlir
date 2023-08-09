@@ -215,7 +215,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
   // Enable OpenMP-to-LLVM pass when enable parallelism
-  if (enableParallel){
+  if (enableParallel) {
     populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
   }
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
@@ -875,12 +875,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   customizeTypeConverter(typeConverter);
 
   target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsLoopOp>(
-          [&](Operation *op) { 
-            return typeConverter.isLegal(&op->getRegion(0));
-          });
+      [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
   target.addLegalOp<mlir::omp::TerminatorOp, mlir::omp::TaskyieldOp,
-                    mlir::omp::FlushOp, mlir::omp::YieldOp,
-                    mlir::omp::BarrierOp, mlir::omp::TaskwaitOp>();
+      mlir::omp::FlushOp, mlir::omp::YieldOp, mlir::omp::BarrierOp, 
+      mlir::omp::TaskwaitOp>();
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(ctx);

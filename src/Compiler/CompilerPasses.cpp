@@ -180,7 +180,7 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
-  if (enableParallel){
+  if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
     pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
   }
