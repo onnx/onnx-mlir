@@ -43,7 +43,7 @@ include "src/Dialect/ONNX/ONNX.td"
 
 def IsNoneType : Constraint<CPred<"isa<NoneType>(($_self).getType())">>;
 
-def IsNotStringType : Constraint<CPred<"! isa<ONNXStringType>(($_self).getType().cast<ShapedType>().getElementType())">>;
+def IsIntOrFloatType : Constraint<CPred<"isa<IntegerType, FloatType>(($_self).getType().cast<ShapedType>().getElementType())">>;
 
 def IsNotAConstant :
   Constraint<CPred<"! isa_and_nonnull<ONNXConstantOp>(($_self).getDefiningOp())">,
@@ -518,7 +518,7 @@ def EqualConstProp : Pat<
     (CreateEqualOfTwoConst $result, $lhs, $rhs),
     // constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
-     (IsNotStringType:$lhs), (SatisfiesExpansionBound:$result)]>;
+     (IsIntOrFloatType:$lhs), (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXLessOp
