@@ -1799,6 +1799,22 @@ func.func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>)
 
 // -----
 
+func.func @test_reshape_to_identity(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+  %minus_one = onnx.Constant dense<-1> : tensor<1xi64>
+  %dim1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x?xf32>) -> tensor<1xi64>
+  %dim2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x?x?xf32>) -> tensor<1xi64>
+  %shape = "onnx.Concat"(%minus_one, %dim1, %dim2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape) : (tensor<?x?x?xf32>, tensor<3xi64>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_to_identity
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x?xf32>) -> memref<?x?x?xf32> {
+// CHECK:           return [[PARAM_0_]] : memref<?x?x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
