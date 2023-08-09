@@ -2,6 +2,8 @@
 // RUN: onnx-mlir --maccel=NNPA -v -tag="test" %s -o %t 2>&1 | FileCheck %s
 
 // -----
+
+// REQUIRES: system-s390
 module {
   func.func @main_graph(%arg0: tensor<1x1xf32>, %arg1: tensor<1x1xf32>) -> tensor<1x1xf32> {
     %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x1xf32>, tensor<1x1xf32>) -> tensor<1x1xf32>
