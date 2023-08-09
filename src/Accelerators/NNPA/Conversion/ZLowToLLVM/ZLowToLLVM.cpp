@@ -1104,6 +1104,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     ModuleOp module = op->getParentOfType<ModuleOp>();
+    MLIRContext *context = module.getContext();
     Location loc = op->getLoc();
     ZLowMatMulAsyncOp matmulAsyncOp = cast<ZLowMatMulAsyncOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
@@ -1222,25 +1223,46 @@ public:
               toOpaquePtr(rewriter, loc, module, outputZTensor.val)});
     }
     */
-    Value Token = operandAdaptor.getToken();
-    //    SmallVector<Value, 2> results = {outputZTensor.val, Token};
-    // SmallVector<Value, 5> parameters = {outputZTensor.val, Token,
-    // xZTensor.val, yZTensor.val, biasZTensor.val}; SmallVector<Value, 5>
-    // parameters = {toOpaquePtr(rewriter, loc, module, outputZTensor.val),
-    // Token, toOpaquePtr(rewriter, loc, module, xZTensor.val),
-    // toOpaquePtr(rewriter, loc, module, yZTensor.val), toOpaquePtr(rewriter,
-    // loc, module, biasZTensor.val)};
+
     Value broadcastingVal =
         create.llvm.constant(llvmI64Ty, (int64_t)(broadcasting ? 1 : 0));
-    SmallVector<Value, 5> parameters = {outputZTensor.val, Token, xZTensor.val,
-        yZTensor.val, biasZTensor.val, broadcastingVal};
-    rewriter.create<KrnlCallOp>(loc, "omTensorMatMulAsync", 2, parameters);
+
+    // Token
+    Value Token = operandAdaptor.getToken();
+    MemRefDescriptor descriptor(Token);
+    Value alignedPtr = descriptor.alignedPtr(rewriter, loc);
+    Value tokenPtr =
+        create.llvm.bitcast(krnl::getI8PointerType(context), alignedPtr);
+
+    auto omMatMulAsyncRef = getOrInsertOMMatMulAsync(rewriter, module);
+    create.llvm.call({}, omMatMulAsyncRef,
+        {toOpaquePtr(rewriter, loc, module, outputZTensor.val), tokenPtr,
+            toOpaquePtr(rewriter, loc, module, xZTensor.val),
+            toOpaquePtr(rewriter, loc, module, yZTensor.val),
+            toOpaquePtr(rewriter, loc, module, biasZTensor.val),
+            broadcastingVal});
     rewriter.eraseOp(op);
     return success();
   }
 
 private:
   ApiRegistry apiRegistry;
+
+  // Create a function declaration for omTensorMatMulAsync, the signature is:
+  //   `void (ptr, prt, ptr, ptr, ptr, i64)`
+  FlatSymbolRefAttr getOrInsertOMMatMulAsync(
+      PatternRewriter &rewriter, ModuleOp module) const {
+    MLIRContext *context = module.getContext();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
+    Type llvmVoidTy = LLVM::LLVMVoidType::get(context);
+    Type llvmF32Ty = FloatType::getF32(context);
+    Type opaquePtrTy = krnl::getI8PointerType(context);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+    return create.llvm.getOrInsertSymbolRef(module,
+        StringRef("omTensorMatMulAsync"), llvmVoidTy,
+        {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy,
+            llvmI64Ty});
+  }
 };
 
 class ZLowConv2DLowering : public ConvertToLLVMPattern {
