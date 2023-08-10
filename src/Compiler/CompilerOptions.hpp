@@ -158,9 +158,13 @@ std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 
 // The add and del functions are not thread-safe and should only be
 // called from one thread.
-void clearCompilerConfig();
 std::vector<std::string> getCompilerConfig(std::string k);
 void addCompilerConfig(std::string k, std::vector<std::string> v);
 void delCompilerConfig(std::string k, std::vector<std::string> v);
+// CompilerConfig may be set at initialization or inside CompileModule().
+// Since CompileModule() may be called repeated, push is used to mark
+// the current config and pop is used to restore the previously mark config
+void pushCompilerConfig(std::string k);
+void popCompilerConfig(std::string k);
 
 } // namespace onnx_mlir
