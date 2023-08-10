@@ -956,7 +956,8 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   if (rc != CompilerSuccess)
     return rc;
 
-  clearCompilerConfig();
+  pushCompilerConfig(CCM_SHARED_LIB_DEPS);
+  pushCompilerConfig(CCM_SHARED_LIB_PATH_DEPS);
 
   configurePasses();
 
@@ -981,8 +982,14 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   (void)mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
-  if (mlir::failed(pm.run(*module)))
+  if (mlir::failed(pm.run(*module))) {
+    popCompilerConfig(CCM_SHARED_LIB_DEPS);
+    popCompilerConfig(CCM_SHARED_LIB_PATH_DEPS);
     return CompilerFailure;
-  return emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
+  }
+  int result = emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
+  popCompilerConfig(CCM_SHARED_LIB_DEPS);
+  popCompilerConfig(CCM_SHARED_LIB_PATH_DEPS);
+  return result;
 }
 } // namespace onnx_mlir
