@@ -624,8 +624,12 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     ValueRange lbsOperands = loopToParallel.getLowerBoundOperands();
     AffineMap ubsMap = loopToParallel.getUpperBoundMap();
     ValueRange ubsOperands = loopToParallel.getUpperBoundOperands();
+
+    // Current: parallel reduction is not used. Parallel reduction can be
+    // enabled after the Ops have been lowered to Affine. Please check
+    // Dialect/Affine/Transforms/AffineParallelize.cpp in MLIR repo to see how
+    // to enable parallel reduction.
     SmallVector<LoopReduction> parallelReductions;
-    unsigned numReductions = parallelReductions.size();
     auto reducedValues = llvm::to_vector<4>(llvm::map_range(parallelReductions,
         [](const LoopReduction &red) { return red.value; }));
     auto reductionKinds = llvm::to_vector<4>(llvm::map_range(
@@ -638,23 +642,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
     Operation *yieldOp = &parallelLoop.getBody()->back();
 
-    SmallVector<Value> newResults;
-    newResults.reserve(numReductions);
-    for (unsigned i = 0; i < numReductions; ++i) {
-      Value init = loopToParallel.getIterOperands()[i];
-      Operation *reductionOp = yieldOp->getOperand(i).getDefiningOp();
-      assert(
-          reductionOp && "yielded value is expected to be produced by an op");
-      opBuilder.getInsertionBlock()->getOperations().splice(
-          opBuilder.getInsertionPoint(),
-          loopToParallel.getBody()->getOperations(), reductionOp);
-      reductionOp->setOperands({init, parallelLoop->getResult(i)});
-      loopToParallel->getResult(i).replaceAllUsesWith(
-          reductionOp->getResult(0));
-    }
-    unsigned numIVs = 1;
     yieldOp->setOperands(reducedValues);
-    parallelLoop.getBody()->eraseArguments(numIVs, numReductions);
     // Replace the affine.forOp with affine.parallelOp in loopRefToTop
     loopRefToOp[loopRef] = parallelLoop;
     opsToErase.insert(parallelOp);
