@@ -26,6 +26,12 @@ import json
 import subprocess
 
 ################################################################################
+# Default min/max opset supported (when not explicitly specified).
+# Default values are used when no explicit ==MIN==/==MAX== values are used.
+min_opset_default = 9 
+max_opset_default = 18
+
+################################################################################
 # SEMANTIC for LABELING (one line per directive)
 #
 # ==ARCH== <arch>
@@ -42,19 +48,15 @@ import subprocess
 #   where <text> add "private" info about what needs to be fixed. 
 #
 # ==MIN== <num>
-#   where <num> is the minimum release version supported
+#   where <num> is the minimum release version supported.
 #
 # ==MAX== <num>
-#   where <num> is the maximum release version supported
+#   where <num> is the maximum release version supported.
 #
 ################################################################################
-# Usage.
 
 ################################################################################
-# Default min/max opset supported (when not explicitly specified).
-min_opset_default = "9" # Use that value if no ==MIN== value is given.
-max_opset_default = "19" # Use that val if no ==MAX== value and no version are given
-
+# Usage.
 def print_usage():
     print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
     print("For labeling format, consult the python script directly.")
@@ -120,7 +122,7 @@ def parse_file(file_name):
             assert op not in opset_dict, "Redefinition of op " + op
             assert op in list_op_version, "Define an op " + op + " that is not listed in the ops we currently handle."
             versions = list_op_version[op]
-            opset_dict[op] = ', '.join(map(lambda x: str(x), versions))
+            opset_dict[op] = versions
             m = max(versions)
             if m > hightest_opset:
                 hightest_opset = m
@@ -149,7 +151,7 @@ def parse_file(file_name):
         if p is not None:
             assert op is not None, "Min without op."
             assert op not in min_dict, "Redefinition of min for op " + op
-            min_dict[op] = p[1]
+            min_dict[op] = int(p[1])
             if debug:
                 print("Got min for op", op, ":", min_dict[op])
             continue
@@ -158,7 +160,7 @@ def parse_file(file_name):
         if p is not None:
             assert op is not None, "Max without op."
             assert op not in max_dict, "Redefinition of max for op " + op
-            max_dict[op] = p[1]
+            max_dict[op] = int(p[1])
             if debug:
                 print("Got max for op", op, ":", max_dict[op])
             continue
@@ -171,6 +173,26 @@ def print_row(array):
     for a in array:
         str += a + " |"
     print(str)
+
+# Min opset: if explicit ==MIN== value, use as is. Otherwise min of default and
+# custom versions delivered in opset_dict.
+def compute_min_opset(op):
+    if op in min_dict:
+        return min_dict[op]
+    min_list = [min_opset_default]
+    if op in opset_dict:
+        min_list.extend(opset_dict[op])
+    return min(min_list)
+
+# Max opset: if explicit ==MAX== value, use as is. Otherwise max of default and
+# custom versions delivered in opset_dict.
+def compute_max_opset(op):
+    if op in max_dict:
+        return max_dict[op]
+    max_list = [max_opset_default]
+    if op in opset_dict:
+        max_list.extend(opset_dict[op])
+    return max(max_list)
 
 def print_md():
     # Header.
@@ -195,7 +217,7 @@ def print_md():
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "From Opset", "Up to Opset", "Limitations"]
+    header = ["Op", "Min Opset", "Max Opset", "Limitations"]
     separator = ["---", "---", "---", "---"]
     if emit_notes:
         header.append("Notes")
@@ -205,19 +227,11 @@ def print_md():
     for op in sorted(list_op_version.keys()):
         supported_op = op in opset_dict;
         if supported_op:
-            min = min_opset_default
-            if op in min_dict:
-                min = min_dict[op]
-            max = max_opset_default
-            if op in max_dict:
-                max = max_dict[op]
-            elif op in opset_dict:
-                max = opset_dict[op]
-            info = ["**"+op+"**", min, max]
+            info = ["**"+op+"**", str(compute_min_opset(op)), str(compute_max_opset(op))]
         else:
             if not emit_unsupported:
                 continue
-            info = ["**"+op+"**", ""]
+            info = ["**"+op+"**", "", ""]
         if op in limit_dict:
             info.append(limit_dict[op])
         elif not supported_op:
