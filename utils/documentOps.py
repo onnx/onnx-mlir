@@ -18,18 +18,18 @@
 #
 ################################################################################
 
+################################################################################
+# Default min/max opset supported (when not explicitly specified).
+# Default values are used when no explicit ==MIN==/==MAX== values are used.
+min_opset_default = 9 
+max_opset_default = 18
+
 import sys
 import getopt
 import fileinput
 import re
 import json
 import subprocess
-
-################################################################################
-# Default min/max opset supported (when not explicitly specified).
-# Default values are used when no explicit ==MIN==/==MAX== values are used.
-min_opset_default = 9 
-max_opset_default = 18
 
 ################################################################################
 # SEMANTIC for LABELING (one line per directive)
