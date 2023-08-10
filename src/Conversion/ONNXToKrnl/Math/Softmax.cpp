@@ -246,8 +246,8 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
 
 template <typename SoftmaxOp>
 struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
-  ONNXSoftmaxLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel)
+  ONNXSoftmaxLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern<SoftmaxOp>(typeConverter, ctx),
         enableParallel(enableParallel) {}
   using OpAdaptor = typename SoftmaxOp::Adaptor;

@@ -26,8 +26,8 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
       MemRefBuilder, MathBuilder>;
   bool enableParallel = false;
 
-  ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel)
+  ONNXTransposeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern(typeConverter, ctx),
         enableParallel(enableParallel) {}
 
