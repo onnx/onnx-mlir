@@ -57,7 +57,7 @@ void addONNXToZHighPasses(
   }
 
   // Profiling ZHighIR.
-  unsigned instrumentActions = instrumentControlBits.getBits();
+  unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
     instrumentOps = "onnx.*,zhigh.*";
@@ -180,7 +180,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       // for zlow ops
       if (instrumentStage == onnx_mlir::InstrumentStages::ZLow)
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-            instrumentOps, instrumentControlBits.getBits()));
+            instrumentOps, instrumentControlBits));
     }
   }
 

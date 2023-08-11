@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
   setCompilerOptions({{OptionKind::CompilerOptLevel, "3"}});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestGRU\n", nullptr, "TEST_ARGS");
+  initCompilerConfig();
   std::string target = getCompilerOption(OptionKind::TargetAccel);
   std::cout << "Target options: \"" << target << "\"\n";
   // Set default configurations

@@ -27,8 +27,6 @@
 
 namespace onnx_mlir {
 
-std::optional<std::string> getEnvVar(std::string name);
-
 struct Command {
 
   std::string _path;
@@ -48,10 +46,6 @@ struct Command {
 // Registers and loads the mlir and onnx-mlir dialects needed to compile
 // end to end. Initializes accelerator(s) if required.
 void loadDialects(mlir::MLIRContext &context);
-
-// Get Tool path, see comments in CompilerUtils.cpp for more details.
-std::string getToolPath(
-    const std::string &tool, const std::string &systemToolPath);
 
 // ProcessInput* return 0 on success, OnnxMlirCompilerErrorCodes on error.
 int processInputFile(llvm::StringRef inputFilename, mlir::MLIRContext &context,

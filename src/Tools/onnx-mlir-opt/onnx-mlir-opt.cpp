@@ -44,37 +44,6 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
-// Options for onnx-mlir-opt only.
-static llvm::cl::OptionCategory OnnxMlirOptOptions(
-    "ONNX-MLIR-OPT Options", "These are opt frontend options.");
-
-static llvm::cl::opt<std::string> input_filename(llvm::cl::Positional,
-    llvm::cl::desc("<input file>"), llvm::cl::init("-"),
-    llvm::cl::cat(OnnxMlirOptOptions));
-
-static llvm::cl::opt<std::string> output_filename("o",
-    llvm::cl::desc("Output filename"), llvm::cl::value_desc("filename"),
-    llvm::cl::init("-"), llvm::cl::cat(OnnxMlirOptOptions));
-
-static llvm::cl::opt<bool> split_input_file("split-input-file",
-    llvm::cl::desc("Split the input file into pieces and process each "
-                   "chunk independently"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptOptions));
-
-static llvm::cl::opt<bool> verify_diagnostics("verify-diagnostics",
-    llvm::cl::desc("Check that emitted diagnostics match "
-                   "expected-* lines on the corresponding line"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptOptions));
-
-static llvm::cl::opt<bool> verify_passes("verify-each",
-    llvm::cl::desc("Run the verifier after each transformation pass"),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptOptions));
-
-static llvm::cl::opt<bool> allowUnregisteredDialects(
-    "allow-unregistered-dialect",
-    llvm::cl::desc("Allow operation with no registered dialects"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptOptions));
-
 void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.
   for (int i = argc - 1; i > 0; --i) {
@@ -149,15 +118,17 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  initCompilerConfig();
+
   // Set up the input file.
   std::string error_message;
-  auto file = openInputFile(input_filename, &error_message);
+  auto file = openInputFile(inputFilename, &error_message);
   if (!error_message.empty()) {
     llvm::errs() << "Failure to open file; " << error_message << "\n";
     return 1;
   }
 
-  auto output = openOutputFile(output_filename, &error_message);
+  auto output = openOutputFile(outputBaseName, &error_message);
   if (!error_message.empty()) {
     llvm::errs() << "Failure to compile file; " << error_message << "\n";
     return 1;
