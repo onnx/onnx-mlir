@@ -56,7 +56,7 @@ llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
 
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
     llvm::cl::desc(
@@ -345,6 +345,7 @@ llvm::cl::opt<OnnxOpReport> onnxOpReport("onnx-op-report",
 // If it gets more complicated in the future, it can be
 // replaced by a class of its own.
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
+std::map<std::string, std::vector<size_t>> CompilerConfigStack;
 
 // Must match ModelSize enum
 const std::string modelSizeStr[] = {"small", "medium", "large", "huge"};
@@ -692,9 +693,6 @@ int setCompilerOptions(const CompilerOptionList &list) {
   return CompilerSuccess;
 }
 
-// Clear the map for CompilerConfig. It is used for each invocation of compile
-void clearCompilerConfig() { CompilerConfigMap.clear(); }
-
 // Get the string vector associated with the specified key
 std::vector<std::string> getCompilerConfig(std::string k) {
   return CompilerConfigMap[k];
@@ -717,6 +715,23 @@ void delCompilerConfig(std::string k, std::vector<std::string> v) {
   u.erase(remove_if(begin(u), end(u),
               [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
       end(u));
+  CompilerConfigMap[k] = u;
+}
+
+void pushCompilerConfig(std::string k) {
+  size_t top = CompilerConfigMap[k].size();
+  CompilerConfigStack[k].push_back(top);
+}
+
+void popCompilerConfig(std::string k) {
+  assert(
+      !CompilerConfigStack[k].empty() && "pop an empty CompilerConfig stack");
+  size_t top = CompilerConfigStack[k].back();
+  assert(top <= CompilerConfigMap[k].size() && "incorrect top for stack");
+  CompilerConfigStack[k].pop_back();
+  std::vector<std::string> u = CompilerConfigMap[k];
+  while (u.size() > top)
+    u.pop_back();
   CompilerConfigMap[k] = u;
 }
 

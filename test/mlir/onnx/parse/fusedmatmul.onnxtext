@@ -1,8 +1,9 @@
-// RUN: onnx-mlir --EmitONNXIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --useOnnxModelTypes=false --EmitONNXIR --printIR %s | FileCheck %s
 
 // fusedmatmul.onnxtext is an onnx model with a single FusedMatMul node.
 //
-// onnx-mlir --EmitONNXBasic --printIR fusedmatmul.onnxtext outputs a custom op:
+// onnx-mlir --useOnnxModelTypes=false --EmitONNXBasic --printIR fusedmatmul.onnxtext outputs a custom op:
+// Since onnx can not infer the shape for custom op, option --useOnnxModelTypes=false is added
 //   %0 = "onnx.Custom"(%arg0, %arg1) {alpha = 1.250000e-01 : f32, domain_name = "com.microsoft", function_name = "FusedMatMul", transA = 0 : si64, transB = 1 : si64} : (tensor<2x3xf32>, tensor<4x3xf32>) -> tensor<2x4xf32>
 //
 // onnx-mlir --EmitONNXIR --printIR fusedmatmul.onnxtext decomposes the custom op:
