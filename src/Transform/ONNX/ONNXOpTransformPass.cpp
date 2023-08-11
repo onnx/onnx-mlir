@@ -17,6 +17,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -78,7 +79,7 @@ void ONNXOpTransformPass::runOnOperation() {
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createShapeInferencePass());
     // Convolution Optimization currently only for CPU.
-    if (onnxOpTransformTargetCPU) {
+    if (onnxOpTransformTargetCPU && onnx_mlir::enableConvOptPass) {
       dynamicPM.addNestedPass<func::FuncOp>(
           onnx_mlir::createConvOptONNXToONNXPass(
               onnxOpTransformEnableSimdDataLayout));

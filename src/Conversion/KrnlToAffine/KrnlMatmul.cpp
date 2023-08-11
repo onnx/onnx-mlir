@@ -406,13 +406,12 @@ private:
         });
 
     // Reduce each SIMD vector of length mVL using a SIMD parallel reduction.
-    SmallVector<Value, 8> vProdList;
+    SmallVector<Value, 8> vProdList, vReductionList;
     for (int64_t i = 0; i < iUnrollFactor; ++i) {
       Value iVal = create.math.constantIndex(i);
       Value vTmpProd = create.vec.load(vecType, TmpProd, {iVal});
       vProdList.emplace_back(vTmpProd);
     }
-    SmallVector<Value, 8> vReductionList;
     create.vec.multiReduction(
         vProdList,
         [create](Value a, Value b) -> Value { return create.math.add(a, b); },

@@ -95,6 +95,9 @@ extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 extern llvm::cl::list<std::string> functionsToDecompose;
 extern llvm::cl::opt<std::string> modelTag;
+extern llvm::cl::opt<bool> enableConvOptPass;
+extern llvm::cl::list<std::string> extraLibPaths;
+extern llvm::cl::list<std::string> extraLibs;
 extern llvm::cl::opt<ProfileIRs> profileIR;
 
 // The customEnvFlags must be scanned before the normal options.
@@ -143,6 +146,7 @@ using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
 #define CCM_SHARED_LIB_DEPS "sharedLibDeps"
+#define CCM_SHARED_LIB_PATH_DEPS "sharedLibPathDeps"
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // Return 0 on success. These functions are not thread-safe and should be called
@@ -157,5 +161,10 @@ std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 std::vector<std::string> getCompilerConfig(std::string k);
 void addCompilerConfig(std::string k, std::vector<std::string> v);
 void delCompilerConfig(std::string k, std::vector<std::string> v);
+// CompilerConfig may be set at initialization or inside CompileModule().
+// Since CompileModule() may be called repeated, push is used to mark
+// the current config and pop is used to restore the previously mark config
+void pushCompilerConfig(std::string k);
+void popCompilerConfig(std::string k);
 
 } // namespace onnx_mlir
