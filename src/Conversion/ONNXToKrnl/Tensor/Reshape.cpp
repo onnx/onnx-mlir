@@ -23,8 +23,11 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXReshapeOpLowering : public OpConversionPattern<ONNXReshapeOp> {
-  ONNXReshapeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  DimAnalysis *dimAnalysis;
+
+  ONNXReshapeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis)
+      : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis) {}
 
   LogicalResult matchAndRewrite(ONNXReshapeOp reshapeOp,
       ONNXReshapeOpAdaptor adaptor,
@@ -33,6 +36,29 @@ struct ONNXReshapeOpLowering : public OpConversionPattern<ONNXReshapeOp> {
     Location loc = ONNXLoc<ONNXReshapeOp>(op);
     ValueRange operands = adaptor.getOperands();
     Value data = adaptor.getData();
+
+    Value inputTensor = reshapeOp.getData();
+    Value outputTensor = reshapeOp.getReshaped();
+    int64_t inputRank = getRank(inputTensor.getType());
+    int64_t outputRank = getRank(outputTensor.getType());
+
+    // If reshape does not change dimensions or it is an identity, just replace
+    // the output with the input.
+    // It is an identity if at least (N-1) out of N dimensions are equal. We
+    // don't need to care about the different dimension, it is maybe because of
+    // DimAnalysis failed to handle it.
+    if (inputRank == outputRank) {
+      int nSameDims = 0;
+      for (int64_t i = 0; i < inputRank; ++i) {
+        if (dimAnalysis->sameDim(inputTensor, i, outputTensor, i))
+          nSameDims++;
+      }
+      if (nSameDims >= inputRank - 1) {
+        LLVM_DEBUG(llvm::dbgs() << "Lowering reshape to identity\n");
+        rewriter.replaceOp(op, data);
+        return success();
+      }
+    }
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -59,8 +85,8 @@ struct ONNXReshapeOpLowering : public OpConversionPattern<ONNXReshapeOp> {
 };
 
 void populateLoweringONNXReshapeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXReshapeOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis) {
+  patterns.insert<ONNXReshapeOpLowering>(typeConverter, ctx, dimAnalysis);
 }
 
 } // namespace onnx_mlir
