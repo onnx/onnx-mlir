@@ -667,9 +667,12 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
   assert(comment.find(',') == std::string::npos && "no comma in comments");
   StringAttr opName = op->getName().getIdentifier();
-  fprintf(stderr, "==ONNX-PAR-REPORT==, %s%s, %lld, %lld, %s\n", opName.data(),
-      (successful ? "-parallel" : ""), loopLevel, parallelLoopTripCount,
-      comment.c_str());
+  StringAttr nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+  // Print report on this op.
+  fprintf(stderr, "==ONNX-PAR-REPORT==, %s%s, %s, %lld, %lld, %s\n",
+      opName.data(), (successful ? "-parallel" : ""),
+      (nodeName ? nodeName.data() : "no-node-name"), loopLevel,
+      parallelLoopTripCount, comment.c_str());
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -678,16 +681,20 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
   assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
   assert(comment.find(',') == std::string::npos && "no comma in comments");
   StringAttr opName = op->getName().getIdentifier();
+  StringAttr nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+  // Handling message.
   std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
   if (message.empty())
     message = comment;
   if (message.empty() && vectorLength == 0 && simdLoopTripCount == 0)
     // No comments, all values indicate no simd
     message = "unsupported";
-
-  fprintf(stderr, "==ONNX-SIMD-REPORT==, %s%s, %lld, %lld, %s\n", opName.data(),
-      (successful ? "-simd" : ""), vectorLength, simdLoopTripCount,
-      message.c_str());
+  // Print report on this op.
+  op->dump();
+  fprintf(stderr, "==ONNX-SIMD-REPORT==, %s%s, %s, %lld, %lld, %s\n",
+      opName.data(), (successful ? "-simd" : ""),
+      (nodeName ? nodeName.data() : "no-node-name"), vectorLength,
+      simdLoopTripCount, message.c_str());
 }
 
 } // namespace onnx_mlir
