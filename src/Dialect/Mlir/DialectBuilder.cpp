@@ -1635,9 +1635,11 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
 int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
-    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad) const {
+    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+    int64_t &estimatedSimdLoopTripCount) const {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
   assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
+  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
@@ -1655,6 +1657,8 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
                             << " too short for a VL of " << VL << "\n");
     return 0;
   }
+  // Unless otherwise disabled, here is the estimated trip count.
+  estimatedSimdLoopTripCount = staticSize > 1 ? staticSize : -1;
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     return maxSimdUnroll * VL;

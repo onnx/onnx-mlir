@@ -665,6 +665,7 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
     int64_t loopLevel, int64_t parallelLoopTripCount,
     const std::string &comment) {
   assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
   StringAttr opName = op->getName().getIdentifier();
   fprintf(stderr, "==ONNX-PAR-REPORT==, %s%s, %lld, %lld, %s\n", opName.data(),
       (successful ? "-parallel" : ""), loopLevel, parallelLoopTripCount,
@@ -675,6 +676,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
     int64_t vectorLength, int64_t simdLoopTripCount,
     const std::string &comment) {
   assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
   StringAttr opName = op->getName().getIdentifier();
   std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
   if (message.empty())

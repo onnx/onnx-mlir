@@ -509,10 +509,14 @@ void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
     const std::string &comment);
 } // namespace impl
 
+// When reporting is enabled (--onnx-op-report=Parallel), report on if/how are
+// the ONNX operation parallelized.
+//
 // Loop level: -1: none; 0: outermost; 1: next to outermost...
 // Parallel loop trip count; 0: none; -1: runtime only; >0: min number known at
 // compile time.
-// Comment: explanation of how parallelism was achieved / or failed.
+// Comment: explanation of how parallelism was achieved / or failed. Comments
+// cannot have ',' in them.
 inline void onnxToKrnlParallelReport(mlir::Operation *op,
     bool successful = false, int64_t loopLevel = -1,
     int64_t parallelLoopTripCount = 0, const std::string &comment = "") {
@@ -521,11 +525,20 @@ inline void onnxToKrnlParallelReport(mlir::Operation *op,
         op, successful, loopLevel, parallelLoopTripCount, comment);
 }
 
+// When reporting is enabled (--onnx-op-report=Simd), report on if/how are
+// the ONNX operation simdized.
+//
 // Vector Length: 0: none; -1: runtime only; >0 min number known at compile
-// time. Simd loop trip count; 0: none; -1: runtime only; >0: min number known
-// at compile time. Comment: explanation of how SIMD was achieved / or failed.
+// time.
+// Simd loop trip count; 0: none; -1: runtime only; >0: min number known at
+// compile time.
+// Comment: explanation of how SIMD was achieved / or failed. Comments cannot
+// have ',' in them. Use the following comment templates. If SIMD is not
+// supported, comments should be "unsupported". If SIMD is supported but fails,
+// comment should be "no simd [in <specific place>] because <reason>." When simd
+// succeeds, comment indicates what type of pattern is used.
 inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
-    int64_t vectorLength = -1, int64_t simdLoopTripCount = 0,
+    int64_t vectorLength = 0, int64_t simdLoopTripCount = 0,
     const std::string &comment = "") {
   if (OnnxToKrnlLoweringConfiguration::reportOnSimd)
     impl::onnxToKrnlSimdReport(

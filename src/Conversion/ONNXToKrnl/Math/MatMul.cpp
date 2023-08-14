@@ -43,7 +43,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       Value fZero, ConversionPatternRewriter &rewriter, Location loc) const {
 
     onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
-        "no simd generic algo");
+        "no simd for generic algo");
 
     // Define loops and bounds.
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
@@ -133,7 +133,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     if (!simdize)
       onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
-          "simd disabled for mat * mat");
+          "no simd because disabled for mat * mat");
 
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
@@ -169,8 +169,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       if (constJ < jRegTile) {
         simdize = false;
         onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
-            /*trip count*/ 0,
-            "simd unsuccessful in mat * mat as j-dim too small");
+            /*trip count*/ 0, "no simd in mat * mat because j-dim too small");
         LLVM_DEBUG({
           llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
                        << " is smaller than reg tile " << jRegTile << "\n";
@@ -204,7 +203,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     if (!simdize)
       onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
-          "simd disabled for mat * vec");
+          "no simd because disabled for mat * vec");
 
     // Default values.
     // Right can only tile i and k by (possibly distinct) multiple of mVL.
@@ -228,7 +227,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         kRegTile = 1;
         onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
             /*trip count*/ 0,
-            "simd unsuccessful in mat * vec as k-dim too small");
+            "no simd in mat * vec as k-dim too small");
       }
     }
     if (dimI.isLiteral()) {
@@ -242,7 +241,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           iRegTile = 1;
           onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
               /*trip count*/ 0,
-              "simd unsuccessful in mat * vec as i-dim too small");
+              "no simd in mat * vec because i-dim too small");
         }
       }
     }

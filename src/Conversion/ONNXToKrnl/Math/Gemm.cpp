@@ -47,7 +47,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       Value alphaVal, Value betaVal, ConversionPatternRewriter &rewriter,
       Location loc) const {
     onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
-        "simd disabled tiling is disabled");
+        "no simd because tiling is disabled");
 
     // R is result (alloc).
     Value A(adaptor.getA()), B(adaptor.getB()), R(alloc);
@@ -160,7 +160,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
         if (simdize)
           onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
               /*trip count*/ jVal,
-              "simd disabled because of small j trip count");
+              "no simd because of small j trip count");
         simdize = false;
       } else if (jVal % jRegTile != 0) {
         // Unfortunately, J is not divisible by the vector length. Could try
