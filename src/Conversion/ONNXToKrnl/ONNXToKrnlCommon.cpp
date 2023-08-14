@@ -690,7 +690,6 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
     // No comments, all values indicate no simd
     message = "unsupported";
   // Print report on this op.
-  op->dump();
   fprintf(stderr, "==ONNX-SIMD-REPORT==, %s%s, %s, %lld, %lld, %s\n",
       opName.data(), (successful ? "-simd" : ""),
       (nodeName ? nodeName.data() : "no-node-name"), vectorLength,

@@ -123,7 +123,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
   void tiledTransposedGemm(Operation *op, ONNXGemmOpAdaptor &adaptor,
       Type elementType, ONNXGemmOpShapeHelper &shapeHelper, Value alloc,
       Value zeroVal, Value alphaVal, Value betaVal,
-      ConversionPatternRewriter &rewriter, Location loc, bool enableParallel) const {
+      ConversionPatternRewriter &rewriter, Location loc,
+      bool enableParallel) const {
 
     // R is result (alloc).
     Value A(adaptor.getA()), B(adaptor.getB()), R(alloc);
@@ -166,8 +167,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
         // Very small computation, give up on SIMD.
         if (simdize)
           onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
-              /*trip count*/ jVal,
-              "no simd because of small j trip count");
+              /*trip count*/ jVal, "no simd because of small j trip count");
         simdize = false;
       } else if (jVal % jRegTile != 0) {
         // Unfortunately, J is not divisible by the vector length. Could try
