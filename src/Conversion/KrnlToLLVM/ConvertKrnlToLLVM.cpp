@@ -24,6 +24,7 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/OpenMPToLLVM/ConvertOpenMPToLLVM.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"
@@ -37,6 +38,7 @@
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/Transforms/LoweringPatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
@@ -184,7 +186,7 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
     SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
     std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
     std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
-    bool verifyInputTensors) {
+    bool verifyInputTensors, bool enableParallel) {
   // TODO: look at what is done in
   // mlir/lib/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.cpp in function
   // LowerVectorToLLVMPass::runOnOperation() and see what we should do about it.
@@ -212,6 +214,10 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   populateMathToLLVMConversionPatterns(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
   populateFinalizeMemRefToLLVMConversionPatterns(typeConverter, patterns);
+  // Enable OpenMP-to-LLVM pass when enable parallelism
+  if (enableParallel) {
+    populateOpenMPToLLVMConversionPatterns(typeConverter, patterns);
+  }
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
@@ -724,7 +730,8 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers,
       bool useLRODATA, bool storeConstantsToFile,
       uint64_t constantsToFileSingleThreshold,
-      uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt) {
+      uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt,
+      bool enableParallel) {
     this->verifyInputTensors = verifyInputTensors;
     this->useOpaquePointers = useOpaquePointers;
     // Exclusive options. no option or only one option can be True.
@@ -733,6 +740,7 @@ struct ConvertKrnlToLLVMPass
     this->constantsToFileSingleThreshold = constantsToFileSingleThreshold;
     this->constantsToFileTotalThreshold = constantsToFileTotalThreshold;
     this->outputNameNoExt = outputNameNoExt;
+    this->enableParallel = enableParallel;
   }
 
   StringRef getArgument() const override { return "convert-krnl-to-llvm"; }
@@ -789,6 +797,7 @@ struct ConvertKrnlToLLVMPass
 
 private:
   std::string outputNameNoExt = "./model";
+  bool enableParallel;
 };
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
@@ -865,6 +874,14 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
 
+  // omp::ParallelOp can only be legalized when its region is legal
+  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsLoopOp>(
+      [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
+  // Currently, only minimum required OpenMP Ops are marked as legal, in the
+  // future integration of OpenMP, probably more OpenMP Ops are required to be
+  // marked as legal. Please refer the Conversion/OpenMPToLLVM/OpenMPtoLLVM.cpp
+  // in MLIR repo to see see how to legalize them.
+  target.addLegalOp<omp::TerminatorOp, omp::YieldOp>();
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(ctx);
@@ -872,7 +889,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
-      verifyInputTensors);
+      verifyInputTensors, enableParallel);
 
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
@@ -922,11 +939,11 @@ std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
     bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
-    std::string outputNameNoExt) {
+    std::string outputNameNoExt, bool enableParallel) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors,
       useOpaquePointers, useLRODATA, storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt);
+      outputNameNoExt, enableParallel);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
