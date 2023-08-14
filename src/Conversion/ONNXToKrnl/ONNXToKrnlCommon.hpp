@@ -494,25 +494,42 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // Populated by configureOnnxToKrnlLoweringPass().
 
 struct OnnxToKrnlLoweringConfiguration {
-  static int reportOnParallel; 
-  static std::string defaultParallelComment; 
+  static int reportOnParallel;
+  static std::string defaultParallelComment;
   static int reportOnSimd;
-  static std::string defaultSimdComment; 
+  static std::string defaultSimdComment;
 };
+
+namespace impl {
+void onnxToKrnlSimdReport(mlir::Operation *op, bool successful,
+    int64_t vectorLength, int64_t simdLoopTripCount,
+    const std::string &comment);
+void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
+    int64_t loopLevel, int64_t parallelLoopTripCount,
+    const std::string &comment);
+} // namespace impl
 
 // Loop level: -1: none; 0: outermost; 1: next to outermost...
 // Parallel loop trip count; 0: none; -1: runtime only; >0: min number known at
 // compile time.
 // Comment: explanation of how parallelism was achieved / or failed.
-void onnxToKrnlParallelReport(mlir::Operation *op, bool successful = false,
-    int64_t loopLevel = -1, int64_t parallelLoopTripCount = 0,
-    const std::string &comment = "");
+inline void onnxToKrnlParallelReport(mlir::Operation *op,
+    bool successful = false, int64_t loopLevel = -1,
+    int64_t parallelLoopTripCount = 0, const std::string &comment = "") {
+  if (OnnxToKrnlLoweringConfiguration::reportOnParallel)
+    impl::onnxToKrnlParallelReport(
+        op, successful, loopLevel, parallelLoopTripCount, comment);
+}
 
 // Vector Length: 0: none; -1: runtime only; >0 min number known at compile
 // time. Simd loop trip count; 0: none; -1: runtime only; >0: min number known
 // at compile time. Comment: explanation of how SIMD was achieved / or failed.
-void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
+inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
     int64_t vectorLength = -1, int64_t simdLoopTripCount = 0,
-    const std::string &comment = "");
+    const std::string &comment = "") {
+  if (OnnxToKrnlLoweringConfiguration::reportOnSimd)
+    impl::onnxToKrnlSimdReport(
+        op, successful, vectorLength, simdLoopTripCount, comment);
+}
 
 } // namespace onnx_mlir

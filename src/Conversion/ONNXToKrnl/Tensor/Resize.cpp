@@ -105,6 +105,7 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
             loc, "Resize_Size", alloc, op, operands, attributeNames);
       }
       rewriter.replaceOp(op, alloc);
+      onnxToKrnlSimdReport(op);
       return success();
     }
     // It is much more efficient to generate codes directly if possible
@@ -196,6 +197,7 @@ struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

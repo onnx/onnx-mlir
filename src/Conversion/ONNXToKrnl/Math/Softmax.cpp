@@ -280,6 +280,7 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
         rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

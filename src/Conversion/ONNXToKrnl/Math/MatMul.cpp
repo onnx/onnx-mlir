@@ -122,14 +122,18 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         });
   }
 
-  void computeTileSizeForMatMatProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
-      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
-      int64_t &kRegTile, bool &simdize) const {
+  void computeTileSizeForMatMatProduct(Operation *op, DimIndexExpr dimI,
+      DimIndexExpr dimJ, DimIndexExpr dimK, int64_t &iRegTile,
+      int64_t &jRegTile, int64_t &kRegTile, bool &simdize) const {
 
     // Default values
     iRegTile = 4;
-    jRegTile = 8;
-    kRegTile = 8; // SIMD dim.
+    jRegTile = 8; // SIMD dim.
+    kRegTile = 8;
+
+    if (!simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+          "simd disabled for mat * mat");
 
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
@@ -164,6 +168,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       // jRegTile, disable simdization.
       if (constJ < jRegTile) {
         simdize = false;
+        onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+            /*trip count*/ 0,
+            "simd unsuccessful in mat * mat as j-dim too small");
         LLVM_DEBUG({
           llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
                        << " is smaller than reg tile " << jRegTile << "\n";
@@ -180,15 +187,24 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         });
       }
     }
+
+    if (simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ jRegTile,
+          /*trip count*/ 0, "simd for mat * mat along j dim");
     LLVM_DEBUG({
       llvm::dbgs() << "MatMul mat: Tiling I " << iRegTile << ", J " << jRegTile
                    << ", K " << kRegTile << ", simd " << simdize << "\n";
     });
   }
 
-  void computeTileSizeForMatVectProduct(int64_t mVL, DimIndexExpr dimI,
-      DimIndexExpr dimJ, DimIndexExpr dimK, int64_t &iRegTile,
-      int64_t &jRegTile, int64_t &kRegTile, bool &simdize) const {
+  void computeTileSizeForMatVectProduct(Operation *op, int64_t mVL,
+      DimIndexExpr dimI, DimIndexExpr dimJ, DimIndexExpr dimK,
+      int64_t &iRegTile, int64_t &jRegTile, int64_t &kRegTile,
+      bool &simdize) const {
+
+    if (!simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+          "simd disabled for mat * vec");
 
     // Default values.
     // Right can only tile i and k by (possibly distinct) multiple of mVL.
@@ -210,6 +226,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
         simdize = false;
         kRegTile = 1;
+        onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+            /*trip count*/ 0,
+            "simd unsuccessful in mat * vec as k-dim too small");
       }
     }
     if (dimI.isLiteral()) {
@@ -221,9 +240,17 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
           simdize = false;
           iRegTile = 1;
+          onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+              /*trip count*/ 0,
+              "simd unsuccessful in mat * vec as i-dim too small");
         }
       }
     }
+
+    if (simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ kRegTile,
+          /*trip count*/ 0,
+          "simd for mat * vec along k dim (shuffle on i dim)");
     LLVM_DEBUG({
       llvm::dbgs() << "MatMul vec: Tiling I " << iRegTile << ", J " << jRegTile
                    << ", K " << kRegTile << ", simd " << simdize << "\n";
@@ -257,10 +284,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (isMatVectorProduct) {
       int64_t mVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
-          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     }
 
     // I, J, K loop.
@@ -327,10 +354,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (isMatVectorProduct) {
       int64_t mVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
-          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     }
 
     // Broadcast loops

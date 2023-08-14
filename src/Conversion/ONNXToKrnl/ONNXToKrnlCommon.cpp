@@ -661,23 +661,21 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
-void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
+void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
     int64_t loopLevel, int64_t parallelLoopTripCount,
     const std::string &comment) {
-  if (!OnnxToKrnlLoweringConfiguration::reportOnParallel)
-    return;
-  auto opName = op->getName().getIdentifier();
+  assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
+  StringAttr opName = op->getName().getIdentifier();
   fprintf(stderr, "==ONNX-PAR-REPORT==, %s%s, %lld, %lld, %s\n", opName.data(),
       (successful ? "-parallel" : ""), loopLevel, parallelLoopTripCount,
       comment.c_str());
 }
 
-void onnxToKrnlSimdReport(mlir::Operation *op, bool successful,
+void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
     int64_t vectorLength, int64_t simdLoopTripCount,
     const std::string &comment) {
-  if (!OnnxToKrnlLoweringConfiguration::reportOnSimd)
-    return;
-  auto opName = op->getName().getIdentifier();
+  assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
+  StringAttr opName = op->getName().getIdentifier();
   std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
   if (message.empty())
     message = comment;

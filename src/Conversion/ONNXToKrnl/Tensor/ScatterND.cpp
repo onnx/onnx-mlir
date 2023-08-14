@@ -108,6 +108,7 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
         });
 
     rewriter.replaceOp(op, output);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

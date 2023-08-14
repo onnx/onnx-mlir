@@ -54,6 +54,7 @@ struct ONNXReshapeOpLowering : public OpConversionPattern<ONNXReshapeOp> {
     LLVM_DEBUG(llvm::dbgs() << "newView: " << newView << "\n");
 
     rewriter.replaceOp(op, newView);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

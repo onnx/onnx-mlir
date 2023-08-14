@@ -92,7 +92,7 @@ struct ONNXDepthToSpaceOpLowering
     LLVM_DEBUG(llvm::dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
 
     rewriter.replaceOp(op, reshapeRes2);
-
+    // Simd: reported by the other ops.
     return success();
   }
 };
