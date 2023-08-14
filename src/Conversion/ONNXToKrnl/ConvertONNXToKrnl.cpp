@@ -82,7 +82,14 @@ private:
         .Case<ShapedType>([&](ShapedType tensorTy) {
           auto et = tensorTy.getElementType();
           dstream << "   { \"type\" : ";
-          et.print(dstream);
+          if (et.isa<krnl::StringType>()) {
+            // If use "et.print(dstream)", the output is !krnl.StringType.
+            // The missing of quotation will fail the jason parser.
+            // Use just "string" for brief
+            dstream << "\"string\"";
+          } else {
+            et.print(dstream);
+          }
           dstream << " , \"dims\" : [";
           if (tensorTy.hasRank()) {
             int64_t rank = tensorTy.getRank();
@@ -211,7 +218,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx, dimAnalysis);
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);

@@ -383,6 +383,27 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
+    } else if (type.equals("string")) {
+      // Add the handling of string type. "string" is the type in function
+      // signature.
+      char **data = nullptr;
+      if (dataPtrList) {
+        data = (char **)dataPtrList[i];
+      } else if (dataAlloc) {
+        data = (char **)malloc(size * sizeof(char *));
+        assert(data && "failed to allocate data");
+        // Need to initialize the pointer for string
+        // The complexity is to free the space for string when the OMTensor
+        // is destroyed. Change in the OMTensor is needed.
+        // For test purpose, just assign a pointer of the static string
+        // example_str. Should be replaced with random initialization for
+        // string type (omTensorCreateWithRandomData)
+        static char example_str[] = "randomstr";
+        for (size_t j = 0; j < size; j++) {
+          data[j] = example_str;
+        }
+      }
+      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
     }
 
     assert(tensor && "add support for the desired type");
