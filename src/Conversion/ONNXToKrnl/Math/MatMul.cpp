@@ -197,7 +197,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     if (simdize)
       onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ jRegTile,
-          /*trip count*/ 0, "simd for mat * mat along j dim");
+          /*trip count*/ jRegTile, "simd for mat * mat along j dim");
     LLVM_DEBUG({
       llvm::dbgs() << "MatMul mat: Tiling I " << iRegTile << ", J " << jRegTile
                    << ", K " << kRegTile << ", simd " << simdize << "\n";
@@ -254,7 +254,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     if (simdize)
       onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ kRegTile,
-          /*trip count*/ 0,
+          /*trip count*/ kRegTile,
           "simd for mat * vec along k dim (shuffle on i dim)");
     LLVM_DEBUG({
       llvm::dbgs() << "MatMul vec: Tiling I " << iRegTile << ", J " << jRegTile

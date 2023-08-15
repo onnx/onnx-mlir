@@ -1937,10 +1937,14 @@ struct ONNXElementwiseUnaryOpLowering
             uVL, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true, enableParallel);
       }
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
+          estimatedSimdLoopTripCount,
+          "no simd in unary because could not find beneficial VL");
+    } else {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "no simd in unary because scalar/layouts");
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
-    onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
-        "no simd in unary because scalar/layouts");
 
     // Try to fuse the unary elementwise consumers
     OpFusionHelper opFusionHelper(rewriter, op);
