@@ -33,6 +33,84 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace zlow {
 
+/// Remove unstick if there is no use of its second operand except itself.
+class UnstickRemovalPattern : public OpRewritePattern<ZLowUnstickOp> {
+public:
+  using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
+    if (!unstickOp.getOut().hasOneUse())
+      return failure();
+    rewriter.eraseOp(unstickOp);
+    return success();
+  }
+};
+
+/// Remove stick if there is no use of its second operand except itself.
+class StickRemovalPattern : public OpRewritePattern<ZLowStickOp> {
+public:
+  using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(
+      ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
+    if (!stickOp.getOut().hasOneUse())
+      return failure();
+    rewriter.eraseOp(stickOp);
+    return success();
+  }
+};
+
+/// This pattern removes the following (unstick, stick) pair if they use the
+/// same layout.
+/// ```mlir
+///   zlow.unstick(%input, %output) {layout = 3DS}
+///   zlow.stick(%output, %res) {layout = 3DS}
+/// ```
+class UnstickStickRemovalPattern : public OpRewritePattern<ZLowStickOp> {
+public:
+  using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
+    Value stickInput = stickOp.getX();
+    std::optional<StringRef> stickLayout = stickOp.getLayout();
+
+    // Input is a block argument, ignore it.
+    if (stickInput.dyn_cast<BlockArgument>())
+      return failure();
+
+    // Get UnstickOp that produced the stick input.
+    // There is only one UnstickOp per buffer, so stop searching when we get
+    // one.
+    ZLowUnstickOp unstickOp;
+    for (Operation *user : stickInput.getUsers()) {
+      ZLowUnstickOp userOp = llvm::dyn_cast<ZLowUnstickOp>(user);
+      if (!userOp)
+        continue;
+      // UnstickOp must be before the stick operation.
+      if (userOp.getOut() == stickInput &&
+          user->isBeforeInBlock(stickOp.getOperation())) {
+        unstickOp = userOp;
+        break;
+      }
+    }
+    if (!unstickOp)
+      return failure();
+
+    // Stick and Unstick use the same layout.
+    std::optional<StringRef> unstickLayout = unstickOp.getLayout();
+    if (!stickLayout.has_value() || !unstickLayout.has_value())
+      return failure();
+    if (stickLayout.value() != unstickLayout.value())
+      return failure();
+
+    // Rewrite
+    stickOp.getOut().replaceAllUsesWith(unstickOp.getX());
+    rewriter.eraseOp(stickOp);
+
+    return success();
+  }
+};
+
 /// This pattern rewrites
 /// ```mlir
 ///   zlow.unstick(%input, %output)
@@ -104,10 +182,6 @@ public:
     // Remove the view op if there is no use.
     if (viewOp.getOperation()->getResults()[0].use_empty())
       rewriter.eraseOp(viewOp);
-    // Remove unstick if there is no use of its second operand except itself.
-    if (unstickOp.getOut().hasOneUse())
-      rewriter.eraseOp(unstickOp);
-
     return success();
   }
 };
@@ -561,6 +635,9 @@ public:
     llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
+    patterns.insert<StickRemovalPattern>(&getContext());
+    patterns.insert<UnstickRemovalPattern>(&getContext());
+    patterns.insert<UnstickStickRemovalPattern>(&getContext());
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
     patterns.insert<UnstickLoadStoreStickRemovalPattern>(
         &getContext(), removableStickOps);
