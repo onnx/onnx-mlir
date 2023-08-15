@@ -1,25 +1,42 @@
 // RUN: onnx-mlir-opt --maccel=NNPA --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
 #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
-func.func @dangling_stick(%arg0: memref<?x?xf16>) -> memref<?x?xf16> {
+func.func @remove_dangling_stick(%arg0: memref<?x?xf32>) -> memref<?x?xf32> {
   %cst0 = arith.constant 0 : index
   %cst1 = arith.constant 1 : index
-  %dim0 = memref.dim %arg0, %cst0:  memref<?x?xf16>
-  %dim1 = memref.dim %arg0, %cst1:  memref<?x?xf16>
+  %dim0 = memref.dim %arg0, %cst0:  memref<?x?xf32>
+  %dim1 = memref.dim %arg0, %cst1:  memref<?x?xf32>
   // Stick
-  %0 = memref.alloc(%dim0, %dim1) {alignment = 4096 : i64} : memref<?x?xf32, #map>
-  "zlow.stick"(%arg0, %0) {layout = "2D"} : (memref<?x?xf16>, memref<?x?xf32, #map>) -> ()
-  return %arg0 : memref<?x?xf16>
+  %0 = memref.alloc(%dim0, %dim1) {alignment = 4096 : i64} : memref<?x?xf16, #map>
+  "zlow.stick"(%arg0, %0) {layout = "2D"} : (memref<?x?xf32>, memref<?x?xf16, #map>) -> ()
+  return %arg0 : memref<?x?xf32>
 
-// CHECK-LABEL: dangling_stick
-// CHECK-NEXT: return %arg0 : memref<?x?xf16>
+// CHECK-LABEL: remove_dangling_stick
+// CHECK-NEXT: return %arg0 : memref<?x?xf32>
 // CHECK-NOT: "zlow.stick"
 }
 
 // -----
 
 #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
-func.func @dangling_unstick(%arg0: memref<?x?xf16, #map>) -> memref<?x?xf16, #map> {
+func.func @donot_remove_stick(%arg0: memref<?x?xf32>) -> memref<?x?xf16, #map> {
+  %cst0 = arith.constant 0 : index
+  %cst1 = arith.constant 1 : index
+  %dim0 = memref.dim %arg0, %cst0:  memref<?x?xf32>
+  %dim1 = memref.dim %arg0, %cst1:  memref<?x?xf32>
+  // Stick
+  %0 = memref.alloc(%dim0, %dim1) {alignment = 4096 : i64} : memref<?x?xf16, #map>
+  "zlow.stick"(%arg0, %0) {layout = "2D"} : (memref<?x?xf32>, memref<?x?xf16, #map>) -> ()
+  return %0 : memref<?x?xf16, #map>
+
+// CHECK-LABEL: donot_remove_stick
+// CHECK: "zlow.stick"
+}
+
+// -----
+
+#map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+func.func @remove_dangling_unstick(%arg0: memref<?x?xf16, #map>) -> memref<?x?xf16, #map> {
   %cst0 = arith.constant 0 : index
   %cst1 = arith.constant 1 : index
   %dim0 = memref.dim %arg0, %cst0:  memref<?x?xf16, #map>
@@ -29,9 +46,26 @@ func.func @dangling_unstick(%arg0: memref<?x?xf16, #map>) -> memref<?x?xf16, #ma
   "zlow.unstick"(%arg0, %0) {layout = "2D"} : (memref<?x?xf16, #map>, memref<?x?xf32>) -> ()
   return %arg0 : memref<?x?xf16, #map>
 
-// CHECK-LABEL: dangling_unstick
+// CHECK-LABEL: remove_dangling_unstick
 // CHECK-NEXT: return %arg0 : memref<?x?xf16, #map>
 // CHECK-NOT: "zlow.unstick"
+}
+
+// -----
+
+#map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+func.func @donot_remove_unstick(%arg0: memref<?x?xf16, #map>) -> memref<?x?xf32> {
+  %cst0 = arith.constant 0 : index
+  %cst1 = arith.constant 1 : index
+  %dim0 = memref.dim %arg0, %cst0:  memref<?x?xf16, #map>
+  %dim1 = memref.dim %arg0, %cst1:  memref<?x?xf16, #map>
+  // Unstick
+  %0 = memref.alloc(%dim0, %dim1) {alignment = 4096 : i64} : memref<?x?xf32>
+  "zlow.unstick"(%arg0, %0) {layout = "2D"} : (memref<?x?xf16, #map>, memref<?x?xf32>) -> ()
+  return %0 : memref<?x?xf32>
+
+// CHECK-LABEL: donot_remove_unstick
+// CHECK: "zlow.unstick"
 }
 
 // -----
