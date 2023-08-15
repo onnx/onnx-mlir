@@ -53,6 +53,7 @@ struct ONNXDimOpLowering : public OpConversionPattern<ONNXDimOp> {
     create.krnl.store(dimValue, alloc, {index});
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

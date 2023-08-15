@@ -238,6 +238,7 @@ struct ONNXCumSumOpLowering : public OpConversionPattern<ONNXCumSumOp> {
         });
 
     rewriter.replaceOp(op, resMemRef);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

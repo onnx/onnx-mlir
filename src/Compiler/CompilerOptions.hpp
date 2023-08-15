@@ -40,11 +40,19 @@ using ProfileIRs = InstrumentStages;
 typedef enum {
   // clang-format off
   small,
-  medium,   // reserve for future
+  medium,   // Reserve for future.
   large,
-  huge      // reserve for future
+  huge      // Reserve for future.
   // clang-format on
 } ModelSize;
+
+typedef enum {
+  // clang-format off
+  NoReport,
+  Parallel,  // Generates diagnostic reporting for parallel (krnl lowering).
+  Simd       // Generates diagnostic reporting for SIMD (krnl lowering).
+  // clang-format on
+} OnnxOpReport;
 
 extern const std::string modelSizeStr[];
 
@@ -99,6 +107,7 @@ extern llvm::cl::opt<bool> enableConvOptPass;
 extern llvm::cl::list<std::string> extraLibPaths;
 extern llvm::cl::list<std::string> extraLibs;
 extern llvm::cl::opt<ProfileIRs> profileIR;
+extern llvm::cl::opt<OnnxOpReport> onnxOpReport;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,

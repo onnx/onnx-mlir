@@ -101,7 +101,7 @@ struct ONNXTileOpLowering : public OpConversionPattern<ONNXTileOp> {
         });
 
     rewriter.replaceOp(op, alloc);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
@@ -195,7 +195,7 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
     create.krnl.store(inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

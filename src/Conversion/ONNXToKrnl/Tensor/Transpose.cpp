@@ -61,6 +61,7 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     if (canBeViewOp(inMemRefType, permAttr)) {
       Value view = create.mem.reinterpretCast(data, outDims);
       rewriter.replaceOp(op, view);
+      // No work, no need to report on SIMD.
       return success();
     }
 
@@ -81,6 +82,7 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
       scalarTranspose(data, alloc, permAttr, &create, enableParallel);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
