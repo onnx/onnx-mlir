@@ -1320,7 +1320,9 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops) {
+    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
+    int64_t &estimatedSimdLoopTripCount) {
+  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
   int64_t simdUnroll;
   int64_t uVL = 0;
   // SIMD is enabled for this operation, test if profitable.
@@ -1346,7 +1348,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 8;
   uVL = create.vec.SuitableUnrollFactor(vms, memRefType,
       shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
-      /*canPad*/ true);
+      /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({
     if (uVL)
       llvm::dbgs() << "  simd enabled with vector length " << uVL << "\n";
@@ -1923,13 +1925,24 @@ struct ONNXElementwiseUnaryOpLowering
     bool isScalar = hasAllScalarValues(operands);
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
+      int64_t estimatedSimdLoopTripCount;
       int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-          shapeHelper, create, op, outputMemRefType, outputRank);
-      if (uVL > 0)
+          shapeHelper, create, op, outputMemRefType, outputRank,
+          estimatedSimdLoopTripCount);
+      if (uVL > 0) {
+        onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+            estimatedSimdLoopTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true, enableParallel);
+      }
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
+          estimatedSimdLoopTripCount,
+          "no simd in unary because could not find beneficial VL");
+    } else {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "no simd in unary because scalar/layouts");
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
@@ -2075,15 +2088,25 @@ struct ONNXElementwiseBinaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
+      int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops);
-      if (uVL > 0)
+              collapsedInnermostLoops, estimatedSimdLoopTripCount);
+      if (uVL > 0) {
+        onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+            estimatedSimdLoopTripCount, "binary with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false, enableParallel);
+      }
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
+          estimatedSimdLoopTripCount,
+          "no simd in binary because no beneficial VL");
+    } else {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "no simd in binary because no manageable broadcast/layout ");
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
@@ -2224,15 +2247,25 @@ struct ONNXElementwiseVariadicOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
+      int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops);
-      if (uVL > 0)
+              collapsedInnermostLoops, estimatedSimdLoopTripCount);
+      if (uVL > 0) {
+        onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+            estimatedSimdLoopTripCount, "variadic with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false, enableParallel);
+      }
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
+          estimatedSimdLoopTripCount,
+          "no simd in variadic because no beneficial VL");
+    } else {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "no simd in variadic because no manageable broadcast/layout ");
     }
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 

@@ -196,6 +196,7 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     if (isNoneValue(counts))
       counts = noneValue;
     rewriter.replaceOp(op, {outputY, indices, inverseIndices, counts});
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

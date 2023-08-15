@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -57,7 +57,9 @@ import subprocess
 
 ################################################################################
 # Usage.
-def print_usage():
+def print_usage(msg = ""):
+    if msg:
+        print("Error:", msg, "\n")
     print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
     print("For labeling format, consult the python script directly.")
     print('documentOps [-a <arch>] [-dnu] -i <file> [-p <path>')
@@ -94,7 +96,11 @@ def dotted_sentence(str):
 
 def parse_file(file_name):
     global hightest_opset, additional_top_paragraph
-    file = open(file_name, 'r')
+    try:
+        file = open(file_name, 'r')
+    except OSError:
+        print_usage("Could not open file `"+file_name+"`")
+
     op = ""
     arch = ""
     for line in file:

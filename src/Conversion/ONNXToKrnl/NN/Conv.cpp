@@ -252,6 +252,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

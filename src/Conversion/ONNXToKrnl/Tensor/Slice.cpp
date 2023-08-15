@@ -69,6 +69,7 @@ struct ONNXSliceOpLowering : public OpConversionPattern<ONNXSliceOp> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
