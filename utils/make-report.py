@@ -2,7 +2,7 @@
 
 # SPDX-License-Identifier: Apache-2.0
 
-##################### fixLitTest.py ########################################
+##################### make-report.py ########################################
 #
 # Copyright 2023 The IBM Research Authors.
 #
