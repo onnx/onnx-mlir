@@ -661,8 +661,8 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
     return false;
   // zDNN does not support sequence_lens.
-  if (!isNoneValue(op.getSequenceLens()))
-    return false;
+  // if (!isNoneValue(op.getSequenceLens()))
+  //   return false;
   // check if B and initial_h have static dimensions if given.
   if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
