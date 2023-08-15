@@ -126,6 +126,10 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
       .getResults();
 }
 
+void KrnlBuilder::parallel(Value loop) const {
+  b().template create<KrnlParallelOp>(loc(), loop);
+}
+
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
     function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>

@@ -16,6 +16,8 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include <src/Dialect/ONNX/ONNXOps.hpp>
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -124,14 +126,14 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 template <typename T>
 void emitInstForSoftmax(ConversionPatternRewriter &rewriter, Location loc,
     Value alloc, Value input, Value sumOp, Value maxOp, Value zero,
-    Value negInfinity, int64_t axis) = delete;
+    Value negInfinity, int64_t axis, bool enableParallel) = delete;
 
 // For Softmax opset < 13, `axis` is the coerced point. All dimensions
 // after `axis` will be logically coerced into a single dimension.
 template <>
 void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, Value input, Value sumOp, Value maxOp,
-    Value zero, Value negInfinity, int64_t axis) {
+    Value zero, Value negInfinity, int64_t axis, bool enableParallel) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
@@ -166,6 +168,10 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     SmallVector<IndexExpr, 4> outerUbs;
     for (int i = 0; i < axis; ++i)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
+    if (enableParallel) {
+      create.krnl.parallel(outerLoops[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.SoftmaxV110p \n");
+    }
     create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &ck, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(ck);
@@ -195,7 +201,7 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
 template <>
 void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     Location loc, Value alloc, Value input, Value sumOp, Value maxOp,
-    Value zero, Value negInfinity, int64_t axis) {
+    Value zero, Value negInfinity, int64_t axis, bool enableParallel) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
@@ -210,6 +216,11 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
   for (int i = 0; i < rank; ++i)
     if (i != axis)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
+
+  if (enableParallel) {
+    create.krnl.parallel(outerLoops[0]);
+    LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Softmax \n");
+  }
 
   // Emit outer loops.
   create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
@@ -235,9 +246,12 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
 
 template <typename SoftmaxOp>
 struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
-  ONNXSoftmaxLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx) {}
+  ONNXSoftmaxLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx),
+        enableParallel(enableParallel) {}
   using OpAdaptor = typename SoftmaxOp::Adaptor;
+  bool enableParallel = false;
 
   LogicalResult matchAndRewrite(SoftmaxOp softmaxOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -276,8 +290,8 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
     Value negInfinity = create.math.constant(
         elementType, -std::numeric_limits<float>::infinity());
 
-    emitInstForSoftmax<SoftmaxOp>(
-        rewriter, loc, alloc, input, sumOp, maxOp, zero, negInfinity, axis);
+    emitInstForSoftmax<SoftmaxOp>(rewriter, loc, alloc, input, sumOp, maxOp,
+        zero, negInfinity, axis, enableParallel);
 
     rewriter.replaceOp(op, alloc);
     return success();
@@ -285,9 +299,10 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
 };
 
 void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   patterns.insert<ONNXSoftmaxLowering<ONNXSoftmaxOp>,
-      ONNXSoftmaxLowering<ONNXSoftmaxV11Op>>(typeConverter, ctx);
+      ONNXSoftmaxLowering<ONNXSoftmaxV11Op>>(
+      typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
