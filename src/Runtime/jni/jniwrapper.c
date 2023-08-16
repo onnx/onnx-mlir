@@ -622,7 +622,7 @@ jobject omtl_native_to_java(
         japi->jecpt_cls, "omt[%d]:jomt_shape=%p", i, jomt_shape);
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(
-            env, jomt_shape, 0, jomt_rank, (jlong *)jni_shape),
+            env, jomt_shape, 0, jomt_rank, (const jlong *)jni_shape),
         1, NULL, "");
 
     /* Create data strides array Java object, fill in from native array */
@@ -631,7 +631,7 @@ jobject omtl_native_to_java(
         japi->jecpt_cls, "omt[%d]:jomt_strides=%p", i, jomt_strides);
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(
-            env, jomt_strides, 0, jomt_rank, (jlong *)jni_strides),
+            env, jomt_strides, 0, jomt_rank, (const jlong *)jni_strides),
         1, NULL, "");
 
     /* Create the OMTensor Java object */

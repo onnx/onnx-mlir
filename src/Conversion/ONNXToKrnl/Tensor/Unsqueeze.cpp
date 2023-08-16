@@ -44,6 +44,7 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(OP_TYPE unsqueezeOp,
   Value newView = emitMemRefReinterpretCastOp(
       rewriter, loc, data, shapeHelper.getOutputDims(), convertedType);
   rewriter.replaceOp(op, newView);
+  onnxToKrnlSimdReport(op);
   return success();
 }
 

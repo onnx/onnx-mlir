@@ -258,7 +258,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     LLVM_DEBUG(llvm::dbgs() << "reshapedOutput: " << reshapedOutput << "\n");
 
     rewriter.replaceOp(op, reshapedOutput);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

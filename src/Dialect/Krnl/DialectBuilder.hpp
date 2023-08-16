@@ -52,6 +52,7 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::ValueRange block(mlir::Value loop, int64_t blockSize) const;
   void permute(mlir::ValueRange loops, mlir::ArrayRef<int64_t> map) const;
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
+  void parallel(mlir::Value loop) const;
 
   // Lambda passes loop indices as 2nd parameter.
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,

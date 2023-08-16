@@ -12,7 +12,7 @@
 // Krnl IR and standard operations.
 //
 //===----------------------------------------------------------------------===//
-
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
@@ -82,7 +82,14 @@ private:
         .Case<ShapedType>([&](ShapedType tensorTy) {
           auto et = tensorTy.getElementType();
           dstream << "   { \"type\" : ";
-          et.print(dstream);
+          if (et.isa<krnl::StringType>()) {
+            // If use "et.print(dstream)", the output is !krnl.StringType.
+            // The missing of quotation will fail the jason parser.
+            // Use just "string" for brief
+            dstream << "\"string\"";
+          } else {
+            et.print(dstream);
+          }
           dstream << " , \"dims\" : [";
           if (tensorTy.hasRank()) {
             int64_t rank = tensorTy.getRank();
@@ -189,14 +196,14 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
-  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD);
-  populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTriluOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXMatMulIntegerOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
@@ -211,18 +218,18 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx, dimAnalysis);
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
@@ -446,6 +453,35 @@ std::unique_ptr<Pass> createLowerToKrnlPass(
     bool enableTiling, bool enableSIMD, bool enableParallel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
       enableTiling, enableSIMD, enableParallel);
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
+int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
+std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
+std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
+
+void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
+    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
+  OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
+  OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
+  if (reportOnParallel && !parallelIsEnabled)
+    OnnxToKrnlLoweringConfiguration::defaultParallelComment =
+        "parallelism is disabled";
+  if (reportOnSimd) {
+    if (!simdIsEnabled) {
+      OnnxToKrnlLoweringConfiguration::defaultSimdComment = "simd is disabled";
+    } else {
+      VectorMachineSupport *vms =
+          VectorMachineSupport::getGlobalVectorMachineSupport();
+      if (!vms->hasSimd())
+        OnnxToKrnlLoweringConfiguration::defaultSimdComment =
+            "cpu with unspecified simd ISA";
+    }
+  }
 }
 
 } // namespace onnx_mlir

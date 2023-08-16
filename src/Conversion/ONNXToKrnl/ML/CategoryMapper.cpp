@@ -176,6 +176,7 @@ struct ONNXCategoryMapperOpLowering
       llvm::dbgs() << "function:\n" << function << "\n";
     });
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 

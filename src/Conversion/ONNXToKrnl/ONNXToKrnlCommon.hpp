@@ -284,7 +284,8 @@ public:
 
 // For all ONNX operations.
 void populateONNXToKrnlConversionPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
+    bool enableParallel);
 
 // `ControlFlow` directory methods:
 void populateLoweringONNXIfOpPattern(
@@ -300,17 +301,18 @@ void populateLoweringONNXClipOpPattern(
 void populateLoweringONNXCumSumOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXGemmOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling,
-    bool enableSIMD);
+    bool enableSIMD, bool enableParallel);
 void populateLoweringONNXHardmaxOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXLRNOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
-    bool enableTiling, bool enableSIMD);
+    bool enableTiling, bool enableSIMD, bool enableParallel);
 void populateLoweringONNXMatMulIntegerOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRandomNormalOpPattern(
@@ -318,9 +320,10 @@ void populateLoweringONNXRandomNormalOpPattern(
 void populateLoweringONNXRandomNormalLikeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXReductionOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD);
-void populateLoweringONNXSoftmaxOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
+void populateLoweringONNXSoftmaxOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXTopKOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTriluOpPattern(
@@ -377,8 +380,8 @@ void populateLoweringONNXUnsqueezeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXUnsqueezeV11OpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXTransposeOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXGatherOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherElementsOpPattern(
@@ -391,16 +394,16 @@ void populateLoweringONNXPadOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXRangeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXReshapeOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXReshapeOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *);
 void populateLoweringONNXIdentityOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConstantOfShapeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXConcatOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXConcatShapeTransposeOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpPattern(
@@ -486,5 +489,63 @@ bool hasNonIdentityLayout(mlir::Value val);
 // Determine if one or more operands have custom layouts. Return false when
 // every layout is an identity layout.
 bool hasNonIdentityLayout(mlir::ValueRange operands);
+
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+// Populated by configureOnnxToKrnlLoweringPass().
+
+struct OnnxToKrnlLoweringConfiguration {
+  static int reportOnParallel;
+  static std::string defaultParallelComment;
+  static int reportOnSimd;
+  static std::string defaultSimdComment;
+};
+
+namespace impl {
+void onnxToKrnlSimdReport(mlir::Operation *op, bool successful,
+    int64_t vectorLength, int64_t simdLoopTripCount,
+    const std::string &comment);
+void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
+    int64_t loopLevel, int64_t parallelLoopTripCount,
+    const std::string &comment);
+} // namespace impl
+
+// When reporting is enabled (--onnx-op-report=Parallel), report on if/how are
+// the ONNX operation parallelized.
+//
+// Loop level: -1: none; 0: outermost; 1: next to outermost...
+// Parallel loop trip count; 0: none; -1: runtime only; >0: min number known at
+// compile time.
+// Comment: explanation of how parallelism was achieved / or failed. Comments
+// cannot have ',' in them.
+inline void onnxToKrnlParallelReport(mlir::Operation *op,
+    bool successful = false, int64_t loopLevel = -1,
+    int64_t parallelLoopTripCount = 0, const std::string &comment = "") {
+  if (OnnxToKrnlLoweringConfiguration::reportOnParallel)
+    impl::onnxToKrnlParallelReport(
+        op, successful, loopLevel, parallelLoopTripCount, comment);
+}
+
+// When reporting is enabled (--onnx-op-report=Simd), report on if/how are
+// the ONNX operation simdized.
+//
+// Vector Length: 0: none; -1: runtime only; >0 min number known at compile
+// time.
+// Simd loop trip count; 0: none; -1: runtime only; >0: min number known at
+// compile time.
+// Comment: explanation of how SIMD was achieved / or failed. Comments cannot
+// have ',' in them. Use the following comment templates. If SIMD is not
+// supported, comments should be "unsupported". If SIMD is supported but fails,
+// comment should be "no simd [in <specific place>] because <reason>." When simd
+// succeeds, comment indicates what type of pattern is used.
+inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
+    int64_t vectorLength = 0, int64_t simdLoopTripCount = 0,
+    const std::string &comment = "") {
+  if (OnnxToKrnlLoweringConfiguration::reportOnSimd)
+    impl::onnxToKrnlSimdReport(
+        op, successful, vectorLength, simdLoopTripCount, comment);
+}
 
 } // namespace onnx_mlir

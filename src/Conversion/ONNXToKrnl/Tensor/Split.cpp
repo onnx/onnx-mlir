@@ -90,7 +90,7 @@ LogicalResult ONNXSplitOpLoweringCommon(OP_TYPE splitOp, OP_ADAPTOR adaptor,
   }
 
   rewriter.replaceOp(op, allocs);
-
+  onnxToKrnlSimdReport(op);
   return success();
 }
 

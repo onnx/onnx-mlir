@@ -43,6 +43,7 @@ struct ONNXIfOpLowering : public OpConversionPattern<ONNXIfOp> {
     graphToScfBranch(
         rewriter, loc, ifOp.getElseBranch(), scfIfOp.getElseRegion());
     rewriter.replaceOp(op, scfIfOp.getResults());
+    onnxToKrnlSimdReport(op);
     return success();
   }
 

@@ -162,6 +162,15 @@ void registerMLIRPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createPrintOpStatsPass();
   });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertSCFToOpenMPPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertOpenMPToLLVMPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createFinalizeMemRefToLLVMConversionPass();
+  });
 }
 
 void registerPasses(int optLevel) {
