@@ -125,7 +125,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
-  if (maccel.empty() && instrumentStage == Onnx)
+  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
