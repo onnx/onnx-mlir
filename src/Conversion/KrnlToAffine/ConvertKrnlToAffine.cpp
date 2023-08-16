@@ -535,11 +535,21 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     SmallVector<AffineForOp, 1> loopsToTile = {
         llvm::cast<AffineForOp>(loopRefToOp[blockOp.getLoop()])};
 
-    if (failed(tilePerfectlyNested(
-            loopsToTile, blockOp.getTileSizeAttr().getInt(), &tiledLoops))) {
+    int64_t step = blockOp.getTileSizeAttr().getInt();
+    if (failed(tilePerfectlyNested(loopsToTile, step, &tiledLoops))) {
       return failure();
     }
 
+    if (blockOp.getResult(1).use_empty()) {
+      LLVM_DEBUG({
+        llvm::dbgs() << DEBUG_TYPE << " inner block loop unused, trivialize\n";
+        tiledLoops[1].dump();
+      });
+      tiledLoops[1].setConstantLowerBound(0);
+      tiledLoops[1].setConstantUpperBound(1);
+      tiledLoops[1].setStep(1);
+      LLVM_DEBUG(tiledLoops[1].dump());
+    }
     assert(tiledLoops.size() == 2);
     assert(blockOp.getNumResults() == 2);
 

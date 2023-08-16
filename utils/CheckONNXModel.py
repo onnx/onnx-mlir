@@ -80,26 +80,26 @@ parser = argparse.ArgumentParser(prog="CheckONNXModel.py",
                 "And once with test compiler options (-t) to verify the validity of these options.")
 parser.add_argument('-m', '--model',
                     type=lambda s: valid_onnx_input(s),
-                    help="Path to an ONNX model (.onnx or .mlir)")
+                    help="Path to an ONNX model (.onnx or .mlir).")
 parser.add_argument('-r', '--ref-compile-args',
                     type=str,
                     default="-O0",
                     help="Reference arguments passed directly to onnx-mlir command."
-                    " See bin/onnx-mlir --help")
+                    " See bin/onnx-mlir --help.")
 parser.add_argument('-t', '--test-compile-args',
                     type=str,
                     default="-O3",
                     help="Reference arguments passed directly to onnx-mlir command."
-                    " See bin/onnx-mlir --help")
+                    " See bin/onnx-mlir --help.")
 parser.add_argument('-s', '--save-ref',
                     metavar='PATH',
                     type=str,
                     help="Path to a folder to save the inputs and outputs"
-                    " in protobuf")
+                    " in protobuf.")
 parser.add_argument('--shape-info',
                     type=str,
                     help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-                    "Used to generate random inputs for the model if --load-ref is not set")
+                    "Used to generate random inputs for the model if --load-ref is not set.")
 parser.add_argument('--skip-ref',
                     action='store_true',
                     help="Skip building the ref compilation, assuming it was built before.")
@@ -107,7 +107,11 @@ parser.add_argument('-l',
                      '--log-level',
                      choices=[ 'debug', 'info', 'warning', 'error', 'critical' ],
                      default='info',
-                     help="log level, default info")
+                     help="log level, default info.")
+parser.add_argument('--seed',
+                    type=str,
+                    default="42",
+                    help="seed to initialize the random num generator for inputs.")
 
 args = parser.parse_args()
 
@@ -118,7 +122,7 @@ if (not os.environ.get('ONNX_MLIR_HOME', None)):
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
         "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
         "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
+        "executables and libraries can be found, typically `onnx-mlir/build/Debug`."
     )
 
 # log to stderr so that stdout can be used for check results
@@ -183,6 +187,7 @@ def main():
     # Possible shape info
     if args.shape_info:
         ref_cmd += ["--shape-info=" + args.shape_info]
+    ref_cmd += ["--seed="+args.seed]
     # Model name.
     ref_cmd += [model_str]
 
