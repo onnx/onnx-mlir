@@ -162,11 +162,11 @@ def parse_file(file_name):
                 print("Got min for op", op, ":", min_dict[op])
             continue
         # Max release supported.
-        p = re.search(r'==MAX==\s+(\d+)\s*$', l)
+        p = re.search(r'==MAX==\s+(.*)\s*$', l)
         if p is not None:
             assert op is not None, "Max without op."
             assert op not in max_dict, "Redefinition of max for op " + op
-            max_dict[op] = int(p[1])
+            max_dict[op] = p[1]
             if debug:
                 print("Got max for op", op, ":", max_dict[op])
             continue
@@ -223,7 +223,7 @@ def print_md():
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Min Opset", "Max Opset", "Limitations"]
+    header = ["Op", "Min Version", "Max Version", "Limitations"]
     separator = ["---", "---", "---", "---"]
     if emit_notes:
         header.append("Notes")
