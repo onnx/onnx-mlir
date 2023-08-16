@@ -1799,6 +1799,22 @@ func.func private @test_reshape(%arg0 : tensor<?x10xf32>, %arg1 : tensor<4xi64>)
 
 // -----
 
+func.func @test_reshape_to_identity(%arg0 : tensor<?x?x?xf32>) -> tensor<*xf32> {
+  %minus_one = onnx.Constant dense<-1> : tensor<1xi64>
+  %dim1 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<?x?x?xf32>) -> tensor<1xi64>
+  %dim2 = "onnx.Dim"(%arg0) {axis = 2 : si64} : (tensor<?x?x?xf32>) -> tensor<1xi64>
+  %shape = "onnx.Concat"(%minus_one, %dim1, %dim2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape) : (tensor<?x?x?xf32>, tensor<3xi64>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_to_identity
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x?xf32>) -> memref<?x?x?xf32> {
+// CHECK:           return [[PARAM_0_]] : memref<?x?x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : tensor<5x2x6x7xf32>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
   %0 = "onnx.Conv"(%arg0, %arg1, %cst) {auto_pad = "NOTSET", group = 1 : si64} : (tensor<1x2x32x64xf32>, tensor<5x2x6x7xf32>, none) -> tensor<*xf32>
@@ -2651,9 +2667,9 @@ func.func @test_expand_with_arith_constant(%arg0 : tensor<2x1x6x1xf32>) -> tenso
 
 // -----
 
-  func.func @expand_dyn(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi64>) -> tensor<?x?xf32>  {
-    %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<2xi64>) -> tensor<?x?xf32>
-    return %0 : tensor<?x?xf32>
+func.func @expand_dyn(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi64>) -> tensor<?x?xf32>  {
+  %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<2xi64>) -> tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
 // mlir2FileCheck.py -a'["input", "shape"]'
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s1, s0)>
 // CHECK-LABEL:  func @expand_dyn
@@ -3796,6 +3812,198 @@ func.func @top_k_unknown_dims(%arg0: tensor<?x?xf32>, %arg1: tensor<1xi64>) -> (
 
 // -----
 
+func.func @unique_without_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_without_axis
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_axis
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<?x2xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?x2xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?x2xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<?x2xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_axis_3d(%arg0: tensor<2x2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 0 : si64} : (tensor<2x2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_axis_3d
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2x2xi64>) -> memref<?x2x2xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?x2x2xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK:           krnl.store [[CST_0_1_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_0_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?x2x2xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<?x2x2xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_negative_axis(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = -1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_negative_axis
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_sort(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {sorted = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_sort
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_minus_1_:%.+]] = arith.constant -1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_minus_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<?xi64>, memref<0xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_indices(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, tensor<*xi64>, none, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_indices
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_1, [[RES_1_]]_0, [[RES_1_]]_0, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<?xi64>, memref<0xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_inverse_indices(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, tensor<*xi64>, none)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_inverse_indices
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK:           [[VAR_cast_:%.+]] = memref.cast [[RES_3_]] : memref<2xi64> to memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[VAR_cast_]], [[RES_1_]]_0, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<0xi64>, memref<?xi64>, memref<0xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @unique_with_counts(%arg0: tensor<2x2xi64>) -> tensor<*xi64> {
+  %Y, %indices, %inverse_indices, %counts = "onnx.Unique"(%arg0) {axis = 1 : si64} : (tensor<2x2xi64>) -> (tensor<*xi64>, none, none, tensor<*xi64>)
+  return %Y : tensor<*xi64>
+}
+
+// mlir2FileCheck.py -a '["X"]'
+// CHECK-LABEL:  func.func @unique_with_counts
+// CHECK-SAME:   ([[X_:%.+]]: memref<2x2xi64>) -> memref<2x?xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloca() : memref<index>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUniqueCount", numOfOutput = 1 : si64} : (memref<index>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]][] : memref<index>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<2x?xi64>
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<0xi64>
+// CHECK-DAG:       [[RES_3_:%.+]] = memref.alloc([[LOAD_RES_MEM_]]) {{.*}}: memref<?xi64>
+// CHECK:           krnl.store [[CST_0_]], [[RES_]][] : memref<index>
+// CHECK:           "krnl.call"([[RES_]], [[RES_1_]], [[RES_1_]]_0, [[RES_1_]]_0, [[RES_1_]]_1, [[X_]], [[CST_1_]], [[CST_1_]]) {funcName = "omTensorUnique", numOfOutput = 5 : si64} : (memref<index>, memref<2x?xi64>, memref<0xi64>, memref<0xi64>, memref<?xi64>, memref<2x2xi64>, i64, i64) -> ()
+// CHECK:           return [[RES_1_]] : memref<2x?xi64>
+// CHECK:         }
+
+// -----
+
 func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
     %0 = onnx.Constant dense<7> : tensor<i64>
     %1 = onnx.Constant dense<true> : tensor<i1>
@@ -4689,6 +4897,81 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:             krnl.store [[LOAD_RES_7_MEM_1_]], [[RES_6_]]{{.}}[[VAR_7_6_]]#0, [[VAR_7_6_]]#1] : memref<16x64xi32>
 // CHECK:           }
 // CHECK:           return [[RES_6_]] : memref<16x64xi32>
+// CHECK:         }
+}
+
+// -----
+
+// Test whether lowering is correct for a string tensor input.
+
+func.func @test_equal_string(%arg0: tensor<2x2x!onnx.String>, %arg1: tensor<2x2x!onnx.String>) -> tensor<*xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2x!onnx.String>, tensor<2x2x!onnx.String>) -> tensor<*xi1>
+   return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_string
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2x!krnl.string>, [[PARAM_1_:%.+]]: memref<2x2x!krnl.string>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2x!krnl.string>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2x!krnl.string>
+// CHECK:             [[VAR_4_:%.+]] = "krnl.strlen"([[LOAD_PARAM_0_MEM_]]) : (!krnl.string) -> i64
+// CHECK:             [[VAR_5_:%.+]] = "krnl.strncmp"([[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]], [[VAR_4_]]) : (!krnl.string, !krnl.string, i64) -> i32
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpi eq, [[VAR_5_]], [[CST_0_]] : i32
+// CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xi1>
+// CHECK:         }
+}
+
+// -----
+
+// Test whether lowering is correct for a int64_t tensor input.
+
+func.func @test_equal_int64(%arg0: tensor<2x2xi64>, %arg1: tensor<2x2xi64>) -> tensor<*xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<*xi1>
+   return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_int64
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2xi64>, [[PARAM_1_:%.+]]: memref<2x2xi64>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi64>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi64>
+// CHECK:             [[VAR_4_:%.+]] = arith.cmpi eq, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : i64
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xi1>
+// CHECK:         }
+}
+
+// -----
+
+// Test whether lowering is correct for a f32 tensor input.
+
+func.func @test_equal_float32(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32>) -> tensor<*xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<2x2xf32>, tensor<2x2xf32>) -> tensor<*xi1>
+   return %0 : tensor<*xi1>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_equal_float32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x2xf32>, [[PARAM_1_:%.+]]: memref<2x2xf32>) -> memref<2x2xi1> {
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x2xi1>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xf32>
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.cmpf oeq, [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x2xi1>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x2xi1>
 // CHECK:         }
 }
 

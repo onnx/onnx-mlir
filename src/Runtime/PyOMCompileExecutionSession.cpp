@@ -65,9 +65,12 @@ PyOMCompileExecutionSession::PyOMCompileExecutionSession(
   // Compilation success: save output file name.
   this->outputFileName = std::string(outputName);
   errorMessage = std::string();
+  // Get the model tag from the compile flags.
+  char *modelTag = omCompileModelTag(flags.c_str());
   // Now that we have a .so, initialize execution session.
-  Init(this->outputFileName, defaultEntryPoint);
+  Init(this->outputFileName, modelTag, defaultEntryPoint);
   free(outputName);
+  free(modelTag);
   free(errorMsg);
 }
 

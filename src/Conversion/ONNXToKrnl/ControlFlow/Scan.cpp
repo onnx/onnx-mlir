@@ -194,6 +194,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     }
 
     rewriter.replaceOp(op, outputs);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 

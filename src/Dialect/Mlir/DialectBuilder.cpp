@@ -1348,6 +1348,19 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
+void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
+    function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
+  MathBuilder createMath(*this);
+  Value stepVal = createMath.constantIndex(step);
+  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+      [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
+          ValueRange args) {
+        SCFBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVar);
+        yield();
+      });
+}
+
 void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
@@ -1577,6 +1590,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
   uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  // TODO alex, should relax this
   assert(VL == machineVL && "only natural sizes supported at this time");
   assert(N % machineVL == 0 &&
          "can only reduces multiple of VL vectors at this time");
@@ -1621,10 +1635,14 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
 int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
-    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad) const {
+    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+    int64_t &estimatedSimdLoopTripCount) const {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
+  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
   if (VL == 0) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
     return 0;
@@ -1634,11 +1652,13 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
   IndexExpr dynSize;
   bool isStaticSize = createMem.getStaticAndDynamicMemSize(
       memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
-  if (isStaticSize && staticSize < maxSimdUnroll) {
+  if (isStaticSize && staticSize < VL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
-                            << " too short \n");
+                            << " too short for a VL of " << VL << "\n");
     return 0;
   }
+  // Unless otherwise disabled, here is the estimated trip count.
+  estimatedSimdLoopTripCount = staticSize > 1 ? staticSize : -1;
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     return maxSimdUnroll * VL;
@@ -1654,7 +1674,6 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     return 0;
   }
   // See if we can get a unroll factor.
-  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   for (int64_t u = maxSimdUnroll; u > 0; --u) {
     if (staticSize % (u * VL) == 0) {
       LLVM_DEBUG(llvm::dbgs()
@@ -1776,8 +1795,49 @@ Value LLVMBuilder::extractValue(
       loc(), resultType, container, position);
 }
 
-LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
-  return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
+LLVM::LLVMFuncOp LLVMBuilder::func(
+    StringRef funcName, Type funcType, bool createUniqueFunc) const {
+  // If createUniqueFunc, we create two functions: name and name_postfix.
+  // They have the same signatures and `name` will call `name_postfix`.
+  // `name_postfix` funtion is expected to be unique across all generated
+  // modules, allowing to run multiple models at the same time.
+  LLVM::LLVMFuncOp funcOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), funcName, funcType);
+  if (!createUniqueFunc)
+    return funcOp;
+
+  // Create uniqueFuncOp if there exists a postfix.
+  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition before
+  // `funcOp`.
+  b().setInsertionPoint(funcOp);
+  ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
+  std::string uniqueFuncName =
+      LLVMBuilder::SymbolPostfix(module, funcName.str());
+  if (uniqueFuncName == funcName.str())
+    return funcOp;
+
+  auto uniqueFuncType = cast<LLVM::LLVMFunctionType>(funcType);
+  LLVM::LLVMFuncOp uniqueFuncOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
+
+  // Call uniqueFuncOp inside funcOp.
+  Block *entryBlock = funcOp.addEntryBlock();
+  OpBuilder::InsertionGuard bodyGuard(b());
+  b().setInsertionPointToStart(entryBlock);
+  ValueRange args = entryBlock->getArguments();
+  TypeRange resultTypes = uniqueFuncType.getReturnTypes();
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
+    b().create<LLVM::CallOp>(loc(), ArrayRef<Type>({}), uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({}));
+  } else {
+    LLVM::CallOp callOp =
+        b().create<LLVM::CallOp>(loc(), resultTypes, uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({callOp.getResult()}));
+  }
+
+  return uniqueFuncOp;
 }
 
 Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
@@ -1787,9 +1847,17 @@ Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
-    uint64_t alignment) const {
-  return b().create<LLVM::GlobalOp>(loc(), resultType,
+    uint64_t alignment, bool uniqueName) const {
+  LLVM::GlobalOp gop = b().create<LLVM::GlobalOp>(loc(), resultType,
       /*isConstant=*/isConstant, linkage, name, valueAttr);
+  if (!uniqueName)
+    return gop;
+
+  // Append to `name` a unique string to make it unique across multiple
+  // generated LLVMIR.
+  ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
+  gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
+  return gop;
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {

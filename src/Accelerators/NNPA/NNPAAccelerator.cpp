@@ -57,12 +57,6 @@ NNPAAccelerator::~NNPAAccelerator() { delete instance; }
 
 uint64_t NNPAAccelerator::getVersionNumber() const { return ZDNN_VERNUM; }
 
-void NNPAAccelerator::getOrLoadDialects(mlir::MLIRContext &context) const {
-  LLVM_DEBUG(llvm::dbgs() << "Loading dialects for NNPA accelerator\n");
-  context.getOrLoadDialect<zhigh::ZHighDialect>();
-  context.getOrLoadDialect<zlow::ZLowDialect>();
-}
-
 void NNPAAccelerator::addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) const {

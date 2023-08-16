@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/python3
 
 # SPDX-License-Identifier: Apache-2.0
 
@@ -17,6 +17,12 @@
 # Script currently invoked by the `onnx_mlir_supported_ops` make target.
 #
 ################################################################################
+
+################################################################################
+# Default min/max opset supported (when not explicitly specified).
+# Default values are used when no explicit ==MIN==/==MAX== values are used.
+min_opset_default = 9 
+max_opset_default = 18
 
 import sys
 import getopt
@@ -41,11 +47,19 @@ import subprocess
 # ==TODO== <text>
 #   where <text> add "private" info about what needs to be fixed. 
 #
+# ==MIN== <num>
+#   where <num> is the minimum release version supported.
+#
+# ==MAX== <num>
+#   where <num> is the maximum release version supported.
 #
 ################################################################################
-# Usage.
 
-def print_usage():
+################################################################################
+# Usage.
+def print_usage(msg = ""):
+    if msg:
+        print("Error:", msg, "\n")
     print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
     print("For labeling format, consult the python script directly.")
     print('documentOps [-a <arch>] [-dnu] -i <file> [-p <path>')
@@ -60,9 +74,11 @@ def print_usage():
 ################################################################################
 # Handling of info: global dictionaries.
 
-hightest_opset = 1   # Highest opset is.
+hightest_opset = 1     # Highest opset found in the description.
 opset_dict = {}        # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}        # <op> -> <text> in "==LIM== <text>".
+min_dict = {}          # <op> -> <num> in "==MIN== <num>".
+max_dict = {}          # <op> -> <num> in "==MAX== <num>".
 todo_dict = {}         # <op> -> <text> in "==TODO== <text>".
 list_op_version = {}   # List of operation versions from gen_onnx_mlir;
                        # <op> -> [supported versions]
@@ -80,7 +96,11 @@ def dotted_sentence(str):
 
 def parse_file(file_name):
     global hightest_opset, additional_top_paragraph
-    file = open(file_name, 'r')
+    try:
+        file = open(file_name, 'r')
+    except OSError:
+        print_usage("Could not open file `"+file_name+"`")
+
     op = ""
     arch = ""
     for line in file:
@@ -108,7 +128,7 @@ def parse_file(file_name):
             assert op not in opset_dict, "Redefinition of op " + op
             assert op in list_op_version, "Define an op " + op + " that is not listed in the ops we currently handle."
             versions = list_op_version[op]
-            opset_dict[op] = ', '.join(map(lambda x: str(x), versions))
+            opset_dict[op] = versions
             m = max(versions)
             if m > hightest_opset:
                 hightest_opset = m
@@ -132,6 +152,24 @@ def parse_file(file_name):
             if debug:
                 print("got todo for op", op, ":", todo_dict[op])
             continue
+        # Min release supported.
+        p = re.search(r'==MIN==\s+(\d+)\s*$', l)
+        if p is not None:
+            assert op is not None, "Min without op."
+            assert op not in min_dict, "Redefinition of min for op " + op
+            min_dict[op] = int(p[1])
+            if debug:
+                print("Got min for op", op, ":", min_dict[op])
+            continue
+        # Max release supported.
+        p = re.search(r'==MAX==\s+(\d+)\s*$', l)
+        if p is not None:
+            assert op is not None, "Max without op."
+            assert op not in max_dict, "Redefinition of max for op " + op
+            max_dict[op] = int(p[1])
+            if debug:
+                print("Got max for op", op, ":", max_dict[op])
+            continue
 
 ################################################################################
 # Print info.
@@ -141,6 +179,26 @@ def print_row(array):
     for a in array:
         str += a + " |"
     print(str)
+
+# Min opset: if explicit ==MIN== value, use as is. Otherwise min of default and
+# custom versions delivered in opset_dict.
+def compute_min_opset(op):
+    if op in min_dict:
+        return min_dict[op]
+    min_list = [min_opset_default]
+    if op in opset_dict:
+        min_list.extend(opset_dict[op])
+    return min(min_list)
+
+# Max opset: if explicit ==MAX== value, use as is. Otherwise max of default and
+# custom versions delivered in opset_dict.
+def compute_max_opset(op):
+    if op in max_dict:
+        return max_dict[op]
+    max_list = [max_opset_default]
+    if op in opset_dict:
+        max_list.extend(opset_dict[op])
+    return max(max_list)
 
 def print_md():
     # Header.
@@ -165,8 +223,8 @@ def print_md():
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Up to Opset", "Limitations"]
-    separator = ["---", "---", "---"]
+    header = ["Op", "Min Opset", "Max Opset", "Limitations"]
+    separator = ["---", "---", "---", "---"]
     if emit_notes:
         header.append("Notes")
         separator.append("---")
@@ -175,11 +233,11 @@ def print_md():
     for op in sorted(list_op_version.keys()):
         supported_op = op in opset_dict;
         if supported_op:
-            info = ["**"+op+"**", opset_dict[op]]
+            info = ["**"+op+"**", str(compute_min_opset(op)), str(compute_max_opset(op))]
         else:
             if not emit_unsupported:
                 continue
-            info = ["**"+op+"**", ""]
+            info = ["**"+op+"**", "", ""]
         if op in limit_dict:
             info.append(limit_dict[op])
         elif not supported_op:

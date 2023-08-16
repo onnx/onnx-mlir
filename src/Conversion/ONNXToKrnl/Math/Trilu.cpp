@@ -79,6 +79,7 @@ struct ONNXTriluOpLowering : public OpConversionPattern<ONNXTriluOp> {
         });
 
     rewriter.replaceOp(op, resMemRef);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

@@ -21,14 +21,16 @@ namespace onnx_mlir {
 
 class PyExecutionSession : public onnx_mlir::PyExecutionSessionBase {
 public:
-  PyExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
+  PyExecutionSession(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
 };
 } // namespace onnx_mlir
 
 PYBIND11_MODULE(PyRuntime, m) {
   py::class_<onnx_mlir::PyExecutionSession>(m, "OMExecutionSession")
-      .def(py::init<const std::string &, const bool>(),
-          py::arg("shared_lib_path"), py::arg("use_default_entry_point") = 1)
+      .def(py::init<const std::string &, const std::string &, const bool>(),
+          py::arg("shared_lib_path"), py::arg("tag") = "",
+          py::arg("use_default_entry_point") = 1)
       .def("entry_points", &onnx_mlir::PyExecutionSession::pyQueryEntryPoints)
       .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint,
           py::arg("name"))

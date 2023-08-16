@@ -115,6 +115,7 @@ struct ONNXQuantizeLinearOpLowering
         });
 
     rewriter.replaceOp(op, {Y});
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

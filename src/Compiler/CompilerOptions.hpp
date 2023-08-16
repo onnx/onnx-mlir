@@ -29,19 +29,30 @@ namespace onnx_mlir {
 
 typedef enum {
   // clang-format off
+  None,
   Onnx
   APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_ENUM)
   // clang-format on
 } InstrumentStages;
 
+using ProfileIRs = InstrumentStages;
+
 typedef enum {
   // clang-format off
   small,
-  medium,   // reserve for future
+  medium,   // Reserve for future.
   large,
-  huge      // reserve for future
+  huge      // Reserve for future.
   // clang-format on
 } ModelSize;
+
+typedef enum {
+  // clang-format off
+  NoReport,
+  Parallel,  // Generates diagnostic reporting for parallel (krnl lowering).
+  Simd       // Generates diagnostic reporting for SIMD (krnl lowering).
+  // clang-format on
+} OnnxOpReport;
 
 extern const std::string modelSizeStr[];
 
@@ -85,12 +96,18 @@ extern llvm::cl::opt<std::string> ONNXOpStats;
 extern llvm::cl::opt<bool> enableMemoryBundling;
 extern llvm::cl::opt<int> onnxOpTransformThreshold;
 extern llvm::cl::opt<bool> onnxOpTransformReport;
-extern llvm::cl::opt<bool> onnxConstPropReport;
+extern llvm::cl::opt<int> onnxConstPropExpansionBound;
 extern llvm::cl::opt<bool> enableParallel;
 extern llvm::cl::opt<bool> disableSimdOption;
 extern llvm::cl::opt<bool> enableSimdDataLayout;
 extern llvm::cl::opt<bool> enableONNXHybridPass;
 extern llvm::cl::list<std::string> functionsToDecompose;
+extern llvm::cl::opt<std::string> modelTag;
+extern llvm::cl::opt<bool> enableConvOptPass;
+extern llvm::cl::list<std::string> extraLibPaths;
+extern llvm::cl::list<std::string> extraLibs;
+extern llvm::cl::opt<ProfileIRs> profileIR;
+extern llvm::cl::opt<OnnxOpReport> onnxOpReport;
 
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(int argc, const char *const *argv,
@@ -138,6 +155,7 @@ using CompilerOptionList =
     llvm::SmallVector<std::pair<onnx_mlir::OptionKind, std::string>, 4>;
 
 #define CCM_SHARED_LIB_DEPS "sharedLibDeps"
+#define CCM_SHARED_LIB_PATH_DEPS "sharedLibPathDeps"
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // Return 0 on success. These functions are not thread-safe and should be called
@@ -152,5 +170,10 @@ std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 std::vector<std::string> getCompilerConfig(std::string k);
 void addCompilerConfig(std::string k, std::vector<std::string> v);
 void delCompilerConfig(std::string k, std::vector<std::string> v);
+// CompilerConfig may be set at initialization or inside CompileModule().
+// Since CompileModule() may be called repeated, push is used to mark
+// the current config and pop is used to restore the previously mark config
+void pushCompilerConfig(std::string k);
+void popCompilerConfig(std::string k);
 
 } // namespace onnx_mlir

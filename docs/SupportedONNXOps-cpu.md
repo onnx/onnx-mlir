@@ -35,7 +35,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **BitwiseOr** |18 | | |
 | **BitwiseXor** |18 | | |
 | **BlackmanWindow** | |unsupported | |
-| **Cast** |19 |Cast only between float and double types. Some platforms support float16. | |
+| **Cast** |19 |Cast only between float and double types. Only ppc64le and MacOS platforms support float16. | |
 | **CastLike** | |unsupported | |
 | **CastMap** | |unsupported | |
 | **CategoryMapper** | |unsupported | |
@@ -65,7 +65,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **DynamicQuantizeLinear** |11 | | |
 | **Einsum** |12 |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
 | **Elu** |6 | | |
-| **Equal** |13 | | |
+| **Equal** |19 | | |
 | **Erf** |13 | | |
 | **Exp** |13 | | |
 | **Expand** |13 | | |
@@ -113,16 +113,16 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **LpPool** | |unsupported | |
 | **MatMul** |13 | | |
 | **MatMulInteger** |10 | | |
-| **Max** |13 |No support for unsigned int. Only some platforms support float16. | |
+| **Max** |13 |No support for unsigned int. Only ppc64le and MacOS platforms support float16. | |
 | **MaxPool** |12 |Does not support argmax and short ints. Support single output only. | |
 | **MaxRoiPool** | |unsupported | |
 | **MaxUnpool** | |unsupported | |
 | **Mean** |13 | | |
 | **MeanVarianceNormalization** | |unsupported | |
 | **MelWeightMatrix** | |unsupported | |
-| **Min** |13 |Does not support unsigned numbers. Only some platforms support float16. | |
+| **Min** |13 |Does not support unsigned numbers. Only ppc64le and MacOS platforms support float16. | |
 | **Mish** | |unsupported | |
-| **Mod** |13 |Support float and double only. Some platforms support float16. | |
+| **Mod** |13 |Support float and double only. Only ppc64le and MacOS platforms support float16. | |
 | **Momentum** | |unsupported | |
 | **Mul** |14 |Does not support short integers. | |
 | **Multinomial** | |unsupported | |
@@ -213,7 +213,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **TreeEnsembleClassifier** | |unsupported | |
 | **TreeEnsembleRegressor** | |unsupported | |
 | **Trilu** |14 | | |
-| **Unique** | |unsupported | |
+| **Unique** |11 | | |
 | **Unsqueeze** |13, 11 |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
 | **Upsample** |9, 7 | | |
 | **Where** |16 | | |

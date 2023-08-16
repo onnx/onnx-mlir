@@ -41,6 +41,7 @@ struct ONNXPrintSignatureLowering
         create.krnl.printTensor(msg, oper);
     Value noneValue;
     rewriter.replaceOpWithNewOp<KrnlPrintOp>(op, "\n", noneValue);
+    // For debug, no need to report on SIMD.
     return success();
   }
 };
