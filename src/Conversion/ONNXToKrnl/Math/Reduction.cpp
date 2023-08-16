@@ -18,7 +18,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
-#define DEBUG_FORCE_SHUFFLE_REDUCTION 1
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 0
 
 using namespace mlir;
 
@@ -745,7 +745,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnlIE.getShapeAsSymbols(input, ubs2);
     Value trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
     // TODO Temporary disable the 2nd loop parallelism, since its outermost
-    // loop coule be a reduction loop, where parallelism would not be safe.
+    // loop could be a reduction loop, where parallelism would not be safe.
     // if (enableParallel) {
     //   create.krnl.parallel(loop2Def[0]);
     //   LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
