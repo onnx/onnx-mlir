@@ -125,7 +125,20 @@ public:
     init(instrumentOps);
 
     // Iterate on the operations nested in this function
-    getOperation().walk([&](mlir::Operation *op) {
+    getOperation().walk([&](mlir::Operation *op) -> WalkResult {
+      // Do not profile operations that return a None value (e.g. onnx.NoValue).
+      // Somehow such none-returned operations cause messy output, For example,
+      // with --profile-ir=ZHigh for the mnist-12 model, it mixed version error
+      // with profiling info.
+      // ```
+      // #  0) before zlow.stickModel is running on hardware that is not
+      // compatible with the zDNN library that this model was compiled for
+      // (version num %llu.%llu.%llu). Please check that the model is running on
+      // hardware with an integrated accelerator for AI (z16 +) that supports
+      // the required zDNN library version.
+      // ```
+      if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
+        return WalkResult::advance();
       std::string opName = op->getName().getStringRef().str();
       for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
         std::regex re(*itr);
@@ -142,6 +155,7 @@ public:
           }
         }
       }
+      return WalkResult::advance();
     });
   }
 };
