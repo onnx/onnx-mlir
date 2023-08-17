@@ -12,7 +12,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 18. Limitatio
 NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are enough large for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
 
 
-| Op |Min Version |Max Version |Limitations |Notes |
+| Op |Min Opset |Max Opset |Limitations |Notes |
 | --- |--- |--- |--- |--- |
 | **Add** |14 |18 |- Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **AveragePool** |19 |19 |- `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0). | |
