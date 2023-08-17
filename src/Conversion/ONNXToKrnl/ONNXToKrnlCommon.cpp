@@ -661,6 +661,47 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
+#if 0
+static StringAttr getNodeNameLikeInKrnlInstrument(Operation *op) {
+  StringAttr nodeName;
+  // Try with op onnx_node_name attribute.
+  nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+  if (nodeName)
+    return nodeName;
+  // Try with op location.
+  Location loc = op->getLoc();
+  if (auto nameLoc = loc.dyn_cast<NameLoc>())
+    return nameLoc.getName();
+  if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+    // Combine each location name and set it as nodeName.
+    std::string name;
+    for (Location locIt : fusedLoc.getLocations()) {
+      if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
+        name += nameLocIt.getName().str() + "-";
+      else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+        std::string filename =
+            llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
+        name += filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
+      }
+    }
+    if (name.empty())
+      name = "NOTSET";
+    else
+      name.pop_back(); // remove last "-"
+    loc = NameLoc::get(rewriter.getStringAttr(name));
+    return cast<NameLoc>(loc).getName();
+  } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+    std::string filename =
+        llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
+    std::string name =
+        filename + ":" + std::to_string(fileLineColLoc.getLine());
+    loc = NameLoc::get(rewriter.getStringAttr(name));
+    nodeName = cast<NameLoc>(loc).getName();
+  } else
+    nodeName = StringRef("NOTSET");
+}
+#endif
+
 void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
     int64_t loopLevel, int64_t parallelLoopTripCount,
     const std::string &comment) {
@@ -669,10 +710,10 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   StringAttr opName = op->getName().getIdentifier();
   StringAttr nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
   // Print report on this op.
-  fprintf(stderr, "==ONNX-PAR-REPORT==, %s%s, %s, %lld, %lld, %s\n",
-      opName.data(), (successful ? "-parallel" : ""),
-      (nodeName ? nodeName.data() : "no-node-name"), loopLevel,
-      parallelLoopTripCount, comment.c_str());
+  fprintf(stderr, "==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-parallel" : ""),
+      (nodeName ? nodeName.data() : "no-node-name"), comment.c_str(), loopLevel,
+      parallelLoopTripCount);
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -690,10 +731,10 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
     // No comments, all values indicate no simd
     message = "unsupported";
   // Print report on this op.
-  fprintf(stderr, "==ONNX-SIMD-REPORT==, %s%s, %s, %lld, %lld, %s\n",
-      opName.data(), (successful ? "-simd" : ""),
-      (nodeName ? nodeName.data() : "no-node-name"), vectorLength,
-      simdLoopTripCount, message.c_str());
+  fprintf(stderr, "==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-simd" : ""),
+      (nodeName ? nodeName.data() : "no-node-name"), message.c_str(),
+      vectorLength, simdLoopTripCount);
 }
 
 } // namespace onnx_mlir

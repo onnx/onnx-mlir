@@ -16,11 +16,9 @@
 ################################################################################
 
 import sys
-import os
 import getopt
-import fileinput
 import re
-import subprocess
+import numpy as np
 
 def print_usage(msg = ""):
     if msg:
@@ -52,81 +50,190 @@ def print_usage(msg = ""):
 ################################################################################
 # Global info.
 
-report_pattern_count = {}
-report_level_pattern_count = {}
-# ==ONNX-SIMD-REPORT==, op name, node name, info
-simd_report_str = r'^==ONNX-SIMD-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,([^,]*),(.*)'
-simd_stat_message = "SIMD vector length (in elements), SIMD loop trip count (-1 is runtime), message"
-report_str = simd_report_str
-stat_message = simd_stat_message
+# For statistic info.
+op_count_dict = {} # op -> count
+op_detail_count_dict = {} # op -> {dictionary of detailed pattern -> count}
+op_time_dict = {} # op -> cumulative time
+op_detail_time_dict = {} # op -> {dictionary of detailed pattern -> cumulative time}
+
+# For timing info
+node_time_dict = {}  # op + node_name -> time statistic
+
 focus_on_op_with_pattern = r'.*'
 supported_only = False
 report_level = 0 # 0: none; 1: details; 2: extra info; 3: plus node names
 
-################################################################################
-# Support.
+# Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
+def common_report_str(stat_name):
+    return r'^==' + stat_name + r'-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)'
 
-def record_pattern(pat, det):
-    global report_pattern_count, report_level_pattern_count
+# ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
+simd_stat_message = "SIMD vector length (in elements), SIMD loop trip count (-1 is runtime), message"
+
+# ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
+perf_stat_message = "time (us)"
+
+################################################################################
+# # Support.
+
+# To record time, use op name and node name to better disambiguate.
+def timing_dict_key(op, node_name):
+    p = re.match(r'(.*)-(simd|par)', op)
+    if p:
+        op = p[1]
+    return op + "__" + node_name
+
+# Add num to dict[key]
+def add_to_dict_entry(dict, key, num):
+    if key in dict:
+        return dict[key] + num
+    # First visit, entry does not exist.
+    return num
+
+# Dict1 is a dictionary of dictionaries. First locate the secondary directory,
+# dict1[key1], and then add num to the key2 entry of that secondary dictionary.
+def add_to_dict2_entry(dict1, key1, key2, num):
+    if key1 in dict1:
+        # Retrieve dict of dict.
+        dict2 = dict1[key1]
+        # Increment entry for key2.
+        dict2[key2] = add_to_dict_entry(dict2, key2, num)
+        return dict2
+    # First visit, secondary dict is empty.
+    return { key2 : num}
+
+def append_to_dict_entry(dict, key, num):
+    if key in dict:
+        return np.append(dict[key], num)
+    # First visit, entry does not exist.
+    return np.array([num])
+
+def append_to_dict2_entry(dict1, key1, key2, num):
+    if key1 in dict1:
+        # Retrieve dict of dict.
+        dict2 = dict1[key1]
+        # Increment entry for key2.
+        dict2[key2] = append_to_dict_entry(dict2, key2, num)
+        return dict2
+    # First visit, secondary dict is empty.
+    return { key2 : np.array([num])}
+
+
+def record_pattern(op, node_name, detail_key):
+    global op_count_dict, op_detail_count_dict
+    global op_time_dict, op_detail_time_dict
+    global node_time_dict
     global report_level
 
-    if pat in report_pattern_count:
-        report_pattern_count[pat] = report_pattern_count[pat] + 1
-        if report_level > 0:
-            det_dict = report_level_pattern_count[pat]
-            if det in det_dict:
-                det_dict[det] = det_dict[det] + 1
-            else:
-                det_dict[det] = 1
-            report_level_pattern_count[pat] = det_dict
-    else:
-        report_pattern_count[pat] = 1
-        if report_level > 0:
-            det_dict = {}
-            det_dict[det] = 1
-            report_level_pattern_count[pat] = det_dict
+    # Update statistic summaries
+    op_count_dict[op] = add_to_dict_entry(op_count_dict, op, 1)
+    if report_level > 0:
+        op_detail_count_dict[op] = add_to_dict2_entry(
+            op_detail_count_dict, op, detail_key, 1)
+
+    # Has timing for this node?
+    timing_key = timing_dict_key(op, node_name)
+    if not timing_key in node_time_dict:
+        print("timing key", timing_key, "with no times in dict")
+        return
+    # Update timing summaries
+    time = node_time_dict[timing_key]
+    op_time_dict[op] = append_to_dict_entry(op_time_dict, op, time)
+    if report_level > 0:
+        op_detail_time_dict[op] = append_to_dict2_entry(
+            op_detail_time_dict, op, detail_key, time)
+
 
 ################################################################################
-# Main.
+# Parse line (generic).
 
-def parse_file(file_name):
-    global report_str, report_level, focus_on_op_with_pattern, supported_only
+def parse_line(line, report_str):
+    global focus_on_op_with_pattern, supported_only
+
+    p = re.match(report_str, line)
+    if p is None:
+        return (False, "", "", "")
+    # Have a line of relevant info, extract op, op name, and stat details.
+    op = p[1]
+    node_name = p[2]
+    details = p[3]
+    # If we process supported op only, search for "unsupported" in details.
+    if supported_only and re.search(r'unsupported', details) is not None:
+        # Unsupported, skip.
+        return (False, "", "", "")
+    # Check if we have an op that we focus on; if not skip.
+    f = re.match(focus_on_op_with_pattern, op)
+    if f is None:
+        return (False, "", "", "")
+    # Have a perfect match.
+    return (True, op, node_name, details)
+
+################################################################################
+# Parse file for statistics.
+
+def parse_file_for_stat(file_name, stat_name):
+    global report_level
 
     try:
         file = open(file_name, 'r')
     except OSError:
         print_usage("Could not open file `"+file_name+"`")
 
-    for line in file:
-        l = line.rstrip()
-        # Scan pattern, only keep at it only if we have the report info.
-        p = re.match(report_str, l)
-        if p is None:
-            continue
-        # Have a line.
-        op = p[1]
-        node_name = p[2]
-        details = p[3]
-        if supported_only and re.search(r'unsupported', details) is not None:
-            # Has an op that is unsupported, and we asked to skip them
-            continue
-        f = re.match(focus_on_op_with_pattern, op)
-        if f is None:
-            continue
-        # Have an interesting op.
-        if report_level == 0:
-            record_pattern(op, "")
-        if report_level == 1:
-            detail_array = details.split(",")
-            record_pattern(op, detail_array[-1])
-        elif report_level == 2:
-            record_pattern(op, details)
-        elif report_level == 3:
-            record_pattern(op, node_name + ", " + details)
+    report_str = common_report_str(stat_name)
 
-def make_report():
-    global report_pattern_count, report_level_pattern_count
-    global report_level, supported_only, stat_message
+    for line in file:
+        # Parse line.
+        (has_stat, op, node_name, details) = parse_line(line.rstrip(), report_str)
+        if not has_stat:
+            continue
+        # Use stat.
+        secondary_key = ""
+        detail_array = details.split(",")
+        if report_level == 1:
+            # Use only first element in secondary key.
+            secondary_key = detail_array[0]
+        elif report_level == 2:
+            # Use all details in secondary key.
+            secondary_key = details
+        elif report_level == 3:
+            # Use node name in secondary key.
+            secondary_key = node_name + ", " + details
+
+        record_pattern(op, node_name, secondary_key)
+
+################################################################################
+# Parse file for performance
+
+def parse_file_for_perf(file_name, stat_name):
+    try:
+        file = open(file_name, 'r')
+    except OSError:
+        print_usage("Could not open file `"+file_name+"`")
+
+    report_str = common_report_str(stat_name)
+    time_stat_dict = {} # op+op_name -> numpy array of times
+    for line in file:
+        # Parse line.
+        (has_stat, op, node_name, details) = parse_line(line.rstrip(), report_str)
+        if not has_stat:
+            continue
+        detail_array = details.split(",")
+        # Add relative time in numpy associated with op/op-node
+        if re.search(r'after', detail_array[0]):
+            key = timing_dict_key(op, node_name)
+            time_stat_dict[key] = append_to_dict_entry(time_stat_dict, 
+                                                       key, float(detail_array[1]))
+    # Compute stat. Right now, just use average, but could do fancier metrics.
+    for node in time_stat_dict:
+        node_time_dict[node] = np.average(time_stat_dict[node])
+
+################################################################################
+# make report
+
+def make_report(stat_message):
+    global op_count_dict, op_detail_count_dict
+    global op_time_dict, op_detail_time_dict
+    global report_level, supported_only
 
     if (report_level > 1):
         print("Statistic legend:")
@@ -139,24 +246,40 @@ def make_report():
         print("Statistics (ignore unsupported ops):")
     else:
         print("Statistics (all ops):")
-    for key in sorted(report_pattern_count):
-        print("  ", key, ":", report_pattern_count[key])
+    for op in sorted(op_count_dict):
+        count_time_str = str(op_count_dict[op])
+        if op in op_time_dict:
+            time = np.sum(op_time_dict[op])
+            count_time_str += ", " + str(time)
+        print("  ", op, ":", count_time_str)
         if report_level:
-            det_dict = report_level_pattern_count[key]
+            det_dict = op_detail_count_dict[op]
+            det_time_dict = {}
+            if op in op_detail_time_dict:
+                det_time_dict = op_detail_time_dict[op]
             for det_key in sorted(det_dict):
-                if det_dict[det_key] == report_pattern_count[key]:
-                    print("     *:", det_key)
+                if det_dict[det_key] == op_count_dict[op]:
+                    count_time_str = "*"
                 else:
-                    print("    ", det_dict[det_key], ":", det_key)
+                    count_time_str = str(det_dict[det_key])
+                if det_key in det_time_dict:
+                    time = np.sum(det_time_dict[det_key])
+                    count_time_str += ", " + str(time)
+                print("    ", count_time_str, ":", det_key)
 
+
+################################################################################
+# Main.
 
 def main(argv):
     global report_level, focus_on_op_with_pattern, supported_only
 
-    file_name = ""
+    stat_file_name = ""
+    time_file_name = ""
     try:
         opts, args = getopt.getopt(
-            argv, "d:fhi:p:s", ["detail=", "full", "help", "input=", "pattern=", "supported"])
+            argv, "d:fhi:p:st:", 
+            ["detail=", "full", "help", "input=", "pattern=", "supported", "times="])
     except getopt.GetoptError:
         print_usage("Failure to parse inputs")
     for opt, arg in opts:
@@ -167,19 +290,23 @@ def main(argv):
         elif opt in ('-h', "--help"):
             print_usage()
         elif opt in ('-i', "--input"):
-            file_name = arg
+            stat_file_name = arg
         elif opt in ('-p', "--pattern"):
             focus_on_op_with_pattern = arg
             if report_level == 0:
                 report_level = 1
         elif opt in ('-s', "--supported"):
             supported_only = True
+        elif opt in ('-t', "--time"):
+            time_file_name = arg
 
-    if not file_name:
+    if time_file_name:
+        parse_file_for_perf(time_file_name, "PERF")
+    if not stat_file_name:
         print_usage("Command requires an input file name.\n")
 
-    parse_file(file_name)
-    make_report()
+    parse_file_for_stat(stat_file_name, "SIMD")
+    make_report(simd_stat_message)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
