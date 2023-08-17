@@ -21,7 +21,7 @@
 ################################################################################
 # Default min/max opset supported (when not explicitly specified).
 # Default values are used when no explicit ==MIN==/==MAX== values are used.
-min_opset_default = 9 
+min_opset_default = 6
 max_opset_default = 18
 
 import sys
@@ -208,7 +208,9 @@ def print_md():
     print("\n# Supported ONNX Operation for Target *" + target_arch + "*.\n")
     # Top paragraph.
     print("Onnx-mlir currently supports ONNX operations targeting up to " +
-        "opset " + str(hightest_opset) + ". Limitations are listed when applicable.\n")
+        "opset " + str(hightest_opset) + ". Limitations are listed when applicable."+
+        " This documentation highlights the minimum and maximum opset versions that" +
+        " are fully supported by onnx-mlir and not the version changes." + "\n")
     print("* Operations are defined by the [ONNX Standard]" +
         "(https://github.com/onnx/onnx/blob/main/docs/Operators.md).")
     print("* Opset indicates, for each operation, the ONNX opset that " +
@@ -217,13 +219,15 @@ def print_md():
         "For example, \"Add\" was modified in Opset 14 and carries on unmodified " +
         "to Opset 16. If onnx-mlir supports Opset 14, we thus list \"14\" as the Opset " +
         "associated with the \"Add\" operation.")
+    print("* Please note an * in the \"Max Opset\" column indicates that" +
+        " this operation is at the current version.")
     print("\n")
     # Additional top paragraph.
     if additional_top_paragraph:
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Min Version", "Max Version", "Limitations"]
+    header = ["Op", "Min Opset", "Max Opset", "Limitations"]
     separator = ["---", "---", "---", "---"]
     if emit_notes:
         header.append("Notes")
