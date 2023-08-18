@@ -2020,6 +2020,25 @@ func.func @test_tile_constant(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_tile_mixed_constant(%arg0: tensor<?xi64>, %arg1: tensor<2x1x?xi64>) -> tensor<?x?x?xi64>{
+  %0 = onnx.Constant dense<3> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %3 = "onnx.Tile"(%arg1, %2) : (tensor<2x1x?xi64>, tensor<3xi64>) -> tensor<?x?x?xi64>
+  return %3 : tensor<?x?x?xi64>
+
+// CHECK-LABEL:  func.func @test_tile_mixed_constant
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64>, [[PARAM_1_:%.+]]: tensor<2x1x?xi64>) -> tensor<6x?x?xi64> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<3> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Tile"([[PARAM_1_]], [[VAR_2_]]) : (tensor<2x1x?xi64>, tensor<3xi64>) -> tensor<6x?x?xi64>
+// CHECK:           return [[VAR_3_]] : tensor<6x?x?xi64>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_gather_axis0(%arg0 : tensor<3x3xf32>, %arg1 : tensor<1x2xi64>) -> tensor<*xf32> {
   %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()

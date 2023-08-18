@@ -211,8 +211,22 @@ IndexExpr IndexExprBuilder::getValFromArray(
     }
   }
   // If our scalar array is not a constant; we have a runtime value.
+  // Sometimes, a specific value can be a constant. E.g. the array is defined by
+  // a ONNXConcat that mixes constant and runtime values.
   if (Value val = getVal(array, i)) {
-    // Assume that we can write code.
+    // getVal may be smart enough to derive a constant value at index i.
+    // In such a case, we can return a literal.
+    if (ElementsAttr elementsAttr = getConst(val)) {
+      if (isFloat) {
+        double floatVal =
+            getFloatValue(elementsAttr, elType, 0).convertToDouble();
+        return LiteralIndexExpr(floatVal);
+      } else {
+        int64_t intVal = getIntValue(elementsAttr, elType, 0).getSExtValue();
+        return LiteralIndexExpr(intVal);
+      }
+    }
+    // Otherwise, we can write code.
     MathBuilder createMath(*this);
     if (isFloat) {
       Value castedVal = createMath.cast(b().getF32Type(), val);
