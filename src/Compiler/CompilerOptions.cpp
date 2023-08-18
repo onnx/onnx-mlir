@@ -27,6 +27,9 @@ std::string inputFilename;                     // common for both
 std::string outputBaseName;                    // common for both
 std::vector<accel::Accelerator::Kind> maccel;  // common for both
 OptLevel OptimizationLevel;                    // common for both
+std::string mtriple;                           // common for both
+std::string mcpu;                              // common for both
+std::string march;                             // common for both
 InstrumentStages instrumentStage;              // common for both
 int onnxConstPropExpansionBound;               // common for both
 bool enableONNXHybridPass;                     // common for both
@@ -41,9 +44,6 @@ bool preserveMLIR;                             // onnx-mlir only
 bool useOnnxModelTypes;                        // onnx-mlir only
 int repeatOnnxTransform;                       // onnx-mlir only
 std::string shapeInformation;                  // onnx-mlir only
-std::string mtriple;                           // onnx-mlir only
-std::string mcpu;                              // onnx-mlir only
-std::string march;                             // onnx-mlir only
 ModelSize modelSize;                           // onnx-mlir only
 bool storeConstantsToFile;                     // onnx-mlir only
 float constantsToFileTotalThreshold;           // onnx-mlir only
@@ -127,6 +127,24 @@ static llvm::cl::opt<OptLevel, true> OptimizationLevelOpt(
         clEnumVal(O3, "Optimization level 3.")),
     llvm::cl::location(OptimizationLevel), llvm::cl::init(O0),
     llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<std::string, true> mtripleOpt("mtriple",
+    llvm::cl::desc("Override target triple for module"),
+    llvm::cl::value_desc("LLVM target triple"), llvm::cl::location(mtriple),
+    llvm::cl::init(kDefaultTriple), llvm::cl::cat(OnnxMlirCommonOptions),
+    llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string, true> mcpuOpt("mcpu",
+    llvm::cl::desc("Target cpu"),
+    llvm::cl::value_desc("Target a specific CPU type"),
+    llvm::cl::location(mcpu), llvm::cl::cat(OnnxMlirCommonOptions),
+    llvm::cl::ValueRequired);
+
+static llvm::cl::opt<std::string, true> marchOpt("march",
+    llvm::cl::desc("Target architecture to generate code for"),
+    llvm::cl::value_desc("Target a specific architecture type"),
+    llvm::cl::location(march), llvm::cl::cat(OnnxMlirCommonOptions),
+    llvm::cl::ValueRequired);
 
 static llvm::cl::opt<InstrumentStages, true> instrumentStageOpt(
     "instrument-stage", llvm::cl::desc("Specify stage to be instrumented:"),
@@ -237,24 +255,6 @@ static llvm::cl::opt<std::string, true> customEnvFlagsOpt("customEnvFlags",
                    "ONNX_MLIR_FLAGS"),
     llvm::cl::value_desc("option env var"), llvm::cl::location(customEnvFlags),
     llvm::cl::init("ONNX_MLIR_FLAGS"), llvm::cl::cat(OnnxMlirOptions));
-
-static llvm::cl::opt<std::string, true> mtripleOpt("mtriple",
-    llvm::cl::desc("Override target triple for module"),
-    llvm::cl::value_desc("LLVM target triple"), llvm::cl::location(mtriple),
-    llvm::cl::init(kDefaultTriple), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
-
-static llvm::cl::opt<std::string, true> mcpuOpt("mcpu",
-    llvm::cl::desc("Target cpu"),
-    llvm::cl::value_desc("Target a specific CPU type"),
-    llvm::cl::location(mcpu), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
-
-static llvm::cl::opt<std::string, true> marchOpt("march",
-    llvm::cl::desc("Target architecture to generate code for"),
-    llvm::cl::value_desc("Target a specific architecture type"),
-    llvm::cl::location(march), llvm::cl::cat(OnnxMlirOptions),
-    llvm::cl::ValueRequired);
 
 static llvm::cl::opt<ModelSize, true> modelSizeOpt("modelSize",
     llvm::cl::desc("Model to generate code"),
@@ -992,7 +992,26 @@ std::string getToolPath(
   return toolPathMap.at(tool);
 }
 
-// This function must be called after llvm::cl::ParseCommandLineOptions
+// This function is called before llvm::cl::ParseCommandLineOptions
+// to remove unrelated options in addition to hiding them. Since
+// hiding only means that unrelated options will not be printed by
+// -h|--help but they can still be used and silently ignored. But
+// the correct behavior is that using a unrelated option should
+// result in a unknown option error.
+void removeUnrelatedOptions(
+    const std::vector<llvm::cl::OptionCategory *> Categories) {
+  llvm::cl::HideUnrelatedOptions(Categories);
+
+  llvm::StringMap<llvm::cl::Option *> &optMap =
+      llvm::cl::getRegisteredOptions();
+  for (auto n = optMap.begin(); n != optMap.end(); n++) {
+    llvm::cl::Option *opt = n->getValue();
+    if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
+      opt->removeArgument();
+  }
+}
+
+// This function can be called after llvm::cl::ParseCommandLineOptions
 // to create whatever options related compiler configuration states
 // based on the parsed options. It can also check for option consistency.
 //

@@ -70,6 +70,9 @@ extern std::string inputFilename;                     // common for both
 extern std::string outputBaseName;                    // common for both
 extern std::vector<accel::Accelerator::Kind> maccel;  // common for both
 extern OptLevel OptimizationLevel;                    // common for both
+extern std::string mtriple;                           // common for both
+extern std::string mcpu;                              // common for both
+extern std::string march;                             // common for both
 extern InstrumentStages instrumentStage;              // common for both
 extern int onnxConstPropExpansionBound;               // common for both
 extern bool enableONNXHybridPass;                     // common for both
@@ -84,9 +87,6 @@ extern bool preserveMLIR;                             // onnx-mlir only
 extern bool useOnnxModelTypes;                        // onnx-mlir only
 extern int repeatOnnxTransform;                       // onnx-mlir only
 extern std::string shapeInformation;                  // onnx-mlir only
-extern std::string mtriple;                           // onnx-mlir only
-extern std::string mcpu;                              // onnx-mlir only
-extern std::string march;                             // onnx-mlir only
 extern ModelSize modelSize;                           // onnx-mlir only
 extern bool storeConstantsToFile;                     // onnx-mlir only
 extern float constantsToFileTotalThreshold;           // onnx-mlir only
@@ -190,7 +190,8 @@ std::optional<std::string> getEnvVar(std::string name);
 std::string getExecPath();
 std::string getLibraryPath();
 std::string getToolPath(const std::string &tool, bool flag = false);
+void removeUnrelatedOptions(
+    const std::vector<llvm::cl::OptionCategory *> Categories);
 void initCompilerConfig();
 
-void derive_output(void);
 } // namespace onnx_mlir

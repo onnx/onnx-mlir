@@ -35,7 +35,8 @@ int main(int argc, char *argv[]) {
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
-  llvm::cl::HideUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
+  // Remove unrelated options except common ones and the onnx-mlir options
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
 
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,

@@ -91,9 +91,8 @@ int main(int argc, char **argv) {
   // before ParseCommandLineOptions() is called.
   scanAndSetMAccel(argc, argv);
 
-  // Hide unrelated options except common ones and the onnx-mlir-opt options
-  // defined above.
-  llvm::cl::HideUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptOptions});
+  // Remove unrelated options except common ones and the onnx-mlir-opt options
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptOptions});
 
   DialectRegistry registry = registerDialects(maccel);
   registry.insert<tosa::TosaDialect>();
