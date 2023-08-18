@@ -70,6 +70,7 @@ node_time_dict = {}  # op + node_name -> time statistic
 
 focus_on_op_with_pattern = r'.*'
 spurious_node_name_count = 0
+error_missing_time = 0
 supported_only = False
 has_timing = False
 verbose = False
@@ -135,7 +136,7 @@ def record_pattern(op, node_name, detail_key):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict
     global node_time_dict
-    global report_level, has_timing
+    global verbose, report_level, has_timing, error_missing_time
 
     # Update statistic summaries
     op_count_dict[op] = add_to_dict_entry(op_count_dict, op, 1)
@@ -149,7 +150,9 @@ def record_pattern(op, node_name, detail_key):
     # Process timing.
     timing_key = timing_dict_key(op, node_name)
     if not timing_key in node_time_dict:
-        print("> timing key", timing_key, "with no times in dict")
+        error_missing_time += 1
+        if verbose:
+            print("> timing key", timing_key, "with no times found in the performance data.")
         return
     # Update timing summaries
     time = node_time_dict[timing_key]
@@ -275,9 +278,16 @@ def parse_file_for_perf(file_name, stat_name):
         time_stat_dict[key] = append_to_dict_entry(time_stat_dict,
             key, float(detail_array[1]))
 
-    # Compute stat. Right now, just use average, but could do fancier metrics.
+    # Normally, an <op>-<node-name> pair should be seen only once in a run,
+    # except for loops. So we take here the sum of all the times.
+    # This approach would not work well if we had performance for multiple
+    # runs.
+    # TODO: If wanted to average/min/max over multiple runs, we would have
+    # need to pull this inside of the loop above, summing at the end of
+    # a run, and then taking min/max/average of the times gathered for each
+    # run.
     for node in time_stat_dict:
-        node_time_dict[node] = np.average(time_stat_dict[node])
+        node_time_dict[node] = np.sum(time_stat_dict[node])
     has_timing = True
 
 ################################################################################
@@ -287,11 +297,11 @@ def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict
     global report_level, supported_only, verbose, spurious_node_name_count
-    global has_timing
+    global has_timing, error_missing_time
 
     num_desc = "num"
     if has_timing:
-        num_desc += ", time(s)"
+        num_desc += ", cumulative time(s)"
     print("Statistic legend:")
     if report_level < 2:
         print("  op-name:", num_desc)
@@ -301,15 +311,15 @@ def make_report(stat_message):
         print("   " + num_desc + ": node-name, ", stat_message, "\n")
     print("")
     if supported_only:
-        print("Statistics (ignore unsupported ops):")
+        print("Statistics start (ignore unsupported ops).")
     else:
-        print("Statistics (all ops):")
+        print("Statistics start (all ops).")
     for op in sorted(op_count_dict):
         count_time_str = str(op_count_dict[op])
         if op in op_time_dict:
             time = np.sum(op_time_dict[op])
             count_time_str += ", {:.7f}".format(time)
-        print("  ", op, ":", count_time_str)
+        print("  " + op + ", " + count_time_str)
         if report_level:
             det_dict = op_detail_count_dict[op]
             det_time_dict = {}
@@ -324,11 +334,19 @@ def make_report(stat_message):
                     time = np.sum(det_time_dict[det_key])
                     count_time_str += ", {:.7f}".format(time)
                 print("    ", count_time_str, ":", det_key)
+    print("Statistics end.")
 
     # Report spurious node name if any.
-    if not verbose and spurious_node_name_count:
-        print("> Spurious node name were detected and fixed. "
-              "Run with `-v` for details.\n")
+    if spurious_node_name_count:
+        if error_missing_time:
+            print("> Spurious node name were detected.")
+            print("> Timing information was missing for some of the nodes.")
+        else:
+            print("> Spurious node name were detected and fixed.")
+        print("> Run with `-v` for detailed list of fixes and errors.")
+    elif error_missing_time:
+        print("> Timing information was missing for some of the nodes.")
+        print("> Run with `-v` for detailed list of errors.")
 
 
 ################################################################################
