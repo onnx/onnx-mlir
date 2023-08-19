@@ -93,7 +93,7 @@ endif()
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA
-    # ==ADDITIONAL_PARAGRAPH== NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are enough large for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
+    # ==ADDITIONAL_PARAGRAPH== NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
 
     # ==OP== Add
     # ==MIN== 6
@@ -103,7 +103,7 @@ set(NNPA_TEST_LIST
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
-    # ==MIN== 7
+    # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
@@ -126,7 +126,7 @@ set(NNPA_TEST_LIST
     test_batchnorm_example_cpu,zdnn_mul
 
     # ==OP== Conv
-    # ==MIN== 6
+    # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(1).<br>- `dilations` must be default value(1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
     test_basic_conv_with_padding_cpu,zdnn_conv2d
     test_basic_conv_without_padding_cpu,zdnn_conv2d
@@ -136,7 +136,7 @@ set(NNPA_TEST_LIST
     # test_conv_with_strides_and_asymmetric_padding_cpu
 
     # ==OP== ConvTranspose
-    # ==MIN== 6
+    # ==MIN== 1
     # ==LIM== - 1D and 3D not supported because Conv1D and Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN.
     # test_convtranspose_1d_cpu,zdnn_conv1d
     # test_convtranspose_3d_cpu
@@ -177,7 +177,7 @@ set(NNPA_TEST_LIST
     test_gemm_transposeB_cpu,zdnn_matmul_op
 
     # ==OP== GlobalAveragePool
-    # ==MIN== 6
+    # ==MIN== 1
     # ==LIM== - Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static.
     test_globalaveragepool_cpu,zdnn_meanreduce2d
     test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
@@ -223,7 +223,7 @@ set(NNPA_TEST_LIST
     # test_lstm_with_peepholes_cpu
 
     # ==OP== MatMul
-    # ==MIN== 9
+    # ==MIN== 1
     # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2.
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
@@ -248,7 +248,7 @@ set(NNPA_TEST_LIST
     # test_max_uint64_cpu
 
     # ==OP== MaxPool
-    # ==MIN== 6
+    # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
@@ -294,7 +294,7 @@ set(NNPA_TEST_LIST
     test_pow_bcast_scalar_cpu
 
     # ==OP== ReduceMean
-    # ==MIN== 6
+    # ==MIN== 1
     # ==LIM== - `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3].
     # test_reduce_mean_default_axes_keepdims_example_cpu
     # test_reduce_mean_default_axes_keepdims_random_cpu
@@ -311,7 +311,7 @@ set(NNPA_TEST_LIST
     test_relu_cpu,zdnn_relu
 
     # ==OP== Softmax
-    # ==MIN== 6
+    # ==MIN== 1
     # ==LIM== - `axis` must be the last dimension, i.e. `rank - 1` or -1.
     # test_softmax_axis_0_cpu
     # test_softmax_axis_1_cpu

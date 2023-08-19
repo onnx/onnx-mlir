@@ -22,7 +22,7 @@
 # Default min/max opset supported (when not explicitly specified).
 # Default values are used when no explicit ==MIN==/==MAX== values are used.
 min_opset_default = 6
-max_opset_default = 18
+max_opset_default = "*"
 
 import sys
 import getopt
@@ -41,17 +41,17 @@ import subprocess
 #   where <op> is the ONNX op name
 #   where <text> is optional text, currently unused
 #
-# ==LIM== <text> 
+# ==LIM== <text>
 #   where <text> qualifies the current restrictions to the implementation.
 #
 # ==TODO== <text>
-#   where <text> add "private" info about what needs to be fixed. 
+#   where <text> add "private" info about what needs to be fixed.
 #
 # ==MIN== <num>
 #   where <num> is the minimum release version supported.
 #
-# ==MAX== <num>
-#   where <num> is the maximum release version supported.
+# ==UNSUPPORTED== <num>
+#   where <num> is the unsupported release version of the operator.
 #
 ################################################################################
 
@@ -74,7 +74,7 @@ def print_usage(msg = ""):
 ################################################################################
 # Handling of info: global dictionaries.
 
-hightest_opset = 1     # Highest opset found in the description.
+hightest_opset = None  # Highest opset found in the description.
 opset_dict = {}        # <op> -> <text> in "==OP== <op> <text>".
 limit_dict = {}        # <op> -> <text> in "==LIM== <text>".
 min_dict = {}          # <op> -> <num> in "==MIN== <num>".
@@ -86,7 +86,7 @@ additional_top_paragraph = "" # <text> in "==ADDITIONAL_TOP_PARAGRAPH <text>"
 
 ################################################################################
 # Parse input file. Add only info if it is the proper target arch. Other entries
-# and non-relevant data is simply ignored. At this time, does not support 
+# and non-relevant data is simply ignored. At this time, does not support
 # multiple entries of any kind. Everything is case sensitive.
 
 def dotted_sentence(str):
@@ -95,7 +95,7 @@ def dotted_sentence(str):
     return str
 
 def parse_file(file_name):
-    global hightest_opset, additional_top_paragraph
+    global additional_top_paragraph
     try:
         file = open(file_name, 'r')
     except OSError:
@@ -107,7 +107,7 @@ def parse_file(file_name):
         l = line.rstrip()
         # Scan arch.
         p = re.search(r'==ARCH==\s+(\w+)', l)
-        if p is not None: 
+        if p is not None:
             arch = p[1]
             if debug:
                 print("process arch", arch)
@@ -123,15 +123,12 @@ def parse_file(file_name):
             continue
         # Scan op.
         p = re.search(r'==OP==\s+(\w+)', l)
-        if p is not None: 
+        if p is not None:
             op = p[1]
             assert op not in opset_dict, "Redefinition of op " + op
             assert op in list_op_version, "Define an op " + op + " that is not listed in the ops we currently handle."
             versions = list_op_version[op]
             opset_dict[op] = versions
-            m = max(versions)
-            if m > hightest_opset:
-                hightest_opset = m
             if debug:
                 print("got supported op", op, "at level", list_op_version[op])
             continue
@@ -157,18 +154,23 @@ def parse_file(file_name):
         if p is not None:
             assert op is not None, "Min without op."
             assert op not in min_dict, "Redefinition of min for op " + op
-            min_dict[op] = int(p[1])
+            op_min = max(int(p[1]), min_opset_default)
+            min_dict[op] = op_min
+            # By default, assume we support the latest op version. (overridden by UNSUPPORTED)
+            max_dict[op] = max_opset_default
             if debug:
                 print("Got min for op", op, ":", min_dict[op])
             continue
         # Max release supported.
-        p = re.search(r'==MAX==\s+(.*)\s*$', l)
+        p = re.search(r'==UNSUPPORTED==\s+(.*)\s*$', l)
         if p is not None:
-            assert op is not None, "Max without op."
-            assert op not in max_dict, "Redefinition of max for op " + op
-            max_dict[op] = p[1]
+            assert op is not None, "Unsupported without op."
+            assert op in min_dict and min_dict[op], "Unsupported without min for op " + op
+            assert max_dict[op] == max_opset_default, "Redefinition of Unsupported for op " + op
+            # Show the last compatible Opset for the version of the Op
+            max_dict[op] = int(p[1]) - 1
             if debug:
-                print("Got max for op", op, ":", max_dict[op])
+                print("Got unsupported for op", op, ":", max_dict[op])
             continue
 
 ################################################################################
@@ -179,26 +181,6 @@ def print_row(array):
     for a in array:
         str += a + " |"
     print(str)
-
-# Min opset: if explicit ==MIN== value, use as is. Otherwise min of default and
-# custom versions delivered in opset_dict.
-def compute_min_opset(op):
-    if op in min_dict:
-        return min_dict[op]
-    min_list = [min_opset_default]
-    if op in opset_dict:
-        min_list.extend(opset_dict[op])
-    return min(min_list)
-
-# Max opset: if explicit ==MAX== value, use as is. Otherwise max of default and
-# custom versions delivered in opset_dict.
-def compute_max_opset(op):
-    if op in max_dict:
-        return max_dict[op]
-    max_list = [max_opset_default]
-    if op in opset_dict:
-        max_list.extend(opset_dict[op])
-    return max(max_list)
 
 def print_md():
     # Header.
@@ -213,39 +195,34 @@ def print_md():
         " are fully supported by onnx-mlir and not the version changes." + "\n")
     print("* Operations are defined by the [ONNX Standard]" +
         "(https://github.com/onnx/onnx/blob/main/docs/Operators.md).")
-    print("* Opset indicates, for each operation, the ONNX opset that " +
-        "(1) last modified that operation and " +
-        "(2) is supported by the current version of onnx-mlir. " +
-        "For example, \"Add\" was modified in Opset 14 and carries on unmodified " +
-        "to Opset 16. If onnx-mlir supports Opset 14, we thus list \"14\" as the Opset " +
-        "associated with the \"Add\" operation.")
-    print("* Please note an * in the \"Max Opset\" column indicates that" +
-        " this operation is at the current version.")
+    print("* **Supported Opsets** indicates the lowest and highest opset a model" +
+          " may have for onnx-mlir to support compiling a model with the operator. ")
+    print("   * A * indicates onnx-mlir is compatible with the latest" +
+          " version of that operator available as of opset " + str(hightest_opset) + ".")
+
     print("\n")
     # Additional top paragraph.
     if additional_top_paragraph:
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Min Opset", "Max Opset", "Limitations"]
-    separator = ["---", "---", "---", "---"]
+    header = ["Op", "Supported Opsets", "Limitations"]
+    separator = ["---", "---", "---"]
     if emit_notes:
         header.append("Notes")
         separator.append("---")
     print_row(header)
     print_row(separator)
     for op in sorted(list_op_version.keys()):
-        supported_op = op in opset_dict;
+        supported_op = op in min_dict ;
         if supported_op:
-            info = ["**"+op+"**", str(compute_min_opset(op)), str(compute_max_opset(op))]
+            info = ["**"+op+"**", f"{min_dict[op]} - {max_dict[op]}"]
         else:
             if not emit_unsupported:
                 continue
-            info = ["**"+op+"**", "", ""]
+            info = ["**"+op+"**", "none", ""]
         if op in limit_dict:
             info.append(limit_dict[op])
-        elif not supported_op:
-            info.append("unsupported")
         else:
             info.append("")
         if emit_notes:
@@ -255,10 +232,10 @@ def print_md():
                 info.append("")
         print_row(info)
 
-        
+
 def main(argv):
     global debug, target_arch, emit_notes, emit_unsupported, input_command, additional_top_paragraph
-    global list_op_version
+    global list_op_version, hightest_opset
     debug = 0
     target_arch = "cpu"
     emit_notes = 0
@@ -303,6 +280,7 @@ def main(argv):
     for line in  proc.stdout:
         str += line.decode("utf-8").rstrip()
     list_op_version = eval(str)
+    hightest_opset = max([max(i) for i in list_op_version.values()])
     if debug:
         print("List op version is: ", list_op_version)
 
