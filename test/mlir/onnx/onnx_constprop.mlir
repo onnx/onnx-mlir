@@ -1234,44 +1234,6 @@ func.func @test_split_axis_2(%arg0 : tensor<2x10xf32>) -> (tensor<2x5xf32>, tens
 
 // -----
 
-// CHECK-LABEL: @test_splitv11_axis_0() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-func.func @test_splitv11_axis_0() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-  %0 = onnx.Constant dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>
-  %1, %2 = "onnx.SplitV11"(%0) { axis = 0 : si64, split = [1, 1]} : (tensor<2x10xf32>) -> (tensor<1x10xf32>, tensor<1x10xf32>)
-  "onnx.Return"(%1, %2) : (tensor<1x10xf32>, tensor<1x10xf32>) -> ()
-
-  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[0.000000e+00, 1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00]]> : tensor<1x10xf32>
-  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[1.000000e+01, 1.100000e+01, 1.200000e+01, 1.300000e+01, 1.400000e+01, 1.500000e+01, 1.600000e+01, 1.700000e+01, 1.800000e+01, 1.900000e+01]]> : tensor<1x10xf32>
-  // CHECK-NOT: {{.*}} = "onnx.SplitV11"{{.*}}
-}
-
-// -----
-
-// CHECK-LABEL: @test_splitv11_axis_1() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-func.func @test_splitv11_axis_1() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-  %0 = onnx.Constant dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>
-  %1, %2 = "onnx.SplitV11"(%0) { axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
-  "onnx.Return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
-
-  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[0.000000e+00, 1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00], [1.000000e+01, 1.100000e+01, 1.200000e+01, 1.300000e+01, 1.400000e+01]]> : tensor<2x5xf32>
-  // CHECK: {{.*}}  = onnx.Constant dense<{{\[}}[5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00], [1.500000e+01, 1.600000e+01, 1.700000e+01, 1.800000e+01, 1.900000e+01]]> : tensor<2x5xf32>
-  // CHECK-NOT: {{.*}} = "onnx.SplitV11"{{.*}}
-}
-
-// -----
-
-// COM: There is no constant propagation if the split's input is not a constant.
-
-// CHECK-LABEL: @test_splitv11_axis_2(%arg0: tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-func.func @test_splitv11_axis_2(%arg0 : tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-  %1, %2 = "onnx.SplitV11"(%arg0) { axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
-  "onnx.Return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
-
-  // CHECK: {{.*}} = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
-}
-
-// -----
-
 func.func @test_mul_folding(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
   %0 = onnx.Constant dense<[[[[0.0234164055, 0.0228030644], [2.442580e-02, 0.0237577036]]], [[[-0.0410864502, 0.0488203131], [0.164448678, -0.0200194642]]], [[[-4.34581793E-9, 0.025325032], [0.0373019315, 0.165243402]]], [[[-0.0198689923, 0.131284416], [0.0572107285, 2.33985098E-8]]], [[[0.0187684372, -0.148515195], [0.0154875498, 0.019133633]]], [[[0.0176953916, -0.0154658081], [0.0233727545, -0.274110436]]], [[[-0.021181887, 0.0936150252], [0.135688141, -0.0202601217]]], [[[-0.0201558527, 0.0192655921], [0.227748245, -0.196346223]]]]> : tensor<8x1x2x2xf32>
   %1 = "onnx.NoValue"() {value} : () -> none
