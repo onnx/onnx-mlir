@@ -163,6 +163,14 @@ static llvm::cl::opt<int, true> onnxConstPropExpansionBoundOpt(
     llvm::cl::location(onnxConstPropExpansionBound), llvm::cl::init(-1),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::list<std::string, std::vector<std::string>>
+    onnxConstPropDisablePatternsOpt("onnx-const-prop-disable-pattern",
+        llvm::cl::desc("Named constant propagation pattern to disable. "
+                       "Repeat the flag to disable multiple patterns."),
+        llvm::cl::value_desc("named constant propagation patterns to disable"),
+        llvm::cl::location(onnxConstPropDisablePatterns),
+        llvm::cl::cat(OnnxMlirCommonOptions));
+
 static llvm::cl::opt<bool, true> enableONNXHybridPassOpt("onnx-hybrid-pass",
     llvm::cl::desc("Enable ONNX hybrid pass (default=true)\n"
                    "Set to 'false' if you want to disable ONNX hybrid pass."),

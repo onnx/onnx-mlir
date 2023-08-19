@@ -1068,7 +1068,8 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
 } // end anonymous namespace.
 
-void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound) {
+void onnx_mlir::configureConstPropONNXToONNXPass(
+    int expansionBound, ArrayRef<std::string> disabledPatterns) {
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
 }
 
