@@ -12,14 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "CompilerUtils.hpp"
+#include "ExternalUtil.hpp"
+
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Export.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SourceMgr.h"
@@ -27,12 +34,11 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 
-#include "ExternalUtil.hpp"
-
 #include "src/Accelerators/Accelerator.hpp"
+#include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
-#include "src/Compiler/CompilerUtils.hpp"
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Version/Version.hpp"
@@ -40,23 +46,12 @@
 #include <fstream>
 #include <regex>
 
-#define DEBUG_TYPE "compiler_utils"
-
 using namespace mlir;
 using namespace onnx_mlir;
 
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
-
-// Return the vendor name if specified during make processing or the default.
-std::string getVendorName() {
-#if defined(ONNX_MLIR_VENDOR)
-  return ONNX_MLIR_VENDOR;
-#else
-  return "ONNX-MLIR";
-#endif
-}
 
 std::optional<std::string> getEnvVar(std::string name) {
   if (const char *envVerbose = std::getenv(name.c_str()))
@@ -315,19 +310,28 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
   // Annotate functions to be accessible from DLL on Windows.
 #ifdef _WIN32
   SmallVector<StringRef, 4> exportedFuncs;
+  std::string tag = "";
+  assert(!modelTag.empty() && "Model tag was not set");
+  if (!StringRef(modelTag).equals_insensitive("NONE"))
+    tag = "_" + modelTag;
   // Signature functions.
   exportedFuncs.emplace_back(StringRef("omInputSignature"));
   exportedFuncs.emplace_back(StringRef("omOutputSignature"));
   exportedFuncs.emplace_back(StringRef("omQueryEntryPoints"));
+  if (!tag.empty()) {
+    exportedFuncs.emplace_back(StringRef("omInputSignature" + tag));
+    exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
+    exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
+  }
   // Entry point funtions.
   if (llvm::GlobalVariable *GV =
-          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays"))) {
+          llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
       llvm::Constant *initializer = GV->getInitializer();
       llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(initializer->getType());
       for (uint64_t i = 0; i < AT->getNumElements() - 1; ++i) {
         llvm::GlobalVariable *entryGV = llvmModule.getNamedGlobal(
-            StringRef("_entry_point_" + std::to_string(i)));
+            StringRef("_entry_point_" + std::to_string(i) + tag));
         if (entryGV->isConstant()) {
           llvm::ConstantDataSequential *entry =
               dyn_cast<llvm::ConstantDataSequential>(entryGV->getInitializer());
@@ -579,7 +583,8 @@ static int compileModuleToSharedLibrary(
       modelObjNameWithExt, !keepFiles(KeepFilesOfType::Object));
   libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
   return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
-      getCompilerConfig(CCM_SHARED_LIB_DEPS), {getLibraryPath()});
+      getCompilerConfig(CCM_SHARED_LIB_DEPS),
+      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS));
 }
 
 // Return 0 on success, error code on failure
@@ -622,7 +627,7 @@ static int compileModuleToJniJar(
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      {getLibraryPath()});
+      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS));
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelSharedLibRemover(
@@ -632,18 +637,9 @@ static int compileModuleToJniJar(
   return genJniJar(module, modelSharedLibPath, modelJniJarPath);
 }
 
-void registerDialects(mlir::MLIRContext &context) {
-  // Load our Dialect in this MLIR Context.
-  context.getOrLoadDialect<mlir::affine::AffineDialect>();
-  context.getOrLoadDialect<mlir::vector::VectorDialect>();
-  context.getOrLoadDialect<mlir::LLVM::LLVMDialect>();
-  context.getOrLoadDialect<mlir::scf::SCFDialect>();
-  context.getOrLoadDialect<mlir::func::FuncDialect>();
-  context.getOrLoadDialect<mlir::shape::ShapeDialect>();
-  context.getOrLoadDialect<mlir::math::MathDialect>();
-  context.getOrLoadDialect<mlir::memref::MemRefDialect>();
-  context.getOrLoadDialect<mlir::ONNXDialect>();
-  context.getOrLoadDialect<mlir::KrnlDialect>();
+void loadDialects(mlir::MLIRContext &context) {
+  context.appendDialectRegistry(registerDialects(maccel));
+  context.loadAllAvailableDialects();
 }
 
 namespace {
@@ -764,6 +760,13 @@ static int emitOutputFiles(std::string outputNameNoExt,
   } break;
   case EmitLib: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, {getLibraryPath()});
+    // Add user specified libs and their path
+    // Multiple lib or directory can be specified with multiple options.
+    // For example, -lextra1, -lextra2, -Lpath1, -Lpath2
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, extraLibs);
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, extraLibPaths);
+
     std::string sharedLibNameWithExt;
     int rc = compileModuleToSharedLibrary(
         module, outputNameNoExt, sharedLibNameWithExt);
@@ -780,6 +783,13 @@ static int emitOutputFiles(std::string outputNameNoExt,
   } break;
   case EmitJNI: {
     addCompilerConfig(CCM_SHARED_LIB_DEPS, {"jniruntime", "cruntime"});
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, {getLibraryPath()});
+    // Add user specified libs and their path
+    // Multiple lib or directory can be specified with multiple options.
+    // For example, -lextra1, -lextra2, -Lpath1, -Lpath2
+    addCompilerConfig(CCM_SHARED_LIB_DEPS, extraLibs);
+    addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, extraLibPaths);
+
     int rc = compileModuleToJniJar(module, outputNameNoExt);
     if (rc != CompilerSuccess)
       return rc;
@@ -881,6 +891,31 @@ static int setupModule(mlir::OwningOpRef<ModuleOp> &module,
   moduleOp.setAttr(LLVM::LLVMDialect::getDataLayoutAttrName(),
       StringAttr::get(&context, getDataLayout(loc)));
 
+  // Set a tag that will be used to postfix symbols in the generated
+  // LLVMIR. By default, use the filename (without extension) of the input onnx
+  // model or the value passed to `-o`.
+  // This tag makes the symbols unique across multiple generated models.
+  // In particular, it will be appended to global variable and function names.
+  // For example, we will have two entry points: `run_main_graph` and
+  // `run_main_graph_tag`, doing the same computation.
+  if (modelTag.empty())
+    modelTag = llvm::sys::path::filename(outputNameNoExt).lower();
+  // Verify modelTag value.
+  if (!StringRef(modelTag).equals_insensitive("NONE") &&
+      !std::regex_match(modelTag, std::regex("([0-9a-z_.-]+)"))) {
+    llvm::outs() << "Tag is " << modelTag << "\n";
+    emitError(loc,
+        "Invalid value for --tag. If --tag is not given, it takes "
+        "value from the model's filename or -o option. Make sure the tag value "
+        "matches regex ([0-9a-z_.-]+)");
+    return InvalidCompilerOption;
+  }
+  if (StringRef(modelTag).equals_insensitive("NONE"))
+    moduleOp.setAttr("onnx-mlir.symbol-postfix", StringAttr::get(&context, ""));
+  else
+    moduleOp.setAttr(
+        "onnx-mlir.symbol-postfix", StringAttr::get(&context, modelTag));
+
   // Set the module target accelerators.
   SmallVector<Attribute, 2> accelsAttr;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
@@ -917,13 +952,14 @@ static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
 int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     EmissionTargetType emissionTarget) {
-  // Initialize accelerator(s) if required.
-  if (!maccel.empty())
-    onnx_mlir::accel::initAccelerators(maccel);
-
   int rc = setupModule(module, context, outputNameNoExt);
   if (rc != CompilerSuccess)
     return rc;
+
+  pushCompilerConfig(CCM_SHARED_LIB_DEPS);
+  pushCompilerConfig(CCM_SHARED_LIB_PATH_DEPS);
+
+  configurePasses();
 
   mlir::PassManager pm(
       module.get()->getName(), mlir::OpPassManager::Nesting::Implicit);
@@ -934,7 +970,6 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   bool hasAccel = false;
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
     hasAccel = true;
-    accel->getOrLoadDialects(context);
     accel->addPasses(module, pm, emissionTarget, outputNameNoExt);
   }
   if (!hasAccel)
@@ -947,8 +982,14 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
   (void)mlir::applyPassManagerCLOptions(pm);
   mlir::applyDefaultTimingPassManagerCLOptions(pm);
 
-  if (mlir::failed(pm.run(*module)))
+  if (mlir::failed(pm.run(*module))) {
+    popCompilerConfig(CCM_SHARED_LIB_DEPS);
+    popCompilerConfig(CCM_SHARED_LIB_PATH_DEPS);
     return CompilerFailure;
-  return emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
+  }
+  int result = emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
+  popCompilerConfig(CCM_SHARED_LIB_DEPS);
+  popCompilerConfig(CCM_SHARED_LIB_PATH_DEPS);
+  return result;
 }
 } // namespace onnx_mlir

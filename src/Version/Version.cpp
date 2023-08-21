@@ -19,6 +19,14 @@
 
 namespace onnx_mlir {
 
+std::string getVendorName() {
+#if defined(ONNX_MLIR_VENDOR)
+  return ONNX_MLIR_VENDOR;
+#else
+  return "ONNX-MLIR";
+#endif
+}
+
 std::string getOnnxMlirRepositoryPath() {
 #if defined(ONNX_MLIR_REPOSITORY)
   return ONNX_MLIR_REPOSITORY;

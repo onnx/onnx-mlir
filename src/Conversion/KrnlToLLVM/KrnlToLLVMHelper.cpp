@@ -192,8 +192,8 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
     OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
-  LLVM::GlobalOp global =
-      module.lookupSymbol<LLVM::GlobalOp>("om_" + str.str());
+  LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(
+      LLVMBuilder::SymbolPostfix(module, "om_" + str.str()));
   if (!global) {
     // Create the global at the entry of the module.
     OpBuilder::InsertionGuard insertGuard(builder);

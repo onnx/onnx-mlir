@@ -104,7 +104,7 @@ struct ONNXGatherElementsOpLowering
         });
 
     rewriter.replaceOp(op, output);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

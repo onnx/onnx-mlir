@@ -56,7 +56,7 @@ llvm::cl::opt<bool> preserveMLIR("preserveMLIR",
 
 llvm::cl::opt<bool> useOnnxModelTypes("useOnnxModelTypes",
     llvm::cl::desc("use types and shapes from ONNX model"),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<int> repeatOnnxTransform("repeatOnnxTransform",
     llvm::cl::desc(
@@ -100,7 +100,7 @@ llvm::cl::opt<ModelSize> modelSize("modelSize",
     llvm::cl::value_desc("Only support small or large"),
     llvm::cl::values(
         clEnumVal(small, "Generate code for the small model. "
-                         "No special treament at this moment. This is the "
+                         "No special treatment at this moment. This is the "
                          "default code model"),
         clEnumVal(large,
             "Generate code for the large model. "
@@ -114,7 +114,7 @@ llvm::cl::opt<bool> storeConstantsToFile("store-constants-to-file",
         "into the model.so. The binary file is in the same folder as the "
         "model.so and has the same name as the model with the extension of "
         ".constants.bin. For inference, model.constants.bin must be at the "
-        "same folder as the inference programm. If model.constants.bin is at "
+        "same folder as the inference program. If model.constants.bin is at "
         "another folder, use the environment variable OM_CONSTANT_PATH to set "
         "the constant folder. Windows will be supported soon."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
@@ -125,7 +125,7 @@ llvm::cl::opt<float> constantsToFileTotalThreshold(
         "Put global constants to a file if the total size in "
         "bytes of constants is greater than this threshold. "
         "store-constants-to-file must be enabled for this to be effective. "
-        "Only count contants whose size is greater than "
+        "Only count constants whose size is greater than "
         "constants-to-file-single-threshold. Value is in GB."),
     llvm::cl::init(2.0), llvm::cl::cat(OnnxMlirOptions));
 
@@ -230,12 +230,17 @@ llvm::cl::opt<int> onnxOpTransformThreshold("onnx-op-transform-threshold",
     llvm::cl::init(3), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> onnxOpTransformReport("onnx-op-transform-report",
-    llvm::cl::desc("Report diagnostic info for op transform passes."),
+    llvm::cl::desc(
+        "Report diagnostic info for ONNX op transform/optimization passes."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> onnxConstPropReport("onnx-const-prop-report",
-    llvm::cl::desc("Report diagnostic info for constant propagation passes."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::opt<int> onnxConstPropExpansionBound(
+    "onnx-const-prop-expansion-bound",
+    llvm::cl::desc("ONNX dialect constant propagation maximum expansion factor."
+                   " Constants are not propagated if their bytes size exceed"
+                   " the aggregate operands' sizes by more than this factor."
+                   " Set to -1 to always propagate, which is the default."),
+    llvm::cl::init(-1), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> enableParallel("parallel",
     llvm::cl::desc("Enable parallelization (default=false)\n"
@@ -284,6 +289,55 @@ llvm::cl::list<std::string> functionsToDecompose("functions-to-decompose",
     llvm::cl::desc("Specify ONNX functions to decompose"),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
+llvm::cl::opt<std::string> modelTag("tag",
+    llvm::cl::desc(
+        "Set a tag that will be used to postfix symbols in the generated "
+        "LLVMIR to make the symbols unique across multiple generated models. "
+        "By default, use the filename (without extension) of the input onnx "
+        "model or the value passed to `-o`. The tag will be appended to "
+        "global variable and function names. For backward compatibility, each "
+        "function has two versions with the same signature and doing the same "
+        "computation. For example, we will have two entry points: "
+        "`run_main_graph` and `run_main_graph_tag`, where `run_main_graph` "
+        "is just a wrapper of `run_main_graph_tag`. Users can call one of "
+        "the entry points and expect the same result. Passing `NONE` to "
+        "`--tag` will disable tag completely, meaning no tag is appended to "
+        "the symbols."),
+    llvm::cl::value_desc("a string that matches regex ([0-9a-z_.-]+)"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> enableConvOptPass("enable-conv-opt-pass",
+    llvm::cl::desc("Enable the ConvOptPass. Default is true."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> extraLibPaths("L",
+    llvm::cl::desc("Specify extra directories for libraries when compiling"
+                   "an onnx model. Will be add used as -L in the linkage step."
+                   "Each directory can be specified with one extra-lib-dirs"),
+    llvm::cl::Prefix, llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::list<std::string> extraLibs("l",
+    llvm::cl::desc("Specify extra libraries when compiling an onnx model."
+                   "Will be add used as -l in the linkage step."
+                   "Each lib can be specified with one extra-libs"),
+    llvm::cl::Prefix, llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<ProfileIRs> profileIR("profile-ir",
+    llvm::cl::desc("Profile operations in an IR"),
+    llvm::cl::values(clEnumVal(None, "No profiling. Default value."),
+        clEnumVal(
+            Onnx, "Profile operations in ONNXIR generated by --EmitONNXIR.")
+            APPLY_TO_ACCELERATORS(ACCEL_PROFILEIR_CL_ENUM)),
+    llvm::cl::init(ProfileIRs::None), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<OnnxOpReport> onnxOpReport("onnx-op-report",
+    llvm::cl::desc("Provide ONNX operation report on their optimizations."),
+    llvm::cl::values(clEnumVal(NoReport, "No report. Default value."),
+        clEnumVal(Parallel,
+            "Provide report on how OMP Parallel is applied to ONNX ops."),
+        clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")),
+    llvm::cl::init(OnnxOpReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
+
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
 // dependent libdnn.
@@ -291,6 +345,7 @@ llvm::cl::list<std::string> functionsToDecompose("functions-to-decompose",
 // If it gets more complicated in the future, it can be
 // replaced by a class of its own.
 std::map<std::string, std::vector<std::string>> CompilerConfigMap;
+std::map<std::string, std::vector<size_t>> CompilerConfigStack;
 
 // Must match ModelSize enum
 const std::string modelSizeStr[] = {"small", "medium", "large", "huge"};
@@ -503,6 +558,11 @@ void setLLVMOption(const std::string &flag) { mllvm = flag; }
 void clearLLVMOption() { mllvm.clear(); }
 std::string getLLVMOption() { return (mllvm != "") ? mllvm : std::string(); }
 
+// Support for model tag
+void setModelTag(const std::string &str) { modelTag = str; }
+void clearModelTag() { modelTag = ""; }
+std::string getModelTag() { return modelTag; }
+
 // Support for Verbose Option
 void setVerboseOption() { VerboseOutput = true; }
 void clearVerboseOption() { VerboseOutput = false; }
@@ -543,6 +603,9 @@ int setCompilerOption(const OptionKind kind, const std::string &val) {
   case OptionKind::LLVMFlag:
     setLLVMOption(val);
     break;
+  case OptionKind::ModelTag:
+    setModelTag(val);
+    break;
   case OptionKind::Verbose:
     setVerboseOption();
     break;
@@ -577,6 +640,9 @@ void clearCompilerOption(const OptionKind kind) {
   case OptionKind::LLVMFlag:
     clearLLVMOption();
     break;
+  case OptionKind::ModelTag:
+    clearModelTag();
+    break;
   case OptionKind::Verbose:
     clearVerboseOption();
     break;
@@ -610,6 +676,8 @@ std::string getCompilerOption(const OptionKind kind) {
   }
   case OptionKind::LLVMFlag:
     return getLLVMOption();
+  case OptionKind::ModelTag:
+    return getModelTag();
   case OptionKind::Verbose:
     return getVerboseOption();
   }
@@ -647,6 +715,23 @@ void delCompilerConfig(std::string k, std::vector<std::string> v) {
   u.erase(remove_if(begin(u), end(u),
               [&](auto x) { return find(begin(v), end(v), x) != end(v); }),
       end(u));
+  CompilerConfigMap[k] = u;
+}
+
+void pushCompilerConfig(std::string k) {
+  size_t top = CompilerConfigMap[k].size();
+  CompilerConfigStack[k].push_back(top);
+}
+
+void popCompilerConfig(std::string k) {
+  assert(
+      !CompilerConfigStack[k].empty() && "pop an empty CompilerConfig stack");
+  size_t top = CompilerConfigStack[k].back();
+  assert(top <= CompilerConfigMap[k].size() && "incorrect top for stack");
+  CompilerConfigStack[k].pop_back();
+  std::vector<std::string> u = CompilerConfigMap[k];
+  while (u.size() > top)
+    u.pop_back();
   CompilerConfigMap[k] = u;
 }
 

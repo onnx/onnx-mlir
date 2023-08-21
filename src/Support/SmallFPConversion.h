@@ -13,10 +13,6 @@
 
 #include <stdint.h>
 
-#ifdef __MVS__
-#define static_assert _Static_assert
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,4 +29,4 @@ uint16_t om_f32_to_bf16(float f32);
 }
 #endif
 
-#endif
+#endif // ONNX_MLIR_SMALLFPCONVERSION_H

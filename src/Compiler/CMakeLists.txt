@@ -58,6 +58,18 @@ add_onnx_mlir_library(OMCompilerOptions
   OMAccelerator
   )
 
+
+add_onnx_mlir_library(OMCompilerDialects
+  CompilerDialects.cpp
+
+  LINK_LIBS PUBLIC
+  OMAccelerator
+  OMInitAccelerators
+  OMKrnlOps
+  OMONNXOps
+  MLIRIR
+  )
+
 add_onnx_mlir_library(OMCompilerPasses
   CompilerPasses.cpp
   DisposableGarbageCollector.cpp
@@ -78,6 +90,8 @@ add_onnx_mlir_library(OMCompilerPasses
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
   MLIRBuiltinToLLVMIRTranslation
+  MLIROpenMPToLLVM
+  MLIRSCFToOpenMP
   )
 
 # ONNX_MLIR_PRODUCT_VERSION is specified/cached.
@@ -150,9 +164,9 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
+  OMCompilerDialects
   OMCompilerPasses
   OMAccelerator
-  OMInitAccelerators
   OMVersion
   MLIRIR
 
@@ -190,6 +204,7 @@ add_onnx_mlir_library(OMCompiler
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PRIVATE
+  OMCompilerDialects
   OMCompilerUtils
   )
 
