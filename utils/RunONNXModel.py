@@ -59,15 +59,18 @@ parser.add_argument('--log-to-file',
                     const="compilation.log",
                     default=None,
                     help="Output compilation messages to file, default compilation.log")
-parser.add_argument('--model',
+parser.add_argument('-m',
+                    '--model',
                     type=lambda s: valid_onnx_input(s),
                     help="Path to an ONNX model (.onnx or .mlir)")
-parser.add_argument('--compile-args',
+parser.add_argument('-c',
+                    '--compile-args',
                     type=str,
                     default="",
                     help="Arguments passed directly to onnx-mlir command."
                     " See bin/onnx-mlir --help")
-parser.add_argument('--compile-only',
+parser.add_argument('-C',
+                    '--compile-only',
                     action='store_true',
                     help="Only compile the input model")
 parser.add_argument('--compile-using-input-shape',
@@ -160,6 +163,10 @@ parser.add_argument('--n-iteration',
                     type=lambda s: check_positive("--n-iteration", s),
                     default=1,
                     help="The number of inference runs excluding warmup")
+parser.add_argument('--seed',
+                    type=str,
+                    default="42",
+                    help="seed to initialize the random num generator for inputs")
 
 args = parser.parse_args()
 if (args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value)):
@@ -352,14 +359,16 @@ def read_output_from_refs(num_outputs, load_ref):
 
 
 def generate_random_input(input_signature, input_shapes):
-    print("Generating random inputs ...")
+    # Numpy expect an int, tolerate int/float strings.
+    curr_seed = int(float(args.seed))
+    print("Generating random inputs using seed", curr_seed, "...")
     # Generate random data as input.
     inputs = []
 
     # Load the input signature.
     signature = json.loads(input_signature)
 
-    np.random.seed(42)
+    np.random.seed(curr_seed)
     for i, sig in enumerate(signature):
         # Get shape.
         explicit_shape = []
