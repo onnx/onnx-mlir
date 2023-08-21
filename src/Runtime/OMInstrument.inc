@@ -39,7 +39,7 @@
 
 #ifdef _WIN32
 #include "windows.h"
-
+// The windows.h include must go first.
 #include "psapi.h"
 
 static LARGE_INTEGER globalTime, initTime;
