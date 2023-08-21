@@ -725,7 +725,7 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   StringAttr opName = op->getName().getIdentifier();
   std::string nodeNameStr = getNodeNameLikeInKrnlInstrument(op);
   // Print report on this op.
-  fprintf(stderr, "==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+  printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
       loopLevel, parallelLoopTripCount);
 }
@@ -745,7 +745,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
     // No comments, all values indicate no simd
     message = "unsupported";
   // Print report on this op.
-  fprintf(stderr, "==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+  printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
       vectorLength, simdLoopTripCount);
 }

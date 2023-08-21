@@ -51,13 +51,13 @@ static LARGE_INTEGER perfFrequency;
 
 static struct timeval globalTimeVal, initTimeVal;
 static pid_t mypid;
-static int psErrorCount = 0;
 #endif
 
 static bool instrumentReportDisabled = false;
 static bool instrumentReportTimeDisabled = false;
 static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0;
+static int psErrorCount = 0;
 
 #ifdef __MVS__
 #define timersub(a, b, result)                                                 \
@@ -97,9 +97,9 @@ void ReportTime() {
   LONGLONG resultSeconds, resultMicroseconds;
   QueryPerformanceCounter(&newTime);
   WinTimerSub(newTime, globalTime, &resultSeconds, &resultMicroseconds);
-  fprintf(stderr, ", %lld.%06lld", resultSeconds, resultMicroseconds);
+  printf(", %lld.%06lld", resultSeconds, resultMicroseconds);
   WinTimerSub(newTime, initTime, &resultSeconds, &resultMicroseconds);
-  fprintf(stderr, ", %lld.%06lld\n", resultSeconds, resultMicroseconds);
+  printf(", %lld.%06lld\n", resultSeconds, resultMicroseconds);
   globalTime = newTime;
 }
 #else
@@ -107,11 +107,9 @@ void ReportTime() {
   struct timeval newTimeValue, result;
   gettimeofday(&newTimeValue, NULL);
   timersub(&newTimeValue, &globalTimeVal, &result);
-  fprintf(
-      stderr, ", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
+  printf(", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
   timersub(&newTimeValue, &initTimeVal, &result);
-  fprintf(stderr, ", %ld.%06ld\n", (long int)result.tv_sec,
-      (long int)result.tv_usec);
+  printf(", %ld.%06ld\n", (long int)result.tv_sec, (long int)result.tv_usec);
   globalTimeVal = newTimeValue;
 }
 #endif
@@ -122,7 +120,7 @@ void ReportMemory() {
   GetProcessMemoryInfo(
       GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
   SIZE_T vMemSizeKB = pmc.PrivateUsage / 1024;
-  fprintf(stderr, "%zu\n", vMemSizeKB);
+  printf("%zu\n", vMemSizeKB);
 }
 #else
 void ReportMemory() {
@@ -133,7 +131,7 @@ void ReportMemory() {
   snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
-    fprintf(stderr, ", error-failed-to-execute-ps\n");
+    printf(", error-failed-to-execute-ps\n");
     psErrorCount++;
     return;
   }
@@ -141,7 +139,7 @@ void ReportMemory() {
   (void)fgetc(memPipe);
   memOutput[strcspn(memOutput, "\n")] = 0;
   if (!feof(memPipe)) {
-    fprintf(stderr, ", error-unexpected-output-from-pipe\n");
+    printf(", error-unexpected-output-from-pipe\n");
     psErrorCount++;
   } else {
     // No error, print data/
@@ -186,13 +184,13 @@ void OMInstrumentPoint(const char *opName, int64_t tag, const char *nodeName) {
 
   if (reportTime) {
     // Print header and data for time.
-    fprintf(stderr, "==PERF-REPORT==, %s, %s, %s", opName, nodeName,
+    printf("==PERF-REPORT==, %s, %s, %s", opName, nodeName,
         (isBefore ? "before" : "after"));
     ReportTime();
   }
   if (reportMem && psErrorCount < 20) {
     // Print header and data for memory.
-    fprintf(stderr, "==MEM-REPORT==, %s, %s, %s", opName, nodeName,
+    printf("==MEM-REPORT==, %s, %s, %s", opName, nodeName,
         (isBefore ? "before" : "after"));
     ReportMemory();
   }
