@@ -24,59 +24,60 @@
 namespace onnx_mlir {
 
 // Use external storage for the options so that they are globally accessible
-std::string inputFilename;                     // common for both
-std::string outputBaseName;                    // common for both
-std::vector<accel::Accelerator::Kind> maccel;  // common for both
-OptLevel OptimizationLevel;                    // common for both
-std::string mtriple;                           // common for both
-std::string mcpu;                              // common for both
-std::string march;                             // common for both
-InstrumentStages instrumentStage;              // common for both
-int onnxConstPropExpansionBound;               // common for both
-bool enableONNXHybridPass;                     // common for both
-std::vector<std::string> functionsToDecompose; // common for both
-EmissionTargetType emissionTarget;             // onnx-mlir only
-bool invokeOnnxVersionConverter;               // onnx-mlir only
-bool preserveLocations;                        // onnx-mlir only
-bool printIR;                                  // onnx-mlir only
-bool preserveBitcode;                          // onnx-mlir only
-bool preserveLLVMIR;                           // onnx-mlir only
-bool preserveMLIR;                             // onnx-mlir only
-bool useOnnxModelTypes;                        // onnx-mlir only
-int repeatOnnxTransform;                       // onnx-mlir only
-std::string shapeInformation;                  // onnx-mlir only
-ModelSize modelSize;                           // onnx-mlir only
-bool storeConstantsToFile;                     // onnx-mlir only
-float constantsToFileTotalThreshold;           // onnx-mlir only
-float constantsToFileSingleThreshold;          // onnx-mlir only
-bool VerboseOutput;                            // onnx-mlir only
-std::vector<std::string> Xopt;                 // onnx-mlir only
-std::vector<std::string> Xllc;                 // onnx-mlir only
-std::string mllvm;                             // onnx-mlir only
-std::string instrumentOps;                     // onnx-mlir only
-unsigned instrumentControlBits;                // onnx-mlir only
-bool instrumentONNXSignature;                  // onnx-mlir only
-std::string ONNXOpStats;                       // onnx-mlir only
-bool enableMemoryBundling;                     // onnx-mlir only
-int onnxOpTransformThreshold;                  // onnx-mlir only
-bool onnxOpTransformReport;                    // onnx-mlir only
-bool enableParallel;                           // onnx-mlir only
-bool disableSimdOption;                        // onnx-mlir only
-bool enableSimdDataLayout;                     // onnx-mlir only
-bool verifyInputTensors;                       // onnx-mlir only
-bool allowSorting;                             // onnx-mlir only
-std::string reportHeapBefore;                  // onnx-mlir only
-std::string reportHeapAfter;                   // onnx-mlir only
-std::string modelTag;                          // onnx-mlir only
-bool enableConvOptPass;                        // onnx-mlir only
-std::vector<std::string> extraLibPaths;        // onnx-mlir only
-std::vector<std::string> extraLibs;            // onnx-mlir only
-ProfileIRs profileIR;                          // onnx-mlir only
-OptReport optReport;                           // onnx-mlir only
-bool split_input_file;                         // onnx-mlir-opt only
-bool verify_diagnostics;                       // onnx-mlir-opt only
-bool verify_passes;                            // onnx-mlir-opt only
-bool allowUnregisteredDialects;                // onnx-mlir-opt only
+std::string inputFilename;                             // common for both
+std::string outputBaseName;                            // common for both
+std::vector<accel::Accelerator::Kind> maccel;          // common for both
+OptLevel OptimizationLevel;                            // common for both
+std::string mtriple;                                   // common for both
+std::string mcpu;                                      // common for both
+std::string march;                                     // common for both
+InstrumentStages instrumentStage;                      // common for both
+int onnxConstPropExpansionBound;                       // common for both
+std::vector<std::string> onnxConstPropDisablePatterns; // common for both
+bool enableONNXHybridPass;                             // common for both
+std::vector<std::string> functionsToDecompose;         // common for both
+EmissionTargetType emissionTarget;                     // onnx-mlir only
+bool invokeOnnxVersionConverter;                       // onnx-mlir only
+bool preserveLocations;                                // onnx-mlir only
+bool printIR;                                          // onnx-mlir only
+bool preserveBitcode;                                  // onnx-mlir only
+bool preserveLLVMIR;                                   // onnx-mlir only
+bool preserveMLIR;                                     // onnx-mlir only
+bool useOnnxModelTypes;                                // onnx-mlir only
+int repeatOnnxTransform;                               // onnx-mlir only
+std::string shapeInformation;                          // onnx-mlir only
+ModelSize modelSize;                                   // onnx-mlir only
+bool storeConstantsToFile;                             // onnx-mlir only
+float constantsToFileTotalThreshold;                   // onnx-mlir only
+float constantsToFileSingleThreshold;                  // onnx-mlir only
+bool VerboseOutput;                                    // onnx-mlir only
+std::vector<std::string> Xopt;                         // onnx-mlir only
+std::vector<std::string> Xllc;                         // onnx-mlir only
+std::string mllvm;                                     // onnx-mlir only
+std::string instrumentOps;                             // onnx-mlir only
+unsigned instrumentControlBits;                        // onnx-mlir only
+bool instrumentONNXSignature;                          // onnx-mlir only
+std::string ONNXOpStats;                               // onnx-mlir only
+bool enableMemoryBundling;                             // onnx-mlir only
+int onnxOpTransformThreshold;                          // onnx-mlir only
+bool onnxOpTransformReport;                            // onnx-mlir only
+bool enableParallel;                                   // onnx-mlir only
+bool disableSimdOption;                                // onnx-mlir only
+bool enableSimdDataLayout;                             // onnx-mlir only
+bool verifyInputTensors;                               // onnx-mlir only
+bool allowSorting;                                     // onnx-mlir only
+std::string reportHeapBefore;                          // onnx-mlir only
+std::string reportHeapAfter;                           // onnx-mlir only
+std::string modelTag;                                  // onnx-mlir only
+bool enableConvOptPass;                                // onnx-mlir only
+std::vector<std::string> extraLibPaths;                // onnx-mlir only
+std::vector<std::string> extraLibs;                    // onnx-mlir only
+ProfileIRs profileIR;                                  // onnx-mlir only
+OptReport optReport;                                   // onnx-mlir only
+bool split_input_file;                                 // onnx-mlir-opt only
+bool verify_diagnostics;                               // onnx-mlir-opt only
+bool verify_passes;                                    // onnx-mlir-opt only
+bool allowUnregisteredDialects;                        // onnx-mlir-opt only
 
 // Category for common options shared between onnx-mlir and onnx-mlir-opt.
 llvm::cl::OptionCategory OnnxMlirCommonOptions("common options",
