@@ -38,8 +38,9 @@
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
 #ifdef _WIN32
-#include "psapi.h"
 #include "windows.h"
+
+#include "psapi.h"
 
 static LARGE_INTEGER globalTime, initTime;
 static LARGE_INTEGER perfFrequency;
