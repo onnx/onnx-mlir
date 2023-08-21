@@ -1488,14 +1488,18 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
       return InvalidOnnxFormat;
     }
   } else {
-    std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
-    // check if the input file is opened
-    if (!input.is_open()) {
-      *errorMessage = "Unable to open or access " + model_fname.str();
-      return InvalidInputFileAccess;
+    bool parse_success;
+    if (model_fname.str() == "-")
+      parse_success = model.ParseFromIstream(&std::cin);
+    else {
+      std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
+      // check if the input file is opened
+      if (!input.is_open()) {
+        *errorMessage = "Unable to open or access " + model_fname.str();
+        return InvalidInputFileAccess;
+      }
+      parse_success = model.ParseFromIstream(&input);
     }
-
-    auto parse_success = model.ParseFromIstream(&input);
     if (!parse_success) {
       *errorMessage = "Onnx Model Parsing Failed on " + model_fname.str();
       return InvalidOnnxFormat;
