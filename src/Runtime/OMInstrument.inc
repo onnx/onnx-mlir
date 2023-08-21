@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
 #ifdef _WIN32
@@ -58,6 +59,8 @@ static bool instrumentReportTimeDisabled = false;
 static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0;
 static int psErrorCount = 0;
+static char instrumentReportOpName[INSTRUMENT_OP_NAME_MASK + 1];
+static char instrumentReportNodeName[INSTRUMENT_NODE_NAME_MASK + 1];
 
 #ifdef __MVS__
 #define timersub(a, b, result)                                                 \
@@ -149,13 +152,6 @@ void ReportMemory() {
 }
 #endif
 
-enum InstrumentActions {
-  InstrumentBeforeOp,
-  InstrumentAfterOp,
-  InstrumentReportTime,
-  InstrumentReportMemory
-};
-
 void OMInstrumentInit() {
   if (getenv("NOOMINSTRUMENTTIME")) {
     instrumentReportTimeDisabled = true;
@@ -165,6 +161,8 @@ void OMInstrumentInit() {
   }
   if (getenv("NOOMINSTRUMENT")) {
     instrumentReportDisabled = true;
+    instrumentReportTimeDisabled = true;
+    instrumentReportMemoryDisabled = true;
   }
 
   if (!instrumentReportDisabled) {
@@ -172,28 +170,43 @@ void OMInstrumentInit() {
   }
 }
 
-void OMInstrumentPoint(const char *opName, int64_t tag, const char *nodeName) {
+void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   if (instrumentReportDisabled)
     return;
 
-  bool isBefore = tag & (1 << (int)InstrumentBeforeOp);
+  uint64_t tag = iTag;
+  bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
   bool reportTime =
-      tag & (1 << (int)InstrumentReportTime) && !instrumentReportTimeDisabled;
-  bool reportMem = tag & (1 << (int)InstrumentReportMemory) &&
-                   !instrumentReportMemoryDisabled;
+      !instrumentReportTimeDisabled && IS_INSTRUMENT_REPORT_TIME(tag);
+  bool reportMem =
+      !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
+
+  // Unfortunately, the op and node names passed at runtime have sometimes an
+  // incorrect length, and as a result, garbage is printed. To avoid this, a
+  // (possibly temporary) fix is to encode the string lengths in the tag (which
+  // are correct at compile time) so that we only print the intended info here.
+  uint64_t opNameLen = GET_INSTRUMENT_OP_NAME_LEN(tag);
+  uint64_t nodeNameLen = GET_INSTRUMENT_NODE_NAME_LEN(tag);
+  assert(opNameLen <= INSTRUMENT_OP_NAME_MASK &&
+         nodeNameLen <= INSTRUMENT_NODE_NAME_MASK);
+  // Safe copy of op and node names.
+  strncpy(instrumentReportOpName, opName, opNameLen);
+  instrumentReportOpName[opNameLen] = '\0';
+  strncpy(instrumentReportNodeName, nodeName, nodeNameLen);
+  instrumentReportNodeName[nodeNameLen] = '\0';
 
   if (reportTime) {
     // Print header and data for time.
-    printf("==PERF-REPORT==, %s, %s, %s", opName, nodeName,
-        (isBefore ? "before" : "after"));
+    printf("==PERF-REPORT==, %s, %s, %s", instrumentReportOpName,
+        instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportTime();
   }
   if (reportMem && psErrorCount < 20) {
     // Print header and data for memory.
-    printf("==MEM-REPORT==, %s, %s, %s", opName, nodeName,
-        (isBefore ? "before" : "after"));
+    printf("==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
+        instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportMemory();
   }
-  // Not sure if needed, remove if that is not the case.
-  instrumentCounter++;
+  // Does not seems to be used, uncomment if needed.
+  // instrumentCounter++;
 }

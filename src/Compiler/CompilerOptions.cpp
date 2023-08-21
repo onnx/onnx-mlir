@@ -15,6 +15,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "ExternalUtil.hpp"
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
 

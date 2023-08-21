@@ -17,13 +17,14 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/Path.h"
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/Path.h"
 
 #define DEBUG_TYPE "krnl_to_llvm"
 
@@ -106,8 +107,13 @@ public:
         opNameStr, loc, rewriter, parentModule, typeConverter);
     Value opNamePtr =
         krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
+    uint64_t opNameLen = opNameStr.size();
+    uint64_t nodeNameLen = nodeName.size();
+    uint64_t tagWithLen = instrumentOp.getTag();
+    SET_INSTRUMENT_OP_NAME_LEN(tagWithLen, opNameLen);
+    SET_INSTRUMENT_NODE_NAME_LEN(tagWithLen, nodeNameLen);
     Value tag = create.llvm.constant(
-        IntegerType::get(context, 64), (int64_t)instrumentOp.getTag());
+        IntegerType::get(context, 64), (int64_t)tagWithLen);
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(
         nodeName, loc, rewriter, parentModule, typeConverter);
     Value nodeNamePtr = krnl::getPtrToGlobalString(globalStr, loc, rewriter);
