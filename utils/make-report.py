@@ -286,15 +286,15 @@ def parse_file_for_perf(file_name, stat_name):
             key, float(detail_array[1]))
 
     # Normally, an <op>-<node-name> pair should be seen only once in a run,
-    # except for loops. So we take here the sum of all the times.
-    # This approach would not work well if we had performance for multiple
-    # runs.
-    # TODO: If wanted to average/min/max over multiple runs, we would have
-    # need to pull this inside of the loop above, summing at the end of
-    # a run, and then taking min/max/average of the times gathered for each
-    # run.
+    # except for loops and some other circumstances (e.g. multiple dim op for
+    # a given original onnx op). Because in any case, the report will be done
+    # on visiting N time a op-nodename combination that has N instances, and
+    # thus adding N times the value from "node_time_dict[node]", we must take
+    # here the average. We loose distinguishing the variability of the timing
+    # of the same op with same op name, but this is ok. Taking the sum is just
+    # wrong, as we would add N times the sum of the N time measurements.
     for node in time_stat_dict:
-        node_time_dict[node] = np.sum(time_stat_dict[node])
+        node_time_dict[node] = np.average(time_stat_dict[node])
     has_timing = True
 
 ################################################################################
