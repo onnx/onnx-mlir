@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "include/OnnxMlirCompiler.h"
-#include "ExternalUtil.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "llvm/Support/FileSystem.h"
 
@@ -107,7 +107,7 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
   if (envDir && llvm::sys::fs::exists(envDir.value()))
     onnxMlirPath = envDir.value() + "/onnx-mlir";
   else
-    onnxMlirPath = getToolPath("onnx-mlir", kOnnxmlirPath);
+    onnxMlirPath = getToolPath("onnx-mlir");
   Command onnxMlirCompile(onnxMlirPath);
   // Add flags and input flag.
   onnxMlirCompile.appendList(flagVect);

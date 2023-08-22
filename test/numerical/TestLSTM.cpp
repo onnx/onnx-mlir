@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
   setCompilerOption(OptionKind::CompilerOptLevel, "3");
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLSTM\n", nullptr, "TEST_ARGS");
+  initCompilerConfig();
   std::string target = getCompilerOption(OptionKind::TargetAccel);
   std::cout << "Target options: \"" << target << "\"\n";
   // Set default configuration
