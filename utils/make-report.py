@@ -23,7 +23,8 @@ import numpy as np
 def print_usage(msg = ""):
     if msg:
         print("Error:", msg, "\n")
-    print("make-report.py -[svh] [-c <compile_log>] [-r <run_log>] [-l <num>] [-p <op regexp>]")
+    print("make-report.py -[svh] [-c <compile_log>] [-r <run_log>] [-l <num>]")
+    print("  [--sort <val>] [-u <val>] [-p <op regexp>]")
     print("")
     print("Usage: Report statistics on compiler and runtime characteristics of onnx ops.")
     print("")
@@ -56,6 +57,7 @@ def print_usage(msg = ""):
     print("                       For SIMD/parallel statistics, this include all ops that")
     print("                       have currently no support for it.")
     print("  -u/--unit <str>:     Time in second ('s'), millisecond ('ms') or microsecond ('us).")
+    print("  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`.")
     print("  -v/--verbose:        Run in verbose mode (see error and warnings).")
     print("  -h/--help:           Print usage.")
     print("")
@@ -80,6 +82,7 @@ error_missing_time = 0
 supported_only = False
 has_timing = False
 verbose = False
+sorting_preference = ""
 report_level = 0 # 0: none; 1: details; 2: extra info; 3: plus node names
 time_unit = 1 # seconds
 
@@ -300,9 +303,46 @@ def parse_file_for_perf(file_name, stat_name):
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict
-    global report_level, supported_only, verbose, spurious_node_name_count
     global has_timing, time_unit, error_missing_time
+    global report_level, supported_only, verbose, spurious_node_name_count
+    global sorting_preference
 
+    # Gather statistics in a dictionary so that we may sort the entries.
+    sorted_output = {}
+    for op in op_count_dict:
+        count_time_str = str(op_count_dict[op])
+        time = 0
+        if op in op_time_dict:
+            time = np.sum(op_time_dict[op])
+            count_time_str += ", {:.7f}".format(time * time_unit)
+            key = -time
+        output = "  " + op + ", " + count_time_str
+        if sorting_preference == "name":
+            key = op
+        elif sorting_preference == "num":
+            key = - op_count_dict[op]
+        else:
+            key = - time
+        if report_level:
+            det_dict = op_detail_count_dict[op]
+            det_time_dict = {}
+            if op in op_detail_time_dict:
+                det_time_dict = op_detail_time_dict[op]
+            for det_key in sorted(det_dict):
+                if det_dict[det_key] == op_count_dict[op]:
+                    count_time_str = "*"
+                else:
+                    count_time_str = str(det_dict[det_key])
+                if det_key in det_time_dict:
+                    time = np.sum(det_time_dict[det_key])
+                    count_time_str += ", {:.7f}".format(time * time_unit)
+                output += "\n    " + count_time_str + ": " + det_key
+        if key in sorted_output:
+            sorted_output[key] = sorted_output[key] + "\n" + output
+        else:
+            sorted_output[key] = output
+
+    # Print legend and stats.
     num_desc = "num"
     if has_timing:
         if time_unit == 1:
@@ -320,29 +360,11 @@ def make_report(stat_message):
         print("   " + num_desc + ": node-name, ", stat_message, "\n")
     print("")
     if supported_only:
-        print("Statistics start (ignore unsupported ops).")
+        print("Statistics start (ignore unsupported ops, ordered by " + sorting_preference + ").")
     else:
-        print("Statistics start (all ops).")
-    for op in sorted(op_count_dict):
-        count_time_str = str(op_count_dict[op])
-        if op in op_time_dict:
-            time = np.sum(op_time_dict[op])
-            count_time_str += ", {:.7f}".format(time * time_unit)
-        print("  " + op + ", " + count_time_str)
-        if report_level:
-            det_dict = op_detail_count_dict[op]
-            det_time_dict = {}
-            if op in op_detail_time_dict:
-                det_time_dict = op_detail_time_dict[op]
-            for det_key in sorted(det_dict):
-                if det_dict[det_key] == op_count_dict[op]:
-                    count_time_str = "*"
-                else:
-                    count_time_str = str(det_dict[det_key])
-                if det_key in det_time_dict:
-                    time = np.sum(det_time_dict[det_key])
-                    count_time_str += ", {:.7f}".format(time * time_unit)
-                print("    ", count_time_str, ":", det_key)
+        print("Statistics start (all ops, ordered by " + sorting_preference + ").")
+    for key in sorted(sorted_output):
+        print(sorted_output[key])
     print("Statistics end.")
 
     # Report spurious node name if any.
@@ -363,13 +385,15 @@ def make_report(stat_message):
 
 def main(argv):
     global report_level, focus_on_op_with_pattern, supported_only, time_unit, verbose
+    global sorting_preference
 
     compile_file_name = ""
     runtime_file_name = ""
     try:
         opts, args = getopt.getopt(
             argv, "c:f:hl:r:su:v",
-            ["compile=", "focus=", "help", "level=", "runtime=", "supported", "unit=", "verbose"])
+            ["compile=", "focus=", "help", "level=", "runtime=", "supported",
+             "sort=", "unit=", "verbose"])
     except getopt.GetoptError:
         print_usage("Failure to parse inputs")
     for opt, arg in opts:
@@ -389,6 +413,15 @@ def main(argv):
             runtime_file_name = arg
         elif opt in ('-s', "--supported"):
             supported_only = True
+        elif opt in ("--sorting"):
+            if re.match(r'\s*name\s*', arg):
+                sorting_preference = "name"
+            elif re.match(r'\s*num\s*', arg):
+                sorting_preference = "num"
+            elif re.match(r'\s*time\s*', arg):
+                sorting_preference = "time"
+            else:
+                print_usage("sorting options are 'name', 'num', or 'time'")
         elif opt in ('-u', "--unit"):
             if re.match(r'\s*s\s*', arg):
                 time_unit = 1
@@ -401,6 +434,12 @@ def main(argv):
         elif opt in ('-v', "--verbose"):
             verbose = True
 
+    # Default sorting preference.
+    if not sorting_preference:
+        if runtime_file_name:
+            sorting_preference = "time"
+        else:
+            sorting_preference = "name"
     if compile_file_name and runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF")
         parse_file_for_stat(compile_file_name, "SIMD")
