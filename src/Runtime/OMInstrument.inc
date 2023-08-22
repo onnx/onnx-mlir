@@ -121,19 +121,11 @@ void ReportTime() {
   struct timeval newTimeValue, result;
   gettimeofday(&newTimeValue, NULL);
   timersub(&newTimeValue, &globalTimeVal, &result);
-  if (fout)
-    fprintf(
-        fout, ", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
-  else
-    printf(", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
-
+  fprintf(
+      fout, ", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
   timersub(&newTimeValue, &initTimeVal, &result);
-  if (fout)
-    fprintf(fout, ", %ld.%06ld\n", (long int)result.tv_sec,
-        (long int)result.tv_usec);
-  else
-    printf(", %ld.%06ld\n", (long int)result.tv_sec, (long int)result.tv_usec);
-
+  fprintf(
+      fout, ", %ld.%06ld\n", (long int)result.tv_sec, (long int)result.tv_usec);
   globalTimeVal = newTimeValue;
 }
 #endif
@@ -207,7 +199,7 @@ void OMInstrumentInit() {
       fout = stdout;
     }
   } else {
-      fout = stdout;
+    fout = stdout;
   }
 
   // Init as appropriate.
@@ -237,10 +229,7 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
       !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
 
   if (!reportTime && !reportMem) {
-    if (fout)
-      fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
-    else
-      printf("==TICK-REPORT==, %i\n", instrumentCounter++);
+    fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
     return;
   }
 
@@ -261,23 +250,14 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
 
   if (reportTime) {
     // Print header and data for time.
-    if (fout)
-      fprintf(fout, "==PERF-REPORT==, %s, %s, %s", instrumentReportOpName,
-          instrumentReportNodeName, (isBefore ? "before" : "after"));
-    else
-      printf("==PERF-REPORT==, %s, %s, %s", instrumentReportOpName,
-          instrumentReportNodeName, (isBefore ? "before" : "after"));
+    fprintf(fout, "==PERF-REPORT==, %s, %s, %s", instrumentReportOpName,
+        instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportTime();
   }
   if (reportMem && psErrorCount < 20) {
     // Print header and data for memory.
-    if (fout)
-      fprintf(fout, "==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
-          instrumentReportNodeName, (isBefore ? "before" : "after"));
-    else
-      printf("==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
-          instrumentReportNodeName, (isBefore ? "before" : "after"));
-
+    fprintf(fout, "==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
+        instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportMemory();
   }
 }
