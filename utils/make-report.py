@@ -55,6 +55,7 @@ def print_usage(msg = ""):
     print("                       the 'unsupported' keyword in its printout.")
     print("                       For SIMD/parallel statistics, this include all ops that")
     print("                       have currently no support for it.")
+    print("  -u/--unit <str>:     Time in second ('s'), millisecond ('ms') or microsecond ('us).")
     print("  -v/--verbose:        Run in verbose mode (see error and warnings).")
     print("  -h/--help:           Print usage.")
     print("")
@@ -79,6 +80,7 @@ supported_only = False
 has_timing = False
 verbose = False
 report_level = 0 # 0: none; 1: details; 2: extra info; 3: plus node names
+time_unit = 1 # seconds
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
@@ -194,29 +196,30 @@ def parse_line(line, report_str, is_perf_stat):
         return (False, "", "", "")
     # Have a perfect match.
 
-    # Issues due to runtime constants having issues.
-    new_node_name = node_name
-    # Spurious appending of the last node_name.
-    if parse_line.last_node_name:
-        i0 = re.match(r'(.+)'+parse_line.last_node_name, node_name)
-        if i0:
-            new_node_name = i0[1]
+    if False:
+        # Issues due to runtime constants having issues.
+        new_node_name = node_name
+        # Spurious appending of the last node_name.
+        if parse_line.last_node_name:
+            i0 = re.match(r'(.+)'+parse_line.last_node_name, node_name)
+            if i0:
+                new_node_name = i0[1]
+                spurious_node_name_count += 1
+                if verbose:
+                    print("Cut last node_name:\n  old:", node_name,
+                          "\n  cut:", parse_line.last_node_name,
+                          "\n  new:", new_node_name)
+        parse_line.last_node_name = node_name
+        # Repeating node name.
+        i1 = re.match(r'(.+)'+op, node_name)
+        if i1:
+            new_node_name = i1[1]
             spurious_node_name_count += 1
             if verbose:
-                print("Cut last node_name:\n  old:", node_name,
-                      "\n  cut:", parse_line.last_node_name,
-                      "\n  new:", new_node_name)
-    parse_line.last_node_name = node_name
-    # Repeating node name.
-    i1 = re.match(r'(.+)'+op, node_name)
-    if i1:
-        new_node_name = i1[1]
-        spurious_node_name_count += 1
-        if verbose:
-            print("Cut op name:\n  old:", node_name,
-                  "\n  cut:", op,"\n  new:", new_node_name)
-    # Use new node name.
-    node_name = new_node_name
+                print("Cut op name:\n  old:", node_name,
+                      "\n  cut:", op,"\n  new:", new_node_name)
+        # Use new node name.
+        node_name = new_node_name
     return (True, op, node_name, details)
 
 parse_line.last_node_name = ""
@@ -301,11 +304,16 @@ def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict
     global report_level, supported_only, verbose, spurious_node_name_count
-    global has_timing, error_missing_time
+    global has_timing, time_unit, error_missing_time
 
     num_desc = "num"
     if has_timing:
-        num_desc += ", cumulative time(s)"
+        if time_unit == 1:
+            num_desc += ", cumulative time (s)"
+        elif time_unit == 1000:
+            num_desc += ", cumulative time (ms)"
+        elif time_unit == 1000*1000:
+            num_desc += ", cumulative time (us)"
     print("Statistic legend:")
     if report_level < 2:
         print("  op-name:", num_desc)
@@ -322,7 +330,7 @@ def make_report(stat_message):
         count_time_str = str(op_count_dict[op])
         if op in op_time_dict:
             time = np.sum(op_time_dict[op])
-            count_time_str += ", {:.7f}".format(time)
+            count_time_str += ", {:.7f}".format(time * time_unit)
         print("  " + op + ", " + count_time_str)
         if report_level:
             det_dict = op_detail_count_dict[op]
@@ -336,7 +344,7 @@ def make_report(stat_message):
                     count_time_str = str(det_dict[det_key])
                 if det_key in det_time_dict:
                     time = np.sum(det_time_dict[det_key])
-                    count_time_str += ", {:.7f}".format(time)
+                    count_time_str += ", {:.7f}".format(time * time_unit)
                 print("    ", count_time_str, ":", det_key)
     print("Statistics end.")
 
@@ -357,14 +365,14 @@ def make_report(stat_message):
 # Main.
 
 def main(argv):
-    global report_level, focus_on_op_with_pattern, supported_only, verbose
+    global report_level, focus_on_op_with_pattern, supported_only, time_unit, verbose
 
     compile_file_name = ""
     runtime_file_name = ""
     try:
         opts, args = getopt.getopt(
-            argv, "c:f:hl:r:sv",
-            ["compile=", "focus=", "help", "level=", "runtime=", "supported", "verbose"])
+            argv, "c:f:hl:r:su:v",
+            ["compile=", "focus=", "help", "level=", "runtime=", "supported", "unit=", "verbose"])
     except getopt.GetoptError:
         print_usage("Failure to parse inputs")
     for opt, arg in opts:
@@ -384,6 +392,15 @@ def main(argv):
             runtime_file_name = arg
         elif opt in ('-s', "--supported"):
             supported_only = True
+        elif opt in ('-u', "--unit"):
+            if re.match(r'\s*s\s*', arg):
+                time_unit = 1
+            elif re.match(r'\s*ms\s*', arg):
+                time_unit = 1000
+            elif re.match(r'\s*us\s*', arg):
+                time_unit = 1000*1000
+            else:
+                print_usage("time units are 's', 'ms', or 'us'")
         elif opt in ('-v', "--verbose"):
             verbose = True
 
