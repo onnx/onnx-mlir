@@ -72,6 +72,7 @@ op_detail_time_dict = {} # op -> {dictionary of detailed pattern -> cumulative t
 
 # For timing info
 node_time_dict = {}  # op + node_name -> time statistic
+node_time_used = {}  # op + node_name -> 1 if used; not present if unused.
 
 focus_on_op_with_pattern = r'.*'
 spurious_node_name_count = 0
@@ -96,11 +97,16 @@ perf_stat_message = "(after|before), time for op(s), time since start(s)"
 # # Support.
 
 # To record time, use op name and node name to better disambiguate.
-def timing_dict_key(op, node_name):
+def get_timing_key(op, node_name):
     p = re.match(r'(.*)-(simd|par)', op)
     if p:
         op = p[1]
-    return op + "__" + node_name
+    return op + "_=_" + node_name
+
+def get_op_node_from_timing_key(timing_key):
+    p = re.match(r'(.*)_=_(.*)', timing_key)
+    assert(p is not None)
+    return (p[1], p[2])
 
 # Add num to dict[key]
 def add_to_dict_entry(dict, key, num):
@@ -141,7 +147,7 @@ def append_to_dict2_entry(dict1, key1, key2, num):
 def record_pattern(op, node_name, detail_key):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict
-    global node_time_dict
+    global node_time_dict, node_time_used
     global verbose, report_level, has_timing, error_missing_time
 
     # Update statistic summaries
@@ -154,7 +160,7 @@ def record_pattern(op, node_name, detail_key):
     if not has_timing:
         return
     # Process timing.
-    timing_key = timing_dict_key(op, node_name)
+    timing_key = get_timing_key(op, node_name)
     if not timing_key in node_time_dict:
         error_missing_time += 1
         if verbose:
@@ -166,11 +172,11 @@ def record_pattern(op, node_name, detail_key):
     if report_level > 0:
         op_detail_time_dict[op] = append_to_dict2_entry(
             op_detail_time_dict, op, detail_key, time)
-
+    # Record timing key as used.
+    node_time_used[timing_key] = 1
 
 ################################################################################
 # Parse line (generic).
-
 
 def parse_line(line, report_str, is_perf_stat):
     global focus_on_op_with_pattern, supported_only
@@ -195,31 +201,6 @@ def parse_line(line, report_str, is_perf_stat):
     if f is None:
         return (False, "", "", "")
     # Have a perfect match.
-
-    if False:
-        # Issues due to runtime constants having issues.
-        new_node_name = node_name
-        # Spurious appending of the last node_name.
-        if parse_line.last_node_name:
-            i0 = re.match(r'(.+)'+parse_line.last_node_name, node_name)
-            if i0:
-                new_node_name = i0[1]
-                spurious_node_name_count += 1
-                if verbose:
-                    print("Cut last node_name:\n  old:", node_name,
-                          "\n  cut:", parse_line.last_node_name,
-                          "\n  new:", new_node_name)
-        parse_line.last_node_name = node_name
-        # Repeating node name.
-        i1 = re.match(r'(.+)'+op, node_name)
-        if i1:
-            new_node_name = i1[1]
-            spurious_node_name_count += 1
-            if verbose:
-                print("Cut op name:\n  old:", node_name,
-                      "\n  cut:", op,"\n  new:", new_node_name)
-        # Use new node name.
-        node_name = new_node_name
     return (True, op, node_name, details)
 
 parse_line.last_node_name = ""
@@ -227,8 +208,24 @@ parse_line.last_node_name = ""
 ################################################################################
 # Parse file for statistics.
 
-def parse_file_for_stat(file_name, stat_name):
+def get_secondary_key(node_name, details):
     global report_level
+
+    detail_array = details.split(",")
+    if report_level == 1:
+        # Use only first element in secondary key.
+        return detail_array[0]
+    if report_level == 2:
+        # Use all details in secondary key.
+        return details
+    if report_level == 3:
+        # Use node name in secondary key.
+        return node_name + ", " + details
+    return ""
+
+def parse_file_for_stat(file_name, stat_name):
+    global node_time_dict, node_time_used
+    global report_level, has_timing
 
     try:
         file = open(file_name, 'r')
@@ -244,18 +241,18 @@ def parse_file_for_stat(file_name, stat_name):
         if not has_stat:
             continue
         # Use stat.
-        secondary_key = ""
-        detail_array = details.split(",")
-        if report_level == 1:
-            # Use only first element in secondary key.
-            secondary_key = detail_array[0]
-        elif report_level == 2:
-            # Use all details in secondary key.
-            secondary_key = details
-        elif report_level == 3:
-            # Use node name in secondary key.
-            secondary_key = node_name + ", " + details
-
+        secondary_key = get_secondary_key(node_name, details)
+        record_pattern(op, node_name, secondary_key)
+    
+    # Continue processing if has timing.
+    if not has_timing:
+        return
+    for timing_key in node_time_dict:
+        if timing_key in node_time_used:
+            # has seen it
+            continue
+        (op, node_name) = get_op_node_from_timing_key(timing_key)
+        secondary_key = get_secondary_key(node_name, "")
         record_pattern(op, node_name, secondary_key)
 
 ################################################################################
@@ -281,7 +278,7 @@ def parse_file_for_perf(file_name, stat_name):
             continue
         # Keep only after times.
         detail_array = details.split(",")
-        key = timing_dict_key(op, node_name)
+        key = get_timing_key(op, node_name)
         time_stat_dict[key] = append_to_dict_entry(time_stat_dict,
             key, float(detail_array[1]))
 
