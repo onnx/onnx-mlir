@@ -92,7 +92,7 @@ def common_report_str(stat_name):
     return r'^==' + stat_name + r'-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)'
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
-simd_stat_message = "SIMD vector length (in elements), SIMD loop trip count (-1 is runtime), message"
+simd_stat_message = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_stat_message = "(after|before), time for op(s), time since start(s)"
@@ -201,7 +201,7 @@ def parse_line(line, report_str, is_perf_stat):
         return (False, "", "", "")
 
     # Check if we have an op that we focus on; if not skip.
-    f = re.match(focus_on_op_with_pattern, op)
+    f = re.search(focus_on_op_with_pattern, op)
     if f is None:
         return (False, "", "", "")
     # Have a perfect match.
@@ -312,17 +312,18 @@ def make_report(stat_message):
     # Gather statistics in a dictionary so that we may sort the entries.
     sorted_output = {}
     for op in op_count_dict:
-        count_time_str = str(op_count_dict[op])
+        count = op_count_dict[op]
+        count_time_str = str(count)
         time = 0
         if op in op_time_dict:
             time = np.sum(op_time_dict[op])
+            count_time_str += ", {:.7f}".format(time * time_unit / count)
             count_time_str += ", {:.7f}".format(time * time_unit)
-            key = -time
         output = "  " + op + ", " + count_time_str
         if sorting_preference == "name":
             key = op
         elif sorting_preference == "num":
-            key = - op_count_dict[op]
+            key = - count
         else:
             key = - time
         if report_level:
@@ -331,12 +332,14 @@ def make_report(stat_message):
             if op in op_detail_time_dict:
                 det_time_dict = op_detail_time_dict[op]
             for det_key in sorted(det_dict):
-                if det_dict[det_key] == op_count_dict[op]:
+                det_count = det_dict[det_key]
+                if det_count == count:
                     count_time_str = "*"
                 else:
-                    count_time_str = str(det_dict[det_key])
+                    count_time_str = str(det_count)
                 if det_key in det_time_dict:
                     time = np.sum(det_time_dict[det_key])
+                    count_time_str += ", {:.7f}".format(time * time_unit / det_count)
                     count_time_str += ", {:.7f}".format(time * time_unit)
                 output += "\n    " + count_time_str + ": " + det_key
         if key in sorted_output:
@@ -348,11 +351,13 @@ def make_report(stat_message):
     num_desc = "num"
     if has_timing:
         if time_unit == 1:
-            num_desc += ", cumulative time (s)"
+            unit_str = "(s)"
         elif time_unit == 1000:
-            num_desc += ", cumulative time (ms)"
+            unit_str = "(ms)"
         elif time_unit == 1000*1000:
-            num_desc += ", cumulative time (us)"
+            unit_str = "(us)"
+        num_desc += ", average time " + unit_str
+        num_desc += ", cumulative time " + unit_str
     print("Statistic legend:")
     if report_level < 2:
         print("  op-name:", num_desc)
