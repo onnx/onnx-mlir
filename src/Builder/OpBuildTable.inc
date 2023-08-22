@@ -48,6 +48,7 @@ op_dialect_version_map_["Cos"] = {7};
 op_dialect_version_map_["Cosh"] = {9};
 op_dialect_version_map_["Col2Im"] = {18};
 op_dialect_version_map_["CumSum"] = {14};
+op_dialect_version_map_["DeformConv"] = {19};
 op_dialect_version_map_["DepthToSpace"] = {13};
 op_dialect_version_map_["DequantizeLinear"] = {19};
 op_dialect_version_map_["Det"] = {11};
@@ -212,469 +213,471 @@ op_dialect_version_map_["Upsample"] = {9, 7};
 op_dialect_version_map_["Where"] = {16};
 op_dialect_version_map_["Xor"] = {7};
 op_dialect_version_map_["ZipMap"] = {1};
-import_handler_map_["Abs"] = 
+import_handler_map_["Abs"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAbsOp>;
-import_handler_map_["Acos"] = 
+import_handler_map_["Acos"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAcosOp>;
-import_handler_map_["Acosh"] = 
+import_handler_map_["Acosh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAcoshOp>;
-import_handler_map_["Add"] = 
+import_handler_map_["Add"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAddOp>;
-import_handler_map_["And"] = 
+import_handler_map_["And"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAndOp>;
-import_handler_map_["ArgMax"] = 
+import_handler_map_["ArgMax"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXArgMaxOp>;
-import_handler_map_["ArgMin"] = 
+import_handler_map_["ArgMin"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXArgMinOp>;
-import_handler_map_["Asin"] = 
+import_handler_map_["Asin"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAsinOp>;
-import_handler_map_["Asinh"] = 
+import_handler_map_["Asinh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAsinhOp>;
-import_handler_map_["Atan"] = 
+import_handler_map_["Atan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanOp>;
-import_handler_map_["Atanh"] = 
+import_handler_map_["Atanh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAtanhOp>;
-import_handler_map_["AveragePool"] = 
+import_handler_map_["AveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
-import_handler_map_["BatchNormalization"] = 
+import_handler_map_["BatchNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
-import_handler_map_["Bernoulli"] = 
+import_handler_map_["Bernoulli"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
-import_handler_map_["BitShift"] = 
+import_handler_map_["BitShift"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitShiftOp>;
-import_handler_map_["BitwiseAnd"] = 
+import_handler_map_["BitwiseAnd"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseAndOp>;
-import_handler_map_["BitwiseNot"] = 
+import_handler_map_["BitwiseNot"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseNotOp>;
-import_handler_map_["BitwiseOr"] = 
+import_handler_map_["BitwiseOr"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseOrOp>;
-import_handler_map_["BitwiseXor"] = 
+import_handler_map_["BitwiseXor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBitwiseXorOp>;
-import_handler_map_["BlackmanWindow"] = 
+import_handler_map_["BlackmanWindow"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBlackmanWindowOp>;
-import_handler_map_["Cast"] = 
+import_handler_map_["Cast"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeCast;
-import_handler_map_["CastLike"] = 
+import_handler_map_["CastLike"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastLikeOp>;
-import_handler_map_["Ceil"] = 
+import_handler_map_["Ceil"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeilOp>;
-import_handler_map_["Celu"] = 
+import_handler_map_["Celu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCeluOp>;
-import_handler_map_["CenterCropPad"] = 
+import_handler_map_["CenterCropPad"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCenterCropPadOp>;
-import_handler_map_["Clip"] = 
+import_handler_map_["Clip"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipOp>;
-import_handler_map_["ClipV12"] = 
+import_handler_map_["ClipV12"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV12Op>;
-import_handler_map_["ClipV11"] = 
+import_handler_map_["ClipV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV11Op>;
-import_handler_map_["ClipV6"] = 
+import_handler_map_["ClipV6"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXClipV6Op>;
-import_handler_map_["Col2Im"] = 
+import_handler_map_["Col2Im"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCol2ImOp>;
-import_handler_map_["Compress"] = 
+import_handler_map_["Compress"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCompressOp>;
-import_handler_map_["Concat"] = 
+import_handler_map_["Concat"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConcatOp>;
-import_handler_map_["ConcatFromSequence"] = 
+import_handler_map_["ConcatFromSequence"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConcatFromSequenceOp>;
-import_handler_map_["Constant"] = 
+import_handler_map_["Constant"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConstantOp>;
-import_handler_map_["ConstantOfShape"] = 
+import_handler_map_["ConstantOfShape"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConstantOfShapeOp>;
-import_handler_map_["Conv"] = 
+import_handler_map_["Conv"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConvOp>;
-import_handler_map_["ConvInteger"] = 
+import_handler_map_["ConvInteger"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConvIntegerOp>;
-import_handler_map_["ConvTranspose"] = 
+import_handler_map_["ConvTranspose"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXConvTransposeOp>;
-import_handler_map_["Cos"] = 
+import_handler_map_["Cos"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCosOp>;
-import_handler_map_["Cosh"] = 
+import_handler_map_["Cosh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCoshOp>;
-import_handler_map_["CumSum"] = 
+import_handler_map_["CumSum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCumSumOp>;
-import_handler_map_["DFT"] = 
+import_handler_map_["DFT"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDFTOp>;
-import_handler_map_["DepthToSpace"] = 
+import_handler_map_["DeformConv"] =
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDeformConvOp>;
+import_handler_map_["DepthToSpace"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDepthToSpaceOp>;
-import_handler_map_["DequantizeLinear"] = 
+import_handler_map_["DequantizeLinear"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDequantizeLinearOp>;
-import_handler_map_["Det"] = 
+import_handler_map_["Det"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDetOp>;
-import_handler_map_["Div"] = 
+import_handler_map_["Div"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDivOp>;
-import_handler_map_["Dropout"] = 
+import_handler_map_["Dropout"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeDropout;
-import_handler_map_["DynamicQuantizeLinear"] = 
+import_handler_map_["DynamicQuantizeLinear"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDynamicQuantizeLinearOp>;
-import_handler_map_["Einsum"] = 
+import_handler_map_["Einsum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEinsumOp>;
-import_handler_map_["Elu"] = 
+import_handler_map_["Elu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEluOp>;
-import_handler_map_["Equal"] = 
+import_handler_map_["Equal"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEqualOp>;
-import_handler_map_["Erf"] = 
+import_handler_map_["Erf"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXErfOp>;
-import_handler_map_["Exp"] = 
+import_handler_map_["Exp"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXExpOp>;
-import_handler_map_["Expand"] = 
+import_handler_map_["Expand"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXExpandOp>;
-import_handler_map_["EyeLike"] = 
+import_handler_map_["EyeLike"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXEyeLikeOp>;
-import_handler_map_["Flatten"] = 
+import_handler_map_["Flatten"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXFlattenOp>;
-import_handler_map_["Floor"] = 
+import_handler_map_["Floor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXFloorOp>;
-import_handler_map_["GRU"] = 
+import_handler_map_["GRU"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGRUOp>;
-import_handler_map_["Gather"] = 
+import_handler_map_["Gather"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherOp>;
-import_handler_map_["GatherElements"] = 
+import_handler_map_["GatherElements"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherElementsOp>;
-import_handler_map_["GatherND"] = 
+import_handler_map_["GatherND"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherNDOp>;
-import_handler_map_["Gemm"] = 
+import_handler_map_["Gemm"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGemmOp>;
-import_handler_map_["GlobalAveragePool"] = 
+import_handler_map_["GlobalAveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGlobalAveragePoolOp>;
-import_handler_map_["GlobalLpPool"] = 
+import_handler_map_["GlobalLpPool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGlobalLpPoolOp>;
-import_handler_map_["GlobalMaxPool"] = 
+import_handler_map_["GlobalMaxPool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGlobalMaxPoolOp>;
-import_handler_map_["Greater"] = 
+import_handler_map_["Greater"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOp>;
-import_handler_map_["GreaterOrEqual"] = 
+import_handler_map_["GreaterOrEqual"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGreaterOrEqualOp>;
-import_handler_map_["GridSample"] = 
+import_handler_map_["GridSample"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGridSampleOp>;
-import_handler_map_["GroupNormalization"] = 
+import_handler_map_["GroupNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGroupNormalizationOp>;
-import_handler_map_["HammingWindow"] = 
+import_handler_map_["HammingWindow"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHammingWindowOp>;
-import_handler_map_["HannWindow"] = 
+import_handler_map_["HannWindow"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHannWindowOp>;
-import_handler_map_["HardSigmoid"] = 
+import_handler_map_["HardSigmoid"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardSigmoidOp>;
-import_handler_map_["HardSwish"] = 
+import_handler_map_["HardSwish"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardSwishOp>;
-import_handler_map_["Hardmax"] = 
+import_handler_map_["Hardmax"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXHardmaxOp>;
-import_handler_map_["Identity"] = 
+import_handler_map_["Identity"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIdentityOp>;
-import_handler_map_["If"] = 
+import_handler_map_["If"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIfOp>;
-import_handler_map_["InstanceNormalization"] = 
+import_handler_map_["InstanceNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXInstanceNormalizationOp>;
-import_handler_map_["IsInf"] = 
+import_handler_map_["IsInf"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsInfOp>;
-import_handler_map_["IsNaN"] = 
+import_handler_map_["IsNaN"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsNaNOp>;
-import_handler_map_["LRN"] = 
+import_handler_map_["LRN"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLRNOp>;
-import_handler_map_["LSTM"] = 
+import_handler_map_["LSTM"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLSTMOp>;
-import_handler_map_["LayerNormalization"] = 
+import_handler_map_["LayerNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLayerNormalizationOp>;
-import_handler_map_["LeakyRelu"] = 
+import_handler_map_["LeakyRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLeakyReluOp>;
-import_handler_map_["Less"] = 
+import_handler_map_["Less"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLessOp>;
-import_handler_map_["LessOrEqual"] = 
+import_handler_map_["LessOrEqual"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLessOrEqualOp>;
-import_handler_map_["Log"] = 
+import_handler_map_["Log"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLogOp>;
-import_handler_map_["LogSoftmax"] = 
+import_handler_map_["LogSoftmax"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLogSoftmaxOp>;
-import_handler_map_["Loop"] = 
+import_handler_map_["Loop"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLoopOp>;
-import_handler_map_["LpNormalization"] = 
+import_handler_map_["LpNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLpNormalizationOp>;
-import_handler_map_["LpPool"] = 
+import_handler_map_["LpPool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLpPoolOp>;
-import_handler_map_["MatMul"] = 
+import_handler_map_["MatMul"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMatMulOp>;
-import_handler_map_["MatMulInteger"] = 
+import_handler_map_["MatMulInteger"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMatMulIntegerOp>;
-import_handler_map_["Max"] = 
+import_handler_map_["Max"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMaxOp>;
-import_handler_map_["MaxPool"] = 
+import_handler_map_["MaxPool"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeMaxPool;
-import_handler_map_["MaxRoiPool"] = 
+import_handler_map_["MaxRoiPool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMaxRoiPoolOp>;
-import_handler_map_["MaxUnpool"] = 
+import_handler_map_["MaxUnpool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMaxUnpoolOp>;
-import_handler_map_["Mean"] = 
+import_handler_map_["Mean"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMeanOp>;
-import_handler_map_["MeanVarianceNormalization"] = 
+import_handler_map_["MeanVarianceNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMeanVarianceNormalizationOp>;
-import_handler_map_["MelWeightMatrix"] = 
+import_handler_map_["MelWeightMatrix"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMelWeightMatrixOp>;
-import_handler_map_["Min"] = 
+import_handler_map_["Min"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMinOp>;
-import_handler_map_["Mish"] = 
+import_handler_map_["Mish"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMishOp>;
-import_handler_map_["Mod"] = 
+import_handler_map_["Mod"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXModOp>;
-import_handler_map_["Mul"] = 
+import_handler_map_["Mul"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMulOp>;
-import_handler_map_["Multinomial"] = 
+import_handler_map_["Multinomial"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMultinomialOp>;
-import_handler_map_["Neg"] = 
+import_handler_map_["Neg"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNegOp>;
-import_handler_map_["NegativeLogLikelihoodLoss"] = 
+import_handler_map_["NegativeLogLikelihoodLoss"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNegativeLogLikelihoodLossOp>;
-import_handler_map_["NonMaxSuppression"] = 
+import_handler_map_["NonMaxSuppression"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNonMaxSuppressionOp>;
-import_handler_map_["NonZero"] = 
+import_handler_map_["NonZero"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNonZeroOp>;
-import_handler_map_["Not"] = 
+import_handler_map_["Not"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNotOp>;
-import_handler_map_["OneHot"] = 
+import_handler_map_["OneHot"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOneHotOp>;
-import_handler_map_["Optional"] = 
+import_handler_map_["Optional"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalOp>;
-import_handler_map_["OptionalGetElement"] = 
+import_handler_map_["OptionalGetElement"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalGetElementOp>;
-import_handler_map_["OptionalHasElement"] = 
+import_handler_map_["OptionalHasElement"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOptionalHasElementOp>;
-import_handler_map_["Or"] = 
+import_handler_map_["Or"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOrOp>;
-import_handler_map_["PRelu"] = 
+import_handler_map_["PRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPReluOp>;
-import_handler_map_["Pad"] = 
+import_handler_map_["Pad"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodePad;
-import_handler_map_["PadV13"] = 
+import_handler_map_["PadV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV13Op>;
-import_handler_map_["PadV11"] = 
+import_handler_map_["PadV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV11Op>;
-import_handler_map_["PadV2"] = 
+import_handler_map_["PadV2"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPadV2Op>;
-import_handler_map_["Pow"] = 
+import_handler_map_["Pow"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXPowOp>;
-import_handler_map_["QLinearConv"] = 
+import_handler_map_["QLinearConv"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXQLinearConvOp>;
-import_handler_map_["QLinearMatMul"] = 
+import_handler_map_["QLinearMatMul"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXQLinearMatMulOp>;
-import_handler_map_["QuantizeLinear"] = 
+import_handler_map_["QuantizeLinear"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXQuantizeLinearOp>;
-import_handler_map_["RNN"] = 
+import_handler_map_["RNN"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRNNOp>;
-import_handler_map_["RandomNormal"] = 
+import_handler_map_["RandomNormal"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRandomNormalOp>;
-import_handler_map_["RandomNormalLike"] = 
+import_handler_map_["RandomNormalLike"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRandomNormalLikeOp>;
-import_handler_map_["RandomUniform"] = 
+import_handler_map_["RandomUniform"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRandomUniformOp>;
-import_handler_map_["RandomUniformLike"] = 
+import_handler_map_["RandomUniformLike"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRandomUniformLikeOp>;
-import_handler_map_["Range"] = 
+import_handler_map_["Range"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRangeOp>;
-import_handler_map_["Reciprocal"] = 
+import_handler_map_["Reciprocal"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReciprocalOp>;
-import_handler_map_["ReduceL1"] = 
+import_handler_map_["ReduceL1"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL1Op>;
-import_handler_map_["ReduceL1V13"] = 
+import_handler_map_["ReduceL1V13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL1V13Op>;
-import_handler_map_["ReduceL2"] = 
+import_handler_map_["ReduceL2"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL2Op>;
-import_handler_map_["ReduceL2V13"] = 
+import_handler_map_["ReduceL2V13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceL2V13Op>;
-import_handler_map_["ReduceLogSum"] = 
+import_handler_map_["ReduceLogSum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumOp>;
-import_handler_map_["ReduceLogSumV13"] = 
+import_handler_map_["ReduceLogSumV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumV13Op>;
-import_handler_map_["ReduceLogSumExp"] = 
+import_handler_map_["ReduceLogSumExp"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumExpOp>;
-import_handler_map_["ReduceLogSumExpV13"] = 
+import_handler_map_["ReduceLogSumExpV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceLogSumExpV13Op>;
-import_handler_map_["ReduceMax"] = 
+import_handler_map_["ReduceMax"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMaxOp>;
-import_handler_map_["ReduceMaxV13"] = 
+import_handler_map_["ReduceMaxV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMaxV13Op>;
-import_handler_map_["ReduceMean"] = 
+import_handler_map_["ReduceMean"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMeanOp>;
-import_handler_map_["ReduceMeanV13"] = 
+import_handler_map_["ReduceMeanV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMeanV13Op>;
-import_handler_map_["ReduceMin"] = 
+import_handler_map_["ReduceMin"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMinOp>;
-import_handler_map_["ReduceMinV13"] = 
+import_handler_map_["ReduceMinV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceMinV13Op>;
-import_handler_map_["ReduceProd"] = 
+import_handler_map_["ReduceProd"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceProdOp>;
-import_handler_map_["ReduceProdV13"] = 
+import_handler_map_["ReduceProdV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceProdV13Op>;
-import_handler_map_["ReduceSum"] = 
+import_handler_map_["ReduceSum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumOp>;
-import_handler_map_["ReduceSumV11"] = 
+import_handler_map_["ReduceSumV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumV11Op>;
-import_handler_map_["ReduceSumSquare"] = 
+import_handler_map_["ReduceSumSquare"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareOp>;
-import_handler_map_["ReduceSumSquareV13"] = 
+import_handler_map_["ReduceSumSquareV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReduceSumSquareV13Op>;
-import_handler_map_["Relu"] = 
+import_handler_map_["Relu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReluOp>;
-import_handler_map_["Reshape"] = 
+import_handler_map_["Reshape"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReshapeOp>;
-import_handler_map_["Resize"] = 
+import_handler_map_["Resize"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeOp>;
-import_handler_map_["ResizeV13"] = 
+import_handler_map_["ResizeV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV13Op>;
-import_handler_map_["ResizeV11"] = 
+import_handler_map_["ResizeV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV11Op>;
-import_handler_map_["ResizeV10"] = 
+import_handler_map_["ResizeV10"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXResizeV10Op>;
-import_handler_map_["ReverseSequence"] = 
+import_handler_map_["ReverseSequence"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXReverseSequenceOp>;
-import_handler_map_["RoiAlign"] = 
+import_handler_map_["RoiAlign"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRoiAlignOp>;
-import_handler_map_["Round"] = 
+import_handler_map_["Round"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXRoundOp>;
-import_handler_map_["STFT"] = 
+import_handler_map_["STFT"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSTFTOp>;
-import_handler_map_["Scan"] = 
+import_handler_map_["Scan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScanOp>;
-import_handler_map_["Scatter"] = 
+import_handler_map_["Scatter"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScatterOp>;
-import_handler_map_["ScatterElements"] = 
+import_handler_map_["ScatterElements"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScatterElementsOp>;
-import_handler_map_["ScatterND"] = 
+import_handler_map_["ScatterND"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScatterNDOp>;
-import_handler_map_["Selu"] = 
+import_handler_map_["Selu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSeluOp>;
-import_handler_map_["SequenceAt"] = 
+import_handler_map_["SequenceAt"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceAtOp>;
-import_handler_map_["SequenceConstruct"] = 
+import_handler_map_["SequenceConstruct"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceConstructOp>;
-import_handler_map_["SequenceEmpty"] = 
+import_handler_map_["SequenceEmpty"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceEmptyOp>;
-import_handler_map_["SequenceErase"] = 
+import_handler_map_["SequenceErase"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceEraseOp>;
-import_handler_map_["SequenceInsert"] = 
+import_handler_map_["SequenceInsert"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceInsertOp>;
-import_handler_map_["SequenceLength"] = 
+import_handler_map_["SequenceLength"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceLengthOp>;
-import_handler_map_["SequenceMap"] = 
+import_handler_map_["SequenceMap"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSequenceMapOp>;
-import_handler_map_["Shape"] = 
+import_handler_map_["Shape"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXShapeOp>;
-import_handler_map_["Shrink"] = 
+import_handler_map_["Shrink"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXShrinkOp>;
-import_handler_map_["Sigmoid"] = 
+import_handler_map_["Sigmoid"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSigmoidOp>;
-import_handler_map_["Sign"] = 
+import_handler_map_["Sign"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSignOp>;
-import_handler_map_["Sin"] = 
+import_handler_map_["Sin"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSinOp>;
-import_handler_map_["Sinh"] = 
+import_handler_map_["Sinh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSinhOp>;
-import_handler_map_["Size"] = 
+import_handler_map_["Size"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSizeOp>;
-import_handler_map_["Slice"] = 
+import_handler_map_["Slice"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeSlice;
-import_handler_map_["Softmax"] = 
+import_handler_map_["Softmax"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxOp>;
-import_handler_map_["SoftmaxV11"] = 
+import_handler_map_["SoftmaxV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxV11Op>;
-import_handler_map_["SoftmaxCrossEntropyLoss"] = 
+import_handler_map_["SoftmaxCrossEntropyLoss"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftmaxCrossEntropyLossOp>;
-import_handler_map_["Softplus"] = 
+import_handler_map_["Softplus"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftplusOp>;
-import_handler_map_["Softsign"] = 
+import_handler_map_["Softsign"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSoftsignOp>;
-import_handler_map_["SpaceToDepth"] = 
+import_handler_map_["SpaceToDepth"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSpaceToDepthOp>;
-import_handler_map_["Split"] = 
+import_handler_map_["Split"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitOp>;
-import_handler_map_["SplitV13"] = 
+import_handler_map_["SplitV13"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitV13Op>;
-import_handler_map_["SplitV11"] = 
+import_handler_map_["SplitV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitV11Op>;
-import_handler_map_["SplitToSequence"] = 
+import_handler_map_["SplitToSequence"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSplitToSequenceOp>;
-import_handler_map_["Sqrt"] = 
+import_handler_map_["Sqrt"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqrtOp>;
-import_handler_map_["Squeeze"] = 
+import_handler_map_["Squeeze"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeOp>;
-import_handler_map_["SqueezeV11"] = 
+import_handler_map_["SqueezeV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSqueezeV11Op>;
-import_handler_map_["StringNormalizer"] = 
+import_handler_map_["StringNormalizer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXStringNormalizerOp>;
-import_handler_map_["Sub"] = 
+import_handler_map_["Sub"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSubOp>;
-import_handler_map_["Sum"] = 
+import_handler_map_["Sum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSumOp>;
-import_handler_map_["Tan"] = 
+import_handler_map_["Tan"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTanOp>;
-import_handler_map_["Tanh"] = 
+import_handler_map_["Tanh"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTanhOp>;
-import_handler_map_["TfIdfVectorizer"] = 
+import_handler_map_["TfIdfVectorizer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTfIdfVectorizerOp>;
-import_handler_map_["ThresholdedRelu"] = 
+import_handler_map_["ThresholdedRelu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXThresholdedReluOp>;
-import_handler_map_["Tile"] = 
+import_handler_map_["Tile"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTileOp>;
-import_handler_map_["TopK"] = 
+import_handler_map_["TopK"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTopKOp>;
-import_handler_map_["Transpose"] = 
+import_handler_map_["Transpose"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTransposeOp>;
-import_handler_map_["Trilu"] = 
+import_handler_map_["Trilu"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTriluOp>;
-import_handler_map_["Unique"] = 
+import_handler_map_["Unique"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUniqueOp>;
-import_handler_map_["Unsqueeze"] = 
+import_handler_map_["Unsqueeze"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeOp>;
-import_handler_map_["UnsqueezeV11"] = 
+import_handler_map_["UnsqueezeV11"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUnsqueezeV11Op>;
-import_handler_map_["Upsample"] = 
+import_handler_map_["Upsample"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleOp>;
-import_handler_map_["UpsampleV7"] = 
+import_handler_map_["UpsampleV7"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXUpsampleV7Op>;
-import_handler_map_["Where"] = 
+import_handler_map_["Where"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXWhereOp>;
-import_handler_map_["Xor"] = 
+import_handler_map_["Xor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXXorOp>;
-import_handler_map_["ArrayFeatureExtractor"] = 
+import_handler_map_["ArrayFeatureExtractor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXArrayFeatureExtractorOp>;
-import_handler_map_["Binarizer"] = 
+import_handler_map_["Binarizer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBinarizerOp>;
-import_handler_map_["CastMap"] = 
+import_handler_map_["CastMap"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCastMapOp>;
-import_handler_map_["CategoryMapper"] = 
+import_handler_map_["CategoryMapper"] =
    &onnx_mlir::detail::FrontendGenImpl::ImportCategoryMapper;
-import_handler_map_["DictVectorizer"] = 
+import_handler_map_["DictVectorizer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDictVectorizerOp>;
-import_handler_map_["FeatureVectorizer"] = 
+import_handler_map_["FeatureVectorizer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXFeatureVectorizerOp>;
-import_handler_map_["Imputer"] = 
+import_handler_map_["Imputer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXImputerOp>;
-import_handler_map_["LabelEncoder"] = 
+import_handler_map_["LabelEncoder"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLabelEncoderOp>;
-import_handler_map_["LinearClassifier"] = 
+import_handler_map_["LinearClassifier"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLinearClassifierOp>;
-import_handler_map_["LinearRegressor"] = 
+import_handler_map_["LinearRegressor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLinearRegressorOp>;
-import_handler_map_["Normalizer"] = 
+import_handler_map_["Normalizer"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXNormalizerOp>;
-import_handler_map_["OneHotEncoder"] = 
+import_handler_map_["OneHotEncoder"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXOneHotEncoderOp>;
-import_handler_map_["SVMClassifier"] = 
+import_handler_map_["SVMClassifier"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSVMClassifierOp>;
-import_handler_map_["SVMRegressor"] = 
+import_handler_map_["SVMRegressor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXSVMRegressorOp>;
-import_handler_map_["Scaler"] = 
+import_handler_map_["Scaler"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXScalerOp>;
-import_handler_map_["TreeEnsembleClassifier"] = 
+import_handler_map_["TreeEnsembleClassifier"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTreeEnsembleClassifierOp>;
-import_handler_map_["TreeEnsembleRegressor"] = 
+import_handler_map_["TreeEnsembleRegressor"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXTreeEnsembleRegressorOp>;
-import_handler_map_["ZipMap"] = 
+import_handler_map_["ZipMap"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXZipMapOp>;
-import_handler_map_["Adagrad"] = 
+import_handler_map_["Adagrad"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAdagradOp>;
-import_handler_map_["Adam"] = 
+import_handler_map_["Adam"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAdamOp>;
-import_handler_map_["Gradient"] = 
+import_handler_map_["Gradient"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGradientOp>;
-import_handler_map_["Momentum"] = 
+import_handler_map_["Momentum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXMomentumOp>;

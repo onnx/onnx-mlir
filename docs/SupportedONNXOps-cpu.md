@@ -6,11 +6,11 @@
 Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
-* **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
+* **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator. 
    * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 19.
 
 
-| Op |Supported Opsets |Limitations |Notes |
+| Op |Supported Opsets (inclusive) |Limitations |Notes |
 | --- |--- |--- |--- |
 | **Abs** |6 - * | | |
 | **Acos** |7 - * | | |
@@ -59,7 +59,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **DFT** |none | | | |
 | **DeformConv** |none | | | |
 | **DepthToSpace** |13 - * | | |
-| **DequantizeLinear** |10 - 18 |Only support for per-tensor or layer dequantization. No support for per-axis dequantization. | |
+| **DequantizeLinear** |10 - * |Only support for per-tensor or layer dequantization. No support for per-axis dequantization. | |
 | **Det** |none | | | |
 | **DictVectorizer** |none | | | |
 | **Div** |6 - * |No support for short integers. | |
@@ -93,8 +93,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **HardSigmoid** |6 - * | | |
 | **HardSwish** |none | | | |
 | **Hardmax** |6 - * | | |
-| **Identity** |16 - 18 |Sequence identity not supported. | |
-| **If** |16 - 18 |Sequence and Optional outputs are not supported. | |
+| **Identity** |16 - * |Sequence identity not supported. | |
+| **If** |16 - * |Sequence and Optional outputs are not supported. | |
 | **Imputer** |none | | | |
 | **InstanceNormalization** |6 - * | | |
 | **IsInf** |10 - * | | |
@@ -110,7 +110,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **LinearRegressor** |none | | | |
 | **Log** |6 - * | | |
 | **LogSoftmax** |13 - * |Axis 0, 1, and default currently disabled due to changes in ONNX 1.8.1/Opset 13. |Temporally removed due to changes in onnx 1.8.1. |
-| **Loop** |6 - 18 | | |
+| **Loop** |6 - * | | |
 | **LpNormalization** |none | | | |
 | **LpPool** |none | | | |
 | **MatMul** |6 - * | | |
@@ -185,7 +185,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **SequenceInsert** |11 - * |Does not support unranked sequence element. | |
 | **SequenceLength** |none | | | |
 | **SequenceMap** |none | | | |
-| **Shape** |15 - 18 |Does not support start and end attributes. | |
+| **Shape** |15 - * |Does not support start and end attributes. | |
 | **Shrink** |none | | | |
 | **Sigmoid** |6 - * | | |
 | **Sign** |9 - * | | |
