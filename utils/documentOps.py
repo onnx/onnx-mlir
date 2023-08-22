@@ -167,6 +167,7 @@ def parse_file(file_name):
             assert op is not None, "Unsupported without op."
             assert op in min_dict and min_dict[op], "Unsupported without min for op " + op
             assert max_dict[op] == max_opset_default, "Redefinition of Unsupported for op " + op
+            assert int(p[1]) > min_dict[op], f"Unsupported version {p[1]} should be greater than min {min_dict[op]} for op {op}"
             # Show the last compatible Opset for the version of the Op
             max_dict[op] = int(p[1]) - 1
             if debug:
