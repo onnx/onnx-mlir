@@ -4,7 +4,7 @@ With option -v or --VERBOSE, the model will be displayed on output
 with option --save, the converted model will be saved to file too.
 onnx package is required
 Example of usage:
-To convert a model, add.onnx, to the opset currently supported by 
+To convert a model, add.onnx, to the opset currently supported by
 onnx-mlir (e.g. 13) , use command:
  python pre-onnx-mlir add.onnx --save
 The converted model will be saved into file add-opset-13.onnx
@@ -42,12 +42,12 @@ if args.VERBOSE :
 if args.no_convert :
     quit()
 
-# Opset version supported by current onnx-mlir
-# Should be consistent with gen_onnx_mlir.py
-current_onnx_mlir_support_version=19
+# ==UPDATE_ONNX_VERSION_OPSET==
+# Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
+current_onnx_opset = 19
 
 converted_model = version_converter.convert_version(
-        original_model, current_onnx_mlir_support_version)
+        original_model, current_onnx_opset)
 
 if args.VERBOSE :
     print('The model after conversion:\n{}'.format(converted_model))
@@ -55,9 +55,9 @@ if args.VERBOSE :
 if args.save :
     inputFile = args.model
     if inputFile.endswith(
-            '-opset'+str(current_onnx_mlir_support_version)+'.onnx') :
+            '-opset'+str(current_onnx_opset)+'.onnx') :
         printf('Converted model is not saved due to name conflict')
     else :
-        outFile = inputFile[:inputFile.rfind(".onnx")]+'-opset-'+str(current_onnx_mlir_support_version)+'.onnx'
+        outFile = inputFile[:inputFile.rfind(".onnx")]+'-opset-'+str(current_onnx_opset)+'.onnx'
         onnx.save(converted_model, outFile)
         print('The converted model is aved to '+outFile)
