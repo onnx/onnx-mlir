@@ -67,14 +67,15 @@ def print_usage(msg = ""):
 # Global info.
 
 # For statistic info.
-op_count_dict = {} # op -> count
+op_count_dict = {}        # op -> count
 op_detail_count_dict = {} # op -> {dictionary of detailed pattern -> count}
-op_time_dict = {} # op -> cumulative time
-op_detail_time_dict = {} # op -> {dictionary of detailed pattern -> cumulative time}
+op_time_dict = {}         # op -> cumulative time
+op_detail_time_dict = {}  # op -> {dictionary of detailed pattern -> cumulative time}
 
 # For timing info
 node_time_dict = {}  # op + node_name -> time statistic
 node_time_used = {}  # op + node_name -> 1 if used; not present if unused.
+tot_time = 0         # total time.
 
 focus_on_op_with_pattern = r'.*'
 spurious_node_name_count = 0
@@ -262,7 +263,7 @@ def parse_file_for_stat(file_name, stat_name):
 # Parse file for performance
 
 def parse_file_for_perf(file_name, stat_name):
-    global node_time_dict
+    global node_time_dict, tot_time
     global spurious_node_name_count, verbose, has_timing
 
     try:
@@ -282,8 +283,9 @@ def parse_file_for_perf(file_name, stat_name):
         # Keep only after times.
         detail_array = details.split(",")
         key = get_timing_key(op, node_name)
-        time_stat_dict[key] = append_to_dict_entry(time_stat_dict,
-            key, float(detail_array[1]))
+        time = float(detail_array[1])
+        tot_time += time
+        time_stat_dict[key] = append_to_dict_entry(time_stat_dict, key, time)
 
     # Normally, an <op>-<node-name> pair should be seen only once in a run,
     # except for loops and some other circumstances (e.g. multiple dim op for
@@ -302,7 +304,7 @@ def parse_file_for_perf(file_name, stat_name):
 
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
-    global op_time_dict, op_detail_time_dict
+    global op_time_dict, op_detail_time_dict, tot_time
     global has_timing, time_unit, error_missing_time
     global report_level, supported_only, verbose, spurious_node_name_count
     global sorting_preference
@@ -359,13 +361,18 @@ def make_report(stat_message):
     elif report_level == 3:
         print("   " + num_desc + ": node-name, ", stat_message, "\n")
     print("")
+    stat_details = ""
     if supported_only:
-        print("Statistics start (ignore unsupported ops, ordered by " + sorting_preference + ").")
+        stat_details = ", supported ops"
     else:
-        print("Statistics start (all ops, ordered by " + sorting_preference + ").")
+        stat_details = ", all ops"
+    stat_details += ", ordered_by " + sorting_preference
+    if has_timing:
+        stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
+    print("Statistics start"+stat_details)
     for key in sorted(sorted_output):
         print(sorted_output[key])
-    print("Statistics end.")
+    print("Statistics end" + stat_details)
 
     # Report spurious node name if any.
     if spurious_node_name_count:

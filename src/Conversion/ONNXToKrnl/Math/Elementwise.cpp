@@ -2094,8 +2094,12 @@ struct ONNXElementwiseBinaryOpLowering
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops, estimatedSimdLoopTripCount);
       if (uVL > 0) {
-        onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
-            estimatedSimdLoopTripCount, "binary with manageable broadcast");
+        if (collapsedInnermostLoops == outputRank)
+          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+              estimatedSimdLoopTripCount, "binary fully flattened");
+        else
+          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+              estimatedSimdLoopTripCount, "binary with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
@@ -2253,8 +2257,12 @@ struct ONNXElementwiseVariadicOpLowering
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops, estimatedSimdLoopTripCount);
       if (uVL > 0) {
-        onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
-            estimatedSimdLoopTripCount, "variadic with manageable broadcast");
+        if (collapsedInnermostLoops == outputRank)
+          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+              estimatedSimdLoopTripCount, "variadic fully flattened");
+        else
+          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+              estimatedSimdLoopTripCount, "variadic with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             uVL, collapsedInnermostLoops, hasNoBroadcast,
