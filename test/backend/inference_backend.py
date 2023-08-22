@@ -312,7 +312,6 @@ def get_test_models():
 
         # ==OP== DequantizeLinear
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Only support for per-tensor or layer dequantization. No support for per-axis dequantization.
         #"test_dequantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_dequantizelinear_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -490,7 +489,6 @@ def get_test_models():
 
         # ==OP== Identity
         # ==MIN== 16
-        # ==UNSUPPORTED== 19
         # ==LIM== Sequence identity not supported.
         "test_identity_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_identity_sequence_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -498,7 +496,6 @@ def get_test_models():
 
         # ==OP== If
         # ==MIN== 16
-        # ==UNSUPPORTED== 19
         # ==LIM== Sequence and Optional outputs are not supported.
         "test_if_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_if_opt_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -559,7 +556,6 @@ def get_test_models():
 
         # ==OP== Loop
         # ==MIN== 1
-        # ==UNSUPPORTED== 19
         "test_loop11_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_loop13_seq_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_loop16_seq_none_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -961,7 +957,6 @@ def get_test_models():
 
         # ==OP== Scan
         # ==MIN== 8
-        # ==UNSUPORTED== 19
         # ==LIM== Does not support dynamic shapes.
         # ==TODO== Precision issue with newer opset, maybe just unsupported. Dynamic shape?
         #  "test_scan_sum_cpu": {STATIC_SHAPE:{}},
@@ -996,7 +991,6 @@ def get_test_models():
 
         # ==OP== Shape
         # ==MIN== 15
-        # ==UNSUPPORTED== 19
         # ==LIM== Does not support start and end attributes.
         "test_shape_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_shape_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
