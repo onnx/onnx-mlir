@@ -38,6 +38,10 @@
 #include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Runtime/OMInstrument.h"
 
+#ifdef __cplusplus
+using namespace onnx_mlir;
+#endif
+
 #ifdef _WIN32
 #include "windows.h"
 // The windows.h include must go first.
@@ -199,7 +203,11 @@ void OMInstrumentInit() {
     FILE *newFileHandle = fopen(fileName, "w");
     if (newFileHandle) {
       fout = newFileHandle;
+    } else {
+      fout = stdout;
     }
+  } else {
+      fout = stdout;
   }
 
   // Init as appropriate.
