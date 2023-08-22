@@ -8,7 +8,7 @@
 #
 ################################################################################
 #
-# This file scan -onnx-op-report=* and process it
+# This file scan -opt-report=* and process it
 #
 # For patterns, see src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp, 
 # impl::onnxToKrnlParallelReport(...) and impl::onnxToKrnlSimdReport(...)
@@ -28,7 +28,7 @@ def print_usage(msg = ""):
     print("Usage: Report statistics on compiler and runtime characteristics of onnx ops.")
     print("")
     print("Compile-time statistics are collected from a `onnx-mlir` compiler output")
-    print("with the `--onnx-op-report` option equal to `Simd` or other supported sub-options.")
+    print("with the `--opt-report` option equal to `Simd` or other supported sub-options.")
     print("")
     print("Runtime statistics are collected from the runtime output of a model compiled.")
     print("with the `--profile-ir` option equal to `Onnx` or other supported sub-options.")

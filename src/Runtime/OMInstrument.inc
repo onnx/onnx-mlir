@@ -105,15 +105,9 @@ void ReportTime() {
   LONGLONG resultSeconds, resultMicroseconds;
   QueryPerformanceCounter(&newTime);
   WinTimerSub(newTime, globalTime, &resultSeconds, &resultMicroseconds);
-  if (fout)
-    fprintf(fout, ", %lld.%06lld", resultSeconds, resultMicroseconds);
-  else
-    printf(", %lld.%06lld", resultSeconds, resultMicroseconds);
+  fprintf(fout, ", %lld.%06lld", resultSeconds, resultMicroseconds);
   WinTimerSub(newTime, initTime, &resultSeconds, &resultMicroseconds);
-  if (fout)
-    fprintf(fout, ", %lld.%06lld\n", resultSeconds, resultMicroseconds);
-  else
-    printf(", %lld.%06lld\n", resultSeconds, resultMicroseconds);
+  fprintf(fout, ", %lld.%06lld\n", resultSeconds, resultMicroseconds);
   globalTime = newTime;
 }
 #else
@@ -136,10 +130,7 @@ void ReportMemory() {
   GetProcessMemoryInfo(
       GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
   SIZE_T vMemSizeKB = pmc.PrivateUsage / 1024;
-  if (fout)
-    fprintf(fout, "%zu\n", vMemSizeKB);
-  else
-    printf("%zu\n", vMemSizeKB);
+  fprintf(fout, "%zu\n", vMemSizeKB);
 }
 #else
 void ReportMemory() {
@@ -150,10 +141,7 @@ void ReportMemory() {
   snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
-    if (fout)
-      fprintf(fout, ", error-failed-to-execute-ps\n");
-    else
-      printf(", error-failed-to-execute-ps\n");
+    fprintf(fout, ", error-failed-to-execute-ps\n");
     psErrorCount++;
     return;
   }
@@ -161,18 +149,11 @@ void ReportMemory() {
   (void)fgetc(memPipe);
   memOutput[strcspn(memOutput, "\n")] = 0;
   if (!feof(memPipe)) {
-    if (fout)
-      fprintf(fout, ", error-unexpected-output-from-pipe\n");
-    else
-      printf(", error-unexpected-output-from-pipe\n");
-
+    fprintf(fout, ", error-unexpected-output-from-pipe\n");
     psErrorCount++;
   } else {
-    // No error, print data/
-    if (fout)
-      fprintf(fout, ", %s\n", memOutput);
-    else
-      printf(", %s\n", memOutput);
+    // No error, print data.
+    fprintf(fout, ", %s\n", memOutput);
   }
   pclose(memPipe);
 }
@@ -190,16 +171,14 @@ void OMInstrumentInit() {
   if (getenv("ONNX_MLIR_NO_INSTRUMENT")) {
     instrumentReportDisabled = true;
   }
+  // Handle redirection to file if requested.
+  fout = stdout;
   if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
     char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
     FILE *newFileHandle = fopen(fileName, "w");
     if (newFileHandle) {
       fout = newFileHandle;
-    } else {
-      fout = stdout;
     }
-  } else {
-    fout = stdout;
   }
 
   // Init as appropriate.
