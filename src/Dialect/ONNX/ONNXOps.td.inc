@@ -1702,7 +1702,7 @@ def ONNXDeformConvOp:ONNX_Op<"DeformConv",
     }
   }];
   let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper,
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDeformConvOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
