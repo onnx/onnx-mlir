@@ -87,14 +87,14 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh 2D convolution operation
 
-ZHigh operation to perform 2D convolution. 
+ZHigh operation to perform 2D convolution.
 * input: `[num_batches, height_in, width_in, channels_in]`
-* input_kernel: `[kernel_height, kernel_width, channels_in, channels_out]` 
+* input_kernel: `[kernel_height, kernel_width, channels_in, channels_out]`
 * input_bias: `[channels_out] `
-* kernel_shape: 1D array of kernel height and width 
-* strides: 1D array of stride height and width 
-* padding_type: SAME_PADDING or VALID_PADDING 
-* act_func: ACT_NONE or ACT_RELU 
+* kernel_shape: 1D array of kernel height and width
+* strides: 1D array of stride height and width
+* padding_type: SAME_PADDING or VALID_PADDING
+* act_func: ACT_NONE or ACT_RELU
 * output: `[num_batches, height_out, width_out, channels_out]`
 
 Traits: AlwaysSpeculatableImplTrait
@@ -185,10 +185,10 @@ ZHigh GRU operation
 * Shape for input_weights is `[D, I, 3*H]`.
 * Shape for hidden_weights is `[D, H, 3*H]`.
 * Shape for input_bias and hidden_bias is `[D, 3*H]`.
-* Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+* Shape for hn_output is `[S, D, B, H]` if return all timesteps
   and `[1, D, B, H]` if return the final step only.
-* S is timesteps, D is the number of directions (1 for unidirectional and 
-* 2 for bidirectional), B is batch size, I is input size, and 
+* S is timesteps, D is the number of directions (1 for unidirectional and
+* 2 for bidirectional), B is batch size, I is input size, and
 * H is hidden size.
 * direction accepts "forward", "reverse", or "bidirectional
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep."
@@ -233,11 +233,11 @@ zHigh operation to perform a LSTM.
 * Shape for input_weights is  `[D, I, 4*H]`.
 * Shape for hidden_weights is  `[D, H, 4*H]`.
 * Shape for input_bias and hidden_bias is `[D, 4*H]`.
-* Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+* Shape for hn_output is `[S, D, B, H]` if return all timesteps
   and `[1, D, B, H]` if return the final step only.
 * Shape for cf_output is `[1, D, B, H]`.
-* S is timesteps, D is the number of directions (1 for unidirectional and 
-* 2 for bidirectional), B is batch size, I is input size, and 
+* S is timesteps, D is the number of directions (1 for unidirectional and
+* 2 for bidirectional), B is batch size, I is input size, and
 * H is hidden size.
 * direction accepts "forward", "reverse", or "bidirectional
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
@@ -387,8 +387,8 @@ Effects: MemoryEffects::Effect{}
 
 ZHigh 2D mean reduce operation
 
-ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, 
-returns a downsampled tensor reducing the middle 2nd and 3rd dimensions 
+ZHigh operation to perform 2D mean reduce. Given an input 4D tensor,
+returns a downsampled tensor reducing the middle 2nd and 3rd dimensions
 to a size of 1 based on the mean of the original values.
  Input and Output tensors should be in the 3D layout.
 
@@ -546,7 +546,7 @@ Effects: MemoryEffects::Effect{}
 ZHigh stick operation for GRU
 
 ZHigh operation to perform a stick for GRU.
-Variadic: list of pointers for input data to be transformed: 
+Variadic: list of pointers for input data to be transformed:
   - GRU concatenated: 3 data pointers, one for each input gate in
 (Z)update, Reset, Hidden, (ZRH) gate order
 
@@ -575,9 +575,9 @@ Effects: MemoryEffects::Effect{}
 ZHigh stick operation for LSTM
 
 ZHigh operation to perform a stick for LSTM.
-Variadic: list of pointers for input data to be transformed: 
-  - LSTM concatenated: 4 data pointers, one for each input gate in 
-Forget, Input, Cell, Output (FICO) order, 
+Variadic: list of pointers for input data to be transformed:
+  - LSTM concatenated: 4 data pointers, one for each input gate in
+Forget, Input, Cell, Output (FICO) order,
 
 Traits: AlwaysSpeculatableImplTrait
 
