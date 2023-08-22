@@ -207,7 +207,7 @@ def print_md():
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Supported Opsets", "Limitations"]
+    header = ["Op", "Supported Opsets (inclusive)", "Limitations"]
     separator = ["---", "---", "---"]
     if emit_notes:
         header.append("Notes")
