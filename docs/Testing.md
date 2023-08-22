@@ -390,3 +390,34 @@ Run the script with `-h` to see all the options. In addition to the `-m` flag to
 To find out which models are available, run the script with `-p` to print the list of available models; or `-m` followed by an incomplete name, and the script will suggest the exact names. 
 
 Without specifying a model using `-m`, the script will check all models in the ONNX model zoo.
+
+### ONNX Model Zoo Performance analysis
+
+If you want to gather performance info about a model zoo (or any models, for that matter), simplest is to request the desired statistic at compile time (using `-profile-ir` flag), divert the output statistic to a file, and then analyze it using `make-report.py`. For example:
+```
+> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 -march=arm64 --profile-ir=Onnx" -m bertsquad-10
+...
+> make-report.py -r run.log
+...
+Statistics start (all ops).
+  onnx.Add, 112, 0.0130570
+  onnx.Cast, 105, 0.0001860
+  onnx.Concat, 55, 0.0001290
+  onnx.Constant, 473, 0.0008220
+```
+
+The runtime profiling info can be combined with specific compile-time statistics as well. Let's say that we are interested in SIMD statistics. We inform the compiler of the compile-time statistic to emit using `-onnx-op-report` option, and inform `RunONNXModelZoo.py` that we want to preserve the compiler output using the `--log-to-file` option. For example
+```
+> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 -march=arm64 -onnx-op-report=Simd --profile-ir=Onnx" -m bertsquad-10 --log-to-file compile.log
+...
+> make-report.py -c compile.log -r run.log
+...
+Statistics start (all ops).
+  onnx.Add-simd, 112, 0.0130570
+  onnx.Cast, 23, 0.0000650
+  onnx.Gemm, 1, 0.0003570
+  onnx.Gemm-simd, 72, 0.8109330
+```
+In the listing above, the operations that were vectorized are summarized separately with a  `-simd` postfix appended to their respective operation names.
+
+The same options and environment variables works equally well for `RunONNXModel.py` and `RunONNXModelZoo.py`.

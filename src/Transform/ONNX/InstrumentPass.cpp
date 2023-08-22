@@ -71,10 +71,11 @@ public:
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
   InstrumentPass(const std::string &ops, unsigned actions) {
     this->instrumentOps = ops;
-    this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
-    this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
-    this->reportTime = actions & (1 << onnx_mlir::InstrumentReportTime);
-    this->reportMemory = actions & (1 << onnx_mlir::InstrumentReportMemory);
+    unsigned long long tag = actions;
+    this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+    this->instrumentAfter = IS_INSTRUMENT_AFTER_OP(tag);
+    this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
+    this->reportMemory = IS_INSTRUMENT_REPORT_MEMORY(tag);
   }
 
 private:

@@ -107,6 +107,7 @@ public:
         opNameStr, loc, rewriter, parentModule, typeConverter);
     Value opNamePtr =
         krnl::getPtrToGlobalString(globalOpNameStr, loc, rewriter);
+    // Encode the tag with the length of the op and node name strings
     uint64_t opNameLen = opNameStr.size();
     uint64_t nodeNameLen = nodeName.size();
     uint64_t tagWithLen = instrumentOp.getTag();
