@@ -413,7 +413,7 @@ def main(argv):
             runtime_file_name = arg
         elif opt in ('-s', "--supported"):
             supported_only = True
-        elif opt in ("--sorting"):
+        elif opt in ("--sort"):
             if re.match(r'\s*name\s*', arg):
                 sorting_preference = "name"
             elif re.match(r'\s*num\s*', arg):
