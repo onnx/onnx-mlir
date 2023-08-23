@@ -307,6 +307,14 @@ def get_percent(n, d):
         return 0.0
     return n * 100 / d
 
+def get_sorting_key(count, name, time):
+    global sorting_preference
+    if sorting_preference == "num":
+        key = - count
+    if sorting_preference == "name":
+        return name
+    return - time
+
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
@@ -326,33 +334,40 @@ def make_report(stat_message):
             count_time_str += ", {:.7f}".format(time * time_unit)
             count_time_str += ", {:.1f}%".format(get_percent(time, tot_time))
         output = "  " + op + ", " + count_time_str
-        if sorting_preference == "name":
-            key = op
-        elif sorting_preference == "num":
-            key = - count
-        else:
-            key = - time
         if report_level:
             det_dict = op_detail_count_dict[op]
             det_time_dict = {}
+            sorted_det_output = {}
             if op in op_detail_time_dict:
                 det_time_dict = op_detail_time_dict[op]
-            for det_key in sorted(det_dict):
+            for det_key in det_dict:
                 det_count = det_dict[det_key]
                 if det_count == count:
                     count_time_str = "*"
                 else:
                     count_time_str = str(det_count)
+                det_time = 0
                 if det_key in det_time_dict:
                     det_time = np.sum(det_time_dict[det_key])
                     count_time_str += ", {:.7f}".format(det_time * time_unit / det_count)
                     count_time_str += ", {:.7f}".format(det_time * time_unit)
                     count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
-                output += "\n    " + count_time_str + ": " + det_key
-        if key in sorted_output:
-            sorted_output[key] = sorted_output[key] + "\n" + output
+
+                det_output = "\n    " + count_time_str + ": " + det_key
+                det_output_key = get_sorting_key(det_count, det_key, det_time)
+                if det_output_key in sorted_det_output:
+                    sorted_det_output[det_output_key] += det_output
+                else:
+                    sorted_det_output[det_output_key] = det_output
+            for key in sorted(sorted_det_output):
+                output += sorted_det_output[key]
+
+        # add output to sorted_output
+        output_key = get_sorting_key(count, op, time)
+        if output_key in sorted_output:
+            sorted_output[output_key] += "\n" + output
         else:
-            sorted_output[key] = output
+            sorted_output[output_key] = output
 
     # Print legend and stats.
     num_desc = "num"
