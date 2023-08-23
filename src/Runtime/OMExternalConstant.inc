@@ -87,7 +87,7 @@ void omMMapBinaryFile(
     }
     int fd = open(filePath, O_RDONLY);
     if (fd < 0) {
-      fprintf(stderr, "Error while openning %s\n", filePath);
+      fprintf(stderr, "Error while opening %s\n", filePath);
       return;
     }
 
