@@ -996,8 +996,6 @@ public:
   using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
 
   LogicalResult match(ONNXSplitOp splitOp) const override {
-    if (!isNotDisabled("SplitOfConst"))
-      return failure();
     if (!isDenseONNXConstant(splitOp.getInput()))
       return failure();
     Value split = splitOp.getSplit();
@@ -1037,7 +1035,8 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   populateWithGenerated(patterns);
-  patterns.insert<SplitOfConst>(context);
+  if (isNotDisabled("SplitOfConst"))
+    patterns.insert<SplitOfConst>(context);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
