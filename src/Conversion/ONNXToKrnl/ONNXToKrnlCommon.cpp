@@ -727,7 +727,7 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
-      (long long int) loopLevel, (long long int) parallelLoopTripCount);
+      (long long int)loopLevel, (long long int)parallelLoopTripCount);
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -747,7 +747,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
   // Print report on this op.
   printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
       (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
-      (long long int) vectorLength, (long long int) simdLoopTripCount);
+      (long long int)vectorLength, (long long int)simdLoopTripCount);
 }
 
 } // namespace onnx_mlir
