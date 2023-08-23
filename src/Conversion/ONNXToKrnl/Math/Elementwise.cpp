@@ -2094,7 +2094,7 @@ struct ONNXElementwiseBinaryOpLowering
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops, estimatedSimdLoopTripCount);
       if (uVL > 0) {
-        if (collapsedInnermostLoops == outputRank)
+        if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
               estimatedSimdLoopTripCount, "binary fully flattened");
         else
@@ -2257,7 +2257,7 @@ struct ONNXElementwiseVariadicOpLowering
               shapeHelper, create, op, outputMemRefType,
               collapsedInnermostLoops, estimatedSimdLoopTripCount);
       if (uVL > 0) {
-        if (collapsedInnermostLoops == outputRank)
+        if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
               estimatedSimdLoopTripCount, "variadic fully flattened");
         else

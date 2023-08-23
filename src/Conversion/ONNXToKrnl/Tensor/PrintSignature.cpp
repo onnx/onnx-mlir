@@ -33,9 +33,11 @@ struct ONNXPrintSignatureLowering
     Location loc = ONNXLoc<ONNXPrintSignatureOp>(op);
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
+    // hi alex
     std::string opName(printSignatureOp.getOpName().data());
+    std::string str = "==SIGNATURE==, " + opName;
     create.krnl.printf(opName);
-    std::string msg = "%t ";
+    std::string msg = "%t";
     for (Value oper : adaptor.getInput())
       if (!oper.getType().isa<NoneType>())
         create.krnl.printTensor(msg, oper);
