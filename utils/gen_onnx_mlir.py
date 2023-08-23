@@ -56,7 +56,8 @@ args = parser.parse_args()
 check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
-# Change this variable only when upgrading the ONNX support within ONNX-MLIR.
+# ==UPDATE_ONNX_VERSION_OPSET==
+# Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
 current_onnx_version = "1.14.0"
 
 # Check the version of onnx package being used.
@@ -116,6 +117,7 @@ version_dict = {
  'Cosh': [9],
  'Col2Im': [18],
  'CumSum': [14],
+ 'DeformConv': [19],
  'DepthToSpace': [13],
  'DequantizeLinear': [19],
  'Det': [11],
@@ -552,22 +554,22 @@ custom_definition_misc = dict([ ('Constant',
 #     INT64 = 7;   // int64_t
 #     STRING = 8;  // string
 #     BOOL = 9;    // bool
-# 
+#
 #     // IEEE754 half-precision floating-point format (16 bits wide).
 #     // This format has 1 sign bit, 5 exponent bits, and 10 mantissa bits.
 #     FLOAT16 = 10;
-# 
+#
 #     DOUBLE = 11;
 #     UINT32 = 12;
 #     UINT64 = 13;
 #     COMPLEX64 = 14;     // complex with float32 real and imaginary components
 #     COMPLEX128 = 15;    // complex with float64 real and imaginary components
-# 
+#
 #     // Non-IEEE floating-point format based on IEEE754 single-precision
 #     // floating-point number truncated to 16 bits.
 #     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
 #     BFLOAT16 = 16;
-# 
+#
 #     // Non-IEEE floating-point format based on papers
 #     // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
 #     // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
@@ -582,7 +584,7 @@ custom_definition_misc = dict([ ('Constant',
 #     // Future extensions go here.
 #   }
 onnx_types = (
-    'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64', 
+    'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64',
     'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
     'complex64', 'complex128',
     'bfloat16', 'float8e4m3fn', 'float8e4m3fnuz', 'float8e5m2', 'float8e5m2fnuz'
