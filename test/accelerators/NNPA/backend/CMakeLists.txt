@@ -93,15 +93,17 @@ endif()
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA
-    # ==ADDITIONAL_PARAGRAPH== NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are enough large for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
+    # ==ADDITIONAL_PARAGRAPH== NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
 
     # ==OP== Add
+    # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # Scalar tensor not supported.
     test_add_cpu,zdnn_add
     # test_add_bcast_cpu # bcast not supported
 
     # ==OP== AveragePool
+    # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
@@ -118,11 +120,13 @@ set(NNPA_TEST_LIST
     # test_averagepool_3d_default_cpu
 
     # ==OP== BatchNormalization
+    # ==MIN== 6
     # ==LIM== Input and output tensor must be 4D(N x C x H x W).
     test_batchnorm_epsilon_cpu,zdnn_mul
     test_batchnorm_example_cpu,zdnn_mul
 
     # ==OP== Conv
+    # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(1).<br>- `dilations` must be default value(1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
     test_basic_conv_with_padding_cpu,zdnn_conv2d
     test_basic_conv_without_padding_cpu,zdnn_conv2d
@@ -132,6 +136,7 @@ set(NNPA_TEST_LIST
     # test_conv_with_strides_and_asymmetric_padding_cpu
 
     # ==OP== ConvTranspose
+    # ==MIN== 1
     # ==LIM== - 1D and 3D not supported because Conv1D and Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN.
     # test_convtranspose_1d_cpu,zdnn_conv1d
     # test_convtranspose_3d_cpu
@@ -144,17 +149,20 @@ set(NNPA_TEST_LIST
     test_convtranspose_pads_cpu,zdnn_conv2d
 
     # ==OP== Div
+    # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_div_cpu,zdnn_div
     # test_div_bcast_cpu
     test_div_example_cpu,zdnn_div
 
     # ==OP== Exp
+    # ==MIN== 6
     # ==LIM== Input tensor must have 4 dimensions.
     test_exp_cpu,zdnn_exp
     test_exp_example_cpu,zdnn_exp
 
     # ==OP== Gemm
+    # ==MIN== 6
     # ==LIM== - `alpha` and `beta` must be default value(1).<br>- Rank of `C` must be 1 or 2. If the rank is 1, the dimension of `C` must be the same with the seconde dimension of `B`.
     # test_gemm_all_attributes_cpu
     # test_gemm_alpha_cpu
@@ -169,6 +177,7 @@ set(NNPA_TEST_LIST
     test_gemm_transposeB_cpu,zdnn_matmul_op
 
     # ==OP== GlobalAveragePool
+    # ==MIN== 1
     # ==LIM== - Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static.
     test_globalaveragepool_cpu,zdnn_meanreduce2d
     test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
@@ -177,12 +186,14 @@ set(NNPA_TEST_LIST
     # test_globalmaxpool_precomputed_cpu
 
     # ==OP== GRU
+    # ==MIN== 7
     # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- If `B` and `initial_h` are given, they must have static dimensions.<br>- `sequence_lens` is not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `linear_before_reset` must be 1.<br>- `layout` is not supported.
     # test_gru_defaults_cpu
     # test_gru_seq_length_cpu
     # test_gru_with_initial_bias_cpu
 
     # ==OP== LeakyRelu
+    # ==MIN== 6
     # ==LIM== The operations immediately before and after the LeakyRelu operation must be executed on the NNPA. Otherwise, LeakyRelu is executed on the CPU. This limitation is set to avoid performance degradation.
     # Leakyrelu op in following test cases doesn't run on NNPA because single LeakyRelu op is included.
     # test_leakyrelu_cpu
@@ -190,31 +201,36 @@ set(NNPA_TEST_LIST
     # test_leakyrelu_example_cpu
 
     # ==OP== Log
+    # ==MIN== 6
     # ==LIM== Input tensor must have 4 dimensions.
     test_log_example_cpu,zdnn_log
     test_log_cpu,zdnn_log
     # ==OP== LogSoftmax
+    # ==MIN== 6
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
-    test_logsoftmax_axis_2_cpu,zdnn_log
+    # test_logsoftmax_axis_2_cpu,zdnn_log
     test_logsoftmax_example_1_cpu,zdnn_softmax
     # test_logsoftmax_default_axis_cpu
-    test_logsoftmax_negative_axis_cpu,zdnn_log
+    # test_logsoftmax_negative_axis_cpu,zdnn_log
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
 
     # ==OP== LSTM
+    # ==MIN== 7
     # ==LIM== - `direction` and `hidden_size` in `W` must have static dimensions.<br>- `R` must have static dimensions.<br>- `B` and `initial_h` have static dimensions if given. `B`'s direction dim must be 1 or 2.<br>- `P`(peepholes), `activation_alpha`, and `activation_beta` are not supported.<br>- `activations` must be `["Sigmoid", "Tanh", "Tanh"]`.<br>- `clip` is not supported.<br>- `input_forget` must be default value(0).<br>- `layout` is not supported.
     test_lstm_defaults_cpu,zdnn_lstm
     test_lstm_with_initial_bias_cpu,zdnn_lstm
     # test_lstm_with_peepholes_cpu
 
     # ==OP== MatMul
+    # ==MIN== 1
     # ==LIM== Ranks of input tensors must be (Rank of A, Rank of B) = (M, N), where M >= 2 and N >= 2.
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
     test_matmul_4d_cpu,zdnn_matmul_op
 
     # ==OP== Max
+    # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_max_example_cpu
     #test_max_one_input_cpu
@@ -232,6 +248,7 @@ set(NNPA_TEST_LIST
     # test_max_uint64_cpu
 
     # ==OP== MaxPool
+    # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
@@ -247,6 +264,7 @@ set(NNPA_TEST_LIST
     # test_maxpool_3d_default_cpu
 
     # ==OP== Min
+    # ==MIN== 6
     # ==LIM== - Shape of input tensors must be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     # test_min_example_cpu
     # test_min_one_input_cpu
@@ -264,16 +282,19 @@ set(NNPA_TEST_LIST
     # test_min_uint64_cpu
 
     # ==OP== Mul
+    # ==MIN== 6
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_mul_cpu,zdnn_mul
     # test_mul_bcast_cpu
     test_mul_example_cpu,zdnn_mul
 
     # ==OP== Pow
+    # ==MIN== 7
     # ==LIM== - Exponent should be a scalar integer and less or equal to 64.
     test_pow_bcast_scalar_cpu
 
     # ==OP== ReduceMean
+    # ==MIN== 1
     # ==LIM== - `keepdims` must be 1.<br>- Input tensor must be 4D tensors and `axis` must be [2, 3].
     # test_reduce_mean_default_axes_keepdims_example_cpu
     # test_reduce_mean_default_axes_keepdims_random_cpu
@@ -285,10 +306,12 @@ set(NNPA_TEST_LIST
     # test_reduce_mean_negative_axes_keepdims_random_cpu
 
     # ==OP== Relu
+    # ==MIN== 6
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
     test_relu_cpu,zdnn_relu
 
     # ==OP== Softmax
+    # ==MIN== 1
     # ==LIM== - `axis` must be the last dimension, i.e. `rank - 1` or -1.
     # test_softmax_axis_0_cpu
     # test_softmax_axis_1_cpu
@@ -298,21 +321,25 @@ set(NNPA_TEST_LIST
     # test_softmax_large_number_cpu #  accuracy error
 
     # ==OP== Sub
+    # ==MIN== 6
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
     test_sub_cpu,zdnn_sub
     # test_sub_bcast_cpu
     test_sub_example_cpu,zdnn_sub
 
     # ==OP== Sum
+    # ==MIN== 6
     # ==LIM== - All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported.
     test_sum_example_cpu,zdnn_add
     # test_sum_one_input_cpu
     test_sum_two_inputs_cpu,zdnn_add
 
     # ==OP== Tanh
+    # ==MIN== 6
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
 
     # ==OP== Sigmoid
+    # ==MIN== 6
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
 
     # Model
@@ -344,7 +371,7 @@ add_custom_target(check-onnx-backend-nnpa
     ${FILE_GENERATE_DIR}/test_config.py
    )
 
-add_custom_target(check-onnx-backend-nnpa-dynamic
+add_custom_target(check-onnx-backend-dynamic-nnpa
   COMMAND
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
@@ -354,7 +381,7 @@ add_custom_target(check-onnx-backend-nnpa-dynamic
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
-add_custom_target(check-onnx-backend-nnpa-constant
+add_custom_target(check-onnx-backend-constant-nnpa
   COMMAND
     # In some test cases such as `test_add_cpu`, operations are removed by optimization and
     # instruction check fails. So, currently instruction check is disabled in constant test.
@@ -366,7 +393,7 @@ add_custom_target(check-onnx-backend-nnpa-constant
     ${FILE_GENERATE_DIR}/test_config.py
   )
 
-add_custom_target(check-onnx-backend-nnpa-compilerlib
+add_custom_target(check-onnx-backend-compilerlib-nnpa
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -384,17 +411,21 @@ add_custom_target(clean-onnx-backend-nnpa
 
 add_dependencies(check-onnx-backend-nnpa onnx-mlir)
 add_dependencies(check-onnx-backend-nnpa PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-dynamic onnx-mlir)
-add_dependencies(check-onnx-backend-nnpa-dynamic PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-constant onnx-mlir)
-add_dependencies(check-onnx-backend-nnpa-constant PyRuntime)
-add_dependencies(check-onnx-backend-nnpa-compilerlib CompilerLibTest)
-add_dependencies(check-onnx-backend-nnpa-compilerlib PyRuntime)
+add_dependencies(check-onnx-backend-dynamic-nnpa onnx-mlir)
+add_dependencies(check-onnx-backend-dynamic-nnpa PyRuntime)
+add_dependencies(check-onnx-backend-constant-nnpa onnx-mlir)
+add_dependencies(check-onnx-backend-constant-nnpa PyRuntime)
+add_dependencies(check-onnx-backend-compilerlib-nnpa CompilerLibTest)
+add_dependencies(check-onnx-backend-compilerlib-nnpa PyRuntime)
+
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-nnpa)
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-dynamic-nnpa)
+add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-constant-nnpa)
 
 if (ONNX_MLIR_ENABLE_JNI)
   message(STATUS "JNI backend tests        : ON")
   message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
-  add_custom_target(check-onnx-backend-nnpa-jni
+  add_custom_target(check-onnx-backend-jni-nnpa
     COMMAND
       ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/jni
        TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
@@ -404,7 +435,7 @@ if (ONNX_MLIR_ENABLE_JNI)
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
-  add_custom_target(check-onnx-backend-nnpa-dynamic-jni
+  add_custom_target(check-onnx-backend-dynamic-jni-nnpa
     COMMAND
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -413,7 +444,7 @@ if (ONNX_MLIR_ENABLE_JNI)
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
-  add_custom_target(check-onnx-backend-nnpa-constant-jni
+  add_custom_target(check-onnx-backend-constant-jni-nnpa
     COMMAND
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -422,18 +453,23 @@ if (ONNX_MLIR_ENABLE_JNI)
       ${FILE_GENERATE_DIR}/test_config.py
     )
 
-  add_dependencies(check-onnx-backend-nnpa-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-nnpa-jni PyRuntime)
-  add_dependencies(check-onnx-backend-nnpa-jni javaruntime)
-  add_dependencies(check-onnx-backend-nnpa-jni jniruntime)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni PyRuntime)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni javaruntime)
-  add_dependencies(check-onnx-backend-nnpa-dynamic-jni jniruntime)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni PyRuntime)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni javaruntime)
-  add_dependencies(check-onnx-backend-nnpa-constant-jni jniruntime)
+  add_dependencies(check-onnx-backend-jni-nnpa onnx-mlir)
+  add_dependencies(check-onnx-backend-jni-nnpa PyRuntime)
+  add_dependencies(check-onnx-backend-jni-nnpa javaruntime)
+  add_dependencies(check-onnx-backend-jni-nnpa jniruntime)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa onnx-mlir)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa PyRuntime)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa javaruntime)
+  add_dependencies(check-onnx-backend-dynamic-jni-nnpa jniruntime)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa onnx-mlir)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa PyRuntime)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa javaruntime)
+  add_dependencies(check-onnx-backend-constant-jni-nnpa jniruntime)
+
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-jni-nnpa)
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-dynamic-jni-nnpa)
+  add_dependencies(check-onnx-backend-numerical-nnpa check-onnx-backend-constant-jni-nnpa)
+
 else()
   message(STATUS "  JNI backend-nnpa tests         : OFF")
 endif()

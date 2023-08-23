@@ -83,13 +83,13 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
 // Get dilation attribute.
 //
 template <typename PoolOp>
-llvm::Optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
+std::optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
   return std::nullopt;
 }
 
 // MaxPool has dilations attribute.
 template <>
-llvm::Optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
+std::optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp poolOp) {
   return poolOp.getDilations();
 }
@@ -500,6 +500,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
 
     rewriter.replaceOp(op, alloc);
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

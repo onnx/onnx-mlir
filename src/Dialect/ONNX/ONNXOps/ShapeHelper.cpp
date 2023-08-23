@@ -225,6 +225,13 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
   return success();
 }
 
+void ONNXOpShapeHelper::setOperands(ValueRange inputs) {
+  // Note: do not use operands until it is re-assigned
+  privateOperandsCache =
+      llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
+  operands = ValueRange(privateOperandsCache);
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
@@ -299,10 +306,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
-          return op->emitError("Incompatible broadcast matching " +
-                               std::to_string(currentDimExpr.getLiteral()) +
-                               " with " +
-                               std::to_string(currentDimExpr.getLiteral()));
+          return op->emitOpError("Incompatible broadcast matching " +
+                                 std::to_string(currentDimExpr.getLiteral()) +
+                                 " with " +
+                                 std::to_string(nextDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.
         continue;
@@ -388,6 +395,17 @@ bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
       return false;
   // All have the same shape.
   return true;
+}
+
+// Checks if the input operands need rank broadcasting.
+bool ONNXBroadcastOpShapeHelper::hasRankBroadcast() {
+  ValueRange operands = this->operands;
+  for (Value operand : operands) {
+    auto operandType = operand.getType().cast<ShapedType>();
+    if (outputRank != (uint64_t)operandType.getRank())
+      return true;
+  }
+  return false;
 }
 
 bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
@@ -797,6 +815,53 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
   int numRes = op->getNumResults();
   for (int i = 0; i < numRes; ++i)
     resetTypeShapeToQuestionmarks(op->getResult(i));
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Custom Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
+    ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
+    bool hasUniBroadcasting)
+    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {
+  ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
+  if (!customOp.getShapeInferPattern().has_value()) {
+    pattern = 0;
+    return;
+  }
+
+  if (customOp.getShapeInferPattern() == "SameAs") {
+    pattern = 1;
+  } else if (customOp.getShapeInferPattern() == "MDBroadcast") {
+    pattern = 2;
+  } else {
+    // ToFix: move the check into verifier
+    llvm_unreachable("The specified shape_infer_pattern is not supported"
+                     "Error encountered in shape inference.");
+  }
+
+  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
+  ValueRange inputs =
+      operands.empty() ? ValueRange(customOp.getInputs()) : operands;
+  if (!inputIndexAttrs.has_value()) {
+    return;
+  }
+
+  std::vector<mlir::Value> operandsVector;
+  for (auto indexAttr : inputIndexAttrs.value()) {
+    operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
+  }
+  setOperands(ValueRange(operandsVector));
+}
+
+LogicalResult ONNXCustomOpShapeHelper::computeShape() {
+  if (pattern == 1) {
+    return ONNXUnaryOpShapeHelper::computeShape();
+  } else if (pattern == 2) {
+    return ONNXBroadcastOpShapeHelper::computeShape();
+  }
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

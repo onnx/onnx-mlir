@@ -71,8 +71,8 @@ void readArgsFromCommandLine(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
 
   int retVal = 0;
-  const char *errorMessage = NULL;
-  const char *compiledFilename;
+  char *errorMessage = nullptr;
+  char *compiledFilename = nullptr;
 
   readArgsFromCommandLine(argc, argv);
 
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     // Compile.
     retVal = onnx_mlir::omCompileFromFile(
         testFileName.c_str(), flags.c_str(), &compiledFilename, &errorMessage);
-    if (retVal != CompilerSuccess && errorMessage != NULL)
+    if (retVal != CompilerSuccess && errorMessage != nullptr)
       std::cerr << errorMessage;
   } else {
     std::ifstream inFile(
@@ -96,12 +96,14 @@ int main(int argc, char *argv[]) {
     retVal =
         omCompileFromArray(test.data(), test.size(), outputBaseName.c_str(),
             onnx_mlir::EmitLib, &compiledFilename, &errorMessage);
-    if (retVal != CompilerSuccess && errorMessage != NULL) {
+    if (retVal != CompilerSuccess && errorMessage != nullptr) {
       std::cerr << errorMessage;
     }
   }
   if (retVal != 0) {
     std::cerr << "Compiling " << testFileName << "failed with code" << retVal;
   }
+  free(compiledFilename);
+  free(errorMessage);
   return retVal;
 }

@@ -40,7 +40,7 @@ namespace tosa {
 // Common function for lowering reduce operations to TOSA ops.
 // Modified from TensorFlow
 template <typename T>
-llvm::Optional<mlir::Value> convertReduceOpCommon(
+std::optional<mlir::Value> convertReduceOpCommon(
     mlir::PatternRewriter &rewriter, mlir::Operation *op,
     mlir::RankedTensorType outputType, mlir::Value inputValue,
     mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {

@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Support/Arrays.hpp"
 
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -71,7 +71,7 @@ llvm::SmallVector<int64_t, 4> getSplatStrides(llvm::ArrayRef<int64_t> shape);
 
 // Returns the strides that can map the underlying data to reshapedShape
 // equivalently to restriding it, if such strides exist, otherwise returns None.
-llvm::Optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
+std::optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     llvm::ArrayRef<int64_t> reshapedShape);
 

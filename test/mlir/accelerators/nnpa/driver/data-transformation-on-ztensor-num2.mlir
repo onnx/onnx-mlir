@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --maccel=NNPA --EmitMLIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --maccel=NNPA --EmitMLIR --printIR -tag="test" %s | FileCheck %s
 
 // -----
 
@@ -7,7 +7,7 @@ func.func @transpose_on_ztensor_unknown_dims(%arg0: tensor<?x?xf32>) -> tensor<?
   %0 = "onnx.Relu" (%arg0) : (tensor<?x?xf32>) -> tensor<?x?xf32>
   %1 = "onnx.Transpose"(%0) {perm = [1,0]} : (tensor<?x?xf32>) -> tensor<?x?xf32>
   %2 = "onnx.Relu" (%1) : (tensor<?x?xf32>) -> tensor<?x?xf32>
-  return %2 : tensor<?x?xf32>
+  onnx.Return %2 : tensor<?x?xf32>
 
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0] -> (s0 ceildiv 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 ceildiv 32)>

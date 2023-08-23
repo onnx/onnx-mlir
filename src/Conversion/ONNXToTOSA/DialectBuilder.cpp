@@ -55,6 +55,16 @@ Value TosaBuilder::createConst(
   return constOp;
 }
 
+bool TosaBuilder::needsRankBroadcast(ValueRange valueRange) {
+  int64_t firstRank = valueRange[0].getType().cast<ShapedType>().getRank();
+  for (Value operand : valueRange) {
+    auto operandType = operand.getType().cast<ShapedType>();
+    if (firstRank != operandType.getRank())
+      return true;
+  }
+  return false;
+}
+
 Value TosaBuilder::expandRank(Value input, int64_t rank) {
   auto inputType = input.getType().cast<ShapedType>();
   int64_t inputRank = inputType.getRank();
@@ -66,6 +76,28 @@ Value TosaBuilder::expandRank(Value input, int64_t rank) {
   llvm::transform(inputType.getShape(), std::back_inserter(newShape),
       [](const int64_t shape) { return shape; });
   return this->reshape(input, newShape);
+}
+
+llvm::SmallVector<Value, 4> TosaBuilder::equalizeRanks(ValueRange valueRange) {
+  // Get highest rank from the operands.
+  int64_t maxRank = 0;
+  for (auto type : valueRange.getTypes()) {
+    int64_t currentRank = type.cast<ShapedType>().getRank();
+    maxRank = std::max(maxRank, currentRank);
+  }
+  llvm::SmallVector<Value, 4> reshapedValues;
+  // Iterate through all values comparing the rank.
+  for (auto value : valueRange) {
+    auto shapedType = value.getType().cast<ShapedType>();
+    int64_t currentRank = shapedType.getRank();
+    // Only add a reshape op if necessary.
+    if (maxRank > currentRank) {
+      reshapedValues.push_back(this->expandRank(value, maxRank));
+      continue;
+    }
+    reshapedValues.push_back(value);
+  }
+  return reshapedValues;
 }
 
 Value TosaBuilder::getConst(ArrayRef<int64_t> vec, ArrayRef<int64_t> shape) {
@@ -137,22 +169,68 @@ Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
 }
 
 Value TosaBuilder::mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift) {
+  if (needsRankBroadcast({lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
+  }
   auto lhsType = lhs.getType().cast<ShapedType>();
-  auto rhsType = rhs.getType().cast<ShapedType>();
-  assert(lhsType.getElementType() == rhsType.getElementType() &&
-         "lhs and rhs have different element types");
-
-  auto outputRank = lhsType.getRank() > rhsType.getRank() ? lhsType.getRank()
-                                                          : rhsType.getRank();
-  lhs = this->expandRank(lhs, outputRank);
-  rhs = this->expandRank(rhs, outputRank);
   Type newValueType = RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(outputRank, ShapedType::kDynamic),
+      llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
       lhsType.getElementType());
   return tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
       rewriter(), loc(), newValueType, lhs, rhs, shift);
 }
 
+Value TosaBuilder::intdiv(mlir::Value &lhs, mlir::Value &rhs) {
+  Type lhsElementType = lhs.getType().cast<ShapedType>().getElementType();
+  Type rhsElementType = rhs.getType().cast<ShapedType>().getElementType();
+  assert((lhsElementType.isSignlessInteger(32) &&
+             rhsElementType.isSignlessInteger(32)) &&
+         "Tosa DivOp needs 32-bit signless integer inputs");
+
+  if (needsRankBroadcast({lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
+  }
+
+  auto lhsType = lhs.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
+      lhsElementType);
+  return tosa::CreateOpAndInfer<mlir::tosa::DivOp>(
+      rewriter(), loc(), newValueType, lhs, rhs);
+}
+
+Value TosaBuilder::reciprocal(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
+template <typename T>
+Value TosaBuilder::binaryOp(mlir::Value &lhs, mlir::Value &rhs) {
+  if (needsRankBroadcast({lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
+  }
+  auto lhsType = lhs.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
+      lhsType.getElementType());
+  return tosa::CreateOpAndInfer<T>(rewriter(), loc(), newValueType, lhs, rhs);
+}
+
+template Value TosaBuilder::binaryOp<mlir::tosa::AddOp>(
+    mlir::Value &lhs, mlir::Value &rhs);
+
+template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
+    mlir::Value &lhs, mlir::Value &rhs);
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape/TOSA Dialect.
 // =============================================================================

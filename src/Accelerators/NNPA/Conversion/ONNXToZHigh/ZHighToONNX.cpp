@@ -31,7 +31,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
-// ONNX to ZHigh Lowering Pass
+// ZHigh to ONNX Lowering Pass
 //===----------------------------------------------------------------------===//
 
 namespace {

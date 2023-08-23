@@ -312,6 +312,20 @@ bool hasUnitStrides(ArrayAttr strides) {
   return llvm::all_of(vstrides, [](int64_t s) { return s == 1; });
 }
 
+// Check if v's shape N x C x D1 x D2 ... x Dn has static dims D1 ... Dn.
+bool hasStaticSpatialDims(Value v) {
+  ShapedType type = cast<ShapedType>(v.getType());
+  if (!type.hasRank())
+    return false;
+  // Shape has the form N x C x D1 x D2 ... x Dn.
+  ArrayRef<int64_t> NxCxDs = type.getShape();
+  // Remove leading batch size N and channels C dims,
+  // so we're left with D1 x D2 ... x Dn.
+  ArrayRef<int64_t> Ds = NxCxDs.drop_front(2);
+  // These must all be static for decomposition to work.
+  return !llvm::any_of(Ds, ShapedType::isDynamic);
+}
+
 // Split on the specified axis. The length of each output is one.
 ValueRange emitSplitAxisOutputLength1(
     PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {
@@ -471,6 +485,9 @@ struct SoftmaxPattern : public ConversionPattern {
 
     // Rewrite
     Location odsLoc = op0->getLoc();
+    onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
+        rewriter, odsLoc);
+
     IntegerAttr keepDimsAttr = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 1);
     ArrayAttr axisAttr = rewriter.getI64ArrayAttr({axisValue});
@@ -481,8 +498,7 @@ struct SoftmaxPattern : public ConversionPattern {
     Value subValue =
         rewriter.create<ONNXSubOp>(odsLoc, inputType, input, maxInput);
     Value expValue = rewriter.create<ONNXExpOp>(odsLoc, inputType, subValue);
-    Value axisOp = rewriter.create<ONNXConstantOp>(odsLoc, nullptr,
-        /*value=*/rewriter.getI64TensorAttr({axisValue}));
+    Value axisOp = create.onnx.constantInt64({axisValue});
     IntegerAttr noopWithEmptyAxes = rewriter.getIntegerAttr(
         rewriter.getIntegerType(64, /*isSigned=*/true), 0);
     Value sumValue = rewriter.create<ONNXReduceSumOp>(odsLoc, resultType,
@@ -811,12 +827,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 #endif
     target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
         [](ONNXConvTransposeOp op) {
-          ONNXConvTransposeOpAdaptor operandAdaptor =
-              ONNXConvTransposeOpAdaptor(op);
-          Value X = operandAdaptor.getX();
-          Value W = operandAdaptor.getW();
-          return !(
-              onnx_mlir::hasShapeAndRank(X) && onnx_mlir::hasShapeAndRank(W));
+          return !(onnx_mlir::hasStaticSpatialDims(op.getX()) &&
+                   onnx_mlir::hasStaticSpatialDims(op.getW()));
         });
 #ifdef ONNX_MLIR_ENABLE_MHLO
   }

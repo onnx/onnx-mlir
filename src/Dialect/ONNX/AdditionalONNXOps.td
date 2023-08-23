@@ -12,7 +12,7 @@
 // Ops are listed in alphabetical order, in 2 sections.
 //
 // * First are ops that are used to assist the processing of ONNX dialect.
-//   Example are CallOp, ReturnOp,...
+//   Examples are NoneOp, YieldOp,...
 //
 // * Second are ops that are used to handle optional arguments/special cases
 //   of original ONNX ops. These ops may possibly be removed in the future.
@@ -54,88 +54,26 @@ include "src/IR/AttrBase.td"
 */
 
 //===----------------------------------------------------------------------===//
-// ONNX CallOp
-def ONNXCallOp : ONNX_Op<"ONNX_Call",
-    [CallOpInterface, MemRefsNormalizable,
-     DeclareOpInterfaceMethods<SymbolUserOpInterface>,
-     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let summary = "call operation";
+// ONNX ReturnOp
+def ONNXReturnOp : ONNX_Op<"Return",
+    [Pure, HasParent<"func::FuncOp">, ReturnLike, Terminator]> {
+  let summary = "Function return operation";
   let description = [{
-    The `call` operation represents a direct call to a function that is within
-    the same symbol scope as the call. The operands and result types of the
-    call must match the specified function type. The callee is encoded as a
-    symbol reference attribute named "callee".
-
-    Example:
-
-    ```mlir
-    %2 = call @my_add(%0, %1) : (f32, f32) -> f32
-    ```
-
-    This operation is not part of the standard and was added to assist onnx-mlir.
+    The `onnx.Return` operation represents a return operation within a function.
+    The operation takes variable number of operands and produces no results.
+    The operand number and types must match the signature of the function
+    that contains the operation, with the exception that shaped types may have
+    more specific shapes than the function signature result types, which allows
+    rewrites of defining ops of operands to make their result shapes more specific.
+    This operation terminates a func::FuncOp in the ONNX dialect and is replaced
+    by func::ReturnOp in StandardFuncReturnPass before lowering to Krnl or other
+    dialects.
   }];
 
-  let arguments = (ins FlatSymbolRefAttr:$callee, Variadic<AnyType>:$operands);
-  // TODO I would rather have <anyTypeOf<AnyTensor>> here, but the testcase for
-  // CustomOps supplies an empty parameter which fails that test.
-  let results = (outs Variadic<AnyTypeOf<[AnyTensor]>>);
+  let arguments = (ins Variadic<AnyType>:$operands);
 
-  let builders = [
-    OpBuilder<(ins "func::FuncOp":$callee, CArg<"ValueRange", "{}">:$operands), [{
-      $_state.addOperands(operands);
-      $_state.addAttribute("callee", SymbolRefAttr::get(callee));
-      $_state.addTypes(callee.getFunctionType().getResults());
-    }]>,
-    OpBuilder<(ins "SymbolRefAttr":$callee, "TypeRange":$results,
-      CArg<"ValueRange", "{}">:$operands), [{
-      $_state.addOperands(operands);
-      $_state.addAttribute("callee", callee);
-      $_state.addTypes(results);
-    }]>,
-    OpBuilder<(ins "StringAttr":$callee, "TypeRange":$results,
-      CArg<"ValueRange", "{}">:$operands), [{
-      build($_builder, $_state, SymbolRefAttr::get(callee), results, operands);
-    }]>,
-    OpBuilder<(ins "StringRef":$callee, "TypeRange":$results,
-      CArg<"ValueRange", "{}">:$operands), [{
-      build($_builder, $_state, StringAttr::get($_builder.getContext(), callee),
-            results, operands);
-    }]>];
-
-  let assemblyFormat = [{
-    $callee `(` $operands `)` attr-dict `:` functional-type($operands, results)
-  }];
-
-  let extraClassDeclaration = [{
-    FunctionType getCalleeType();
-
-    /// Get the argument operands to the called function.
-    operand_range getArgOperands() {
-      return {arg_operand_begin(), arg_operand_end()};
-    }
-
-    operand_iterator arg_operand_begin() { return operand_begin(); }
-    operand_iterator arg_operand_end() { return operand_end(); }
-
-    /// Return the callee of this operation.
-    CallInterfaceCallable getCallableForCallee() {
-      return (*this)->getAttrOfType<SymbolRefAttr>("callee");
-    }
-
-    /// Set the callee for this operation.
-    void setCalleeFromCallable(CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
-    }
-  }];
-
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * ONNXCallOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXCallOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+  let hasVerifier = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -145,18 +83,66 @@ def ONNXCustomOp:ONNX_Op<"Custom",
      DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Custom operation";
   let description = [{
-    Allow call-out to a user defined operation. A single attribute
-    is a string which names the operation, other inputs are
-    passed to the user operation.
+    CustomOp is not an Op defined in onnx standard and was added to support
+    extention of Op that can be transformed or finally call a user-defined
+    external function."
+
+    It allows for calling a user-defined operation, with a single required
+    attribute being a string that names the operation. Other inputs are passed
+    to the user operation.
+
     The number of inputs and outputs can vary.
 
-    This operation is not part of the standard and was added to assist onnx-mlir.
-    NoneType is allowed for input and output since the CustomOp may want
-    the fixed number of input/output for external function call.
+    NoneType is allowed for both input and output, as the CustomOp may require
+    a fixed number of inputs/outputs for the external function call.
+
+    In addition to the values passed to the user-defined operation, certain
+    attributes are introduced to facilitate the analysis and transformation of
+    CustomOp.
+
+    Since the compiler does not define the semantics of CustomOp, onnx-mlir
+    cannot infer the shape of its output. Consequently, specific attributes are
+    introduced to specify how shape inference should be performed on a CustomOp.
+    These attributes are:
+      'inputs_for_infer':
+           Optional. The index of inputs used for shape inference.
+           The value of index should be [0, the number of inputs).
+           If not specified, all the inputs of the CustomOp will be used for
+           shape inference.
+      'shape_infer_pattern':
+           Optional. Specify how to propagate the shape info from the inputs
+           (may be limited by inputs_for_infer) to output. Current supported
+           patterns are `SameAs`, `MDBroadcast`.
+      'output_element_type':
+           Optional. The element type for the output tensor. If not specified,
+           follow the shape infer pattern behavior. Usually the element type of
+           the first input is used.
+    Each instance of CustomOp can have its own attributes for shape inference,
+    allowing for customization. However, CustomOps with the same function_name
+    typically behave similarly in terms of shape inference, and therefore have
+    the same attributes.
+
+    The existing shape inference patterns for ONNX ops are reused for CustomOp,
+    with the polymorphism in shape inference based on its attribute values.
+    Due to the current implementation for ONNX Ops, a CustomOp with specified
+    shape inference attributes supports only a single output, rather than
+    variadic outputs.
+
+    When attributes for shape inference are not provided, the shape inference
+    for CustomOp will simply pass through.
+
+    All of these additional attributes are optional, designed to be less
+    intrusive. The .mlir file can remain the same when a new attribute is
+    added.
   }];
 
-  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$input,
-                       StrAttr:$function_name);
+  let arguments = (ins Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$inputs,
+        StrAttr:$function_name,
+        // Attributs for shape inference
+        OptionalAttr<TypeAttr>:$output_element_type,
+        OptionalAttr<StrAttr>:$shape_infer_pattern,
+        OptionalAttr<I64ArrayAttr >:$inputs_for_infer
+        );
   let results = (outs Variadic<AnyTypeOf<[AnyTensor, AnyMemRef, NoneType]>>:$outputs);
 
   let extraClassDeclaration = [{
@@ -167,7 +153,8 @@ def ONNXCustomOp:ONNX_Op<"Custom",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      // Assume the element type of the output is the same as the first input
+      return {30}; 
     }
   }];
 
@@ -306,7 +293,7 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
 }
 
 //===----------------------------------------------------------------------===//
-// NoValueOp.
+// NoneOp.
 def ONNXNoneOp : ONNX_Op<"NoValue", [ConstantLike, Pure]> {
   let summary = "An operation representing the absence of a value.";
   let description = [{
@@ -347,15 +334,15 @@ def ONNXPrintSignatureOp:ONNX_Op<"PrintSignature", []> {
 }
 
 //===----------------------------------------------------------------------===//
-// ONNX ReturnOp
-def ONNXReturnOp : ONNX_Op<"Return", [Pure,
-                                ReturnLike, Terminator]> {
-  let summary = "ONNX return operation";
+// ONNX YieldOp
+def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
+  let summary = "ONNX yield operation";
   let description = [{
-    The `ONNX.Return` operation represents a return operation within an ONNX subgraph.
+    The `onnx.Yield` operation represents a yield operation within an ONNX subgraph.
     The operation takes variable number of operands and produces no results.
 
     This operation is not part of the standard and was added to assist onnx-mlir.
+    It terminates a ONNXLoop/Scan/IfOp region.
   }];
 
   let arguments = (ins Variadic<AnyType>:$operands);
@@ -418,7 +405,7 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 5; }
     static int getNumberOfResults() { return 1; }
-    static std::vector<int> getTypeMap() { return {20}; }
+    static std::vector<int> getTypeMap() { return {30}; }
   }];
   
   let extraClassDefinition = [{  
@@ -459,7 +446,7 @@ def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
   let extraClassDeclaration = [{
     static int getNumberOfOperands() { return 1; }
     static int getNumberOfResults() { return 1; }
-    static std::vector<int> getTypeMap() { return {20}; }
+    static std::vector<int> getTypeMap() { return {30}; }
   }];
   
   let extraClassDefinition = [{  

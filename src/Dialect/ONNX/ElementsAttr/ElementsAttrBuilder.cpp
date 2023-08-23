@@ -11,6 +11,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
 #include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -19,6 +20,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <algorithm>
 #include <numeric>
 
 using namespace mlir;
@@ -157,14 +159,17 @@ bool ElementsAttrBuilder::allEqual(
             auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
             return llvm::all_of(values, nEquals);
           }
+        } else if (auto dense = lhs.dyn_cast<DenseElementsAttr>()) {
+          if (dense.isSplat()) {
+            cpptype x = dense.getSplatValue<cpptype>();
+            return nEquals(x);
+          } else {
+            auto values = dense.getValues<cpptype>();
+            return llvm::all_of(values, nEquals);
+          }
         }
-        if (lhs.isSplat()) {
-          cpptype x = lhs.getSplatValue<cpptype>();
-          return nEquals(x);
-        } else {
-          auto values = lhs.getValues<cpptype>();
-          return llvm::all_of(values, nEquals);
-        }
+        // TODO: consider supporting more ElementsAttr types
+        llvm_unreachable("unexpected ElementsAttr instance");
       });
 }
 
@@ -329,6 +334,23 @@ ElementsAttr ElementsAttrBuilder::castElementType(
                 functionTransformer(wideCaster(oldWideType, newWideType)));
   return create(newType, props.bufferBType, props.strides, props.buffer,
       std::move(transformer));
+}
+
+ElementsAttr ElementsAttrBuilder::clip(
+    ElementsAttr elms, WideNum min, WideNum max) {
+  return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    return doTransform(
+        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
+          constexpr BType TAG = toBType<cpptype>;
+          cpptype x = n.narrow<TAG>();
+          if (x < min.narrow<TAG>())
+            return min;
+          if (x > max.narrow<TAG>())
+            return max;
+          return n;
+        }));
+  });
 }
 
 namespace {
@@ -516,6 +538,88 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
     }
     for (auto &idxoffs : StridesRange<1>(shape, {strides}))
       dst[idxoffs.flattenedIndex] = *(start + idxoffs[0]);
+  });
+}
+
+namespace {
+ElementsAttr splat(ShapedType type, WideNum num) {
+  Type elemType = type.getElementType();
+  BType btype = btypeOfMlirType(elemType);
+  if (isFloatBType(btype))
+    return DenseElementsAttr::get(type, num.toAPFloat(btype));
+  if (isIntBType(btype))
+    return DenseElementsAttr::get(type, num.toAPInt(btype));
+  llvm_unreachable("unsupported element type");
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::pad(
+    ElementsAttr elms, ArrayRef<int64_t> pads, WideNum padValue) {
+  ArrayRef<int64_t> inputShape = elms.getShapedType().getShape();
+  size_t rank = inputShape.size();
+  if (rank == 0)
+    return elms;
+  ArrayRef<int64_t> leftPads = pads.take_front(rank);
+  ArrayRef<int64_t> rightPads = pads.take_back(rank);
+  SmallVector<int64_t> outShape(inputShape);
+  for (size_t axis = 0; axis < rank; ++axis)
+    outShape[axis] += leftPads[axis] + rightPads[axis];
+  ShapedType outType = elms.getShapedType().clone(outShape);
+  if (elms.empty())
+    return splat(outType, padValue);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    // The following unrolls the recurse(dst.begin(), elms.getValues())
+    // recursive algorithm described by the pseudo code:
+    //
+    //   def recurse(DstIter &out, SrcIter &inp, int axis = 0):
+    //     auto subSize = numElements(outShape.drop_front(axis + 1))
+    //     out = std::fill_n(out, leftPads[axis] * subSize)
+    //     if axis == rank - 1:
+    //       nunCols = inputShape.back()
+    //       out = std::copy(inp, inp += numCols, out)
+    //     else:
+    //       for i in range(inputShape[axis]):
+    //         recurse(out, inp, axis + 1)
+    //     out = std::fill_n(out, rightPads[axis] * subSize)
+
+    SmallVector<int64_t> betweenRowsPads(rank, 0);
+    int64_t beginPad = 0, endPad = 0;
+    int64_t multiplier = 1;
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      beginPad += leftPads[axis] * multiplier;
+      endPad += rightPads[axis] * multiplier;
+      betweenRowsPads[axis] = beginPad + endPad;
+      multiplier *= outShape[axis];
+    }
+
+    auto out = dst.begin();
+    out = std::fill_n(out, beginPad, padValue);
+
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    StridesRange<1> range(inputShape, {strides});
+    auto it = range.begin(), end = range.end();
+    assert(it != end && "elms must be non-empty");
+    assert(!inputShape.empty() && "elms must have rank > 0");
+    const int numCols = inputShape.back();
+    for (;;) {
+      // Copy next row from elms to dst.
+      for (int64_t col = 0; col < numCols; ++col, ++out, ++it) {
+        *out = src.get()[it->at(0)];
+      }
+
+      if (it == end)
+        break;
+
+      assert(it->index.back() == 0 && "it is at the start of a row");
+      int lastZero = rank - 1;
+      while (lastZero > 0 && it->index[lastZero - 1] == 0)
+        --lastZero;
+      out = std::fill_n(out, betweenRowsPads[lastZero], padValue);
+    }
+
+    out = std::fill_n(out, endPad, padValue);
+    assert(out == dst.end());
   });
 }
 
@@ -786,6 +890,44 @@ ElementsAttr ElementsAttrBuilder::range(
         x += delta.narrow<TAG>();
       }
     });
+  });
+}
+
+namespace {
+// Returns indices with non-zero values. The indices are placed back to back,
+// lexicographically sorted. Can be viewed as a [count, rank] shaped matrix
+// linearized in row-major order, where rank is the rank of elms' shape and
+// count is the number of non-zero values. AP_TYPE should be APFloat or APInt.
+// TODO: If this is too slow then reimplement in the style of allEqual()
+//       with WideNum instead of APFloat/APInt.
+template <typename AP_TYPE>
+SmallVector<int64_t> nonZeroIndices(ElementsAttr elms) {
+  SmallVector<int64_t> indices;
+  auto values = elms.getValues<AP_TYPE>();
+  for (const auto &idxpos :
+      StridesRange<0>(elms.getShapedType().getShape(), {})) {
+    if (!values[idxpos.flattenedIndex].isZero())
+      indices.append(idxpos.index.begin(), idxpos.index.end());
+  }
+  return indices;
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
+  SmallVector<int64_t> indices = isa<FloatType>(elms.getElementType())
+                                     ? nonZeroIndices<APFloat>(elms)
+                                     : nonZeroIndices<APInt>(elms);
+  int64_t rank = elms.getShapedType().getRank();
+  assert(indices.size() % rank == 0);
+  int64_t count = indices.size() / rank;
+  Type I64 = IntegerType::get(elms.getContext(), 64);
+  // Return transposition from shape [count, rank] to [rank, count].
+  auto nonZeroType = RankedTensorType::get({rank, count}, I64);
+  return fromArray<int64_t>(nonZeroType, [&](MutableArrayRef<int64_t> dst) {
+    for (int64_t i = 0; i < count; ++i) {
+      for (int64_t j = 0; j < rank; ++j)
+        dst[j * count + i] = indices[i * rank + j];
+    }
   });
 }
 

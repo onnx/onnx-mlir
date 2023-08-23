@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Include "Tools" before "Compiler" so that LRODATA_SCRIPT
+# is set before ExternalUtil.hpp.in is processed.
+if (LRODATA_SCRIPT)
+  file(READ ${LRODATA_SCRIPT} ONNX_MLIR_LRODATA_SCRIPT)
+else()
+  set(ONNX_MLIR_LRODATA_SCRIPT "")
+endif()
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
@@ -50,6 +58,18 @@ add_onnx_mlir_library(OMCompilerOptions
   OMAccelerator
   )
 
+
+add_onnx_mlir_library(OMCompilerDialects
+  CompilerDialects.cpp
+
+  LINK_LIBS PUBLIC
+  OMAccelerator
+  OMInitAccelerators
+  OMKrnlOps
+  OMONNXOps
+  MLIRIR
+  )
+
 add_onnx_mlir_library(OMCompilerPasses
   CompilerPasses.cpp
   DisposableGarbageCollector.cpp
@@ -70,6 +90,8 @@ add_onnx_mlir_library(OMCompilerPasses
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
   MLIRBuiltinToLLVMIRTranslation
+  MLIROpenMPToLLVM
+  MLIRSCFToOpenMP
   )
 
 # ONNX_MLIR_PRODUCT_VERSION is specified/cached.
@@ -142,9 +164,9 @@ add_onnx_mlir_library(OMCompilerUtils
 
   LINK_LIBS PUBLIC
   ${OMLibs}
+  OMCompilerDialects
   OMCompilerPasses
   OMAccelerator
-  OMInitAccelerators
   OMVersion
   MLIRIR
 
@@ -182,6 +204,7 @@ add_onnx_mlir_library(OMCompiler
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PRIVATE
+  OMCompilerDialects
   OMCompilerUtils
   )
 

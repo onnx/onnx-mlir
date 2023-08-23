@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Parser/Parser.h"
 
 #include "include/OnnxMlirRuntime.h"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -70,7 +71,7 @@ module {
       %2 = "onnx.Add"(%body_arg0, %body_arg1) :
            (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> tensor<%Bx%Ixf32>
       %3 = "onnx.Identity"(%2) : (tensor<%Bx%Ixf32>) -> tensor<%Bx%Ixf32>
-      "onnx.Return"(%2, %3) : (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> ()
+      "onnx.Yield"(%2, %3) : (tensor<%Bx%Ixf32>, tensor<%Bx%Ixf32>) -> ()
     }) {num_scan_inputs = 1 : si64} :
         (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>)
         -> (tensor<%Bx%Ixf32>, tensor<%Bx%Sx%Ixf32>)
@@ -88,7 +89,7 @@ module {
       %2 = "onnx.Add"(%body_arg0, %body_arg1) :
            (tensor<%Ixf32>, tensor<%Ixf32>) -> tensor<%Ixf32>
       %3 = "onnx.Identity"(%2) : (tensor<%Ixf32>) -> tensor<%Ixf32>
-      "onnx.Return"(%2, %3) : (tensor<%Ixf32>, tensor<%Ixf32>) -> ()
+      "onnx.Yield"(%2, %3) : (tensor<%Ixf32>, tensor<%Ixf32>) -> ()
     }) {num_scan_inputs = 1 : si64} :
         (tensor<%Ixf32>, tensor<%Sx%Ixf32>)
         -> (tensor<%Ixf32>, tensor<%Sx%Ixf32>)
@@ -130,7 +131,7 @@ bool ScanLibBuilder::prepareInputs() {
 
 bool ScanLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>(
       llvm::ArrayRef(initialShape), dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(

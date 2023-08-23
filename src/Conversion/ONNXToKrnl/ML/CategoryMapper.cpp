@@ -87,7 +87,6 @@ struct ONNXCategoryMapperOpLowering
 
     // Basic information.
     int64_t rank = memRefType.getShape().size();
-    assert(((rank == 1) || (rank == 2)) && "Invalid rank of input");
     ShapedType inputType = X.getType().cast<ShapedType>();
     Type elementType = inputType.getElementType();
 
@@ -177,6 +176,7 @@ struct ONNXCategoryMapperOpLowering
       llvm::dbgs() << "function:\n" << function << "\n";
     });
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 

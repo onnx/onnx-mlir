@@ -89,7 +89,6 @@ struct ONNXUnimplementedOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXCallOpShapeHelper = ONNXUnimplementedOpShapeHelper;
-using ONNXCustomOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 using ONNXIfOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXLoopOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: recursive, Opt, Seq
 using ONNXOptionalGetElementOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Opt, Seq
@@ -147,7 +146,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
       bool flattenedInnerDims = false, bool ruledOutBroadcast = false);
 
   // Determine if broadcast can be ruled out at compile time. Use DimAnalysis
-  // when available. Broadcasting is defined is one value of one input is used
+  // when available. Broadcasting is defined if one value of one input is used
   // two or more times with a value of another input (when only looking at the
   // tensors, not the actual algorithms).
   //
@@ -162,6 +161,19 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // * 1x5xf32 and 5xf32 have also no broadcast as prepending 1x results as
   //   comparing 1x5xf32 with 1x5xf32.
   virtual bool hasNoBroadcast(DimAnalysis *dimAnalysis = nullptr);
+
+  // Determine if the broadcast operation has operands with different ranks.
+  // Use DimAnalysis when available. The broadcasting will then add dimensions
+  // with size 1.
+  //
+  // Examples with rank broadcast:
+  // * 2x5xf32 and 5xf32 has rank broadcast for the second type. It will be
+  // interpreted as 1x5xf32
+  //
+  // Examples without rank broadcast:
+  // * 2x5xf32 and 1x5xf32 does not have rank broadcasting because the ranks are
+  // already equal
+  virtual bool hasRankBroadcast();
 
   // Determine of the broadcast operation has manageable broadcast (MB), and if
   // so, at which level/rank. We first attempt to see if the innermost dimension
@@ -278,7 +290,7 @@ struct ONNXUnaryOpShapeHelper : public ONNXBroadcastOpShapeHelper {
       : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXUnaryOpShapeHelper() {}
 
-  mlir::LogicalResult computeShape() final;
+  mlir::LogicalResult computeShape() override;
 
   // Inherited methods that return trivial results
   mlir::LogicalResult getAccessExprs(mlir::Value operand, int64_t i,
@@ -398,11 +410,10 @@ struct ONNXGenericPoolOpShapeHelper : public ONNXOpShapeHelper {
   // Actual computation of the pool shape and parameters using every different
   // switches that differs between pooling and conv ops.
   mlir::LogicalResult customComputeShape(mlir::Value X /* image */,
-      mlir::Value W /* filter */,
-      mlir::Optional<mlir::ArrayAttr> kernelShapeOpt, llvm::StringRef autoPad,
-      mlir::Optional<mlir::ArrayAttr> padOpt,
-      mlir::Optional<mlir::ArrayAttr> strideOpt,
-      mlir::Optional<mlir::ArrayAttr> dilationOpt,
+      mlir::Value W /* filter */, std::optional<mlir::ArrayAttr> kernelShapeOpt,
+      llvm::StringRef autoPad, std::optional<mlir::ArrayAttr> padOpt,
+      std::optional<mlir::ArrayAttr> strideOpt,
+      std::optional<mlir::ArrayAttr> dilationOpt,
       bool hasFilter, // If has filter, it also has CO and optional kernel.
       bool ceilMode); // Use ceil or floor for auto_pad=NOTSET policy.
 
@@ -638,6 +649,22 @@ using ONNXSqueezeV11OpShapeHelper = ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqu
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// Unique ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+struct ONNXUniqueOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXUniqueOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXUniqueOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for UniqueOp:
+};
+
+//===----------------------------------------------------------------------===//
 // Unsqueeze ops
 //===----------------------------------------------------------------------===//
 
@@ -814,6 +841,24 @@ using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
 // clang-format on
+
+//===----------------------------------------------------------------------===//
+// CustomOp Shape Helper.
+//===----------------------------------------------------------------------===//
+
+struct ONNXCustomOpShapeHelper : public ONNXUnaryOpShapeHelper {
+  ONNXCustomOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
+      bool hasUniBroadcasting = false);
+
+  // Default shape compute (every operands of the operation and no additional
+  // parameters).
+  mlir::LogicalResult computeShape() override;
+
+protected:
+  // Shape inference pattern
+  int pattern;
+};
 
 //===----------------------------------------------------------------------===//
 // Setting a new constant or attribute value.

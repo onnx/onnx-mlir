@@ -36,12 +36,31 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 
 #ifdef __cplusplus
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
+
+#include "src/Support/SmallFPConversion.h"
+
+#if defined(__APPLE__)
+// __errno_location() is called from krnl::emitErrNo() to set errno in
+// generated llvm IR, but it somehow doesn't come out of the box on MacOS.
+int * __attribute__((__weak__)) __errno_location(void) { return &errno; }
+#endif
+
+// On some platforms LLVM generates f16 conversion code that calls some
+// of these C runtime functions.
+// TODO: Figure out if we could get these with llvm/compiler-rt in a
+//       systematic way.
+float __extendhfsf2(uint16_t a) { return om_f16_to_f32(a); }
+float __gnu_h2f_ieee(uint16_t a) { return om_f16_to_f32(a); }
+uint16_t __gnu_f2h_ieee(float a) { return om_f32_to_f16(a); }
+uint16_t __truncsfhf2(float a) { return om_f32_to_f16(a); }
+uint16_t __truncdfhf2(double a) { return om_f32_to_f16(a); }
 
 struct OMTensor {
 #ifdef __cplusplus
@@ -160,6 +179,9 @@ static inline void printElement(
     break;
   case ONNX_TYPE_INT64:
     printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_FLOAT16:
+    printf("%f", om_f16_to_f32(((uint16_t *)dataPtr)[elemOffset]));
     break;
   case ONNX_TYPE_FLOAT:
     printf("%f", ((float *)dataPtr)[elemOffset]);
@@ -512,6 +534,9 @@ void omTensorPrint(const char *msg, const OMTensor *tensor) {
   if (dataInfo) {
     printf("\tdata: (");
     switch (rank) {
+    case 0:
+      printElement(dataPtr, 0, dataType);
+      break;
     case 1: {
       int64_t indexes[1];
       LOOP_1(0, i, shape[0])

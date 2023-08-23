@@ -38,6 +38,20 @@ def valid_onnx_input(fname):
     return fname
 
 
+def check_positive(argname, value):
+    value = int(value)
+    if value <= 0:
+        parser.error("Value passed to {} must be positive".format(argname))
+    return value
+
+
+def check_non_negative(argname, value):
+    value = int(value)
+    if value < 0:
+        parser.error("Value passed to {} must be non-negative".format(argname))
+    return value
+
+
 # Command arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument('--log-to-file',
@@ -45,15 +59,18 @@ parser.add_argument('--log-to-file',
                     const="compilation.log",
                     default=None,
                     help="Output compilation messages to file, default compilation.log")
-parser.add_argument('--model',
+parser.add_argument('-m',
+                    '--model',
                     type=lambda s: valid_onnx_input(s),
                     help="Path to an ONNX model (.onnx or .mlir)")
-parser.add_argument('--compile-args',
+parser.add_argument('-c',
+                    '--compile-args',
                     type=str,
                     default="",
                     help="Arguments passed directly to onnx-mlir command."
                     " See bin/onnx-mlir --help")
-parser.add_argument('--compile-only',
+parser.add_argument('-C',
+                    '--compile-only',
                     action='store_true',
                     help="Only compile the input model")
 parser.add_argument('--compile-using-input-shape',
@@ -81,9 +98,11 @@ parser.add_argument('--verify-all-ops',
                     action='store_true',
                     help="Verify all operation outputs when using onnxruntime")
 parser.add_argument('--verify-with-softmax',
-                    action='store_true',
-                    help="Verify the result obtained by applying softmax "
-                    "to the output")
+                    type=str,
+                    default=None,
+                    help="Verify the result obtained by applying softmax along with"
+                    " specific axis. The axis can be specified"
+                    " by --verify-with-softmax=<axis>.")
 parser.add_argument('--verify-every-value',
                     action='store_true',
                     help="Verify every value of the output using atol and rtol")
@@ -136,12 +155,24 @@ parser.add_argument('--upper-bound',
                     " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
                     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
                     " uint64, int64, float16, float32, float64")
+parser.add_argument('--warmup',
+                    type=lambda s: check_non_negative("--warmup", s),
+                    default=0,
+                    help="The number of warmup inference runs")
+parser.add_argument('--n-iteration',
+                    type=lambda s: check_positive("--n-iteration", s),
+                    default=1,
+                    help="The number of inference runs excluding warmup")
+parser.add_argument('--seed',
+                    type=str,
+                    default="42",
+                    help="seed to initialize the random num generator for inputs")
 
 args = parser.parse_args()
-if (args.verify and not (args.verify_with_softmax or args.verify_every_value)):
+if (args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value)):
     raise RuntimeError("Choose verification mode: --verify-with-softmax or "
                        "--verify-every-value or both")
-if (args.verify_with_softmax and (not args.verify)):
+if (args.verify_with_softmax is not None and (not args.verify)):
     raise RuntimeError("Must specify --verify to use --verify-with-softmax")
 if (args.verify_every_value and (not args.verify)):
     raise RuntimeError("Must specify --verify to use --verify-every-value")
@@ -233,7 +264,7 @@ def ordinal(n):
 
 
 def softmax(x):
-    return np.exp(x)/sum(np.exp(x))
+    return np.exp(x)/np.sum(np.exp(x), axis = int(args.verify_with_softmax), keepdims = True)
 
 
 def execute_commands(cmds):
@@ -328,14 +359,16 @@ def read_output_from_refs(num_outputs, load_ref):
 
 
 def generate_random_input(input_signature, input_shapes):
-    print("Generating random inputs ...")
+    # Numpy expect an int, tolerate int/float strings.
+    curr_seed = int(float(args.seed))
+    print("Generating random inputs using seed", curr_seed, "...")
     # Generate random data as input.
     inputs = []
 
     # Load the input signature.
     signature = json.loads(input_signature)
 
-    np.random.seed(42)
+    np.random.seed(curr_seed)
     for i, sig in enumerate(signature):
         # Get shape.
         explicit_shape = []
@@ -431,6 +464,32 @@ def generate_random_input(input_signature, input_shapes):
         inputs.append(rinput)
     print("  done.\n")
     return inputs
+
+
+def verify_outs(actual_outs, ref_outs):
+    total_elements = 0
+    mismatched_elements = 0
+    for index, actual_val in np.ndenumerate(actual_outs):
+        total_elements += 1
+        ref_val = ref_outs[index]
+        if (np.issubdtype(actual_outs.dtype, np.dtype(bool).type)):
+            if ref_val == actual_val:
+                continue
+        else:
+            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
+            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
+            if (abs(actual_val - ref_val) <= diff):
+                continue
+        mismatched_elements += 1
+        print("  at {}".format(index),
+              "mismatch {} (actual)".format(actual_val),
+              "vs {} (reference)".format(ref_val))
+    if mismatched_elements == 0:
+        print("  correct.\n")
+    else:
+        raise AssertionError(
+            "  mismatched elements {}/{}.\n".format(
+                mismatched_elements, total_elements))
 
 
 def warning(msg):
@@ -573,10 +632,29 @@ def main():
 
         # Running inference.
         print("Running inference ...")
-        start = time.perf_counter()
-        outs = sess.run(inputs)
-        end = time.perf_counter()
-        print("  took ", end - start, " seconds.\n")
+        for i in range(args.warmup):
+            start = time.perf_counter()
+            outs = sess.run(inputs)
+            end = time.perf_counter()
+            print("  {} warmup: {} seconds".format(
+                ordinal(i+1), end - start))
+
+        perf_results = []
+        for i in range(args.n_iteration):
+            start = time.perf_counter()
+            outs = sess.run(inputs)
+            end = time.perf_counter()
+            elapsed = end - start
+            perf_results += [elapsed]
+            print("  {} iteration: {} seconds".format(ordinal(i+1), elapsed))
+
+        # Print statistics info, e.g., min/max/stddev inference time.
+        if args.n_iteration > 1 :
+            print("  Statistics (excluding warmup):"
+                  " min {}, max {}, mean {}, stddev {}".format(
+                np.min(perf_results), np.max(perf_results),
+                np.mean(perf_results), np.std(perf_results, dtype=np.float64)))
+
 
         # Print the output if required.
         if (args.print_output):
@@ -623,13 +701,16 @@ def main():
                 exit(1)
 
             # Verify using softmax first.
-            if (args.verify_with_softmax):
+            if (args.verify_with_softmax is not None):
                 for i, name in enumerate(output_names):
                     print(
-                        "Verifying using softmax for output {}:{}".format(name,
-                                                          list(outs[i].shape)))
-                    np.testing.assert_allclose(softmax(outs[i]), softmax(ref_outs[i]))
-                    print("  correct.\n")
+                        "Verifying using softmax along with "
+                        "axis {}".format(args.verify_with_softmax),
+                        "for output {}:{}".format(name, list(outs[i].shape)),
+                        "using atol={}, rtol={} ...".format(args.atol, args.rtol))
+                    softmax_outs = softmax(outs[i])
+                    softmax_ref_outs = softmax(ref_outs[i])
+                    verify_outs(softmax_outs, softmax_ref_outs)
 
             # For each output tensor, compare every value.
             if (args.verify_every_value):
@@ -638,29 +719,7 @@ def main():
                         "Verifying value of {}:{}".format(name,
                                                           list(outs[i].shape)),
                         "using atol={}, rtol={} ...".format(args.atol, args.rtol))
-                    total_elements = 0
-                    mismatched_elements = 0
-                    for index, actual_val in np.ndenumerate(outs[i]):
-                        total_elements += 1
-                        ref_val = ref_outs[i][index]
-                        if (np.issubdtype(outs[i].dtype, np.dtype(bool).type)):
-                            if ref_val == actual_val:
-                                continue
-                        else:
-                            # Use equation atol + rtol * abs(desired), that is used in assert_allclose.
-                            diff = float(args.atol) + float(args.rtol) * abs(ref_val)
-                            if (abs(actual_val - ref_val) <= diff):
-                                continue
-                        mismatched_elements += 1
-                        print("  at {}".format(index),
-                              "mismatch {} (actual)".format(actual_val),
-                              "vs {} (reference)".format(ref_val))
-                    if mismatched_elements == 0:
-                        print("  correct.\n")
-                    else:
-                        raise AssertionError(
-                            "  mismatched elements {}/{}.\n".format(
-                                mismatched_elements, total_elements))
+                    verify_outs(outs[i], ref_outs[i])
 
 
 if __name__ == '__main__':

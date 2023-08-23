@@ -35,6 +35,29 @@ size_t getNumStateVariables(ONNXScanOp *op) {
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXScanOp::resultTypeInference() {
+  unsigned numStateVariables = getNumStateVariables(this);
+  Operation *terminator = getRegion().back().getTerminator();
+  assert(terminator->getNumOperands() == getFinalStateAndScanOutputs().size() &&
+         "ScanOp outputs count must match body results count");
+  auto bodyOuputTys = terminator->getOperandTypes();
+  std::vector<Type> resultTypes;
+  for (auto [i, ty] : llvm::enumerate(bodyOuputTys)) {
+    if (i < numStateVariables) { // state variable
+      resultTypes.push_back(ty);
+    } else { // scan output
+      // Erase any rank and shape. Shape inference will add a leading dimension.
+      Type elementType = cast<ShapedType>(ty).getElementType();
+      resultTypes.push_back(UnrankedTensorType::get(elementType));
+    }
+  }
+  return resultTypes;
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 

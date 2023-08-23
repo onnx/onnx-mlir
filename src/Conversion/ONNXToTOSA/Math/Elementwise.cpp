@@ -51,6 +51,7 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
+    auto loc = op.getLoc();
     Value lhs = adaptor.getA();
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
@@ -67,6 +68,22 @@ public:
     if (!resultElementType.isIntOrFloat()) {
       return rewriter.notifyMatchFailure(
           op, "only int and float are supported");
+    }
+
+    if (TosaOpT::template hasTrait<
+            mlir::OpTrait::ResultsBroadcastableShape>()) {
+
+      IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
+      ONNXBroadcastOpShapeHelper shapeHelper(op, {}, &createTosaIE);
+      shapeHelper.computeShapeAndAssertOnFailure();
+
+      if (shapeHelper.hasRankBroadcast()) {
+        TosaBuilder tosaBuilder(rewriter, loc);
+        llvm::SmallVector<Value, 4> newValues =
+            tosaBuilder.equalizeRanks({lhs, rhs});
+        lhs = newValues[0];
+        rhs = newValues[1];
+      }
     }
 
     rewriter.replaceOpWithNewOp<TosaOpT>(op, op.getType(), lhs, rhs);
@@ -113,6 +130,33 @@ public:
   }
 };
 
+class ONNXDivOpLoweringToTOSA : public OpConversionPattern<ONNXDivOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXDivOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Value lhs = adaptor.getA();
+    Value rhs = adaptor.getB();
+    auto resultType = op.getResult().getType().template cast<TensorType>();
+    Type resultElementType = resultType.getElementType();
+
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+
+    if (resultElementType.isSignlessInteger(32)) {
+      // tosa::DivOp takes 32-but signless integers as inputs
+      Value divOp = tosaBuilder.intdiv(lhs, rhs);
+      rewriter.replaceOp(op, {divOp});
+      return success();
+    }
+    // If it is not a 32-bit signless integer, decompose ONNXDivOp into
+    // tosa::ReciprocalOp and tosa::MulOp
+    Value reciprocalOp = tosaBuilder.reciprocal(rhs);
+    Value mulOp = tosaBuilder.mul(lhs, reciprocalOp);
+    rewriter.replaceOp(op, {mulOp});
+    return success();
+  }
+};
+
 } // namespace
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
@@ -121,7 +165,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
   patterns.insert<ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNegOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>,
-      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXFloorOpLoweringToTOSA, ONNXReluOpLoweringToTOSA,
+      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

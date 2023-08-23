@@ -154,13 +154,13 @@ Traits: MemRefsNormalizable
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | memref of any type values
+| `input` | any type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | memref of any type values
+| `output` | any type
 
 ### `zlow.exp` (::onnx_mlir::zlow::ZLowExpOp)
 
@@ -525,7 +525,7 @@ Traits: MemRefsNormalizable
 ZLow stick operation for GRU
 
 ZLow operation to perform a stick for GRU.
-Variadic: list of pointers for input data to be transformed: 
+Variadic: list of pointers for input data to be transformed:
   - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order.
 
 Traits: MemRefsNormalizable
@@ -550,7 +550,7 @@ Traits: MemRefsNormalizable
 ZLow stick operation for LSTM
 
 ZLow operation to perform a stick for LSTM.
-Variadic: list of pointers for input data to be transformed: 
+Variadic: list of pointers for input data to be transformed:
   - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order.
 
 Traits: MemRefsNormalizable

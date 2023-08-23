@@ -87,8 +87,6 @@ def ONNXDataType : NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
   "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
 
-def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
-
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -148,80 +146,63 @@ def ReduceSumSquareOpPattern
 //===----------------------------------------------------------------------===//
 // No attribute
 def ScalerNullPattern
-    : Pat<(ONNXScalerOp $x, $a, $b), (replaceWithValue $x),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $a),
-            (AttributeIsNull
-                : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale), (replaceWithValue $x),
+          [(HasFloatType:$x), (AttributeIsNull:$offset), (AttributeIsNull:$scale)],
           (addBenefit 5)>;
 
 // No attribute, input x not float type
 def ScalerNullPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b), (ONNXCastOp $x, (ScalerT)),
-          [(AttributeIsNull
-               : $a),
-            (AttributeIsNull
-                : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale), (ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+          [(AttributeIsNull:$offset), (AttributeIsNull:$scale)],
           (addBenefit 4)>;
 
 // No scale
 def ScalerNoScalePattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXSubOp $x,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $b)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+          [(HasFloatType:$x), (AttributeIsNull:$scale)],
           (addBenefit 3)>;
 
 // No scale, input x not float type
 def ScalerNoScalePattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXSubOp(ONNXCastOp $x, (ScalerT)),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-          [(AttributeIsNull
-              : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
+          (ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+          [(AttributeIsNull:$scale)],
           (addBenefit 2)>;
 
 // No offset
 def ScalerNoOffsetPattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp $x,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $a)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(HasFloatType:$x), (AttributeIsNull:$offset)],
           (addBenefit 3)>;
 
 // No offset, input x not float type
 def ScalerNoOffsetPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXMulOp(ONNXCastOp $x, (ScalerT)),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(AttributeIsNull
-              : $a)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
+          (ONNXMulOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(AttributeIsNull:$offset)],
           (addBenefit 2)>;
 
 // Normal ONNXScalerOp
 def ScalerPattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp(ONNXSubOp $x,
-               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(HasFloatType
-              : $x)],
+               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(HasFloatType:$x)],
           (addBenefit 1)>;
 
 // Normal ONNXScalerOp, input x not float type
 def ScalerPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (ScalerT)),
-               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
+          (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
           [], (addBenefit 0)>;
 
 // Express LogSoftmax using Log and Softmax.
@@ -467,11 +448,9 @@ def ReduceSumSquareV13OpPattern2
 //    Emit ONNXSplitOp, ONNXPadOp, and ONNXConcatOp in insertPadsConvTransposeInput().
 // 3. Calculate new pads attribute from kernel_shape, original pads, and dilation.
 //    Emit no ONNX op in getPadsConvTranspose().
-// 4. Create unit strides if `strides` is not unit strides.
-//    Emit no ONNX op in createUnitStrides().
-// 5. Use ONNXConv op using converted weight tensor, input data tensor, other
+// 4. Use ONNXConv op using converted weight tensor, input data tensor, other
 //    attributes.
-// 6. Insert additional pads if needed.
+// 5. Insert additional pads if needed.
 //    Emit ONNXPadOp in insertAdditionalPadsConvTranspose().
 // TODO: Consider to write C++ code instead of using tablegen because some code
 //       are redundant. (eg. currently shapeHelper is calld multiple times.)
@@ -488,8 +467,10 @@ def HasUnitStrides: Constraint<
   "has unit strides"
 >;
 
-def createUnitStrides: NativeCodeCall<
-  "onnx_mlir::createUnitStrides($_builder, $0)">;
+def HasStaticSpatialDims: Constraint<
+  CPred<"onnx_mlir::hasStaticSpatialDims($_self)">,
+  "has static spatial dims"
+>;
 
 def insertPadsConvTransposeInput: NativeCodeCall<
   "onnx_mlir::insertPadsConvTransposeInput($_builder, $_loc, $0.getDefiningOp<ONNXConvTransposeOp>(), $1)">;
@@ -508,7 +489,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(HasUnitStrides:$strides), (HasShapeAndRank $x), (HasShapeAndRank $w)],
+   [(HasUnitStrides:$strides), (HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)],
    (addBenefit 1)
 >;
 
@@ -525,7 +506,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
-   [(HasShapeAndRank $x), (HasShapeAndRank $w)],
+   [(HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)],
    (addBenefit 0)
 >;
 

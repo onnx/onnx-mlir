@@ -50,7 +50,6 @@ add_onnx_mlir_library(OMInstrumentONNX
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
-  OMCompilerOptions
   OMONNXOps
   OMKrnlOps
   MLIRPass
@@ -97,4 +96,14 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   MLIRFuncDialect
   MLIRPass
   MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMONNXStandardFuncReturnPass
+  StandardFuncReturnPass.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRTransformUtils
+  MLIRFuncDialect
+  OMONNXOps
+  OMShapeInference
   )
