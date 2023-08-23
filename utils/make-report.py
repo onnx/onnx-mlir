@@ -302,6 +302,11 @@ def parse_file_for_perf(file_name, stat_name):
 ################################################################################
 # make report
 
+def get_percent(n, d):
+    if d == 0.0:
+        return 0.0
+    return n * 100 / d
+
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
@@ -319,6 +324,7 @@ def make_report(stat_message):
             time = np.sum(op_time_dict[op])
             count_time_str += ", {:.7f}".format(time * time_unit / count)
             count_time_str += ", {:.7f}".format(time * time_unit)
+            count_time_str += ", {:.1f}%".format(get_percent(time, tot_time))
         output = "  " + op + ", " + count_time_str
         if sorting_preference == "name":
             key = op
@@ -338,9 +344,10 @@ def make_report(stat_message):
                 else:
                     count_time_str = str(det_count)
                 if det_key in det_time_dict:
-                    time = np.sum(det_time_dict[det_key])
-                    count_time_str += ", {:.7f}".format(time * time_unit / det_count)
-                    count_time_str += ", {:.7f}".format(time * time_unit)
+                    det_time = np.sum(det_time_dict[det_key])
+                    count_time_str += ", {:.7f}".format(det_time * time_unit / det_count)
+                    count_time_str += ", {:.7f}".format(det_time * time_unit)
+                    count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
                 output += "\n    " + count_time_str + ": " + det_key
         if key in sorted_output:
             sorted_output[key] = sorted_output[key] + "\n" + output
@@ -358,6 +365,7 @@ def make_report(stat_message):
             unit_str = "(us)"
         num_desc += ", average time " + unit_str
         num_desc += ", cumulative time " + unit_str
+        num_desc += ", percent of total " + unit_str
     print("Statistic legend:")
     if report_level < 2:
         print("  op-name:", num_desc)
