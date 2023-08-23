@@ -221,7 +221,7 @@ def CreateNonZeroOfConst :
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with elementwise ADD operations.
 //===----------------------------------------------------------------------===//
-  
+
 // Use commutativity to normalize constants in the second position of Add.
 def AddConstCommutative1 : Pat<
   // From add(c, x).
@@ -230,7 +230,7 @@ def AddConstCommutative1 : Pat<
   (ONNXAddOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
-  
+
 // Use associativity to add constants together.
 def AddConstAssociative1 : Pat<
   // From add(add(x, c1), c2).
@@ -275,7 +275,7 @@ def AddConstAssociative4 : Pat<
     (ONNXAddOp $x, $y),
     (ONNXAddOp $c1, $c2)),
   [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
-  
+
 // Constant Propagation for Add
 def AddConstProp : Pat<
     // From add(c1, c2).
@@ -338,7 +338,7 @@ def NegofConst :  Pat<
     // To (-c)
     (CreateNegOfConst $negOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
-  
+
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
 // with other add optimizations.
 def SubConstToNeg : Pat<
@@ -363,7 +363,7 @@ def ReluofConst :  Pat<
     // To relu(c)
     (CreateReluOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
- 
+
 //===----------------------------------------------------------------------===//
 // Const propagation patterns for variadic elementwise operations.
 //===----------------------------------------------------------------------===//
@@ -411,7 +411,7 @@ def MulConstCommutative1 : Pat<
   (ONNXMulOp $x, $c),
   // To avoid infinite loop, constrain the first arguments to be anything but a constant.
   [(IsNotAConstant:$x)]>;
-  
+
 // Use associativity to mul constants together.
 def MulConstAssociative1 : Pat<
   // From mul(mul(x, c1), c2).
@@ -423,7 +423,7 @@ def MulConstAssociative1 : Pat<
     $x,
     (ONNXMulOp $c1, $c2)),
   [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
-  
+
 def MulConstAssociative2 : Pat<
   // From mul(mul(x, c), y).
   (ONNXMulOp
@@ -482,7 +482,7 @@ def MulOnesOnRhs : Pat<
       (ValuesHaveSameType $result, $x)
     ]>;
 
-// Constant Propagation for Div 
+// Constant Propagation for Div
 def DivConstProp : Pat<
     // From div(c1, c2).
     (ONNXDivOp:$divOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
