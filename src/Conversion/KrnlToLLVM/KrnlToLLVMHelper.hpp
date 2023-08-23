@@ -39,7 +39,7 @@ void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Type elemTy,
 /// Return the GlobalOp for the given string, creating one if not found.
 mlir::LLVM::GlobalOp getOrCreateGlobalString(llvm::StringRef str,
     mlir::Location loc, mlir::OpBuilder &builder, mlir::ModuleOp module,
-    mlir::LLVMTypeConverter *typeConverter);
+    const mlir::LLVMTypeConverter *typeConverter);
 
 /// Return a pointer to the first character in a global string.
 mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
@@ -49,7 +49,7 @@ mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
 /// to set the alignment based on the module datalayout (if it exists).
 void setAlignment(mlir::LLVM::GlobalOp &global, mlir::IntegerAttr alignmentAttr,
     mlir::ModuleOp module, mlir::OpBuilder &builder,
-    mlir::LLVMTypeConverter &typeConverter);
+    const mlir::LLVMTypeConverter &typeConverter);
 
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.

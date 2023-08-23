@@ -27,7 +27,8 @@ int64_t dimAt(Value val, int index) {
 /// Insert Allocate and Deallocate for the all hidden output.
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+    const TypeConverter *typeConverter, Value X, Value W, Value R,
+    Value output) {
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
 
@@ -154,7 +155,8 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Insert Allocate and Deallocate for the hidden or cell output.
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+    const TypeConverter *typeConverter, Value X, Value W, Value R,
+    Value output) {
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
   IndexExprScope scope(create.krnlIE);

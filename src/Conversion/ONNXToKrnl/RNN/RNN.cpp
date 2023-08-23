@@ -259,7 +259,7 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
 template <>
 RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
     ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, ONNXRNNOp *op,
+    const TypeConverter *typeConverter, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
   RnnState state;
 

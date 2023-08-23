@@ -6,7 +6,7 @@ func.func @test_reshape(%arg0 : tensor<128x1024xf32>) -> tensor<1x128x16x64xf32>
   "func.return"(%1) : (tensor<1x128x16x64xf32>) -> ()
 // CHECK-LABEL:  func @test_reshape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<128x1024xf32>) -> tensor<1x128x16x64xf32> {
-// CHECK:           [[VAR_1_:%.+]] = "tosa.reshape"([[PARAM_0_]]) <{new_shape = array<i64: 1, 128, 16, 64>}> : (tensor<128x1024xf32>) -> tensor<1x128x16x64xf32>
+// CHECK:           [[VAR_1_:%.+]] = tosa.reshape [[PARAM_0_]] {new_shape = array<i64: 1, 128, 16, 64>} : (tensor<128x1024xf32>) -> tensor<1x128x16x64xf32>
 // CHECK-NEXT:      return [[VAR_1_]] : tensor<1x128x16x64xf32>
 }
 
@@ -16,6 +16,6 @@ func.func @test_reshape_allowzero(%arg0 : tensor<12x128x1024xf32>) -> tensor<12x
   "func.return"(%1) : (tensor<12x128x16x64xf32>) -> ()
 // CHECK-LABEL:  func @test_reshape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x128x1024xf32>) -> tensor<12x128x16x64xf32> {
-// CHECK:           [[VAR_1_:%.+]] = "tosa.reshape"([[PARAM_0_]]) <{new_shape = array<i64: 12, 128, 16, 64>}> : (tensor<12x128x1024xf32>) -> tensor<12x128x16x64xf32>
+// CHECK:           [[VAR_1_:%.+]] = tosa.reshape [[PARAM_0_]] {new_shape = array<i64: 12, 128, 16, 64>} : (tensor<12x128x1024xf32>) -> tensor<12x128x16x64xf32>
 // CHECK-NEXT:      return [[VAR_1_]] : tensor<12x128x16x64xf32>
 }

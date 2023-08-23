@@ -85,7 +85,7 @@ public:
   using ApiRegistry = std::map<RuntimeAPI::API, RuntimeAPI>;
 
   RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder,
-      mlir::LLVMTypeConverter &typeConverter);
+      const mlir::LLVMTypeConverter &typeConverter);
   ~RuntimeAPIRegistry();
 
   static const RuntimeAPIRegistry build(
