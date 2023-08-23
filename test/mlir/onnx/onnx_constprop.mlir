@@ -103,8 +103,9 @@ func.func @test_add_constant_4(%arg0 : tensor<3xi32>) -> tensor<3xi32> {
   %1 = onnx.Constant dense<[10, 11, 12]> : tensor<3xi32>
   %2 = "onnx.Add"(%0, %arg0) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
   %3 = "onnx.Add"(%1, %2) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
-  %4 = "onnx.Add"(%2, %3) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
-  "onnx.Return"(%4) : (tensor<3xi32>) -> ()
+  %4 = "onnx.Add"(%0, %arg0) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
+  %5 = "onnx.Add"(%3, %4) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
+  "onnx.Return"(%5) : (tensor<3xi32>) -> ()
 // CHECK-LABEL: @test_add_constant_4(%arg0: tensor<3xi32>) -> tensor<3xi32> 
   // CHECK-DAG: [[CONST1:%.+]] = onnx.Constant dense<[10, 13, 16]> : tensor<3xi32>
   // CHECK-DAG: [[ADD1:%.+]] = "onnx.Add"(%arg0, %arg0) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
@@ -128,6 +129,24 @@ func.func @test_add_constant_5(%arg0 : tensor<3xi32>, %arg1: tensor<3xi32>, %arg
   // CHECK-NEXT: [[ADD1:%.+]] = "onnx.Add"(%arg0, %arg1) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
   // CHECK-NEXT: [[ADD2:%.+]] = "onnx.Add"([[ADD1]], %arg2) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
   // CHECK-NEXT: [[ADD3:%.+]] = "onnx.Add"([[ADD2]], [[CONST1]]) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
+}
+
+// -----
+
+func.func @test_add_const_associative2_2uses(%x: tensor<i32>, %y: tensor<i32>, %z: tensor<i32>) -> (tensor<i32>, tensor<i32>) {
+  %c = onnx.Constant dense<1> : tensor<i32>
+  %1 = "onnx.Add"(%x, %c) : (tensor<i32> , tensor<i32>) -> tensor<i32>
+  %2 = "onnx.Add"(%1, %y) : (tensor<i32> , tensor<i32>) -> tensor<i32>
+  %3 = "onnx.Add"(%1, %z) : (tensor<i32> , tensor<i32>) -> tensor<i32>
+  onnx.Return %2, %3 : tensor<i32>, tensor<i32>
+// CHECK-LABEL:  func.func @test_add_const_associative2_2uses
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i32>, [[PARAM_1_:%.+]]: tensor<i32>, [[PARAM_2_:%.+]]: tensor<i32>) -> (tensor<i32>, tensor<i32>) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_1_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_2_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]] : tensor<i32>, tensor<i32>
+// CHECK:         }
 }
 
 // -----

@@ -41,6 +41,8 @@ include "src/Dialect/ONNX/ONNX.td"
 
 // Useful test definitions:
 
+def HasOneUse : Constraint<CPred<"$_self.hasOneUse()">, "op has exactly one use">;
+
 def IsNoneType : Constraint<CPred<"isa<NoneType>(($_self).getType())">>;
 
 def IsIntOrFloatType : Constraint<CPred<"isa<IntegerType, FloatType>(($_self).getType().cast<ShapedType>().getElementType())">>;
@@ -233,46 +235,46 @@ def AddConstCommutative1 : Pat<
 def AddConstAssociative1 : Pat<
   // From add(add(x, c1), c2).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
     (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
   // To add(x, add(c1, c2)).
   (ONNXAddOp
     $x,
     (ONNXAddOp $c1, $c2)),
-    [(IsNotAConstant:$x)]>;
+  [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
 
 def AddConstAssociative2 : Pat<
   // From add(add(x, c), y).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
     $y),
   // To add(add(x, y), c).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-    [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs)]>;
 
 def AddConstAssociative3 : Pat<
   // From add(x, add(y, c)).
   (ONNXAddOp
     $x,
-    (ONNXAddOp $y,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
   // To add(add(x, y), c).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     $c),
-    [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs)]>;
 
 def AddConstAssociative4 : Pat<
   // From add(add(x, c1), add(y, c2)).
   (ONNXAddOp
-    (ONNXAddOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXAddOp $y,(ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXAddOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXAddOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
   // To add(add(x, y), c1+c2).
   (ONNXAddOp
     (ONNXAddOp $x, $y),
     (ONNXAddOp $c1, $c2)),
-    [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
   
 // Constant Propagation for Add
 def AddConstProp : Pat<
@@ -414,46 +416,46 @@ def MulConstCommutative1 : Pat<
 def MulConstAssociative1 : Pat<
   // From mul(mul(x, c1), c2).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
     (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_)),
   // To mul(x, mul(c1, c2)).
   (ONNXMulOp
     $x,
     (ONNXMulOp $c1, $c2)),
-    [(IsNotAConstant:$x)]>;
+  [(IsNotAConstant:$x), (HasOneUse:$lhs)]>;
   
 def MulConstAssociative2 : Pat<
   // From mul(mul(x, c), y).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$lhs $x, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_)),
     $y),
   // To mul(mul(x, y), c).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     $c),
-    [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs)]>;
 
 def MulConstAssociative3 : Pat<
   // From mul(x, mul(y, c)).
   (ONNXMulOp
     $x,
-    (ONNXMulOp $y,(ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXMulOp:$rhs $y, (ONNXConstantOp:$c $_, $_, $_, $_, $_, $_, $_, $_))),
   // To mul(mul(x, y), c).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     $c),
-    [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$rhs)]>;
 
 def MulConstAssociative4 : Pat<
   // From mul(mul(x, c1), mul(y, c2)).
   (ONNXMulOp
-    (ONNXMulOp $x,(ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
-    (ONNXMulOp $y,(ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
+    (ONNXMulOp:$lhs $x, (ONNXConstantOp:$c1 $_, $_, $_, $_, $_, $_, $_, $_)),
+    (ONNXMulOp:$rhs $y, (ONNXConstantOp:$c2 $_, $_, $_, $_, $_, $_, $_, $_))),
   // To mul(mul(x, y), c1+c2).
   (ONNXMulOp
     (ONNXMulOp $x, $y),
     (ONNXMulOp $c1, $c2)),
-    [(IsNotAConstant:$x), (IsNotAConstant:$y)]>;
+  [(IsNotAConstant:$x), (IsNotAConstant:$y), (HasOneUse:$lhs), (HasOneUse:$rhs)]>;
 
 // Constant Propagation for Mul
 def MulConstProp : Pat<
