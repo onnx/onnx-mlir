@@ -365,7 +365,7 @@ def make_report(stat_message):
             unit_str = "(us)"
         num_desc += ", average time " + unit_str
         num_desc += ", cumulative time " + unit_str
-        num_desc += ", percent of total " + unit_str
+        num_desc += ", percent of total "
     print("Statistic legend:")
     if report_level < 2:
         print("  op-name:", num_desc)
