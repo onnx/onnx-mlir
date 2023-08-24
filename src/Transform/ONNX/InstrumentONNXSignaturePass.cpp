@@ -71,21 +71,18 @@ public:
         if (!isa<ONNXPrintSignatureOp>(op)) {
           Location loc = op->getLoc();
           OpBuilder builder(op);
-          ValueRange operands = op->getOperands();
           std::string opName = op->getName().getStringRef().str();
           std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
           std::string fullName = opName + ", " + nodeName;
           StringAttr fullNameAttr = builder.getStringAttr(fullName);
-          if (isa<ONNXConstantOp>(op)) {
-            // Constant has the type in the output, so use it.
-            operands = op->getResults();
-            // Since we use the result of the constant operation, we must insert
-            // the print operation after the constant operation.
-            builder.setInsertionPointAfter(op);
-            builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operands);
-          } else if (operands.size() > 0) {
-            builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operands);
-          }
+          // Enqueue all input operands, and then the results.
+          llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
+          for (Value res : op->getResults())
+            operAndRes.emplace_back(res);
+          // Since we may use the result of an operation, we must insert the
+          // print operation after the operation.
+          builder.setInsertionPointAfter(op);
+          builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operAndRes);
         }
       }
     });

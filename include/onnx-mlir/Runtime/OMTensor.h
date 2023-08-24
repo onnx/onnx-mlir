@@ -324,8 +324,8 @@ OM_EXTERNAL_VISIBILITY void omTensorSetOwning(OMTensor *tensor, int64_t owning);
  *
  * @param msg, pointer to descriptive string. It accepts one of 3 formats:
  * '%t' for printing the tensor's type, '%s' for printing an extensive signature
- * printout, and '%d' for printing the full data values of the tensor. No other
- * `%` formats are recognized.
+ * printout, and '%d' for printing the full data values of the tensor.
+ * Additionally it recognize '%e' as the end of the message string.
  * @param tensor, pointer to the OMTensor to print
  */
 OM_EXTERNAL_VISIBILITY void omTensorPrint(

@@ -80,27 +80,27 @@ static FILE *fout = 0;
 #endif
 
 #ifdef _WIN32
-void TimeInit() {
+static void TimeInit() {
   QueryPerformanceFrequency(&perfFrequency);
   QueryPerformanceCounter(&globalTime);
   initTime = globalTime;
 }
 #else
-void TimeInit() {
+static void TimeInit() {
   gettimeofday(&globalTimeVal, NULL);
   initTimeVal = globalTimeVal;
 }
 #endif
 
 #ifdef _WIN32
-inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
+static inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
     LONGLONG *resultSeconds, LONGLONG *resultMicroseconds) {
   LONGLONG elapsed = newTime.QuadPart - prevTime.QuadPart;
   *resultSeconds = elapsed / perfFrequency.QuadPart;
   *resultMicroseconds =
       ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
 }
-void ReportTime() {
+static void ReportTime() {
   LARGE_INTEGER newTime;
   LONGLONG resultSeconds, resultMicroseconds;
   QueryPerformanceCounter(&newTime);
@@ -111,7 +111,7 @@ void ReportTime() {
   globalTime = newTime;
 }
 #else
-void ReportTime() {
+static void ReportTime() {
   struct timeval newTimeValue, result;
   gettimeofday(&newTimeValue, NULL);
   timersub(&newTimeValue, &globalTimeVal, &result);
@@ -125,7 +125,7 @@ void ReportTime() {
 #endif
 
 #ifdef _WIN32
-void ReportMemory() {
+static void ReportMemory() {
   PROCESS_MEMORY_COUNTERS_EX pmc;
   GetProcessMemoryInfo(
       GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
@@ -133,7 +133,7 @@ void ReportMemory() {
   fprintf(fout, "%zu\n", vMemSizeKB);
 }
 #else
-void ReportMemory() {
+static void ReportMemory() {
   char memCommand[200];
   char memOutput[200];
   FILE *memPipe;
@@ -159,6 +159,21 @@ void ReportMemory() {
 }
 #endif
 
+FILE *getInstrumentFile() {
+  if (fout)
+    return fout;
+  fout = stdout;
+  if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
+    char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
+    FILE *newFileHandle = fopen(fileName, "w");
+    if (newFileHandle) {
+      fout = newFileHandle;
+    }
+  }
+  assert(fout);
+  return fout;
+}
+
 void OMInstrumentInit() {
   // Read environment variables.
   if (getenv("ONNX_MLIR_NO_INSTRUMENT_TIME")) {
@@ -172,14 +187,7 @@ void OMInstrumentInit() {
     instrumentReportDisabled = true;
   }
   // Handle redirection to file if requested.
-  fout = stdout;
-  if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
-    char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
-    FILE *newFileHandle = fopen(fileName, "w");
-    if (newFileHandle) {
-      fout = newFileHandle;
-    }
-  }
+  getInstrumentFile();
 
   // Init as appropriate.
   if (!instrumentReportDisabled) {

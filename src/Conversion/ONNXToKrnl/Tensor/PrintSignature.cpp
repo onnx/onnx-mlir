@@ -33,16 +33,30 @@ struct ONNXPrintSignatureLowering
     Location loc = ONNXLoc<ONNXPrintSignatureOp>(op);
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
 
+    // First message.
     std::string opName(printSignatureOp.getOpName().data());
-    std::string str = "==SIGNATURE==, " + opName;
-    create.krnl.printf(str);
-    std::string msg = ", %t";
+    std::string msg =
+        "%i==SIG-REPORT==, " + opName + ", sig"; // meaningless secondary key.
+    // Discover the values to print, setting aside the last one.
+    llvm::SmallVector<Value, 4> printVal;
     for (Value oper : adaptor.getInput())
       if (!oper.getType().isa<NoneType>())
-        create.krnl.printTensor(msg, oper);
-    Value noneValue;
-    rewriter.replaceOpWithNewOp<KrnlPrintOp>(op, "\n", noneValue);
-    // For debug, no need to report on SIMD.
+        printVal.emplace_back(oper);
+    int64_t printNum = printVal.size();
+    Value lastVal = printVal.pop_back_val();
+    // Print all but the last one.
+    for (Value oper : printVal) {
+      create.krnl.printTensor(msg + ", %t%e", oper);
+      msg = "%i";
+    }
+    // Print the last one with replace with new op.
+    if (printNum > 0) {
+      rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(
+          op, msg + ", %t\n%e", lastVal);
+    } else {
+      Value noneVal = nullptr;
+      rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(op, msg + "\n%e", noneVal);
+    }
     return success();
   }
 };
