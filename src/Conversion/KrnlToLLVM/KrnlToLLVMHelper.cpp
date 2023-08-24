@@ -21,6 +21,7 @@
 
 #include "onnx/onnx_pb.h"
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"

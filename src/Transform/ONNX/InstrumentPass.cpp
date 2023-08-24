@@ -16,6 +16,7 @@
 #include <set>
 #include <string>
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -70,10 +71,11 @@ public:
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
   InstrumentPass(const std::string &ops, unsigned actions) {
     this->instrumentOps = ops;
-    this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
-    this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
-    this->reportTime = actions & (1 << onnx_mlir::InstrumentReportTime);
-    this->reportMemory = actions & (1 << onnx_mlir::InstrumentReportMemory);
+    unsigned long long tag = actions;
+    this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+    this->instrumentAfter = IS_INSTRUMENT_AFTER_OP(tag);
+    this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
+    this->reportMemory = IS_INSTRUMENT_REPORT_MEMORY(tag);
   }
 
 private:
@@ -99,24 +101,31 @@ public:
 
   // merge all action options into a bitset
   // used to create tags for instrumentation ops
-  int actions() const {
-    int tag = 0;
+  uint64_t actions() const {
+    int64_t tag;
+
+    INIT_INSTRUMENT(tag);
     if (instrumentBefore)
-      tag |= 1 << onnx_mlir::InstrumentBeforeOp;
+      SET_INSTRUMENT_BEFORE_OP(tag);
     if (instrumentAfter)
-      tag |= 1 << onnx_mlir::InstrumentAfterOp;
+      SET_INSTRUMENT_AFTER_OP(tag);
     if (reportTime)
-      tag |= 1 << onnx_mlir::InstrumentReportTime;
+      SET_INSTRUMENT_REPORT_TIME(tag);
     if (reportMemory)
-      tag |= 1 << onnx_mlir::InstrumentReportMemory;
+      SET_INSTRUMENT_REPORT_MEMORY(tag);
     return tag;
   }
 
-  int beforeTag() const {
-    return actions() & (~(1 << onnx_mlir::InstrumentAfterOp));
+  uint64_t beforeTag() const {
+    int64_t tag = actions();
+    CLEAR_INSTRUMENT_AFTER_OP(tag);
+    return tag;
   }
-  int afterTag() const {
-    return actions() & (~(1 << onnx_mlir::InstrumentBeforeOp));
+
+  uint64_t afterTag() const {
+    int64_t tag = actions();
+    CLEAR_INSTRUMENT_BEFORE_OP(tag);
+    return tag;
   }
 
   void runOnOperation() override {
