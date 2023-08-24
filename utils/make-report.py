@@ -113,10 +113,11 @@ def common_report_str(stat_name):
     return r'^==' + stat_name + r'-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)'
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
-simd_stat_message = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
+simd_legend = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
+sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
-perf_stat_message = "(after|before), time for op(s), time since start(s)"
+perf_legend = "(after|before), time for op(s), time since start(s)"
 
 ################################################################################
 # # Support.
@@ -446,6 +447,7 @@ def main(argv):
     compile_file_name = ""
     runtime_file_name = ""
     make_stats = ""
+    make_legend = ""
     try:
         opts, args = getopt.getopt(
             argv, "c:f:hl:r:s:u:v",
@@ -471,10 +473,16 @@ def main(argv):
         elif opt in ("-s", "--stats"):
             if re.match(r'\s*par\s*', arg):
                 make_stats = "PAR"
-            elif re.match(r'\s*sig(nature)?\s*', arg):
+                make_legend = "none"
+            elif re.match(r'\s*perf\s*', arg):
+                make_stats = "PERF"
+                make_legend = perf_legend
+            elif re.match(r'\s*sig?\s*', arg):
                 make_stats = "SIG"
+                make_legend = sig_legend
             elif re.match(r'\s*simd\s*', arg):
                 make_stats = "SIMD"
+                make_legend = simd_legend
             else:
                 print_usage("statistics options are 'par', 'signature', or 'simd'")
         elif opt in ("--supported"):
@@ -505,9 +513,11 @@ def main(argv):
         if compile_file_name:
             # Default for compile analysis.
             make_stats = "SIMD"
+            make_legend = simd_legend
         else:
             # Default for perf only (no compile)
-            make_stats = "SIMD"
+            make_stats = "PERF"
+            make_legend = perf_legend
     print("Analyse", make_stats)
     # Default sorting preference.
     if not sorting_preference:
@@ -515,13 +525,17 @@ def main(argv):
             sorting_preference = "time"
         else:
             sorting_preference = "name"
-    if compile_file_name and not runtime_file_name:
+    if compile_file_name and runtime_file_name:
+        parse_file_for_perf(runtime_file_name, "PERF")
         parse_file_for_stat(compile_file_name, make_stats)
-        make_report(simd_stat_message)
+        make_report(make_legend)
+    elif compile_file_name:
+        parse_file_for_stat(compile_file_name, make_stats)
+        make_report(make_legend)
     elif runtime_file_name:
-        parse_file_for_perf(runtime_file_name, make_stats)
+        parse_file_for_perf(runtime_file_name, "PERF")
         parse_file_for_stat(runtime_file_name, "PERF")
-        make_report(perf_stat_message)
+        make_report(make_legend)
     else:
         print_usage("Command requires an input file name (compile/runtime or both).\n")
 
