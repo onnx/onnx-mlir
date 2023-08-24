@@ -28,6 +28,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -71,18 +72,19 @@ public:
           Location loc = op->getLoc();
           OpBuilder builder(op);
           ValueRange operands = op->getOperands();
-          std::string opName(
-              op->getName().getStringRef().data() + 5); // Skip "onnx.".
-          StringAttr opNameAttr = builder.getStringAttr(opName);
+          std::string opName = op->getName().getStringRef().str();
+          std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+          std::string fullName = opName + ", " + nodeName;
+          StringAttr fullNameAttr = builder.getStringAttr(fullName);
           if (isa<ONNXConstantOp>(op)) {
             // Constant has the type in the output, so use it.
             operands = op->getResults();
             // Since we use the result of the constant operation, we must insert
             // the print operation after the constant operation.
             builder.setInsertionPointAfter(op);
-            builder.create<ONNXPrintSignatureOp>(loc, opNameAttr, operands);
+            builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operands);
           } else if (operands.size() > 0) {
-            builder.create<ONNXPrintSignatureOp>(loc, opNameAttr, operands);
+            builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operands);
           }
         }
       }
