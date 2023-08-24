@@ -27,13 +27,17 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def NotBlockArgument : Constraint<CPred<"!isa<BlockArgument>($_self)">>;
+def HasOneUse: Constraint<CPred<"$_self.hasOneUse()">>;
+
 //===----------------------------------------------------------------------===//
 // ONNXAddOp %X = ZHighUnstickOp (ZHighAddOp (ZHighStickOp %X),
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighAddPattern : Pat<
-  (ZHighUnstickOp (ZHighAddOp (ZHighStickOp $x, $l1), (ZHighStickOp $y, $l2))),
-  (ONNXAddOp $x, $y)
+  (ZHighUnstickOp (ZHighAddOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+  (ONNXAddOp $x, $y),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
 >;
 
 
@@ -42,8 +46,9 @@ def replaceZHighAddPattern : Pat<
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighMulPattern : Pat<
-  (ZHighUnstickOp (ZHighMulOp (ZHighStickOp $x, $_), (ZHighStickOp $y, $_))),
-  (ONNXMulOp $x, $y)
+  (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+  (ONNXMulOp $x, $y),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -51,8 +56,9 @@ def replaceZHighMulPattern : Pat<
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighSubPattern : Pat<
-  (ZHighUnstickOp (ZHighSubOp (ZHighStickOp $x, $_), (ZHighStickOp $y, $_))),
-  (ONNXSubOp $x, $y)
+  (ZHighUnstickOp (ZHighSubOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+  (ONNXSubOp $x, $y),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -60,24 +66,27 @@ def replaceZHighSubPattern : Pat<
 // %X),(ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighDivPattern : Pat<
-  (ZHighUnstickOp (ZHighDivOp (ZHighStickOp $x, $_), (ZHighStickOp $y, $_))),
-  (ONNXDivOp $x, $y)
+  (ZHighUnstickOp (ZHighDivOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+  (ONNXDivOp $x, $y),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
 >;
 
 //===----------------------------------------------------------------------===//
 // ONNXLogOp %X = ZHighUnstickOp (ZHighLogOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceZHighLogPattern : Pat<
-  (ZHighUnstickOp (ZHighLogOp (ZHighStickOp $x, $_))),
-  (ONNXLogOp $x)
+  (ZHighUnstickOp (ZHighLogOp (ZHighStickOp:$s_x $x, $_))),
+  (ONNXLogOp $x),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x)]
 >;
 
 //===----------------------------------------------------------------------===//
 // ONNXReluOp %X = ZHighUnstickOp (ZHighReluOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceZHighReluPattern : Pat<
-  (ZHighUnstickOp (ZHighReluOp (ZHighStickOp $x, $_))),
-  (ONNXReluOp $x)
+  (ZHighUnstickOp (ZHighReluOp (ZHighStickOp:$s_x $x, $_))),
+  (ONNXReluOp $x),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x)]
 >;
 
 #endif // ZHIGH_TO_ONNX
