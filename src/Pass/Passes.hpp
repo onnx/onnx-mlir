@@ -17,6 +17,8 @@
 #include <memory>
 #include <string>
 
+#include "llvm/ADT/ArrayRef.h"
+
 namespace mlir {
 class MLIRContext;
 class Pass;
@@ -42,7 +44,8 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
-void configureConstPropONNXToONNXPass(int expansionBound);
+void configureConstPropONNXToONNXPass(
+    int expansionBound, llvm::ArrayRef<std::string> disabledPatterns = {});
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 

@@ -66,59 +66,60 @@ extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::OptionCategory OnnxMlirOptOptions;
 
 // Options known to onnx-mlir and/or onnx-mlir-opt
-extern std::string inputFilename;                     // common for both
-extern std::string outputBaseName;                    // common for both
-extern std::vector<accel::Accelerator::Kind> maccel;  // common for both
-extern OptLevel OptimizationLevel;                    // common for both
-extern std::string mtriple;                           // common for both
-extern std::string mcpu;                              // common for both
-extern std::string march;                             // common for both
-extern InstrumentStages instrumentStage;              // common for both
-extern int onnxConstPropExpansionBound;               // common for both
-extern bool enableONNXHybridPass;                     // common for both
-extern std::vector<std::string> functionsToDecompose; // common for both
-extern EmissionTargetType emissionTarget;             // onnx-mlir only
-extern bool invokeOnnxVersionConverter;               // onnx-mlir only
-extern bool preserveLocations;                        // onnx-mlir only
-extern bool printIR;                                  // onnx-mlir only
-extern bool preserveBitcode;                          // onnx-mlir only
-extern bool preserveLLVMIR;                           // onnx-mlir only
-extern bool preserveMLIR;                             // onnx-mlir only
-extern bool useOnnxModelTypes;                        // onnx-mlir only
-extern int repeatOnnxTransform;                       // onnx-mlir only
-extern std::string shapeInformation;                  // onnx-mlir only
-extern ModelSize modelSize;                           // onnx-mlir only
-extern bool storeConstantsToFile;                     // onnx-mlir only
-extern float constantsToFileTotalThreshold;           // onnx-mlir only
-extern float constantsToFileSingleThreshold;          // onnx-mlir only
-extern bool VerboseOutput;                            // onnx-mlir only
-extern std::vector<std::string> Xopt;                 // onnx-mlir only
-extern std::vector<std::string> Xllc;                 // onnx-mlir only
-extern std::string mllvm;                             // onnx-mlir only
-extern std::string instrumentOps;                     // onnx-mlir only
-extern unsigned instrumentControlBits;                // onnx-mlir only
-extern bool instrumentONNXSignature;                  // onnx-mlir only
-extern std::string ONNXOpStats;                       // onnx-mlir only
-extern bool enableMemoryBundling;                     // onnx-mlir only
-extern int onnxOpTransformThreshold;                  // onnx-mlir only
-extern bool onnxOpTransformReport;                    // onnx-mlir only
-extern bool enableParallel;                           // onnx-mlir only
-extern bool disableSimdOption;                        // onnx-mlir only
-extern bool enableSimdDataLayout;                     // onnx-mlir only
-extern bool verifyInputTensors;                       // onnx-mlir only
-extern bool allowSorting;                             // onnx-mlir only
-extern std::string reportHeapBefore;                  // onnx-mlir only
-extern std::string reportHeapAfter;                   // onnx-mlir only
-extern std::string modelTag;                          // onnx-mlir only
-extern bool enableConvOptPass;                        // onnx-mlir only
-extern std::vector<std::string> extraLibPaths;        // onnx-mlir only
-extern std::vector<std::string> extraLibs;            // onnx-mlir only
-extern ProfileIRs profileIR;                          // onnx-mlir only
-extern OptReport optReport;                           // onnx-mlir only
-extern bool split_input_file;                         // onnx-mlir-opt only
-extern bool verify_diagnostics;                       // onnx-mlir-opt only
-extern bool verify_passes;                            // onnx-mlir-opt only
-extern bool allowUnregisteredDialects;                // onnx-mlir-opt only
+extern std::string inputFilename;                             // common for both
+extern std::string outputBaseName;                            // common for both
+extern std::vector<accel::Accelerator::Kind> maccel;          // common for both
+extern OptLevel OptimizationLevel;                            // common for both
+extern std::string mtriple;                                   // common for both
+extern std::string mcpu;                                      // common for both
+extern std::string march;                                     // common for both
+extern InstrumentStages instrumentStage;                      // common for both
+extern int onnxConstPropExpansionBound;                       // common for both
+extern std::vector<std::string> onnxConstPropDisablePatterns; // common for both
+extern bool enableONNXHybridPass;                             // common for both
+extern std::vector<std::string> functionsToDecompose;         // common for both
+extern EmissionTargetType emissionTarget;                     // onnx-mlir only
+extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
+extern bool preserveLocations;                                // onnx-mlir only
+extern bool printIR;                                          // onnx-mlir only
+extern bool preserveBitcode;                                  // onnx-mlir only
+extern bool preserveLLVMIR;                                   // onnx-mlir only
+extern bool preserveMLIR;                                     // onnx-mlir only
+extern bool useOnnxModelTypes;                                // onnx-mlir only
+extern int repeatOnnxTransform;                               // onnx-mlir only
+extern std::string shapeInformation;                          // onnx-mlir only
+extern ModelSize modelSize;                                   // onnx-mlir only
+extern bool storeConstantsToFile;                             // onnx-mlir only
+extern float constantsToFileTotalThreshold;                   // onnx-mlir only
+extern float constantsToFileSingleThreshold;                  // onnx-mlir only
+extern bool VerboseOutput;                                    // onnx-mlir only
+extern std::vector<std::string> Xopt;                         // onnx-mlir only
+extern std::vector<std::string> Xllc;                         // onnx-mlir only
+extern std::string mllvm;                                     // onnx-mlir only
+extern std::string instrumentOps;                             // onnx-mlir only
+extern unsigned instrumentControlBits;                        // onnx-mlir only
+extern bool instrumentONNXSignature;                          // onnx-mlir only
+extern std::string ONNXOpStats;                               // onnx-mlir only
+extern bool enableMemoryBundling;                             // onnx-mlir only
+extern int onnxOpTransformThreshold;                          // onnx-mlir only
+extern bool onnxOpTransformReport;                            // onnx-mlir only
+extern bool enableParallel;                                   // onnx-mlir only
+extern bool disableSimdOption;                                // onnx-mlir only
+extern bool enableSimdDataLayout;                             // onnx-mlir only
+extern bool verifyInputTensors;                               // onnx-mlir only
+extern bool allowSorting;                                     // onnx-mlir only
+extern std::string reportHeapBefore;                          // onnx-mlir only
+extern std::string reportHeapAfter;                           // onnx-mlir only
+extern std::string modelTag;                                  // onnx-mlir only
+extern bool enableConvOptPass;                                // onnx-mlir only
+extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
+extern std::vector<std::string> extraLibs;                    // onnx-mlir only
+extern ProfileIRs profileIR;                                  // onnx-mlir only
+extern OptReport optReport;                                   // onnx-mlir only
+extern bool split_input_file;          // onnx-mlir-opt only
+extern bool verify_diagnostics;        // onnx-mlir-opt only
+extern bool verify_passes;             // onnx-mlir-opt only
+extern bool allowUnregisteredDialects; // onnx-mlir-opt only
 
 extern std::string customEnvFlags;
 
