@@ -148,9 +148,9 @@ means to block the for loop referred to by %i using a tile size of 4.
 _Call operation_
 
 The call operation provides a generic way to replace an ONNX Op with a call
-to an external function at Krnl level. 
-`funcName` attributes determines which function to call. 
-`parameters` is the inputs to Krnl.Call. It includes the outputs and inputs 
+to an external function at Krnl level.
+`funcName` attributes determines which function to call.
+`parameters` is the inputs to Krnl.Call. It includes the outputs and inputs
 of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
 The external function is assumed NOT to allocate or free any memory.
 'numOfOutput` attribute to tell how manu outputs Memref in parameters.

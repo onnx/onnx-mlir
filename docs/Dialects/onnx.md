@@ -1941,6 +1941,46 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
+### `onnx.DeformConv` (ONNXDeformConvOp)
+
+_ONNX DeformConv operation_
+
+Performs deformable convolution as described in https://arxiv.org/abs/1703.06211 and https://arxiv.org/abs/1811.11168.
+This operator specification supports the general N-D case. Note that most common use cases have 2D or 3D data.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `offset_group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `offset` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `mask` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
 ### `onnx.DepthToSpace` (ONNXDepthToSpaceOp)
 
 _ONNX DepthToSpace operation_
@@ -4042,7 +4082,7 @@ Effects: MemoryEffects::Effect{}
 
 _An operation that transforms data between different layout formats_
 
-An operation that transforms a tensor from a layout to another layout. 
+An operation that transforms a tensor from a layout to another layout.
 A layout is defined by an attribute, i.e. `target_layout`, which allows this
 operation work with an arbitrary layout (e.g. a layout used for accelerators).
 
@@ -4050,7 +4090,7 @@ operation work with an arbitrary layout (e.g. a layout used for accelerators).
 transformed to a normal tensor that does not have layout.
 
 If `target_layout` is the same as the input's layout, this operation will
-become an no-op by canonicalization. 
+become an no-op by canonicalization.
 
 The input and output tensors must have the same shape.
 
@@ -4657,7 +4697,7 @@ MaxPool consumes an input tensor X and applies max pooling across
  ```
  pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial_shape[i] + ((kernel_spatial_shape[i] - 1) * dilations[i] + 1) - input_spatial_shape[i]
  ```
- The output of each pooling window is maximum number of elements exclude pad. 
+ The output of each pooling window is maximum number of elements exclude pad.
 
 
 Traits: AlwaysSpeculatableImplTrait
@@ -8985,7 +9025,7 @@ _ONNX Softmax operation_
 
 The operator computes the normalized exponential values for the given input:
 
- Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1) 
+ Softmax(input, axis) = Exp(input) / ReduceSum(Exp(input), axis=axis, keepdims=1)
 
 The \"axis\" attribute indicates the dimension along which Softmax
 will be performed. The output tensor has the same shape
