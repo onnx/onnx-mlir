@@ -8,7 +8,7 @@
 #
 ################################################################################
 #
-# This file scan -onnx-op-report=* and process it
+# This file scan -opt-report=* and process it
 #
 # For patterns, see src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp, 
 # impl::onnxToKrnlParallelReport(...) and impl::onnxToKrnlSimdReport(...)
@@ -23,12 +23,13 @@ import numpy as np
 def print_usage(msg = ""):
     if msg:
         print("Error:", msg, "\n")
-    print("make-report.py -[svh] [-c <compile_log>] [-r <run_log>] [-l <num>] [-p <op regexp>]")
+    print("make-report.py -[svh] [-c <compile_log>] [-r <run_log>] [-l <num>]")
+    print("  [--sort <val>] [-u <val>] [-p <op regexp>]")
     print("")
     print("Usage: Report statistics on compiler and runtime characteristics of onnx ops.")
     print("")
     print("Compile-time statistics are collected from a `onnx-mlir` compiler output")
-    print("with the `--onnx-op-report` option equal to `Simd` or other supported sub-options.")
+    print("with the `--opt-report` option equal to `Simd` or other supported sub-options.")
     print("")
     print("Runtime statistics are collected from the runtime output of a model compiled.")
     print("with the `--profile-ir` option equal to `Onnx` or other supported sub-options.")
@@ -55,6 +56,8 @@ def print_usage(msg = ""):
     print("                       the 'unsupported' keyword in its printout.")
     print("                       For SIMD/parallel statistics, this include all ops that")
     print("                       have currently no support for it.")
+    print("  -u/--unit <str>:     Time in second ('s'), millisecond ('ms') or microsecond ('us).")
+    print("  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`.")
     print("  -v/--verbose:        Run in verbose mode (see error and warnings).")
     print("  -h/--help:           Print usage.")
     print("")
@@ -64,13 +67,15 @@ def print_usage(msg = ""):
 # Global info.
 
 # For statistic info.
-op_count_dict = {} # op -> count
+op_count_dict = {}        # op -> count
 op_detail_count_dict = {} # op -> {dictionary of detailed pattern -> count}
-op_time_dict = {} # op -> cumulative time
-op_detail_time_dict = {} # op -> {dictionary of detailed pattern -> cumulative time}
+op_time_dict = {}         # op -> cumulative time
+op_detail_time_dict = {}  # op -> {dictionary of detailed pattern -> cumulative time}
 
 # For timing info
 node_time_dict = {}  # op + node_name -> time statistic
+node_time_used = {}  # op + node_name -> 1 if used; not present if unused.
+tot_time = 0         # total time.
 
 focus_on_op_with_pattern = r'.*'
 spurious_node_name_count = 0
@@ -78,14 +83,16 @@ error_missing_time = 0
 supported_only = False
 has_timing = False
 verbose = False
+sorting_preference = ""
 report_level = 0 # 0: none; 1: details; 2: extra info; 3: plus node names
+time_unit = 1 # seconds
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
     return r'^==' + stat_name + r'-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)'
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
-simd_stat_message = "SIMD vector length (in elements), SIMD loop trip count (-1 is runtime), message"
+simd_stat_message = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_stat_message = "(after|before), time for op(s), time since start(s)"
@@ -94,11 +101,16 @@ perf_stat_message = "(after|before), time for op(s), time since start(s)"
 # # Support.
 
 # To record time, use op name and node name to better disambiguate.
-def timing_dict_key(op, node_name):
+def get_timing_key(op, node_name):
     p = re.match(r'(.*)-(simd|par)', op)
     if p:
         op = p[1]
-    return op + "__" + node_name
+    return op + "_=_" + node_name
+
+def get_op_node_from_timing_key(timing_key):
+    p = re.match(r'(.*)_=_(.*)', timing_key)
+    assert(p is not None)
+    return (p[1], p[2])
 
 # Add num to dict[key]
 def add_to_dict_entry(dict, key, num):
@@ -139,7 +151,7 @@ def append_to_dict2_entry(dict1, key1, key2, num):
 def record_pattern(op, node_name, detail_key):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict
-    global node_time_dict
+    global node_time_dict, node_time_used
     global verbose, report_level, has_timing, error_missing_time
 
     # Update statistic summaries
@@ -152,7 +164,7 @@ def record_pattern(op, node_name, detail_key):
     if not has_timing:
         return
     # Process timing.
-    timing_key = timing_dict_key(op, node_name)
+    timing_key = get_timing_key(op, node_name)
     if not timing_key in node_time_dict:
         error_missing_time += 1
         if verbose:
@@ -164,11 +176,11 @@ def record_pattern(op, node_name, detail_key):
     if report_level > 0:
         op_detail_time_dict[op] = append_to_dict2_entry(
             op_detail_time_dict, op, detail_key, time)
-
+    # Record timing key as used.
+    node_time_used[timing_key] = 1
 
 ################################################################################
 # Parse line (generic).
-
 
 def parse_line(line, report_str, is_perf_stat):
     global focus_on_op_with_pattern, supported_only
@@ -189,34 +201,10 @@ def parse_line(line, report_str, is_perf_stat):
         return (False, "", "", "")
 
     # Check if we have an op that we focus on; if not skip.
-    f = re.match(focus_on_op_with_pattern, op)
+    f = re.search(focus_on_op_with_pattern, op)
     if f is None:
         return (False, "", "", "")
     # Have a perfect match.
-
-    # Issues due to runtime constants having issues.
-    new_node_name = node_name
-    # Spurious appending of the last node_name.
-    if parse_line.last_node_name:
-        i0 = re.match(r'(.+)'+parse_line.last_node_name, node_name)
-        if i0:
-            new_node_name = i0[1]
-            spurious_node_name_count += 1
-            if verbose:
-                print("Cut last node_name:\n  old:", node_name,
-                      "\n  cut:", parse_line.last_node_name,
-                      "\n  new:", new_node_name)
-    parse_line.last_node_name = node_name
-    # Repeating node name.
-    i1 = re.match(r'(.+)'+op, node_name)
-    if i1:
-        new_node_name = i1[1]
-        spurious_node_name_count += 1
-        if verbose:
-            print("Cut op name:\n  old:", node_name,
-                  "\n  cut:", op,"\n  new:", new_node_name)
-    # Use new node name.
-    node_name = new_node_name
     return (True, op, node_name, details)
 
 parse_line.last_node_name = ""
@@ -224,8 +212,24 @@ parse_line.last_node_name = ""
 ################################################################################
 # Parse file for statistics.
 
-def parse_file_for_stat(file_name, stat_name):
+def get_secondary_key(node_name, details):
     global report_level
+
+    detail_array = details.split(",")
+    if report_level == 1:
+        # Use only first element in secondary key.
+        return detail_array[0]
+    if report_level == 2:
+        # Use all details in secondary key.
+        return details
+    if report_level == 3:
+        # Use node name in secondary key.
+        return node_name + ", " + details
+    return ""
+
+def parse_file_for_stat(file_name, stat_name):
+    global node_time_dict, node_time_used
+    global report_level, has_timing
 
     try:
         file = open(file_name, 'r')
@@ -241,25 +245,25 @@ def parse_file_for_stat(file_name, stat_name):
         if not has_stat:
             continue
         # Use stat.
-        secondary_key = ""
-        detail_array = details.split(",")
-        if report_level == 1:
-            # Use only first element in secondary key.
-            secondary_key = detail_array[0]
-        elif report_level == 2:
-            # Use all details in secondary key.
-            secondary_key = details
-        elif report_level == 3:
-            # Use node name in secondary key.
-            secondary_key = node_name + ", " + details
-
+        secondary_key = get_secondary_key(node_name, details)
+        record_pattern(op, node_name, secondary_key)
+    
+    # Continue processing if has timing.
+    if not has_timing:
+        return
+    for timing_key in node_time_dict:
+        if timing_key in node_time_used:
+            # has seen it
+            continue
+        (op, node_name) = get_op_node_from_timing_key(timing_key)
+        secondary_key = get_secondary_key(node_name, "")
         record_pattern(op, node_name, secondary_key)
 
 ################################################################################
 # Parse file for performance
 
 def parse_file_for_perf(file_name, stat_name):
-    global node_time_dict
+    global node_time_dict, tot_time
     global spurious_node_name_count, verbose, has_timing
 
     try:
@@ -278,34 +282,90 @@ def parse_file_for_perf(file_name, stat_name):
             continue
         # Keep only after times.
         detail_array = details.split(",")
-        key = timing_dict_key(op, node_name)
-        time_stat_dict[key] = append_to_dict_entry(time_stat_dict,
-            key, float(detail_array[1]))
+        key = get_timing_key(op, node_name)
+        time = float(detail_array[1])
+        tot_time += time
+        time_stat_dict[key] = append_to_dict_entry(time_stat_dict, key, time)
 
     # Normally, an <op>-<node-name> pair should be seen only once in a run,
-    # except for loops. So we take here the sum of all the times.
-    # This approach would not work well if we had performance for multiple
-    # runs.
-    # TODO: If wanted to average/min/max over multiple runs, we would have
-    # need to pull this inside of the loop above, summing at the end of
-    # a run, and then taking min/max/average of the times gathered for each
-    # run.
+    # except for loops and some other circumstances (e.g. multiple dim op for
+    # a given original onnx op). Because in any case, the report will be done
+    # on visiting N time a op-nodename combination that has N instances, and
+    # thus adding N times the value from "node_time_dict[node]", we must take
+    # here the average. We loose distinguishing the variability of the timing
+    # of the same op with same op name, but this is ok. Taking the sum is just
+    # wrong, as we would add N times the sum of the N time measurements.
     for node in time_stat_dict:
-        node_time_dict[node] = np.sum(time_stat_dict[node])
+        node_time_dict[node] = np.average(time_stat_dict[node])
     has_timing = True
 
 ################################################################################
 # make report
 
+def get_percent(n, d):
+    if d == 0.0:
+        return 0.0
+    return n * 100 / d
+
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
-    global op_time_dict, op_detail_time_dict
+    global op_time_dict, op_detail_time_dict, tot_time
+    global has_timing, time_unit, error_missing_time
     global report_level, supported_only, verbose, spurious_node_name_count
-    global has_timing, error_missing_time
+    global sorting_preference
 
+    # Gather statistics in a dictionary so that we may sort the entries.
+    sorted_output = {}
+    for op in op_count_dict:
+        count = op_count_dict[op]
+        count_time_str = str(count)
+        time = 0
+        if op in op_time_dict:
+            time = np.sum(op_time_dict[op])
+            count_time_str += ", {:.7f}".format(time * time_unit / count)
+            count_time_str += ", {:.7f}".format(time * time_unit)
+            count_time_str += ", {:.1f}%".format(get_percent(time, tot_time))
+        output = "  " + op + ", " + count_time_str
+        if sorting_preference == "name":
+            key = op
+        elif sorting_preference == "num":
+            key = - count
+        else:
+            key = - time
+        if report_level:
+            det_dict = op_detail_count_dict[op]
+            det_time_dict = {}
+            if op in op_detail_time_dict:
+                det_time_dict = op_detail_time_dict[op]
+            for det_key in sorted(det_dict):
+                det_count = det_dict[det_key]
+                if det_count == count:
+                    count_time_str = "*"
+                else:
+                    count_time_str = str(det_count)
+                if det_key in det_time_dict:
+                    det_time = np.sum(det_time_dict[det_key])
+                    count_time_str += ", {:.7f}".format(det_time * time_unit / det_count)
+                    count_time_str += ", {:.7f}".format(det_time * time_unit)
+                    count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
+                output += "\n    " + count_time_str + ": " + det_key
+        if key in sorted_output:
+            sorted_output[key] = sorted_output[key] + "\n" + output
+        else:
+            sorted_output[key] = output
+
+    # Print legend and stats.
     num_desc = "num"
     if has_timing:
-        num_desc += ", cumulative time(s)"
+        if time_unit == 1:
+            unit_str = "(s)"
+        elif time_unit == 1000:
+            unit_str = "(ms)"
+        elif time_unit == 1000*1000:
+            unit_str = "(us)"
+        num_desc += ", average time " + unit_str
+        num_desc += ", cumulative time " + unit_str
+        num_desc += ", percent of total "
     print("Statistic legend:")
     if report_level < 2:
         print("  op-name:", num_desc)
@@ -314,31 +374,18 @@ def make_report(stat_message):
     elif report_level == 3:
         print("   " + num_desc + ": node-name, ", stat_message, "\n")
     print("")
+    stat_details = ""
     if supported_only:
-        print("Statistics start (ignore unsupported ops).")
+        stat_details = ", supported ops"
     else:
-        print("Statistics start (all ops).")
-    for op in sorted(op_count_dict):
-        count_time_str = str(op_count_dict[op])
-        if op in op_time_dict:
-            time = np.sum(op_time_dict[op])
-            count_time_str += ", {:.7f}".format(time)
-        print("  " + op + ", " + count_time_str)
-        if report_level:
-            det_dict = op_detail_count_dict[op]
-            det_time_dict = {}
-            if op in op_detail_time_dict:
-                det_time_dict = op_detail_time_dict[op]
-            for det_key in sorted(det_dict):
-                if det_dict[det_key] == op_count_dict[op]:
-                    count_time_str = "*"
-                else:
-                    count_time_str = str(det_dict[det_key])
-                if det_key in det_time_dict:
-                    time = np.sum(det_time_dict[det_key])
-                    count_time_str += ", {:.7f}".format(time)
-                print("    ", count_time_str, ":", det_key)
-    print("Statistics end.")
+        stat_details = ", all ops"
+    stat_details += ", ordered_by " + sorting_preference
+    if has_timing:
+        stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
+    print("Statistics start"+stat_details)
+    for key in sorted(sorted_output):
+        print(sorted_output[key])
+    print("Statistics end" + stat_details)
 
     # Report spurious node name if any.
     if spurious_node_name_count:
@@ -357,14 +404,16 @@ def make_report(stat_message):
 # Main.
 
 def main(argv):
-    global report_level, focus_on_op_with_pattern, supported_only, verbose
+    global report_level, focus_on_op_with_pattern, supported_only, time_unit, verbose
+    global sorting_preference
 
     compile_file_name = ""
     runtime_file_name = ""
     try:
         opts, args = getopt.getopt(
-            argv, "c:f:hl:r:sv",
-            ["compile=", "focus=", "help", "level=", "runtime=", "supported", "verbose"])
+            argv, "c:f:hl:r:su:v",
+            ["compile=", "focus=", "help", "level=", "runtime=", "supported",
+             "sort=", "unit=", "verbose"])
     except getopt.GetoptError:
         print_usage("Failure to parse inputs")
     for opt, arg in opts:
@@ -384,9 +433,33 @@ def main(argv):
             runtime_file_name = arg
         elif opt in ('-s', "--supported"):
             supported_only = True
+        elif opt in ("--sort"):
+            if re.match(r'\s*name\s*', arg):
+                sorting_preference = "name"
+            elif re.match(r'\s*num\s*', arg):
+                sorting_preference = "num"
+            elif re.match(r'\s*time\s*', arg):
+                sorting_preference = "time"
+            else:
+                print_usage("sorting options are 'name', 'num', or 'time'")
+        elif opt in ('-u', "--unit"):
+            if re.match(r'\s*s\s*', arg):
+                time_unit = 1
+            elif re.match(r'\s*ms\s*', arg):
+                time_unit = 1000
+            elif re.match(r'\s*us\s*', arg):
+                time_unit = 1000*1000
+            else:
+                print_usage("time units are 's', 'ms', or 'us'")
         elif opt in ('-v', "--verbose"):
             verbose = True
 
+    # Default sorting preference.
+    if not sorting_preference:
+        if runtime_file_name:
+            sorting_preference = "time"
+        else:
+            sorting_preference = "name"
     if compile_file_name and runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF")
         parse_file_for_stat(compile_file_name, "SIMD")

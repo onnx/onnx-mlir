@@ -15,6 +15,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "ExternalUtil.hpp"
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Compiler/CompilerOptions.hpp"
 
@@ -71,7 +72,7 @@ bool enableConvOptPass;                        // onnx-mlir only
 std::vector<std::string> extraLibPaths;        // onnx-mlir only
 std::vector<std::string> extraLibs;            // onnx-mlir only
 ProfileIRs profileIR;                          // onnx-mlir only
-OnnxOpReport onnxOpReport;                     // onnx-mlir only
+OptReport optReport;                           // onnx-mlir only
 bool split_input_file;                         // onnx-mlir-opt only
 bool verify_diagnostics;                       // onnx-mlir-opt only
 bool verify_passes;                            // onnx-mlir-opt only
@@ -483,14 +484,14 @@ static llvm::cl::opt<ProfileIRs, true> profileIROpt("profile-ir",
             APPLY_TO_ACCELERATORS(ACCEL_PROFILEIR_CL_ENUM)),
     llvm::cl::init(ProfileIRs::None), llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<OnnxOpReport, true> onnxOpReportOpt("onnx-op-report",
-    llvm::cl::desc("Provide ONNX operation report on their optimizations."),
-    llvm::cl::location(onnxOpReport),
+static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
+    llvm::cl::desc("Provide information on a specific compiler optimization."),
+    llvm::cl::location(optReport),
     llvm::cl::values(clEnumVal(NoReport, "No report. Default value."),
         clEnumVal(Parallel,
             "Provide report on how OMP Parallel is applied to ONNX ops."),
         clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")),
-    llvm::cl::init(OnnxOpReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(OptReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir-opt only
 static llvm::cl::opt<bool, true> split_input_file_opt("split-input-file",
