@@ -103,9 +103,9 @@ class IsNotDisabled<string name>: Constraint<
   CPred<"isNotDisabled(\"" # name # "\")">>;
 
 // Takes initial name parameter which is checked to see if disabled.
-class NamedPat<string name, dag pattern, dag result, list<dag> preds = [],
+class NamedPat<string name, dag pattern, dag result, list<dag> preds = [], list<dag> supplementalPatterns = [],
   dag benefitAdded = (addBenefit 0)> :
-  Pat<pattern, result, !listconcat([(IsNotDisabled<name>)], preds), benefitAdded>;
+  Pat<pattern, result, !listconcat([(IsNotDisabled<name>)], preds), supplementalPatterns, benefitAdded>;
 
 class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
 

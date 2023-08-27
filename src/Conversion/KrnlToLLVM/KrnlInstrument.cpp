@@ -96,8 +96,8 @@ public:
         llvm::dbgs() << "Instrumentation_nodeName: " << nodeName << "\n");
 
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *typeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const LLVMTypeConverter *typeConverter =
+        static_cast<const LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the memcpy function, inserting it if necessary.
     ModuleOp parentModule = op->getParentOfType<ModuleOp>();
