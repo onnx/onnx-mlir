@@ -895,4 +895,5 @@ void SaveOnnxAttrInOp(mlir::Operation *op,
   OP_TYPE specificOp = llvm::cast<OP_TYPE>(op);
   setAttr(specificOp, newAttr);
 }
+
 } // namespace onnx_mlir
