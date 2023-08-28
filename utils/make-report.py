@@ -6,14 +6,26 @@
 #
 # Copyright 2023 The IBM Research Authors.
 #
-################################################################################
+#############################################################################
 #
-# This file scan -opt-report=* and process it
+# This file scan --opt-report=*, --profile-ir, --instrument-onnx-signature
+# and process it.
 #
-# For patterns, see src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp, 
+# For patterns, see src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.cpp,
 # impl::onnxToKrnlParallelReport(...) and impl::onnxToKrnlSimdReport(...)
 #
-################################################################################
+# Format for stats:
+# '=='<STAT>'==,' <qualified op name> ',' <node name> ',' <secondary key>
+#     {',' <info>}
+#
+# where <qualified op name> may have a '-simd' or '-par' suffix to indicate
+# the success of that pass.
+#
+# Format of perf:
+# '==PERF==,' <op name> ',' <node name> ',' <secondary key> ','
+#     <elapsed time in float> ',' <absolute time in f>
+#
+#############################################################################
 
 import sys
 import getopt
@@ -23,8 +35,8 @@ import numpy as np
 def print_usage(msg = ""):
     if msg:
         print("Error:", msg, "\n")
-    print("make-report.py -[svh] [-c <compile_log>] [-r <run_log>] [-l <num>]")
-    print("  [--sort <val>] [-u <val>] [-p <op regexp>]")
+    print("make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]")
+    print("  [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]")
     print("")
     print("Usage: Report statistics on compiler and runtime characteristics of onnx ops.")
     print("")
@@ -43,20 +55,29 @@ def print_usage(msg = ""):
     print("  Use `-l 3` to correlate the node name printed here with compiler output.")
     print("")
     print("Parameters:")
-    print("  -c/--compile <file_log>: File name containing the compile time statistics.")
-    print("  -r/--runtime <file_log>: File name containing the runtime statistics.")
-    print("  -l/--level <num>:    Print statistics:")
-    print("                       0: Just count successful/unsuccessful ops.")
+    print("  -c/--compile <file_log>: File name containing the compile-time statistics")
+    print("                       or runtime signature statistics.")
+    print("  -r/--runtime <file_log>: File name containing the runtime time statistics.")
+    print("  -a/--stats <name>:   Print specific statistics:")
+    print("                       simd: Print simd optimization stats.")
+    print("                       Default if a compile time file is given.")
+    print("                       par: Print parallel optimization stats.")
+    print("                       sig: Print signatures of op.")
+    print("                       perf: Print runtime execution time of ops.")
+    print("                       Default if no compile time file is given.")
+    print("  -l/--level <num>:    Print detailed level of statistics:")
+    print("                       0: Just count successful/unsuccessful ops (default).")
     print("                       1: Also count reasons for success/failure.")
     print("                       2: Also list metrics.")
     print("                       3: Also list node name.")
     print("  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.")
-    print("  -s/supported:        Focus only on ops that are supported. Namely, the report")
+    print("  -supported:          Focus only on ops that are supported. Namely, the report")
     print("                       will skip ops for which compile-time statistics list")
     print("                       the 'unsupported' keyword in its printout.")
     print("                       For SIMD/parallel statistics, this include all ops that")
     print("                       have currently no support for it.")
-    print("  -u/--unit <str>:     Time in second ('s'), millisecond ('ms') or microsecond ('us).")
+    print("  -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or")
+    print("                       microsecond ('us).")
     print("  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`.")
     print("  -v/--verbose:        Run in verbose mode (see error and warnings).")
     print("  -h/--help:           Print usage.")
@@ -92,10 +113,11 @@ def common_report_str(stat_name):
     return r'^==' + stat_name + r'-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)'
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
-simd_stat_message = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
+simd_legend = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
+sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
-perf_stat_message = "(after|before), time for op(s), time since start(s)"
+perf_legend = "(after|before), time for op(s), time since start(s)"
 
 ################################################################################
 # # Support.
@@ -307,6 +329,14 @@ def get_percent(n, d):
         return 0.0
     return n * 100 / d
 
+def get_sorting_key(count, name, time):
+    global sorting_preference
+    if sorting_preference == "num":
+        key = - count
+    if sorting_preference == "name":
+        return name
+    return - time
+
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
@@ -326,33 +356,40 @@ def make_report(stat_message):
             count_time_str += ", {:.7f}".format(time * time_unit)
             count_time_str += ", {:.1f}%".format(get_percent(time, tot_time))
         output = "  " + op + ", " + count_time_str
-        if sorting_preference == "name":
-            key = op
-        elif sorting_preference == "num":
-            key = - count
-        else:
-            key = - time
         if report_level:
             det_dict = op_detail_count_dict[op]
             det_time_dict = {}
+            sorted_det_output = {}
             if op in op_detail_time_dict:
                 det_time_dict = op_detail_time_dict[op]
-            for det_key in sorted(det_dict):
+            for det_key in det_dict:
                 det_count = det_dict[det_key]
                 if det_count == count:
                     count_time_str = "*"
                 else:
                     count_time_str = str(det_count)
+                det_time = 0
                 if det_key in det_time_dict:
                     det_time = np.sum(det_time_dict[det_key])
                     count_time_str += ", {:.7f}".format(det_time * time_unit / det_count)
                     count_time_str += ", {:.7f}".format(det_time * time_unit)
                     count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
-                output += "\n    " + count_time_str + ": " + det_key
-        if key in sorted_output:
-            sorted_output[key] = sorted_output[key] + "\n" + output
+
+                det_output = "\n    " + count_time_str + ": " + det_key
+                det_output_key = get_sorting_key(det_count, det_key, det_time)
+                if det_output_key in sorted_det_output:
+                    sorted_det_output[det_output_key] += det_output
+                else:
+                    sorted_det_output[det_output_key] = det_output
+            for key in sorted(sorted_det_output):
+                output += sorted_det_output[key]
+
+        # add output to sorted_output
+        output_key = get_sorting_key(count, op, time)
+        if output_key in sorted_output:
+            sorted_output[output_key] += "\n" + output
         else:
-            sorted_output[key] = output
+            sorted_output[output_key] = output
 
     # Print legend and stats.
     num_desc = "num"
@@ -409,11 +446,13 @@ def main(argv):
 
     compile_file_name = ""
     runtime_file_name = ""
+    make_stats = ""
+    make_legend = ""
     try:
         opts, args = getopt.getopt(
-            argv, "c:f:hl:r:su:v",
-            ["compile=", "focus=", "help", "level=", "runtime=", "supported",
-             "sort=", "unit=", "verbose"])
+            argv, "c:f:hl:r:s:u:v",
+            ["compile=", "focus=", "help", "level=", "runtime=", "stats="
+             "sort=", "supported", "unit=", "verbose"])
     except getopt.GetoptError:
         print_usage("Failure to parse inputs")
     for opt, arg in opts:
@@ -431,7 +470,22 @@ def main(argv):
                 print_usage("detail levels are 0, 1, 2, or 3")
         elif opt in ('-r', "--runtime"):
             runtime_file_name = arg
-        elif opt in ('-s', "--supported"):
+        elif opt in ("-s", "--stats"):
+            if re.match(r'\s*par\s*', arg):
+                make_stats = "PAR"
+                make_legend = "none"
+            elif re.match(r'\s*perf\s*', arg):
+                make_stats = "PERF"
+                make_legend = perf_legend
+            elif re.match(r'\s*sig?\s*', arg):
+                make_stats = "SIG"
+                make_legend = sig_legend
+            elif re.match(r'\s*simd\s*', arg):
+                make_stats = "SIMD"
+                make_legend = simd_legend
+            else:
+                print_usage("statistics options are 'par', 'signature', or 'simd'")
+        elif opt in ("--supported"):
             supported_only = True
         elif opt in ("--sort"):
             if re.match(r'\s*name\s*', arg):
@@ -454,6 +508,17 @@ def main(argv):
         elif opt in ('-v', "--verbose"):
             verbose = True
 
+    # Default stats.
+    if not make_stats:
+        if compile_file_name:
+            # Default for compile analysis.
+            make_stats = "SIMD"
+            make_legend = simd_legend
+        else:
+            # Default for perf only (no compile)
+            make_stats = "PERF"
+            make_legend = perf_legend
+    print("Analyse", make_stats)
     # Default sorting preference.
     if not sorting_preference:
         if runtime_file_name:
@@ -462,15 +527,15 @@ def main(argv):
             sorting_preference = "name"
     if compile_file_name and runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF")
-        parse_file_for_stat(compile_file_name, "SIMD")
-        make_report(simd_stat_message)
+        parse_file_for_stat(compile_file_name, make_stats)
+        make_report(make_legend)
     elif compile_file_name:
-        parse_file_for_stat(compile_file_name, "SIMD")
-        make_report(simd_stat_message)
+        parse_file_for_stat(compile_file_name, make_stats)
+        make_report(make_legend)
     elif runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF")
         parse_file_for_stat(runtime_file_name, "PERF")
-        make_report(perf_stat_message)
+        make_report(make_legend)
     else:
         print_usage("Command requires an input file name (compile/runtime or both).\n")
 
