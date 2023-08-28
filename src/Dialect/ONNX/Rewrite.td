@@ -26,6 +26,7 @@ include "src/Dialect/ONNX/ONNX.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -750,7 +751,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
            (subtractOrNeg $res, $b, $mean))),
 
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-     [], (addBenefit 1)
+     [], [], (addBenefit 1)
 >;
 
 //===----------------------------------------------------------------------===//
@@ -789,7 +790,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
      (ONNXUnsqueezeV11Op
        (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
        (createArrayAttrOfOneToRankOfExclusive $x))),
-  [(HasRankGT<2> $x)], (addBenefit 0)
+  [(HasRankGT<2> $x)], [], (addBenefit 0)
 >;
 
 // Special case of BatchNorm whose input shape is [N]. In this case, 'scale',
@@ -812,7 +813,7 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
                     (createDenseElementsAttrFromFloatAttr $res, $epsilon)))))),
      // b
      (ONNXSubOp $bias, (ONNXMulOp $mean, $a))),
-  [(HasRankOf<1> $x)], (addBenefit 0)
+  [(HasRankOf<1> $x)], [], (addBenefit 0)
 >;
 
 //===----------------------------------------------------------------------===//

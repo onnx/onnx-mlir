@@ -390,7 +390,7 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
 template <>
 LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
     ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, ONNXLSTMOp *op,
+    const TypeConverter *typeConverter, ONNXLSTMOp *op,
     typename ONNXLSTMOp::Adaptor operandAdaptor) {
   LstmState state;
 

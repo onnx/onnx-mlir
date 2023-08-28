@@ -340,7 +340,7 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
 template <>
 GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
     ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, ONNXGRUOp *op,
+    const TypeConverter *typeConverter, ONNXGRUOp *op,
     typename ONNXGRUOp::Adaptor operandAdaptor) {
   GruState state;
 
