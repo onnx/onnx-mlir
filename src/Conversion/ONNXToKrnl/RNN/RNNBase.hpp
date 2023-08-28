@@ -36,12 +36,12 @@ int64_t dimAt(mlir::Value val, int index);
 
 /// Insert Allocate and Deallocate for the all hidden output.
 mlir::Value allocAllHidden(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
+    mlir::Location loc, const mlir::TypeConverter *typeConverter, mlir::Value X,
     mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
+    mlir::Location loc, const mlir::TypeConverter *typeConverter, mlir::Value X,
     mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Initialize the hidden and cell states.
@@ -109,7 +109,7 @@ std::tuple<B, B> getBiasPack(
 // Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::TypeConverter *typeConverter, RNNOp *op,
+    mlir::Location loc, const mlir::TypeConverter *typeConverter, RNNOp *op,
     typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
