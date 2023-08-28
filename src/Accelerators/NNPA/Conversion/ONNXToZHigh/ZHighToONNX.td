@@ -30,6 +30,8 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 
 def NotBlockArgument : Constraint<CPred<"!isa<BlockArgument>($_self)">>;
 def HasOneUse: Constraint<CPred<"$_self.hasOneUse()">>;
+def CreateONNXMinOp : NativeCodeCall<"$_builder.create<ONNXMinOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
+def CreateONNXMaxOp : NativeCodeCall<"$_builder.create<ONNXMaxOp>($_loc, $0.getType(), ValueRange({$1, $2}))">;
 
 //===----------------------------------------------------------------------===//
 // ONNXAddOp %X = ZHighUnstickOp (ZHighAddOp (ZHighStickOp %X),
@@ -65,20 +67,32 @@ def replaceZHighSubPattern : Pat<
 //===----------------------------------------------------------------------===//
 // ONNXDivOp %X = ZHighUnstickOp (ZHighDivOp (ZHighStickOp
 // %X),(ZHighStickOp %Y))
+// Note: turn off this pattern since NNPA is faster at this moment.
 //===----------------------------------------------------------------------===//
-def replaceZHighDivPattern : Pat<
-  (ZHighUnstickOp (ZHighDivOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
-  (ONNXDivOp $x, $y),
+// def replaceZHighDivPattern : Pat<
+//   (ZHighUnstickOp (ZHighDivOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+//   (ONNXDivOp $x, $y),
+//   [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
+// >;
+
+//===----------------------------------------------------------------------===//
+// ONNXMinOp %X = ZHighUnstickOp (ZHighMinOp (ZHighStickOp %X),
+// (ZHighStickOp %Y))
+//===----------------------------------------------------------------------===//
+def replaceZHighMinPattern : Pat<
+  (ZHighUnstickOp:$u (ZHighMinOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+  (CreateONNXMinOp $u, $x, $y),
   [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXLogOp %X = ZHighUnstickOp (ZHighLogOp (ZHighStickOp %X))
+// ONNXMaxOp %X = ZHighUnstickOp (ZHighMaxOp (ZHighStickOp %X),
+// (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
-def replaceZHighLogPattern : Pat<
-  (ZHighUnstickOp (ZHighLogOp (ZHighStickOp:$s_x $x, $_))),
-  (ONNXLogOp $x),
-  [(NotBlockArgument:$x), (HasOneUse:$s_x)]
+def replaceZHighMaxPattern : Pat<
+  (ZHighUnstickOp:$u (ZHighMaxOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
+  (CreateONNXMaxOp $u, $x, $y),
+  [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
 >;
 
 //===----------------------------------------------------------------------===//
@@ -89,5 +103,45 @@ def replaceZHighReluPattern : Pat<
   (ONNXReluOp $x),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
 >;
+
+//===----------------------------------------------------------------------===//
+// ONNXLogOp %X = ZHighUnstickOp (ZHighLogOp (ZHighStickOp %X))
+// Note: turn off this pattern since NNPA is faster at this moment.
+//===----------------------------------------------------------------------===//
+// def replaceZHighLogPattern : Pat<
+//   (ZHighUnstickOp (ZHighLogOp (ZHighStickOp:$s_x $x, $_))),
+//   (ONNXLogOp $x),
+//   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
+// >;
+
+//===----------------------------------------------------------------------===//
+// ONNXExpOp %X = ZHighUnstickOp (ZHighExpOp (ZHighStickOp %X))
+// Note: turn off this pattern since NNPA is faster at this moment.
+//===----------------------------------------------------------------------===//
+// def replaceZHighExpPattern : Pat<
+//   (ZHighUnstickOp (ZHighExpOp (ZHighStickOp:$s_x $x, $_))),
+//   (ONNXExpOp $x),
+//   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
+// >;
+
+//===----------------------------------------------------------------------===//
+// ONNXTanhOp %X = ZHighUnstickOp (ZHighTanhOp (ZHighStickOp %X))
+// Note: turn off this pattern since NNPA is faster at this moment.
+//===----------------------------------------------------------------------===//
+// def replaceZHighTanhPattern : Pat<
+//   (ZHighUnstickOp (ZHighTanhOp (ZHighStickOp:$s_x $x, $_))),
+//   (ONNXTanhOp $x),
+//   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
+// >;
+
+//===----------------------------------------------------------------------===//
+// ONNXSigmoidOp %X = ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp %X))
+// Note: turn off this pattern since NNPA is faster at this moment.
+//===----------------------------------------------------------------------===//
+// def replaceZHighSigmoidPattern : Pat<
+//   (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x $x, $_))),
+//   (ONNXSigmoidOp $x),
+//   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
+// >;
 
 #endif // ZHIGH_TO_ONNX
