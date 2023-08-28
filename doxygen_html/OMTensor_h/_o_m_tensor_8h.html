@@ -589,7 +589,7 @@ Functions</h2></td></tr>
 <p>Print an OMTensor to stdout.</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramname">msg,pointer</td><td>to descriptive string </td></tr>
+    <tr><td class="paramname">msg,pointer</td><td>to descriptive string. It accepts one of 3 formats: 't' for printing the tensor's type, 's' for printing an extensive signature printout, and 'd' for printing the full data values of the tensor. Additionally it recognize 'e' as the end of the message string. </td></tr>
     <tr><td class="paramname">tensor,pointer</td><td>to the OMTensor to print </td></tr>
   </table>
   </dd>
