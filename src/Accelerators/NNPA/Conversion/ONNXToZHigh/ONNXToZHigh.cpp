@@ -23,6 +23,8 @@
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include <llvm/Support/Debug.h>
+#define DEBUG_TYPE "foo"
 
 using namespace mlir;
 
@@ -295,6 +297,7 @@ public:
       return failure();
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // ImplicitLocOpBuilder bb(loc, rewriter);
     ValueRange subAs(A), subBs(B);
     if (nExceeded) {
       // Split A along the dimension N.
@@ -304,6 +307,7 @@ public:
       // Split B along the dimension M.
       subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
     }
+	LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 00.\n");    
     // Emit sub matrix multiplication.
     SmallVector<Value> resSubAs;
     for (Value a : subAs) {
@@ -335,28 +339,60 @@ public:
         Value stickedC = rewriter.create<zhigh::ZHighStickOp>(
             loc, cZero, getMatMulBiasLayoutAttr(rewriter, a, b));
         stickedCZeros.emplace_back(stickedC);
-        zhigh::ZHighMatMulAsyncOp asyncMatMulOp =
-            rewriter.create<zhigh::ZHighMatMulAsyncOp>(
-                loc, unrankedType, tokenType, stickedA, stickedB, stickedC);
-        (void)asyncMatMulOp.inferShapes([](Region &region) {});
-        Value sm = asyncMatMulOp.getResults()[0];
-        stickedOuts.emplace_back(sm);
-        Value token = asyncMatMulOp.getResults()[1];
-        tokens.emplace_back(token);
+	LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging.\n");
+	async::ExecuteOp::BodyBuilderFn executeBodyBuilder = [&](OpBuilder &executeBuilder,
+                                      Location executeLoc,
+                                      ValueRange executeArgs) {
+	  // LLVM_DEBUG(llvm::dbgs() << "B " << executeArgs[0] << "\n");
+	  // LLVM_DEBUG(llvm::dbgs() << "stickedA " << executeArgs[1] << "\n");	  	  
+	  Type bType = executeArgs[0].getType(); // executeArgs[0]: B
+	  Type elementType = getElementType(bType);
+	  auto unrankedType = UnrankedTensorType::get(elementType);
+	  RankedTensorType tokenType = RankedTensorType::get({32}, executeBuilder.getF32Type());
+	  zhigh::ZHighMatMulAsyncOp asyncMatMulOp =
+              executeBuilder.create<zhigh::ZHighMatMulAsyncOp>(
+			       executeLoc, unrankedType, tokenType, /*stickedA*/ executeArgs[1], /* stickedB */ executeArgs[2], /*stickedC*/ executeArgs[2]);
+	  (void)asyncMatMulOp.inferShapes([](Region &region) {});
+          executeBuilder.create<async::YieldOp>(executeLoc, asyncMatMulOp.getResults());
+          // executeBuilder.create<async::YieldOp>(executeLoc, ValueRange());
+        };
+//	Value asyncB, asyncStickedA, asyncStickedB, asyncStickedC;
+//	rewriter.create<async::RuntimeStoreOp>(loc, B, asyncB);
+//	rewriter.create<async::RuntimeStoreOp>(loc, stickedA, asyncStickedA);
+//	rewriter.create<async::RuntimeStoreOp>(loc, stickedB, asyncStickedB);
+//	rewriter.create<async::RuntimeStoreOp>(loc, stickedC, asyncStickedC);
+//	LLVM_DEBUG(llvm::dbgs() << "asyncB " << asyncB << "\n");					
+//        auto execute = rewriter.create<async::ExecuteOp>(loc,
+//							 TypeRange{unrankedType, tokenType}, ValueRange(), ValueRange{asyncB, asyncStickedA, asyncStickedB, asyncStickedC}, executeBodyBuilder);
+        auto execute = rewriter.create<async::ExecuteOp>(loc,
+							 TypeRange{unrankedType, tokenType}, ValueRange(), ValueRange{B, stickedA, stickedB, stickedC}, executeBodyBuilder);
+	// LLVM_DEBUG(llvm::dbgs() << "execute.getBodyResults()[0] " << execute.getBodyResults()[0] << "\n");				
+	// LLVM_DEBUG(llvm::dbgs() << "execute.getToken() " << execute.getToken()<< "\n");
+	// Value stickOut = rewriter.create<async::RuntimeLoadOp>(loc, unrankedType, execute.getBodyResults()[0]);
+	// stickedOuts.emplace_back(stickOut);
+	stickedOuts.emplace_back(execute.getBodyResults()[0]);
+	tokens.emplace_back(execute.getToken());
       }
+      LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 0.\n");
       // Wait op
       SmallVector<Value> waitOps;
-      for (auto it : llvm::zip(stickedOuts, tokens, stickedBs, stickedCZeros)) {
-        Value stickedOut = std::get<0>(it);
-        Value token = std::get<1>(it);
-        Value stickedB = std::get<2>(it);
-        Value stickedC = std::get<3>(it);
-        onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
-            rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(loc,
-                stickedOut.getType(), stickedOut, token, stickedA, stickedB,
-                stickedC);
+      for (auto it : llvm::zip(stickedOuts, tokens)) {
+	// for (auto it : llvm::zip(stickedOuts, tokens, stickedBs, stickedCZeros)) {
+	Value stickedOut = std::get<0>(it);
+	LLVM_DEBUG(llvm::dbgs() << "stickedOut " << stickedOut << ".\n");
+	Value token = std::get<1>(it);
+	LLVM_DEBUG(llvm::dbgs() << "token " << token << ".\n");		
+	Value asyncAwaitOut = rewriter.create<async::AwaitOp>(loc, stickedOut).getResult();
+	Value awaitOut = rewriter.create<async::RuntimeLoadOp>(loc, unrankedType, asyncAwaitOut);	
         Value unstickedOut =
-            rewriter.create<zhigh::ZHighUnstickOp>(loc, waitOp.getResult());
+            rewriter.create<zhigh::ZHighUnstickOp>(loc, awaitOut);
+//        onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
+//            rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(loc,
+//                stickedOut.getType(), stickedOut, token, stickedA, stickedB,
+//                stickedC);
+//        Value unstickedOut =
+//            rewriter.create<zhigh::ZHighUnstickOp>(loc, waitOp.getResult());
+	LLVM_DEBUG(llvm::dbgs() << "unstickedOut " << unstickedOut << ".\n");		
         waitOps.emplace_back(unstickedOut);
       }
       Value res = waitOps[0];
@@ -367,12 +403,15 @@ public:
         Type concatTy = RankedTensorType::get(concatShape, elementType);
         res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
       }
+      LLVM_DEBUG(llvm::dbgs() << "res " << res << ".\n");		    
       resSubAs.emplace_back(res);
     }
     Value res = resSubAs[0];
     if (resSubAs.size() > 1)
       // Concat sub results along dimension N of A.
       res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
+    LLVM_DEBUG(llvm::dbgs() << "final res " << res << ".\n");
+    LLVM_DEBUG(llvm::dbgs() << "matmulOp " << matmulOp << ".\n");		        
     rewriter.replaceOp(op, res);
     return success();
   }

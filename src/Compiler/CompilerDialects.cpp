@@ -22,6 +22,7 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   // been parsed when registerDialects() is called.
 
   registry.insert<arith::ArithDialect>();
+  registry.insert<async::AsyncDialect>();
   registry.insert<linalg::LinalgDialect>();
   registry.insert<affine::AffineDialect>();
   registry.insert<LLVM::LLVMDialect>();
