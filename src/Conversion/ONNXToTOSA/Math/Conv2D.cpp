@@ -137,8 +137,18 @@ public:
     llvm::SmallVector<int64_t, 4> pads;
     IndexExpr::getLiteral(shapeHelper.pads, pads);
     // reorder padding values
-    DenseI64ArrayAttr newPads =
-        rewriter.getDenseI64ArrayAttr({pads[0], pads[2], pads[1], pads[3]});
+    llvm::SmallVector<int64_t, 4> reorderedPads = {
+        pads[0], pads[2], pads[1], pads[3]};
+    FailureOr<Value> resizedInput = tosaBuilder.resizeWindowBasedOps(newInput,
+        cast<RankedTensorType>(newInput.getType()).getShape(),
+        {weightShape[2], weightShape[3]}, reorderedPads, shapeHelper.strides,
+        shapeHelper.dilations);
+
+    if (failed(resizedInput))
+      return rewriter.notifyMatchFailure(
+          op, "could not resize input to match parameters");
+
+    DenseI64ArrayAttr newPads = rewriter.getDenseI64ArrayAttr(reorderedPads);
 
     // Handle group parameter by creating multiple convs
     const int64_t group = adaptor.getGroup();

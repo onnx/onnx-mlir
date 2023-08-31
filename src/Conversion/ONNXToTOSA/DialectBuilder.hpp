@@ -49,6 +49,18 @@ struct TosaBuilder : DialectBuilder {
       llvm::ArrayRef<int64_t> start);
   mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
 
+  /// When using window based ops like maxpool or conv2d, we sometimes have
+  /// unused values at the end of a spatial dimension. TOSA does not allow that,
+  /// the input can only have values that are actually used. To achieve this we
+  /// have to reduce padding and if this is not enough, we even have to insert a
+  /// slice op.
+  mlir::FailureOr<mlir::Value> resizeWindowBasedOps(mlir::Value &value,
+      llvm::ArrayRef<int64_t> inputShape,
+      llvm::ArrayRef<int64_t> weightSpatialShape,
+      llvm::SmallVectorImpl<int64_t> &padding,
+      llvm::ArrayRef<int64_t> strides = {1, 1},
+      llvm::ArrayRef<int64_t> dilation = {0, 0});
+
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
   mlir::Value getConst(

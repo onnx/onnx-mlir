@@ -39,19 +39,14 @@ void handleIncludePadAttr(
   shapeHelper.computeShapeAndAssertOnFailure();
 
   // Get onnx padding. Ignore ceil mode since it is handled later.
-  mlir::ArrayAttr pads = tosa::createOrderedPadAttr(rewriter,
+  llvm::SmallVector<int64_t, 4> pads = tosa::createOrderedPadAttr(rewriter,
       input.getType().cast<mlir::TensorType>().getShape(), shapeHelper,
       /*ceilMode*/ 0, {0, 1, 2, 3});
-
-  // Build an array with padding.
-  llvm::SmallVector<int64_t, 4> intValues;
-  llvm::for_each(pads.getAsRange<IntegerAttr>(),
-      [&](mlir::IntegerAttr n) { intValues.push_back(n.getInt()); });
 
   // Create Padding and ConstPad tosa::ConstOp's
   TosaBuilder tosaBuilder(rewriter, loc);
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
-      rewriter, intValues, loc, {0, 0, 0, 0}, {});
+      rewriter, pads, loc, {0, 0, 0, 0}, {});
   auto constTosaTensor = tosaBuilder.getSplattedConst(0.0);
 
   auto inputType = input.getType().cast<mlir::TensorType>();

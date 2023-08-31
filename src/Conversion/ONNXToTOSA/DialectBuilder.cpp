@@ -217,6 +217,81 @@ template Value TosaBuilder::binaryOp<mlir::tosa::AddOp>(
 
 template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
     mlir::Value &lhs, mlir::Value &rhs);
+
+static bool containsNonZero(llvm::SmallVectorImpl<int64_t> &values) {
+  return llvm::any_of(values, [](int64_t value) { return value != 0; });
+}
+
+FailureOr<Value> TosaBuilder::resizeWindowBasedOps(mlir::Value &value,
+    const llvm::ArrayRef<int64_t> inputShape,
+    const llvm::ArrayRef<int64_t> weightSpatialShape,
+    llvm::SmallVectorImpl<int64_t> &padding,
+    const llvm::ArrayRef<int64_t> strides,
+    const llvm::ArrayRef<int64_t> dilation) {
+
+  // Returns the number of unused values at the end of a dimension
+  auto getOffset = [](int64_t inputDimension, int64_t outputDimension,
+                       int64_t kernelDimension, int64_t padFront,
+                       int64_t padBack, int64_t stride, int64_t dilation) {
+    int64_t offset = inputDimension + padFront + padBack -
+                     dilation * (kernelDimension - 1) - 1 -
+                     outputDimension * stride + stride;
+    assert(offset >= 0);
+    return offset;
+  };
+
+  auto getOutputSpatialDimension =
+      [](int64_t inputDimension, int64_t kernelDimension, int64_t padFront,
+          int64_t padBack, int64_t stride, int64_t dilation) {
+        int64_t outputSpatialDimension =
+            std::floor((inputDimension + padFront + padBack -
+                        dilation * (kernelDimension - 1) - 1)) /
+                stride +
+            1;
+        return outputSpatialDimension;
+      };
+
+  // Only the end of a dimension is cut or padded differently. The beginning
+  // is unchanged.
+  llvm::SmallVector<int64_t, 2> cellsToCut;
+  llvm::SmallVector<int64_t, 2> cellsToPad;
+  for (int i = 0; i < 2; i++) {
+    int64_t padFront = padding[2 * i];
+    int64_t padBack = padding[2 * i + 1];
+    int64_t outputSpatialDimension =
+        getOutputSpatialDimension(inputShape[i + 1], weightSpatialShape[i],
+            padFront, padBack, strides[i], dilation[i]);
+    int64_t offset = getOffset(inputShape[i + 1], outputSpatialDimension,
+        weightSpatialShape[i], padFront, padBack, strides[i], dilation[i]);
+    if (offset > padBack) {
+      cellsToPad.push_back(0);
+      cellsToCut.push_back(offset - padBack);
+    } else {
+      cellsToPad.push_back(padBack - offset);
+      cellsToCut.push_back(0);
+    }
+  }
+
+  // Edge case where the kernel only uses padding values and none of the actual
+  // input values
+  if ((inputShape[1] - cellsToCut[0] == 0) ||
+      (inputShape[2] - cellsToCut[1] == 0))
+    return rewriter().notifyMatchFailure(
+        loc(), "the operation does not use any value of the input tensor");
+
+  // Only slice if we actually need it
+  if (containsNonZero(cellsToCut)) {
+    value = this->slice(value,
+        {inputShape[0], inputShape[1] - cellsToCut[0],
+            inputShape[2] - cellsToCut[1], inputShape[3]},
+        {0, 0, 0, 0});
+  }
+  padding[1] = cellsToPad[0];
+  padding[3] = cellsToPad[1];
+
+  return value;
+}
+
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape/TOSA Dialect.
 // =============================================================================
