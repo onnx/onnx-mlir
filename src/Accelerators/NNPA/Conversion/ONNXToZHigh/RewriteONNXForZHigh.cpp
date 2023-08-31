@@ -33,6 +33,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
+#include <llvm/Support/Debug.h>
+#define DEBUG_TYPE "foo"
 
 using namespace mlir;
 
@@ -339,7 +341,8 @@ public:
       return failure();
     int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
     int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
-
+    LLVM_DEBUG(llvm::dbgs() << "This is debug message.\n");
+    LLVM_DEBUG(llvm::dbgs() << "This is debug message.\n");
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
@@ -377,6 +380,124 @@ public:
         concatShape[outputRank - 2] = subAShape[aRank - 2];
         Type concatTy = RankedTensorType::get(concatShape, elementType);
         res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
+      }
+      resSubAs.emplace_back(res);
+    }
+    Value res = resSubAs[0];
+    if (resSubAs.size() > 1)
+      // Concat sub results along dimension N of A.
+      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
+
+    rewriter.replaceOp(op, res);
+    return success();
+  }
+};
+
+class ParallelMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
+public:
+  using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
+    Location loc = matmulOp.getLoc();
+    Operation *op = matmulOp.getOperation();
+    Value A = matmulOp.getA(); // NxK
+    Value B = matmulOp.getB(); // KxM
+
+    Type aType = A.getType();
+    Type bType = B.getType();
+    Type outputType = matmulOp.getY().getType();
+    int64_t aRank = getRank(aType);
+    int64_t bRank = getRank(bType);
+    int64_t outputRank = getRank(outputType);
+    ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
+    ArrayRef<int64_t> outputShape = getShape(outputType);
+    Type elementType = getElementType(bType);
+    auto unrankedType = UnrankedTensorType::get(elementType);
+    LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 00.\n");
+    // Expect 2D or 3D input.
+    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
+      return failure();
+    // Expect N or M exceeds NNPA limitation.
+    int64_t N = aShape[aRank - 2];
+    int64_t M = bShape[bRank - 1];
+    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
+    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
+    LLVM_DEBUG(llvm::dbgs() << "chunkSize = " << chunkSize << "\n");
+
+    bool nExceeded = N > chunkSize;
+    bool mExceeded = M > chunkSize;
+    if (!(nExceeded || mExceeded))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    ValueRange subAs(A), subBs(B);
+    if (nExceeded) {
+      // Split A along the dimension N.
+      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
+    }
+    if (mExceeded) {
+      // Split B along the dimension M.
+      subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
+    }
+    // Emit sub matrix multiplication.
+    SmallVector<Value> resSubAs;
+    for (Value a : subAs) {
+      ArrayRef<int64_t> subAShape = getShape(a.getType());
+      // For each matrix along dimension N, do MatMul for sub matrices along
+      // dimension M.
+      SmallVector<Value> subMatrices;
+      for (Value b : subBs) {
+        async::ExecuteOp::BodyBuilderFn executeBodyBuilder =
+            [&](OpBuilder &executeBuilder, Location executeLoc,
+                ValueRange executeArgs) {
+              MultiDialectBuilder<OnnxBuilder> executeCreate(
+                  executeBuilder, executeLoc);
+              Type bType = executeArgs[1].getType(); // executeArgs[1]: b
+              Type elementType = getElementType(bType);
+              auto unrankedType = UnrankedTensorType::get(elementType);
+              Value sm = executeCreate.onnx.matmul(unrankedType,
+                  /*a*/ executeArgs[0], /*b*/ executeArgs[1], false);
+              LLVM_DEBUG(llvm::dbgs() << "sm " << sm << "\n");
+              LLVM_DEBUG(
+                  llvm::dbgs() << "unrankedType " << unrankedType << "\n");
+              executeBuilder.create<async::YieldOp>(executeLoc, ValueRange{sm});
+            };
+        Value asyncA = rewriter
+                           .create<async::RuntimeCreateOp>(
+                               loc, async::ValueType::get(a.getType()))
+                           .getResult();
+        Value asyncB = rewriter
+                           .create<async::RuntimeCreateOp>(
+                               loc, async::ValueType::get(b.getType()))
+                           .getResult();
+        rewriter.create<async::RuntimeStoreOp>(loc, a, asyncA);
+        rewriter.create<async::RuntimeStoreOp>(loc, b, asyncB);
+        LLVM_DEBUG(llvm::dbgs() << "asyncA " << asyncA << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "asyncB " << asyncB << "\n");
+        Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
+        LLVM_DEBUG(
+            llvm::dbgs() << "smDummy.getType() " << smDummy.getType() << "\n");
+        auto execute =
+            rewriter.create<async::ExecuteOp>(loc, TypeRange{smDummy.getType()},
+                ValueRange(), ValueRange{asyncA, asyncB}, executeBodyBuilder);
+        subMatrices.emplace_back(execute.getBodyResults()[0]);
+      }
+      SmallVector<Value> waitOps;
+      for (Value subMatrix : subMatrices) {
+        Value asyncAwaitOut =
+            rewriter.create<async::AwaitOp>(loc, subMatrix).getResult();
+        waitOps.emplace_back(asyncAwaitOut);
+      }
+      Value res = waitOps[0];
+      if (waitOps.size() > 1) {
+        // Concat sub results along dimension M of B.
+        SmallVector<int64_t> concatShape(outputShape);
+        concatShape[outputRank - 2] = subAShape[aRank - 2];
+        Type concatTy = RankedTensorType::get(concatShape, elementType);
+        res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
       }
       resSubAs.emplace_back(res);
     }
@@ -429,7 +550,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect,
+      mlir::async::AsyncDialect>();
 
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
@@ -539,12 +661,16 @@ void RewriteONNXForZHighPass::runOnOperation() {
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(&getContext());
+  patterns.insert<ParallelMatMulPattern>(&getContext());
 
+  auto function = getOperation();
+  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
+    signalPassFailure();
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
-  if (failed(applyPartialConversion(module, target, std::move(patterns))))
-    signalPassFailure();
+  //  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+  //    signalPassFailure();
 }
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass() {

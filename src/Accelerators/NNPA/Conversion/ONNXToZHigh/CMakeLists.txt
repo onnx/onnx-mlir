@@ -34,6 +34,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   OMONNXOps
   OMONNXToKrnl
   OMZHighOps
+  MLIRAsyncDialect
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}
