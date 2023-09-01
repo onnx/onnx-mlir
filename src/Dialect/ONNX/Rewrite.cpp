@@ -273,6 +273,102 @@ public:
   }
 };
 
+template <typename OP, typename T>
+T ElementWiseBinaryOpImpl(T lhs, T rhs) {
+  llvm_unreachable("unsupported op or type");
+};
+
+template <>
+int64_t ElementWiseBinaryOpImpl<ONNXSubOp, int64_t>(int64_t lhs, int64_t rhs) {
+  return (lhs - rhs);
+};
+template <>
+double ElementWiseBinaryOpImpl<ONNXSubOp, double>(double lhs, double rhs) {
+  return (lhs - rhs);
+};
+
+template <typename OP>
+DenseElementsAttr createScalarAttrBinary(
+    DenseElementsAttr lhsAttr, DenseElementsAttr rhsAttr) {
+  Type elementType = lhsAttr.getType().cast<ShapedType>().getElementType();
+  if (isa<IntegerType>(elementType)) {
+    auto lhsIt = lhsAttr.getValues<IntegerAttr>().begin();
+    int64_t lhs = (*lhsIt).cast<IntegerAttr>().getInt();
+    auto rhsIt = rhsAttr.getValues<IntegerAttr>().begin();
+    int64_t rhs = (*rhsIt).cast<IntegerAttr>().getInt();
+    int64_t res = ElementWiseBinaryOpImpl<OP, int64_t>(lhs, rhs);
+    return DenseElementsAttr::get(
+        RankedTensorType::get({1}, elementType), ArrayRef<int64_t>({res}));
+  } else if (isa<FloatType>(elementType)) {
+    auto lhsIt = lhsAttr.getValues<FloatAttr>().begin();
+    double lhs = (*lhsIt).cast<FloatAttr>().getValueAsDouble();
+    auto rhsIt = rhsAttr.getValues<FloatAttr>().begin();
+    double rhs = (*rhsIt).cast<FloatAttr>().getValueAsDouble();
+    float res = (float)ElementWiseBinaryOpImpl<OP, double>(lhs, rhs);
+    return DenseElementsAttr::get(
+        RankedTensorType::get({1}, elementType), ArrayRef<float>({res}));
+  }
+  return nullptr;
+}
+
+template <typename OP_TYPE>
+class ReplaceBinaryOpByConstantOfShapePattern
+    : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    Operation *op = binaryOp.getOperation();
+    Location loc = binaryOp.getLoc();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+
+    // Match
+    // lhs is ConstantOp of a single scalar value and rhs is ConstantOfShapeOp,
+    // or vice versa.
+    ONNXConstantOp constantOp;
+    ONNXConstantOfShapeOp constantOfShapeOp;
+    auto matchValue = [&](Value v) {
+      if (definedBy<ONNXConstantOp>(v)) {
+        int64_t rank = getRank(v.getType());
+        ArrayRef<int64_t> shape = getShape(v.getType());
+        if (rank == 0 || (rank == 1 && shape[0] == 1))
+          constantOp = cast<ONNXConstantOp>(v.getDefiningOp());
+      } else if (definedBy<ONNXConstantOfShapeOp>(v)) {
+        auto cosOp = cast<ONNXConstantOfShapeOp>(v.getDefiningOp());
+        if (cosOp.getValue().has_value())
+          constantOfShapeOp = cosOp;
+      }
+    };
+    matchValue(lhs);
+    matchValue(rhs);
+    if (!constantOp || !constantOfShapeOp)
+      return failure();
+
+    // Rewrite
+    // Get scalar values from ConstantOp and ConstantOfShape.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    DenseElementsAttr lhsAttr, rhsAttr, resAttr;
+    if (definedBy<ONNXConstantOp>(lhs))
+      lhsAttr = cast<DenseElementsAttr>(constantOp.getValue().value());
+    else
+      lhsAttr = cast<DenseElementsAttr>(constantOfShapeOp.getValue().value());
+    if (definedBy<ONNXConstantOp>(rhs))
+      rhsAttr = cast<DenseElementsAttr>(constantOp.getValue().value());
+    else
+      rhsAttr = cast<DenseElementsAttr>(constantOfShapeOp.getValue().value());
+    resAttr = createScalarAttrBinary<OP_TYPE>(lhsAttr, rhsAttr);
+    Value res =
+        create.onnx.constantOfShape(resAttr, constantOfShapeOp.getInput());
+
+    rewriter.replaceOp(op, {res});
+    return success();
+  }
+};
+
 // =============================================================================
 // Rewrite pattern for Resize (not handled in Rewrite.td).
 // =============================================================================
@@ -1129,6 +1225,7 @@ void ONNXShapeOp::getCanonicalizationPatterns(
 void ONNXSubOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
+  result.insert<ReplaceBinaryOpByConstantOfShapePattern<ONNXSubOp>>(context);
 }
 
 /// on ONNXShapeTransformOp
