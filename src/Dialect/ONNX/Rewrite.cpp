@@ -279,6 +279,33 @@ T ElementWiseBinaryOpImpl(T lhs, T rhs) {
 };
 
 template <>
+int64_t ElementWiseBinaryOpImpl<ONNXAddOp, int64_t>(int64_t lhs, int64_t rhs) {
+  return (lhs - rhs);
+};
+template <>
+double ElementWiseBinaryOpImpl<ONNXAddOp, double>(double lhs, double rhs) {
+  return (lhs - rhs);
+};
+
+template <>
+int64_t ElementWiseBinaryOpImpl<ONNXDivOp, int64_t>(int64_t lhs, int64_t rhs) {
+  return (lhs - rhs);
+};
+template <>
+double ElementWiseBinaryOpImpl<ONNXDivOp, double>(double lhs, double rhs) {
+  return (lhs - rhs);
+};
+
+template <>
+int64_t ElementWiseBinaryOpImpl<ONNXMulOp, int64_t>(int64_t lhs, int64_t rhs) {
+  return (lhs - rhs);
+};
+template <>
+double ElementWiseBinaryOpImpl<ONNXMulOp, double>(double lhs, double rhs) {
+  return (lhs - rhs);
+};
+
+template <>
 int64_t ElementWiseBinaryOpImpl<ONNXSubOp, int64_t>(int64_t lhs, int64_t rhs) {
   return (lhs - rhs);
 };
@@ -311,6 +338,18 @@ DenseElementsAttr createScalarAttrBinary(
   return nullptr;
 }
 
+// Rewrite the following pattern
+//
+// %0 = onnx.Constant
+// %1 = onnx.ConstantOfShape
+// %2 = "onnx.Sub"(%0, %1) : (tensor<f32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+//
+// into
+// %0 = onnx.ConstantOfShape
+//
+// This pattern only handles the case where one of the operand is a scalar
+// constant. For such a case, we can easily infer the shape operand for the
+// resulting ConstantOfShape.
 template <typename OP_TYPE>
 class ReplaceBinaryOpByConstantOfShapePattern
     : public OpRewritePattern<OP_TYPE> {
@@ -1066,6 +1105,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
+  results.insert<ReplaceBinaryOpByConstantOfShapePattern<ONNXAddOp>>(context);
 }
 
 /// on the ONNXAndOp.
@@ -1103,6 +1143,7 @@ void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
 void ONNXDivOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
+  result.insert<ReplaceBinaryOpByConstantOfShapePattern<ONNXDivOp>>(context);
 }
 
 /// on the ONNXDropoutOp.
@@ -1186,6 +1227,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
+  results.insert<ReplaceBinaryOpByConstantOfShapePattern<ONNXMulOp>>(context);
 }
 
 /// on the ONNXOrOp.
