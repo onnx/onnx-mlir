@@ -115,6 +115,24 @@ func.func private @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 
 // -----
 
+func.func private @test_signed_int_mod(%arg0 : tensor<10x10xi64>, %arg1 : tensor<10x10xi64>) -> tensor<*xi64> {
+  %0 = "onnx.Mod"(%arg0, %arg1) : (tensor<10x10xi64>, tensor<10x10xi64>) -> tensor<*xi64>
+  "func.return"(%0) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL: test_signed_int_mod
+  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi64>
+  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
+  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10){
+  // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
+  // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
+  // CHECK: [[REMSI:%.+]] = arith.remsi [[LOAD1]], [[LOAD2]] : i64
+  // CHECK: krnl.store [[REMSI]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
+  // CHECK: return [[RES]] : memref<10x10xi64>
+}
+
+// -----
+
 func.func private @test_sub(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

@@ -1136,9 +1136,9 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
 #endif
   }
   if (create.math.isIntegerWithVector(elementType)) {
-    // TODO: implement
-    llvm_unreachable("not support integers at this moment since MLIR integers "
-                     "are signless.");
+    // Since math.copySign does not support integer and is unnecessary,
+    // not call copySign for integer like the float case.
+    return create.math.rem(dividend, divisor);
   }
   llvm_unreachable("unsupported element type");
 }
