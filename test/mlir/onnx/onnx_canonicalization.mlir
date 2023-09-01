@@ -590,6 +590,28 @@ func.func @test_should_not_remove_null_axes_squeezev11_unsqueezev11(%arg0 : tens
 
 // -----
 
+func.func @test_replace_unsqueeze_by_constantofshape(%arg0: tensor<1x?xi64>) -> tensor<1x1x1x?xf32> {
+    %0 = onnx.Constant dense<1> : tensor<1xi64>
+    %1 = onnx.Constant dense<2> : tensor<1xi64>
+    %2 = "onnx.Dim"(%arg0) {axis = 1 : si64} : (tensor<1x?xi64>) -> tensor<1xi64>
+    %3 = "onnx.Concat"(%0, %2) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+    %4 = onnx.ConstantOfShape(%3) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<2xi64>) -> tensor<1x?xf32>
+    %5 = "onnx.Unsqueeze"(%4, %0) : (tensor<1x?xf32>, tensor<1xi64>) -> tensor<1x1x?xf32>
+    %6 = "onnx.Unsqueeze"(%5, %1) : (tensor<1x1x?xf32>, tensor<1xi64>) -> tensor<1x1x1x?xf32>
+    return %6 : tensor<1x1x1x?xf32>
+
+// CHECK-LABEL:  func.func @test_replace_unsqueeze_by_constantofshape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?xi64>) -> tensor<1x1x1x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<1x?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_0_]], [[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<4xi64>
+// CHECK:           [[VAR_3_:%.+]] = onnx.ConstantOfShape([[VAR_2_]]) {value = dense<1.000000e+00> : tensor<1xf32>} : (tensor<4xi64>) -> tensor<1x1x1x?xf32>
+// CHECK:           return [[VAR_3_]] : tensor<1x1x1x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Test removing DepthToSpace/SpaceToDepth pairs when blocksize of the two operators are the same.
 
 func.func @test_remove_depth_to_space_space_to_depth(%arg0 : tensor<1x16x32x64xf32>) -> tensor<1x16x32x64xf32> {

@@ -428,6 +428,7 @@ bool definedBy(Value v) {
 template bool definedBy<ONNXCastOp>(Value v);
 template bool definedBy<ONNXConcatOp>(Value v);
 template bool definedBy<ONNXConstantOp>(Value v);
+template bool definedBy<ONNXConstantOfShapeOp>(Value v);
 template bool definedBy<ONNXDimOp>(Value v);
 
 /// Check if a value is to store dimensions, meaning it is defined by

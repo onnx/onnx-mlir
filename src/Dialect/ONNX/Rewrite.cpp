@@ -866,6 +866,88 @@ private:
 };
 
 // =============================================================================
+// Rewrite pattern for unsqueeze (not handled in Rewrite.td).
+// =============================================================================
+
+// Rewrite a pattern like the following:
+//
+// %shape = onnx.Concat(%dim1, %dim2)
+// %axes = onnx.Constant {value = 2}
+// %data = onnx.ConstantOfShape(%shape) {value = 1.0}
+// %u = "onnx.Unsqueeze"(%data, %axes)
+//
+// into
+//
+// %new_shape = onnx.Concat(%dim1, %dim2, 1)
+// %u = onnx.ConstantOfShape(%new_shape) {value = 1.0}
+class ReplaceUnsqueezeOfConstantOfShapeRewritePattern
+    : public OpRewritePattern<ONNXUnsqueezeOp> {
+public:
+  using OpRewritePattern<ONNXUnsqueezeOp>::OpRewritePattern;
+
+  ReplaceUnsqueezeOfConstantOfShapeRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXUnsqueezeOp unsqueezeOp, PatternRewriter &rewriter) const override {
+    Operation *op = unsqueezeOp.getOperation();
+    Location loc = unsqueezeOp.getLoc();
+    Value data = unsqueezeOp.getData();
+    Value axes = unsqueezeOp.getAxes();
+
+    // Match
+    // 1. data is from ConstantOfShapeOp, axes is from ConstantOp.
+    if (!definedBy<ONNXConstantOfShapeOp>(data) ||
+        !definedBy<ONNXConstantOp>(axes))
+      return failure();
+    auto constantOfShapeOp = cast<ONNXConstantOfShapeOp>(data.getDefiningOp());
+    // 2. ConstantOfShapeOp has value.
+    if (!constantOfShapeOp.getValue().has_value())
+      return failure();
+    // 3. ConstantOfShapeOp's shape is defined by dimensions.
+    if (!areDims(constantOfShapeOp.getInput()))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Get the old shape.
+    SmallVector<Value, 4> oldDims;
+    getDims(constantOfShapeOp.getInput(), oldDims);
+    int64_t oldRank = oldDims.size();
+    // Get unsqueeze axes.
+    auto axesAttrs =
+        cast<DenseElementsAttr>(getElementAttributeFromONNXValue(axes));
+    SmallVector<int64_t> axesI64;
+    auto valueIt = axesAttrs.getValues<IntegerAttr>().begin();
+    for (unsigned int i = 0; i < axesAttrs.getNumElements(); ++i) {
+      int64_t x = (*valueIt++).cast<IntegerAttr>().getInt();
+      if (x < 0)
+        x += oldRank;
+      axesI64.emplace_back(x);
+    }
+
+    // Construct a new shape.
+    SmallVector<Value, 4> newDims;
+    int64_t newRank = oldRank + axesI64.size();
+    Value one = create.onnx.constantInt64(ArrayRef<int64_t>({1}));
+    for (int64_t i = 0, j = 0; i < newRank || j < oldRank; ++i)
+      if (std::find(axesI64.begin(), axesI64.end(), i) != axesI64.end())
+        // found i in unsqueeze axles.
+        newDims.emplace_back(one);
+      else
+        newDims.emplace_back(oldDims[j++]);
+    Value newShape = create.onnx.concat(
+        RankedTensorType::get({newRank}, rewriter.getI64Type()), newDims, 0);
+
+    Value res = create.onnx.constantOfShape(
+        constantOfShapeOp.getValue().value().cast<DenseElementsAttr>(),
+        newShape);
+    rewriter.replaceOp(op, {res});
+    return success();
+  };
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -1133,6 +1215,7 @@ void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
   result.insert<RemoveUnsqueezeCastSqueezePattern>(context);
+  result.insert<ReplaceUnsqueezeOfConstantOfShapeRewritePattern>(context);
 }
 
 void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
