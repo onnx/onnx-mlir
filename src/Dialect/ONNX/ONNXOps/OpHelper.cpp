@@ -554,6 +554,35 @@ RESULT_TYPE getScalarValue(ONNXConstantOp constantOp) {
 template double getScalarValue<double>(ONNXConstantOp constantOp);
 template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 
+/// Get an array of constant values from ElementsAttr.
+template <typename RESULT_TYPE>
+void getArrayFromElementsAttr(
+    ElementsAttr denseAttr, SmallVectorImpl<RESULT_TYPE> &res) {
+  Type elementaryType = getElementTypeOrSelf(denseAttr.getType());
+  int64_t numOfElems = denseAttr.getNumElements();
+  if (elementaryType.isInteger(16) || elementaryType.isInteger(32) ||
+      elementaryType.isInteger(64)) {
+    auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
+    for (unsigned int i = 0; i < numOfElems; ++i) {
+      RESULT_TYPE x = (RESULT_TYPE)(*valueIt++).cast<IntegerAttr>().getInt();
+      res.emplace_back(x);
+    }
+  } else if (elementaryType.isa<FloatType>()) {
+    auto valueIt = denseAttr.getValues<APFloat>().begin();
+    for (unsigned int i = 0; i < numOfElems; ++i) {
+      RESULT_TYPE x = (RESULT_TYPE)(*valueIt++).convertToDouble();
+      res.emplace_back(x);
+    }
+  } else
+    llvm_unreachable("Unexpected type.");
+}
+
+// Template instantiation for getArrayFromElementsAttr.
+template void getArrayFromElementsAttr<double>(
+    ElementsAttr denseAttr, SmallVectorImpl<double> &res);
+template void getArrayFromElementsAttr<int64_t>(
+    ElementsAttr denseAttr, SmallVectorImpl<int64_t> &res);
+
 // Convert type to MLIR type.
 // A complete list of types can be found in:
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h

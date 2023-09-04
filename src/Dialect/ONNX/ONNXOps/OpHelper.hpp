@@ -237,6 +237,11 @@ RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 
+/// Get an array of constant values from ElementsAttr.
+template <typename RESULT_TYPE>
+void getArrayFromElementsAttr(
+    mlir::ElementsAttr denseAttr, mlir::SmallVectorImpl<RESULT_TYPE> &res);
+
 mlir::Type convertONNXTypeToMLIRType(
     mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 

@@ -274,69 +274,29 @@ public:
 };
 
 template <typename OP, typename T>
-T ElementWiseBinaryOpImpl(T lhs, T rhs) {
-  llvm_unreachable("unsupported op or type");
+struct ElementWiseBinaryOpImpl {
+  static T eval(T lhs, T rhs) { llvm_unreachable("unsupported op or type"); }
 };
 
-template <>
-int64_t ElementWiseBinaryOpImpl<ONNXAddOp, int64_t>(int64_t lhs, int64_t rhs) {
-  return (lhs - rhs);
-};
-template <>
-double ElementWiseBinaryOpImpl<ONNXAddOp, double>(double lhs, double rhs) {
-  return (lhs - rhs);
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXAddOp, T> {
+  static T eval(T lhs, T rhs) { return lhs + rhs; }
 };
 
-template <>
-int64_t ElementWiseBinaryOpImpl<ONNXDivOp, int64_t>(int64_t lhs, int64_t rhs) {
-  return (lhs - rhs);
-};
-template <>
-double ElementWiseBinaryOpImpl<ONNXDivOp, double>(double lhs, double rhs) {
-  return (lhs - rhs);
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXDivOp, T> {
+  static T eval(T lhs, T rhs) { return lhs / rhs; }
 };
 
-template <>
-int64_t ElementWiseBinaryOpImpl<ONNXMulOp, int64_t>(int64_t lhs, int64_t rhs) {
-  return (lhs - rhs);
-};
-template <>
-double ElementWiseBinaryOpImpl<ONNXMulOp, double>(double lhs, double rhs) {
-  return (lhs - rhs);
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXMulOp, T> {
+  static T eval(T lhs, T rhs) { return lhs * rhs; }
 };
 
-template <>
-int64_t ElementWiseBinaryOpImpl<ONNXSubOp, int64_t>(int64_t lhs, int64_t rhs) {
-  return (lhs - rhs);
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXSubOp, T> {
+  static T eval(T lhs, T rhs) { return lhs - rhs; }
 };
-template <>
-double ElementWiseBinaryOpImpl<ONNXSubOp, double>(double lhs, double rhs) {
-  return (lhs - rhs);
-};
-
-template <typename OP>
-DenseElementsAttr createScalarAttrBinary(
-    DenseElementsAttr lhsAttr, DenseElementsAttr rhsAttr) {
-  Type elementType = lhsAttr.getType().cast<ShapedType>().getElementType();
-  if (isa<IntegerType>(elementType)) {
-    auto lhsIt = lhsAttr.getValues<IntegerAttr>().begin();
-    int64_t lhs = (*lhsIt).cast<IntegerAttr>().getInt();
-    auto rhsIt = rhsAttr.getValues<IntegerAttr>().begin();
-    int64_t rhs = (*rhsIt).cast<IntegerAttr>().getInt();
-    int64_t res = ElementWiseBinaryOpImpl<OP, int64_t>(lhs, rhs);
-    return DenseElementsAttr::get(
-        RankedTensorType::get({1}, elementType), ArrayRef<int64_t>({res}));
-  } else if (isa<FloatType>(elementType)) {
-    auto lhsIt = lhsAttr.getValues<FloatAttr>().begin();
-    double lhs = (*lhsIt).cast<FloatAttr>().getValueAsDouble();
-    auto rhsIt = rhsAttr.getValues<FloatAttr>().begin();
-    double rhs = (*rhsIt).cast<FloatAttr>().getValueAsDouble();
-    float res = (float)ElementWiseBinaryOpImpl<OP, double>(lhs, rhs);
-    return DenseElementsAttr::get(
-        RankedTensorType::get({1}, elementType), ArrayRef<float>({res}));
-  }
-  return nullptr;
-}
 
 // Rewrite the following pattern
 //
@@ -364,6 +324,7 @@ public:
     assert(op->getNumOperands() == 2 && "op must be binary");
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
+    Type outputType = op->getResult(0).getType();
 
     // Match
     // lhs is ConstantOp of a single scalar value and rhs is ConstantOfShapeOp,
@@ -390,18 +351,36 @@ public:
     // Rewrite
     // Get scalar values from ConstantOp and ConstantOfShape.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    DenseElementsAttr lhsAttr, rhsAttr, resAttr;
+    ElementsAttr lhsAttr, rhsAttr;
     if (definedBy<ONNXConstantOp>(lhs))
-      lhsAttr = cast<DenseElementsAttr>(constantOp.getValue().value());
+      lhsAttr = cast<ElementsAttr>(constantOp.getValue().value());
     else
-      lhsAttr = cast<DenseElementsAttr>(constantOfShapeOp.getValue().value());
+      lhsAttr = cast<ElementsAttr>(constantOfShapeOp.getValue().value());
     if (definedBy<ONNXConstantOp>(rhs))
-      rhsAttr = cast<DenseElementsAttr>(constantOp.getValue().value());
+      rhsAttr = cast<ElementsAttr>(constantOp.getValue().value());
     else
-      rhsAttr = cast<DenseElementsAttr>(constantOfShapeOp.getValue().value());
-    resAttr = createScalarAttrBinary<OP_TYPE>(lhsAttr, rhsAttr);
-    Value res =
-        create.onnx.constantOfShape(resAttr, constantOfShapeOp.getInput());
+      rhsAttr = cast<ElementsAttr>(constantOfShapeOp.getValue().value());
+
+    DenseElementsAttr resAttr;
+    Type elementType = constantOp.getType().cast<ShapedType>().getElementType();
+    if (isa<IntegerType>(elementType)) {
+      int64_t lhs = getScalarValue<int64_t>(lhsAttr, elementType);
+      int64_t rhs = getScalarValue<int64_t>(rhsAttr, elementType);
+      int64_t res = ElementWiseBinaryOpImpl<OP_TYPE, int64_t>::eval(lhs, rhs);
+      resAttr = DenseElementsAttr::get(
+          RankedTensorType::get({1}, elementType), ArrayRef<int64_t>({res}));
+    } else if (isa<FloatType>(elementType)) {
+      double lhs = getScalarValue<double>(lhsAttr, elementType);
+      double rhs = getScalarValue<double>(rhsAttr, elementType);
+      float res =
+          (float)ElementWiseBinaryOpImpl<OP_TYPE, double>::eval(lhs, rhs);
+      resAttr = DenseElementsAttr::get(
+          RankedTensorType::get({1}, elementType), ArrayRef<float>({res}));
+    } else
+      llvm_unreachable("Unexpected type.");
+
+    Value res = create.onnx.constantOfShape(
+        outputType, resAttr, constantOfShapeOp.getInput());
 
     rewriter.replaceOp(op, {res});
     return success();
@@ -1050,16 +1029,12 @@ public:
     getDims(constantOfShapeOp.getInput(), oldDims);
     int64_t oldRank = oldDims.size();
     // Get unsqueeze axes.
-    auto axesAttrs =
-        cast<DenseElementsAttr>(getElementAttributeFromONNXValue(axes));
-    SmallVector<int64_t> axesI64;
-    auto valueIt = axesAttrs.getValues<IntegerAttr>().begin();
-    for (unsigned int i = 0; i < axesAttrs.getNumElements(); ++i) {
-      int64_t x = (*valueIt++).cast<IntegerAttr>().getInt();
-      if (x < 0)
-        x += oldRank;
-      axesI64.emplace_back(x);
-    }
+    ElementsAttr axesAttrs = getElementAttributeFromONNXValue(axes);
+    SmallVector<int64_t, 4> axesI64;
+    getArrayFromElementsAttr<int64_t>(axesAttrs, axesI64);
+    for (unsigned int i = 0; i < axesI64.size(); ++i)
+      if (axesI64[i] < 0)
+        axesI64[i] += oldRank;
 
     // Construct a new shape.
     SmallVector<Value, 4> newDims;
@@ -1067,16 +1042,16 @@ public:
     Value one = create.onnx.constantInt64(ArrayRef<int64_t>({1}));
     for (int64_t i = 0, j = 0; i < newRank || j < oldRank; ++i)
       if (std::find(axesI64.begin(), axesI64.end(), i) != axesI64.end())
-        // found i in unsqueeze axles.
+        // found i in unsqueeze axes.
         newDims.emplace_back(one);
       else
+        // original axes.
         newDims.emplace_back(oldDims[j++]);
     Value newShape = create.onnx.concat(
         RankedTensorType::get({newRank}, rewriter.getI64Type()), newDims, 0);
 
-    Value res = create.onnx.constantOfShape(
-        constantOfShapeOp.getValue().value().cast<DenseElementsAttr>(),
-        newShape);
+    Value res = create.onnx.constantOfShape(op->getResult(0).getType(),
+        constantOfShapeOp.getValue().value(), newShape);
     rewriter.replaceOp(op, {res});
     return success();
   };

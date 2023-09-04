@@ -64,7 +64,7 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXConstantOfShape
   mlir::Value constantOfShape(
-      mlir::DenseElementsAttr denseAttr, mlir::Value shape) const;
+      mlir::Type outputType, mlir::Attribute value, mlir::Value shape) const;
 
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;

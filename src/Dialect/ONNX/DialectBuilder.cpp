@@ -89,11 +89,9 @@ Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
 }
 
 Value OnnxBuilder::constantOfShape(
-    DenseElementsAttr denseAttr, Value shape) const {
-  Type elementType = denseAttr.getType().cast<ShapedType>().getElementType();
-  UnrankedTensorType outputType = UnrankedTensorType::get(elementType);
+    Type outputType, Attribute value, Value shape) const {
   return createOpAndInferShapes<ONNXConstantOfShapeOp>(
-      outputType, shape, denseAttr);
+      outputType, shape, value);
 }
 
 Value OnnxBuilder::dim(Value input, int axis) const {
