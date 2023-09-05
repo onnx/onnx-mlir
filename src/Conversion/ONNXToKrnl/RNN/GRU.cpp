@@ -390,7 +390,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
     GruBiasPack biasPack, Value sequenceIV, Value directionIV,
-    Value sequenceLens, bool isForward) {
+    Value sequenceLens, Value initialH,  bool isForward) {
   // Equations (Default: f=Sigmoid, g=Tanh):"
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
   // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
@@ -502,11 +502,15 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           // Handle sequence_lens
           if (!isNoneValue(sequenceLens)) {
             Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+            Value initial;
+            if (isNoneValue(initialH)) {
+              initial = createMath.constant(nextHt.getType(), 0.);
+            } else {
+              initial = createKrnl.load(initialH, {directionIV, bs, hs});
+            }
             Value cond = createMath.sge(
                 createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
-            nextHt = createMath.select(cond,
-                /*should use initialH*/
-                createMath.constant(nextHt.getType(), 0.), nextHt);
+            nextHt = createMath.select(cond, /*padding*/initial, nextHt);
           }
 
           createKrnl.store(nextHt, Ht, indices);
@@ -616,11 +620,15 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           // Handle sequence_lens
           if (!isNoneValue(sequenceLens)) {
             Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+            Value initial;
+            if (isNoneValue(initialH)) {
+              initial = createMath.constant(nextHt.getType(), 0.);
+            } else {
+              initial = createKrnl.load(initialH, {directionIV, bs, hs});
+            }
             Value cond = createMath.sge(
                 createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
-            nextHt = createMath.select(cond,
-                /*should use initialH*/
-                createMath.constant(nextHt.getType(), 0.), nextHt);
+            nextHt = createMath.select(cond, /*padding*/initial, nextHt);
           }
 
           createKrnl.store(nextHt, Ht, indices);

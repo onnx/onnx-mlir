@@ -443,7 +443,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
     LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc, Value Xt,
     LstmState state, LstmActivationPack activationPack,
     LstmWeightPack weightPack, LstmBiasPack biasPack, Value sequenceIV,
-    Value directionIV, Value sequenceLens, bool isForward) {
+    Value directionIV, Value sequenceLens, Value initialH,  bool isForward) {
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)
@@ -451,6 +451,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // Ct = ft (.) Ct-1 + it (.) ct
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
+
+  assert(isNoneValue(sequenceLens) && "not implemented yet");
 
   // TODO remove scope
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>

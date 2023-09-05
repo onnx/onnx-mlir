@@ -301,7 +301,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
     RnnBiasPack biasPack, Value sequenceIV, Value directionIV,
-    Value sequenceLens, bool isForward) {
+    Value sequenceLens, Value initialH, bool isForward) {
   // Equations for RNN.
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   // Shape information:
@@ -312,6 +312,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
 
+  assert(isNoneValue(sequenceLens) && "not implemented yet");
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
 

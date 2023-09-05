@@ -117,7 +117,7 @@ template <typename S, typename A, typename W, typename B>
 void calculateState(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value Xt, S state, A activationSet, W weight,
     B bias, mlir::Value sequenceIV, mlir::Value directionIV,
-    mlir::Value sequenceLens, bool isForward);
+    mlir::Value sequenceLens, mlir::Value initialH, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
@@ -138,6 +138,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
     mlir::Location loc = ONNXLoc<RNNOp>(op);
     mlir::Value X = adaptor.getX();
     mlir::Value sequenceLens = adaptor.getSequenceLens();
+    mlir::Value initialH = adaptor.getInitialH();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -190,7 +191,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
             // Emit calculation for one RNN step.
             calculateState<S, A, W, B>(rewriter, loc, Xt, state,
                 activationForward, weightForward, biasForward, sequenceIV,
-                directionIV, sequenceLens,
+                directionIV, sequenceLens, initialH,
                 /*isForward=*/true);
           });
     }
@@ -228,7 +229,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
             // Emit calculation for one RNN step.
             calculateState<S, A, W, B>(rewriter, loc, Xt, state,
                 activationReverse, weightReverse, biasReverse,
-                reverseSequenceIV, directionIV, sequenceLens,
+                reverseSequenceIV, directionIV, sequenceLens, initialH,
                 /*isForward=*/false);
           });
     }
