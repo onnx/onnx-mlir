@@ -59,7 +59,9 @@ void handleIncludePadAttr(
   // In-place update of AveragePool by setting operand to PadOp
   // and pads attribute to {0, 0, 0, 0}.
   rewriter.updateRootInPlace(op, [&]() { op->setOperand(0, padOp); });
-  op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0}));
+  rewriter.updateRootInPlace(op, [&]() {
+    op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0}));
+  });
 }
 
 class ONNXAveragePoolOpLoweringToTOSA
@@ -90,7 +92,8 @@ public:
       // When attribute include_pad is set, create a tosa::PadOp before lowering
       // AveragePool to TOSA. We use ONNX format for it so that the AveragePool
       // lowering still generates transposes between ONNX and TOSA formats, and
-      // implementation doesn't diverge much.
+      // implementation doesn't diverge much. This will modify the original onnx
+      // op.
       handleIncludePadAttr(rewriter, averagePoolOp, adaptor.getX());
     }
 
@@ -102,7 +105,6 @@ public:
       return rewriter.notifyMatchFailure(
           averagePoolOp, "Could not create averagepool op.");
     }
-
     rewriter.replaceOp(averagePoolOp, *newAveragePoolOp);
     return success();
   }
