@@ -1010,17 +1010,19 @@ std::string getToolPath(
 // result in a unknown option error.
 void removeUnrelatedOptions(
     const std::vector<llvm::cl::OptionCategory *> Categories) {
-  llvm::cl::HideUnrelatedOptions(Categories);
+  // Do not remove LLVM "internal" options such as --debug
+  // that do not have a category (and therefore placed
+  // under the general category). So we add the general
+  // category to the list of not-really-hidden options.
+  std::vector<llvm::cl::OptionCategory *> optCategories(Categories);
+  optCategories.push_back(&llvm::cl::getGeneralCategory());
+  llvm::cl::HideUnrelatedOptions(optCategories);
 
   llvm::StringMap<llvm::cl::Option *> &optMap =
       llvm::cl::getRegisteredOptions();
   for (auto n = optMap.begin(); n != optMap.end(); n++) {
     llvm::cl::Option *opt = n->getValue();
-    if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden &&
-        // Do not remove LLVM "internal" options such as --debug
-        // that do not have a category (and therefore placed
-        // under the general category
-        opt->Categories[0] != &llvm::cl::getGeneralCategory())
+    if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden)
       opt->removeArgument();
   }
 }
