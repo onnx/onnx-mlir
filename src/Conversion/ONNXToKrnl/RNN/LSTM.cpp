@@ -456,7 +456,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // The assert will fail the test_lstm_with_peephole.
   // In that test case, the length of the input is used as sequence_lens.
   // Therefore, onnx-mlir can pass the test by ignoring the sequence_lens
-  // paramenter. 
+  // paramenter.
   // assert(isNoneValue(sequenceLens) && "not implemented yet");
 
   // TODO remove scope
