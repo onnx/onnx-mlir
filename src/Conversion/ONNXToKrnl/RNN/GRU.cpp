@@ -390,7 +390,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
     GruBiasPack biasPack, Value sequenceIV, Value directionIV,
-    Value sequenceLens, Value initialH,  bool isForward) {
+    Value sequenceLens, Value initialH, bool isForward) {
   // Equations (Default: f=Sigmoid, g=Tanh):"
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
   // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"

@@ -452,7 +452,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
-  assert(isNoneValue(sequenceLens) && "not implemented yet");
+  // ToFix: add support of sequence lens for LSTM
+  //assert(isNoneValue(sequenceLens) && "not implemented yet");
 
   // TODO remove scope
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
