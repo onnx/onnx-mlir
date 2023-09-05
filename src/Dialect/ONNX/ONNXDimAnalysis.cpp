@@ -656,19 +656,20 @@ void DimAnalysis::visitDim(
     int64_t dataRank = dataType.getRank();
     int64_t outputRank = outputType.getRank();
     if ((dataRank == 2) && (outputRank == 2)) {
-      // Find if the output dim is from an input dim.
+      // Find if the other output dim is from an input dim.
       int64_t iDim = -1;
       for (int64_t i = 0; i < dataRank; ++i) {
-        if (sameDynDim(data, i, output, 1 - dimIndex)) {
+        if (sameDim(data, i, output, 1 - dimIndex)) {
           iDim = i;
-          // The other output dim must be the same as the other input dim.
-          if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
-            LLVM_DEBUG(llvm::dbgs()
-                       << "  - Case 2: Added a new dim(" << d.value().first
-                       << ", " << d.value().second << ")\n");
           break;
         }
       }
+      if (iDim != -1)
+        // The current output dim must be the same as the other input dim.
+        if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - Case 2: Added a new dim(" << d.value().first
+                     << ", " << d.value().second << ")\n");
     }
   }
 }
