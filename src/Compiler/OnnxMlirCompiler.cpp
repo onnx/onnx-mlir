@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "include/OnnxMlirCompiler.h"
-#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "llvm/Support/FileSystem.h"
