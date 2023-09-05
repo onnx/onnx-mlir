@@ -506,8 +506,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
                 createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
             nextHt = createMath.select(cond,
                 /*should use initialH*/
-                createMath.constant(nextHt.getType(), 0.),
-                nextHt);
+                createMath.constant(nextHt.getType(), 0.), nextHt);
           }
 
           createKrnl.store(nextHt, Ht, indices);
@@ -621,8 +620,7 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
                 createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
             nextHt = createMath.select(cond,
                 /*should use initialH*/
-                createMath.constant(nextHt.getType(), 0.),
-                nextHt);
+                createMath.constant(nextHt.getType(), 0.), nextHt);
           }
 
           createKrnl.store(nextHt, Ht, indices);
