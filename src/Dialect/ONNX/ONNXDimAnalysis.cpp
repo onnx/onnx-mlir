@@ -68,30 +68,21 @@ static bool areOverlapping(
 static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
     const uint64_t dimIndex, DimAnalysis::DimSetT &sameDims) {
   auto tensorType = cast<ShapedType>(tensor.getType());
-  uint64_t axis = dimIndex;
 
   bool okToInsert = false;
   if (tensor.isa<BlockArgument>()) {
     okToInsert = true;
   } else {
     Operation *op = tensor.getDefiningOp();
-    // A constant of -1 to define a dynamic value, e.g. -1 in Reshape means a
-    // dynamic dimension computed from the other dimensions. It's a contant, no
-    // need to insert it.
-    if (isa<ONNXConstantOp>(op))
-      okToInsert = false;
-    else if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
-      // The correct axis is from ONNXDimOp.
-      axis = dimOp.getAxis();
-      okToInsert = true;
-    } else if (isa<ONNXCastOp>(op) || tensorType.isDynamicDim(axis))
+    if (isa<ONNXConstantOp, ONNXCastOp, ONNXDimOp>(op) ||
+        tensorType.isDynamicDim(dimIndex))
       okToInsert = true;
   }
 
   if (!okToInsert)
     return std::nullopt;
 
-  DimAnalysis::DimT dim(tensor, axis);
+  DimAnalysis::DimT dim(tensor, dimIndex);
   sameDims.insert(dim);
   return dim;
 }
@@ -131,61 +122,9 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
   }
 }
 
-/// Given a dynamic dimension of a tensor, find the same dynamic dimensions in
-/// the input tensors of the consuming operator.
-///
-/// For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0] = N.
-static void exploreSameDimsFromConsumingOperators(
-    const DimAnalysis::DimT &dim, DimAnalysis::DimSetT &sameDims) {
-  LLVM_DEBUG(llvm::dbgs() << "Explore using consuming operators\n");
-  for (Operation *op : dim.first.getUsers()) {
-    if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
-      Value A = matmulOp.getA();
-      Value B = matmulOp.getB();
-      uint64_t aRank = getRank(A.getType());
-      uint64_t bRank = getRank(B.getType());
-      if (aRank >= 2 && bRank >= 2) {
-        DimAnalysis::DimT NinA(A, aRank - 1);
-        DimAnalysis::DimT NinB(B, bRank - 2);
-        if (NinA == dim) {
-          if (auto d = insertDimWhenUseful(NinB.first, NinB.second, sameDims))
-            LLVM_DEBUG(llvm::dbgs()
-                       << "  - [MatMul] Added a new dim(" << d.value().first
-                       << ", " << d.value().second << ")\n");
-        } else if (NinB == dim) {
-          if (auto d = insertDimWhenUseful(NinA.first, NinA.second, sameDims))
-            LLVM_DEBUG(llvm::dbgs()
-                       << "  - [MatMul] Added a new dim(" << d.value().first
-                       << ", " << d.value().second << ")\n");
-        }
-      }
-    }
-    if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
-      Value A = gemmOp.getA();
-      Value B = gemmOp.getB();
-      bool transA = (gemmOp.getTransA() != 0);
-      bool transB = (gemmOp.getTransB() != 0);
-      DimAnalysis::DimT NinA(A, transA ? 0 : 1);
-      DimAnalysis::DimT NinB(B, transB ? 1 : 0);
-      if (NinA == dim) {
-        if (auto d = insertDimWhenUseful(NinB.first, NinB.second, sameDims))
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - [Gemm] Added a new dim(" << d.value().first << ", "
-                     << d.value().second << ")\n");
-      } else if (NinB == dim) {
-        if (auto d = insertDimWhenUseful(NinA.first, NinA.second, sameDims))
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - [Gemm] Added a new dim(" << d.value().first << ", "
-                     << d.value().second << ")\n");
-      }
-    }
-  }
-}
-
-/// Given an output dynamic dimension, find the same dynamic dimensions in the
-/// inputs. This function uses ShapeHelper to explore the same dynamic
-/// dimensions. Use this function for operations that use adaptor to compute
-/// shape.
+/// Given a dynamic dimension, find the same dynamic dimensions in the inputs.
+/// This function uses ShapeHelper to explore the same dynamic dimensions.
+/// Use this function for operations that use adaptor to compute shape.
 static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using shape helper\n");
@@ -339,10 +278,6 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
 
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
-    if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
-      for (Value arg : funcOp.getArguments())
-        build(arg);
-    }
     for (Value output : op->getResults())
       build(output);
   });
@@ -557,25 +492,16 @@ void DimAnalysis::visitDim(
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
 
-  LLVM_DEBUG(
-      llvm::dbgs() << "\nVisiting dim(" << tensor << ", " << dimIndex << ")\n");
-
-  // When the current tensor is consumed by an operator, find the relation
-  // between dimensions of the input operands.
-  //
-  // For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0].
-  exploreSameDimsFromConsumingOperators(dim, sameDims);
-
-  // The remaining code will find where a dimension comes from, depending on
-  // operation semantics, by *exploring the defining operator*. We utilize the
-  // operation's shape helper for this purpose as much as possible.
-
-  // Tensor is a block argument. There is no defining operator to explore.
+  // Tensor is a block argument. Nothing to do further.
   if (tensor.isa<BlockArgument>())
     return;
 
-  // Get the defining operator.
+  // Find where a dimension comes from, depending on operation semantics.
+  // We utilize the operation's shape helper for this purpose as much as
+  // possible.
   Operation *op = tensor.getDefiningOp();
+  LLVM_DEBUG(
+      llvm::dbgs() << "\nVisiting dim(" << tensor << ", " << dimIndex << ")\n");
 
   // Tensor is from a constant. Nothing to do further.
   if (isa<ONNXConstantOp>(op))
@@ -721,20 +647,19 @@ void DimAnalysis::visitDim(
     int64_t dataRank = dataType.getRank();
     int64_t outputRank = outputType.getRank();
     if ((dataRank == 2) && (outputRank == 2)) {
-      // Find if the other output dim is from an input dim.
+      // Find if the output dim is from an input dim.
       int64_t iDim = -1;
       for (int64_t i = 0; i < dataRank; ++i) {
-        if (sameDim(data, i, output, 1 - dimIndex)) {
+        if (sameDynDim(data, i, output, 1 - dimIndex)) {
           iDim = i;
-          break;
+          // The other output dim must be the same as the other input dim.
+          if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - Case 2: Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
         }
+        break;
       }
-      if (iDim != -1)
-        // The current output dim must be the same as the other input dim.
-        if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  - Case 2: Added a new dim(" << d.value().first
-                     << ", " << d.value().second << ")\n");
     }
   }
 }
