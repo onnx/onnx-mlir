@@ -300,7 +300,7 @@ template <>
 void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
-    RnnBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
+    RnnBiasPack biasPack, Value sequenceIV, Value directionIV, Value sequenceLens, bool isForward) {
   // Equations for RNN.
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   // Shape information:

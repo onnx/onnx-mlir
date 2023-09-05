@@ -443,7 +443,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
     LstmBiasPack>(ConversionPatternRewriter &rewriter, Location loc, Value Xt,
     LstmState state, LstmActivationPack activationPack,
     LstmWeightPack weightPack, LstmBiasPack biasPack, Value sequenceIV,
-    Value directionIV, bool isForward) {
+    Value directionIV, Value sequenceLens,  bool isForward) {
   // Equations for LSTM.
   // it = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Pi (.) Ct-1 + Wbi + Rbi)
   // ft = f(Xt*(Wf^T) + Ht-1*(Rf^T) + Pf (.) Ct-1 + Wbf + Rbf)

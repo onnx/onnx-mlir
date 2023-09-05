@@ -389,7 +389,8 @@ template <>
 void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
-    GruBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
+    GruBiasPack biasPack, Value sequenceIV, Value directionIV,
+    Value sequenceLens, bool isForward) {
   // Equations (Default: f=Sigmoid, g=Tanh):"
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
   // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
@@ -498,6 +499,17 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
+          // Handle sequence_lens
+          if (!isNoneValue(sequenceLens)) {
+            Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+            Value cond = createMath.sge(
+                createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+            nextHt = createMath.select(cond,
+                /*should use initialH*/
+                createMath.constant(nextHt.getType(), 0.),
+                nextHt);
+          }
+
           createKrnl.store(nextHt, Ht, indices);
           if (!isNoneValue(state.allH))
             createKrnl.store(
@@ -602,6 +614,17 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
+          // Handle sequence_lens
+          if (!isNoneValue(sequenceLens)) {
+            Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+            Value cond = createMath.sge(
+                createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+            nextHt = createMath.select(cond,
+                /*should use initialH*/
+                createMath.constant(nextHt.getType(), 0.),
+                nextHt);
+          }
+
           createKrnl.store(nextHt, Ht, indices);
           if (!isNoneValue(state.allH))
             createKrnl.store(
