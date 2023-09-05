@@ -1017,10 +1017,10 @@ void removeUnrelatedOptions(
   for (auto n = optMap.begin(); n != optMap.end(); n++) {
     llvm::cl::Option *opt = n->getValue();
     if (opt->getOptionHiddenFlag() == llvm::cl::ReallyHidden &&
-	// Do not remove LLVM "internal" options such as --debug
-	// that do not have a category (and therefore placed
-	// under the general category
-	opt->Categories[0] != &llvm::cl::getGeneralCategory())
+        // Do not remove LLVM "internal" options such as --debug
+        // that do not have a category (and therefore placed
+        // under the general category
+        opt->Categories[0] != &llvm::cl::getGeneralCategory())
       opt->removeArgument();
   }
 }
