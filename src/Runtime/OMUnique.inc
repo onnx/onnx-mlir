@@ -94,7 +94,8 @@ int isLessNum(void *arg1, void *arg2, OM_DATA_TYPE dataType) {
     return *((int32_t *)arg1) < *((int32_t *)arg2);
   case ONNX_TYPE_INT64:
     return *((int64_t *)arg1) < *((int64_t *)arg2);
-  // case ONNX_TYPE_STRING:
+  case ONNX_TYPE_STRING:
+    return *((const char **)arg1) < *((const char **)arg2);
   case ONNX_TYPE_BOOL:
     return *((bool *)arg1) < *((bool *)arg2);
   // case ONNX_TYPE_FLOAT16:

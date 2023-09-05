@@ -95,6 +95,7 @@ public class OMRunner
 	    put("f2", OMTensor.ONNX_TYPE_FLOAT16);
 	    put("f4", OMTensor.ONNX_TYPE_FLOAT);
 	    put("f8", OMTensor.ONNX_TYPE_DOUBLE);
+		put("S", OMTensor.ONNX_TYPE_STRING);
 	}};
 
     private static final HashMap<Integer, String> onnx2numpyType =
@@ -111,6 +112,9 @@ public class OMRunner
 	    put(OMTensor.ONNX_TYPE_FLOAT16, numpyEndian+"f2");
 	    put(OMTensor.ONNX_TYPE_FLOAT,   numpyEndian+"f4");
 	    put(OMTensor.ONNX_TYPE_DOUBLE,  numpyEndian+"f8");
+        // numpy documentation: datatype S is zero-terminated bytes (not recommended)
+		// https://numpy.org/doc/stable/reference/arrays.dtypes.html
+		put(OMTensor.ONNX_TYPE_STRING,             "|S");
 	}};
 
     private static OMTensor createTensor(String buffer, long[] shape, String dtype) {
