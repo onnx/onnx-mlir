@@ -131,9 +131,61 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
   }
 }
 
-/// Given a dynamic dimension, find the same dynamic dimensions in the inputs.
-/// This function uses ShapeHelper to explore the same dynamic dimensions.
-/// Use this function for operations that use adaptor to compute shape.
+/// Given a dynamic dimension of a tensor, find the same dynamic dimensions in
+/// the input tensors of the consuming operator.
+///
+/// For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0] = N.
+static void exploreSameDimsFromConsumingOperators(
+    const DimAnalysis::DimT &dim, DimAnalysis::DimSetT &sameDims) {
+  LLVM_DEBUG(llvm::dbgs() << "Explore using consuming operators\n");
+  for (Operation *op : dim.first.getUsers()) {
+    if (auto matmulOp = dyn_cast<ONNXMatMulOp>(op)) {
+      Value A = matmulOp.getA();
+      Value B = matmulOp.getB();
+      uint64_t aRank = getRank(A.getType());
+      uint64_t bRank = getRank(B.getType());
+      if (aRank >= 2 && bRank >= 2) {
+        DimAnalysis::DimT NinA(A, aRank - 1);
+        DimAnalysis::DimT NinB(B, bRank - 2);
+        if (NinA == dim) {
+          if (auto d = insertDimWhenUseful(NinB.first, NinB.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [MatMul] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        } else if (NinB == dim) {
+          if (auto d = insertDimWhenUseful(NinA.first, NinA.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [MatMul] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        }
+      }
+    }
+    if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
+      Value A = gemmOp.getA();
+      Value B = gemmOp.getB();
+      bool transA = (gemmOp.getTransA() != 0);
+      bool transB = (gemmOp.getTransB() != 0);
+      DimAnalysis::DimT NinA(A, transA ? 0 : 1);
+      DimAnalysis::DimT NinB(B, transB ? 1 : 0);
+      if (NinA == dim) {
+        if (auto d = insertDimWhenUseful(NinB.first, NinB.second, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Gemm] Added a new dim(" << d.value().first << ", "
+                     << d.value().second << ")\n");
+      } else if (NinB == dim) {
+        if (auto d = insertDimWhenUseful(NinA.first, NinA.second, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Gemm] Added a new dim(" << d.value().first << ", "
+                     << d.value().second << ")\n");
+      }
+    }
+  }
+}
+
+/// Given an output dynamic dimension, find the same dynamic dimensions in the
+/// inputs. This function uses ShapeHelper to explore the same dynamic
+/// dimensions. Use this function for operations that use adaptor to compute
+/// shape.
 static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using shape helper\n");
@@ -287,6 +339,10 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
 
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
+    if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
+      for (Value arg : funcOp.getArguments())
+        build(arg);
+    }
     for (Value output : op->getResults())
       build(output);
   });
@@ -501,16 +557,25 @@ void DimAnalysis::visitDim(
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
 
-  // Tensor is a block argument. Nothing to do further.
+  LLVM_DEBUG(
+      llvm::dbgs() << "\nVisiting dim(" << tensor << ", " << dimIndex << ")\n");
+
+  // When the current tensor is consumed by an operator, find the relation
+  // between dimensions of the input operands.
+  //
+  // For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0].
+  exploreSameDimsFromConsumingOperators(dim, sameDims);
+
+  // The remaining code will find where a dimension comes from, depending on
+  // operation semantics, by *exploring the defining operator*. We utilize the
+  // operation's shape helper for this purpose as much as possible.
+
+  // Tensor is a block argument. There is no defining operator to explore.
   if (tensor.isa<BlockArgument>())
     return;
 
-  // Find where a dimension comes from, depending on operation semantics.
-  // We utilize the operation's shape helper for this purpose as much as
-  // possible.
+  // Get the defining operator.
   Operation *op = tensor.getDefiningOp();
-  LLVM_DEBUG(
-      llvm::dbgs() << "\nVisiting dim(" << tensor << ", " << dimIndex << ")\n");
 
   // Tensor is from a constant. Nothing to do further.
   if (isa<ONNXConstantOp>(op))
