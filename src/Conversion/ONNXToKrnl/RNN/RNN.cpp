@@ -313,7 +313,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Rbi: [hidden_size]
 
   // ToFix: add support of sequenceLens for RNN
-  //assert(isNoneValue(sequenceLens) && "not implemented yet");
+  assert(isNoneValue(sequenceLens) && "not implemented yet");
 
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
