@@ -68,21 +68,30 @@ static bool areOverlapping(
 static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
     const uint64_t dimIndex, DimAnalysis::DimSetT &sameDims) {
   auto tensorType = cast<ShapedType>(tensor.getType());
+  uint64_t axis = dimIndex;
 
   bool okToInsert = false;
   if (tensor.isa<BlockArgument>()) {
     okToInsert = true;
   } else {
     Operation *op = tensor.getDefiningOp();
-    if (isa<ONNXConstantOp, ONNXCastOp, ONNXDimOp>(op) ||
-        tensorType.isDynamicDim(dimIndex))
+    // A constant of -1 to define a dynamic value, e.g. -1 in Reshape means a
+    // dynamic dimension computed from the other dimensions. It's a contant, no
+    // need to insert it.
+    if (isa<ONNXConstantOp>(op))
+      okToInsert = false;
+    else if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
+      // The correct axis is from ONNXDimOp.
+      axis = dimOp.getAxis();
+      okToInsert = true;
+    } else if (isa<ONNXCastOp>(op) || tensorType.isDynamicDim(axis))
       okToInsert = true;
   }
 
   if (!okToInsert)
     return std::nullopt;
 
-  DimAnalysis::DimT dim(tensor, dimIndex);
+  DimAnalysis::DimT dim(tensor, axis);
   sameDims.insert(dim);
   return dim;
 }
@@ -657,8 +666,8 @@ void DimAnalysis::visitDim(
             LLVM_DEBUG(llvm::dbgs()
                        << "  - Case 2: Added a new dim(" << d.value().first
                        << ", " << d.value().second << ")\n");
+          break;
         }
-        break;
       }
     }
   }
