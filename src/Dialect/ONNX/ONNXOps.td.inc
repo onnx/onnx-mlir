@@ -5167,6 +5167,8 @@ def ONNXPadOp:ONNX_Op<"Pad",
   
   3) `edge` - pads with the edge values of array
   
+  4) `wrap` - wrap-around padding as if the data tensor forms a torus
+  
   
   Example 1 (`constant` mode):
   
@@ -5229,6 +5231,29 @@ def ONNXPadOp:ONNX_Op<"Pad",
       [1.0, 1.0, 1.0, 1.2],
       [2.3, 2.3, 2.3, 3.4],
       [4.5, 4.5, 4.5, 5.7],
+  ]
+  ```
+  
+  Example 4 (`wrap` mode):
+  
+  ```
+  data = [
+      [1.0, 1.2],
+      [2.3, 3.4],
+      [4.5, 5.7],
+  ]
+  
+  pads = [2, 1, 1, 1]
+  
+  mode = 'wrap'
+  
+  output = [
+      [3.4, 2.3, 3.4, 2.3],
+      [5.7, 4.5, 5.7, 4.5],
+      [1.2, 1.0, 1.2, 1.0],
+      [3.4, 2.3, 3.4, 2.3],
+      [5.7, 4.5, 5.7, 4.5],
+      [1.2, 1.0, 1.2, 1.0],
   ]
   ```
   }];
