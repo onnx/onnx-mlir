@@ -1710,7 +1710,7 @@ func.func @test_castlike_1(%arg0 : tensor<2x3x4xf32>, %arg1 : tensor<2xf16>) -> 
   "onnx.Return"(%1) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: test_castlike_1
-  // CHECK: [[RES:%.+]] = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<2x3x4xf32>, tensor<2xf16>) -> tensor<2x3x4xf16>
+  // CHECK: [[RES:%.+]] = "onnx.CastLike"(%arg0, %arg1) : (tensor<2x3x4xf32>, tensor<2xf16>) -> tensor<2x3x4xf16>
   // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf16>
 }
 
@@ -1739,7 +1739,7 @@ func.func @test_quantize_linear_1(%arg0 : tensor<5x2x3x4xf32>, %arg1 : tensor<f3
   "onnx.Return"(%1) {} : (tensor<*xi8>) -> ()
 
   // CHECK-LABEL: test_quantize_linear_1
-  // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64, saturate = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<5x2x3x4xi8>
+  // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<i8>) -> tensor<5x2x3x4xi8>
   // CHECK: onnx.Return [[RES]] : tensor<5x2x3x4xi8>
 }
 
@@ -1750,7 +1750,7 @@ func.func @test_quantize_linear_2(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32
  "onnx.Return"(%0) {} : (tensor<*xui8>) -> ()
 
  // CHECK-LABEL: test_quantize_linear_2
- // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64, saturate = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<5x2x3x4xui8>
+ // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %arg2) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, tensor<ui8>) -> tensor<5x2x3x4xui8>
  // CHECK: onnx.Return [[RES]] : tensor<5x2x3x4xui8>
 }
 
@@ -1762,7 +1762,7 @@ func.func @test_quantize_linear_3(%arg0 : tensor<5x2x3x4xf32>, %arg1: tensor<f32
  "onnx.Return"(%0) {} : (tensor<*xui8>) -> ()
 
  // CHECK-LABEL: test_quantize_linear_3
- // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %0) {axis = 1 : si64, saturate = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, none) -> tensor<5x2x3x4xui8>
+ // CHECK: [[RES:%.+]] = "onnx.QuantizeLinear"(%arg0, %arg1, %0) {axis = 1 : si64} : (tensor<5x2x3x4xf32>, tensor<f32>, none) -> tensor<5x2x3x4xui8>
  // CHECK: onnx.Return [[RES]] : tensor<5x2x3x4xui8>
 }
 
