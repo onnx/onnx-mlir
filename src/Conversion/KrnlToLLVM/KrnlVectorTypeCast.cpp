@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlVectorTypeCastOp.cpp - Lower KrnlVectorTypeCastOp ----------===//
+//===------ KrnlVectorTypeCastOp.cpp - Lower KrnlVectorTypeCastOp ---------===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
