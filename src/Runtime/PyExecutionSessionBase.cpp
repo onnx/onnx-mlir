@@ -187,7 +187,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = py::dtype("int64");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::STRING:
-      dtype = py::dtype("str");
+      dtype = py::dtype("str_");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::BOOL:
       dtype = py::dtype("bool_");

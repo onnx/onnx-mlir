@@ -98,7 +98,7 @@ public class OMRunner {
 			put("f2", OMTensor.ONNX_TYPE_FLOAT16);
 			put("f4", OMTensor.ONNX_TYPE_FLOAT);
 			put("f8", OMTensor.ONNX_TYPE_DOUBLE);
-			put("S", OMTensor.ONNX_TYPE_STRING);
+			put("U25", OMTensor.ONNX_TYPE_STRING);
 		}
 	};
 
@@ -116,9 +116,9 @@ public class OMRunner {
 			put(OMTensor.ONNX_TYPE_FLOAT16, numpyEndian + "f2");
 			put(OMTensor.ONNX_TYPE_FLOAT, numpyEndian + "f4");
 			put(OMTensor.ONNX_TYPE_DOUBLE, numpyEndian + "f8");
-			// numpy documentation: datatype S is zero-terminated bytes (not recommended)
+			// Unicode string: 25-character string
 			// https://numpy.org/doc/stable/reference/arrays.dtypes.html
-			put(OMTensor.ONNX_TYPE_STRING, "|S");
+			put(OMTensor.ONNX_TYPE_STRING, "|U25");
 		}
 	};
 
