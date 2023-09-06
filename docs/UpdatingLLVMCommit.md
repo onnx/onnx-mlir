@@ -2,7 +2,7 @@
 
 # Updating the LLVM commit or MLIR-HLO submodule
 
-ONNX-MLIR depends on `llvm-project` (among various other projects such as `mlir-hlo`). The `llvm-project` dependency is captured in [utils/clone-mlir.sh](clone-mlir.sh). `mlir-hlo` is a submodule found in the `third_party` directory.
+ONNX-MLIR depends on `llvm-project` (among various other projects such as `mlir-hlo`). The `llvm-project` dependency is captured in [../utils/clone-mlir.sh](clone-mlir.sh). `mlir-hlo` is a submodule found in the `third_party` directory.
 
 We plan to update `llvm-project` a couple of times a month in order to keep up-to-date with the advancements made in `mlir`, but also to decrease the complexity of each update. There is currently no plan to update `mlir-hlo` on any given schedule, though for a specific LLVM update it may be necessary to also update the `mlir-hlo` submodule for the build to continue working correctly. This is because `mlir-hlo` itself also has a dependency on `mlir`.
 
