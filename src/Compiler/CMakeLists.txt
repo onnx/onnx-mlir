@@ -152,7 +152,7 @@ add_onnx_mlir_library(OMCompilerUtils
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
-  ExternalUtil
+  ExternalUtil  
   llc
   opt
 
@@ -163,10 +163,12 @@ add_onnx_mlir_library(OMCompilerUtils
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
+  ${OMLibs}
   OMCompilerDialects
   OMCompilerPasses
   OMAccelerator
   OMVersion
+  MLIRIR
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.
@@ -191,6 +193,7 @@ add_onnx_mlir_library(OMCompiler
 
   DEPENDS
   OMCompilerUtils
+  ExternalUtil
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}
@@ -201,6 +204,7 @@ add_onnx_mlir_library(OMCompiler
   EXCLUDE_FROM_OM_LIBS
 
   LINK_LIBS PRIVATE
+  OMCompilerDialects
   OMCompilerUtils
   )
 
