@@ -1375,6 +1375,7 @@ def JniExecutionSession(jar_name, inputs):
         "f2": np.float16,
         "f4": np.float32,
         "f8": np.float64,
+        "U25": np.str_,
     }
 
     # print('stdout=' + str(procStdout), file=sys.stderr)
