@@ -105,8 +105,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_INT32;
     else if (py::isinstance<py::array_t<std::int64_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT64;
-    else if (py::isinstance<py::array_t<std::string>>(inputPyArray))
-      dtype = ONNX_TYPE_STRING;
+    // else if (py::isinstance<py::array_t<const char *>>(inputPyArray))
+    //   dtype = ONNX_TYPE_STRING;
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
     else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
