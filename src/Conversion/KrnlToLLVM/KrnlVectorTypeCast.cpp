@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlGetRefOp.cpp - Lower KrnlGetRefOp -------------------------===//
+//===------ KrnlVectorTypeCastOp.cpp - Lower KrnlVectorTypeCastOp ----------===//
 //
 // Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the KrnlGetRefOp operator.
+// This file lowers the KrnlVectorTypeCastOp operator.
 //
 //===----------------------------------------------------------------------===//
 
