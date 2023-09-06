@@ -1136,9 +1136,25 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
 #endif
   }
   if (create.math.isIntegerWithVector(elementType)) {
-    // Since math.copySign does not support integer and is unnecessary,
-    // not call copySign for integer like the float case.
-    return create.math.rem(dividend, divisor);
+    // int diviend, divisor;
+    // rem = diviend % divisor
+    // if (rem == 0)
+    //   return rem
+    // if (diviend < 0)
+    //   rem = rem - divisor  // make rem minus
+    // if (divisor < 0)
+    //   rem = rem + divisor; // make rem minus
+    // return rem;
+    Value remOrig = create.math.rem(dividend, divisor);
+    Value zero = create.math.constant(elementType, 0);
+    Value isDiviendMinus = create.math.slt(dividend, zero);
+    Value remSub = create.math.select(
+        isDiviendMinus, create.math.add(remOrig, divisor), remOrig);
+    Value isDivisorMinus = create.math.slt(divisor, zero);
+    Value remAdd = create.math.select(
+        isDivisorMinus, create.math.add(remSub, divisor), remSub);
+    Value isRemOrigZero = create.math.eq(remOrig, zero);
+    return create.math.select(isRemOrigZero, remOrig, remAdd);
   }
   llvm_unreachable("unsupported element type");
 }

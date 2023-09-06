@@ -127,7 +127,16 @@ func.func private @test_signed_int_mod(%arg0 : tensor<10x10xi64>, %arg1 : tensor
   // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
   // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
   // CHECK: [[REMSI:%.+]] = arith.remsi [[LOAD1]], [[LOAD2]] : i64
-  // CHECK: krnl.store [[REMSI]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
+  // CHECK: [[CST_0_I64:%.+]] = arith.constant 0 : i64
+  // CHECK: [[ISMINUS1:%.+]] = arith.cmpi slt, [[LOAD1]], [[CST_0_I64]] : i64
+  // CHECK: [[ADD1:%.+]] = arith.addi [[REMSI]], [[LOAD2]] : i64
+  // CHECK: [[SELECT1:%.+]] = arith.select [[ISMINUS1]], [[ADD1]], [[REMSI]] : i64
+  // CHECK: [[ISMINUS2:%.+]] = arith.cmpi slt, [[LOAD2]], [[CST_0_I64]] : i64
+  // CHECK: [[ADD2:%.+]] = arith.addi [[SELECT1]], [[LOAD2]] : i64
+  // CHECK: [[SELECT2:%.+]] = arith.select [[ISMINUS2]], [[ADD2]], [[SELECT1]] : i64
+  // CHECK: [[ISMINUS3:%.+]] = arith.cmpi eq, [[REMSI]], [[CST_0_I64]] : i64
+  // CHECK: [[SELECT3:%.+]] = arith.select [[ISMINUS3]], [[REMSI]], [[SELECT2]] : i64
+  // CHECK: krnl.store [[SELECT3]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
   // CHECK: return [[RES]] : memref<10x10xi64>
 }
 
