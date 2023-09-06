@@ -215,12 +215,13 @@ void addKrnlToLLVMPasses(
   // https://mlir.llvm.org/docs/BufferDeallocationInternals.
   pm.addNestedPass<func::FuncOp>(
       mlir::bufferization::createBufferDeallocationPass());
-  if (enableMemoryBundling) {
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
-  }
+  // hi alex
+  //if (enableMemoryBundling) {
+  //  pm.addNestedPass<func::FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
+  //   pm.addNestedPass<func::FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
+  //   pm.addPass(mlir::createCanonicalizerPass());
+  //   pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
+  // }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this

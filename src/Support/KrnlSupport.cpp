@@ -23,6 +23,7 @@ namespace onnx_mlir {
 // Return various operations.
 //===----------------------------------------------------------------------===//
 
+#ifdef HI_ALEX
 /// Get the AllocOp of the current GetRef.
 memref::AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
   auto parentBlock = getRef->getOperation()->getBlock();
@@ -36,6 +37,7 @@ memref::AllocOp getAllocOfGetRef(KrnlGetRefOp *getRef) {
 
   return alloc;
 }
+#endif
 
 /// Return the top block.
 Block *getTopBlock(Operation *op) {
@@ -77,6 +79,8 @@ bool isKrnlMemcpy(Operation *op) {
   return llvm::dyn_cast_or_null<KrnlMemcpyOp>(op);
 }
 
+#ifdef HI_ALEX
+
 /// Checks if this operation loads/stores from the result of a specific getRef.
 /// A krnl.memcpy acts as both load and store.
 bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
@@ -99,6 +103,7 @@ bool isLoadStoreForGetRef(KrnlGetRefOp getRef, Operation *op) {
 
   return isUsedByLoadStore;
 }
+#endif
 
 /// Check if this value is an argument of one of the blocks nested around it.
 bool isBlockArgument(Operation *op, Value operand) {
@@ -119,6 +124,8 @@ bool isBlockArgument(Operation *op, Value operand) {
 
   return false;
 }
+
+#ifdef HI_ALEX
 
 /// Check if two GetRefs participate in the same krnl.memcpy.
 bool usedBySameKrnlMemcpy(
@@ -170,6 +177,8 @@ int64_t getAllocGetRefNum(memref::AllocOp *allocOp) {
 
   return numGetRefs;
 }
+
+#endif
 
 /// Check if an operation is in the top-level block of the function.
 bool opInTopLevelBlock(Operation *op) {
@@ -381,6 +390,8 @@ int64_t getAllocAlignment(memref::AllocOp allocOp) {
   return 0;
 }
 
+#ifdef HI_ALEX
+
 //===----------------------------------------------------------------------===//
 // Live range analysis support.
 //===----------------------------------------------------------------------===//
@@ -465,5 +476,6 @@ bool liveRangeIsContained(Operation *firstOp, Operation *lastOp,
   return opBeforeOp(topLevelBlock, firstOp, liveRangeFirstOp) &&
          opBeforeOp(topLevelBlock, liveRangeLastOp, lastOp);
 }
+#endif
 
 } // namespace onnx_mlir
