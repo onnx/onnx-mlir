@@ -96,7 +96,7 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
               Value indexVal = createKrnl.loadIE(indices, indicesAccessFct);
               IndexExpr index = NonAffineIndexExpr(indexVal);
               outputAccessFct.emplace_back(index);
-            } else {
+            } else if (i < loopInd.size() - 1) {
               IndexExpr index = SymbolIndexExpr(loopInd[i]);
               outputAccessFct.emplace_back(index);
             }
