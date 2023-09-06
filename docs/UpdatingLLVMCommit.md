@@ -17,7 +17,7 @@ We've started an update rotation that is described [here](https://github.com/onn
 ## What is the update process?
 
 1. **Lookup green commit hashes**: From the Github issue https://github.com/llvm/torch-mlir/issues/1178, find the LLVM and MLIR-HLO green commits for the week when ONNX-MLIR is being updated.
-2. **Update the `llvm-project` commit**: Update the LLVM commit referenced in the source tree to the green commit hash for the LLVM project from Step 1. The current locations that need to be updated are [utils/clone-mlir.sh](clone-mlir.sh), [docs/BuildOnLinuxOSX.md](BuildOnLinuxOSX.md) and  [docs/BuildOnWindows.md](BuildOnWindows.md).
+2. **Update the `llvm-project` commit**: Update the LLVM commit referenced in the source tree to the green commit hash for the LLVM project from Step 1. The current locations that need to be updated are [utils/clone-mlir.sh](../utils/clone-mlir.sh), [docs/BuildOnLinuxOSX.md](BuildOnLinuxOSX.md) and  [docs/BuildOnWindows.md](BuildOnWindows.md).
 3. **Update the `mlir-hlo` submodule**: In the `third-party/mlir-hlo` directory, run `git fetch` followed by `git checkout <mlir-hlo-commit-hash>` (where `<mlir-hlo-commit-hash>` is the green commit hash for the MLIR-HLO project from Step 1).
 4. **Rebuild and test ONNX-MLIR**: This might involve fixing various API breakages introduced upstream (they are likely unrelated to what you are working on).  If these fixes are too complex, please file a work-in-progress PR explaining the issues you are running into asking for help so that someone from the community can help.
 
