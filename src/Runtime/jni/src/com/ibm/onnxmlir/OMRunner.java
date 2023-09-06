@@ -116,7 +116,7 @@ public class OMRunner {
 			put(OMTensor.ONNX_TYPE_FLOAT16, numpyEndian + "f2");
 			put(OMTensor.ONNX_TYPE_FLOAT, numpyEndian + "f4");
 			put(OMTensor.ONNX_TYPE_DOUBLE, numpyEndian + "f8");
-			// Unicode string: 25-character string
+			// numpy documentation: Unicode string
 			// https://numpy.org/doc/stable/reference/arrays.dtypes.html
 			put(OMTensor.ONNX_TYPE_STRING, "|U25");
 		}

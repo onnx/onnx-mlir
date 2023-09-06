@@ -105,7 +105,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_INT32;
     else if (py::isinstance<py::array_t<std::int64_t>>(inputPyArray))
       dtype = ONNX_TYPE_INT64;
-    else if (py::isinstance<py::array_t<const char *>>(inputPyArray))
+    else if (py::isinstance<py::array_t<std::string>>(inputPyArray))
       dtype = ONNX_TYPE_STRING;
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
@@ -187,7 +187,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = py::dtype("int64");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::STRING:
-      dtype = py::dtype("str_");
+      dtype = py::dtype("str");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::BOOL:
       dtype = py::dtype("bool_");
