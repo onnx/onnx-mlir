@@ -196,6 +196,15 @@ bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
              createArrayAttrFromConstantOp(rhsConstOp));
 }
 
+/// Test if two values have the same static shape or not.
+bool haveSameStaticShape(Value lhs, Value rhs) {
+  if (!hasShapeAndRank(lhs) || !hasShapeAndRank(rhs))
+    return false;
+  Type lhsT = lhs.getType();
+  Type rhsT = rhs.getType();
+  return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
+}
+
 } // namespace onnx_mlir
 
 // =============================================================================

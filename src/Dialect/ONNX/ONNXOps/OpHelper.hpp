@@ -206,9 +206,6 @@ bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 bool hasShapeAndRank(mlir::Value val);
 bool hasShapeAndRank(mlir::Operation *op);
 
-/// Test if two values have the same static shape or not.
-bool haveSameStaticShape(mlir::Value lhs, mlir::Value rhs);
-
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
