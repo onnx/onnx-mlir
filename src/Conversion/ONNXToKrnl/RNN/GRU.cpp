@@ -641,7 +641,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
 template <>
 void stateToOutput<ONNXGRUOp, GruState>(ConversionPatternRewriter &rewriter,
-    Location loc, ONNXGRUOp *op, GruState state, std::vector<Value> &outputs) {
+    Location loc, ONNXGRUOp *op, GruState state, std::vector<Value> &outputs,
+    Value sequenceLens) {
   auto direction = op->getDirection();
   Value noneValue;
   // First output: all sequences.
@@ -650,8 +651,8 @@ void stateToOutput<ONNXGRUOp, GruState>(ConversionPatternRewriter &rewriter,
   if (isNoneValue(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
-    stateToOutputForHiddenOrCell(
-        rewriter, loc, state.forwardHt, state.reverseHt, direction, state.ht);
+    stateToOutputForHiddenOrCell(rewriter, loc, state.forwardHt,
+        state.reverseHt, direction, state.ht, state.allH, sequenceLens);
     outputs.emplace_back(state.ht);
   }
 }

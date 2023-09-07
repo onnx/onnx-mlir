@@ -65,7 +65,8 @@ void initializeIntermediateStates(mlir::ConversionPatternRewriter &rewriter,
 /// pretended, depending on 'direction'.
 void stateToOutputForHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value forwardVal, mlir::Value reverseVal,
-    llvm::StringRef direction, mlir::Value output);
+    llvm::StringRef direction, mlir::Value output, mlir::Value allH,
+    mlir::Value seqenceLens);
 
 /// Apply an activation function on a given operand.
 mlir::Value applyActivation(mlir::OpBuilder &rewriter, mlir::Location loc,
@@ -122,7 +123,8 @@ void calculateState(mlir::ConversionPatternRewriter &rewriter,
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
 void stateToOutput(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, RNNOp *op, S state, std::vector<mlir::Value> &outputs);
+    mlir::Location loc, RNNOp *op, S state, std::vector<mlir::Value> &outputs,
+    mlir::Value sequenceLens);
 
 // A common template for lowering an RNN operation.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
@@ -235,7 +237,8 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
     }
 
     std::vector<mlir::Value> outputs;
-    stateToOutput<RNNOp, S>(rewriter, loc, &rnnOp, state, outputs);
+    stateToOutput<RNNOp, S>(
+        rewriter, loc, &rnnOp, state, outputs, sequenceLens);
     rewriter.replaceOp(op, outputs);
     return mlir::success();
   }

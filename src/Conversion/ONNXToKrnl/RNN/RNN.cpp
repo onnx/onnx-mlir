@@ -365,7 +365,8 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
 
 template <>
 void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
-    Location loc, ONNXRNNOp *op, RnnState state, std::vector<Value> &outputs) {
+    Location loc, ONNXRNNOp *op, RnnState state, std::vector<Value> &outputs,
+    Value sequenceLens) {
   Value noneValue;
   auto direction = op->getDirection();
 
@@ -375,8 +376,8 @@ void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
   if (isNoneValue(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
-    stateToOutputForHiddenOrCell(
-        rewriter, loc, state.forwardHt, state.reverseHt, direction, state.ht);
+    stateToOutputForHiddenOrCell(rewriter, loc, state.forwardHt,
+        state.reverseHt, direction, state.ht, state.allH, sequenceLens);
     outputs.emplace_back(state.ht);
   }
 }
