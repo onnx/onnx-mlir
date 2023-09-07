@@ -396,6 +396,27 @@ bool hasShapeAndRank(Operation *op) {
   return true;
 }
 
+/// Test if two values have the same static shape or not.
+bool haveSameStaticShape(Value lhs, Value rhs) {
+  if (!hasShapeAndRank(lhs) || !hasShapeAndRank(rhs))
+    return false;
+  ArrayRef<int64_t> lhsShape = lhs.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> rhsShape = rhs.getType().cast<ShapedType>().getShape();
+  if (lhsShape.size() != rhsShape.size())
+    return false;
+  bool allSame = true;
+  for (uint64_t i = 0; i < lhsShape.size(); ++i) {
+    int64_t x = lhsShape[i];
+    int64_t y = rhsShape[i];
+    if ((x == ShapedType::kDynamic) || (y == ShapedType::kDynamic) ||
+        (x != y)) {
+      allSame = false;
+      break;
+    }
+  }
+  return allSame;
+}
+
 //===----------------------------------------------------------------------===//
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//
