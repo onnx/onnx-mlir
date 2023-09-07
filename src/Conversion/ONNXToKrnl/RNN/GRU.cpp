@@ -511,9 +511,14 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             Value cond = createMath.sge(
                 createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
             nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
+
+            // Last HT should be the last in sequenceLens or the current result
+            Value lastHt = createMath.select(cond, createKrnl.load(Ht, indices), nextHt);
+            createKrnl.store(lastHt, Ht, indices);
+          } else {
+            createKrnl.store(nextHt, Ht, indices);
           }
 
-          createKrnl.store(nextHt, Ht, indices);
           if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
@@ -629,9 +634,14 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
             Value cond = createMath.sge(
                 createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
             nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
+
+            // Last HT should be the last in sequenceLens or the current result
+            Value lastHt = createMath.select(cond, createKrnl.load(Ht, indices), nextHt);
+            createKrnl.store(lastHt, Ht, indices);
+          } else {
+            createKrnl.store(nextHt, Ht, indices);
           }
 
-          createKrnl.store(nextHt, Ht, indices);
           if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
