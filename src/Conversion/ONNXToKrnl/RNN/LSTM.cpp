@@ -596,8 +596,8 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
 
 template <>
 void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
-    Location loc, ONNXLSTMOp *op, LstmState state, std::vector<Value> &outputs,
-    Value sequenceLens) {
+    Location loc, ONNXLSTMOp *op, LstmState state,
+    std::vector<Value> &outputs) {
   Value noneValue;
   auto direction = op->getDirection();
 
@@ -607,16 +607,16 @@ void stateToOutput<ONNXLSTMOp, LstmState>(ConversionPatternRewriter &rewriter,
   if (isNoneValue(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
-    stateToOutputForHiddenOrCell(rewriter, loc, state.forwardHt,
-        state.reverseHt, direction, state.ht, state.allH, sequenceLens);
+    stateToOutputForHiddenOrCell(
+        rewriter, loc, state.forwardHt, state.reverseHt, direction, state.ht);
     outputs.emplace_back(state.ht);
   }
   // Third output: cell.
   if (isNoneValue(op->getYC()))
     outputs.emplace_back(noneValue);
   else {
-    stateToOutputForHiddenOrCell(rewriter, loc, state.forwardCt,
-        state.reverseCt, direction, state.ct, state.allH, sequenceLens);
+    stateToOutputForHiddenOrCell(
+        rewriter, loc, state.forwardCt, state.reverseCt, direction, state.ct);
     outputs.emplace_back(state.ct);
   }
 }

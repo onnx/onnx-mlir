@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 
 using namespace mlir;
 
@@ -218,52 +218,15 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
 /// pretended, depending on 'direction'.
 void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Location loc, Value forwardVal, Value reverseVal, StringRef direction,
-    Value output, Value allH, Value sequenceLens) {
-
+    Value output) {
   // TODO remove
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
       rewriter, loc);
   if (direction == FORWARD || direction == REVERSE) {
     Value val = (direction == FORWARD) ? forwardVal : reverseVal;
-    if (isNoneValue(sequenceLens)) {
-      Value numOfElements = getDynamicMemRefSize(rewriter, loc, val);
-      create.krnl.memcpy(output, val, numOfElements);
-    } else {
-      // How to construct the last Ht according to the sequenceLens
-      // This behavior is observed from torch GRU, but not explicitly defined
-      // by onnx document. It doesn't make sense to return the padded value
-      // at the end of Ht if sequenceLens is defined.
-
-      Value directionIV = create.math.constantIndex(0);
-      Value one = create.math.constantIndex(1);
-
-      MemRefType matrixType = val.getType().cast<MemRefType>();
-      unsigned htRank = matrixType.getRank();
-      Value iZero = create.math.constantIndex(0);
-      SmallVector<Value, 4> htLbs(htRank, iZero);
-      SmallVector<Value, 4> htUbs;
-      for (unsigned r = 0; r < htRank; ++r) {
-        htUbs.emplace_back(create.mem.dim(val, r));
-      }
-      ValueRange loops1 = create.krnl.defineLoops(htRank);
-      create.krnl.iterate(loops1, loops1, htLbs, htUbs,
-          [&](KrnlBuilder &createKrnl, ValueRange indices) {
-            MathBuilder createMath(createKrnl);
-            IndexExprScope ieScope(createKrnl);
-            Value bs(indices[0]), hs(indices[1]);
-
-            // The element at sequenceLens[batchIV]-1 in allH is used
-            Value sequenceIV = create.krnl.load(sequenceLens, bs);
-            sequenceIV = createMath.castToIndex(sequenceIV);
-            sequenceIV = createMath.sub(sequenceIV, one);
-            Value endH =
-                create.krnl.load(allH, {sequenceIV, directionIV, bs, hs});
-            create.krnl.store(endH, output, {directionIV, bs, hs});
-          });
-    }
+    Value numOfElements = getDynamicMemRefSize(rewriter, loc, val);
+    create.krnl.memcpy(output, val, numOfElements);
   } else { // BIDIRECTIONAL
-    // ToFix: sequenceLens is not supported for bidirection yet
-    assert(isNoneValue(sequenceLens) && "not implemented yet");
     unsigned rank = forwardVal.getType().cast<MemRefType>().getRank();
     Value zero = create.math.constantIndex(0);
     Value one = create.math.constantIndex(1);
