@@ -183,10 +183,19 @@ func.func @test_transpose_concat_reversed(%arg0: tensor<?x5x5x1xf32>, %arg1: ten
 // -----
 
 // Check the removal of identity reshapes.
-// CHECK-LABEL: func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
-func.func @test_reshape_removal(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+// CHECK-LABEL: func @test_reshape_removal_1(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
+func.func @test_reshape_removal_1(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
   %0 = onnx.Constant dense<[10, 11, 12, 13]> : tensor<4xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x11x12x13xf32>
+  // CHECK-NEXT: onnx.Return %arg0 : tensor<10x11x12x13xf32>
+  "onnx.Return"(%1) : (tensor<10x11x12x13xf32>) -> ()
+}
+
+// -----
+
+// CHECK-LABEL: func @test_reshape_removal_2(%arg0: tensor<10x11x12x13xf32>, %arg1: tensor<4xi64>) -> tensor<10x11x12x13xf32> {
+func.func @test_reshape_removal_2(%arg0: tensor<10x11x12x13xf32>, %arg1: tensor<4xi64>) -> tensor<10x11x12x13xf32> {
+  %1 = "onnx.Reshape"(%arg0, %arg1) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x11x12x13xf32>
   // CHECK-NEXT: onnx.Return %arg0 : tensor<10x11x12x13xf32>
   "onnx.Return"(%1) : (tensor<10x11x12x13xf32>) -> ()
 }
@@ -293,15 +302,15 @@ func.func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf
 // -----
 
 // Check the combining of reshape into a simple reshape.
-// CHECK-LABEL: func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
-func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<11x10x13x12xf32> {
-  %0 = onnx.Constant dense<[10, 12, 11, 13]> : tensor<4xi64>
-  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<10x12x11x13xf32>
-  %2 = onnx.Constant dense<[11, 10, 13, 12]> : tensor<4xi64>
-  %3 = "onnx.Reshape"(%1, %2) : (tensor<10x12x11x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
-  // CHECK-NEXT: [[RES:%.+]] = onnx.Constant dense<[11, 10, 13, 12]> : tensor<4xi64>
-  // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) {allowzero = 0 : si64} : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<11x10x13x12xf32>
-  "onnx.Return"(%3) : (tensor<11x10x13x12xf32>) -> ()
+// CHECK-LABEL: func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
+func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
+  %0 = onnx.Constant dense<[2, 60, 11, 13]> : tensor<4xi64>
+  %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<2x60x11x13xf32>
+  %2 = onnx.Constant dense<[8, 15, 13, 11]> : tensor<4xi64>
+  %3 = "onnx.Reshape"(%1, %2) : (tensor<2x60x11x13xf32>, tensor<4xi64>) -> tensor<8x15x13x11xf32>
+  // CHECK-NEXT: [[RES:%.+]] = onnx.Constant dense<[8, 15, 13, 11]> : tensor<4xi64>
+  // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) {allowzero = 0 : si64} : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<8x15x13x11xf32>
+  "onnx.Return"(%3) : (tensor<8x15x13x11xf32>) -> ()
 }
 
 // -----

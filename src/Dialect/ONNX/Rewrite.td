@@ -137,6 +137,10 @@ class HaveSameDim<int dim>: Constraint<
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
 
+def HaveSameStaticShape: Constraint<
+  CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
+  "Two tensors have the same static shape">;
+
 // Create a unit constant that will be used as none input.
 def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
@@ -575,13 +579,21 @@ def FuseReshapePattern:  Pat<
   // Remove the first reshape op.
   (ONNXReshapeOp $v, $s2, $az2)>;
 
-def RemoveIdentityReshapePattern:  Pat<
+def RemoveIdentityReshapePattern1:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
   (ONNXReshapeOp $val, $shape, $az),
-  // Remove the transpose.
+  // Remove the reshape.
   (replaceWithValue $val),
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
+
+def RemoveIdentityReshapePattern2:  Pat<
+  // Remove an identity pattern. Output and input shapes are static and the same. 
+  (ONNXReshapeOp:$out $val, $_, $_),
+  // Remove the reshape.
+  (replaceWithValue $val),
+  // Check that val and out have the same static shape.
+  [(HaveSameStaticShape $out, $val)]>;
 
 def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
