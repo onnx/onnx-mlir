@@ -343,8 +343,6 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
     Value sequenceLens, Value initialH, Value nextHt, Value sequenceIV,
     Value directionIV, Value bs, Value hs, Value Ht) {
-  // Handle sequence_lens
-  IndexExprScope ieScope(createKrnl);
   if (!isNoneValue(sequenceLens)) {
     Value sequenceUB = createKrnl.load(sequenceLens, {bs});
     Value initial;
