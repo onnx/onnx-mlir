@@ -75,6 +75,15 @@ mlir::Value applyActivation(mlir::OpBuilder &rewriter, mlir::Location loc,
 mlir::Value emitXSliceAt(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value X, mlir::Value timestep);
 
+// Change the nextHt and Ht value if sequenceLens is defined.
+// When a sample reachs the limit of its sequence len, nextHt will be padded
+// with 0 (or initialH), and Ht will keep the last value at the sequence end
+// so that the final value Ht is the last value at their sequence len.
+mlir::Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
+    mlir::Value sequenceLens, mlir::Value initialH, mlir::Value nextHt,
+    mlir::Value sequenceIV, mlir::Value directionIV, mlir::Value bs,
+    mlir::Value hs, mlir::Value Ht);
+
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
 // - getActivationPack

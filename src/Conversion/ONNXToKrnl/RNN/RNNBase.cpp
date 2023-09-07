@@ -336,4 +336,35 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   return sliceX;
 }
 
+// Change the nextHt and Ht value if sequenceLens is defined.
+// When a sample reachs the limit of its sequence len, nextHt will be padded
+// with 0 (or initialH), and Ht will keep the last value at the sequence end
+// so that the final value Ht is the last value at their sequence len.
+Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
+    Value sequenceLens, Value initialH, Value nextHt, Value sequenceIV,
+    Value directionIV, Value bs, Value hs, Value Ht) {
+  // Handle sequence_lens
+  IndexExprScope ieScope(createKrnl);
+  if (!isNoneValue(sequenceLens)) {
+    Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+    Value initial;
+    if (isNoneValue(initialH)) {
+      initial = createMath.constant(nextHt.getType(), 0.);
+    } else {
+      initial = createKrnl.load(initialH, {directionIV, bs, hs});
+    }
+    Value cond = createMath.sge(
+        createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+    nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
+
+    // Last HT should be the last in sequenceLens or the current result
+    Value lastHt =
+        createMath.select(cond, createKrnl.load(Ht, {bs, hs}), nextHt);
+    createKrnl.store(lastHt, Ht, {bs, hs});
+  } else {
+    createKrnl.store(nextHt, Ht, {bs, hs});
+  }
+  return nextHt;
+}
+
 } // namespace onnx_mlir

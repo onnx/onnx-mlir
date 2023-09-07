@@ -500,25 +500,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
           // Store the intermediate Ht.
           // Handle sequence_lens
-          if (!isNoneValue(sequenceLens)) {
-            Value sequenceUB = createKrnl.load(sequenceLens, {bs});
-            Value initial;
-            if (isNoneValue(initialH)) {
-              initial = createMath.constant(nextHt.getType(), 0.);
-            } else {
-              initial = createKrnl.load(initialH, {directionIV, bs, hs});
-            }
-            Value cond = createMath.sge(
-                createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
-            nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
-
-            // Last HT should be the last in sequenceLens or the current result
-            Value lastHt =
-                createMath.select(cond, createKrnl.load(Ht, indices), nextHt);
-            createKrnl.store(lastHt, Ht, indices);
-          } else {
-            createKrnl.store(nextHt, Ht, indices);
-          }
+          nextHt = handleSequenceLens(createKrnl, createMath, sequenceLens,
+              initialH, nextHt, sequenceIV, directionIV, bs, hs, Ht);
 
           if (!isNoneValue(state.allH))
             createKrnl.store(
@@ -624,25 +607,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
 
           // Store the intermediate Ht.
           // Handle sequence_lens
-          if (!isNoneValue(sequenceLens)) {
-            Value sequenceUB = createKrnl.load(sequenceLens, {bs});
-            Value initial;
-            if (isNoneValue(initialH)) {
-              initial = createMath.constant(nextHt.getType(), 0.);
-            } else {
-              initial = createKrnl.load(initialH, {directionIV, bs, hs});
-            }
-            Value cond = createMath.sge(
-                createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
-            nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
-
-            // Last HT should be the last in sequenceLens or the current result
-            Value lastHt =
-                createMath.select(cond, createKrnl.load(Ht, indices), nextHt);
-            createKrnl.store(lastHt, Ht, indices);
-          } else {
-            createKrnl.store(nextHt, Ht, indices);
-          }
+          nextHt = handleSequenceLens(createKrnl, createMath, sequenceLens,
+              initialH, nextHt, sequenceIV, directionIV, bs, hs, Ht);
 
           if (!isNoneValue(state.allH))
             createKrnl.store(
