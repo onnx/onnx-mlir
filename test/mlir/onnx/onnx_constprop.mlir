@@ -1648,6 +1648,21 @@ func.func @test_gather_axis_1() -> tensor<*xf32>{
 
 // -----
 
+func.func @test_gather_no_rank_indices() -> tensor<*xi64>{
+  %0 = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  %1 = onnx.Constant dense<0> : tensor<i64>
+  %2 = "onnx.Gather"(%0, %1) {axis = 0 : si64} : (tensor<2xi64>, tensor<i64>) -> tensor<*xi64>
+  "onnx.Return"(%2) : (tensor<*xi64>) -> ()
+
+  // CHECK-LABEL:  func @test_gather_no_rank_indices
+  // CHECK:        [[VAR_0_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  // CHECK:        [[VAR_1_:%.+]] = onnx.Constant dense<0> : tensor<i64>
+  // CHECK:        [[VAR_2_:%.+]] = "onnx.Gather"([[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<2xi64>, tensor<i64>) -> tensor<i64>
+  // CHECK:        onnx.Return [[VAR_2_]] : tensor<i64>
+}
+
+// -----
+
 func.func @test_gather_negative_index() -> tensor<*xf32>{
   %0 = onnx.Constant dense<[[1.0, 1.2, 1.9], [2.3, 3.4, 3.9], [4.5, 5.7, 5.9]]> : tensor<3x3xf32>
   %1 = onnx.Constant dense<[[0, -1]]> : tensor<1x2xi64>
