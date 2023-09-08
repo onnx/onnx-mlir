@@ -58,7 +58,6 @@ std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 bool instrumentONNXSignature;                          // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
-bool enableMemoryBundling;                             // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
@@ -374,14 +373,6 @@ static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
         "Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating "
         "commands."),
     llvm::cl::location(ONNXOpStats), llvm::cl::init(""),
-    llvm::cl::cat(OnnxMlirOptions));
-
-static llvm::cl::opt<bool, true> enableMemoryBundlingOpt(
-    "enable-memory-bundling",
-    llvm::cl::desc(
-        "Enable memory bundling related optimizations (default=false)\n"
-        "Set to 'false' if you experience significant compile time."),
-    llvm::cl::location(enableMemoryBundling), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<int, true> onnxOpTransformThresholdOpt(
@@ -1010,7 +1001,13 @@ std::string getToolPath(
 // result in a unknown option error.
 void removeUnrelatedOptions(
     const std::vector<llvm::cl::OptionCategory *> Categories) {
-  llvm::cl::HideUnrelatedOptions(Categories);
+  // Do not remove LLVM "internal" options such as --debug
+  // that do not have a category (and therefore placed
+  // under the general category). So we add the general
+  // category to the list of not-really-hidden options.
+  std::vector<llvm::cl::OptionCategory *> optCategories(Categories);
+  optCategories.push_back(&llvm::cl::getGeneralCategory());
+  llvm::cl::HideUnrelatedOptions(optCategories);
 
   llvm::StringMap<llvm::cl::Option *> &optMap =
       llvm::cl::getRegisteredOptions();
