@@ -100,6 +100,10 @@ void registerOMPasses(int optLevel) {
     return createElideConstGlobalValuePass();
   });
 
+  //  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+  //    return createRemoveUnrealizedConversionCastOpForTensorToMemrefPass();
+  //  });
+
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertSeqToMemrefPass();
   });
@@ -145,6 +149,7 @@ void registerMLIRPasses() {
   registerLinalgPasses();
   memref::registerMemRefPasses();
   registerSCFPasses();
+
   bufferization::registerBufferizationPasses();
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -170,6 +175,12 @@ void registerMLIRPasses() {
   });
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createFinalizeMemRefToLLVMConversionPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createAsyncToAsyncRuntimePass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertAsyncToLLVMPass();
   });
 }
 

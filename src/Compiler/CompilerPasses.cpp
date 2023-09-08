@@ -22,6 +22,7 @@
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
+#include "mlir/Dialect/Async/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
@@ -175,6 +176,7 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption,
       /*enableParallel*/ enableParallel));
+  // pm.addPass(onnx_mlir::createRemoveUnrealizedConversionCastOpForTensorToMemrefPass());
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -197,6 +199,8 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
+  pm.addPass(mlir::createAsyncToAsyncRuntimePass());
+  pm.addPass(mlir::createConvertAsyncToLLVMPass());
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
     pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());

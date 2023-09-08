@@ -19,4 +19,7 @@ add_onnx_mlir_executable(onnx-mlir-opt
   MLIROpenMPToLLVM
   MLIROptLib
   MLIRSCFToOpenMP
+  MLIRAsyncDialect
+  MLIRAsyncToLLVM
+  MLIRAsyncTransforms
   )

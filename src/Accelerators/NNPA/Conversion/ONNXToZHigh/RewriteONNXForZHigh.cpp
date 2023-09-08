@@ -450,46 +450,29 @@ public:
       // dimension M.
       SmallVector<Value> subMatrices;
       for (Value b : subBs) {
-        async::ExecuteOp::BodyBuilderFn executeBodyBuilder =
-            [&](OpBuilder &executeBuilder, Location executeLoc,
-                ValueRange executeArgs) {
-              MultiDialectBuilder<OnnxBuilder> executeCreate(
-                  executeBuilder, executeLoc);
-              Type bType = executeArgs[1].getType(); // executeArgs[1]: b
-              Type elementType = getElementType(bType);
-              auto unrankedType = UnrankedTensorType::get(elementType);
-              Value sm = executeCreate.onnx.matmul(unrankedType,
-                  /*a*/ executeArgs[0], /*b*/ executeArgs[1], false);
-              LLVM_DEBUG(llvm::dbgs() << "sm " << sm << "\n");
-              LLVM_DEBUG(
-                  llvm::dbgs() << "unrankedType " << unrankedType << "\n");
-              executeBuilder.create<async::YieldOp>(executeLoc, ValueRange{sm});
-            };
-        Value asyncA = rewriter
-                           .create<async::RuntimeCreateOp>(
-                               loc, async::ValueType::get(a.getType()))
-                           .getResult();
-        Value asyncB = rewriter
-                           .create<async::RuntimeCreateOp>(
-                               loc, async::ValueType::get(b.getType()))
-                           .getResult();
-        rewriter.create<async::RuntimeStoreOp>(loc, a, asyncA);
-        rewriter.create<async::RuntimeStoreOp>(loc, b, asyncB);
-        LLVM_DEBUG(llvm::dbgs() << "asyncA " << asyncA << "\n");
-        LLVM_DEBUG(llvm::dbgs() << "asyncB " << asyncB << "\n");
+        auto executeBodyBuilder = [&](OpBuilder &executeBuilder,
+                                      Location executeLoc,
+                                      ValueRange executeArgs) {
+          MultiDialectBuilder<OnnxBuilder> executeCreate(
+              executeBuilder, executeLoc);
+          Value sm = executeCreate.onnx.matmul(unrankedType, a, b, false);
+          Value smMemref = executeCreate.onnx.toMemref(sm);
+          executeBuilder.create<async::YieldOp>(
+              executeLoc, ValueRange{smMemref});
+        };
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
-        LLVM_DEBUG(
-            llvm::dbgs() << "smDummy.getType() " << smDummy.getType() << "\n");
-        auto execute =
-            rewriter.create<async::ExecuteOp>(loc, TypeRange{smDummy.getType()},
-                ValueRange(), ValueRange{asyncA, asyncB}, executeBodyBuilder);
+        Value smDummyMemref = create.onnx.toMemref(smDummy);
+        auto execute = rewriter.create<async::ExecuteOp>(loc,
+            TypeRange{smDummyMemref.getType()}, ValueRange(), ValueRange(),
+            executeBodyBuilder);
         subMatrices.emplace_back(execute.getBodyResults()[0]);
       }
       SmallVector<Value> waitOps;
       for (Value subMatrix : subMatrices) {
         Value asyncAwaitOut =
             rewriter.create<async::AwaitOp>(loc, subMatrix).getResult();
-        waitOps.emplace_back(asyncAwaitOut);
+        Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
+        waitOps.emplace_back(asyncAwaitOutTensor);
       }
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
