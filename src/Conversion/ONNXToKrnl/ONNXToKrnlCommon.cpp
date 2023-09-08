@@ -23,6 +23,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -667,12 +669,11 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
   assert(comment.find(',') == std::string::npos && "no comma in comments");
   StringAttr opName = op->getName().getIdentifier();
-  StringAttr nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
   // Print report on this op.
-  fprintf(stderr, "==ONNX-PAR-REPORT==, %s%s, %s, %lld, %lld, %s\n",
-      opName.data(), (successful ? "-parallel" : ""),
-      (nodeName ? nodeName.data() : "no-node-name"), loopLevel,
-      parallelLoopTripCount, comment.c_str());
+  printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
+      (long long int)loopLevel, (long long int)parallelLoopTripCount);
 }
 
 void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
@@ -681,7 +682,7 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
   assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
   assert(comment.find(',') == std::string::npos && "no comma in comments");
   StringAttr opName = op->getName().getIdentifier();
-  StringAttr nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
   // Handling message.
   std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
   if (message.empty())
@@ -690,10 +691,9 @@ void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
     // No comments, all values indicate no simd
     message = "unsupported";
   // Print report on this op.
-  fprintf(stderr, "==ONNX-SIMD-REPORT==, %s%s, %s, %lld, %lld, %s\n",
-      opName.data(), (successful ? "-simd" : ""),
-      (nodeName ? nodeName.data() : "no-node-name"), vectorLength,
-      simdLoopTripCount, message.c_str());
+  printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
+      (long long int)vectorLength, (long long int)simdLoopTripCount);
 }
 
 } // namespace onnx_mlir

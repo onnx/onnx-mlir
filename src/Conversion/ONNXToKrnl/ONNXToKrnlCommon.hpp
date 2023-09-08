@@ -458,8 +458,6 @@ void populateLoweringONNXShapeTransformOpPattern(
 void populateLoweringONNXCustomOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
-bool checkOpResultIsUsedByGetRef(mlir::memref::AllocOp *allocOp);
-
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.
 /// As an example:
@@ -512,7 +510,7 @@ void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
     const std::string &comment);
 } // namespace impl
 
-// When reporting is enabled (--onnx-op-report=Parallel), report on if/how are
+// When reporting is enabled (--opt-report=Parallel), report on if/how are
 // the ONNX operation parallelized.
 //
 // Loop level: -1: none; 0: outermost; 1: next to outermost...
@@ -528,7 +526,7 @@ inline void onnxToKrnlParallelReport(mlir::Operation *op,
         op, successful, loopLevel, parallelLoopTripCount, comment);
 }
 
-// When reporting is enabled (--onnx-op-report=Simd), report on if/how are
+// When reporting is enabled (--opt-report=Simd), report on if/how are
 // the ONNX operation simdized.
 //
 // Vector Length: 0: none; -1: runtime only; >0 min number known at compile

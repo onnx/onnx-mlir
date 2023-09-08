@@ -46,9 +46,10 @@ namespace onnx_mlir {
 void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound);
-  configureOnnxToKrnlLoweringPass(onnxOpReport == OnnxOpReport::Parallel,
-      enableParallel, onnxOpReport == OnnxOpReport::Simd, !disableSimdOption);
+  configureConstPropONNXToONNXPass(
+      onnxConstPropExpansionBound, onnxConstPropDisablePatterns);
+  configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
+      enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
@@ -127,7 +128,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Add instrumentation for Onnx Ops
   // Keep this pass at the end of this function.
-  unsigned instrumentActions = instrumentControlBits.getBits();
+  unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
@@ -218,12 +219,6 @@ void addKrnlToLLVMPasses(
   // https://mlir.llvm.org/docs/BufferDeallocationInternals.
   pm.addNestedPass<func::FuncOp>(
       mlir::bufferization::createBufferDeallocationPass());
-  if (enableMemoryBundling) {
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
-  }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this

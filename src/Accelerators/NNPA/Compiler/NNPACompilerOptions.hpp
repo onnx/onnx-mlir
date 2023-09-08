@@ -45,6 +45,7 @@ extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::list<std::string> execNodesOnCpu;
 extern llvm::cl::opt<bool> nnpaClipToDLFloatRange;
+extern llvm::cl::opt<bool> nnpaEnableZHighToOnnx;
 extern llvm::cl::opt<bool> profileZHighIR;
 
 } // namespace onnx_mlir

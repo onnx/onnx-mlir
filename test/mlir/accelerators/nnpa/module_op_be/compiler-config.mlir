@@ -13,4 +13,4 @@ module {
 }
 // CHECK: {{.*}} opt {{.*}} -o {{.*}}.bc
 // CHECK-NEXT: {{.*}} llc {{.*}}  {{.*}} {{.*}}.bc
-// CHECK-NEXT: {{.*}} {{clang|c|g}}++{{.*}} {{.*}}.o -o {{.*}}.so -shared -fPIC -L{{.*}}/lib -lRuntimeNNPA -lzdnn -lcruntime 
+// CHECK-NEXT: {{.*}} {{clang|c|g}}++{{.*}} {{.*}}.o -o {{.*}}.so -shared -fPIC -L{{.*}}/lib -lcruntime -lRuntimeNNPA -lzdnn

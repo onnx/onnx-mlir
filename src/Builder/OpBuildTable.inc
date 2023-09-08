@@ -29,7 +29,7 @@ op_dialect_version_map_["BitwiseOr"] = {18};
 op_dialect_version_map_["BitwiseXor"] = {18};
 op_dialect_version_map_["BlackmanWindow"] = {17};
 op_dialect_version_map_["Cast"] = {19};
-op_dialect_version_map_["CastLike"] = {15};
+op_dialect_version_map_["CastLike"] = {19};
 op_dialect_version_map_["CastMap"] = {1};
 op_dialect_version_map_["CategoryMapper"] = {1};
 op_dialect_version_map_["Ceil"] = {13};
@@ -48,6 +48,7 @@ op_dialect_version_map_["Cos"] = {7};
 op_dialect_version_map_["Cosh"] = {9};
 op_dialect_version_map_["Col2Im"] = {18};
 op_dialect_version_map_["CumSum"] = {14};
+op_dialect_version_map_["DeformConv"] = {19};
 op_dialect_version_map_["DepthToSpace"] = {13};
 op_dialect_version_map_["DequantizeLinear"] = {19};
 op_dialect_version_map_["Det"] = {11};
@@ -132,11 +133,11 @@ op_dialect_version_map_["OptionalGetElement"] = {18};
 op_dialect_version_map_["OptionalHasElement"] = {18};
 op_dialect_version_map_["Or"] = {7};
 op_dialect_version_map_["PRelu"] = {16};
-op_dialect_version_map_["Pad"] = {18, 13, 11, 2};
+op_dialect_version_map_["Pad"] = {19, 13, 11, 2};
 op_dialect_version_map_["Pow"] = {15};
 op_dialect_version_map_["QLinearConv"] = {10};
 op_dialect_version_map_["QLinearMatMul"] = {10};
-op_dialect_version_map_["QuantizeLinear"] = {13};
+op_dialect_version_map_["QuantizeLinear"] = {19};
 op_dialect_version_map_["RNN"] = {14};
 op_dialect_version_map_["RandomNormal"] = {1};
 op_dialect_version_map_["RandomNormalLike"] = {1};
@@ -296,6 +297,8 @@ import_handler_map_["CumSum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCumSumOp>;
 import_handler_map_["DFT"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDFTOp>;
+import_handler_map_["DeformConv"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDeformConvOp>;
 import_handler_map_["DepthToSpace"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDepthToSpaceOp>;
 import_handler_map_["DequantizeLinear"] = 

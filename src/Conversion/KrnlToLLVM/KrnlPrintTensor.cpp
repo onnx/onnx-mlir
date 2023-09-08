@@ -39,8 +39,8 @@ public:
     Location loc = printTensorOp.getLoc();
     KrnlPrintTensorOpAdaptor operandAdaptor(operands);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *typeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const LLVMTypeConverter *typeConverter =
+        static_cast<const LLVMTypeConverter *>(getTypeConverter());
 
     StringRef msg = printTensorOp.getMsg();
     Value input = operandAdaptor.getInput();

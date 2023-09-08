@@ -22,7 +22,7 @@ namespace onnx_mlir {
 template <typename OP_TYPE, typename OP_ADAPTOR>
 LogicalResult ONNXUnsqueezeOpLoweringCommon(OP_TYPE unsqueezeOp,
     OP_ADAPTOR adaptor, ConversionPatternRewriter &rewriter,
-    TypeConverter *typeConverter) {
+    const TypeConverter *typeConverter) {
   Operation *op = unsqueezeOp.getOperation();
   Location loc = ONNXLoc<OP_TYPE>(op);
   ValueRange operands = adaptor.getOperands();

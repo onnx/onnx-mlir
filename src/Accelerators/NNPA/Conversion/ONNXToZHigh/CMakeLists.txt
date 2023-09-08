@@ -1,4 +1,5 @@
 add_onnx_mlir_rewriter(ONNXToZHigh)
+add_onnx_mlir_rewriter(ZHighToONNX)
 
 add_onnx_mlir_library(OMONNXToZHigh
   ONNXLegalityCheck.cpp
@@ -34,6 +35,21 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   OMONNXToKrnl
   OMZHighOps
   MLIRAsyncDialect
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )
+
+add_onnx_mlir_library(OMZHighToONNX
+  ZHighToONNX.cpp
+
+  DEPENDS
+  OMONNXZHighToONNXIncGen
+  libzdnn
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMZHighOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}

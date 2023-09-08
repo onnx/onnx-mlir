@@ -21,7 +21,7 @@ namespace onnx_mlir {
 
 template <typename OP_TYPE, typename OP_ADAPTOR>
 LogicalResult ONNXSplitOpLoweringCommon(OP_TYPE splitOp, OP_ADAPTOR adaptor,
-    ConversionPatternRewriter &rewriter, TypeConverter *typeConverter) {
+    ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter) {
   // Gather info.
   Operation *op = splitOp.getOperation();
   Location loc = ONNXLoc<OP_TYPE>(op);
