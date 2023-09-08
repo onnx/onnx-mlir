@@ -18,7 +18,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
-#define DEBUG_FORCE_SHUFFLE_REDUCTION 1
+#define DEBUG_FORCE_SHUFFLE_REDUCTION 0
 
 using namespace mlir;
 
@@ -483,6 +483,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
     int64_t VL = 0;
+    int64_t estimatedSimdLoopTripCount;
 
     // With dynamic axes, use this
     Value maskVal = nullptr;
@@ -544,7 +545,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           LLVM_DEBUG(llvm::dbgs()
                      << "  SIMD: study with init unroll " << unroll << "\n");
           VL = create.vec.SuitableUnrollFactor(vms, memRefInType, inputDims,
-              innermostLoopCollapse, unroll, /*canPad*/ false);
+              innermostLoopCollapse, unroll, /*canPad*/ false,
+              estimatedSimdLoopTripCount);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, VL " << VL << "\n");
           if (!VL) {
@@ -687,15 +689,23 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         genHorizontalSimdReduction(rewriter, create, op, elementOutType, input,
             alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
             divisorForMean, enableParallel);
+        onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+            estimatedSimdLoopTripCount, "horizontal");
       } else {
         genShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
             input, alloc, inRank, outRank, VL, innermostLoopCollapse,
             isKeepdims, divisorForMean, enableParallel);
+        onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+            estimatedSimdLoopTripCount, "shuffle-horizontal");
       }
     } else {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
           inRank, outRank, dynamicAxes, maskVal, outInDimMap, divisorForMean,
           enableParallel);
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+          estimatedSimdLoopTripCount,
+          (parallelSimd ? "no simd because no supported for parallel scheme"
+                        : "unsupported"));
     }
     rewriter.replaceOp(op, alloc);
     return success();
@@ -735,7 +745,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnlIE.getShapeAsSymbols(input, ubs2);
     Value trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
     // TODO Temporary disable the 2nd loop parallelism, since its outermost
-    // loop coule be a reduction loop, where parallelism would not be safe.
+    // loop could be a reduction loop, where parallelism would not be safe.
     // if (enableParallel) {
     //   create.krnl.parallel(loop2Def[0]);
     //   LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");

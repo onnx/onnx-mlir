@@ -67,7 +67,7 @@ std::optional<mlir::Value> convertReduceOpCommon(
     int64_t axisVal = axesElems.getValues<mlir::IntegerAttr>()[i].getInt();
     if (axisVal < 0)
       axisVal += inputRank;
-    auto axisAttr = rewriter.getI64IntegerAttr(axisVal);
+    auto axisAttr = rewriter.getI32IntegerAttr(axisVal);
 
     shapeVec[axisVal] = 1;
     mlir::RankedTensorType reduceType =

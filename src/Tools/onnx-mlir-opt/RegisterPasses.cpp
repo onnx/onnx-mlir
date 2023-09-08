@@ -75,18 +75,6 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createKrnlEnableMemoryPoolPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createKrnlBundleMemoryPoolsPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createKrnlOptimizeMemoryPoolsPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertKrnlToAffinePass();
   });
 

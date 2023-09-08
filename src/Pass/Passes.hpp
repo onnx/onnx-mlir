@@ -17,6 +17,8 @@
 #include <memory>
 #include <string>
 
+#include "llvm/ADT/ArrayRef.h"
+
 namespace mlir {
 class MLIRContext;
 class Pass;
@@ -42,7 +44,8 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
-void configureConstPropONNXToONNXPass(int expansionBound);
+void configureConstPropONNXToONNXPass(
+    int expansionBound, llvm::ArrayRef<std::string> disabledPatterns = {});
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
@@ -75,6 +78,8 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
     bool enableTiling, bool enableSIMD, bool enableParallel);
+void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
+    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled);
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
 /// Add pass for lowering to Mhlo IR.
@@ -93,15 +98,6 @@ std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 namespace krnl {
 /// Pass for lowering frontend dialects to Krnl IR dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToAffinePass();
-
-/// Pass for enabling a memory pool for MemRefs.
-std::unique_ptr<mlir::Pass> createKrnlEnableMemoryPoolPass();
-
-/// Pass for enabling a memory pool for MemRefs.
-std::unique_ptr<mlir::Pass> createKrnlBundleMemoryPoolsPass();
-
-/// Pass for optimizing memory pools.
-std::unique_ptr<mlir::Pass> createKrnlOptimizeMemoryPoolsPass();
 
 /// Pass for lowering Seq in Krnl dialect.
 std::unique_ptr<mlir::Pass> createConvertSeqToMemrefPass();

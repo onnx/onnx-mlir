@@ -261,4 +261,10 @@ bool areDimsFromConcat(mlir::Value val);
 /// Get all dimensions that are stored by the value.
 void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
 
+//===----------------------------------------------------------------------===//
+// Support for location.
+//===----------------------------------------------------------------------===//
+
+std::string getNodeNameInPresenceOfOpt(mlir::Operation *op);
+
 } // namespace onnx_mlir

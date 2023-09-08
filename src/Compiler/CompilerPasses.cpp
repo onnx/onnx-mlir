@@ -34,6 +34,7 @@
 #include "src/Compiler/CompilerPasses.hpp"
 #include "src/Compiler/DisposableGarbageCollector.hpp"
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
+#include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -42,7 +43,12 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void configurePasses() {
-  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound);
+  // Set global vector machine support.
+  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
+  configureConstPropONNXToONNXPass(
+      onnxConstPropExpansionBound, onnxConstPropDisablePatterns);
+  configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
+      enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
@@ -98,6 +104,18 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
+  // One more call to ONNX shape inference/canonicalization/... to update shape
+  // if possible.
+  if (enableONNXHybridPass) {
+    // For starters only illustrating the new hybrid pass by replacing 3 passes
+    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+  } else {
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
+
   // Replace ONNXReturnOp with func::ReturnOp.
   pm.addPass(onnx_mlir::createStandardFuncReturnPass());
 
@@ -109,7 +127,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Add instrumentation for Onnx Ops
   // Keep this pass at the end of this function.
-  unsigned instrumentActions = instrumentControlBits.getBits();
+  unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
@@ -120,7 +138,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
-  if (maccel.empty() && instrumentStage == Onnx)
+  if (instrumentStage == onnx_mlir::InstrumentStages::Onnx)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 }
@@ -197,12 +215,6 @@ void addKrnlToLLVMPasses(
   // https://mlir.llvm.org/docs/BufferDeallocationInternals.
   pm.addNestedPass<func::FuncOp>(
       mlir::bufferization::createBufferDeallocationPass());
-  if (enableMemoryBundling) {
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlEnableMemoryPoolPass());
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlBundleMemoryPoolsPass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(krnl::createKrnlOptimizeMemoryPoolsPass());
-  }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this

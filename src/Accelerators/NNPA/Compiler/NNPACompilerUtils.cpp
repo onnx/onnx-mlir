@@ -57,7 +57,7 @@ void addONNXToZHighPasses(
   }
 
   // Profiling ZHighIR.
-  unsigned instrumentActions = instrumentControlBits.getBits();
+  unsigned instrumentActions = instrumentControlBits;
   if (profileIR == onnx_mlir::ProfileIRs::ZHigh) {
     instrumentStage = onnx_mlir::InstrumentStages::ZHigh;
     instrumentOps = "onnx.*,zhigh.*";
@@ -86,6 +86,7 @@ void addONNXToZHighPasses(
       onnx_mlir::zhigh::createZHighLayoutPropagationPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   pm.addPass(mlir::createCanonicalizerPass());
+
   // Clip zhigh.Stick inputs if required. This is to avoid out-of-range of
   // dlfloat. Do constant propagation after clipping to remove ONNX ops used for
   // clipping such as ONNXMax if applicable.
@@ -94,6 +95,14 @@ void addONNXToZHighPasses(
         onnx_mlir::zhigh::createZHighClipToDLFloatPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   }
+
+  // After all optimizations, if there are still light-weight ops (e.g. add,
+  // sub, ...) that are of `stick -> light-weight op -> unstick`, it's better to
+  // use CPU instead of NNPA to avoid stick/unstick. CPU is efficient to handle
+  // these ops, e.g vectorize the computation.
+  if (nnpaEnableZHighToOnnx)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
+
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
   bool isBE = llvm::support::endian::system_endianness() ==
@@ -101,6 +110,17 @@ void addONNXToZHighPasses(
   if (isBE)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
+  // One more call to ONNX shape inference/canonicalization/... to update shape
+  // if possible.
+  if (enableONNXHybridPass) {
+    // For starters only illustrating the new hybrid pass by replacing 3 passes
+    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+  } else {
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 
@@ -180,7 +200,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       // for zlow ops
       if (instrumentStage == onnx_mlir::InstrumentStages::ZLow)
         pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentPass(
-            instrumentOps, instrumentControlBits.getBits()));
+            instrumentOps, instrumentControlBits));
     }
   }
 

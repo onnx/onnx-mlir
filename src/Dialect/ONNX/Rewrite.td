@@ -26,6 +26,7 @@ include "src/Dialect/ONNX/ONNX.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -135,6 +136,10 @@ class HaveSameDim<int dim>: Constraint<
         "($0.getType().cast<RankedTensorType>().getShape()[" # dim # "] =="
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
+
+def HaveSameStaticShape: Constraint<
+  CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
+  "Two tensors have the same static shape">;
 
 // Create a unit constant that will be used as none input.
 def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
@@ -574,13 +579,21 @@ def FuseReshapePattern:  Pat<
   // Remove the first reshape op.
   (ONNXReshapeOp $v, $s2, $az2)>;
 
-def RemoveIdentityReshapePattern:  Pat<
+def RemoveIdentityReshapePattern1:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
   (ONNXReshapeOp $val, $shape, $az),
-  // Remove the transpose.
+  // Remove the reshape.
   (replaceWithValue $val),
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
+
+def RemoveIdentityReshapePattern2:  Pat<
+  // Remove an identity pattern. Output and input shapes are static and the same. 
+  (ONNXReshapeOp:$out $val, $_, $_),
+  // Remove the reshape.
+  (replaceWithValue $val),
+  // Check that val and out have the same static shape.
+  [(HaveSameStaticShape $out, $val)]>;
 
 def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
@@ -750,7 +763,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
            (subtractOrNeg $res, $b, $mean))),
 
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-     [], (addBenefit 1)
+     [], [], (addBenefit 1)
 >;
 
 //===----------------------------------------------------------------------===//
@@ -789,7 +802,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
      (ONNXUnsqueezeV11Op
        (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
        (createArrayAttrOfOneToRankOfExclusive $x))),
-  [(HasRankGT<2> $x)], (addBenefit 0)
+  [(HasRankGT<2> $x)], [], (addBenefit 0)
 >;
 
 // Special case of BatchNorm whose input shape is [N]. In this case, 'scale',
@@ -812,7 +825,7 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
                     (createDenseElementsAttrFromFloatAttr $res, $epsilon)))))),
      // b
      (ONNXSubOp $bias, (ONNXMulOp $mean, $a))),
-  [(HasRankOf<1> $x)], (addBenefit 0)
+  [(HasRankOf<1> $x)], [], (addBenefit 0)
 >;
 
 //===----------------------------------------------------------------------===//

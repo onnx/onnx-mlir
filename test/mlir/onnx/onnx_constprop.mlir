@@ -103,8 +103,9 @@ func.func @test_add_constant_4(%arg0 : tensor<3xi32>) -> tensor<3xi32> {
   %1 = onnx.Constant dense<[10, 11, 12]> : tensor<3xi32>
   %2 = "onnx.Add"(%0, %arg0) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
   %3 = "onnx.Add"(%1, %2) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
-  %4 = "onnx.Add"(%2, %3) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
-  "onnx.Return"(%4) : (tensor<3xi32>) -> ()
+  %4 = "onnx.Add"(%0, %arg0) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
+  %5 = "onnx.Add"(%3, %4) : (tensor<3xi32> , tensor<3xi32>) -> tensor<3xi32>
+  "onnx.Return"(%5) : (tensor<3xi32>) -> ()
 // CHECK-LABEL: @test_add_constant_4(%arg0: tensor<3xi32>) -> tensor<3xi32> 
   // CHECK-DAG: [[CONST1:%.+]] = onnx.Constant dense<[10, 13, 16]> : tensor<3xi32>
   // CHECK-DAG: [[ADD1:%.+]] = "onnx.Add"(%arg0, %arg0) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
@@ -128,6 +129,24 @@ func.func @test_add_constant_5(%arg0 : tensor<3xi32>, %arg1: tensor<3xi32>, %arg
   // CHECK-NEXT: [[ADD1:%.+]] = "onnx.Add"(%arg0, %arg1) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
   // CHECK-NEXT: [[ADD2:%.+]] = "onnx.Add"([[ADD1]], %arg2) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
   // CHECK-NEXT: [[ADD3:%.+]] = "onnx.Add"([[ADD2]], [[CONST1]]) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
+}
+
+// -----
+
+func.func @test_add_const_associative2_2uses(%x: tensor<i32>, %y: tensor<i32>, %z: tensor<i32>) -> (tensor<i32>, tensor<i32>) {
+  %c = onnx.Constant dense<1> : tensor<i32>
+  %1 = "onnx.Add"(%x, %c) : (tensor<i32> , tensor<i32>) -> tensor<i32>
+  %2 = "onnx.Add"(%1, %y) : (tensor<i32> , tensor<i32>) -> tensor<i32>
+  %3 = "onnx.Add"(%1, %z) : (tensor<i32> , tensor<i32>) -> tensor<i32>
+  onnx.Return %2, %3 : tensor<i32>, tensor<i32>
+// CHECK-LABEL:  func.func @test_add_const_associative2_2uses
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i32>, [[PARAM_1_:%.+]]: tensor<i32>, [[PARAM_2_:%.+]]: tensor<i32>) -> (tensor<i32>, tensor<i32>) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_1_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Add"([[VAR_1_]], [[PARAM_2_]]) : (tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:           onnx.Return [[VAR_2_]], [[VAR_3_]] : tensor<i32>, tensor<i32>
+// CHECK:         }
 }
 
 // -----
@@ -1215,44 +1234,6 @@ func.func @test_split_axis_2(%arg0 : tensor<2x10xf32>) -> (tensor<2x5xf32>, tens
 
 // -----
 
-// CHECK-LABEL: @test_splitv11_axis_0() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-func.func @test_splitv11_axis_0() -> (tensor<1x10xf32>, tensor<1x10xf32>) {
-  %0 = onnx.Constant dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>
-  %1, %2 = "onnx.SplitV11"(%0) { axis = 0 : si64, split = [1, 1]} : (tensor<2x10xf32>) -> (tensor<1x10xf32>, tensor<1x10xf32>)
-  "onnx.Return"(%1, %2) : (tensor<1x10xf32>, tensor<1x10xf32>) -> ()
-
-  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[0.000000e+00, 1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00, 5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00]]> : tensor<1x10xf32>
-  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[1.000000e+01, 1.100000e+01, 1.200000e+01, 1.300000e+01, 1.400000e+01, 1.500000e+01, 1.600000e+01, 1.700000e+01, 1.800000e+01, 1.900000e+01]]> : tensor<1x10xf32>
-  // CHECK-NOT: {{.*}} = "onnx.SplitV11"{{.*}}
-}
-
-// -----
-
-// CHECK-LABEL: @test_splitv11_axis_1() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-func.func @test_splitv11_axis_1() -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-  %0 = onnx.Constant dense<[[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0]]> : tensor<2x10xf32>
-  %1, %2 = "onnx.SplitV11"(%0) { axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
-  "onnx.Return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
-
-  // CHECK: {{.*}} = onnx.Constant dense<{{\[}}[0.000000e+00, 1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00], [1.000000e+01, 1.100000e+01, 1.200000e+01, 1.300000e+01, 1.400000e+01]]> : tensor<2x5xf32>
-  // CHECK: {{.*}}  = onnx.Constant dense<{{\[}}[5.000000e+00, 6.000000e+00, 7.000000e+00, 8.000000e+00, 9.000000e+00], [1.500000e+01, 1.600000e+01, 1.700000e+01, 1.800000e+01, 1.900000e+01]]> : tensor<2x5xf32>
-  // CHECK-NOT: {{.*}} = "onnx.SplitV11"{{.*}}
-}
-
-// -----
-
-// COM: There is no constant propagation if the split's input is not a constant.
-
-// CHECK-LABEL: @test_splitv11_axis_2(%arg0: tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-func.func @test_splitv11_axis_2(%arg0 : tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>) {
-  %1, %2 = "onnx.SplitV11"(%arg0) { axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
-  "onnx.Return"(%1, %2) : (tensor<2x5xf32>, tensor<2x5xf32>) -> ()
-
-  // CHECK: {{.*}} = "onnx.SplitV11"(%arg0) {axis = 1 : si64, split = [5, 5]} : (tensor<2x10xf32>) -> (tensor<2x5xf32>, tensor<2x5xf32>)
-}
-
-// -----
-
 func.func @test_mul_folding(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
   %0 = onnx.Constant dense<[[[[0.0234164055, 0.0228030644], [2.442580e-02, 0.0237577036]]], [[[-0.0410864502, 0.0488203131], [0.164448678, -0.0200194642]]], [[[-4.34581793E-9, 0.025325032], [0.0373019315, 0.165243402]]], [[[-0.0198689923, 0.131284416], [0.0572107285, 2.33985098E-8]]], [[[0.0187684372, -0.148515195], [0.0154875498, 0.019133633]]], [[[0.0176953916, -0.0154658081], [0.0233727545, -0.274110436]]], [[[-0.021181887, 0.0936150252], [0.135688141, -0.0202601217]]], [[[-0.0201558527, 0.0192655921], [0.227748245, -0.196346223]]]]> : tensor<8x1x2x2xf32>
   %1 = "onnx.NoValue"() {value} : () -> none
@@ -1677,6 +1658,21 @@ func.func @test_gather_negative_index() -> tensor<*xf32>{
   // CHECK-SAME:   () -> tensor<3x1x2xf32> {
   // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[1.000000e+00, 1.900000e+00]{{.}}, {{.}}[2.300000e+00, 3.900000e+00]{{.}}, {{.}}[4.500000e+00, 5.900000e+00]{{.}}{{.}}> : tensor<3x1x2xf32>
   // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x1x2xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func.func @test_gather_rank0_int32_indices() -> tensor<*xf32>{
+  %0 = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %1 = onnx.Constant dense<1> : tensor<i32>
+  %2 = "onnx.Gather"(%0, %1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<i32>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_gather_rank0_int32_indices
+  // CHECK-SAME:   () -> tensor<2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2.300000e+00, 3.400000e+00]> : tensor<2xf32>
+  // CHECK:           onnx.Return [[VAR_0_]] : tensor<2xf32>
   // CHECK:         }
 }
 

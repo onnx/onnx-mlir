@@ -60,7 +60,7 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
 RuntimeAPIRegistry::~RuntimeAPIRegistry() {}
 
 RuntimeAPIRegistry::RuntimeAPIRegistry(
-    ModuleOp &module, OpBuilder &builder, LLVMTypeConverter &typeConvert)
+    ModuleOp &module, OpBuilder &builder, const LLVMTypeConverter &typeConvert)
     : registry() {
   MLIRContext *context = module.getContext();
   auto voidTy = LLVM::LLVMVoidType::get(context);

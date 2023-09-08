@@ -21,6 +21,7 @@
 
 #include "onnx/onnx_pb.h"
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -189,7 +190,8 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
 }
 
 LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
-    OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
+    OpBuilder &builder, ModuleOp module,
+    const LLVMTypeConverter *typeConverter) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
   LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(
@@ -222,7 +224,8 @@ Value getPtrToGlobalString(
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
-    ModuleOp module, OpBuilder &builder, LLVMTypeConverter &typeConverter) {
+    ModuleOp module, OpBuilder &builder,
+    const LLVMTypeConverter &typeConverter) {
   if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
     global.setAlignmentAttr(alignmentAttr);
   else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
