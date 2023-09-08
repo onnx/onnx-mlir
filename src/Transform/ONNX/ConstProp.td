@@ -84,6 +84,12 @@ def IsConstOfOnes : Constraint<
   CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
   "Value is an all-ones constant tensor">;
 
+// Check the rank of a value is greater than a given integer.
+class HasRankGT<int rank> :
+  Constraint<CPred<"$0.getType().isa<ShapedType>() && "
+                   "$0.getType().cast<ShapedType>().hasRank() && "
+                   "$0.getType().cast<ShapedType>().getRank() > " # rank>>;
+
 def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
   "Values have same type">;
@@ -853,7 +859,8 @@ def GatherofConst : NamedPat<"GatherofConst",
                          $_),
     // To c' where c' is the gathered value.
     (CreateGatherOfConst $resOp, $input, $indices),
-    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$indices)]>;
+    [(IsFromDenseONNXConstantOp:$input), (IsFromDenseONNXConstantOp:$indices),
+     (HasRankGT<0> $indices)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns to enable opportunities with Reshape operations.
