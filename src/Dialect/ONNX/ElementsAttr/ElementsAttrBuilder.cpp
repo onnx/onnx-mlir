@@ -629,7 +629,10 @@ ElementsAttr ElementsAttrBuilder::gather(
   ArrayRef<int64_t> inputShape = inputType.getShape();
   assert(axis < inputShape.size() && "gather axis out of range");
   auto postAxisShape = inputShape.drop_front(axis + 1);
-  ArrayRef<int64_t> indicesShape = indices.getShapedType().getShape();
+  ShapedType indicesType = indices.getShapedType();
+  assert(indicesType.getElementType().isSignlessInteger() &&
+         "gather indices must be i32 or i64");
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
   SmallVector<int64_t> outShape(inputShape.take_front(axis));
   outShape.append(indicesShape.begin(), indicesShape.end());
   outShape.append(postAxisShape.begin(), postAxisShape.end());
@@ -637,13 +640,16 @@ ElementsAttr ElementsAttrBuilder::gather(
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
     size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
     ArrayBuffer<WideNum> src = getElementsWideNums(input);
-    ArrayBuffer<int64_t> indicesArray = getElementsArray<int64_t>(indices);
+    //
+    ArrayBuffer<WideNum> indicesWideNums = getElementsWideNums(indices);
+    ArrayRef<int64_t> indicesArray =
+        castArrayRef<int64_t, WideNum>(indicesWideNums.get());
     size_t axisInputSize = inputShape[axis];
     size_t inputBlockLen = axisInputSize * postAxisNumElements;
-    size_t outBlockLen = indicesArray.get().size() * postAxisNumElements;
+    size_t outBlockLen = indicesArray.size() * postAxisNumElements;
     size_t start = 0;
     WideNum *out = dst.begin();
-    for (int64_t idx : indicesArray.get()) {
+    for (int64_t idx : indicesArray) {
       int64_t adjustedIdx = idx < 0 ? idx + axisInputSize : idx;
       const WideNum *in = src.get().begin() + adjustedIdx * postAxisNumElements;
       for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
