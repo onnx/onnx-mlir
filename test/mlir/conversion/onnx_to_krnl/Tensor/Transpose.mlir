@@ -1,65 +1,64 @@
-module {
-  func.func private @test_transpose(%arg0: memref<10x20x30x40xf32>) -> memref<10x20x30x40xf32> {
-    %c40 = arith.constant 40 : index
-    %c30 = arith.constant 30 : index
-    %c20 = arith.constant 20 : index
-    %c10 = arith.constant 10 : index
-    %alloc = memref.alloc() {alignment = 16 : i64} : memref<40x30x20x10xf32>
-    %0:4 = krnl.define_loops 4
-    %c0 = arith.constant 0 : index
-    %c10_0 = arith.constant 10 : index
-    %c20_1 = arith.constant 20 : index
-    %c30_2 = arith.constant 30 : index
-    %c40_3 = arith.constant 40 : index
-    krnl.iterate(%0#0, %0#1, %0#2, %0#3) with (%0#0 -> %arg1 = 0 to 10, %0#1 -> %arg2 = 0 to 20, %0#2 -> %arg3 = 0 to 30, %0#3 -> %arg4 = 0 to 40){
-      %2:4 = krnl.get_induction_var_value(%0#0, %0#1, %0#2, %0#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-      %3 = krnl.load %arg0[%2#0, %2#1, %2#2, %2#3] : memref<10x20x30x40xf32>
-      krnl.store %3, %alloc[%2#3, %2#2, %2#1, %2#0] : memref<40x30x20x10xf32>
-    }
-    %c10_4 = arith.constant 10 : index
-    %c20_5 = arith.constant 20 : index
-    %c30_6 = arith.constant 30 : index
-    %c40_7 = arith.constant 40 : index
-    %alloc_8 = memref.alloc() {alignment = 16 : i64} : memref<10x20x30x40xf32>
-    %1:4 = krnl.define_loops 4
-    %c0_9 = arith.constant 0 : index
-    %c40_10 = arith.constant 40 : index
-    %c30_11 = arith.constant 30 : index
-    %c20_12 = arith.constant 20 : index
-    %c10_13 = arith.constant 10 : index
-    krnl.iterate(%1#0, %1#1, %1#2, %1#3) with (%1#0 -> %arg1 = 0 to 40, %1#1 -> %arg2 = 0 to 30, %1#2 -> %arg3 = 0 to 20, %1#3 -> %arg4 = 0 to 10){
-      %2:4 = krnl.get_induction_var_value(%1#0, %1#1, %1#2, %1#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-      %3 = krnl.load %alloc[%2#0, %2#1, %2#2, %2#3] : memref<40x30x20x10xf32>
-      krnl.store %3, %alloc_8[%2#3, %2#2, %2#1, %2#0] : memref<10x20x30x40xf32>
-    }
-    return %alloc_8 : memref<10x20x30x40xf32>
-  }
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+
+func.func private @test_transpose(%arg0 : tensor<10x20x30x40xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) : (tensor<10x20x30x40xf32>) -> tensor<*xf32>
+  %1 = "onnx.Transpose"(%0) {perm = [0, 3, 1, 2]} : (tensor<*xf32>) -> tensor<*xf32>
+  "func.return"(%1) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_transpose
+  // CHECK:       [[RES1:%.+]] = memref.alloc() {{.*}}: memref<40x30x20x10xf32>
+  // CHECK:       [[DEF_LOOPS:%.+]]:4 = krnl.define_loops 4
+  // CHECK:       krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2, [[DEF_LOOPS]]#3) with ([[DEF_LOOPS]]#0 -> %arg1 = 0 to 10,
+  // CHECK-SAME:               [[DEF_LOOPS]]#1 -> %arg2 = 0 to 20, [[DEF_LOOPS]]#2 -> %arg3 = 0 to 30, [[DEF_LOOPS]]#3 -> %arg4 = 0 to 40){
+  // CHECK-NEXT:  [[IV:%.+]]:4 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1, [[DEF_LOOPS]]#2, [[DEF_LOOPS]]#3) :
+  // CHECK-SAME:     (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+  // CHECK:       [[LOAD:%.+]] = krnl.load %arg0{{.}}[[IV]]#0, [[IV]]#1, [[IV]]#2, [[IV]]#3{{.}} : memref<10x20x30x40xf32>
+  // CHECK:       krnl.store [[LOAD]], [[RES1]]{{.}}[[IV]]#3, [[IV]]#2, [[IV]]#1, [[IV]]#0{{.}} : memref<40x30x20x10xf32>
+  // CHECK:       [[RES0:%.+]] = memref.alloc() {{.*}}: memref<40x10x30x20xf32>
+  // CHECK:       [[DEF_LOOPS1:%.+]]:4 = krnl.define_loops 4
+  // CHECK:       krnl.iterate([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1, [[DEF_LOOPS1]]#2, [[DEF_LOOPS1]]#3) with ([[DEF_LOOPS1]]#0 -> %arg1 = 0 to 40,
+  // CHECK-SAME:               [[DEF_LOOPS1]]#1 -> %arg2 = 0 to 30, [[DEF_LOOPS1]]#2 -> %arg3 = 0 to 20, [[DEF_LOOPS1]]#3 -> %arg4 = 0 to 10){
+  // CHECK-NEXT:  [[IV1:%.+]]:4 = krnl.get_induction_var_value([[DEF_LOOPS1]]#0, [[DEF_LOOPS1]]#1, [[DEF_LOOPS1]]#2, [[DEF_LOOPS1]]#3) :
+  // CHECK-SAME:     (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+  // CHECK:       [[LOAD:%.+]] = krnl.load [[RES1]]{{.}}[[IV1]]#0, [[IV1]]#1, [[IV1]]#2, [[IV1]]#3{{.}} : memref<40x30x20x10xf32>
+  // CHECK:       krnl.store [[LOAD]], [[RES0]]{{.}}[[IV1]]#0, [[IV1]]#3, [[IV1]]#1, [[IV1]]#2{{.}} : memref<40x10x30x20xf32>
+  // CHECK:       return [[RES0]] : memref<40x10x30x20xf32>
 }
 
-
 // -----
-#map = affine_map<(d0) -> (d0)>
-module {
-  func.func private @test_transpose_dynamic_dims(%arg0: memref<10x?x30x40xf32>) -> memref<40x30x?x10xf32> {
-    %c40 = arith.constant 40 : index
-    %c30 = arith.constant 30 : index
-    %c1 = arith.constant 1 : index
-    %dim = memref.dim %arg0, %c1 : memref<10x?x30x40xf32>
-    %c10 = arith.constant 10 : index
-    %alloc = memref.alloc(%dim) {alignment = 16 : i64} : memref<40x30x?x10xf32>
-    %0:4 = krnl.define_loops 4
-    %c0 = arith.constant 0 : index
-    %c10_0 = arith.constant 10 : index
-    %c1_1 = arith.constant 1 : index
-    %dim_2 = memref.dim %arg0, %c1_1 : memref<10x?x30x40xf32>
-    %c30_3 = arith.constant 30 : index
-    %c40_4 = arith.constant 40 : index
-    krnl.iterate(%0#0, %0#1, %0#2, %0#3) with (%0#0 -> %arg1 = 0 to 10, %0#1 -> %arg2 = 0 to #map(%dim_2), %0#2 -> %arg3 = 0 to 30, %0#3 -> %arg4 = 0 to 40){
-      %1:4 = krnl.get_induction_var_value(%0#0, %0#1, %0#2, %0#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-      %2 = krnl.load %arg0[%1#0, %1#1, %1#2, %1#3] : memref<10x?x30x40xf32>
-      krnl.store %2, %alloc[%1#3, %1#2, %1#1, %1#0] : memref<40x30x?x10xf32>
-    }
-    return %alloc : memref<40x30x?x10xf32>
-  }
+
+// COM: Test whether the lowering is correct in the presence of dynamic dimensions.
+
+func.func private @test_transpose_dynamic_dims(%arg0 : tensor<10x?x30x40xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Transpose"(%arg0) {perm = [0, 3, 1, 2]} : (tensor<10x?x30x40xf32>) -> tensor<*xf32>
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-LABEL:  func.func private @test_transpose_dynamic_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<10x?x30x40xf32>) -> memref<40x30x?x10xf32> {
+// CHECK-DAG:       [[CST_40_:%.+]] = arith.constant 40 : index
+// CHECK-DAG:       [[CST_30_:%.+]] = arith.constant 30 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_]] : memref<10x?x30x40xf32>
+// CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<40x30x?x10xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_dim_2_:%.+]] = memref.dim [[PARAM_0_]], [[CST_1_1_]] : memref<10x?x30x40xf32>
+// CHECK-DAG:       [[CST_30_1_:%.+]] = arith.constant 30 : index
+// CHECK-DAG:       [[CST_40_1_:%.+]] = arith.constant 40 : index
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_2_]]), [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 30, [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to 40){
+// CHECK:             [[VAR_1_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<10x?x30x40xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_1_]]#3, [[VAR_1_]]#2, [[VAR_1_]]#1, [[VAR_1_]]#0] : memref<40x30x?x10xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<40x30x?x10xf32>
+// CHECK:         }
 }
 
