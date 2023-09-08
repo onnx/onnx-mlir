@@ -640,7 +640,9 @@ ElementsAttr ElementsAttrBuilder::gather(
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
     size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
     ArrayBuffer<WideNum> src = getElementsWideNums(input);
-    //
+    // Convert indices of any signed int element type to int64 by
+    // first promoting to WideNum and then casting to int64.
+    // In practice we support both int32 and int64 in this way.
     ArrayBuffer<WideNum> indicesWideNums = getElementsWideNums(indices);
     ArrayRef<int64_t> indicesArray =
         castArrayRef<int64_t, WideNum>(indicesWideNums.get());
