@@ -6967,8 +6967,10 @@ def ONNXResizeOp:ONNX_Op<"Resize",
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-  Each dimension value of the output tensor is: <br/>
-    `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+  Each dimension value of the output tensor is:
+  ```
+  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)
+  ```
   if input \\"sizes\\" is not specified.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X,
