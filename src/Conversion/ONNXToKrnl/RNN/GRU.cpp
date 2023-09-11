@@ -389,7 +389,8 @@ template <>
 void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
-    GruBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
+    GruBiasPack biasPack, Value sequenceIV, Value directionIV,
+    Value sequenceLens, Value initialH, bool isForward) {
   // Equations (Default: f=Sigmoid, g=Tanh):"
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
   // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
@@ -498,7 +499,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          createKrnl.store(nextHt, Ht, indices);
+          // Handle sequence_lens
+          nextHt = handleSequenceLens(createKrnl, createMath, sequenceLens,
+              initialH, nextHt, sequenceIV, directionIV, bs, hs, Ht);
+
           if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
@@ -602,7 +606,10 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          createKrnl.store(nextHt, Ht, indices);
+          // Handle sequence_lens
+          nextHt = handleSequenceLens(createKrnl, createMath, sequenceLens,
+              initialH, nextHt, sequenceIV, directionIV, bs, hs, Ht);
+
           if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
