@@ -62,6 +62,7 @@ add_onnx_mlir_library(OMOpTransform
   OMONNXOps
   MLIRPass
   OMONNXRewrite
+  OMONNXSimplifyShapeRelatedOps
   OMShapeInferencePass
   MLIRTransforms
   )

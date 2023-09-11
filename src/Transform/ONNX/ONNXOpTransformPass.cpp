@@ -88,6 +88,9 @@ void ONNXOpTransformPass::runOnOperation() {
     }
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
+    // Simplify shape-related ops.
+    dynamicPM.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
+    // Rewrite ONNX operators.
     dynamicPM.addPass(onnx_mlir::createRewriteONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
