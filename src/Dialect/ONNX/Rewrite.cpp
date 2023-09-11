@@ -340,38 +340,35 @@ public:
     // or vice versa.
     ONNXConstantOp constantOp;
     ONNXConstantOfShapeOp constantOfShapeOp;
-    auto matchValue = [&](Value v) {
+    auto matchValue = [&](Value v) -> ElementsAttr {
       if (definedBy<ONNXConstantOp>(v)) {
         int64_t rank = getRank(v.getType());
         ArrayRef<int64_t> shape = getShape(v.getType());
-        if (rank == 0 || (rank == 1 && shape[0] == 1))
-          constantOp = cast<ONNXConstantOp>(v.getDefiningOp());
+        if (rank == 0 || (rank == 1 && shape[0] == 1)) {
+          auto cOp = cast<ONNXConstantOp>(v.getDefiningOp());
+          if (cOp.getValue().has_value()) {
+            constantOp = cOp;
+            return dyn_cast_or_null<ElementsAttr>(cOp.getValue().value());
+          }
+        }
       } else if (definedBy<ONNXConstantOfShapeOp>(v)) {
         auto cosOp = cast<ONNXConstantOfShapeOp>(v.getDefiningOp());
-        if (cosOp.getValue().has_value())
+        if (cosOp.getValue().has_value()) {
           constantOfShapeOp = cosOp;
+          return dyn_cast_or_null<ElementsAttr>(cosOp.getValue().value());
+        }
       }
+      return nullptr;
     };
-    matchValue(lhs);
-    matchValue(rhs);
-    if (!constantOp || !constantOfShapeOp)
+    ElementsAttr lhsAttr = matchValue(lhs);
+    ElementsAttr rhsAttr = matchValue(rhs);
+    if (!lhsAttr || !rhsAttr || !constantOp || !constantOfShapeOp)
       return failure();
 
     // Rewrite
     // Get scalar values from ConstantOp and ConstantOfShape.
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    ElementsAttr lhsAttr, rhsAttr;
-    if (definedBy<ONNXConstantOp>(lhs))
-      lhsAttr = cast<ElementsAttr>(constantOp.getValue().value());
-    else
-      lhsAttr = cast<ElementsAttr>(constantOfShapeOp.getValue().value());
-    if (definedBy<ONNXConstantOp>(rhs))
-      rhsAttr = cast<ElementsAttr>(constantOp.getValue().value());
-    else
-      rhsAttr = cast<ElementsAttr>(constantOfShapeOp.getValue().value());
-
     DenseElementsAttr resAttr;
-    Type elementType = constantOp.getType().cast<ShapedType>().getElementType();
+    Type elementType = lhsAttr.getType().cast<ShapedType>().getElementType();
     if (isa<IntegerType>(elementType)) {
       int64_t lhs = getScalarValue<int64_t>(lhsAttr, elementType);
       int64_t rhs = getScalarValue<int64_t>(rhsAttr, elementType);
@@ -388,8 +385,9 @@ public:
     } else
       llvm_unreachable("Unexpected type.");
 
-    Value res = create.onnx.constantOfShape(
-        outputType, resAttr, constantOfShapeOp.getInput());
+    Value res =
+        OnnxBuilder(rewriter, loc)
+            .constantOfShape(outputType, resAttr, constantOfShapeOp.getInput());
 
     rewriter.replaceOp(op, {res});
     return success();
@@ -1039,8 +1037,7 @@ public:
     int64_t oldRank = oldDims.size();
     // Get unsqueeze axes.
     ElementsAttr axesAttrs = getElementAttributeFromONNXValue(axes);
-    SmallVector<int64_t, 4> axesI64;
-    getArrayFromElementsAttr<int64_t>(axesAttrs, axesI64);
+    SmallVector<int64_t> axesI64(axesAttrs.getValues<int64_t>());
     for (unsigned int i = 0; i < axesI64.size(); ++i)
       if (axesI64[i] < 0)
         axesI64[i] += oldRank;
