@@ -9,11 +9,10 @@ Releases are extensively tested, including the following steps.
 * Static code analysis (`cppchecker`) testing.
 * Updates each of the third_party software to the latest version that is compatible with the given release of the ONNX-MLIR code.
 
-# Current releases
+## Prerelease 0.4.1.1
 
-## Prerelease 0.4.2
-
-< current main branch >
+This prerelease was cut from commit on September 11th, 2023.
+There are no security issues that we know of.
 
 ## Prerelease 0.4.1
 
