@@ -1235,7 +1235,10 @@ private:
       }
 
       for (auto &name : functionProto.output()) {
-        outputs.push_back(LookupOnnxName(name));
+        // Skip optional outputs: they are not mapped.
+        if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(name)) {
+          outputs.push_back(*valuePtr);
+        }
       }
 
       frontend_symbols_.popScope(scopeName);
