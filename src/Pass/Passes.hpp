@@ -43,6 +43,9 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
+/// Pass for rewriting ONNX operators.
+std::unique_ptr<mlir::Pass> createRewriteONNXToONNXPass();
+
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(
     int expansionBound, llvm::ArrayRef<std::string> disabledPatterns = {});

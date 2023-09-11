@@ -633,7 +633,6 @@ public:
     Operation *function = getOperation();
 
     llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
-    ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<StickRemovalPattern>(&getContext());
     patterns.insert<UnstickRemovalPattern>(&getContext());
