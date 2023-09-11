@@ -88,6 +88,7 @@ void ONNXOpTransformPass::runOnOperation() {
     }
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
+    dynamicPM.addPass(onnx_mlir::createRewriteONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
     OperationFingerPrint after(module);

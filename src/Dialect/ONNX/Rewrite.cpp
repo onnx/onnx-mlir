@@ -34,31 +34,6 @@ using namespace onnx_mlir;
 // Rewrite pattern for elementwise binary ops.
 // =============================================================================
 
-template <typename OP, typename T>
-struct ElementWiseBinaryOpImpl {
-  static T eval(T lhs, T rhs) { llvm_unreachable("unsupported op or type"); }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXAddOp, T> {
-  static T eval(T lhs, T rhs) { return lhs + rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXDivOp, T> {
-  static T eval(T lhs, T rhs) { return lhs / rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXMulOp, T> {
-  static T eval(T lhs, T rhs) { return lhs * rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXSubOp, T> {
-  static T eval(T lhs, T rhs) { return lhs - rhs; }
-};
-
 // Rewrite the following pattern
 //
 // %0 = onnx.Constant

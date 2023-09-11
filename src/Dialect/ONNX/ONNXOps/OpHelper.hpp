@@ -272,4 +272,106 @@ void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
 
 std::string getNodeNameInPresenceOfOpt(mlir::Operation *op);
 
+//===----------------------------------------------------------------------===//
+// Support for binary operators.
+//===----------------------------------------------------------------------===//
+
+// Helper to restrict specialization to non-bool types.
+template <typename T>
+using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
+
+// Template to generate binary operation results. It takes as input the element
+// type as well as the two element attributes for the operation, and return the
+// result of the operation.
+
+template <typename OP, typename T, class Enable = void>
+struct ElementWiseBinaryOpImpl {
+  static T eval(T lhs, T rhs) { llvm_unreachable("unsupported op or type"); }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXAddOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs + rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXSubOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs - rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXMulOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs * rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXDivOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs / rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXMinOp, T> {
+  static T eval(T lhs, T rhs) { return std::min<T>(lhs, rhs); }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXMaxOp, T> {
+  static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXEqualOp, T> {
+  static bool eval(T lhs, T rhs) { return lhs == rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXLessOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs < rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXGreaterOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs > rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXLessOrEqualOp, T, EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs <= rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXGreaterOrEqualOp, T,
+    EnableNotBool<T>> {
+  static bool eval(T lhs, T rhs) { return lhs >= rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<mlir::ONNXSumOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs + rhs; }
+};
+
+//===----------------------------------------------------------------------===//
+// Support for unary operators.
+//===----------------------------------------------------------------------===//
+
+template <typename OP, typename T, class Enable = void>
+struct ElementWiseUnaryOpImpl {
+  static T eval(T val) { llvm_unreachable("unsupported op or type"); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<mlir::ONNXNegOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return -val; }
+};
+
+template <>
+struct ElementWiseUnaryOpImpl<mlir::ONNXSqrtOp, double> {
+  static double eval(double val) { return sqrt(val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<mlir::ONNXReluOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return (val < 0) ? 0 : val; }
+};
+
 } // namespace onnx_mlir

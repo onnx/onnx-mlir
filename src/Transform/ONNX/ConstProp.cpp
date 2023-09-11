@@ -105,10 +105,6 @@ Value createReplacingConstantOp(
   return OnnxBuilder(rewriter, replacingValue.getLoc()).constant(elements);
 }
 
-// Helper to restrict specialization to non-bool types.
-template <typename T>
-using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
-
 /// Checks whether a variadic value is produced by dense ONNXConstantOps.
 bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
   return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
@@ -163,75 +159,6 @@ ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for binary in presence of broadcast.
 //===----------------------------------------------------------------------===//
-
-// Template to generate binary operation results. It takes as input the element
-// type as well as the two element attributes for the operation, and return the
-// result of the operation.
-
-template <typename OP, typename T, class Enable = void>
-struct ElementWiseBinaryOpImpl {
-  static T eval(T lhs, T rhs) { llvm_unreachable("unsupported op or type"); }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXAddOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs + rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXSubOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs - rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXMulOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs * rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs / rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXMinOp, T> {
-  static T eval(T lhs, T rhs) { return std::min<T>(lhs, rhs); }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
-  static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXEqualOp, T> {
-  static bool eval(T lhs, T rhs) { return lhs == rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXLessOp, T, EnableNotBool<T>> {
-  static bool eval(T lhs, T rhs) { return lhs < rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXGreaterOp, T, EnableNotBool<T>> {
-  static bool eval(T lhs, T rhs) { return lhs > rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXLessOrEqualOp, T, EnableNotBool<T>> {
-  static bool eval(T lhs, T rhs) { return lhs <= rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXGreaterOrEqualOp, T, EnableNotBool<T>> {
-  static bool eval(T lhs, T rhs) { return lhs >= rhs; }
-};
-
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXSumOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs + rhs; }
-};
 
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
@@ -294,26 +221,6 @@ Value ConstPropVariadicElementwiseBinary(
 //===----------------------------------------------------------------------===//
 //// Code to perform constant propagation for unary operation.
 //===----------------------------------------------------------------------===//
-
-template <typename OP, typename T, class Enable = void>
-struct ElementWiseUnaryOpImpl {
-  static T eval(T val) { llvm_unreachable("unsupported op or type"); }
-};
-
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXNegOp, T, EnableNotBool<T>> {
-  static T eval(T val) { return -val; }
-};
-
-template <>
-struct ElementWiseUnaryOpImpl<ONNXSqrtOp, double> {
-  static double eval(double val) { return sqrt(val); }
-};
-
-template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
-  static T eval(T val) { return (val < 0) ? 0 : val; }
-};
 
 template <typename ElementwiseUnaryOp>
 auto elementwiseUnaryOpFunction(Type elemType) {

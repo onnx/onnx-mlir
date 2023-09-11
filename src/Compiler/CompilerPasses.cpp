@@ -76,6 +76,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
+  // Rewrite ONNX operators.
+  pm.addPass(onnx_mlir::createRewriteONNXToONNXPass());
   // Convolution Optimization for CPU: enable when there are no accelerators.
   if (targetCPU && enableConvOptPass) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
@@ -95,6 +97,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
+      pm.addPass(onnx_mlir::createRewriteONNXToONNXPass());
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
       pm.addNestedPass<func::FuncOp>(
           onnx_mlir::createConstPropONNXToONNXPass());
@@ -113,6 +116,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_mlir::createRewriteONNXToONNXPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
 
