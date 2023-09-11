@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===---- ONNXRewrite.td - Pattern Match Rewriting for ONNX --*- tablegen -===//
+//===-- Canonicalize.td - Pattern Match Rewriting for ONNX --*- tablegen --===//
 //
 // Copyright 2019 The IBM Research Authors.
 //
@@ -14,8 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_REWRITE
-#define ONNX_REWRITE
+#ifndef ONNX_CANONICALIZE
+#define ONNX_CANONICALIZE
 
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNX.td"
@@ -1011,4 +1011,4 @@ def ShapeTransformComposePattern : Pat<
   []
 >;
 
-#endif // ONNX_REWRITE
+#endif // ONNX_CANONICALIZE

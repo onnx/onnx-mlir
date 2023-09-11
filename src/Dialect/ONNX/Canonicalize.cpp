@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
+//===----------- Canonicalize.cpp - ONNX High Level Optimizer -------------===//
 //
 // Copyright 2019-2020 The IBM Research Authors.
 //
@@ -35,7 +35,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 // =============================================================================
-// Helper functions for Rewrite.td and Rewrite.cpp files.
+// Helper functions for Canonicalize.td and Canonicalize.cpp files.
 // =============================================================================
 
 // If 'A' is NoneType, return -B. Otherwise return A-B.
@@ -211,10 +211,10 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
 /// Include the patterns defined in the Declarative Rewrite framework.
 // =============================================================================
 
-#include "src/Dialect/ONNX/ONNXRewrite.inc"
+#include "src/Dialect/ONNX/ONNXCanonicalize.inc"
 
 // =============================================================================
-// Rewrite pattern for elementwise binary ops (not handled in Rewrite.td).
+// Rewrite pattern for elementwise binary ops (not handled in Canonicalize.td).
 // =============================================================================
 
 // Rewrites v1-v6 binary op with legacy axis and broadcast attributes set
@@ -395,7 +395,7 @@ public:
 };
 
 // =============================================================================
-// Rewrite pattern for Resize (not handled in Rewrite.td).
+// Rewrite pattern for Resize (not handled in Canonicalize.td).
 // =============================================================================
 
 // The yolo4 model uses a float tensor with shape [0] to represent that roi
@@ -440,7 +440,7 @@ private:
 };
 
 // =============================================================================
-// Rewrite pattern for loop (not handled in Rewrite.td).
+// Rewrite pattern for loop (not handled in Canonicalize.td).
 // =============================================================================
 
 // In some ONNX models, the maximum trip count for LoopOp is set to a big value,
@@ -987,7 +987,7 @@ private:
 };
 
 // =============================================================================
-// Rewrite pattern for unsqueeze (not handled in Rewrite.td).
+// Rewrite pattern for unsqueeze (not handled in Canonicalize.td).
 // =============================================================================
 
 // Rewrite a pattern like the following:

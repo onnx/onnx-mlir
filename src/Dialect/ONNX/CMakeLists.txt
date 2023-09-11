@@ -11,7 +11,7 @@ add_subdirectory(ElementsAttr)
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
 
-add_onnx_mlir_rewriter(Rewrite)
+add_onnx_mlir_rewriter(Canonicalize)
 
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
@@ -24,7 +24,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/OpHelper.cpp
   ONNXOps/ShapeHelper.cpp
   ONNXTypes.cpp
-  Rewrite.cpp
+  Canonicalize.cpp
 
   # Support for shape inference and verifiers
   ONNXOps/Additional/ConcatShapeTranspose.cpp
@@ -105,7 +105,7 @@ add_onnx_mlir_library(OMONNXOps
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
-  OMONNXRewriteIncGen
+  OMONNXCanonicalizeIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
