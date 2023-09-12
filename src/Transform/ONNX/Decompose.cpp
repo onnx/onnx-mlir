@@ -841,7 +841,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 #endif
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getDecomposePatterns(patterns);
+  onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
 #ifdef ONNX_MLIR_ENABLE_MHLO
   if (this->target == "mhlo") {
     populateDecomposingONNXBeforeMhloPatterns(patterns, context);
@@ -855,7 +855,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 } // namespace
 
-void onnx_mlir::getDecomposePatterns(mlir::RewritePatternSet &patterns) {
+void onnx_mlir::getDecomposeONNXToONNXPatterns(
+    mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(context);

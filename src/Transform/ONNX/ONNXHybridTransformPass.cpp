@@ -5,9 +5,7 @@
 //===------------------ ONNXHybridTransformPass.cpp -----------------------===//
 //
 // Hybrid ONNX transformation pass that combines conversion patterns for
-// shape inference and canonicalization and constant propagation.
-//
-// TODO: add decomposition
+// shape inference, canonicalization, constant propagation, and decomposition.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,6 +19,7 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Transform/ONNX/Decompose.hpp"
 #include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
@@ -92,7 +91,7 @@ struct ONNXHybridTransformPass
       getConstPropONNXToONNXPatterns(cumulativePatterns);
     }
 
-    // TODO: decomposition
+    getDecomposeONNXToONNXPatterns(cumulativePatterns);
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
     return success();

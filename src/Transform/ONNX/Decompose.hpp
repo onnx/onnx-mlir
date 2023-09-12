@@ -8,6 +8,6 @@
 
 namespace onnx_mlir {
 
-void getDecomposePatterns(mlir::RewritePatternSet &patterns);
+void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
 
 }

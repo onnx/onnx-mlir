@@ -98,7 +98,6 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
     %529 = "onnx.Relu"(%528) : (tensor<*xf32>) -> tensor<*xf32>
     return %529 : tensor<*xf32>
 }
-
 // CHECK-LABEL:  func.func @test_inception_v2_6_snippet
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x224x224xf32>, [[PARAM_1_:%.+]]: tensor<64x3x7x7xf32>) -> tensor<1x64x28x28xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1, 2]> : tensor<2xi64>
