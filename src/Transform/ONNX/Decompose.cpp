@@ -334,6 +334,7 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
       cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
   return hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 #else
+  // Disable the ONNXConvTransposeOp decomposition patterns.
   return false;
 #endif
 }
