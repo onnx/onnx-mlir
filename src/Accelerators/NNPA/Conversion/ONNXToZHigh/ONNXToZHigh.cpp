@@ -186,7 +186,16 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter, V
     return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
 
   // ToFix: correct Yh
-  return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
+  //return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
+  
+  std::vector<Value> inputs = {val, sequenceLens};
+  ONNXCustomOp customOp = rewriter.create<ONNXCustomOp>(loc, resYh.getType(), inputs);
+  StringAttr funcNameAttr = rewriter.getStringAttr("FixGRUYh");
+  customOp->setAttr("function_name", funcNameAttr);
+  StringAttr shapeInferAttr = rewriter.getStringAttr("PartialSame");
+  customOp->setAttr("shape_infer_pattern", shapeInferAttr);
+  customOp.dump();
+  return customOp.getResults()[0];
 }
 
 Value getLSTMGRUGetYc(
