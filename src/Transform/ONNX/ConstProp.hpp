@@ -8,6 +8,7 @@
 
 namespace onnx_mlir {
 
-void getConstPropPatterns(mlir::RewritePatternSet &patterns);
+// Exports the ConstPropONNXToONNXPass patterns.
+void getConstPropONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
 
-}
+} // namespace onnx_mlir

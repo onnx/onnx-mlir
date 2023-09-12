@@ -1045,14 +1045,14 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  getConstPropPatterns(patterns);
+  getConstPropONNXToONNXPatterns(patterns);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
 } // end anonymous namespace.
 
-void onnx_mlir::getConstPropPatterns(RewritePatternSet &patterns) {
+void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
   if (!isConstantPropagationEnabled())
     return;
   populateWithGenerated(patterns);

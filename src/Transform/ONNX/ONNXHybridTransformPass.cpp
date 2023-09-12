@@ -55,7 +55,7 @@ struct ONNXHybridTransformPass
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(cumulativePatterns, context);
 
-    getConstPropPatterns(cumulativePatterns);
+    getConstPropONNXToONNXPatterns(cumulativePatterns);
 
     // TODO: decomposition
 
