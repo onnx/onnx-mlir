@@ -101,6 +101,22 @@ Value getLSTMGRUGetY(
   return val;
 }
 
+Value getLSTMGRUGetYWithSequenceLens(
+    Location loc, PatternRewriter &rewriter, Value val, Value resY, Value sequenceLens) {
+
+  Value noneValue;
+  if (isNoneValue(resY)) {
+    return noneValue;
+  }
+
+  if (isNoneValue(sequenceLens))
+    return getLSTMGRUGetY(loc, rewriter, val, resY);
+
+  // ToFix: fix the Value with padding
+  val.dump();
+  return val;
+}
+
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
@@ -158,6 +174,19 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     llvm_unreachable("Invalid direction.");
   }
   return ret;
+}
+
+Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter, Value val,
+    Value resY, Value resYh, Value X, StringAttr direction, Value sequenceLens) {
+  Value noneValue;
+  if (isNoneValue(resYh) || isNoneValue(val))
+    return noneValue;
+
+  if (isNoneValue(sequenceLens))
+    return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
+
+  // ToFix: correct Yh
+  return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
 }
 
 Value getLSTMGRUGetYc(
