@@ -1023,14 +1023,6 @@ public:
   }
 };
 
-void getPatterns(RewritePatternSet &patterns) {
-  if (!isConstantPropagationEnabled())
-    return;
-  populateWithGenerated(patterns);
-  if (isNotDisabled("SplitOfConst"))
-    patterns.insert<SplitOfConst>(patterns.getContext());
-}
-
 //===----------------------------------------------------------------------===//
 // Code to manage the pass.
 //===----------------------------------------------------------------------===//
@@ -1053,7 +1045,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  getPatterns(patterns);
+  getConstPropPatterns(patterns);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
@@ -1061,7 +1053,11 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 } // end anonymous namespace.
 
 void onnx_mlir::getConstPropPatterns(RewritePatternSet &patterns) {
-  getPatterns(patterns);
+  if (!isConstantPropagationEnabled())
+    return;
+  populateWithGenerated(patterns);
+  if (isNotDisabled("SplitOfConst"))
+    patterns.insert<SplitOfConst>(patterns.getContext());
 }
 
 void onnx_mlir::configureConstPropONNXToONNXPass(
