@@ -424,11 +424,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
    ```
    output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
    ```
-   if ceil_mode is enabled
-  
-   ```
-   * pad_shape[i] is sum of pads along axis i
-   ```
+   if ceil_mode is enabled `pad_shape[i]` is the sum of pads along axis `i`.
   
    `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following:
    ```
@@ -446,6 +442,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
     DefaultValuedAttr<SI64Attr, "0">:$count_include_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
     I64ArrayAttr:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
