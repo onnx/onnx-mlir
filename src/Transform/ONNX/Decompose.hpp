@@ -8,6 +8,8 @@
 
 namespace onnx_mlir {
 
+// Exports the DecomposeONNXToONNXPass patterns. They are all plain rewrite
+// patterns that can be used with any PatternRewriter, not conversion patterns.
 void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
 
-}
+} // namespace onnx_mlir

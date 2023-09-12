@@ -7,6 +7,10 @@
 // Hybrid ONNX transformation pass that combines conversion patterns for
 // shape inference, canonicalization, constant propagation, and decomposition.
 //
+// Note that the decomposition patterns are applied "best effort" with a greedy
+// rewrite, not a partial conversion with "legalization" to ensure that every
+// decomposable op is decomposed.
+//
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
