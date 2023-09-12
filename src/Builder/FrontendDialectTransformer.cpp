@@ -1235,7 +1235,7 @@ private:
       }
 
       for (auto &name : functionProto.output()) {
-        // Skip optional outputs: they are not mapped.
+        // Skip missing optional outputs: they are not mapped.
         if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(name)) {
           outputs.push_back(*valuePtr);
         }
