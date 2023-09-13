@@ -268,6 +268,7 @@ private:
                 (shape[i] == ShapedType::kDynamic) ? 1 : shape[i]);
           auto memRefType = MemRefType::get(
               newShape, krnl::StringType::get(elementType.getContext()));
+          // Sole use of krnl.getRef.
           Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
           inputElem = createKrnl.load(stringMemRef, loopInd);
         })

@@ -75,6 +75,15 @@ mlir::Value applyActivation(mlir::OpBuilder &rewriter, mlir::Location loc,
 mlir::Value emitXSliceAt(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value X, mlir::Value timestep);
 
+// Change the nextHt and Ht value if sequenceLens is defined.
+// When a sample reachs the limit of its sequence len, nextHt will be padded
+// with 0 (or initialH), and Ht will keep the last value at the sequence end
+// so that the final value Ht is the last value at their sequence len.
+mlir::Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
+    mlir::Value sequenceLens, mlir::Value initialH, mlir::Value nextHt,
+    mlir::Value sequenceIV, mlir::Value directionIV, mlir::Value bs,
+    mlir::Value hs, mlir::Value Ht);
+
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
 // - getActivationPack
@@ -116,7 +125,8 @@ S allocAndInitializeStates(mlir::ConversionPatternRewriter &rewriter,
 template <typename S, typename A, typename W, typename B>
 void calculateState(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value Xt, S state, A activationSet, W weight,
-    B bias, mlir::Value sequenceIV, mlir::Value directionIV, bool isForward);
+    B bias, mlir::Value sequenceIV, mlir::Value directionIV,
+    mlir::Value sequenceLens, mlir::Value initialH, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
@@ -136,6 +146,8 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
     mlir::Operation *op = rnnOp.getOperation();
     mlir::Location loc = ONNXLoc<RNNOp>(op);
     mlir::Value X = adaptor.getX();
+    mlir::Value sequenceLens = adaptor.getSequenceLens();
+    mlir::Value initialH = adaptor.getInitialH();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -188,7 +200,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
             // Emit calculation for one RNN step.
             calculateState<S, A, W, B>(rewriter, loc, Xt, state,
                 activationForward, weightForward, biasForward, sequenceIV,
-                directionIV,
+                directionIV, sequenceLens, initialH,
                 /*isForward=*/true);
           });
     }
@@ -226,7 +238,7 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
             // Emit calculation for one RNN step.
             calculateState<S, A, W, B>(rewriter, loc, Xt, state,
                 activationReverse, weightReverse, biasReverse,
-                reverseSequenceIV, directionIV,
+                reverseSequenceIV, directionIV, sequenceLens, initialH,
                 /*isForward=*/false);
           });
     }
