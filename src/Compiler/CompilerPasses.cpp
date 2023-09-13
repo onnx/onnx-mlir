@@ -45,9 +45,10 @@ namespace onnx_mlir {
 void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
-      onnxConstPropDisablePatterns,
+  configureConstPropONNXToONNXPass(
+      onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       OptimizationLevel >= 3 || enableConstantProp);
+  configureONNXHybridTransformPass(onnxHybridPassDisableClasses);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }

@@ -14,6 +14,9 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
+
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -24,6 +27,22 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace {
+
+// Populated by configureONNXHybridTransformPass().
+struct ONNXHybridTransformPassConfiguration {
+  static StringSet<> disabledClasses;
+};
+
+StringSet<> ONNXHybridTransformPassConfiguration::disabledClasses;
+
+constexpr char kShapeInference[] = "shape-inference";
+constexpr char kCanonicalization[] = "canonicalization";
+constexpr char kConstantPropagation[] = "constant-propagation";
+bool isClass(StringRef s) {
+  static StringSet<> all{
+      kShapeInference, kCanonicalization, kConstantPropagation};
+  return all.contains(s);
+}
 
 // The pass combines patterns for shape inference and other ONNX-to-ONNX
 // transforms, controlled by the shapeInferenceOnly constructor argument.
@@ -47,15 +66,24 @@ struct ONNXHybridTransformPass
   LogicalResult initialize(MLIRContext *context) override {
     RewritePatternSet cumulativePatterns(context);
 
-    getShapeInferencePatterns(cumulativePatterns);
+    if (!ONNXHybridTransformPassConfiguration::disabledClasses.contains(
+            kShapeInference)) {
+      getShapeInferencePatterns(cumulativePatterns);
+    }
 
-    // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
-    for (auto *dialect : context->getLoadedDialects())
-      dialect->getCanonicalizationPatterns(cumulativePatterns);
-    for (RegisteredOperationName op : context->getRegisteredOperations())
-      op.getCanonicalizationPatterns(cumulativePatterns, context);
+    if (!ONNXHybridTransformPassConfiguration::disabledClasses.contains(
+            kCanonicalization)) {
+      // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
+      for (auto *dialect : context->getLoadedDialects())
+        dialect->getCanonicalizationPatterns(cumulativePatterns);
+      for (RegisteredOperationName op : context->getRegisteredOperations())
+        op.getCanonicalizationPatterns(cumulativePatterns, context);
+    }
 
-    getConstPropONNXToONNXPatterns(cumulativePatterns);
+    if (!ONNXHybridTransformPassConfiguration::disabledClasses.contains(
+            kConstantPropagation)) {
+      getConstPropONNXToONNXPatterns(cumulativePatterns);
+    }
 
     // TODO: decomposition
 
@@ -81,10 +109,13 @@ struct ONNXHybridTransformPass
 
 } // namespace
 
-namespace onnx_mlir {
-
-std::unique_ptr<mlir::Pass> createONNXHybridTransformPass() {
-  return std::make_unique<ONNXHybridTransformPass>();
+void onnx_mlir::configureONNXHybridTransformPass(
+    ArrayRef<std::string> disabledClasses) {
+  assert(llvm::all_of(disabledClasses, isClass));
+  ONNXHybridTransformPassConfiguration::disabledClasses.insert(
+      disabledClasses.begin(), disabledClasses.end());
 }
 
-} // namespace onnx_mlir
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass() {
+  return std::make_unique<ONNXHybridTransformPass>();
+}
