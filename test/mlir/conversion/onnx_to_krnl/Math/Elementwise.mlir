@@ -118,26 +118,45 @@ func.func private @test_div(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>
 func.func private @test_signed_int_mod(%arg0 : tensor<10x10xi64>, %arg1 : tensor<10x10xi64>) -> tensor<*xi64> {
   %0 = "onnx.Mod"(%arg0, %arg1) : (tensor<10x10xi64>, tensor<10x10xi64>) -> tensor<*xi64>
   "func.return"(%0) : (tensor<*xi64>) -> ()
-
-  // CHECK-LABEL: test_signed_int_mod
-  // CHECK: [[RES:%.+]] = memref.alloc() {{.*}}: memref<10x10xi64>
-  // CHECK: [[DEF_LOOPS:%.+]]:2 = krnl.define_loops 2
-  // CHECK: krnl.iterate([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) with ([[DEF_LOOPS]]#0 -> %arg2 = 0 to 10, [[DEF_LOOPS]]#1 -> %arg3 = 0 to 10){
-  // CHECK: [[IV:%.+]]:2 = krnl.get_induction_var_value([[DEF_LOOPS]]#0, [[DEF_LOOPS]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-  // CHECK: [[LOAD1:%.+]] = krnl.load %arg0[[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
-  // CHECK: [[LOAD2:%.+]] = krnl.load %arg1[[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
-  // CHECK: [[REMSI:%.+]] = arith.remsi [[LOAD1]], [[LOAD2]] : i64
-  // CHECK: [[CST_0_I64:%.+]] = arith.constant 0 : i64
-  // CHECK: [[ISMINUS1:%.+]] = arith.cmpi slt, [[LOAD1]], [[CST_0_I64]] : i64
-  // CHECK: [[ADD1:%.+]] = arith.addi [[REMSI]], [[LOAD2]] : i64
-  // CHECK: [[SELECT1:%.+]] = arith.select [[ISMINUS1]], [[ADD1]], [[REMSI]] : i64
-  // CHECK: [[ISMINUS2:%.+]] = arith.cmpi slt, [[LOAD2]], [[CST_0_I64]] : i64
-  // CHECK: [[ADD2:%.+]] = arith.addi [[SELECT1]], [[LOAD2]] : i64
-  // CHECK: [[SELECT2:%.+]] = arith.select [[ISMINUS2]], [[ADD2]], [[SELECT1]] : i64
-  // CHECK: [[ISMINUS3:%.+]] = arith.cmpi eq, [[REMSI]], [[CST_0_I64]] : i64
-  // CHECK: [[SELECT3:%.+]] = arith.select [[ISMINUS3]], [[REMSI]], [[SELECT2]] : i64
-  // CHECK: krnl.store [[SELECT3]], [[RES]][[[IV]]#0, [[IV]]#1] : memref<10x10xi64>
-  // CHECK: return [[RES]] : memref<10x10xi64>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func private @test_signed_int_mod
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<10x10xi64>, [[PARAM_1_:%.+]]: memref<10x10xi64>) -> memref<10x10xi64> {
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_10_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_1_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_2_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_3_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<10x10xi64>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_10_4_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:       [[CST_10_5_:%.+]] = arith.constant 10 : index
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 10){
+// CHECK-DAG:         [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[CST_10_6_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:         [[CST_10_7_:%.+]] = arith.constant 10 : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<10x10xi64>
+// CHECK-DAG:         [[CST_10_8_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:         [[CST_10_9_:%.+]] = arith.constant 10 : index
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<10x10xi64>
+// CHECK:             [[VAR_4_:%.+]] = arith.remsi [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_1_MEM_]] : i64
+// CHECK-DAG:         [[VAR_5_:%.+]] = arith.addi [[VAR_4_]], [[LOAD_PARAM_1_MEM_]] : i64
+// CHECK-DAG:         [[CST_0_1_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:         [[VAR_false_:%.+]] = arith.constant false
+// CHECK:             [[VAR_6_:%.+]] = arith.cmpi eq, [[VAR_4_]], [[CST_0_1_]] : i64
+// CHECK-DAG:         [[VAR_7_:%.+]] = arith.cmpi eq, [[VAR_6_]], [[VAR_false_]] : i1
+// CHECK-DAG:         [[VAR_8_:%.+]] = arith.cmpi slt, [[LOAD_PARAM_0_MEM_]], [[CST_0_1_]] : i64
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.cmpi slt, [[LOAD_PARAM_1_MEM_]], [[CST_0_1_]] : i64
+// CHECK:             [[VAR_10_:%.+]] = arith.cmpi eq, [[VAR_8_]], [[VAR_9_]] : i1
+// CHECK:             [[VAR_11_:%.+]] = arith.cmpi eq, [[VAR_10_]], [[VAR_false_]] : i1
+// CHECK:             [[VAR_12_:%.+]] = arith.andi [[VAR_7_]], [[VAR_11_]] : i1
+// CHECK:             [[VAR_13_:%.+]] = arith.select [[VAR_12_]], [[VAR_5_]], [[VAR_4_]] : i64
+// CHECK:             krnl.store [[VAR_13_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<10x10xi64>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<10x10xi64>
+// CHECK:         }
 }
 
 // -----
