@@ -481,8 +481,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // final target for this lowering.
   ConversionTarget target(getContext());
 
-  // We define the specific operations, or dialects, that are legal targets
-  // for this lowering.
+  // We define the specific operations, or dialects, that are legal targets for
+  // this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
 
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
