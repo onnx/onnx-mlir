@@ -101,8 +101,8 @@ Value getLSTMGRUGetY(
   return val;
 }
 
-Value getLSTMGRUGetYWithSequenceLens(
-    Location loc, PatternRewriter &rewriter, Value val, Value resY, Value sequenceLens) {
+Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
+    Value val, Value resY, Value sequenceLens) {
 
   Value noneValue;
   if (isNoneValue(resY)) {
@@ -176,8 +176,9 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
   return ret;
 }
 
-Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter, Value val,
-    Value resY, Value resYh, Value X, StringAttr direction, Value sequenceLens) {
+Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
+    Value val, Value resY, Value resYh, Value X, StringAttr direction,
+    Value sequenceLens) {
   Value noneValue;
   if (isNoneValue(resYh) || isNoneValue(val))
     return noneValue;
@@ -186,10 +187,11 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter, V
     return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
 
   // ToFix: correct Yh
-  //return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
-  
+  // return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
+
   std::vector<Value> inputs = {val, sequenceLens};
-  ONNXCustomOp customOp = rewriter.create<ONNXCustomOp>(loc, resYh.getType(), inputs);
+  ONNXCustomOp customOp =
+      rewriter.create<ONNXCustomOp>(loc, resYh.getType(), inputs);
   StringAttr funcNameAttr = rewriter.getStringAttr("FixGRUYh");
   customOp->setAttr("function_name", funcNameAttr);
   StringAttr shapeInferAttr = rewriter.getStringAttr("PartialSame");
