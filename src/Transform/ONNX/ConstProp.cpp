@@ -1038,7 +1038,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   if (isNotDisabled("SplitOfConst")) {
     patterns.insert<SplitOfConst>(context);
   }
-  
+
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
