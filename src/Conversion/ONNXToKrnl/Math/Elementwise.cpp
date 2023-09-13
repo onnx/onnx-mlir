@@ -1119,7 +1119,7 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
   CheckIfCustomScalarOpIsSupported<ONNXModOp>(elementType);
   Value dividend = scalarOperands[0];
   Value divisor = scalarOperands[1];
-  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
 
   // TODO: here we assume fmod=1, what should if that is not the case?
   if (create.math.isFloatWithVector(elementType)) {
@@ -1136,25 +1136,59 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
 #endif
   }
   if (create.math.isIntegerWithVector(elementType)) {
-    // int diviend, divisor;
-    // rem = diviend % divisor
-    // if (rem == 0)
-    //   return rem
-    // if (diviend < 0)
-    //   rem = rem - divisor  // make rem minus
-    // if (divisor < 0)
-    //   rem = rem + divisor; // make rem minus
-    // return rem;
-    Value remOrig = create.math.rem(dividend, divisor);
+    // "math.rem" returns "minus" for minus dividend and "plus or zero" for plus
+    // dividend. We call the math.rem's return value "mathRemaider". However
+    // onnx.ModOp should return "minus" for minus divisor and "plus or zero" for
+    // plus divisor. we call the value that onnx.Mod op should return "onnxMod".
+    // The following table shows mathRemainder, onnxMod and their diference
+    // (=onnxMod-mathRemainder) for some inputs.
+    //
+    // dividend                |  7  |  7 | -7 | -7 |  6 |  6 | -6 | -6 |
+    // divisor                 |  3  | -3 |  3 | -3 |  3 | -3 |  3 | -3 |
+    // ------------------------+-----+----+----+----+----+----+----+----+
+    // mathRemainder           |  1  |  1 | -1 | -1 |  0 |  0 |  0 |  0 |
+    // onnxMod                 |  1  | -2 |  2 | -1 |  0 |  0 |  0 |  0 |
+    // onnxMod - mathRemainder |  0  | -3 |  3 |  0 |  0 |  0 |  0 |  0 |
+    //
+    // The following code shows logic to get onnxMod from mathRemainder
+    //
+    // int dividend, divisor;
+    // int mathRemainder = diviend % divisor;
+    // int adjustedRemainder = mathRemainder + divisor;
+    //
+    // if ((mathRemainder != 0) && ((dividend < 0) ^ (divisor < 0))) # c.f. "^"
+    // shows "exclusive or".
+    //   return adjustedRemainder;
+    // return mathRemainder;
+
+    Value mathRemainder = create.math.rem(dividend, divisor);
+    Value adjustedRemainder = create.math.add(mathRemainder, divisor);
     Value zero = create.math.constant(elementType, 0);
-    Value isDiviendMinus = create.math.slt(dividend, zero);
-    Value remSub = create.math.select(
-        isDiviendMinus, create.math.add(remOrig, divisor), remOrig);
+    Value falseVal = create.math.constant(rewriter.getI1Type(), 0);
+    Value isMathRemainderNonZero =
+        create.math.eq(create.math.eq(mathRemainder, zero), falseVal);
+    Value isDividendMinus = create.math.slt(dividend, zero);
     Value isDivisorMinus = create.math.slt(divisor, zero);
-    Value remAdd = create.math.select(
-        isDivisorMinus, create.math.add(remSub, divisor), remSub);
-    Value isRemOrigZero = create.math.eq(remOrig, zero);
-    return create.math.select(isRemOrigZero, remOrig, remAdd);
+    Value exclusiveOrOfIsDividendMinusAndIsDivisorMinus = create.math.eq(
+        create.math.eq(isDividendMinus, isDivisorMinus), falseVal);
+    Value needAdjust = create.math.andi(
+        isMathRemainderNonZero, exclusiveOrOfIsDividendMinusAndIsDivisorMinus);
+    Value answer =
+        create.math.select(needAdjust, adjustedRemainder, mathRemainder);
+
+#ifdef DEBUG_ONNX_MOD
+    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: diviend=", dividend,
+        dividend.getType());
+    create.krnl.printf(", divisor=", divisor, divisor.getType());
+    create.krnl.printf(
+        ", mathReminder=", mathRemainder, mathRemainder.getType());
+    create.krnl.printf(
+        ", adjustedReminder=", adjustedRemainder, adjustedRemainder.getType());
+    create.krnl.printf(", Answer=", answer, answer.getType());
+    create.krnl.printf("\n");
+#endif
+
+    return answer;
   }
   llvm_unreachable("unsupported element type");
 }
