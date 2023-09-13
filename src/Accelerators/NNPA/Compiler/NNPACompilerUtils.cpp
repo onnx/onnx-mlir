@@ -4,7 +4,7 @@
 
 //===-------------------------- NNPACompilerUtils.cpp ---------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022, 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -46,7 +46,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 void addONNXToZHighPasses(
-    mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
+    mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu, int optLevel) {
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
@@ -79,8 +79,10 @@ void addONNXToZHighPasses(
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
-
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  if ((/*enableConstantProp*/ optLevel >= 3 && !enableConstantProp) ||
+      enableConstantProp) {
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+  }
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
   pm.addNestedPass<func::FuncOp>(
@@ -94,7 +96,11 @@ void addONNXToZHighPasses(
   if (nnpaClipToDLFloatRange) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighClipToDLFloatPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    if ((/*enableConstantProp*/ optLevel >= 3 && !enableConstantProp) ||
+        enableConstantProp) {
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createConstPropONNXToONNXPass());
+    }
   }
 
   // After all optimizations, if there are still light-weight ops (e.g. add,
@@ -151,30 +157,31 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
+   // Lower all ONNX and ZHigh ops.
+  std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
+  OptLevel optLevel = OptLevel::O0;
+  if (optStr == "-O0")
+    optLevel = OptLevel::O0;
+  else if (optStr == "-O1")
+    optLevel = OptLevel::O1;
+  else if (optStr == "-O2")
+    optLevel = OptLevel::O2;
+  else if (optStr == "-O3")
+    optLevel = OptLevel::O3;
+
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
+    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(), optLevel);
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
-    addONNXToZHighPasses(pm, execNodesOnCpu);
+    addONNXToZHighPasses(pm, execNodesOnCpu, optLevel);
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;
     else {
       pm.addPass(mlir::createCanonicalizerPass());
 
-      // Lower all ONNX and ZHigh ops.
-      std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
-      OptLevel optLevel = OptLevel::O0;
-      if (optStr == "-O0")
-        optLevel = OptLevel::O0;
-      else if (optStr == "-O1")
-        optLevel = OptLevel::O1;
-      else if (optStr == "-O2")
-        optLevel = OptLevel::O2;
-      else if (optStr == "-O3")
-        optLevel = OptLevel::O3;
       // Lower ONNX to Krnl, ZHigh to ZLow.
       addONNXToKrnlPasses(pm, optLevel, /*enableCSE*/ true,
           instrumentONNXSignature, ONNXOpStats);

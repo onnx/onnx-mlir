@@ -23,8 +23,6 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
-#include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -1036,16 +1034,11 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  // We want to enable Constant Propagation only for Level O3 or when a user
-  // manually specifies the "enable-constant-prop" flag.
-  if ((/*enableConstantProp*/ onnx_mlir::OptimizationLevel >= 3 &&
-          !onnx_mlir::enableConstantProp) ||
-      onnx_mlir::enableConstantProp) {
-    populateWithGenerated(patterns);
-    if (isNotDisabled("SplitOfConst")) {
-      patterns.insert<SplitOfConst>(context);
-    }
+  populateWithGenerated(patterns);
+  if (isNotDisabled("SplitOfConst")) {
+    patterns.insert<SplitOfConst>(context);
   }
+  
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }

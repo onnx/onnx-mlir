@@ -4,7 +4,7 @@
 
 //===---- SimplifyShapeRelatedOps.cpp - ONNX high level Optimizations -----===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022, 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -60,6 +60,7 @@ Now, it's straightforward to update the output shape of Reshape from
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -517,7 +518,9 @@ void SimplifyShapeRelatedOpsPass::runOnOperation() {
   for (unsigned i = 0; i < 3; ++i) {
     topDownShapeSimplification(context, moduleOp);
     OpPassManager pm("builtin.module");
+    if ((/*enableConstantProp*/ onnx_mlir::OptimizationLevel >= 3 && !onnx_mlir::enableConstantProp) || onnx_mlir::enableConstantProp) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    }
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     if (failed(runPipeline(pm, moduleOp)))
