@@ -148,7 +148,6 @@ def get_test_models():
 
         # ==OP== AveragePool
         # ==MIN== 1
-        # ==UNSUPPORTED== 19
         # TODO: original comment stated "same_upper/lower with dynamic padding-shapes not supported."
         # However, I see the dyn shape test being done on all tests, including same_upper. So I am
         # assuming that this comment is outdated.
