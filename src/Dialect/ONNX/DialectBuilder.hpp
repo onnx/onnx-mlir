@@ -34,11 +34,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
 
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
@@ -70,6 +70,10 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXDimGroupOp
   void dimGroup(mlir::Value input, int axis, int groupID) const;
+
+  // ONNXExpandOp
+  mlir::Value expand(
+      mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
 
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(

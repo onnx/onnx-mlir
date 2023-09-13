@@ -185,6 +185,10 @@ def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
           "Has the specified constant shape">;
 
+def IsScalarTensor: Constraint<
+  CPred<"onnx_mlir::isScalarTensor($_self)">,
+        "Value is of scalar tensor: tensor<dtype> or tensor<1xdtype>">;
+
 def IsFromONNXConstantOp: Constraint<
     CPred<"llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp())">,
     "Is a value from ONNXConstantOp">;
@@ -389,6 +393,77 @@ def FuseMulConvNullBiasPattern: Pat<
 // - bias element data type must be the same as mul constant
 // - bias dimension (0) must be equal to mul constant dim(0)
 // codegen is different too (look it up in onnx-runtime)
+
+// Pattern to turn `Add of Constant and Expand` into `Expand of Add of Constants`
+// which put constants together so that Add can be folded.
+def PropagateScalarConstantExpandForAdd: Pat<
+  (ONNXAddOp (either (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                     (ONNXExpandOp
+                        (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_),
+                        $shape))),
+  (ONNXExpandOp (ONNXAddOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
+
+// Pattern to turn `Mul of Constant and Expand` into `Expand of Mul of Constants`
+// which put constants together so that Mul can be folded.
+// Note: look like tablegen failed with `error: encountered non-op, non-NativeCodeCall match.`
+// when having the second pattern using `either`.
+// As a workaround, we use two patterns.
+def PropagateScalarConstantExpandForMul1: Pat<
+  (ONNXMulOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                     (ONNXExpandOp
+                        (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_),
+                        $shape)),
+  (ONNXExpandOp (ONNXMulOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
+def PropagateScalarConstantExpandForMul2: Pat<
+  (ONNXMulOp (ONNXExpandOp
+                (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                $shape),
+             (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXExpandOp (ONNXMulOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
+
+// Pattern to turn `Sub of Constant and Expand` into `Expand of Sub of Constants`
+// which put constants together so that Sub can be folded.
+def PropagateScalarConstantExpandForSub1: Pat<
+  (ONNXSubOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                     (ONNXExpandOp
+                        (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_),
+                        $shape)),
+  (ONNXExpandOp (ONNXSubOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
+def PropagateScalarConstantExpandForSub2: Pat<
+  (ONNXSubOp (ONNXExpandOp
+                (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                $shape),
+             (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXExpandOp (ONNXSubOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
+
+// Pattern to turn `Div of Constant and Expand` into `Expand of Div of Constants`
+// which put constants together so that Div can be folded.
+def PropagateScalarConstantExpandForDiv1: Pat<
+  (ONNXDivOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                     (ONNXExpandOp
+                        (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_),
+                        $shape)),
+  (ONNXExpandOp (ONNXDivOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
+def PropagateScalarConstantExpandForDiv2: Pat<
+  (ONNXDivOp (ONNXExpandOp
+                (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                $shape),
+             (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+  (ONNXExpandOp (ONNXDivOp $lhs, $rhs), $shape),
+  [(IsScalarTensor:$lhs), (IsScalarTensor:$rhs)]
+>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXIdentityOp

@@ -874,6 +874,78 @@ private:
   int64_t maxPower;
 };
 
+// Rewrite a pattern like the following:
+//
+// %shape = onnx.Concat(%dim1, %dim2)
+// %data = onnx.Expand(%input, %shape)
+// %u = "onnx.Unsqueeze"(%data, %axes)
+//
+// into
+//
+// %new_shape = onnx.Concat(%dim1, %dim2, 1)
+// %u = onnx.Expand(%input, %new_shape)
+class ReplaceUnsqueezeOfExpandRewritePattern
+    : public OpRewritePattern<ONNXUnsqueezeOp> {
+public:
+  using OpRewritePattern<ONNXUnsqueezeOp>::OpRewritePattern;
+
+  ReplaceUnsqueezeOfExpandRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXUnsqueezeOp unsqueezeOp, PatternRewriter &rewriter) const override {
+    Operation *op = unsqueezeOp.getOperation();
+    Location loc = unsqueezeOp.getLoc();
+    Value data = unsqueezeOp.getData();
+    Value axes = unsqueezeOp.getAxes();
+
+    // Match
+    // 1. data is from ExpandOp, axes is from ConstantOp.
+    if (!definedBy<ONNXExpandOp>(data) || !definedBy<ONNXConstantOp>(axes))
+      return failure();
+    auto expandOp = cast<ONNXExpandOp>(data.getDefiningOp());
+    // 2. ExpandOp's input is a scalar tensor so that it's safe to use a new
+    // shape that do not violate the broadcasting rule..
+    if (!isScalarTensor(expandOp.getInput()))
+      return failure();
+    // 3. ExpandOp's shape is defined by dimensions.
+    if (!areDims(expandOp.getShape()))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Get the old shape.
+    SmallVector<Value, 4> oldDims;
+    getDims(expandOp.getShape(), oldDims);
+    int64_t oldRank = oldDims.size();
+    // Get unsqueeze axes.
+    ElementsAttr axesAttrs = getElementAttributeFromONNXValue(axes);
+    SmallVector<int64_t> axesI64(axesAttrs.getValues<int64_t>());
+    for (unsigned int i = 0; i < axesI64.size(); ++i)
+      if (axesI64[i] < 0)
+        axesI64[i] += oldRank;
+
+    // Construct a new shape.
+    SmallVector<Value, 4> newDims;
+    int64_t newRank = oldRank + axesI64.size();
+    Value one = create.onnx.constantInt64(ArrayRef<int64_t>({1}));
+    for (int64_t i = 0, j = 0; i < newRank || j < oldRank; ++i)
+      if (std::find(axesI64.begin(), axesI64.end(), i) != axesI64.end())
+        // found i in unsqueeze axes.
+        newDims.emplace_back(one);
+      else
+        // original axes.
+        newDims.emplace_back(oldDims[j++]);
+    Value newShape = create.onnx.concat(
+        RankedTensorType::get({newRank}, rewriter.getI64Type()), newDims, 0);
+
+    Value res = create.onnx.expand(
+        op->getResult(0).getType(), expandOp.getInput(), newShape);
+    rewriter.replaceOp(op, {res});
+    return success();
+  };
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -897,6 +969,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
+  results.insert<PropagateScalarConstantExpandForAdd>(context);
 }
 
 /// on the ONNXAndOp.
@@ -934,6 +1007,8 @@ void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
 void ONNXDivOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
+  result.insert<PropagateScalarConstantExpandForDiv1>(context);
+  result.insert<PropagateScalarConstantExpandForDiv2>(context);
 }
 
 /// on the ONNXDropoutOp.
@@ -1017,6 +1092,8 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
+  results.insert<PropagateScalarConstantExpandForMul1>(context);
+  results.insert<PropagateScalarConstantExpandForMul2>(context);
 }
 
 /// on the ONNXOrOp.
@@ -1057,6 +1134,8 @@ void ONNXShapeOp::getCanonicalizationPatterns(
 void ONNXSubOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
+  result.insert<PropagateScalarConstantExpandForSub1>(context);
+  result.insert<PropagateScalarConstantExpandForSub2>(context);
 }
 
 /// on ONNXShapeTransformOp
@@ -1143,6 +1222,7 @@ void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
   result.insert<RemoveUnsqueezeCastSqueezePattern>(context);
+  result.insert<ReplaceUnsqueezeOfExpandRewritePattern>(context);
 }
 
 void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(

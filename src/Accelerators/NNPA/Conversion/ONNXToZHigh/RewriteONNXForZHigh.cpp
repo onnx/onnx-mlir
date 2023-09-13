@@ -388,6 +388,62 @@ public:
   }
 };
 
+/// This pattern is to replace `C = add/sub(A, B)` by `A` when B is a zero
+/// defined by Expand of scalar constant and C's shape is the same as A's shape.
+/// In other words, the output does not depend on the second operand.
+template <typename OP_TYPE>
+class AddSubWithRHSZeroExpandPattern : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+  DimAnalysis *dimAnalysis;
+
+  AddSubWithRHSZeroExpandPattern(MLIRContext *context, DimAnalysis *dimAnalysis)
+      : OpRewritePattern<OP_TYPE>(context, 1001), dimAnalysis(dimAnalysis) {}
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    // Match
+    if (!canBeRewritten(binaryOp, dimAnalysis))
+      return failure();
+    // Rewrite
+    rewriter.replaceOp(binaryOp.getOperation(), {binaryOp.getA()});
+    return success();
+  }
+
+  static bool canBeRewritten(OP_TYPE binaryOp, DimAnalysis *dimAnalysis) {
+    Value A = binaryOp.getA();
+    Value B = binaryOp.getB();
+    Value C = binaryOp.getC();
+
+    // Match
+    // C's shape is the same as A'shape.
+    if (!dimAnalysis->sameShape(A, C))
+      return false;
+    // B is a zero defined by Expand.
+    if (isa<BlockArgument>(B))
+      return false;
+    bool BIsZero = false;
+    if (auto expandOp = dyn_cast<ONNXExpandOp>(B.getDefiningOp())) {
+      Value input = expandOp.getInput();
+      if (isDenseONNXConstant(input)) {
+        auto attr = getElementAttributeFromONNXValue(input);
+        // Expand's input is 0.
+        if (attr.isSplat()) {
+          Type elementType = getElementType(attr.getType());
+          if (isa<IntegerType>(elementType)) {
+            int64_t x = getScalarValue<int64_t>(attr, elementType);
+            BIsZero = (x == 0);
+          } else if (isa<FloatType>(elementType)) {
+            double x = getScalarValue<double>(attr, elementType);
+            BIsZero = (x == 0.0);
+          }
+        }
+      }
+    }
+    return BIsZero;
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
@@ -425,8 +481,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // final target for this lowering.
   ConversionTarget target(getContext());
 
-  // We define the specific operations, or dialects, that are legal targets for
-  // this lowering.
+  // We define the specific operations, or dialects, that are legal targets
+  // for this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
 
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
@@ -441,11 +497,13 @@ void RewriteONNXForZHighPass::runOnOperation() {
   //
   // This is preferred for NNPA because NNPA BinaryOp does not support
   // broadcasting.
-  target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
+  target.addDynamicallyLegalOp<ONNXAddOp>([&dimAnalysis](ONNXAddOp op) {
     return !((isDefinedByONNXConstantOp(op.getA()) &&
                  isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
              (isDefinedByONNXConstantOp(op.getB()) &&
-                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
+                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())) ||
+             AddSubWithRHSZeroExpandPattern<ONNXAddOp>::canBeRewritten(
+                 op, &dimAnalysis));
   });
   target.addDynamicallyLegalOp<ONNXDivOp>([](ONNXDivOp op) {
     return !((isDefinedByONNXConstantOp(op.getA()) &&
@@ -459,11 +517,13 @@ void RewriteONNXForZHighPass::runOnOperation() {
              (isDefinedByONNXConstantOp(op.getB()) &&
                  isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
   });
-  target.addDynamicallyLegalOp<ONNXSubOp>([](ONNXSubOp op) {
+  target.addDynamicallyLegalOp<ONNXSubOp>([&dimAnalysis](ONNXSubOp op) {
     return !((isDefinedByONNXConstantOp(op.getA()) &&
                  isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
              (isDefinedByONNXConstantOp(op.getB()) &&
-                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
+                 isUniBroadcatableFirstToSecond(op.getB(), op.getA())) ||
+             AddSubWithRHSZeroExpandPattern<ONNXSubOp>::canBeRewritten(
+                 op, &dimAnalysis));
   });
 
   // Determine if MatMulOp is already legal (no need to rewrite) or need to
@@ -536,6 +596,10 @@ void RewriteONNXForZHighPass::runOnOperation() {
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(&getContext());
+  patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
+      &getContext(), &dimAnalysis);
+  patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
+      &getContext(), &dimAnalysis);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
