@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.cpp -------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022, 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -70,6 +70,7 @@ std::string reportHeapBefore;                          // onnx-mlir only
 std::string reportHeapAfter;                           // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
+bool enableConstantFolding;                            // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
@@ -123,10 +124,10 @@ static llvm::cl::list<accel::Accelerator::Kind,
 
 static llvm::cl::opt<OptLevel, true> OptimizationLevelOpt(
     llvm::cl::desc("Levels:"),
-    llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
-        clEnumVal(O1, "Optimization level 1,"),
-        clEnumVal(O2, "Optimization level 2,"),
-        clEnumVal(O3, "Optimization level 3.")),
+    llvm::cl::values(clEnumVal(O0, "Optimization level 0, constant folding is disabled (default):"),
+        clEnumVal(O1, "Optimization level 1, constant folding is disabled"),
+        clEnumVal(O2, "Optimization level 2, constant folding is disabled"),
+        clEnumVal(O3, "Optimization level 3, constant folding and SIMD is enabled")),
     llvm::cl::location(OptimizationLevel), llvm::cl::init(O0),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
@@ -467,6 +468,12 @@ static llvm::cl::opt<std::string, true> modelTagOpt("tag",
 static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::desc("Enable the ConvOptPass. Default is true."),
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enableConstantFoldingOpt("enable-constant-folding",
+    llvm::cl::desc("Enable Constant Folding (default is false)\n"
+                  "Set to 'true' to enable Constant Folding at Level O3."),
+    llvm::cl::location(enableConstantFolding), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> extraLibPathsOpt(

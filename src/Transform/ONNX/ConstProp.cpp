@@ -4,7 +4,7 @@
 
 //===----------- ONNXConstProp.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,6 +23,8 @@
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -1034,9 +1036,13 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  populateWithGenerated(patterns);
-  if (isNotDisabled("SplitOfConst"))
-    patterns.insert<SplitOfConst>(context);
+  if (/*enableConstantFolding*/ onnx_mlir::OptimizationLevel >= 3 &&
+      !onnx_mlir::enableConstantFolding) {
+    populateWithGenerated(patterns);
+    if (isNotDisabled("SplitOfConst")) {
+      patterns.insert<SplitOfConst>(context);
+    }
+  }
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }

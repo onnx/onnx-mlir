@@ -79,6 +79,7 @@ void addONNXToZHighPasses(
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
+
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
@@ -146,6 +147,7 @@ void normalizeMemRefsPasses(mlir::PassManager &pm) {
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, EmissionTargetType &emissionTarget,
     std::string outputNameNoExt) {
+
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
