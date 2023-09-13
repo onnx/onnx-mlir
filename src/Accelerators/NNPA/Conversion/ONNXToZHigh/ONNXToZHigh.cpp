@@ -113,7 +113,6 @@ Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
     return getLSTMGRUGetY(loc, rewriter, val, resY);
 
   // ToFix: fix the Value with padding
-  val.dump();
   return val;
 }
 
@@ -194,9 +193,9 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
       rewriter.create<ONNXCustomOp>(loc, resYh.getType(), inputs);
   StringAttr funcNameAttr = rewriter.getStringAttr("FixGRUYh");
   customOp->setAttr("function_name", funcNameAttr);
-  StringAttr shapeInferAttr = rewriter.getStringAttr("PartialSame");
-  customOp->setAttr("shape_infer_pattern", shapeInferAttr);
-  customOp.dump();
+  // Wait for support of this pattern
+  // StringAttr shapeInferAttr = rewriter.getStringAttr("PartialSame");
+  // customOp->setAttr("shape_infer_pattern", shapeInferAttr);
   return customOp.getResults()[0];
 }
 
