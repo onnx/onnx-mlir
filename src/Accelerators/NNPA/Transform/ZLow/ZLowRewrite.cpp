@@ -133,6 +133,12 @@ public:
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
     Value stickInput = stickOp.getX();
 
+    // Do not handle NCHW layout stickification that transposes data
+    // internally.
+    std::string stickLayout = stickOp.getLayout().value().str();
+    if (stickLayout == LAYOUT_NCHW)
+      return failure();
+
     // Input is a block argument, ignore it.
     if (stickInput.dyn_cast<BlockArgument>())
       return failure();
@@ -156,6 +162,11 @@ public:
     for (Operation *user : viewSource.getUsers()) {
       ZLowUnstickOp userOp = llvm::dyn_cast<ZLowUnstickOp>(user);
       if (!userOp)
+        continue;
+      // Do not handle NCHW layout stickification that transposes data
+      // internally.
+      std::string unstickLayout = userOp.getLayout().value().str();
+      if (unstickLayout == LAYOUT_NCHW)
         continue;
       // UnstickOp must be before the view operation.
       if (userOp.getOut() == viewSource &&
