@@ -1036,8 +1036,11 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  if (/*enableConstantFolding*/ onnx_mlir::OptimizationLevel >= 3 &&
-      !onnx_mlir::enableConstantFolding) {
+  // We want to enable Constant Propagation only for Level O3 or when a user
+  // manually specifies the "enable-constant-prop" flag.
+  if ((/*enableConstantProp*/ onnx_mlir::OptimizationLevel >= 3 &&
+          !onnx_mlir::enableConstantProp) ||
+      onnx_mlir::enableConstantProp) {
     populateWithGenerated(patterns);
     if (isNotDisabled("SplitOfConst")) {
       patterns.insert<SplitOfConst>(context);
