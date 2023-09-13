@@ -157,7 +157,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
-   // Lower all ONNX and ZHigh ops.
+  // Lower all ONNX and ZHigh ops.
   std::string optStr = getCompilerOption(OptionKind::CompilerOptLevel);
   OptLevel optLevel = OptLevel::O0;
   if (optStr == "-O0")
