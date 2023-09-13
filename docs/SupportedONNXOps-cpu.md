@@ -26,7 +26,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **Asinh** |9 - * | | |
 | **Atan** |7 - * | | |
 | **Atanh** |9 - * | | |
-| **AveragePool** |6 - 18 | | |
+| **AveragePool** |6 - * | | |
 | **BatchNormalization** |6 - * |Training not supported. | |
 | **Bernoulli** |none | | | |
 | **Binarizer** |none | | | |
