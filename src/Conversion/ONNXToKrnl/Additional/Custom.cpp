@@ -36,7 +36,6 @@ void FixGRUY(Location loc, ConversionPatternRewriter &rewriter,
   SmallVector<Value, 2> yLbs(yRank, iZero);
   SmallVector<Value, 2> yUbs;
   for (unsigned r = 0; r < yRank; ++r) {
-    // skip the first two dim for sequence and batch
     yUbs.emplace_back(create.mem.dim(Y, r));
   }
   ValueRange loops = create.krnl.defineLoops(yRank);
@@ -136,8 +135,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
     // Lower to Krnl for special CustomOp
     if (customOp.getFunctionName() == "FixGRUYh") {
       FixGRUYh(loc, rewriter, customOp, operands, outputAllocs);
-    }
-    if (customOp.getFunctionName() == "FixGRUY") {
+    } else if (customOp.getFunctionName() == "FixGRUY") {
       FixGRUY(loc, rewriter, customOp, operands, outputAllocs);
     } else {
       // Create Krnl.Call
