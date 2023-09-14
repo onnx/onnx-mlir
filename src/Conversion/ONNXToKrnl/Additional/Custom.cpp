@@ -20,13 +20,54 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+void FixGRUY(Location loc, ConversionPatternRewriter &rewriter,
+    ONNXCustomOp customOp, ValueRange operands, ValueRange outputAllocs) {
+  Value Y = operands[0];
+  Value sequenceLens = operands[1];
+  Value initialH = operands[2];
+  Value output = outputAllocs[0];
+
+  MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
+      create(rewriter, loc);
+
+  // Code copied from GRU.cpp: calculateState
+  int64_t yRank = 4;
+  Value iZero = create.math.constantIndex(0);
+  SmallVector<Value, 2> yLbs(yRank, iZero);
+  SmallVector<Value, 2> yUbs;
+  for (unsigned r = 0; r < yRank; ++r) {
+    // skip the first two dim for sequence and batch
+    yUbs.emplace_back(create.mem.dim(Y, r));
+  }
+  ValueRange loops = create.krnl.defineLoops(yRank);
+  create.krnl.iterate(loops, loops, yLbs, yUbs,
+      [&](KrnlBuilder &createKrnl, ValueRange indices) {
+        MathBuilder createMath(createKrnl);
+        IndexExprScope ieScope(createKrnl);
+        Value sequenceIV(indices[0]);
+        Value directionIV(indices[1]);
+        Value bs(indices[2]), hs(indices[3]);
+
+        Value currentV = createKrnl.load(Y, indices);
+        Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+        Value initial;
+        if (isNoneValue(initialH)) {
+          initial = createMath.constant(currentV.getType(), 0.);
+        } else {
+          initial = createKrnl.load(initialH, {directionIV, bs, hs});
+        }
+        Value cond = createMath.sge(
+            createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+        Value newV = createMath.select(cond, /*padding*/ initial, currentV);
+        createKrnl.store(newV, output, indices);
+      });
+}
+
 void FixGRUYh(Location loc, ConversionPatternRewriter &rewriter,
     ONNXCustomOp customOp, ValueRange operands, ValueRange outputAllocs) {
   Value Y = operands[0];
   Value sequenceLens = operands[1];
   Value Yh = outputAllocs[0];
-  Y.dump();
-  Yh.dump();
 
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
@@ -41,7 +82,7 @@ void FixGRUYh(Location loc, ConversionPatternRewriter &rewriter,
     // skip the first two dim for sequence and batch
     htUbs.emplace_back(create.mem.dim(Y, r + 2));
   }
-  Value batchSize = create.mem.dim(Y, 2);
+  Value seqSize = create.mem.dim(Y, 0);
   Value directionIV = iZero;
   ValueRange loops = create.krnl.defineLoops(htRank);
   create.krnl.iterate(loops, loops, htLbs, htUbs,
@@ -51,7 +92,7 @@ void FixGRUYh(Location loc, ConversionPatternRewriter &rewriter,
         Value bs(indices[0]), hs(indices[1]);
         Value sequenceUB = createKrnl.load(sequenceLens, {bs});
         Value bound = createMath.min(
-            createMath.cast(batchSize.getType(), sequenceUB), batchSize);
+            createMath.cast(seqSize.getType(), sequenceUB), seqSize);
         Value index = createMath.sub(bound, iOne);
         Value lastHt = createKrnl.load(Y, {index, directionIV, bs, hs});
         createKrnl.store(lastHt, Yh, {directionIV, bs, hs});
@@ -69,7 +110,6 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
     Location loc = op->getLoc();
     ValueRange operands = operandAdaptor.getOperands();
 
-    customOp.dump();
     // Helper builders.
     MultiDialectBuilder<AffineBuilder, IndexExprBuilderForKrnl, KrnlBuilder,
         MemRefBuilder>
@@ -96,6 +136,9 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
     // Lower to Krnl for special CustomOp
     if (customOp.getFunctionName() == "FixGRUYh") {
       FixGRUYh(loc, rewriter, customOp, operands, outputAllocs);
+    }
+    if (customOp.getFunctionName() == "FixGRUY") {
+      FixGRUY(loc, rewriter, customOp, operands, outputAllocs);
     } else {
       // Create Krnl.Call
 

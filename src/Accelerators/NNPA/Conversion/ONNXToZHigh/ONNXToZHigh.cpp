@@ -102,7 +102,7 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
-    Value val, Value resY, Value sequenceLens) {
+    Value val, Value resY, Value sequenceLens, Value initialH) {
 
   Value noneValue;
   if (isNoneValue(resY)) {
@@ -113,7 +113,14 @@ Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
     return getLSTMGRUGetY(loc, rewriter, val, resY);
 
   // ToFix: fix the Value with padding
-  return val;
+  std::vector<Value> inputs = {val, sequenceLens, initialH};
+  ONNXCustomOp customOp =
+      rewriter.create<ONNXCustomOp>(loc, resY.getType(), inputs);
+  StringAttr funcNameAttr = rewriter.getStringAttr("FixGRUY");
+  customOp->setAttr("function_name", funcNameAttr);
+  StringAttr shapeInferAttr = rewriter.getStringAttr("SameAs");
+  customOp->setAttr("shape_infer_pattern", shapeInferAttr);
+  return customOp.getResults()[0];
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,

@@ -598,7 +598,7 @@ def GetLSTMGRUGetYh :
         NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3, $4)">;
 
 def GetLSTMGRUGetYWithSequenceLens :
-        NativeCodeCall<"getLSTMGRUGetYWithSequenceLens($_loc, $_builder, $0, $1, $2)">;
+        NativeCodeCall<"getLSTMGRUGetYWithSequenceLens($_loc, $_builder, $0, $1, $2, $3)">;
 
 def GetLSTMGRUGetYhWithSequenceLens :
         NativeCodeCall<"getLSTMGRUGetYhWithSequenceLens($_loc, $_builder, $0, $1, $2, $3, $4, $5)">;
@@ -810,8 +810,8 @@ def replaceONNXGRUPattern1 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -841,8 +841,8 @@ def replaceONNXGRUPattern2 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -880,10 +880,10 @@ def replaceONNXGRUPattern3 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
-  [(IsNotNoneType:$b), (IsNoneType:$res__0), (IsNoneType:$sequence_lens)]
+  [(IsNotNoneType:$b), (IsNoneType:$res__0)]
 >;
 
 // Pattern4 for the none bias($b) and none Y($res__0) case
@@ -911,83 +911,12 @@ def replaceONNXGRUPattern4 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
-  ],
-  [(IsNoneType:$b), (IsNoneType:$res__0), (IsNoneType:$sequence_lens)]
->;
-
-// Pattern5 for not-none Sequence_lens for pattern3
-// for the not-none bias($b), and none Y($res__0) case
-def replaceONNXGRUPattern5 : Pattern<
-  (ONNXGRUOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
-     $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $layout, $linear_before_reset),
-  [
-   //
-   // Pre-process to prepare input_bias and hidden_bias.
-   //
-   (EmitONNXSplitOp6Results:$splitB $b, (GetI64NAttr<1>),
-      (GetLSTMGRUBiasSplitShape (GetShape $r))),
-   (ZHighStickForGRUOp:$input_bias $splitB__0, $splitB__1, $splitB__2),
-   (ZHighStickForGRUOp:$hidden_bias $splitB__3, $splitB__4, $splitB__5),
-
-   //
-   // Main-process to lower ONNXGRUOp into ZHighGRUOp.
-   //
-   (ZHighGRUOp:$zhighGRU
-      (ZHighStickOp $x, (_3DSLayoutAttr)),               // input
-      (ZHighStickOp $initial_h, (_3DSLayoutAttr)),       // h0
-      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $w),    // input weights
-      $input_bias,                                       // input bias
-      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $r),    // hidden weights
-      $hidden_bias,                                      // hiden bias
-      $hidden_size,                                      // hidden_size
-      $direction,                                        // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
-  
-   //
-   // Post-process to generate two return values of ONNXGRUOp
-   // from two return values of ZHighGRUOp(=$zHighGRU).
-   //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
    (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
-  [(IsNotNoneType:$b), (IsNoneType:$res__0), (IsNotNoneType:$sequence_lens)]
+  [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;
 
-// Pattern6 for sequence_lens of Pattern4
-// the none bias($b) and none Y($res__0) case
-def replaceONNXGRUPattern6 : Pattern<
-  (ONNXGRUOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
-     $activation_alpha, $activation_beta, $activations, $clip,
-     $direction, $hidden_size, $layout, $linear_before_reset),
-  [
-   //
-   // Main-process to lower ONNXGRUOp into ZHighGRUOp.
-   //
-   (ZHighGRUOp:$zhighGRU
-      (ZHighStickOp $x, (_3DSLayoutAttr)),                // input
-      (ZHighStickOp $initial_h, (_3DSLayoutAttr)),        // h0
-      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $w),     // input weights
-      $b,                                                 // nontype input bias
-      (GetLSTMGRUZDNNWeightFromONNXWeight<"GRU"> $r),     // hidden weights
-      $b,                                                 // nontype hidden bias
-      $hidden_size,                                       // hidden_size
-      $direction,                                         // direction
-      (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),   // return_all_steps
-
-   //
-   // Post-process to generate three return values of ONNXGRUOp
-   // from two return values of ZHighGRUOp(=$zHighGRU).
-   //
-   (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens),
-   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
-  ],
-  [(IsNoneType:$b), (IsNoneType:$res__0), (IsNotNoneType:$sequence_lens)]
->;
 //===----------------------------------------------------------------------===//
 // Rewrite
 //
