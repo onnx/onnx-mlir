@@ -249,7 +249,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     // Finally reshape 'outputDataBuffer' to the shape of the output.
     DimsExpr newOutputShape;
     for (int64_t dim : outputShape) {
-      if ( dim > 0) {
+      if (dim > 0) {
         LiteralIndexExpr outputDim(dim);
         newOutputShape.emplace_back(outputDim);
       } else {
