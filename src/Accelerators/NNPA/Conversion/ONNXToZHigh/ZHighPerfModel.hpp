@@ -35,7 +35,6 @@ bool isElementwiseFasterOnNNPA(mlir::Operation *op, mlir::Value lhs,
     mlir::Value rhs, const onnx_mlir::DimAnalysis *dimAnalysis,
     double relativeNNPASpeedup = 1.0);
 
-
 bool isMatMulFasterOnNNPA(mlir::Operation *op, mlir::Value a, mlir::Value b,
     bool aTransposed, bool bTransposed,
     const onnx_mlir::DimAnalysis *dimAnalysis);
