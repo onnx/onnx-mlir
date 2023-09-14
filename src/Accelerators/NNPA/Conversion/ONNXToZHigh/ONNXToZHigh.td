@@ -405,7 +405,7 @@ def GetI64ArrayAttrStridesAveragePool: NativeCodeCall<
   "($0.getDefiningOp<ONNXAveragePoolOp>()))">;
 
 def replaceONNXAveragePoolPattern : Pattern<
-  (ONNXAveragePoolOp:$res $x, $_, $_, $_, $_, $_, $_),
+  (ONNXAveragePoolOp:$res $x, $_, $_, $_, $_, $_, $_, $_),
   [
     // Get attributes using shape helper
     (GetStrAttrPaddingtypeAveragePool:$padtype $res),

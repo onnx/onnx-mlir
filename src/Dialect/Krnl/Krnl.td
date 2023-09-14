@@ -29,6 +29,7 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
+  let usePropertiesForAttributes = 0;
   let useDefaultTypePrinterParser = 1;
   let dependentDialects = [
     "affine::AffineDialect",

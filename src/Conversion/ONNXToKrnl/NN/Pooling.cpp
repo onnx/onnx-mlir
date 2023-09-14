@@ -57,15 +57,8 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
 //
 template <typename PoolOp>
 std::vector<int64_t> getDilations(PoolOp poolOp) {
-  return {};
-}
-
-// MaxPool has dilations attribute.
-template <>
-std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
-    ONNXMaxPoolSingleOutOp poolOp) {
   std::vector<int64_t> dilations;
-  auto dilationsAttribute = poolOp.getDilationsAttr();
+  ArrayAttr dilationsAttribute = poolOp.getDilationsAttr();
   bool isDefaultDilations = true;
   for (auto dilation : dilationsAttribute.getValue()) {
     int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
@@ -84,13 +77,6 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
 //
 template <typename PoolOp>
 std::optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
-  return std::nullopt;
-}
-
-// MaxPool has dilations attribute.
-template <>
-std::optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
-    ONNXMaxPoolSingleOutOp poolOp) {
   return poolOp.getDilations();
 }
 

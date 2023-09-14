@@ -87,7 +87,7 @@ version_dict = {
  'Asinh': [9],
  'Atan': [7],
  'Atanh': [9],
- 'AveragePool': [11],
+ 'AveragePool': [19],
  'BatchNormalization': [15],
  'Bernoulli': [15],
  'Binarizer': [1],
