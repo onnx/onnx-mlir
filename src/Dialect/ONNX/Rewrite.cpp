@@ -358,7 +358,7 @@ public:
     if (!hasShapeAndRank(expandShape))
       return failure();
     ArrayRef<int64_t> dims = getShape(expandShape.getType());
-    if (dims.size() > 0 && dims[0] == 0)
+    if ((dims.size() == 1) && (dims[0] == 0))
       return failure();
 
     // Rewrite
