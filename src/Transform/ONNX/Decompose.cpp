@@ -71,22 +71,27 @@ DenseElementsAttr createDenseArrayAttr(
   llvm_unreachable("unexpected attribute type");
 }
 
-/// Create an Scalar DenseElementsAttr from FloatAttr or IntegerAttr.
+/// Create an Scalar DenseElementsAttr from FloatAttr, IntegerAttr or
+/// DenseElementsAttr. In case of DenseElementsAttr, use the first element.
 /// This is used to create an ONNXConstant of rank 0, e.g. tensor<f32>.
 DenseElementsAttr createScalarDenseAttr(
     PatternRewriter &rewriter, Attribute attr) {
-  if (attr.dyn_cast<FloatAttr>()) {
+  Attribute singleAttr = attr;
+  if (auto denseAttr = attr.dyn_cast<DenseElementsAttr>()) {
+    singleAttr = *denseAttr.getValues<Attribute>().begin();
+  }
+  if (singleAttr.dyn_cast<FloatAttr>()) {
     Type elementType = rewriter.getF32Type();
     SmallVector<float, 1> wrapper;
-    wrapper.emplace_back(attr.cast<FloatAttr>().getValueAsDouble());
+    wrapper.emplace_back(singleAttr.cast<FloatAttr>().getValueAsDouble());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
 
-  if (attr.dyn_cast<IntegerAttr>()) {
+  if (singleAttr.dyn_cast<IntegerAttr>()) {
     Type elementType = rewriter.getIntegerType(64);
     SmallVector<int64_t, 1> wrapper;
-    wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
+    wrapper.emplace_back(singleAttr.cast<IntegerAttr>().getInt());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }

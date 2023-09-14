@@ -634,8 +634,8 @@ func.func @test_replace_add_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?x
   %0 = onnx.Constant dense<1> : tensor<1xi64>
   %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
   %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-  %3 = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-  %4 = "onnx.Expand"(%3, %2) : (tensor<1xf32>, tensor<2xi64>) -> tensor<1x?xf32>
+  %3 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %4 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<1x?xf32>
   %5 = "onnx.Add"(%arg0, %4) : (tensor<2x4xf32>, tensor<1x?xf32>) -> tensor<2x4xf32>
   return %5 : tensor<2x4xf32>
 
@@ -652,8 +652,8 @@ func.func @test_replace_sub_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?x
   %0 = onnx.Constant dense<1> : tensor<1xi64>
   %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
   %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-  %3 = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
-  %4 = "onnx.Expand"(%3, %2) : (tensor<1xf32>, tensor<2xi64>) -> tensor<1x?xf32>
+  %3 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %4 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<1x?xf32>
   %5 = "onnx.Sub"(%arg0, %4) : (tensor<2x4xf32>, tensor<1x?xf32>) -> tensor<2x4xf32>
   return %5 : tensor<2x4xf32>
 
