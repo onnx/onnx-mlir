@@ -77,7 +77,7 @@ DenseElementsAttr createDenseArrayAttr(
 DenseElementsAttr createScalarDenseAttr(
     PatternRewriter &rewriter, Attribute attr) {
   Attribute singleAttr = attr;
-  if (auto denseAttr = attr.dyn_cast<DenseElementsAttr>()) {
+  if (auto denseAttr = attr.dyn_cast<ElementsAttr>()) {
     singleAttr = *denseAttr.getValues<Attribute>().begin();
   }
   if (singleAttr.dyn_cast<FloatAttr>()) {
