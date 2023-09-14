@@ -380,7 +380,8 @@ std::unique_ptr<Pass> createONNXToZHighPass() {
 
 std::unique_ptr<Pass> createONNXToZHighPass(
     mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel) {
-  return std::make_unique<ONNXToZHighLoweringPass>(execNodesOnCpu, useCostModel);
+  return std::make_unique<ONNXToZHighLoweringPass>(
+      execNodesOnCpu, useCostModel);
 }
 
 } // namespace onnx_mlir

@@ -405,7 +405,8 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
-  RewriteONNXForZHighPass(mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel)
+  RewriteONNXForZHighPass(
+      mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel)
       : execNodesOnCpu(execNodesOnCpu), useCostModel(useCostModel) {}
   void runOnOperation() final;
 
