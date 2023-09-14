@@ -46,9 +46,10 @@ bool isValidElementTypeAndRank(Value val) {
 }
 
 /// Common legality check for pooling ops.
-template <typename POOLOP, typename POOLOPAdaptor, typename POOLOPShapeHelper>
-bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
-  POOLOPShapeHelper shapeHelper(op.getOperation(), {});
+template <typename POOL_OP, typename POOL_OP_Adaptor,
+    typename POOL_OP_ShapeHelper>
+bool checkLegalityPoolOpsCommon(POOL_OP op, Value Y) {
+  POOL_OP_ShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   Value X = op.getX();
   int64_t ceilMode = op.getCeilMode();
@@ -70,7 +71,7 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   // When input has unknown dimension and auto_pad is `NOTSET`, paddingType is
   // empty.
   StringRef paddingType =
-      getStrPaddingType<POOLOP, POOLOPAdaptor, POOLOPShapeHelper>(op);
+      getStrPaddingType<POOL_OP, POOL_OP_Adaptor, POOL_OP_ShapeHelper>(op);
   if (paddingType.empty())
     return false;
 
@@ -378,8 +379,8 @@ bool isFasterOnNNPA<ONNXMinOp>(ONNXMinOp op, const DimAnalysis *dimAnalysis) {
 template <>
 bool isSuitableForZDNN<ONNXMinOp>(
     ONNXMinOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
-  int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
+  int64_t opNum = op.getNumOperands();
+  if (opNum != 2) {
     return false;
   }
   if (!isValidElementTypeAndRank(op.getOperand(0)))
@@ -403,8 +404,8 @@ bool isFasterOnNNPA<ONNXMaxOp>(ONNXMaxOp op, const DimAnalysis *dimAnalysis) {
 template <>
 bool isSuitableForZDNN<ONNXMaxOp>(
     ONNXMaxOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
-  int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
+  int64_t opNum = op.getNumOperands();
+  if (opNum != 2) {
     return false;
   }
   if (!isValidElementTypeAndRank(op.getOperand(0)))
@@ -419,6 +420,15 @@ bool isSuitableForZDNN<ONNXMaxOp>(
 /// Check legality for ONNXSoftmax.
 /// zDNN softmax only supports axis = rank-1 (or -1) when rank = 2 or 3). If
 /// axis is not rank-1 (or -1) when rank = 2/3), keep ONNXSoftmax unchanged.
+
+template <>
+bool isFasterOnNNPA<ONNXSoftmaxOp>(
+    ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
+  // Has no data on softmax, approx for the moment by using elementwise.
+  return isElementwiseFasterOnNNPA(
+      op.getOperation(), op.getInput(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(
     ONNXSoftmaxOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
@@ -428,58 +438,116 @@ bool isSuitableForZDNN<ONNXSoftmaxOp>(
   if (!inputType.hasRank())
     return false;
   int64_t rank = inputType.getRank();
-  return (((rank == 2) || (rank == 3)) &&
-          ((op.getAxis() == rank - 1) || (op.getAxis() == -1)));
+  if (!(((rank == 2) || (rank == 3)) &&
+          ((op.getAxis() == rank - 1) || (op.getAxis() == -1))))
+    return false;
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXRelu.
+
+template <>
+bool isFasterOnNNPA<ONNXReluOp>(ONNXReluOp op, const DimAnalysis *dimAnalysis) {
+  return isElementwiseFasterOnNNPA(op.getOperation(), op.getX(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXReluOp>(
     ONNXReluOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
-  return xType.hasRank() && (xType.getRank() <= 4);
+  if (!xType.hasRank() || xType.getRank() > 4)
+    return false;
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXTanh.
+
+template <>
+bool isFasterOnNNPA<ONNXTanhOp>(ONNXTanhOp op, const DimAnalysis *dimAnalysis) {
+  return isElementwiseFasterOnNNPA(
+      op.getOperation(), op.getInput(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXTanhOp>(
     ONNXTanhOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
-  return inputType.hasRank() && (inputType.getRank() <= 4);
+  if (!inputType.hasRank() || inputType.getRank() > 4)
+    return false;
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXSigmoid.
+
+template <>
+bool isFasterOnNNPA<ONNXSigmoidOp>(
+    ONNXSigmoidOp op, const DimAnalysis *dimAnalysis) {
+  return isElementwiseFasterOnNNPA(op.getOperation(), op.getX(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXSigmoidOp>(
     ONNXSigmoidOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
-  return xType.hasRank() && (xType.getRank() <= 4);
+  if (!xType.hasRank() || xType.getRank() > 4)
+    return false;
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXLog.
+
+template <>
+bool isFasterOnNNPA<ONNXLogOp>(ONNXLogOp op, const DimAnalysis *dimAnalysis) {
+  return isElementwiseFasterOnNNPA(
+      op.getOperation(), op.getInput(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXLogOp>(
     ONNXLogOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
-  return inputType.hasRank() && (inputType.getRank() <= 4);
+  if (!inputType.hasRank() || inputType.getRank() > 4)
+    return false;
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXExp.
+
+template <>
+bool isFasterOnNNPA<ONNXExpOp>(ONNXExpOp op, const DimAnalysis *dimAnalysis) {
+  return isElementwiseFasterOnNNPA(
+      op.getOperation(), op.getInput(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXExpOp>(
     ONNXExpOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
-  return inputType.hasRank() && (inputType.getRank() <= 4);
+  if (!inputType.hasRank() || inputType.getRank() > 4)
+    return false;
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXMatMul.
@@ -495,8 +563,8 @@ bool isFasterOnNNPA<ONNXMatMulOp>(
 template <>
 bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, bool useCostModel, const DimAnalysis *dimAnalysis) {
-  int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
+  int64_t opNum = op.getNumOperands();
+  if (opNum != 2) {
     return false;
   }
   if (!isValidElementTypeAndRank(op.getOperand(0)))
@@ -951,6 +1019,14 @@ bool isSuitableForZDNN<ONNXConvOp>(
 }
 
 /// Check legality for ONNXBatchNormOp.
+
+template <>
+bool isFasterOnNNPA<ONNXBatchNormalizationInferenceModeOp>(
+    ONNXBatchNormalizationInferenceModeOp op, const DimAnalysis *dimAnalysis) {
+  // Cedric's spreadsheet shows similar results to elementwise.
+  return isElementwiseFasterOnNNPA(op.getOperation(), op.getX(), dimAnalysis);
+}
+
 template <>
 bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
     ONNXBatchNormalizationInferenceModeOp op, bool useCostModel,
@@ -963,6 +1039,7 @@ bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
   // 4D tensors(N x C x H x W) are supported as input and output.
   if (shapeInput.size() != 4 || shapeOutput.size() != 4)
     return false;
-
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
   return true;
 }

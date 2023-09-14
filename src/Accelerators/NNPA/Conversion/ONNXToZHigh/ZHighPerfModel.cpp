@@ -60,18 +60,18 @@ inline bool fasterOnCPU(Operation *op, std::string msg) {
 
 } // namespace
 
-bool isElementwiseFasterOnNNPA(Operation *op, Value lhs, Value rhs,
+bool isElementwiseFasterOnNNPA(Operation *op, Value oper,
     const DimAnalysis *dimAnalysis, double relativeNNPASpeedup) {
   // At this time, use only 1 of the two
-  ShapedType lhsType = lhs.getType().dyn_cast_or_null<ShapedType>();
-  assert(lhsType && lhsType.hasRank() && "expected shaped type with rank");
-  int64_t lhsRank = lhsType.getRank();
-  assert(lhsRank <= 4 && "expected rank <= 4");
-  llvm::ArrayRef<int64_t> shape = lhsType.getShape();
-  int64_t e4 = lhsRank >= 4 ? shape[lhsRank - 4] : 1;
-  int64_t e3 = lhsRank >= 3 ? shape[lhsRank - 3] : 1;
-  int64_t e2 = lhsRank >= 2 ? shape[lhsRank - 2] : 1;
-  int64_t e1 = lhsRank >= 1 ? shape[lhsRank - 1] : 1;
+  ShapedType operType = oper.getType().dyn_cast_or_null<ShapedType>();
+  assert(operType && operType.hasRank() && "expected shaped type with rank");
+  int64_t operRank = operType.getRank();
+  assert(operRank <= 4 && "expected rank <= 4");
+  llvm::ArrayRef<int64_t> shape = operType.getShape();
+  int64_t e4 = operRank >= 4 ? shape[operRank - 4] : 1;
+  int64_t e3 = operRank >= 3 ? shape[operRank - 3] : 1;
+  int64_t e2 = operRank >= 2 ? shape[operRank - 2] : 1;
+  int64_t e1 = operRank >= 1 ? shape[operRank - 1] : 1;
 
   // Disqualify if e1 is too small (full is 64, so shoot for half full).
   if (e1 > 0 && e1 < 32)
@@ -95,6 +95,13 @@ bool isElementwiseFasterOnNNPA(Operation *op, Value lhs, Value rhs,
     return fasterOnCPU(
         op, "elementwise computed 2D FMA is too small (<8 full tiles)");
   return fasterOnNNPA(op, "elementwise has enough computations");
+}
+
+bool isElementwiseFasterOnNNPA(Operation *op, Value oper, Value rhs,
+    const DimAnalysis *dimAnalysis, double relativeNNPASpeedup) {
+  // At this time, we can treat the binary elementwise the same way as an unary
+  // elementwise.
+  return isElementwiseFasterOnNNPA(op, oper, dimAnalysis, relativeNNPASpeedup);
 }
 
 bool isMatMulFasterOnNNPA(Operation *op, Value a, Value b, bool aTransposed,

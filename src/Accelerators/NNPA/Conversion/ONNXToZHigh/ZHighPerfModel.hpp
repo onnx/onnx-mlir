@@ -24,13 +24,17 @@
 // Result is normalized for add/sub/mul. Operations that have an additional
 // advantage on the NNPA vs CPU execution can reflect that advantage via the
 // relativeNNPASpeedup ratio.
+
+// Elementwise with one input operand.
+bool isElementwiseFasterOnNNPA(mlir::Operation *op, mlir::Value operand,
+    const onnx_mlir::DimAnalysis *dimAnalysis,
+    double relativeNNPASpeedup = 1.0);
+
+// Elementwise with two input operands, lhs and rhs.
 bool isElementwiseFasterOnNNPA(mlir::Operation *op, mlir::Value lhs,
     mlir::Value rhs, const onnx_mlir::DimAnalysis *dimAnalysis,
     double relativeNNPASpeedup = 1.0);
 
-bool isElementwiseFasterOnNNPA(mlir::Operation *op, mlir::Value operand,
-    const onnx_mlir::DimAnalysis *dimAnalysis,
-    double relativeNNPASpeedup = 1.0);
 
 bool isMatMulFasterOnNNPA(mlir::Operation *op, mlir::Value a, mlir::Value b,
     bool aTransposed, bool bTransposed,
