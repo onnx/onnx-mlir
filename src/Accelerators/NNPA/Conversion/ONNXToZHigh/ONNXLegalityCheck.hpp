@@ -22,9 +22,10 @@
 
 /// A function to check whether an ONNX op is suitable for being lowered to zDNN
 /// or not.
+// TODO: revisit if the cost model should not be optional.
 template <typename OP_TYPE>
-bool isSuitableForZDNN(
-    OP_TYPE op, const onnx_mlir::DimAnalysis *dimAnalysis = nullptr);
+bool isSuitableForZDNN(OP_TYPE op, bool useCostModel = false,
+    const onnx_mlir::DimAnalysis *dimAnalysis = nullptr);
 
 /// Get padding type using shape helper. This returns
 /// `SAME_PADDING`, `VALID_PADDING`, or empty.

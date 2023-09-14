@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMONNXToZHigh
   ONNXLegalityCheck.cpp
   ONNXToZHigh.cpp
   ONNXToZHighCommon.cpp
+  ZHighPerfModel.cpp
 
   DEPENDS
   OMONNXONNXToZHighIncGen
@@ -25,6 +26,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   ONNXLegalityCheck.cpp
   RewriteONNXForZHigh.cpp
   ONNXToZHighCommon.cpp
+  ZHighPerfModel.cpp
 
   DEPENDS
   OMONNXRewriteONNXForZHighIncGen

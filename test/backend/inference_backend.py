@@ -74,6 +74,8 @@ def get_test_models():
         # Elementary ops, ordered in the order they are found in
         # onnx-mlir/third_party/onnx/onnx/backend/test/case/node.
 
+        # When changing ==xxx== annotations, please run `make onnx_mlir_supported_ops`
+        # to re-actualize our support md pages. 
         # ==ARCH== cpu
 
         # ==OP== Abs

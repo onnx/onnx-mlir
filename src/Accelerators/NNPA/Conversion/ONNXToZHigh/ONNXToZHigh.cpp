@@ -257,8 +257,10 @@ struct ONNXToZHighLoweringPass
   ONNXToZHighLoweringPass() = default;
   ONNXToZHighLoweringPass(const ONNXToZHighLoweringPass &pass)
       : PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>>() {}
-  ONNXToZHighLoweringPass(mlir::ArrayRef<std::string> execNodesOnCpu) {
+  ONNXToZHighLoweringPass(
+      mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel) {
     this->execNodesOnCpu = execNodesOnCpu;
+    this->useCostModel = useCostModel;
   }
   void runOnOperation() final;
 
@@ -269,6 +271,11 @@ public:
                      "using the zDNN. The node name is an optional attribute "
                      "in onnx graph, which is `onnx_node_name` in ONNX IR"),
       llvm::cl::ZeroOrMore};
+  Option<bool> useCostModel{*this, "use-cost-model",
+      llvm::cl::desc(
+          "Whether to use performance cost model to estimate if it is "
+          " beneficial to map an operation to ZHigh. Default: false"),
+      llvm::cl::init(false)};
 };
 } // end anonymous namespace.
 
@@ -317,32 +324,48 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  addDynamicallyLegalOpFor<ONNXAddOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSubOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMulOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXDivOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSumOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMinOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReluOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, &dimAnalysis, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXAddOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSubOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMulOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXDivOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXSumOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMinOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMaxOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXReluOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXTanhOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXSigmoidOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLogOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXExpOp>(&target, &dimAnalysis, execNodesOnCpu);
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXLogOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXExpOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXAveragePoolOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis, execNodesOnCpu);
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXGemmOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
   addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXConvOp>(&target, &dimAnalysis, execNodesOnCpu);
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXLSTMOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXGRUOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
+  addDynamicallyLegalOpFor<ONNXConvOp>(
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -356,8 +379,8 @@ std::unique_ptr<Pass> createONNXToZHighPass() {
 }
 
 std::unique_ptr<Pass> createONNXToZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu) {
-  return std::make_unique<ONNXToZHighLoweringPass>(execNodesOnCpu);
+    mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel) {
+  return std::make_unique<ONNXToZHighLoweringPass>(execNodesOnCpu, useCostModel);
 }
 
 } // namespace onnx_mlir

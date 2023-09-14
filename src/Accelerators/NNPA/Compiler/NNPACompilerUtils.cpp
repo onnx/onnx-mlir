@@ -45,12 +45,13 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-void addONNXToZHighPasses(
-    mlir::PassManager &pm, ArrayRef<std::string> execNodesOnCpu) {
+void addONNXToZHighPasses(mlir::PassManager &pm,
+    ArrayRef<std::string> execNodesOnCpu, bool useCostModel) {
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
-    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(execNodesOnCpu));
+    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(
+        execNodesOnCpu, false /*useCostModel*/));
     // Simplify shape-related ops, including ShapeOp-to-DimOp replacement,
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
@@ -75,7 +76,7 @@ void addONNXToZHighPasses(
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentPass(instrumentOps, instrumentActions));
 
-  pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu));
+  pm.addPass(onnx_mlir::createONNXToZHighPass(execNodesOnCpu, useCostModel));
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
@@ -155,7 +156,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   if (emissionTarget >= EmitMLIR) {
     // Lower zAIU-compatible ONNX ops to ZHigh dialect where possible.
-    addONNXToZHighPasses(pm, execNodesOnCpu);
+    addONNXToZHighPasses(pm, execNodesOnCpu, nnpaEnableZHighCostModel);
 
     if (nnpaEmissionTarget >= EmitZHighIR)
       emissionTarget = EmitMLIR;

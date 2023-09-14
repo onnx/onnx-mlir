@@ -405,12 +405,13 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
-  RewriteONNXForZHighPass(mlir::ArrayRef<std::string> execNodesOnCpu)
-      : execNodesOnCpu(execNodesOnCpu) {}
+  RewriteONNXForZHighPass(mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel)
+      : execNodesOnCpu(execNodesOnCpu), useCostModel(useCostModel) {}
   void runOnOperation() final;
 
 public:
   mlir::ArrayRef<std::string> execNodesOnCpu = mlir::ArrayRef<std::string>();
+  bool useCostModel = false;
 };
 
 void RewriteONNXForZHighPass::runOnOperation() {
@@ -433,7 +434,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
+      &target, &dimAnalysis, useCostModel, execNodesOnCpu);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be
@@ -549,8 +550,9 @@ std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
 }
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu) {
-  return std::make_unique<RewriteONNXForZHighPass>(execNodesOnCpu);
+    mlir::ArrayRef<std::string> execNodesOnCpu, bool useCostModel) {
+  return std::make_unique<RewriteONNXForZHighPass>(
+      execNodesOnCpu, useCostModel);
 }
 
 } // namespace onnx_mlir

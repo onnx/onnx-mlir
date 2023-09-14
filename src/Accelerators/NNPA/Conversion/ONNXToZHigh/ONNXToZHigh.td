@@ -301,7 +301,7 @@ def replaceONNXSoftmax3DPattern : Pat<
 //===----------------------------------------------------------------------===//
 def IsSoftmaxLegalForZDNN: Constraint<
   CPred<"isSuitableForZDNN<ONNXSoftmaxOp>(" # 
-             "dyn_cast_or_null<ONNXSoftmaxOp>($0.getDefiningOp()))">,
+             "dyn_cast_or_null<ONNXSoftmaxOp>($0.getDefiningOp()), false)">,
   "Softmax is legal for zDNN"
 >;
 def replaceONNXLogSoftmaxPattern : Pattern<
@@ -461,7 +461,7 @@ def replaceONNXMatMulPattern : Pat<
 
 def IsMatMulLegalForZDNN: Constraint<
   CPred<"isSuitableForZDNN<ONNXMatMulOp>(" # 
-             "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp()))">,
+             "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp()), false)">,
   "MatMul is legal for zDNN"
 >;
 
@@ -983,7 +983,7 @@ def replaceONNXConv2DPattern : Pattern<
 
 def IsConv2DLegalForZDNN: Constraint<
   CPred<"isSuitableForZDNN<ONNXConvOp>(" #
-             "dyn_cast_or_null<ONNXConvOp>($0.getDefiningOp()))">,
+             "dyn_cast_or_null<ONNXConvOp>($0.getDefiningOp()), false)">,
   "Conv is legal for zDNN"
 >;
 

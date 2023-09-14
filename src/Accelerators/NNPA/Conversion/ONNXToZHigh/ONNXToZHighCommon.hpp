@@ -21,10 +21,10 @@
 
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
-    const onnx_mlir::DimAnalysis *dimAnalysis,
+    const onnx_mlir::DimAnalysis *dimAnalysis, bool useCostModel,
     mlir::ArrayRef<std::string> execNodesOnCpu) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](
-                                             OP_TYPE op) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, useCostModel,
+                                             execNodesOnCpu](OP_TYPE op) {
     // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr nodeName =
@@ -56,7 +56,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     if (exceedLimit)
       return true;
 
-    return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
+    return !isSuitableForZDNN<OP_TYPE>(op, useCostModel, dimAnalysis);
   });
 }
 
