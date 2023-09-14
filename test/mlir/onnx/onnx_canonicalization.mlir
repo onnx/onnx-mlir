@@ -1495,3 +1495,24 @@ func.func @test_replace_unsqueeze_by_expand(%arg0: tensor<2x?xi64>) -> tensor<2x
 // CHECK:           return [[VAR_5_]] : tensor<2x1x1x?xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_not_replace_sub_by_expand_rank0() -> tensor<1xi32> {
+    %1 = onnx.Constant dense<1> : tensor<1xi32>
+    %2 = onnx.Constant dense<2> : tensor<i32>
+    %3 = onnx.Constant dense<> : tensor<0xi64>
+    %4 = "onnx.Expand"(%2, %3) : (tensor<i32>, tensor<0xi64>) -> tensor<i32>
+    %5 = "onnx.Sub"(%1, %4) : (tensor<1xi32>, tensor<i32>) -> tensor<1xi32>
+    return %5: tensor<1xi32>
+
+// CHECK-LABEL:  func.func @test_not_replace_sub_by_expand_rank0
+// CHECK-SAME:   () -> tensor<1xi32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<i32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<> : tensor<0xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Expand"([[VAR_1_]], [[VAR_2_]]) : (tensor<i32>, tensor<0xi64>) -> tensor<i32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Sub"([[VAR_0_]], [[VAR_3_]]) : (tensor<1xi32>, tensor<i32>) -> tensor<1xi32>
+// CHECK:           return [[VAR_4_]] : tensor<1xi32>
+// CHECK:         }
+}
