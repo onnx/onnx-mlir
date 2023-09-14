@@ -282,6 +282,89 @@ public:
   }
 };
 
+// A pattern to turn
+//   `BinaryOp(Constant_X), ExpandOp(Constant_Y))`
+// into
+//   `ExpandOp(BinaryOp(Constant_X, Constant_Y))`
+// which put constants together so that BinaryOp can be folded. This pattern
+// only handles the case where one of the operand is a scalar constant. For such
+// a case, we can easily infer the shape operand for the resulting ExpandOp.
+
+template <typename OP_TYPE>
+Value EmitBinaryOp(
+    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
+  llvm_unreachable("Unsupported operator");
+}
+
+template <>
+Value EmitBinaryOp<ONNXAddOp>(
+    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
+  return create.onnx.add(lhs, rhs);
+}
+
+template <>
+Value EmitBinaryOp<ONNXDivOp>(
+    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
+  return create.onnx.div(lhs, rhs);
+}
+
+template <>
+Value EmitBinaryOp<ONNXMulOp>(
+    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
+  return create.onnx.mul(lhs, rhs);
+}
+
+template <>
+Value EmitBinaryOp<ONNXSubOp>(
+    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
+  return create.onnx.sub(lhs, rhs);
+}
+
+template <typename OP_TYPE>
+class PropagateScalarConstantExpandPattern : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    Operation *op = binaryOp.getOperation();
+    Location loc = binaryOp.getLoc();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Type outputType = op->getResult(0).getType();
+
+    // Match
+    //  - lhs is a scalar constant, and
+    //  - rhs is ExpandOp whose input is a scalar constant, or vice versa.
+    Value expandShape = nullptr;
+    auto matchValue = [&expandShape](Value v) -> Value {
+      Value res = v;
+      if (definedBy<ONNXExpandOp>(res)) {
+        auto expandOp = cast<ONNXExpandOp>(res.getDefiningOp());
+        res = expandOp.getInput();
+        expandShape = expandOp.getShape();
+      }
+      if (isDenseONNXConstant(res) && isScalarTensor(res))
+        return res;
+      return nullptr;
+    };
+    Value lhsConstant = matchValue(lhs);
+    Value rhsConstant = matchValue(rhs);
+    if (!expandShape || !lhsConstant || !rhsConstant)
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value res = create.onnx.expand(outputType,
+        EmitBinaryOp<OP_TYPE>(create, lhsConstant, rhsConstant), expandShape);
+
+    rewriter.replaceOp(op, {res});
+    return success();
+  }
+};
+
 // =============================================================================
 // Rewrite pattern for Resize (not handled in Rewrite.td).
 // =============================================================================
@@ -969,7 +1052,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
-  results.insert<PropagateScalarConstantExpandForAdd>(context);
+  results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
 }
 
 /// on the ONNXAndOp.
@@ -1007,8 +1090,7 @@ void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
 void ONNXDivOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
-  result.insert<PropagateScalarConstantExpandForDiv1>(context);
-  result.insert<PropagateScalarConstantExpandForDiv2>(context);
+  result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
 }
 
 /// on the ONNXDropoutOp.
@@ -1092,8 +1174,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
-  results.insert<PropagateScalarConstantExpandForMul1>(context);
-  results.insert<PropagateScalarConstantExpandForMul2>(context);
+  results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
 }
 
 /// on the ONNXOrOp.
@@ -1134,8 +1215,7 @@ void ONNXShapeOp::getCanonicalizationPatterns(
 void ONNXSubOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
-  result.insert<PropagateScalarConstantExpandForSub1>(context);
-  result.insert<PropagateScalarConstantExpandForSub2>(context);
+  result.insert<PropagateScalarConstantExpandPattern<ONNXSubOp>>(context);
 }
 
 /// on ONNXShapeTransformOp

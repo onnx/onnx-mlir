@@ -1387,7 +1387,7 @@ func.func @test_replace_mul_by_expand_1(%arg0: tensor<?xi64>) -> tensor<2x?xf32>
 // CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
-// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_0_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Mul"([[VAR_0_]], [[VAR_1_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Expand"([[VAR_5_]], [[VAR_4_]]) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
 // CHECK:           return [[VAR_6_]] : tensor<2x?xf32>
 // CHECK:         }
