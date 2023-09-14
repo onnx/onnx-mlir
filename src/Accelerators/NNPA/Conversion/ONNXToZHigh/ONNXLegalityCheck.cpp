@@ -681,6 +681,14 @@ bool isSuitableForZDNN<ONNXGemmOp>(
 
 /// Check legality for ONNXReduceMeanV13.
 template <>
+bool isFasterOnNNPA<ONNXReduceMeanV13Op>(
+    ONNXReduceMeanV13Op op, const DimAnalysis *dimAnalysis) {
+  // Has no data on reduce min, approx for the moment by using elementwise.
+  return isElementwiseFasterOnNNPA(
+      op.getOperation(), op.getData(), dimAnalysis);
+}
+
+template <>
 bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
     ONNXReduceMeanV13Op op, bool useCostModel, const DimAnalysis *dimAnalysis) {
   // Check data type.
@@ -709,6 +717,9 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   if ((shapeData[2] == ShapedType::kDynamic) ||
       (shapeData[3] == ShapedType::kDynamic) || (shapeData[2] > 1024) ||
       (shapeData[3] > 1024))
+    return false;
+
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
 
   return true;
