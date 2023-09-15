@@ -311,10 +311,12 @@ public:
     Value expandShape = nullptr;
     auto matchValue = [&expandShape](Value v) -> Value {
       Value res = v;
-      if (definedBy<ONNXExpandOp>(res) && !expandShape) {
-        auto expandOp = cast<ONNXExpandOp>(res.getDefiningOp());
-        res = expandOp.getInput();
-        expandShape = expandOp.getShape();
+      if (auto expandOp =
+              dyn_cast_if_present<ONNXExpandOp>(res.getDefiningOp())) {
+        if (!expandShape) {
+          res = expandOp.getInput();
+          expandShape = expandOp.getShape();
+        }
       }
       if (isDenseONNXConstant(res) && isScalarTensor(res))
         return res;
