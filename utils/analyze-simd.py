@@ -14,6 +14,7 @@ import getopt
 import re
 import io
 import subprocess
+from pathlib import Path
 
 ################################################################################
 # Usage.
@@ -25,7 +26,7 @@ def print_usage(msg = ""):
     dprint("")
     if msg:
         dprint("ERROR: " + msg + "\n")
-    dprint("analyze-simd [-a <arch>] (-c|-m|-o)+ [-n num] [-f pattern] [-dhlp] file")
+    dprint("analyze-simd [-t <arch>] (-a|-c|-m|-o)+ [-n num] [-f pattern] [-dhlp] file")
     dprint("  Utility to analyze and print SIMD code located in functions")
     dprint("")
     dprint("Pattern:")
@@ -59,7 +60,7 @@ debug = 0  # 1 for emitting stats, 2 for basic block detection
 print_code = False
 print_listing = False
 print_details = False
-fct_match_str = r'^main_graph$'
+fct_match_str = ""
 op_dict = {}
 aggr_dict = {}
 op_name = {}
@@ -426,6 +427,12 @@ def main(argv):
         # All commands after the file name seems to be added here!!!
         print_usage("Need an single input file as last option: ", args, ".")
     filename = args[0]
+
+    name_stub = Path(filename).stem
+    if not fct_match_str:
+        fct_match_str = r'^main_graph_' + name_stub + '$'
+        print("# search default function: main_graph with default tag \""+fct_match_str+"\"")
+
     match_binary = re.match(r'(.*)\.so$', filename)
     if match_binary:
         asm_filename = match_binary.group(1) + ".s"
@@ -433,6 +440,7 @@ def main(argv):
         dprint("# generate asm file with: " + cmd)
         ret = subprocess.call(cmd, shell=True)
         filename = asm_filename
+    
     scan_basic_blocks(filename)
     buff = scan_for_simd(filename, pattern, num)
     return
