@@ -656,12 +656,12 @@ def main():
 
         # Print statistics info, e.g., min/max/stddev inference time.
         if args.n_iteration > 1 :
-            print("  Statistics (excluding warmup),"
+            print("  Statistics 1 (excluding warmup),"
                   " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
                 np.min(perf_results), np.max(perf_results),
                 np.mean(perf_results),np.std(perf_results, dtype=np.float64)))
             t_perf_results = data_without_top_bottom_quartile(perf_results, 25)
-            print("  Statistics (and excl. quart.),"
+            print("  Statistics 2 (no warmup/quart.),"
                   " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
                 np.min(t_perf_results), np.max(t_perf_results),
                 np.mean(t_perf_results),np.std(t_perf_results, dtype=np.float64)))
