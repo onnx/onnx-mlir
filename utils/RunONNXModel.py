@@ -646,12 +646,12 @@ def main():
             end = time.perf_counter()
             elapsed = end - start
             perf_results += [elapsed]
-            print("  {} iteration: {} seconds".format(ordinal(i+1), elapsed))
+            print("  {} iteration, {}, seconds".format(ordinal(i+1), elapsed))
 
         # Print statistics info, e.g., min/max/stddev inference time.
         if args.n_iteration > 1 :
-            print("  Statistics (excluding warmup):"
-                  " min {}, max {}, mean {}, stddev {}".format(
+            print("  Statistics (excluding warmup),"
+                  " min, {}, max, {}, mean, {}, stddev, {}".format(
                 np.min(perf_results), np.max(perf_results),
                 np.mean(perf_results), np.std(perf_results, dtype=np.float64)))
 

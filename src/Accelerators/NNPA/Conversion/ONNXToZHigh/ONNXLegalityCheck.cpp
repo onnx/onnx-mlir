@@ -602,15 +602,18 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   if ((shapeA.size() == 2) && (shapeB.size() == 2)) {
     // unstacked case
     if (aType.hasStaticShape() && bType.hasStaticShape())
-      return (shapeA[1] == shapeB[0]);
+      if (shapeA[1] != shapeB[0])
+        return false;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 3)) {
     // stacked w/o bcast case
     if (aType.hasStaticShape() && bType.hasStaticShape())
-      return ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
+      if ((shapeA[0] != shapeB[0]) || (shapeA[2] != shapeB[1]))
+        return false;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
     // stacked w/ bcast
     if (aType.hasStaticShape() && bType.hasStaticShape())
-      return (shapeA[2] == shapeB[0]);
+      if (shapeA[2] != shapeB[0])
+        return false;
   } else {
     return false; // Unsupported case.
   }
