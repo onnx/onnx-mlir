@@ -112,6 +112,7 @@ Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
   if (isNoneValue(sequenceLens))
     return getLSTMGRUGetY(loc, rewriter, val, resY);
 
+  // Create a CustomOp to fix Y because zDNN GRU ignores the sequence_lens
   std::vector<Value> inputs = {val, sequenceLens, initialH};
   ONNXCustomOp customOp =
       rewriter.create<ONNXCustomOp>(loc, resY.getType(), inputs);
@@ -191,9 +192,7 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
   if (isNoneValue(sequenceLens))
     return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
 
-  // ToFix: correct Yh
-  // return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
-
+  // Create a CustomOp to fix Yh because zDNN GRU ignores the sequence_lens
   std::vector<Value> inputs = {val, sequenceLens};
   ONNXCustomOp customOp =
       rewriter.create<ONNXCustomOp>(loc, resYh.getType(), inputs);
