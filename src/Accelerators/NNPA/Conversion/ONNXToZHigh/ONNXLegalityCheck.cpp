@@ -270,9 +270,11 @@ bool isSuitableForZDNN<ONNXAddOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
     return false;
+  if (!dimAnalysis->sameShape(op.getA(), op.getB()))
+    return false;
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-  return dimAnalysis->sameShape(op.getA(), op.getB());
+  return true;
 }
 
 /// Check legality for ONNXSub.
@@ -290,9 +292,11 @@ bool isSuitableForZDNN<ONNXSubOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
     return false;
+  if (!dimAnalysis->sameShape(op.getA(), op.getB()))
+    return false;
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-  return dimAnalysis->sameShape(op.getA(), op.getB());
+  return true;
 }
 
 /// Check legality for ONNXMul.
@@ -310,9 +314,11 @@ bool isSuitableForZDNN<ONNXMulOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
     return false;
+  if (!dimAnalysis->sameShape(op.getA(), op.getB()))
+    return false;
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-  return dimAnalysis->sameShape(op.getA(), op.getB());
+  return true;
 }
 
 /// Check legality for ONNXDiv.
@@ -330,9 +336,11 @@ bool isSuitableForZDNN<ONNXDivOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
     return false;
+  if (!dimAnalysis->sameShape(op.getA(), op.getB()))
+    return false;
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-  return dimAnalysis->sameShape(op.getA(), op.getB());
+  return true;
 }
 
 /// Check legality for ONNXSum.
@@ -387,9 +395,11 @@ bool isSuitableForZDNN<ONNXMinOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
+  if (!dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1)))
+    return false;
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-  return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
+  return true;
 }
 
 /// Check legality for ONNXMax.
@@ -412,9 +422,11 @@ bool isSuitableForZDNN<ONNXMaxOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getOperand(1)))
     return false;
+  if (!dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1)))
+    return false;
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-  return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
+  return true;
 }
 
 /// Check legality for ONNXSoftmax.
@@ -581,9 +593,6 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   auto shapeA = aType.getShape();
   auto shapeB = bType.getShape();
 
-  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
-    return false;
-
   // In case of Tensors with unknown dimension, check only size of matrices.
   // Actual shape is not checked. If actual shape does not meet, get error at
   // runtime.
@@ -594,22 +603,20 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     // unstacked case
     if (aType.hasStaticShape() && bType.hasStaticShape())
       return (shapeA[1] == shapeB[0]);
-    else
-      return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 3)) {
     // stacked w/o bcast case
     if (aType.hasStaticShape() && bType.hasStaticShape())
       return ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
-    else
-      return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
     // stacked w/ bcast
     if (aType.hasStaticShape() && bType.hasStaticShape())
       return (shapeA[2] == shapeB[0]);
-    else
-      return true;
+  } else {
+    return false; // Unsupported case.
   }
-  return false; // unsupported case
+  if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
+    return false;
+  return true;
 }
 
 /// Check legality for ONNXGemm.
@@ -672,10 +679,8 @@ bool isSuitableForZDNN<ONNXGemmOp>(
     if (cShape[0] != bShape1)
       return false;
   }
-
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-
   return true;
 }
 
@@ -721,7 +726,6 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
 
   if (useCostModel && !isFasterOnNNPA(op, dimAnalysis))
     return false;
-
   return true;
 }
 
