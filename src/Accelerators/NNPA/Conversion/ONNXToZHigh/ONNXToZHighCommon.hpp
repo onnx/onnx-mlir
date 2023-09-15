@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "llvm/ADT/STLExtras.h"
+
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
@@ -25,9 +27,12 @@ const std::string CPU_DEVICE = "cpu";
 const std::string NNPA_DEVICE = "nnpa";
 
 template <typename OP_TYPE>
-void addDynamicallyLegalOpFor(
-    mlir::ConversionTarget *target, const onnx_mlir::DimAnalysis *dimAnalysis) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis](OP_TYPE op) {
+void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
+    const onnx_mlir::DimAnalysis *dimAnalysis,
+    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *)> checkLegalityFn =
+        nullptr) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, checkLegalityFn](
+                                             OP_TYPE op) {
     // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr device =
@@ -39,7 +44,7 @@ void addDynamicallyLegalOpFor(
     if (device && device.getValue().equals_insensitive(NNPA_DEVICE))
       return false;
     // If device is empty, let the compiler makes decision.
-    assert(device && device.getValue().equals_insensitive("") &&
+    assert((!device || (device && device.getValue().equals_insensitive(""))) &&
            "Invalid device name");
 
     // Check zDNN limitations for each input tensors.
@@ -61,6 +66,8 @@ void addDynamicallyLegalOpFor(
     if (exceedLimit)
       return true;
 
+    if (checkLegalityFn)
+      return checkLegalityFn(op, dimAnalysis);
     return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
   });
 }
