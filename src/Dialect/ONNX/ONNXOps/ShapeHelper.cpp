@@ -863,17 +863,23 @@ LogicalResult ONNXCustomOpShapeHelper::computeShape() {
   } else if (pattern == 2) {
     return ONNXBroadcastOpShapeHelper::computeShape();
   } else if (pattern == 3) {
-    return success();
-    // Experimental pattern now. Will be generalized as an independent pattern
-    // Modify the code UnaryOpShapeHelper::computeShape()
+    // ToFix: special handling now, and will be generalized as a pattern
+    // Similar to  setOutputDimsFromOperand(operands[0]) except that the first
+    // dimension is ignored.
+    // Inline setOutputDimsFormOperand with modification
 
     outputRank = createIE->getShapedTypeRank(operands[0]) - 1;
     DimsExpr dims;
     createIE->getShapeAsDims(operands[0], dims);
     inputsDims.emplace_back(dims);
 
-    // return setOutputDimsFromOperand(operands[0]);
-    // Inline setOutputDimsFormOperand
+    DimsExpr outputDims;
+    outputDims.emplace_back(dims[1]);
+    outputDims.emplace_back(dims[2]);
+    outputDims.emplace_back(dims[3]);
+    setOutputDims(outputDims);
+
+    return success();
   }
   return success();
 }
