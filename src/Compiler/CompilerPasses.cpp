@@ -87,7 +87,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU, int optLevel) {
 
   // We want to enable Constant Propagation only for Level O3 or when a user
   // manually specifies the "enable-constant-prop" flag.
-  if ((/*enableConstantProp*/ optLevel >= 3 && enableConstantProp) ||
+  if ((/*enableConstantProp*/ optLevel >= 3 && !enableConstantProp) ||
       enableConstantProp) {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   }
