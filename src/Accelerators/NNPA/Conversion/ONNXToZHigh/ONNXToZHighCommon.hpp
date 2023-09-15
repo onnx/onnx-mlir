@@ -19,26 +19,30 @@
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
+namespace onnx_mlir {
+
+const std::string CPU_DEVICE = "cpu";
+const std::string NNPA_DEVICE = "nnpa";
+
 template <typename OP_TYPE>
-void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
-    const onnx_mlir::DimAnalysis *dimAnalysis,
-    mlir::ArrayRef<std::string> execNodesOnCpu) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](
-                                             OP_TYPE op) {
+void addDynamicallyLegalOpFor(
+    mlir::ConversionTarget *target, const onnx_mlir::DimAnalysis *dimAnalysis) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis](OP_TYPE op) {
     // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
-    mlir::StringAttr nodeName =
-        genericOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-    if (nodeName) {
-      bool exists =
-          llvm::any_of(execNodesOnCpu, [nodeName](llvm::StringRef val) {
-            return nodeName.getValue().equals_insensitive(val);
-          });
-      if (exists)
-        return true;
-    }
+    mlir::StringAttr device =
+        genericOp->getAttrOfType<mlir::StringAttr>("device");
+    // If device is CPU, force to run the op on CPU.
+    if (device && device.getValue().equals_insensitive(CPU_DEVICE))
+      return true;
+    // If device is NNPA, force to run the op on NNPA.
+    if (device && device.getValue().equals_insensitive(NNPA_DEVICE))
+      return false;
+    // If device is empty, let the compiler makes decision.
+    assert(device && device.getValue().equals_insensitive("") &&
+           "Invalid device name");
 
-    // Check zDNN limitations
+    // Check zDNN limitations for each input tensors.
     // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
     bool exceedLimit =
         llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
@@ -53,6 +57,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
           }
           return false;
         });
+    // There is a tensor whose size exceeds zDNN limitations, run the op on CPU.
     if (exceedLimit)
       return true;
 
@@ -75,3 +80,5 @@ mlir::Value emitONNXTransposeWithType(mlir::Location loc,
 mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
     mlir::Value X, int64_t axis);
+
+} // namespace onnx_mlir
