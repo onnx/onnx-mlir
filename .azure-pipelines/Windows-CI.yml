@@ -11,9 +11,10 @@ parameters:
 
 jobs:
 - job: Build_onnx_mlir_Windows
-  timeoutInMinutes: 240
+  # 4h timeout is sometimes a tiny bit short when llvm-project is rebuilt
+  timeoutInMinutes: 270
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-2022'
 
   steps:
   - checkout: self
