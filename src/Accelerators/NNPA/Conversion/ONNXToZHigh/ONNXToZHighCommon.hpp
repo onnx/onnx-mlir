@@ -47,6 +47,10 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     assert((!device || (device && device.getValue().equals_insensitive(""))) &&
            "Invalid device name");
 
+    // Use the user legality check if it's given.
+    if (checkLegalityFn)
+      return checkLegalityFn(op, dimAnalysis);
+
     // Check zDNN limitations for each input tensors.
     // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
     bool exceedLimit =
@@ -66,8 +70,6 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     if (exceedLimit)
       return true;
 
-    if (checkLegalityFn)
-      return checkLegalityFn(op, dimAnalysis);
     return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
   });
 }

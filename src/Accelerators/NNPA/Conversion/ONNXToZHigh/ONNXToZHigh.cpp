@@ -266,8 +266,8 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
-  DimAnalysis *dimAnalysis = new DimAnalysis(module);
-  dimAnalysis->analyze();
+  onnx_mlir::DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -306,35 +306,33 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  addDynamicallyLegalOpFor<ONNXAddOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXSubOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXMulOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXDivOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXSumOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXMinOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXReluOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXSigmoidOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXLogOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXExpOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXConvOp>(&target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXAddOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSubOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMulOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXDivOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSumOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMinOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXReluOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSigmoidOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXLogOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXExpOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXConvOp>(&target, &dimAnalysis);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
   if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
-
-  delete dimAnalysis;
 }
 
 std::unique_ptr<Pass> createONNXToZHighPass() {
