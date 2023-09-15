@@ -620,6 +620,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
 
   if (inputIsSTDIN || inputIsONNX || inputIsONNXText || inputIsJSON) {
     ImportOptions options;
+    options.verboseOutput = VerboseOutput;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;

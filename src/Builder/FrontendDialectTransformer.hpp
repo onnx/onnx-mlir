@@ -39,6 +39,7 @@ namespace onnx_mlir {
  * Options to control the translation of an ONNX model to ONNX-MLIR.
  */
 struct ImportOptions {
+  bool verboseOutput = false;
   // Use types/shapes in the input-model for translation (for intermediate
   // variables)
   bool useOnnxModelTypes = false;
