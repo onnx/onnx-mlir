@@ -64,9 +64,7 @@ def createScalarDenseAttrRank0
 // The input ElementsAttr must have only one element. Otherwise only the first
 // element is used to create the scalar DenseElementsAttr
 def ReshapeElementsAttrToRank0 : NativeCodeCall<
-    "mlir::DenseElementsAttr::get(RankedTensorType::get({},"
-    " onnx_mlir::getElementType(cast<ElementsAttr>($0).getType())),"
-    " {*cast<ElementsAttr>($0).getValues<Attribute>().begin()})">;
+    "onnx_mlir::OnnxElementsAttrBuilder($0.getContext()).reshape(cast<ElementsAttr>($0), {})">;
 
 // Create a DenseElementsAttr from a single attribute.
 def createDenseArrayAttrFromSingleAttr

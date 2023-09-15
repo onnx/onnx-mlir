@@ -29,9 +29,11 @@
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
@@ -391,10 +393,11 @@ public:
 /// This pattern is to replace `C = add/sub(A, B)` by `A` when B is a zero
 /// defined by Expand of scalar constant and C's shape is the same as A's shape.
 /// In other words, the output does not depend on the second operand.
+/// This pattern is similar to Add/SubZerosOnRhs in ConstProp.td but allows
+/// dynamic shape.
 template <typename OP_TYPE>
 class AddSubWithRHSZeroExpandPattern : public OpRewritePattern<OP_TYPE> {
 public:
-  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
   DimAnalysis *dimAnalysis;
 
   AddSubWithRHSZeroExpandPattern(MLIRContext *context, DimAnalysis *dimAnalysis)
@@ -426,17 +429,16 @@ public:
     if (auto expandOp = dyn_cast<ONNXExpandOp>(B.getDefiningOp())) {
       Value input = expandOp.getInput();
       if (isDenseONNXConstant(input)) {
-        auto attr = getElementAttributeFromONNXValue(input);
-        // Expand's input is 0.
-        if (attr.isSplat()) {
-          Type elementType = getElementType(attr.getType());
-          if (isa<IntegerType>(elementType)) {
-            int64_t x = getScalarValue<int64_t>(attr, elementType);
-            BIsZero = (x == 0);
-          } else if (isa<FloatType>(elementType)) {
-            double x = getScalarValue<double>(attr, elementType);
-            BIsZero = (x == 0.0);
-          }
+        // Expand's input is 0?
+        ElementsAttr constElements = getElementAttributeFromONNXValue(input);
+        Type elemType = constElements.getElementType();
+        if (!elemType.isInteger(1)) { // Booleans are not supported.
+          WideNum zeroWN = wideZeroDispatch(elemType, [](auto wideZero) {
+            using cpptype = decltype(wideZero);
+            constexpr BType TAG = toBType<cpptype>;
+            return WideNum::widen<TAG>(static_cast<cpptype>(0.0));
+          });
+          BIsZero = ElementsAttrBuilder::allEqual(constElements, zeroWN);
         }
       }
     }

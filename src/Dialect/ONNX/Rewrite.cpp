@@ -283,42 +283,12 @@ public:
 };
 
 // A pattern to turn
-//   `BinaryOp(Constant_X), ExpandOp(Constant_Y))`
+//   `BinaryOp(Constant_X, ExpandOp(Constant_Y))`
 // into
 //   `ExpandOp(BinaryOp(Constant_X, Constant_Y))`
 // which put constants together so that BinaryOp can be folded. This pattern
 // only handles the case where one of the operand is a scalar constant. For such
 // a case, we can easily infer the shape operand for the resulting ExpandOp.
-
-template <typename OP_TYPE>
-Value EmitBinaryOp(
-    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
-  llvm_unreachable("Unsupported operator");
-}
-
-template <>
-Value EmitBinaryOp<ONNXAddOp>(
-    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
-  return create.onnx.add(lhs, rhs);
-}
-
-template <>
-Value EmitBinaryOp<ONNXDivOp>(
-    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
-  return create.onnx.div(lhs, rhs);
-}
-
-template <>
-Value EmitBinaryOp<ONNXMulOp>(
-    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
-  return create.onnx.mul(lhs, rhs);
-}
-
-template <>
-Value EmitBinaryOp<ONNXSubOp>(
-    MultiDialectBuilder<OnnxBuilder> &create, Value lhs, Value rhs) {
-  return create.onnx.sub(lhs, rhs);
-}
 
 template <typename OP_TYPE>
 class PropagateScalarConstantExpandPattern : public OpRewritePattern<OP_TYPE> {
@@ -341,7 +311,7 @@ public:
     Value expandShape = nullptr;
     auto matchValue = [&expandShape](Value v) -> Value {
       Value res = v;
-      if (definedBy<ONNXExpandOp>(res)) {
+      if (definedBy<ONNXExpandOp>(res) && !expandShape) {
         auto expandOp = cast<ONNXExpandOp>(res.getDefiningOp());
         res = expandOp.getInput();
         expandShape = expandOp.getShape();
@@ -364,7 +334,8 @@ public:
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Value res = create.onnx.expand(outputType,
-        EmitBinaryOp<OP_TYPE>(create, lhsConstant, rhsConstant), expandShape);
+        create.onnx.createOpAndInferShapes<OP_TYPE>(lhsConstant, rhsConstant),
+        expandShape);
 
     rewriter.replaceOp(op, {res});
     return success();

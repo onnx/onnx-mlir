@@ -1516,3 +1516,30 @@ func.func @test_not_replace_sub_by_expand_rank0() -> tensor<1xi32> {
 // CHECK:           return [[VAR_4_]] : tensor<1xi32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_not_replace_sub_by_expand_two_expands(%arg0: tensor<?xi64>) -> tensor<2x?xf32> {
+  %0 = onnx.Constant dense<2> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = onnx.Constant dense<5.000000e+00> : tensor<f32>
+  %4 = onnx.Constant dense<6.000000e+00> : tensor<f32>
+  %5 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
+  %6 = "onnx.Expand"(%4, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
+  %7 = "onnx.Sub"(%5, %6) : (tensor<2x?xf32>, tensor<2x?xf32>) -> tensor<2x?xf32>
+  return %7 : tensor<2x?xf32>
+
+// CHECK-LABEL:  func.func @test_not_replace_sub_by_expand_two_expands
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xi64>) -> tensor<2x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<6.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<5.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Expand"([[VAR_1_]], [[VAR_4_]]) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Expand"([[VAR_0_]], [[VAR_4_]]) : (tensor<f32>, tensor<2xi64>) -> tensor<2x?xf32>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Sub"([[VAR_5_]], [[VAR_6_]]) : (tensor<2x?xf32>, tensor<2x?xf32>) -> tensor<2x?xf32>
+// CHECK:           return [[VAR_7_]] : tensor<2x?xf32>
+// CHECK:         }
+}

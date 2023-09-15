@@ -185,10 +185,6 @@ def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
           "Has the specified constant shape">;
 
-def IsScalarTensor: Constraint<
-  CPred<"onnx_mlir::isScalarTensor($_self)">,
-        "Value is of scalar tensor: tensor<dtype> or tensor<1xdtype>">;
-
 def IsFromONNXConstantOp: Constraint<
     CPred<"llvm::dyn_cast_or_null<ONNXConstantOp>($0.getDefiningOp())">,
     "Is a value from ONNXConstantOp">;
