@@ -495,6 +495,10 @@ def verify_outs(actual_outs, ref_outs):
 def warning(msg):
     print("Warning:", msg)
 
+def trimmed_mean(data, percent):
+    data = np.array(sorted(data))
+    trim = int(percent*data.size/100.0)
+    return data[trim:-trim].mean()
 
 def main():
     if not (args.model or args.load_so):
@@ -651,9 +655,10 @@ def main():
         # Print statistics info, e.g., min/max/stddev inference time.
         if args.n_iteration > 1 :
             print("  Statistics (excluding warmup),"
-                  " min, {}, max, {}, mean, {}, stddev, {}".format(
+                  " min, {}, max, {}, mean, {}, mean-no25q, {}, stddev, {}".format(
                 np.min(perf_results), np.max(perf_results),
-                np.mean(perf_results), np.std(perf_results, dtype=np.float64)))
+                np.mean(perf_results), trimmed_mean(perf_results, 25), 
+                np.std(perf_results, dtype=np.float64)))
 
 
         # Print the output if required.
