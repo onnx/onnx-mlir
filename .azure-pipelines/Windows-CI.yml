@@ -14,7 +14,7 @@ jobs:
   # 4h timeout is sometimes a tiny bit short when llvm-project is rebuilt
   timeoutInMinutes: 270
   pool:
-    vmImage: 'windows-2022'
+    vmImage: 'windows-2019'
 
   steps:
   - checkout: self
