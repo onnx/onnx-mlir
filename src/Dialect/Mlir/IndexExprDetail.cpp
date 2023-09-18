@@ -26,6 +26,8 @@
 
 #include <mutex>
 
+#define DEBUG_TYPE "index-expr"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -300,7 +302,17 @@ bool IndexExprImpl::hasScope() const { return scope != nullptr; }
 
 bool IndexExprImpl::isInCurrentScope() const {
   assert(hasScope());
-  return scope->isCurrentScope();
+  bool inScope = scope->isCurrentScope();
+  LLVM_DEBUG({
+    if (!inScope)
+      llvm::dbgs() << "IES: NOT IN SCOPE, IE " << ((long long)scope)
+                   << " != curr "
+                   << ((long long)IndexExprScope::getCurrentScopePtr()) << "\n";
+    else
+      llvm::dbgs() << "IES: in scope, IE " << ((long long)scope) << " == curr "
+                   << ((long long)IndexExprScope::getCurrentScopePtr()) << "\n";
+  });
+  return inScope;
 }
 
 bool IndexExprImpl::hasAffineExpr() const {

@@ -61,6 +61,32 @@ ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   return rewriter.getI64ArrayAttr(vals);
 }
 
+Value normalizeConstantOp(
+    PatternRewriter &rewriter, Value output, Attribute attr) {
+  ShapedType outputType = output.getType().cast<ShapedType>();
+  Type elementType = outputType.getElementType();
+
+  DenseElementsAttr denseAttr;
+  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
+    int64_t dim = arrayAttr.size();
+    auto tensorType = RankedTensorType::get({dim}, elementType);
+    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+  } else {
+    auto tensorType = RankedTensorType::get({}, elementType);
+    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
+    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
+    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
+    } else {
+      llvm_unreachable("unexpected Attribute");
+    }
+  }
+  OnnxBuilder createONNX(rewriter, output.getLoc());
+  return createONNX.constant(denseAttr);
+}
+
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
 Type getReturnTypeForMatMulOpND2D(Value A, Value B) {
   ArrayRef<int64_t> aShape = A.getType().cast<RankedTensorType>().getShape();
@@ -110,8 +136,7 @@ bool areProducedByTransposeOp(ValueRange values) {
 
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
-    Value value, int64_t start = 0,
-    llvm::Optional<int64_t> end = std::nullopt) {
+    Value value, int64_t start = 0, std::optional<int64_t> end = std::nullopt) {
 
   auto inType = value.getType().cast<ShapedType>();
   assert(inType.hasRank() && "inType must be ranked");
@@ -169,6 +194,15 @@ bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
          AreTheSameAxesArrayAttr(rank,
              createArrayAttrFromConstantOp(lhsConstOp),
              createArrayAttrFromConstantOp(rhsConstOp));
+}
+
+/// Test if two values have the same static shape or not.
+bool haveSameStaticShape(Value lhs, Value rhs) {
+  if (!hasShapeAndRank(lhs) || !hasShapeAndRank(rhs))
+    return false;
+  Type lhsT = lhs.getType();
+  Type rhsT = rhs.getType();
+  return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
 }
 
 } // namespace onnx_mlir
@@ -662,7 +696,7 @@ public:
   LogicalResult matchAndRewrite(
       ONNXOp onnxOp, PatternRewriter &rewriter) const override {
     if (onnxOp.getLayout() == 0) {
-      return success();
+      return failure();
     }
 
     InputOutputTransposer transposer(rewriter, onnxOp.getLoc());
@@ -707,6 +741,61 @@ public:
     }
 
     return success();
+  }
+};
+
+// Rewrites sequence_lens from tensor<bsxi32> to none when bs = 1. It works
+// because by definition all batches (meaning one) has the same sequence length.
+// This rewrite helps the compiler not need to handle sequence_lens.
+template <typename ONNXOp>
+class RNNOpRewriteSeqLenPattern : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp onnxOp, PatternRewriter &rewriter) const override {
+    Operation *op = onnxOp.getOperation();
+    Location loc = ONNXLoc<ONNXOp>(op);
+    Value X = onnxOp.getX();
+    Value initialH = onnxOp.getInitialH();
+    Value seqLen = onnxOp.getSequenceLens();
+
+    // sequence_lens is already none. Pattern does not match.
+    if (isNoneValue(seqLen))
+      return failure();
+
+    // Check if batchsize is 1. Batchsize can be in:
+    // - X: [seq_length, batch_size, input_size],
+    // - intial_h: [num_directions, batch_size, hidden_size]
+    // - sequence_lens: [batch_size], or
+    bool oneInX = false, oneInSeqLen = false, oneInInitalH = false;
+    if (isRankedShapedType(X.getType())) {
+      ArrayRef<int64_t> shape = getShape(X.getType());
+      oneInX = shape[1] == 1;
+    }
+    if (isRankedShapedType(seqLen.getType())) {
+      ArrayRef<int64_t> shape = getShape(seqLen.getType());
+      oneInSeqLen = (shape.size() == 1) && (shape[0] == 1);
+    }
+    if (!isNoneValue(initialH) && isRankedShapedType(initialH.getType())) {
+      ArrayRef<int64_t> shape = getShape(initialH.getType());
+      oneInInitalH = shape[1] == 1;
+    }
+    if (!oneInX && !oneInInitalH && !oneInSeqLen)
+      return failure();
+
+    // We know batchsize is 1. Rewrite now.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Find the operand index of sequence_lens and update it with none.
+    bool updated = false;
+    for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+      if (op->getOperand(i) != seqLen)
+        continue;
+      op->setOperand(i, create.onnx.none());
+      updated = true;
+      break;
+    }
+    return updated ? success() : failure();
   }
 };
 
@@ -887,6 +976,7 @@ void ONNXGreaterOp::getCanonicalizationPatterns(
 void ONNXGRUOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXGRUOp>>(context);
 }
 
 /// on the ONNXIdentityOp.
@@ -918,6 +1008,7 @@ void ONNXLoopOp::getCanonicalizationPatterns(
 void ONNXLSTMOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXLSTMOp>>(context);
 }
 
 /// on the ONNXMulOp.
@@ -938,7 +1029,8 @@ void ONNXOrOp::getCanonicalizationPatterns(
 void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseReshapePattern>(context);
-  result.insert<RemoveIdentityReshapePattern>(context);
+  result.insert<RemoveIdentityReshapePattern1>(context);
+  result.insert<RemoveIdentityReshapePattern2>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
 }
 
@@ -952,6 +1044,7 @@ void ONNXResizeOp::getCanonicalizationPatterns(
 void ONNXRNNOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXRNNOp>>(context);
 }
 
 /// on the ONNXShapeOp.

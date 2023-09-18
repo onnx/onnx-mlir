@@ -25,6 +25,7 @@ include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -156,7 +157,7 @@ def replaceONNXSumOpPatternRecursion : Pat<
         (ZHighStickOp:$s_x (GetNthVariadicOperand<0> $x), (NoneLayoutAttr)),
         (ZHighStickOp (GetONNXSumOpWithoutFirst $x), (NoneLayoutAttr)),
         (returnType $s_x))),
-  [(VariadicSizeIsGT<2> $x)], (addBenefit 1)
+  [(VariadicSizeIsGT<2> $x)], [], (addBenefit 1)
 >;
 
 // Singleton case: ONNXSumOp (2 inputs) to ZHighAddOp.
@@ -167,7 +168,7 @@ def replaceONNXSumOpPatternSingleton : Pat<
         (ZHighStickOp:$s_x (GetNthVariadicOperand<0> $x), (NoneLayoutAttr)),
         (ZHighStickOp (GetNthVariadicOperand<1> $x), (NoneLayoutAttr)),
         (returnType $s_x))),
-  [(VariadicSizeIs<2> $x)], (addBenefit 0)
+  [(VariadicSizeIs<2> $x)], [], (addBenefit 0)
 >;
 
 //===----------------------------------------------------------------------===//
@@ -404,7 +405,7 @@ def GetI64ArrayAttrStridesAveragePool: NativeCodeCall<
   "($0.getDefiningOp<ONNXAveragePoolOp>()))">;
 
 def replaceONNXAveragePoolPattern : Pattern<
-  (ONNXAveragePoolOp:$res $x, $_, $_, $_, $_, $_, $_),
+  (ONNXAveragePoolOp:$res $x, $_, $_, $_, $_, $_, $_, $_),
   [
     // Get attributes using shape helper
     (GetStrAttrPaddingtypeAveragePool:$padtype $res),
@@ -486,7 +487,7 @@ def replaceONNXMatMulAddPattern1 : Pat<
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
                                                          (GetRank $y))))),
   [(IsMatMulLegalForZDNN $m), (HasRankOf<2> $y), (HasRankOf<1> $b),
-   (HaveSameLastDimR2R1 $y, $b)],
+   (HaveSameLastDimR2R1 $y, $b)], [],
   (addBenefit 0)
 >;
 
@@ -501,7 +502,7 @@ def replaceONNXMatMulAddPattern2 : Pat<
         (ZHighStickOp $b, (GetMatMulBiasLayoutStringAttr (GetRank $x),
                                                          (GetRank $y))))),
   [(IsMatMulLegalForZDNN $m), (HasRankOf<2> $y), (HasRankOf<1> $b),
-   (HaveSameLastDimR2R1 $y, $b)],
+   (HaveSameLastDimR2R1 $y, $b)], [],
   (addBenefit 0)
 >;
 
@@ -537,14 +538,14 @@ def Transpose2D: NativeCodeCall<
 def normalizeONNXGemmTransAPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
   (ONNXGemmOp (Transpose2D $a), $b, $c, $alpha, $beta, (GetZeroI64Attr), $transB),
-  [(IsTransposed:$transA)],
+  [(IsTransposed:$transA)], [],
   (addBenefit 1)
 >;
 
 def normalizeONNXGemmTransBPattern : Pat<
   (ONNXGemmOp $a, $b, $c, $alpha, $beta, $transA, $transB),
   (ONNXGemmOp $a, (Transpose2D $b), $c, $alpha, $beta, $transA, (GetZeroI64Attr)),
-  [(IsTransposed:$transB)],
+  [(IsTransposed:$transB)], [],
   (addBenefit 1)
 >;
 
@@ -556,7 +557,7 @@ def replaceONNXGemmBiasNoneOr1DPattern : Pat<
         (ZHighStickOp $a, (_2DLayoutAttr)),
         (ZHighStickOp $b, (_2DLayoutAttr)),
         (ZHighStickOp $c, (_1DLayoutAttr)))),
-  [(IsBiasNoneOr1D:$c)],
+  [(IsBiasNoneOr1D:$c)], [],
   (addBenefit 0)
 >;
 
@@ -570,7 +571,7 @@ def replaceONNXGemmBias2DPattern : Pat<
           (CreateNoneValue)),
        (returnType $res)),
     $c),
-  [(HasRankOf<2> $c)],
+  [(HasRankOf<2> $c)], [],
   (addBenefit 0)
 >;
 
@@ -1004,7 +1005,7 @@ def replaceONNXReluConvPattern : Pattern<
        $padtype,
        (ACT_RELUAttr)))
   ],
-  [(IsConv2DLegalForZDNN $res)],
+  [(IsConv2DLegalForZDNN $res)], [],
   (addBenefit 0)
 >;
 

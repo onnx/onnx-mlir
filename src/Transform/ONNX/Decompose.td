@@ -23,6 +23,7 @@ include "src/Dialect/ONNX/ONNX.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -120,7 +121,7 @@ def ReduceLogSumExpOpPattern1
                $axes, $keepdims, $noop),
               $max),
           [(KeepdimsIsTrue
-              : $keepdims)],
+              : $keepdims)], [],
           (addBenefit 1)>;
 
 // keepdims is false
@@ -131,7 +132,7 @@ def ReduceLogSumExpOpPattern2
                              : $max $oprd, $axes, (KeepdimsTrue), $noop))),
                $axes, $keepdims, $noop),
               (ONNXSqueezeOp $max, $axes)),
-          [], (addBenefit 0)>;
+          [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceSumSquareOp %X = ONNXReduceSumOp (ONNXMulOp %X, %X)
@@ -146,81 +147,64 @@ def ReduceSumSquareOpPattern
 //===----------------------------------------------------------------------===//
 // No attribute
 def ScalerNullPattern
-    : Pat<(ONNXScalerOp $x, $a, $b), (replaceWithValue $x),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $a),
-            (AttributeIsNull
-                : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale), (replaceWithValue $x),
+          [(HasFloatType:$x), (AttributeIsNull:$offset), (AttributeIsNull:$scale)], [],
           (addBenefit 5)>;
 
 // No attribute, input x not float type
 def ScalerNullPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b), (ONNXCastOp $x, (ScalerT)),
-          [(AttributeIsNull
-               : $a),
-            (AttributeIsNull
-                : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale), (ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+          [(AttributeIsNull:$offset), (AttributeIsNull:$scale)], [],
           (addBenefit 4)>;
 
 // No scale
 def ScalerNoScalePattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXSubOp $x,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $b)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+          [(HasFloatType:$x), (AttributeIsNull:$scale)], [],
           (addBenefit 3)>;
 
 // No scale, input x not float type
 def ScalerNoScalePattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXSubOp(ONNXCastOp $x, (ScalerT)),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-          [(AttributeIsNull
-              : $b)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
+          (ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+          [(AttributeIsNull:$scale)], [],
           (addBenefit 2)>;
 
 // No offset
 def ScalerNoOffsetPattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp $x,
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(HasFloatType
-               : $x),
-            (AttributeIsNull
-                : $a)],
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(HasFloatType:$x), (AttributeIsNull:$offset)], [],
           (addBenefit 3)>;
 
 // No offset, input x not float type
 def ScalerNoOffsetPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXMulOp(ONNXCastOp $x, (ScalerT)),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(AttributeIsNull
-              : $a)],
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
+          (ONNXMulOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(AttributeIsNull:$offset)], [],
           (addBenefit 2)>;
 
 // Normal ONNXScalerOp
 def ScalerPattern
-    : Pat<(ONNXScalerOp $x, $a, $b),
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
           (ONNXMulOp(ONNXSubOp $x,
-               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [(HasFloatType
-              : $x)],
+               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [(HasFloatType:$x)], [],
           (addBenefit 1)>;
 
 // Normal ONNXScalerOp, input x not float type
 def ScalerPattern2
-    : Pat<(ONNXScalerOp $x, $a, $b),
-          (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (ScalerT)),
-               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $a))),
-              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $b))),
-          [], (addBenefit 0)>;
+    : Pat<(ONNXScalerOp $x, $offset, $scale),
+          (ONNXMulOp(ONNXSubOp(ONNXCastOp $x, (GetNullIntegerAttr), (ScalerT)),
+               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $offset))),
+              (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scale))),
+          [], [], (addBenefit 0)>;
 
 // Express LogSoftmax using Log and Softmax.
 def LogSoftmaxPattern
@@ -336,13 +320,13 @@ def ClipV12Pattern : Pat<
 def SplitV11PatternNoAttr : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
   (ONNXSplitV13Op $x, (CreateNoneValue), $axis),
-  [(AttributeIsNull:$split)], (addBenefit 1)
+  [(AttributeIsNull:$split)], [], (addBenefit 1)
 >;
 
 def SplitV11Pattern : Pat<
   (ONNXSplitV11Op $x, $axis, $split),
   (ONNXSplitV13Op $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $split)), $axis),
-  [], (addBenefit 0)
+  [], [], (addBenefit 0)
 >;
 
 def SplitV13Pattern : Pat<
@@ -353,13 +337,13 @@ def SplitV13Pattern : Pat<
 def SqueezeV11PatternNoAttr : Pat<
   (ONNXSqueezeV11Op $x, $axes),
   (ONNXSqueezeOp $x, (CreateNoneValue)),
-  [(AttributeIsNull:$axes)], (addBenefit 1)
+  [(AttributeIsNull:$axes)], [], (addBenefit 1)
 >;
 
 def SqueezeV11Pattern : Pat<
   (ONNXSqueezeV11Op $x, $axes),
   (ONNXSqueezeOp $x, (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes))),
-  [], (addBenefit 0)
+  [], [], (addBenefit 0)
 >;
 
 def UnsqueezeV11Pattern : Pat<
@@ -380,14 +364,14 @@ def ReduceL1V13OpPattern1
     : Pat<(ONNXReduceL1V13Op $oprd, $axes, $keepdims),
           (ONNXReduceL1Op $oprd,
               (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+          [(AttributeIsNull:$axes)], [], (addBenefit 1)>;
 
 def ReduceL1V13OpPattern2
     : Pat<(ONNXReduceL1V13Op $oprd, $axes, $keepdims),
           (ONNXReduceL1Op $oprd,
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
               $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+          [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceL2V13Op %X -> ONNXReduceL2Op %X = 
@@ -396,14 +380,14 @@ def ReduceL2V13OpPattern1
     : Pat<(ONNXReduceL2V13Op $oprd, $axes, $keepdims),
           (ONNXReduceL2Op $oprd,
               (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+          [(AttributeIsNull:$axes)], [], (addBenefit 1)>;
 
 def ReduceL2V13OpPattern2
     : Pat<(ONNXReduceL2V13Op $oprd, $axes, $keepdims),
           (ONNXReduceL2Op $oprd,
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
               $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+          [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceLogSumV13Op %X -> ONNXReduceLogSumOp %X = 
@@ -412,14 +396,14 @@ def ReduceLogSumV13OpPattern1
     : Pat<(ONNXReduceLogSumV13Op $oprd, $axes, $keepdims),
           (ONNXReduceLogSumOp $oprd,
               (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+          [(AttributeIsNull:$axes)], [], (addBenefit 1)>;
 
 def ReduceLogSumV13OpPattern2
     : Pat<(ONNXReduceLogSumV13Op $oprd, $axes, $keepdims),
           (ONNXReduceLogSumOp $oprd,
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
               $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+          [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceLogSumExpV13Op %X -> ONNXReduceLogSumExpOp %X = 
@@ -428,14 +412,14 @@ def ReduceLogSumExpV13OpPattern1
     : Pat<(ONNXReduceLogSumExpV13Op $oprd, $axes, $keepdims),
           (ONNXReduceLogSumExpOp $oprd,
               (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+          [(AttributeIsNull:$axes)], [], (addBenefit 1)>;
 
 def ReduceLogSumExpV13OpPattern2
     : Pat<(ONNXReduceLogSumExpV13Op $oprd, $axes, $keepdims),
           (ONNXReduceLogSumExpOp $oprd,
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
               $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+          [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceSumSquareV13Op %X -> ONNXReduceSumSquareOp %X = 
@@ -444,14 +428,14 @@ def ReduceSumSquareV13OpPattern1
     : Pat<(ONNXReduceSumSquareV13Op $oprd, $axes, $keepdims),
           (ONNXReduceSumSquareOp $oprd,
               (CreateNoneValue), $keepdims, (noop_with_empty_axes)),
-          [(AttributeIsNull:$axes)], (addBenefit 1)>;
+          [(AttributeIsNull:$axes)], [], (addBenefit 1)>;
 
 def ReduceSumSquareV13OpPattern2
     : Pat<(ONNXReduceSumSquareV13Op $oprd, $axes, $keepdims),
           (ONNXReduceSumSquareOp $oprd,
               (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $axes)),
               $keepdims, (noop_with_empty_axes)),
-          [], (addBenefit 0)>;
+          [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
 
@@ -506,7 +490,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(HasUnitStrides:$strides), (HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)],
+   [(HasUnitStrides:$strides), (HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)], [],
    (addBenefit 1)
 >;
 
@@ -523,7 +507,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
-   [(HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)],
+   [(HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)], [],
    (addBenefit 0)
 >;
 

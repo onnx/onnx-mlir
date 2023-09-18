@@ -168,6 +168,7 @@ LogicalResult ONNXSliceOp::inferShapes(
   auto startsDim = startsType.getShape()[0];
   {
     OpBuilder builder(this->getContext());
+    OnnxBuilder createONNX(builder, this->getLoc());
     const Type elementType = builder.getIntegerType(64);
     const auto tensorType = RankedTensorType::get({startsDim}, elementType);
 
@@ -179,9 +180,7 @@ LogicalResult ONNXSliceOp::inferShapes(
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<ONNXConstantOp>(
-          this->getLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = constantOp.getOutput();
+      Value constantResult = createONNX.constant(constantDenseAttribute);
       this->setOperand(3, constantResult);
     }
 
@@ -191,9 +190,7 @@ LogicalResult ONNXSliceOp::inferShapes(
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<ONNXConstantOp>(
-          this->getLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = constantOp.getOutput();
+      Value constantResult = createONNX.constant(constantDenseAttribute);
       this->setOperand(4, constantResult);
     }
   }

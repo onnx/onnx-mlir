@@ -31,7 +31,7 @@
 #include "src/Builder/ImportONNXUtils.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
@@ -164,7 +164,7 @@ public:
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
     importGraph(model.graph());
-    if (VerboseOutput) {
+    if (options_.verboseOutput) {
       llvm::outs()
           << "The ONNX model has " << num_of_parameters_
           << " elements in its initializers. This value would be close to and "
@@ -226,6 +226,15 @@ private:
     return builder_.create<ONNXNoneOp>(UnknownLoc()).getResult();
   }
 
+  Value createConstantValue(ElementsAttr value, Location loc) {
+    OnnxBuilder createONNX(builder_, loc);
+    return createONNX.constant(value);
+  }
+
+  Value createConstantValue(ElementsAttr value) {
+    return createConstantValue(value, UnknownLoc());
+  }
+
   void AddValueInfo(const onnx::ValueInfoProto &vi, bool allowExist = false) {
     if (allowExist && onnx_type_map.ContainsKey(vi.name()))
       return;
@@ -269,8 +278,7 @@ private:
     // Use the tensor name as Location.
     auto loc =
         NameLoc::get(builder_.getStringAttr("Initializer_" + tensor.name()));
-    Value initializer =
-        builder_.create<ONNXConstantOp>(loc, Attribute(), mlirAttr);
+    Value initializer = createConstantValue(mlirAttr, loc);
     num_of_parameters_ += mlirAttr.getShapedType().getNumElements();
     return initializer;
   }
@@ -352,14 +360,14 @@ private:
     }
   }
 
-  llvm::Optional<Type> ConvertOnnxType(const std::string &onnx_name) {
+  std::optional<Type> ConvertOnnxType(const std::string &onnx_name) {
     if (options_.useOnnxModelTypes) {
       if (const onnx::TypeProto *onnxTypePtr =
               onnx_type_map.GetByOnnxName(onnx_name)) {
-        return llvm::Optional<Type>(ImportType(*onnxTypePtr));
+        return std::optional<Type>(ImportType(*onnxTypePtr));
       }
     }
-    return llvm::Optional<Type>();
+    return std::optional<Type>();
   }
 
   NamedAttribute convertOnnxAttributeProtoToMlirNamedAttribute(
@@ -559,8 +567,9 @@ private:
     }
   }
 
-  static constexpr int MAX_TYPE = 20;
+  static constexpr int MAX_NUM_TYPES = 30;
 
+  // clang-format off
   // Get these indices from TensorProto in
   // https://github.com/onnx/onnx/blob/main/onnx/onnx.in.proto#L481.
   // enum DataType {
@@ -592,6 +601,17 @@ private:
   //     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
   //     BFLOAT16 = 16;
   //
+  //     // Non-IEEE floating-point format based on papers
+  //     // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
+  //     // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
+  //     // Operators supported FP8 are Cast, CastLike, QuantizeLinear, DequantizeLinear.
+  //     // The computation usually happens inside a block quantize / dequantize
+  //     // fused by the runtime.
+  //     FLOAT8E4M3FN = 17;    // float 8, mostly used for coefficients, supports nan, not inf
+  //     FLOAT8E4M3FNUZ = 18;  // float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+  //     FLOAT8E5M2 = 19;      // follows IEEE 754, supports nan, inf, mostly used for gradients
+  //     FLOAT8E5M2FNUZ = 20;  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
+  //
   //     // Future extensions go here.
   //   }
   //
@@ -599,8 +619,10 @@ private:
   // onnx_types = (
   //     'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32',
   //     'int64', 'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
-  //     'complex64', 'complex128', 'bfloat16'
+  //     'complex64', 'complex128',
+  //     'bfloat16', 'float8e4m3fn', 'float8e4m3fnuz', 'float8e5m2', 'float8e5m2fnuz'
   // )
+  // clang-format on
   Type buildTypeFromIndex(int index) {
     switch (index) {
     case 1:
@@ -686,9 +708,9 @@ private:
         // Variadic output is a single ODS result.
         if (variadicOut)
           j = 0;
-        if (j < outputMap.size() && outputMap[j] >= MAX_TYPE) {
+        if (j < outputMap.size() && outputMap[j] >= MAX_NUM_TYPES) {
           // Mapping gives a connection with an input.
-          Type inputType = inputs[outputMap[j] - MAX_TYPE].getType();
+          Type inputType = inputs[outputMap[j] - MAX_NUM_TYPES].getType();
           if (inputType.isa<TensorType>()) {
             Type elementType = inputType.cast<TensorType>().getElementType();
             auto outType = UnrankedTensorType::get(elementType);
@@ -898,9 +920,7 @@ private:
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
+      Value constantResult = createConstantValue(constantDenseAttribute);
       inputs.push_back(constantResult);
     }
 
@@ -915,9 +935,7 @@ private:
       auto tensorType = RankedTensorType::get(tensorDims, elementType);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
+      Value constantResult = createConstantValue(constantDenseAttribute);
       inputs.push_back(constantResult);
     }
     int nOut = ONNXDropoutOp::getNumberOfResults();
@@ -948,9 +966,7 @@ private:
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(values));
 
       // Use the special builder defined in ONNXOp.td.inc.
-      auto constantOp = builder_.create<ONNXConstantOp>(
-          UnknownLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = *(constantOp.getODSResults(0).begin());
+      Value constantResult = createConstantValue(constantDenseAttribute);
       inputs.push_back(constantResult);
 
       int nIn = ONNXPadOp::getNumberOfOperands();
@@ -986,9 +1002,7 @@ private:
             RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
         auto constantDenseAttribute =
             DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-        auto constantOp = builder_.create<ONNXConstantOp>(
-            UnknownLoc(), Attribute(), constantDenseAttribute);
-        Value constantValue = constantOp.getOutput();
+        Value constantValue = createConstantValue(constantDenseAttribute);
 
         // Map from ONNX attributes to indices, which are
         // matched with ONNXSliceOp::build ordering.
@@ -1160,6 +1174,14 @@ private:
       if (it != caller_attr_map.end())
         attr_map[attrName] = it->second;
     }
+    for (const onnx::AttributeProto &attr : functionProto.attribute_proto()) {
+      const std::string &attrName = attr.name();
+      auto it = caller_attr_map.find(attrName);
+      if (it != caller_attr_map.end())
+        attr_map[attrName] = it->second;
+      else
+        attr_map[attrName] = &attr;
+    }
     replaceAttrRefs(graph, attr_map);
 
     OpsetImportsMap function_opset_map =
@@ -1212,7 +1234,10 @@ private:
       }
 
       for (auto &name : functionProto.output()) {
-        outputs.push_back(LookupOnnxName(name));
+        // Skip missing optional outputs: they are not mapped.
+        if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(name)) {
+          outputs.push_back(*valuePtr);
+        }
       }
 
       frontend_symbols_.popScope(scopeName);
@@ -1250,16 +1275,21 @@ private:
     int nOut = 0;
     getNodeInputs(node, inputs);
     nOut = node.output().size();
+    // ToFix: The type inference may go wrong if the element type of the output
+    // of CustomOp is not the same as the first input.
     buildOutputAndOperation<ONNXCustomOp>(node, inputs, nIn, nOut, attributes);
   }
 
   void ImportNode(const onnx::NodeProto &node) {
     std::string opName = node.op_type() + GetImportVersionOfNode(node);
     auto handler = import_handler_map_.find(opName);
-    if (handler != import_handler_map_.end()) {
-      // It's a regular op with a registered handler.
-      (this->*(handler->second))(node);
-      return;
+    std::vector<std::string> funcs = options_.functionsToDecompose;
+    if (!(std::find(funcs.begin(), funcs.end(), opName) != funcs.end())) {
+      if (handler != import_handler_map_.end()) {
+        // It's a regular op with a registered handler.
+        (this->*(handler->second))(node);
+        return;
+      }
     }
 
     const onnx::OpSchema *schema = GetOpSchema(node);
@@ -1360,6 +1390,17 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     }
   }
 
+  // Note: when options.useOnnxModelTypes is true, the onnx::shape_inference
+  // cannot handle non-onnx operations (represented as CustomOp in onnx-mlir)
+  // Assertion error if the model contains a such operation.
+  // onnx-mlir handles the CustomOp in a different way. It assumes the common
+  // pattern that the element type of the output is the same
+  // as the the first input. And later shape inference will use the
+  // shape-inference-pattern attribute to perform shape inference on CustomOp.
+  // The type assumption in the Importer may be incorrect and cause
+  // trouble.
+  // ToFix: the shape-inference-pattern should be added and used in Importer.
+
   // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
@@ -1449,14 +1490,18 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
       return InvalidOnnxFormat;
     }
   } else {
-    std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
-    // check if the input file is opened
-    if (!input.is_open()) {
-      *errorMessage = "Unable to open or access " + model_fname.str();
-      return InvalidInputFileAccess;
+    bool parse_success;
+    if (model_fname.str() == "-")
+      parse_success = model.ParseFromIstream(&std::cin);
+    else {
+      std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
+      // check if the input file is opened
+      if (!input.is_open()) {
+        *errorMessage = "Unable to open or access " + model_fname.str();
+        return InvalidInputFileAccess;
+      }
+      parse_success = model.ParseFromIstream(&input);
     }
-
-    auto parse_success = model.ParseFromIstream(&input);
     if (!parse_success) {
       *errorMessage = "Onnx Model Parsing Failed on " + model_fname.str();
       return InvalidOnnxFormat;

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # After modifying this file, the script will need to run to rebuild the
 # onnx-mlir ONNX Dialect. This is performed by calling
@@ -56,7 +56,8 @@ args = parser.parse_args()
 check_operation_version = args.check_operation_version
 list_operation_version = args.list_operation_version
 
-# Change this variable only when upgrading the ONNX support within ONNX-MLIR.
+# ==UPDATE_ONNX_VERSION_OPSET==
+# Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
 current_onnx_version = "1.14.0"
 
 # Check the version of onnx package being used.
@@ -86,7 +87,7 @@ version_dict = {
  'Asinh': [9],
  'Atan': [7],
  'Atanh': [9],
- 'AveragePool': [11],
+ 'AveragePool': [19],
  'BatchNormalization': [15],
  'Bernoulli': [15],
  'Binarizer': [1],
@@ -96,8 +97,8 @@ version_dict = {
  'BitwiseOr': [18],
  'BitwiseXor': [18],
  'BlackmanWindow': [17],
- 'Cast': [13],
- 'CastLike': [15],
+ 'Cast': [19],
+ 'CastLike': [19],
  'CastMap': [1],
  'CategoryMapper': [1],
  'Ceil': [13],
@@ -107,7 +108,7 @@ version_dict = {
  'Compress': [11],
  'Concat': [13],
  'ConcatFromSequence': [11],
- 'Constant': [13],
+ 'Constant': [19],
  'ConstantOfShape': [9],
  'Conv': [11],
  'ConvInteger': [10],
@@ -116,8 +117,9 @@ version_dict = {
  'Cosh': [9],
  'Col2Im': [18],
  'CumSum': [14],
+ 'DeformConv': [19],
  'DepthToSpace': [13],
- 'DequantizeLinear': [13],
+ 'DequantizeLinear': [19],
  'Det': [11],
  'DFT': [17],
  'DictVectorizer': [1],
@@ -126,7 +128,7 @@ version_dict = {
  'DynamicQuantizeLinear': [11],
  'Einsum': [12],
  'Elu': [6],
- 'Equal': [13],
+ 'Equal': [19],
  'Erf': [13],
  'Exp': [13],
  'Expand': [13],
@@ -152,8 +154,8 @@ version_dict = {
  'HardSigmoid': [6],
  'Hardmax': [13],
  'HardSwish': [14],
- 'Identity': [16],
- 'If': [16],
+ 'Identity': [19],
+ 'If': [19],
  'Imputer': [1],
  'InstanceNormalization': [6],
  'IsInf': [10],
@@ -169,7 +171,7 @@ version_dict = {
  'LinearRegressor': [1],
  'Log': [13],
  'LogSoftmax': [13],
- 'Loop': [16],
+ 'Loop': [19],
  'LpNormalization': [1],
  'LpPool': [18],
  'MatMul': [13],
@@ -200,11 +202,11 @@ version_dict = {
  'OptionalHasElement' : [18],
  'Or': [7],
  'PRelu': [16],
- 'Pad': [18, 13, 11, 2],
+ 'Pad': [19, 13, 11, 2],
  'Pow': [15],
  'QLinearConv': [10],
  'QLinearMatMul': [10],
- 'QuantizeLinear': [13],
+ 'QuantizeLinear': [19],
  'RNN': [14],
  'RandomNormal': [1],
  'RandomNormalLike': [1],
@@ -223,15 +225,15 @@ version_dict = {
  'ReduceSum': [13, 11],
  'ReduceSumSquare': [18, 13],
  'Relu': [14],
- 'Reshape': [14],
- 'Resize': [18, 13, 11, 10],
+ 'Reshape': [19],
+ 'Resize': [19, 13, 11, 10],
  'ReverseSequence': [10],
  'RoiAlign': [16],
  'Round': [11],
  'SVMClassifier': [1],
  'SVMRegressor': [1],
  'Scaler': [1],
- 'Scan': [16],
+ 'Scan': [19],
  'Scatter': [11],
  'ScatterElements': [18],
  'ScatterND': [18],
@@ -243,13 +245,13 @@ version_dict = {
  'SequenceInsert': [11],
  'SequenceLength': [11],
  'SequenceMap': [17],
- 'Shape': [15],
+ 'Shape': [19],
  'Shrink': [9],
  'Sigmoid': [13],
  'Sign': [13],
  'Sin': [7],
  'Sinh': [9],
- 'Size': [13],
+ 'Size': [19],
  'Slice': [13],
  'Softmax': [13, 11],
  'SoftmaxCrossEntropyLoss': [13],
@@ -506,7 +508,9 @@ custom_builder_broadcast_to_same_type_ops_list = [
 custom_builder_broadcast_to_bool_ops_list = [
     'Equal',
     'Greater',
+    'GreaterOrEqual',
     'Less',
+    'LessOrEqual',
 ]
 custom_builder_broadcast_ops_list = custom_builder_broadcast_to_same_type_ops_list + \
     custom_builder_broadcast_to_bool_ops_list
@@ -530,9 +534,9 @@ custom_definition_misc = dict([ ('Constant',
   ];'''),
   ('Cast',
  '''   let builders = [
-  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
+  OpBuilder<(ins "Value":$input, "IntegerAttr":$saturate, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build($_builder, $_state, resultType, input, to);
+   build($_builder, $_state, resultType, input, saturate, to);
   }] >
   ];'''
  )])
@@ -550,40 +554,52 @@ custom_definition_misc = dict([ ('Constant',
 #     INT64 = 7;   // int64_t
 #     STRING = 8;  // string
 #     BOOL = 9;    // bool
-# 
+#
 #     // IEEE754 half-precision floating-point format (16 bits wide).
 #     // This format has 1 sign bit, 5 exponent bits, and 10 mantissa bits.
 #     FLOAT16 = 10;
-# 
+#
 #     DOUBLE = 11;
 #     UINT32 = 12;
 #     UINT64 = 13;
 #     COMPLEX64 = 14;     // complex with float32 real and imaginary components
 #     COMPLEX128 = 15;    // complex with float64 real and imaginary components
-# 
+#
 #     // Non-IEEE floating-point format based on IEEE754 single-precision
 #     // floating-point number truncated to 16 bits.
 #     // This format has 1 sign bit, 8 exponent bits, and 7 mantissa bits.
 #     BFLOAT16 = 16;
-# 
+#
+#     // Non-IEEE floating-point format based on papers
+#     // FP8 Formats for Deep Learning, https://arxiv.org/abs/2209.05433,
+#     // 8-bit Numerical Formats For Deep Neural Networks, https://arxiv.org/pdf/2206.02915.pdf.
+#     // Operators supported FP8 are Cast, CastLike, QuantizeLinear, DequantizeLinear.
+#     // The computation usually happens inside a block quantize / dequantize
+#     // fused by the runtime.
+#     FLOAT8E4M3FN = 17;    // float 8, mostly used for coefficients, supports nan, not inf
+#     FLOAT8E4M3FNUZ = 18;  // float 8, mostly used for coefficients, supports nan, not inf, no negative zero
+#     FLOAT8E5M2 = 19;      // follows IEEE 754, supports nan, inf, mostly used for gradients
+#     FLOAT8E5M2FNUZ = 20;  // follows IEEE 754, supports nan, inf, mostly used for gradients, no negative zero
+#
 #     // Future extensions go here.
 #   }
 onnx_types = (
-    'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64', 
+    'undefined', 'float', 'uint8', 'int8', 'uint16', 'int16', 'int32', 'int64',
     'string', 'bool', 'float16', 'double', 'uint32', 'uint64',
-    'complex64', 'complex128', 'bfloat16'
+    'complex64', 'complex128',
+    'bfloat16', 'float8e4m3fn', 'float8e4m3fnuz', 'float8e5m2', 'float8e5m2fnuz'
 )
 tblgen_types = (
     'BF16', 'F32', 'AnyUI8', 'AnyI8', 'AnyUI16', 'AnyI16', 'AnyI32', 'AnyI64',
     'StringType', 'AnyI1', 'F16', 'F64', 'AnyUI32', 'AnyUI64',
-    'Complex<F32>', 'Complex<F64>','BF16', 
-    
+    'Complex<F32>', 'Complex<F64>',
+    'BF16', 'F8E4M3FN', 'F8E4M3FNUZ', 'F8E5M2', 'F8E5M2FNUZ'
 )
 
 # Maximum count for actual type. Number more than MAX_NUM_TYPES will be used to encode
 # the mapping method. MAX_NUM_TYPES should be greater than the length of onnx_types
 # This value has to be kept the same with MAX_TYPE in FrontendDialectTransformer.cpp
-MAX_NUM_TYPES=20
+MAX_NUM_TYPES=30
 
 # Attribute names are ordered alphabetically except for the
 # manually specified special orderings in special_attr_order.
@@ -946,10 +962,6 @@ def parse_type_str(allowedType):
         'seq' : 'SeqOf',
         'map' : 'TupleOf',
         'bool': 'I1',
-        #'uint8' : 'AnyI8',
-        #'uint16' : 'AnyI16',
-        #'uint32' : 'AnyI32',
-        #'uint64' : 'AnyI64',
         'uint8' : 'UI8',
         'uint16' : 'UI16',
         'uint32' : 'UI32',
@@ -958,11 +970,14 @@ def parse_type_str(allowedType):
         'int16' : 'I16',
         'int32' : 'I32',
         'int64' : 'I64',
+        'double' : 'F64',
+        'float' : 'F32',
         'float16' : 'F16',
         'bfloat16' : 'BF16',
-        'float' : 'F32',
-        'double' : 'F64',
-        'undefined' : 'BF16',
+        'float8e4m3fn' : 'F8E4M3FN',
+        'float8e4m3fnuz' : 'F8E4M3FNUZ',
+        'float8e5m2' : 'F8E5M2',
+        'float8e5m2fnuz' : 'F8E5M2FNUZ',
         'complex64' : 'Complex<F32>',
         'complex128' : 'Complex<F64>',
         'string' : 'StringType'}

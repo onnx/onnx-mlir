@@ -38,7 +38,6 @@ add_onnx_mlir_library(OMShapeInferencePass
   OMShapeInferenceOpInterface
   MLIRFuncDialect
   MLIRPass
-  OMCompilerOptions
   OMShapeInference
   )
 
@@ -50,7 +49,6 @@ add_onnx_mlir_library(OMInstrumentONNX
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
-  OMCompilerOptions
   OMONNXOps
   OMKrnlOps
   MLIRPass

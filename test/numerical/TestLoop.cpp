@@ -18,6 +18,8 @@
 
 #include "src/Runtime/OMTensorHelper.hpp"
 
+#include "mlir/Parser/Parser.h"
+
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace mlir;
@@ -97,7 +99,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  loadDialects(ctx);
 
   auto module = mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));
@@ -125,8 +127,10 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
   omTensorGetElem<int64_t>(yInitTensor.get(), {0}) = yInit;
   inputs.emplace_back(std::move(yInitTensor));
 
+  std::string modelTag = getCompilerOption(OptionKind::ModelTag);
   onnx_mlir::ExecutionSession sess(
-      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib),
+      modelTag);
   std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
     outputs = sess.run(std::move(inputs));
@@ -160,9 +164,10 @@ int main(int argc, char *argv[]) {
       onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
-  setCompilerOption(OptionKind::CompilerOptLevel, "3");
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
+  initCompilerConfig();
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 

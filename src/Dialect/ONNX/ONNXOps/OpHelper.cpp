@@ -14,6 +14,7 @@
 
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Path.h"
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
@@ -289,13 +290,13 @@ AffineMap getWindowAffineMap(Builder &builder, bool ceilMode, bool isDilated) {
 
 size_t ArrayAttrSize(ArrayAttr a) { return a.size(); }
 
-size_t ArrayAttrSize(Optional<ArrayAttr> a) { return a.value().size(); }
+size_t ArrayAttrSize(std::optional<ArrayAttr> a) { return a.value().size(); }
 
 int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
   return (a.getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
-int64_t ArrayAttrIntVal(Optional<ArrayAttr> a, int i) {
+int64_t ArrayAttrIntVal(std::optional<ArrayAttr> a, int i) {
   return (a.value().getValue()[i]).cast<IntegerAttr>().getInt();
 }
 
@@ -410,7 +411,11 @@ ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
   auto tensorType = RankedTensorType::get({1}, elementType);
-  return DenseElementsAttr::get(tensorType, {attr.getValue()});
+  auto ftype = cast<FloatType>(elementType);
+  APFloat f = attr.getValue();
+  bool ignored;
+  f.convert(ftype.getFloatSemantics(), APFloat::rmNearestTiesToEven, &ignored);
+  return DenseElementsAttr::get(tensorType, {f});
 }
 
 //===----------------------------------------------------------------------===//
@@ -476,33 +481,6 @@ void getDims(Value val, SmallVectorImpl<Value> &dims) {
     dims.emplace_back(val);
 }
 
-Value normalizeConstantOp(
-    PatternRewriter &rewriter, Value output, Attribute attr) {
-  ShapedType outputType = output.getType().cast<ShapedType>();
-  Type elementType = outputType.getElementType();
-
-  DenseElementsAttr denseAttr;
-  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
-    int64_t dim = arrayAttr.size();
-    auto tensorType = RankedTensorType::get({dim}, elementType);
-    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-  } else {
-    auto tensorType = RankedTensorType::get({}, elementType);
-    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
-    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
-    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
-    } else {
-      llvm_unreachable("unexpected Attribute");
-    }
-  }
-  return rewriter.create<ONNXConstantOp>(output.getLoc(), output.getType(),
-      Attribute(), denseAttr, FloatAttr(), ArrayAttr(), IntegerAttr(),
-      ArrayAttr(), StringAttr(), ArrayAttr());
-}
-
 // Create a DenseElementsAttr based on the shape of type at the given index.
 DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
     PatternRewriter &rewriter, Value value, IntegerAttr indexAttr) {
@@ -534,10 +512,13 @@ bool isDenseONNXConstant(Value result) {
   if (!constOp)
     return false;
 
-  // The value attribute must be an ElementsAttr (which is one of
-  // DenseElementsAttr, DenseResourceElementsAttr, DisposableElementsAttr).
-  if (!isa_and_nonnull<ElementsAttr>(constOp.getValueAttr()))
+  // Must have value attribute.
+  Attribute value = constOp.getValueAttr();
+  if (!value)
     return false;
+
+  assert((isa<DenseElementsAttr, DisposableElementsAttr>(value)) &&
+         "unsupported onnx constant value attribute");
 
   // No other attribute must be set.
   return !constOp.getValueFloatAttr() && !constOp.getValueFloatsAttr() &&
@@ -554,10 +535,7 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
       elementaryType.isInteger(64)) {
     auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
     return (RESULT_TYPE)(*valueIt).cast<IntegerAttr>().getInt();
-  } else if (elementaryType.isF32()) {
-    auto valueIt = denseAttr.getValues<APFloat>().begin();
-    return (RESULT_TYPE)(*valueIt).convertToFloat();
-  } else if (elementaryType.isF64()) {
+  } else if (elementaryType.isa<FloatType>()) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
   }
@@ -584,41 +562,45 @@ template int64_t getScalarValue<int64_t>(ONNXConstantOp constantOp);
 // <onnx-mlir-build-folder>/third_party/onnx/onnx/onnx.pb.h
 // TODO: Update Int*/Uint* to emit signed/unsigned MLIR types
 Type convertONNXTypeToMLIRType(
-    OpBuilder &builder_, onnx::TensorProto_DataType onnxType) {
+    Builder &builder, onnx::TensorProto_DataType onnxType) {
   switch (onnxType) {
-  case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
-    return builder_.getBF16Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
-    return builder_.getF16Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
-    return builder_.getF32Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
-    return builder_.getF64Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
-    return builder_.getIntegerType(/*width=*/8);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
-    return builder_.getIntegerType(/*width=*/8, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
-    return builder_.getIntegerType(/*width=*/16);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
-    return builder_.getIntegerType(/*width=*/16, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
-    return builder_.getIntegerType(/*width=*/32);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
-    return builder_.getIntegerType(/*width=*/32, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
-    return builder_.getIntegerType(/*width=*/64);
-  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
-    return builder_.getIntegerType(/*width=*/64, false);
-  case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
-    return builder_.getI1Type();
-  case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
-    return ONNXStringType::get(builder_.getContext());
-
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E4M3FN:
+    return builder.getFloat8E4M3FNType();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E4M3FNUZ:
+    return builder.getFloat8E4M3FNUZType();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2:
+    return builder.getFloat8E5M2Type();
   case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT8E5M2FNUZ:
+    return builder.getFloat8E5M2FNUZType();
+  case onnx::TensorProto_DataType::TensorProto_DataType_BFLOAT16:
+    return builder.getBF16Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT16:
+    return builder.getF16Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_FLOAT:
+    return builder.getF32Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_DOUBLE:
+    return builder.getF64Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT8:
+    return builder.getIntegerType(/*width=*/8);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT8:
+    return builder.getIntegerType(/*width=*/8, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT16:
+    return builder.getIntegerType(/*width=*/16);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT16:
+    return builder.getIntegerType(/*width=*/16, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT32:
+    return builder.getIntegerType(/*width=*/32);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT32:
+    return builder.getIntegerType(/*width=*/32, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_INT64:
+    return builder.getIntegerType(/*width=*/64);
+  case onnx::TensorProto_DataType::TensorProto_DataType_UINT64:
+    return builder.getIntegerType(/*width=*/64, false);
+  case onnx::TensorProto_DataType::TensorProto_DataType_BOOL:
+    return builder.getI1Type();
+  case onnx::TensorProto_DataType::TensorProto_DataType_STRING:
+    return ONNXStringType::get(builder.getContext());
+
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX64:
   case onnx::TensorProto_DataType::TensorProto_DataType_COMPLEX128:
   case onnx::TensorProto_DataType::TensorProto_DataType_UNDEFINED:
@@ -638,6 +620,16 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   TypeSwitch<Type>(elemType)
       .Case<ONNXStringType>(
           [&](ONNXStringType) { onnxType = onnx::TensorProto::STRING; })
+      .Case<Float8E4M3FNType>(
+          [&](Float8E4M3FNType) { onnxType = onnx::TensorProto::FLOAT8E4M3FN; })
+      .Case<Float8E4M3FNUZType>([&](Float8E4M3FNUZType) {
+        onnxType = onnx::TensorProto::FLOAT8E4M3FNUZ;
+      })
+      .Case<Float8E5M2Type>(
+          [&](Float8E5M2Type) { onnxType = onnx::TensorProto::FLOAT8E5M2; })
+      .Case<Float8E5M2FNUZType>([&](Float8E5M2FNUZType) {
+        onnxType = onnx::TensorProto::FLOAT8E5M2FNUZ;
+      })
       .Case<BFloat16Type>(
           [&](BFloat16Type) { onnxType = onnx::TensorProto::BFLOAT16; })
       .Case<ComplexType>([&](ComplexType type) {
@@ -687,6 +679,59 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   }
 
   return onnxType;
+}
+
+//===----------------------------------------------------------------------===//
+// Support for location.
+//===----------------------------------------------------------------------===//
+
+// We may try to relate the node names generated by the instrumentation
+// with the node names printed by opt-report. Thus it is key to keep the
+// code that generates these node name in sync.
+//
+// The code are found here:
+// 1) `matchAndRewrite` from `src/Conversion/KrnlToLLVM/KrnlInstrument.cpp`
+// 2) `getNodeNameInPresenceOfOpt` from
+//    `src/Dialect/ONNX/ONNXOps/OpHelper.cpp`
+
+std::string getNodeNameInPresenceOfOpt(Operation *op) {
+  StringAttr nodeName;
+  // Try with op onnx_node_name attribute.
+  nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
+  if (nodeName) {
+    return nodeName.str();
+  }
+  // Try with op location.
+  Location loc = op->getLoc();
+  if (auto nameLoc = loc.dyn_cast<NameLoc>()) {
+    return nameLoc.getName().str();
+  }
+  if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+    // Combine each location name and set it as nodeName.
+    std::string name;
+    for (Location locIt : fusedLoc.getLocations()) {
+      if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
+        name += nameLocIt.getName().str() + "-";
+      else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+        std::string filename =
+            llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
+        name += filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
+      }
+    }
+    if (name.empty())
+      name = "NOTSET";
+    else
+      name.pop_back(); // remove last "-"
+    return name;
+  }
+  if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+    std::string filename =
+        llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
+    std::string name =
+        filename + ":" + std::to_string(fileLineColLoc.getLine());
+    return name;
+  }
+  return "NOTSET";
 }
 
 } // namespace onnx_mlir

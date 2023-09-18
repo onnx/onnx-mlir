@@ -33,7 +33,7 @@ LogicalResult ONNXCompressOpShapeHelper::computeShape() {
   Value cond = operandAdaptor.getCondition();
   int64_t inputRank = createIE->getShapedTypeRank(input);
   createIE->assertHasShapeAndRank(cond);
-  Optional<int64_t> optionalAxis = compressOp.getAxis();
+  std::optional<int64_t> optionalAxis = compressOp.getAxis();
 
   // axis attribute (if specified) must be in the range [-r,r-1], where r =
   // rank(input).
@@ -84,7 +84,7 @@ LogicalResult ONNXCompressOp::verify() {
     return success();
 
   int64_t inputRank = getInput().getType().cast<ShapedType>().getRank();
-  Optional<int64_t> optionalAxis = getAxis();
+  std::optional<int64_t> optionalAxis = getAxis();
 
   if (optionalAxis.has_value()) {
     // axis attribute must be in the range [-r,r-1], where r = rank(input).

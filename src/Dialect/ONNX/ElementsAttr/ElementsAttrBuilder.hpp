@@ -122,6 +122,11 @@ public:
   mlir::ElementsAttr castElementType(
       mlir::ElementsAttr elms, mlir::Type newElementType);
 
+  // Returns an ElementsAttr with the values clipped to the range [min, max].
+  //
+  // Reuses elms' underlying data without a data copy.
+  mlir::ElementsAttr clip(mlir::ElementsAttr elms, WideNum min, WideNum max);
+
   // Returns a transposed ElementsAttr.
   //
   // Reuses elms' underlying data without a data copy.
@@ -160,6 +165,12 @@ public:
   mlir::ElementsAttr slice(mlir::ElementsAttr elms,
       llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> starts,
       llvm::ArrayRef<int64_t> steps);
+
+  // Pads the tensor.
+  // 'pads' length must equal two times the tensor rank and all
+  // entries must be non-negative.
+  mlir::ElementsAttr pad(
+      mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> pads, WideNum padValue);
 
   // Gathers a tensor of the values from an input tensor given by a tensor of
   // indices, along the specified axis.

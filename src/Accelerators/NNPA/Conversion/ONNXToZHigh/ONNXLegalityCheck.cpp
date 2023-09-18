@@ -523,7 +523,7 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   if (!isValidElementTypeAndRank(op.getData()))
     return false;
 
-  llvm::Optional<mlir::ArrayAttr> axes = op.getAxes();
+  std::optional<mlir::ArrayAttr> axes = op.getAxes();
   int64_t keepdims = op.getKeepdims();
   ShapedType dataType = op.getData().getType().cast<ShapedType>();
   auto shapeData = dataType.getShape();
@@ -574,7 +574,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
     return false;
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
-  llvm::Optional<ArrayAttr> activations = op.getActivations();
+  std::optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
   if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic)
@@ -649,7 +649,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
     return false;
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
-  llvm::Optional<ArrayAttr> activations = op.getActivations();
+  std::optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
   if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic)

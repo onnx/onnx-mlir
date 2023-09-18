@@ -29,6 +29,9 @@ std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(
     mlir::ArrayRef<std::string> execNodesOnCpu);
 
+/// Add pass for re-construct ONNX ops from ZHigh ops.
+std::unique_ptr<mlir::Pass> createZHighToONNXPass();
+
 /// Pass for folding std.alloc.
 std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
 
@@ -40,6 +43,8 @@ std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
+/// Pass for clipping values to dlfloat before stickification at ZHighIR.
+std::unique_ptr<mlir::Pass> createZHighClipToDLFloatPass();
 } // end namespace zhigh
 
 namespace zlow {

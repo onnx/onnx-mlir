@@ -47,6 +47,18 @@
 
 namespace onnx_mlir {
 
+/// This function returns a location with the corresponding ONNX operator name
+/// inside. This is useful when tracing what expanded MLIR instructions
+/// correspond to what ONNX operator.
+///
+///
+template <typename OP_TYPE>
+mlir::Location ONNXLoc(mlir::Operation *op) {
+  return mlir::NameLoc::get(
+      mlir::StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
+      op->getLoc());
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
@@ -158,9 +170,9 @@ mlir::AffineMap getWindowAffineMap(
 
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(mlir::ArrayAttr a);
-size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
+size_t ArrayAttrSize(std::optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
-int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
+int64_t ArrayAttrIntVal(std::optional<mlir::ArrayAttr> a, int i);
 void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
@@ -203,9 +215,6 @@ mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
 
-mlir::Value normalizeConstantOp(
-    mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
-
 // Create a DenseElementsAttr based on the shape of type at the given index.
 mlir::DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
     mlir::PatternRewriter &rewriter, mlir::Value value,
@@ -229,7 +238,7 @@ template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 
 mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+    mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
@@ -251,5 +260,11 @@ bool areDimsFromConcat(mlir::Value val);
 
 /// Get all dimensions that are stored by the value.
 void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
+
+//===----------------------------------------------------------------------===//
+// Support for location.
+//===----------------------------------------------------------------------===//
+
+std::string getNodeNameInPresenceOfOpt(mlir::Operation *op);
 
 } // namespace onnx_mlir

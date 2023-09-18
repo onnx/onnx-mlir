@@ -323,6 +323,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     // end accumulate dynamic tensor
 
     rewriter.replaceOp(op, newOutputs);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
@@ -774,6 +775,7 @@ struct ONNXLoopOpLowering : public OpConversionPattern<ONNXLoopOp> {
     }
 
     rewriter.replaceOp(op, outputs);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

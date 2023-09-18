@@ -52,6 +52,7 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::ValueRange block(mlir::Value loop, int64_t blockSize) const;
   void permute(mlir::ValueRange loops, mlir::ArrayRef<int64_t> map) const;
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
+  void parallel(mlir::Value loop) const;
 
   // Lambda passes loop indices as 2nd parameter.
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
@@ -135,9 +136,9 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::Value offset, mlir::ValueRange indices = {}) const;
 
   mlir::Value constant(mlir::MemRefType type, mlir::StringRef name,
-      mlir::Optional<mlir::Attribute> value,
-      mlir::Optional<mlir::IntegerAttr> offset = std::nullopt,
-      mlir::Optional<mlir::IntegerAttr> alignment = std::nullopt) const;
+      std::optional<mlir::Attribute> value,
+      std::optional<mlir::IntegerAttr> offset = std::nullopt,
+      std::optional<mlir::IntegerAttr> alignment = std::nullopt) const;
 
   // C library functions.
   void memcpy(mlir::Value dest, mlir::Value src, mlir::Value numElems) const;
