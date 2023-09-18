@@ -6,7 +6,7 @@
 // First shape inference finds the shape 64x3x7x7 for %lhs in
 // "onnx.Mul"(%lhs,%rhs) {axis=1, broadcast=1} : (tensor<*xf32>, tensor<64xf32>)
 // Second canonicalization rewrites it to
-// %x = "onnx.UnsqueezeV11"(%rhs) {axes = [1, 2, 3]} : (tensor<64xf32>)
+// %x = "onnx.Unsqueeze"(%rhs) {axes = [1, 2, 3]} : (tensor<64xf32>)
 // "onnx.Mul"(%lhs, %x) : (tensor<64x3x7x7xf32>, tensor<64x1x1x1xf32>)
 // Third shape inference infers the result shape, etc, etc.
 func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: tensor<64x3x7x7xf32>) -> tensor<*xf32> {
