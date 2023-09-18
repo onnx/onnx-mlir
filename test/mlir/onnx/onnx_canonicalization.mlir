@@ -697,6 +697,26 @@ func.func @test_rewrite_batchnormtestmode_1d(%arg0 : tensor<64xf32>, %scale : te
 
 // -----
 
+func.func @test_rewrite_batchnormtestmode_1d_f16(%arg0 : tensor<64xf16>, %scale : tensor<1xf32>, %bias : tensor<1xf32>, %mean : tensor<1xf32>, %var : tensor<1xf32>) -> tensor<64xf16> {
+    %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %scale, %bias, %mean, %var) {epsilon = 1.00000007E-5 : f32} : (tensor<64xf16>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> tensor<64xf16>
+    onnx.Return %0 :  tensor<64xf16>
+
+// CHECK-LABEL:  func.func @test_rewrite_batchnormtestmode_1d_f16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<64xf16>, [[PARAM_1_:%.+]]: tensor<1xf32>, [[PARAM_2_:%.+]]: tensor<1xf32>, [[PARAM_3_:%.+]]: tensor<1xf32>, [[PARAM_4_:%.+]]: tensor<1xf32>) -> tensor<64xf16> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.001360e-05> : tensor<1xf16>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[PARAM_4_]], [[VAR_0_]]) : (tensor<1xf32>, tensor<1xf16>) -> tensor<*xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Sqrt"([[VAR_1_]]) : (tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Div"([[PARAM_1_]], [[VAR_2_]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_3_]]) : (tensor<64xf16>, tensor<*xf32>) -> tensor<*xf16>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.Mul"([[PARAM_3_]], [[VAR_3_]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Sub"([[PARAM_2_]], [[VAR_5_]]) : (tensor<1xf32>, tensor<*xf32>) -> tensor<*xf32>
+// CHECK:           [[VAR_7_:%.+]] = "onnx.Add"([[VAR_4_]], [[VAR_6_]]) : (tensor<*xf16>, tensor<*xf32>) -> tensor<64xf16>
+// CHECK:           onnx.Return [[VAR_7_]] : tensor<64xf16>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_normalize_add(%arg0 : tensor<2xf32>) -> tensor<2xf32> {
     %cst = "onnx.NoValue"() {value} : () -> none
     %0 = onnx.Constant dense<[0.0, 1.0]> : tensor<2xf32>

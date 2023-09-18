@@ -411,7 +411,11 @@ ArrayAttr createArrayAttrFromConstantOp(ONNXConstantOp constOp) {
 DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     PatternRewriter &rewriter, Type elementType, FloatAttr attr) {
   auto tensorType = RankedTensorType::get({1}, elementType);
-  return DenseElementsAttr::get(tensorType, {attr.getValue()});
+  auto ftype = cast<FloatType>(elementType);
+  APFloat f = attr.getValue();
+  bool ignored;
+  f.convert(ftype.getFloatSemantics(), APFloat::rmNearestTiesToEven, &ignored);
+  return DenseElementsAttr::get(tensorType, {f});
 }
 
 //===----------------------------------------------------------------------===//
