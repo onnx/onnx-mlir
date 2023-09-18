@@ -86,12 +86,8 @@ void ONNXOpTransformPass::runOnOperation() {
       dynamicPM.addNestedPass<func::FuncOp>(
           onnx_mlir::createShapeInferencePass());
     }
-    if ((/*enableConstantProp*/ onnx_mlir::OptimizationLevel >= 3 &&
-            !onnx_mlir::enableConstantProp) ||
-        onnx_mlir::enableConstantProp) {
-      dynamicPM.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass());
-    }
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
     OperationFingerPrint after(module);

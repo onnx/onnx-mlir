@@ -45,13 +45,13 @@ namespace onnx_mlir {
 void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  configureConstPropONNXToONNXPass(
-      onnxConstPropExpansionBound, onnxConstPropDisablePatterns);
+  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
+      onnxConstPropDisablePatterns, OptimizationLevel, enableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
 
-void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU, int optLevel) {
+void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // This is a transition from previous static passes to full dynamic passes
   // Static passes are kept and the dynamic pass is added as IF-THEN
   // with the static iteration.
@@ -84,13 +84,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU, int optLevel) {
   }
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
-
-  // We want to enable Constant Propagation only for Level O3 or when a user
-  // manually specifies the "enable-constant-prop" flag.
-  if ((/*enableConstantProp*/ optLevel >= 3 && !enableConstantProp) ||
-      enableConstantProp) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-  }
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
     pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
@@ -101,11 +95,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU, int optLevel) {
     for (int i = 0; i < repeatOnnxTransform; i++) {
       pm.addPass(mlir::createCanonicalizerPass());
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-      if ((/*enableConstantProp*/ optLevel >= 3 && !enableConstantProp) ||
-          enableConstantProp) {
-        pm.addNestedPass<func::FuncOp>(
-            onnx_mlir::createConstPropONNXToONNXPass());
-      }
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createConstPropONNXToONNXPass());
     }
   }
 
@@ -272,7 +263,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   InputIRLevelType inputIRLevel = determineInputIRLevel(module);
 
   if (inputIRLevel <= ONNXLevel && emissionTarget >= EmitONNXIR)
-    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty(), OptimizationLevel);
+    addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
 
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
