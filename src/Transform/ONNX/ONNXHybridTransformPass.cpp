@@ -45,7 +45,7 @@ bool isClass(StringRef s) {
 }
 
 // The pass combines patterns for shape inference and other ONNX-to-ONNX
-// transforms, controlled by the shapeInferenceOnly constructor argument.
+// transforms.
 //
 // Shape inference is done with patterns top down so shape
 // inference cascades through the ops from the graph's inputs to outputs, and
