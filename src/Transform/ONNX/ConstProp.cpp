@@ -69,8 +69,8 @@ struct ConstPropONNXToONNXPassConfiguration {
 
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
 StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns;
-int ConstPropONNXToONNXPassConfiguration::optLevel;
-bool ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled;
+int ConstPropONNXToONNXPassConfiguration::optLevel = 0;
+bool ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled = false;
 
 // Precondition: result has ranked tensor type with static shape and int or
 // float element type.
@@ -92,7 +92,7 @@ bool satisfiesExpansionBound(Value result) {
 
 // We want to enable Constant Propagation only for Level O3 or when a user
 // manually specifies the "enable-constant-prop" flag.
-bool enableConstantPropagation() {
+bool isConsantPropagationEnabled() {
   bool enable =
       (/*enableConstantProp*/ ConstPropONNXToONNXPassConfiguration::optLevel >=
               3 ||
@@ -1047,7 +1047,7 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  if (enableConstantPropagation()) {
+  if (isConsantPropagationEnabled()) {
     populateWithGenerated(patterns);
     if (isNotDisabled("SplitOfConst")) {
       patterns.insert<SplitOfConst>(context);
