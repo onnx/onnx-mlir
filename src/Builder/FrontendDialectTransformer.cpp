@@ -31,7 +31,6 @@
 #include "src/Builder/ImportONNXUtils.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -165,7 +164,7 @@ public:
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
     importGraph(model.graph());
-    if (VerboseOutput) {
+    if (options_.verboseOutput) {
       llvm::outs()
           << "The ONNX model has " << num_of_parameters_
           << " elements in its initializers. This value would be close to and "

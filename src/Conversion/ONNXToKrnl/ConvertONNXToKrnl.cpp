@@ -19,7 +19,6 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
@@ -335,8 +334,6 @@ public:
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-  // Define vector machine.
-  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
   // Perform dim analysis (useful for SIMD but also to avoid broadcast
   // expressions in index access patterns).
   DimAnalysis *dimAnalysis = new DimAnalysis(module);
@@ -441,7 +438,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
   }
-  VectorMachineSupport::clearGlobalVectorMachineSupport();
   delete dimAnalysis;
 }
 

@@ -89,7 +89,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
     // Dynamic iterate in ONNXOpTransformPass
     pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
         onnxOpTransformReport, targetCPU,
-        enableSimdDataLayout && !disableSimdOption));
+        enableSimdDataLayout && !disableSimdOption, enableConvOptPass));
   } else {
     // Statically add extra passes
     for (int i = 0; i < repeatOnnxTransform; i++) {
