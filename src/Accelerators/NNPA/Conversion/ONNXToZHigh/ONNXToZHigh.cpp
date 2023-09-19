@@ -102,7 +102,7 @@ Value getLSTMGRUGetY(
 }
 
 Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
-    Value val, Value resY, Value sequenceLens, Value initialH) {
+    Value val, Value resY, Value sequenceLens, Value initialH, StringAttr direction) {
 
   Value noneValue;
   if (isNoneValue(resY)) {
@@ -183,8 +183,8 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
 }
 
 Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
-    Value val, Value resY, Value resYh, Value X, StringAttr direction,
-    Value sequenceLens) {
+    Value val, Value resY, Value resYh, Value X, Value sequenceLens,
+    StringAttr direction) {
   Value noneValue;
   if (isNoneValue(resYh) || isNoneValue(val))
     return noneValue;
@@ -200,6 +200,7 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
   customOp->setAttr("function_name", funcNameAttr);
   StringAttr shapeInferAttr = rewriter.getStringAttr("PartialSame");
   customOp->setAttr("shape_infer_pattern", shapeInferAttr);
+  customOp->setAttr("direction", direction);
   return customOp.getResults()[0];
 }
 
