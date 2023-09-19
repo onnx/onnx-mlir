@@ -63,6 +63,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable constant propagation in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> decomposition{*this, "decomposition",
+      llvm::cl::desc("Enable decomposition in hybrid transform"),
+      llvm::cl::init(true)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass() = default;
@@ -72,6 +76,7 @@ struct ONNXHybridTransformPass
     shapeInference = pass.shapeInference;
     canonicalization = pass.canonicalization;
     constantPropagation = pass.constantPropagation;
+    decomposition = pass.decomposition;
   }
 
   StringRef getArgument() const override { return "onnx-hybrid-transform"; }
@@ -95,7 +100,9 @@ struct ONNXHybridTransformPass
       getConstPropONNXToONNXPatterns(cumulativePatterns);
     }
 
-    getDecomposeONNXToONNXPatterns(cumulativePatterns);
+    if (decomposition) {
+      getDecomposeONNXToONNXPatterns(cumulativePatterns);
+    }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
     return success();
