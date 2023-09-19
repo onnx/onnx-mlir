@@ -25,7 +25,6 @@
 #include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 #include "llvm/Support/Debug.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/KrnlToAffine/ConvertKrnlToAffine.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
@@ -712,7 +711,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
 
   MLIRContext *ctx = &getContext();
   OpBuilder builder(ctx);
-  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
 
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
@@ -821,7 +819,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   }
 
   delete currUnrollAndJamList;
-  VectorMachineSupport::clearGlobalVectorMachineSupport();
 }
 
 std::unique_ptr<Pass> createConvertKrnlToAffinePass() {
