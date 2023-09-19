@@ -433,6 +433,7 @@ template bool definedBy<ONNXCastOp>(Value v);
 template bool definedBy<ONNXConcatOp>(Value v);
 template bool definedBy<ONNXConstantOp>(Value v);
 template bool definedBy<ONNXDimOp>(Value v);
+template bool definedBy<ONNXExpandOp>(Value v);
 
 /// Check if a value is to store dimensions, meaning it is defined by
 /// Dim/Constant/Cast/Concat.
@@ -679,6 +680,12 @@ int64_t mlirTypeToOnnxType(Type elemType) {
   }
 
   return onnxType;
+}
+
+bool isScalarTensor(Value v) {
+  return (hasShapeAndRank(v) &&
+          ((getRank(v.getType()) == 0) ||
+              (getRank(v.getType()) == 1 && getShape(v.getType())[0] == 1)));
 }
 
 //===----------------------------------------------------------------------===//
