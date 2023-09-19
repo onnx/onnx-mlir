@@ -243,6 +243,9 @@ mlir::Type convertONNXTypeToMLIRType(
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
+/// Check if a value is a scalar tensor.
+bool isScalarTensor(mlir::Value v);
+
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
