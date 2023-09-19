@@ -1060,8 +1060,8 @@ void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
     patterns.insert<SplitOfConst>(patterns.getContext());
 }
 
-void onnx_mlir::configureConstPropONNXToONNXPass(
-    int expansionBound, ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled) {
+void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
+    ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled) {
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
   ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
       disabledPatterns.begin(), disabledPatterns.end());
