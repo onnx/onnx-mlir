@@ -68,6 +68,7 @@ add_onnx_mlir_library(OMCompilerDialects
   OMKrnlOps
   OMONNXOps
   MLIRIR
+  MLIROpenMPDialect
   )
 
 add_onnx_mlir_library(OMCompilerPasses
