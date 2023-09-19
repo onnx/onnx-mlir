@@ -33,44 +33,61 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
         nullptr) {
   target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, checkLegalityFn](
                                              OP_TYPE op) {
-    // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr device =
         genericOp->getAttrOfType<mlir::StringAttr>("device");
+    assert((!device ||
+               (device &&
+                   (device.getValue().equals_insensitive("") ||
+                       device.getValue().equals_insensitive(CPU_DEVICE) ||
+                       device.getValue().equals_insensitive(NNPA_DEVICE)))) &&
+           "Invalid device name");
+
     // If device is CPU, force to run the op on CPU.
     if (device && device.getValue().equals_insensitive(CPU_DEVICE))
       return true;
-    // If device is NNPA, force to run the op on NNPA.
-    if (device && device.getValue().equals_insensitive(NNPA_DEVICE))
-      return false;
-    // If device is empty, let the compiler makes decision.
-    assert((!device || (device && device.getValue().equals_insensitive(""))) &&
-           "Invalid device name");
 
-    // Use the user legality check if it's given.
+    // If not CPU, check if the op is legal for NNPA.
+    bool isLegalForNNPA = false;
     if (checkLegalityFn)
-      return checkLegalityFn(op, dimAnalysis);
+      isLegalForNNPA = !checkLegalityFn(op, dimAnalysis);
+    else {
+      // Check zDNN limitations for each input tensors.
+      // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
+      bool exceedLimit =
+          llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
+            if (auto valueType =
+                    operand.getType().dyn_cast<mlir::ShapedType>()) {
+              // Check if static dimension size exceeds zDNN limitations
+              llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
+              if (llvm::any_of(valueShape, [](int64_t dim) {
+                    return (!mlir::ShapedType::isDynamic(dim)) &&
+                           (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
+                  }))
+                return true;
+            }
+            return false;
+          });
+      isLegalForNNPA =
+          !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
+    }
 
-    // Check zDNN limitations for each input tensors.
-    // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
-    bool exceedLimit =
-        llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
-          if (auto valueType = operand.getType().dyn_cast<mlir::ShapedType>()) {
-            // Check if static dimension size exceeds zDNN limitations
-            llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
-            if (llvm::any_of(valueShape, [](int64_t dim) {
-                  return (!mlir::ShapedType::isDynamic(dim)) &&
-                         (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-                }))
-              return true;
-          }
-          return false;
-        });
-    // There is a tensor whose size exceeds zDNN limitations, run the op on CPU.
-    if (exceedLimit)
-      return true;
+    // Users specified NNPA device of an op, but the compiler found the op is
+    // not legal for NNPA, e.g. in case of dynamic shape.  In this case, print
+    // out a warning message.
+    if (device && device.getValue().equals_insensitive(NNPA_DEVICE) &&
+        !isLegalForNNPA) {
+      llvm::outs() << "Warning: though the following operation was specified "
+                      "to run on NNPA, the compiler found that NNPA did not "
+                      "support that operation. It's potentially that the "
+                      "compiler was not able to check broadcasting in case of "
+                      "dynamic shape so that it thought the operation was not "
+                      "legal for NNPA.\n";
+      op.dump();
+      return false;
+    }
 
-    return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
+    return !isLegalForNNPA;
   });
 }
 
