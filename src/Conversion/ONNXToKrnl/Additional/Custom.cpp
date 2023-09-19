@@ -72,14 +72,14 @@ void FixGRUYh(Location loc, ConversionPatternRewriter &rewriter,
       create(rewriter, loc);
 
   // Code copied from GRU.cpp: calculateState
-  int64_t htRank = 3;
+  int64_t htRank = 2;
   Value iZero = create.math.constantIndex(0);
   Value iOne = create.math.constantIndex(1);
   SmallVector<Value, 2> htLbs(htRank, iZero);
   SmallVector<Value, 2> htUbs;
   for (unsigned r = 0; r < htRank; ++r) {
     // skip the first two dim for sequence and batch
-    htUbs.emplace_back(create.mem.dim(Y, r + 1));
+    htUbs.emplace_back(create.mem.dim(Y, r + 2));
   }
   Value seqSize = create.mem.dim(Y, 0);
   Value directionIV = iZero;
@@ -88,8 +88,7 @@ void FixGRUYh(Location loc, ConversionPatternRewriter &rewriter,
       [&](KrnlBuilder &createKrnl, ValueRange indices) {
         MathBuilder createMath(createKrnl);
         IndexExprScope ieScope(createKrnl);
-        Value bs(indices[1]), hs(indices[2]);
-        Value directionIV(indices[0]);
+        Value bs(indices[0]), hs(indices[1]);
         Value sequenceUB = createKrnl.load(sequenceLens, {bs});
         Value bound = createMath.min(
             createMath.cast(seqSize.getType(), sequenceUB), seqSize);

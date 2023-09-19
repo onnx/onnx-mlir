@@ -598,7 +598,7 @@ def GetLSTMGRUGetYh :
         NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3, $4)">;
 
 def GetLSTMGRUGetYWithSequenceLens :
-        NativeCodeCall<"getLSTMGRUGetYWithSequenceLens($_loc, $_builder, $0, $1, $2, $3, $4)">;
+        NativeCodeCall<"getLSTMGRUGetYWithSequenceLens($_loc, $_builder, $0, $1, $2, $3)">;
 
 def GetLSTMGRUGetYhWithSequenceLens :
         NativeCodeCall<"getLSTMGRUGetYhWithSequenceLens($_loc, $_builder, $0, $1, $2, $3, $4, $5)">;
@@ -810,8 +810,8 @@ def replaceONNXGRUPattern1 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
-   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h, $direction),
-   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $sequence_lens, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -841,8 +841,8 @@ def replaceONNXGRUPattern2 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
-   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h, $direction),
-   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $sequence_lens, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
@@ -880,8 +880,8 @@ def replaceONNXGRUPattern3 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h, $direction),
-   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $sequence_lens, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
 >;
@@ -911,8 +911,8 @@ def replaceONNXGRUPattern4 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h, $direction),
-   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $sequence_lens, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;
