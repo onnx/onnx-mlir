@@ -167,9 +167,9 @@ static llvm::cl::opt<int, true> onnxConstPropExpansionBoundOpt(
 
 static llvm::cl::list<std::string, std::vector<std::string>>
     onnxConstPropDisablePatternsOpt("onnx-const-prop-disable-pattern",
-        llvm::cl::desc("Named constant propagation pattern to disable. "
+        llvm::cl::desc("Named constant propagation pattern to disable.\n"
                        "Repeat the flag to disable multiple patterns."),
-        llvm::cl::value_desc("named constant propagation patterns to disable"),
+        llvm::cl::value_desc("named constant propagation pattern to disable"),
         llvm::cl::location(onnxConstPropDisablePatterns),
         llvm::cl::cat(OnnxMlirCommonOptions));
 

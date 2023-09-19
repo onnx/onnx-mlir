@@ -46,8 +46,7 @@ std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(int expansionBound,
-    llvm::ArrayRef<std::string> disabledPatterns = {},
-    bool constantPropIsEnabled = false);
+    llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
