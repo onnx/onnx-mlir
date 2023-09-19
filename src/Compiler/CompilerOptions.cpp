@@ -35,7 +35,6 @@ InstrumentStages instrumentStage;                      // common for both
 int onnxConstPropExpansionBound;                       // common for both
 std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
-std::vector<std::string> onnxHybridPassDisableClasses; // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -179,16 +178,6 @@ static llvm::cl::opt<bool, true> enableONNXHybridPassOpt("onnx-hybrid-pass",
                    "Set to 'false' if you want to disable ONNX hybrid pass."),
     llvm::cl::location(enableONNXHybridPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirCommonOptions));
-
-static llvm::cl::list<std::string, std::vector<std::string>>
-    onnxHybridPassDisableClassesOpt("onnx-hybrid-pass-disable-class",
-        llvm::cl::desc("Class of hybrid pass patterns to disable.\n"
-                       "Can be shape-inference, canonicalization, "
-                       "constant-propagation, decomposition.\n"
-                       "Repeat the flag to disable multiple classes."),
-        llvm::cl::value_desc("class of hybrid pass patterns to disable"),
-        llvm::cl::location(onnxHybridPassDisableClasses),
-        llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>>
     functionsToDecomposeOpt("functions-to-decompose",

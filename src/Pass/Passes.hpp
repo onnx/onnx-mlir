@@ -66,10 +66,6 @@ std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
 /// Pass for replacing ONNXReturnOp with func::ReturnOp.
 std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 
-// To configure ConstPropONNXToONNXPass at program start.
-void configureONNXHybridTransformPass(
-    llvm::ArrayRef<std::string> disabledClasses);
-
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();

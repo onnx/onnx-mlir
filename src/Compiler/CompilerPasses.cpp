@@ -48,7 +48,6 @@ void configurePasses() {
   configureConstPropONNXToONNXPass(
       onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       OptimizationLevel >= 3 || enableConstantProp);
-  configureONNXHybridTransformPass(onnxHybridPassDisableClasses);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
