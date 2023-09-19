@@ -114,6 +114,11 @@ Value OnnxBuilder::div(Value A, Value B) const {
   return createOpAndInferShapes<ONNXDivOp>(toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
+  return createOpAndInferShapes<ONNXExpandOp>(
+      outputType, toTensor(input), toTensor(shape));
+}
+
 Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   // Gemm only supports rank 2.
   bool canUseGemm = useGemm && A.getType().isa<ShapedType>() &&

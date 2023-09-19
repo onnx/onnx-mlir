@@ -60,6 +60,12 @@ def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
 def createScalarDenseAttrRank0
     : NativeCodeCall<"::onnx_mlir::createScalarDenseAttr($_builder, $0)">;
 
+// Create a scalar DenseElementsAttr of tensor<dtype> from an ElementsAttr.
+// The input ElementsAttr must have only one element. Otherwise only the first
+// element is used to create the scalar DenseElementsAttr
+def ReshapeElementsAttrToRank0 : NativeCodeCall<
+    "onnx_mlir::OnnxElementsAttrBuilder($0.getContext()).reshape(cast<ElementsAttr>($0), {})">;
+
 // Create a DenseElementsAttr from a single attribute.
 def createDenseArrayAttrFromSingleAttr
     : NativeCodeCall<"::onnx_mlir::createDenseArrayAttr($_builder, $_builder.getArrayAttr($0))">;
@@ -509,6 +515,17 @@ def ConvTransposeOpPattern2: Pattern<
    ],
    [(HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)], [],
    (addBenefit 0)
+>;
+
+//===----------------------------------------------------------------------===//
+// Rewrite `ONNXConstantOfShapeOp {value} (%shape)` into
+//         `ONNXExpandOp(ONNXConstantOp {value}, %shape)
+//===----------------------------------------------------------------------===//
+
+def ConstantOfShapePattern: Pat<
+  (ONNXConstantOfShapeOp:$res $shape, $value),
+  (ONNXExpandOp (ONNXConstantOpFromDenseAttr (ReshapeElementsAttrToRank0 $value)), 
+                $shape)
 >;
 
 #endif // ONNX_DECOMPOSE
