@@ -31,6 +31,9 @@ namespace {
 // The pass combines patterns for shape inference and other ONNX-to-ONNX
 // transforms.
 //
+// Suboptions make it possible to disable some transforms, e.g.,
+// --onnx-hybrid-transform="canonicalization=false constant-propagation=false"
+//
 // Shape inference is done with patterns top down so shape
 // inference cascades through the ops from the graph's inputs to outputs, and
 // recursively into subgraphs. Ops with subgraphs, namely if/loop/scan, are
