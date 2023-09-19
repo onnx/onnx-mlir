@@ -69,7 +69,7 @@ struct ConstPropONNXToONNXPassConfiguration {
 };
 
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
-StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns;
+StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
 bool ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled = false;
 
 // Precondition: result has ranked tensor type with static shape and int or
