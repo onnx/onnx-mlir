@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Transform/ONNX/ConvOpt.hpp"
+#include "src/Pass/Passes.hpp"
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -22,7 +25,6 @@
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 // Enables a minimum of printing.
@@ -208,6 +210,21 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
   }
 };
 
+} // namespace
+
+void onnx_mlir::getConvOptONNXToONNXPatterns(
+    RewritePatternSet &patterns, bool enableSimdDataLayoutOpt) {
+  // TODO: if enable simd layout opt, we still need to determine how 1x1 and
+  // simd layout interact. Right now, only enable the one or the other. Will
+  // need to refine this later.
+  if (enableSimdDataLayoutOpt)
+    populateWithGenerated(patterns);
+  else
+    patterns.insert<Conv1x1ToMatmulPattern>(patterns.getContext());
+}
+
+namespace {
+
 struct ConvOptONNXToONNXPass
     : public PassWrapper<ConvOptONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvOptONNXToONNXPass)
@@ -263,14 +280,7 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   });
 
   RewritePatternSet patterns(context);
-
-  // TODO: if enable simd layout opt, we still need to determine how 1x1 and
-  // simd layout interact. Right now, only enable the one or the other. Will
-  // need to refine this later.
-  if (enableSimdDataLayoutOpt)
-    populateWithGenerated(patterns);
-  else
-    patterns.insert<Conv1x1ToMatmulPattern>(context);
+  onnx_mlir::getConvOptONNXToONNXPatterns(patterns, enableSimdDataLayoutOpt);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
@@ -278,14 +288,10 @@ void ConvOptONNXToONNXPass::runOnOperation() {
 
 } // namespace
 
-namespace onnx_mlir {
-
 /*!
  * Create a DecomposeONNX pass.
  */
-std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
+std::unique_ptr<mlir::Pass> onnx_mlir::createConvOptONNXToONNXPass(
     bool enableSimdDataLayoutOpt) {
   return std::make_unique<ConvOptONNXToONNXPass>(enableSimdDataLayoutOpt);
 }
-
-} // namespace onnx_mlir
