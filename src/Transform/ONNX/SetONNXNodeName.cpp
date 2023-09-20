@@ -119,7 +119,7 @@ std::string SetONNXNodeNamePass::generateNodeName(Operation *op) {
 
   // The new name may exist, try again to get a unique name.
   while (nodeNames.contains(res))
-    res = op->getName().getStringRef().str() + "_" + std::to_string(id++);
+    res = opName + "_" + std::to_string(id++);
   return res;
 }
 
