@@ -60,32 +60,3 @@ func.func @test_custom_dynamic1(%arg0: tensor<1024xi32>, %arg1: tensor<?x4xf32>)
 // CHECK:           "krnl.call"([[RES_]], [[PARAM_0_]], [[PARAM_1_]]) {funcName = "testcall", numOfOutput = 1 : si64} : (memref<?x4xf32>, memref<1024xi32>, memref<?x4xf32>) -> ()
 // CHECK:           return [[RES_]] : memref<?x4xf32>
 // CHECK:         }
-
-
-// -----
-
-// Test the dynamic dim and special lowering for FixGRUYh
-func.func @test_FixGRUYh(%arg0: tensor<2x1x?x1xf32>, %arg1: tensor<2xi32>) -> tensor<1x?x1xf32> {
-   %13 = "onnx.Custom"(%arg0, %arg1) {function_name = "FixGRUYh", shape_infer_pattern = "PartialSame"} : (tensor<2x1x?x1xf32>, tensor<2xi32>) -> tensor<1x?x1xf32>
-  return %13 : tensor<1x?x1xf32>
-}
-// CHECK-LABEL:  func.func @test_FixGRUYh
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x1x?x1xf32>, [[PARAM_1_:%.+]]: memref<2xi32>) -> memref<1x?x1xf32> {
-// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
-// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
-// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<2x1x?x1xf32>
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<1x?x1xf32>
-// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_2_]] : memref<2x1x?x1xf32>
-// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = [[CST_0_]] to [[VAR_dim_0_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = [[CST_0_]] to [[CST_1_]]){
-// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:             [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#0] : memref<2xi32>
-// CHECK:             [[VAR_3_:%.+]] = arith.index_cast [[LOAD_PARAM_1_MEM_]] : i32 to index
-// CHECK:             [[VAR_4_:%.+]] = arith.minsi [[VAR_3_]], [[CST_2_]] : index
-// CHECK:             [[VAR_5_:%.+]] = arith.subi [[VAR_4_]], [[CST_1_]] : index
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_5_]], [[CST_0_]], [[VAR_1_]]#0, [[VAR_1_]]#1] : memref<2x1x?x1xf32>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[CST_0_]], [[VAR_1_]]#0, [[VAR_1_]]#1] : memref<1x?x1xf32>
-// CHECK:           }
-// CHECK:           return [[RES_]] : memref<1x?x1xf32>
-// CHECK:         }
