@@ -45,20 +45,21 @@ Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
   return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
-// Create an ArrayAttr of IntegerAttr(s) of values in [1, N].
-ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
-  SmallVector<int64_t, 4> vals;
-  for (int i = 1; i <= N; ++i)
-    vals.emplace_back(i);
-  return rewriter.getI64ArrayAttr(vals);
-}
-
 // Create an ArrayAttr of IntegerAttr(s) of values in [N, M].
 ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   SmallVector<int64_t, 4> vals;
   for (int i = N; i <= M; ++i)
     vals.emplace_back(i);
   return rewriter.getI64ArrayAttr(vals);
+}
+
+// Create an DenseElementsAttr of i64 values in [N, M].
+DenseElementsAttr createDenseElementsAttrOfNToM(
+    PatternRewriter &rewriter, int64_t N, int64_t M) {
+  SmallVector<int64_t, 4> vals;
+  for (int i = N; i <= M; ++i)
+    vals.emplace_back(i);
+  return rewriter.getI64TensorAttr(vals);
 }
 
 Value normalizeConstantOp(
