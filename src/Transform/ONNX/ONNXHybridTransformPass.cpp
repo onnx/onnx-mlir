@@ -73,10 +73,7 @@ struct ONNXHybridTransformPass
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
       : patterns(pass.patterns) {
-    shapeInference = pass.shapeInference;
-    canonicalization = pass.canonicalization;
-    constantPropagation = pass.constantPropagation;
-    decomposition = pass.decomposition;
+    copyOptionValuesFrom(&pass);
   }
 
   StringRef getArgument() const override { return "onnx-hybrid-transform"; }
