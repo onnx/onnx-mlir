@@ -693,7 +693,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
     return false;
   // zDNN does not support sequence_lens and we cannot fix the result.
   // For one direction, we fix the result afterward
-  if (!isNoneValue(op.getSequenceLens()) && direction == BIDIRECTIONAL )
+  if (!isNoneValue(op.getSequenceLens()) && direction == BIDIRECTIONAL)
     return false;
   return true;
 }

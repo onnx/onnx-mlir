@@ -24,18 +24,17 @@ namespace zhigh {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ZHighFixGRUYhOpShapeHelper::computeShape() {
-    DimsExpr dims;
-    createIE->getShapeAsDims(operands[0], dims);
+  DimsExpr dims;
+  createIE->getShapeAsDims(operands[0], dims);
 
-    DimsExpr outputDims;
-    outputDims.emplace_back(dims[1]);
-    outputDims.emplace_back(dims[2]);
-    outputDims.emplace_back(dims[3]);
-    setOutputDims(outputDims);
+  DimsExpr outputDims;
+  outputDims.emplace_back(dims[1]);
+  outputDims.emplace_back(dims[2]);
+  outputDims.emplace_back(dims[3]);
+  setOutputDims(outputDims);
 
-    return success();
+  return success();
 }
-
 
 //===----------------------------------------------------------------------===//
 // Shape inference
@@ -43,7 +42,7 @@ LogicalResult ZHighFixGRUYhOpShapeHelper::computeShape() {
 
 LogicalResult ZHighFixGRUYhOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  if (!hasRankedType(getY()) )
+  if (!hasRankedType(getY()))
     return success();
 
   Type elementType = getElementType(getY().getType());
