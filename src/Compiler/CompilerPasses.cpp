@@ -45,8 +45,9 @@ namespace onnx_mlir {
 void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  configureConstPropONNXToONNXPass(
-      onnxConstPropExpansionBound, onnxConstPropDisablePatterns);
+  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
+      onnxConstPropDisablePatterns,
+      OptimizationLevel >= 3 || enableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
@@ -85,7 +86,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // There are more opportunities for const propagation once all tensors have
   // inferred shapes.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-
   if (onnxOpTransformThreshold > 0) {
     // Dynamic iterate in ONNXOpTransformPass
     pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
@@ -104,11 +104,12 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // Simplify shape-related ops.
   pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());
 
-  // One more call to ONNX shape inference/canonicalization/... to update shape
-  // if possible.
+  // One more call to ONNX shape inference/canonicalization/... to update
+  // shape if possible.
   if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3 passes
-    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
+    // For starters only illustrating the new hybrid pass by replacing 3
+    // passes here. The plan is to replace most of the passes in
+    // addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -135,10 +136,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   if (profileIR == onnx_mlir::ProfileIRs::Onnx) {
     instrumentStage = onnx_mlir::InstrumentStages::Onnx;
     instrumentOps = "onnx.*";
-    // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp and
-    // InstrumentReportTime.
-    // Disable the last bit for InstrumentReportMemory because of its big
-    // overhead. Users can optionally enable the last bit by using
+    // Enable the first three bits for InstrumentBeforOp, InstrumentAfterOp
+    // and InstrumentReportTime. Disable the last bit for
+    // InstrumentReportMemory because of its big overhead. Users can
+    // optionally enable the last bit by using
     // --InstrumentReportMemory option.
     instrumentActions |= (1 << 3) - 1;
   }
@@ -172,8 +173,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
     }
   }
 
-  // Print Signatures of each op at runtime if enabled. Should not run signature
-  // and instrument passes at the same time.
+  // Print Signatures of each op at runtime if enabled. Should not run
+  // signature and instrument passes at the same time.
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
@@ -215,8 +216,8 @@ void addKrnlToLLVMPasses(
 
   // Use MLIR buffer deallocation pass to emit buffer deallocs.
   // Currently this has to be done *after* lowering the affine dialect because
-  // operations in that dialect do not conform to the requirements explained in
-  // https://mlir.llvm.org/docs/BufferDeallocationInternals.
+  // operations in that dialect do not conform to the requirements explained
+  // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
   pm.addNestedPass<func::FuncOp>(
       mlir::bufferization::createBufferDeallocationPass());
 
