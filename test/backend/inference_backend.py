@@ -771,13 +771,13 @@ def get_test_models():
 
         # ==OP== ReduceLogSum
         # ==MIN== 13
-        # ==LIM== do_not_keep_dim not supported.
+        # ==LIM== do_not_keep_dim not supported. Enable constant propagation
         #"test_reduce_log_sum_desc_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         #"test_reduce_log_sum_asc_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        "test_reduce_log_sum_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_reduce_log_sum_default_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, ENABLE_CONST_PROP:{}},
         "test_reduce_log_sum_negative_axes_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # Name changed in v13
-        # "test_reduce_log_sum_default_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        "test_reduce_log_sum_default_expanded_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}, ENABLE_CONST_PROP:{}},
 
         # ==OP== ReduceL1
         # ==MIN== 13
@@ -1297,6 +1297,15 @@ def get_test_models():
         node_test_to_enable = variables.node_test_for_constants_to_file
         model_test_to_enable = variables.model_test_for_constants_to_file
         test_to_enable = variables.test_for_constants_to_file
+    
+    #Enable Constant Propagation so that several backend test may pass
+    if args.enable_constant_prop:
+        if args.verbose:
+            print("constant propagation is enabled", file=sys.stderr)
+        node_test_to_enable = variables.node_test_for_enable_const_prop
+        model_test_to_enable = variables.model_test_for_enable_const_prop
+        test_to_enable = variables.test_for_enable_const_prop
+
 
     # Build check-onnx-backend with env TEST_NOFLOAT16=true to set args.nofloat16
     # on platforms like IBM Z and Linux x86_64 where LLVM float16 conversions don't yet work.

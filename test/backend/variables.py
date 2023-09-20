@@ -2,7 +2,7 @@
 
 ############################ variables.py #####################################
 #
-# Copyright 2021-2022 The IBM Research Authors.
+# Copyright 2021-2023 The IBM Research Authors.
 #
 ################################################################################
 # Immutable global variables:
@@ -55,6 +55,7 @@ def get_args_from_env():
     TEST_INSTRUCTION_CHECK = os.getenv("TEST_INSTRUCTION_CHECK")
     TEST_CONSTANTS_TO_FILE = os.getenv("TEST_CONSTANTS_TO_FILE")
     TEST_NOFLOAT16 = os.getenv("TEST_NOFLOAT16")
+    TEST_CONSTANT_PROP= os.getenv("TEST_CONSTANT_PROP")
 
     # Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
     # real model files into home directory.
@@ -86,6 +87,13 @@ def get_args_from_env():
         default=(strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False),
         help="whether store constants to file or not, passed to the compiler",
     )
+    parser.add_argument(
+        "--enable_constant_prop",
+        action="store_true",
+        default=(strtobool(TEST_CONSTANT_PROP) if TEST_CONSTANT_PROP else False),
+        help="enable constant propagation",
+    )
+
     parser.add_argument(
         "--nofloat16",
         action="store_true",
@@ -270,6 +278,7 @@ DYNAMIC_SHAPE = "dynamic"
 CONSTANT_INPUT = "constant"
 CONSTANTS_TO_FILE = "constants_to_file"
 FLOAT16 = "float16"
+ENABLE_CONST_PROP = "enable_constant_prop"
 
 ### immutable variables ###
 

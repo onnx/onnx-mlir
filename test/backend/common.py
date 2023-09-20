@@ -2,7 +2,7 @@
 
 ##################### common.py ################################################
 #
-# Copyright 2021-2022 The IBM Research Authors.
+# Copyright 2021-2023 The IBM Research Authors.
 #
 ################################################################################
 # commom function `compile_model` called by both
@@ -125,6 +125,8 @@ def compile_model(model, emit):
     if args.constants_to_file_total_threshold:
         command_list.append("--constants-to-file-total-threshold=" +
                             str(args.constants_to_file_total_threshold))
+    if args.enable_constant_prop:
+        command_list.append("--enable-constant-prop=true")
 
     command_list.append(target[emit])
     command_list.append(model_name)
