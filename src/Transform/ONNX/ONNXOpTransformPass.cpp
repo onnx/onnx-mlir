@@ -17,7 +17,6 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
 
@@ -47,17 +46,21 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       "onnx-op-transform-simd-data-layout",
       llvm::cl::desc("Enable SIMD data layout opt in op transform passes."),
       llvm::cl::init(false)};
+  Option<bool> enableConvOptPass{*this, "enable-conv-opt-pass",
+      llvm::cl::desc("Enable the ConvOptPass. Default is true."),
+      llvm::cl::init(true)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
   ONNXOpTransformPass(int threshold, bool report, bool targetCPU,
-      bool enableSimdDataLayoutOpt) {
+      bool enableSimdDataLayoutOpt, bool enableConvOptPass) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
     this->onnxOpTransformTargetCPU = targetCPU;
     this->onnxOpTransformEnableSimdDataLayout = enableSimdDataLayoutOpt;
+    this->enableConvOptPass = enableConvOptPass;
   }
 
   void runOnOperation() final;
@@ -79,7 +82,7 @@ void ONNXOpTransformPass::runOnOperation() {
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createShapeInferencePass());
     // Convolution Optimization currently only for CPU.
-    if (onnxOpTransformTargetCPU && onnx_mlir::enableConvOptPass) {
+    if (onnxOpTransformTargetCPU && enableConvOptPass) {
       dynamicPM.addNestedPass<func::FuncOp>(
           onnx_mlir::createConvOptONNXToONNXPass(
               onnxOpTransformEnableSimdDataLayout));
@@ -116,8 +119,9 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
   return std::make_unique<ONNXOpTransformPass>();
 }
 
-std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU, bool enableSimdDataLayoutOpt) {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(int threshold,
+    bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
+    bool enableConvOptPass) {
   return std::make_unique<ONNXOpTransformPass>(
-      threshold, report, targetCPU, enableSimdDataLayoutOpt);
+      threshold, report, targetCPU, enableSimdDataLayoutOpt, enableConvOptPass);
 }

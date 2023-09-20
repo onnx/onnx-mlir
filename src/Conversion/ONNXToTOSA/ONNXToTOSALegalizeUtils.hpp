@@ -5,7 +5,7 @@
 //==== ONNXToTosaLegalizeUtils.hpp - ONNX dialects to TOSA lowering Utils-===//
 //
 // Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -78,6 +78,15 @@ void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
 }
+
+/// Create a padding tosa::ConstOp from ONNX to Tosa format.
+/// The two formats are:
+/// ONNX : [b1, b2, b3, b4, e1, e2, e3, e4]
+/// TOSA :[[b1, e1], [b2, e2], [b3, e3], [b4, e4]]
+mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
+    llvm::ArrayRef<int64_t> onnxPads, mlir::Location loc,
+    const std::initializer_list<int64_t> &initialVals = {},
+    const std::initializer_list<int64_t> &lastVals = {});
 
 } // namespace tosa
 } // namespace onnx_mlir

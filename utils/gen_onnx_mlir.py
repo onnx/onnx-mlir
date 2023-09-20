@@ -489,6 +489,7 @@ custom_builder_unranked_ops_list = [
     'Sqrt',
     'Squeeze',
     'SqueezeV11',
+    'Unsqueeze',
     'UnsqueezeV11',
 ]
 # Custom builder op list for operations with broadcast; we can deduce the right

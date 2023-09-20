@@ -13,7 +13,6 @@ add_onnx_mlir_library(OMKrnlToAffine
 
   LINK_LIBS PUBLIC
   OMSpecializedKernelOpInterface
-  OMCompilerOptions
   OMONNXOps
   OMSupport
   MLIRTransforms

@@ -5,18 +5,22 @@
 //===------------------ ONNXHybridTransformPass.cpp -----------------------===//
 //
 // Hybrid ONNX transformation pass that combines conversion patterns for
-// shape inference and canonicalization.
+// shape inference and canonicalization and constant propagation.
 //
-// TODO: add constant propagation and decomposition
+// TODO: add decomposition
 //
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSet.h"
+
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
+#include "src/Transform/ONNX/ConstProp.hpp"
 #include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
@@ -25,7 +29,10 @@ using namespace onnx_mlir;
 namespace {
 
 // The pass combines patterns for shape inference and other ONNX-to-ONNX
-// transforms, controlled by the shapeInferenceOnly constructor argument.
+// transforms.
+//
+// Suboptions make it possible to disable some transforms, e.g.,
+// --onnx-hybrid-transform="canonicalization=false constant-propagation=false"
 //
 // Shape inference is done with patterns top down so shape
 // inference cascades through the ops from the graph's inputs to outputs, and
@@ -41,20 +48,51 @@ struct ONNXHybridTransformPass
     : public PassWrapper<ONNXHybridTransformPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXHybridTransformPass)
 
+  Option<bool> shapeInference{*this, "shape-inference",
+      llvm::cl::desc("Enable shape inference in hybrid transform"),
+      llvm::cl::init(true)};
+
+  Option<bool> canonicalization{*this, "canonicalization",
+      llvm::cl::desc("Enable canonicalization in hybrid transform"),
+      llvm::cl::init(true)};
+
+  Option<bool> constantPropagation{*this, "constant-propagation",
+      llvm::cl::desc("Enable constant propagation in hybrid transform"),
+      llvm::cl::init(true)};
+
+  FrozenRewritePatternSet patterns;
+
+  ONNXHybridTransformPass() = default;
+
+  ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
+      : patterns(pass.patterns) {
+    shapeInference = pass.shapeInference;
+    canonicalization = pass.canonicalization;
+    constantPropagation = pass.constantPropagation;
+  }
+
   StringRef getArgument() const override { return "onnx-hybrid-transform"; }
 
   LogicalResult initialize(MLIRContext *context) override {
     RewritePatternSet cumulativePatterns(context);
 
-    getShapeInferencePatterns(cumulativePatterns);
+    if (shapeInference) {
+      getShapeInferencePatterns(cumulativePatterns);
+    }
 
-    // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
-    for (auto *dialect : context->getLoadedDialects())
-      dialect->getCanonicalizationPatterns(cumulativePatterns);
-    for (RegisteredOperationName op : context->getRegisteredOperations())
-      op.getCanonicalizationPatterns(cumulativePatterns, context);
+    if (canonicalization) {
+      // canonicalization (copied from mlir/lib/Transforms/Canonicalizer.cpp)
+      for (auto *dialect : context->getLoadedDialects())
+        dialect->getCanonicalizationPatterns(cumulativePatterns);
+      for (RegisteredOperationName op : context->getRegisteredOperations())
+        op.getCanonicalizationPatterns(cumulativePatterns, context);
+    }
 
-    // TODO: constant propagation, decomposition
+    if (constantPropagation) {
+      getConstPropONNXToONNXPatterns(cumulativePatterns);
+    }
+
+    // TODO: decomposition
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
     return success();
@@ -72,16 +110,10 @@ struct ONNXHybridTransformPass
 
     inferFunctionReturnShapes(f);
   }
-
-  FrozenRewritePatternSet patterns;
 };
 
 } // namespace
 
-namespace onnx_mlir {
-
-std::unique_ptr<mlir::Pass> createONNXHybridTransformPass() {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass() {
   return std::make_unique<ONNXHybridTransformPass>();
 }
-
-} // namespace onnx_mlir
