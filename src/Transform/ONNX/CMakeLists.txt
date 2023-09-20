@@ -71,6 +71,7 @@ add_onnx_mlir_library(OMHybridTransform
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
+  OMONNXRewrite
   MLIRPass
   MLIRTransforms
   OMShapeInference

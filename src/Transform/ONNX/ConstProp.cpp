@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Pass/Passes.hpp"
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -29,7 +32,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
@@ -67,7 +69,7 @@ struct ConstPropONNXToONNXPassConfiguration {
 };
 
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
-StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns;
+StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
 bool ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled = false;
 
 // Precondition: result has ranked tensor type with static shape and int or
@@ -90,7 +92,7 @@ bool satisfiesExpansionBound(Value result) {
 
 // We want to enable Constant Propagation only for Level O3 or when a user
 // manually specifies the "enable-constant-prop" flag.
-bool isConsantPropagationEnabled() {
+bool isConstantPropagationEnabled() {
   bool enable = (/*enableConstantProp*/ ConstPropONNXToONNXPassConfiguration::
           constantPropIsEnabled);
   return enable;
@@ -1043,18 +1045,20 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  if (isConsantPropagationEnabled()) {
-    populateWithGenerated(patterns);
-    if (isNotDisabled("SplitOfConst")) {
-      patterns.insert<SplitOfConst>(context);
-    }
-  }
-
+  getConstPropONNXToONNXPatterns(patterns);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
 } // end anonymous namespace.
+
+void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
+  if (!isConstantPropagationEnabled())
+    return;
+  populateWithGenerated(patterns);
+  if (isNotDisabled("SplitOfConst"))
+    patterns.insert<SplitOfConst>(patterns.getContext());
+}
 
 void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
     ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled) {
