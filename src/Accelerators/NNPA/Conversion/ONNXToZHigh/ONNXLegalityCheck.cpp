@@ -691,6 +691,10 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   // zDNN support the "linear_before_reset==1" case only.
   if (op.getLinearBeforeReset() != 1)
     return false;
+  // zDNN does not support sequence_lens and we cannot fix the result.
+  // For one direction, we fix the result afterward
+  if (!isNoneValue(op.getSequenceLens()) && direction == BIDIRECTIONAL )
+    return false;
   return true;
 }
 

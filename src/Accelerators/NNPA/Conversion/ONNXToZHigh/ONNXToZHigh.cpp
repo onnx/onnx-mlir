@@ -112,15 +112,8 @@ Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
   if (isNoneValue(sequenceLens))
     return getLSTMGRUGetY(loc, rewriter, val, resY);
 
-  // Create a CustomOp to fix Y because zDNN GRU ignores the sequence_lens
   std::vector<Value> inputs = {val, sequenceLens, initialH};
-  ONNXCustomOp customOp =
-      rewriter.create<ONNXCustomOp>(loc, resY.getType(), inputs);
-  StringAttr funcNameAttr = rewriter.getStringAttr("FixGRUY");
-  customOp->setAttr("function_name", funcNameAttr);
-  StringAttr shapeInferAttr = rewriter.getStringAttr("SameAs");
-  customOp->setAttr("shape_infer_pattern", shapeInferAttr);
-  return customOp.getResults()[0];
+  return rewriter.create<zhigh::ZHighFixGRUYOp>(loc, resY.getType(), inputs);
 }
 
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
@@ -192,15 +185,8 @@ Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
   if (isNoneValue(sequenceLens))
     return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
 
-  // Create a CustomOp to fix Yh because zDNN GRU ignores the sequence_lens
   std::vector<Value> inputs = {val, sequenceLens};
-  ONNXCustomOp customOp =
-      rewriter.create<ONNXCustomOp>(loc, resYh.getType(), inputs);
-  StringAttr funcNameAttr = rewriter.getStringAttr("FixGRUYh");
-  customOp->setAttr("function_name", funcNameAttr);
-  StringAttr shapeInferAttr = rewriter.getStringAttr("PartialSame");
-  customOp->setAttr("shape_infer_pattern", shapeInferAttr);
-  return customOp.getResults()[0];
+  return rewriter.create<zhigh::ZHighFixGRUYhOp>(loc, resYh.getType(), inputs);
 }
 
 Value getLSTMGRUGetYc(
