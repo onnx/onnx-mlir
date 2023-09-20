@@ -45,6 +45,7 @@ struct SetONNXNodeNamePass
 private:
   uint64_t id = 0;
   llvm::SmallSet<std::string, 32> nodeNames;
+  llvm::SmallSet<Operation *, 32> opsNeedNodeName;
   std::string nodeNameAttr = "onnx_node_name";
 };
 
@@ -55,9 +56,12 @@ void SetONNXNodeNamePass::runOnOperation() {
   // Collect
   // - all onnx_node_name strings and
   // - operations that have an empty onnx_node_name or a duplicated name.
-  llvm::SmallVector<Operation *, 32> opsNeedNodeName;
   moduleOp.walk([&](Operation *op) -> WalkResult {
-    if (isa<ModuleOp, func::FuncOp, ONNXEntryPointOp, ONNXReturnOp>(op))
+    // Only deal with ONNX ops.
+    if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
+      return WalkResult::advance();
+    // No need onnx_node_name for these ops.
+    if (isa<ONNXEntryPointOp, ONNXReturnOp, ONNXConstantOp>(op))
       return WalkResult::advance();
     StringAttr nodeName = op->getAttrOfType<mlir::StringAttr>(nodeNameAttr);
     if (nodeName && !nodeName.getValue().empty()) {
@@ -66,10 +70,10 @@ void SetONNXNodeNamePass::runOnOperation() {
       if (!succeeded) {
         llvm::outs() << "Duplicated " << nodeNameAttr << ": " << s
                      << ". It will be updated with a new string.\n";
-        opsNeedNodeName.emplace_back(op);
+        opsNeedNodeName.insert(op);
       }
     } else
-      opsNeedNodeName.emplace_back(op);
+      opsNeedNodeName.insert(op);
     return WalkResult::advance();
   });
 
@@ -93,7 +97,8 @@ std::string SetONNXNodeNamePass::generateNodeName(Operation *op) {
     // Use the first input if it has onnx_node_name.
     if (auto firstInputOp = dyn_cast_if_present<Operation *>(
             op->getOperands()[0].getDefiningOp())) {
-      if (!isa<ONNXConstantOp, ONNXDimOp>(firstInputOp)) {
+      if (!isa<ONNXConstantOp, ONNXDimOp>(firstInputOp) &&
+          !opsNeedNodeName.contains(firstInputOp)) {
         StringAttr nodeName =
             firstInputOp->getAttrOfType<mlir::StringAttr>(nodeNameAttr);
         if (nodeName && !nodeName.getValue().empty()) {
