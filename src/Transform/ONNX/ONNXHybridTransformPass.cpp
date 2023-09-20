@@ -23,6 +23,7 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Transform/ONNX/ConvOpt.hpp"
 #include "src/Transform/ONNX/Decompose.hpp"
 #include "src/Transform/ONNX/ShapeInference.hpp"
 
@@ -67,6 +68,14 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> enableConvOpt{*this, "enable-conv-opt",
+      llvm::cl::desc("Enable convolution optimization for CPU"),
+      llvm::cl::init(false)};
+
+  Option<bool> enableSimdDataLayoutOpt{*this, "simd-data-layout",
+      llvm::cl::desc("Enable SIMD data layout optimizations"),
+      llvm::cl::init(false)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass() = default;
@@ -74,6 +83,11 @@ struct ONNXHybridTransformPass
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
       : patterns(pass.patterns) {
     copyOptionValuesFrom(&pass);
+  }
+
+  ONNXHybridTransformPass(bool enableConvOpt, bool enableSimdDataLayoutOpt) {
+    this->enableConvOpt = enableConvOpt;
+    this->enableSimdDataLayoutOpt = enableSimdDataLayoutOpt;
   }
 
   StringRef getArgument() const override { return "onnx-hybrid-transform"; }
@@ -101,6 +115,10 @@ struct ONNXHybridTransformPass
       getDecomposeONNXToONNXPatterns(cumulativePatterns);
     }
 
+    if (enableConvOpt) {
+      getConvOptONNXToONNXPatterns(enableSimdDataLayoutOpt, cumulativePatterns);
+    }
+
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
     return success();
   }
@@ -122,5 +140,10 @@ struct ONNXHybridTransformPass
 } // namespace
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass() {
+  return std::make_unique<ONNXHybridTransformPass>();
+}
+
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
+    bool enableConvOpt, bool enableSimdDataLayoutOpt) {
   return std::make_unique<ONNXHybridTransformPass>();
 }

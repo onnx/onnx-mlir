@@ -9,6 +9,7 @@
 namespace onnx_mlir {
 
 // Exports the ConvOptONNXToONNXPass patterns.
-void getConvOptONNXToONNXPatterns(mlir::RewritePatternSet &patterns, bool enableSimdDataLayoutOpt);
+void getConvOptONNXToONNXPatterns(
+    bool enableSimdDataLayoutOpt, mlir::RewritePatternSet &patterns);
 
 } // namespace onnx_mlir

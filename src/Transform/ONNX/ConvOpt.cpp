@@ -213,7 +213,7 @@ struct Conv1x1ToMatmulPattern : public ConversionPattern {
 } // namespace
 
 void onnx_mlir::getConvOptONNXToONNXPatterns(
-    RewritePatternSet &patterns, bool enableSimdDataLayoutOpt) {
+    bool enableSimdDataLayoutOpt, RewritePatternSet &patterns) {
   // TODO: if enable simd layout opt, we still need to determine how 1x1 and
   // simd layout interact. Right now, only enable the one or the other. Will
   // need to refine this later.
@@ -280,7 +280,7 @@ void ConvOptONNXToONNXPass::runOnOperation() {
   });
 
   RewritePatternSet patterns(context);
-  onnx_mlir::getConvOptONNXToONNXPatterns(patterns, enableSimdDataLayoutOpt);
+  onnx_mlir::getConvOptONNXToONNXPatterns(enableSimdDataLayoutOpt, patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
