@@ -1302,9 +1302,9 @@ def get_test_models():
     if args.enable_constant_prop:
         if args.verbose:
             print("constant propagation is enabled", file=sys.stderr)
-        node_test_to_enable = variables.node_test_for_enable_const_prop
-        model_test_to_enable = variables.model_test_for_enable_const_prop
-        test_to_enable = variables.test_for_enable_const_prop
+        node_test_to_enable = variables.node_test_for_enable_constant_prop
+        model_test_to_enable = variables.model_test_for_enable_constant_prop
+        test_to_enable = variables.test_for_enable_constant_prop
 
 
     # Build check-onnx-backend with env TEST_NOFLOAT16=true to set args.nofloat16
