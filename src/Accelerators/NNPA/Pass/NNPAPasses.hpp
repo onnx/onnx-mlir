@@ -19,6 +19,9 @@
 
 namespace onnx_mlir {
 
+// Add pass for device placement.
+std::unique_ptr<mlir::Pass> createDevicePlacementPass();
+
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();

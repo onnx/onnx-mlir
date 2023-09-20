@@ -23,6 +23,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
@@ -472,40 +473,23 @@ public:
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
-struct RewriteONNXForZHighPass
-    : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
+void getRewriteONNXForZHighPatterns(
+    RewritePatternSet &patterns, DimAnalysis *dimAnalysis) {
+  populateWithGenerated(patterns);
+  patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
+  patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
+      patterns.getContext(), dimAnalysis);
+  patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
+      patterns.getContext(), dimAnalysis);
+}
 
-  StringRef getArgument() const override { return "rewrite-onnx-for-zhigh"; }
-
-  StringRef getDescription() const override {
-    return "Rewrite ONNX ops for ZHigh.";
-  }
-
-  RewriteONNXForZHighPass() = default;
-  void runOnOperation() final;
-};
-
-void RewriteONNXForZHighPass::runOnOperation() {
-  ModuleOp module = getOperation();
-
-  // Run the unknown dimension analysis to help check equality of unknown
-  // dimensions at compile time.
-  DimAnalysis dimAnalysis(module);
-  dimAnalysis.analyze();
-
-  // The first thing to define is the conversion target. This will define the
-  // final target for this lowering.
-  ConversionTarget target(getContext());
-
-  // We define the specific operations, or dialects, that are legal targets for
-  // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
-
+void getRewriteONNXForZHighDynamicallyLegal(
+    mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis) {
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
   addDynamicallyLegalOpFor<ONNXBatchNormalizationInferenceModeOp>(
-      &target, &dimAnalysis);
+      target, dimAnalysis);
 
   // Illegalize BinaryOp if one of the two inputs is a constant and
   // unidirectional broadcastable to the other input. Rewrite patterns will be
@@ -514,7 +498,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // This is preferred for NNPA because NNPA BinaryOp does not support
   // broadcasting.
   addDynamicallyLegalOpFor<ONNXAddOp>(
-      &target, &dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
+      target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -523,21 +507,21 @@ void RewriteONNXForZHighPass::runOnOperation() {
                      op, dimAnalysis));
       });
   addDynamicallyLegalOpFor<ONNXDivOp>(
-      &target, &dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+      target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
                      isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
       });
   addDynamicallyLegalOpFor<ONNXMulOp>(
-      &target, &dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
+      target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
                      isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
       });
   addDynamicallyLegalOpFor<ONNXSubOp>(
-      &target, &dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
+      target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -554,8 +538,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
   //
   // For such cases, rewrite patterns will be added to turn MatMulOp into the
   // one where N-D will become 3-D or to split MatMul into smaller MatMuls.
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis,
-      [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(
+      target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         Type aType = op.getA().getType();
         Type bType = op.getB().getType();
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
@@ -597,7 +581,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // Illegalize SoftmaxOp if
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
-  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(&target, &dimAnalysis,
+  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         Value input = op.getInput();
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
@@ -611,19 +595,45 @@ void RewriteONNXForZHighPass::runOnOperation() {
       });
 
   addDynamicallyLegalOpFor<ONNXConvOp>(
-      &target, &dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+      target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
         return isSuitableForZDNN<ONNXConvOp>(op) ||
                !canInferencePadsForNNPAConv(op);
       });
+}
+
+struct RewriteONNXForZHighPass
+    : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
+
+  StringRef getArgument() const override { return "rewrite-onnx-for-zhigh"; }
+
+  StringRef getDescription() const override {
+    return "Rewrite ONNX ops for ZHigh.";
+  }
+
+  RewriteONNXForZHighPass() = default;
+  void runOnOperation() final;
+};
+
+void RewriteONNXForZHighPass::runOnOperation() {
+  ModuleOp module = getOperation();
+
+  // Run the unknown dimension analysis to help check equality of unknown
+  // dimensions at compile time.
+  DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
+
+  // The first thing to define is the conversion target. This will define the
+  // final target for this lowering.
+  ConversionTarget target(getContext());
+
+  // We define the specific operations, or dialects, that are legal targets for
+  // this lowering.
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect>();
+  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis);
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  populateWithGenerated(patterns);
-  patterns.insert<SplitLargeMatMulPattern>(&getContext());
-  patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
-      &getContext(), &dimAnalysis);
-  patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
-      &getContext(), &dimAnalysis);
+  onnx_mlir::getRewriteONNXForZHighPatterns(patterns, &dimAnalysis);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
