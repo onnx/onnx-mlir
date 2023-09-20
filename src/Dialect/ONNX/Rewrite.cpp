@@ -59,8 +59,7 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
   SmallVector<int64_t, 4> vals;
   for (int i = N; i <= M; ++i)
     vals.emplace_back(i);
-  auto type = RankedTensorType::get({1 + M - N}, rewriter.getI64Type());
-  return DenseElementsAttr::get<int64_t>(type, vals);
+  return rewriter.getI64TensorAttr(vals);
 }
 
 Value normalizeConstantOp(
