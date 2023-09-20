@@ -4,7 +4,7 @@
 
 //===----------- ONNXConstProp.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,9 @@
 // composition of other ONNX operations.
 //
 //===----------------------------------------------------------------------===//
+
+#include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Pass/Passes.hpp"
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
@@ -29,7 +32,6 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
@@ -63,10 +65,12 @@ namespace {
 struct ConstPropONNXToONNXPassConfiguration {
   static int expansionBound;
   static StringSet<> disabledPatterns;
+  static bool constantPropIsEnabled;
 };
 
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
-StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns;
+StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
+bool ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled = false;
 
 // Precondition: result has ranked tensor type with static shape and int or
 // float element type.
@@ -84,6 +88,14 @@ bool satisfiesExpansionBound(Value result) {
   }
   return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
          getSizeInBytes(resultType);
+}
+
+// We want to enable Constant Propagation only for Level O3 or when a user
+// manually specifies the "enable-constant-prop" flag.
+bool isConstantPropagationEnabled() {
+  bool enable = (/*enableConstantProp*/ ConstPropONNXToONNXPassConfiguration::
+          constantPropIsEnabled);
+  return enable;
 }
 
 bool isNotDisabled(StringRef name) {
@@ -1025,7 +1037,6 @@ struct ConstPropONNXToONNXPass
     return "ConstProp ONNX operations into composition of "
            "other ONNX operations.";
   }
-
   void runOnOperation() final;
 };
 
@@ -1034,20 +1045,28 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  populateWithGenerated(patterns);
-  if (isNotDisabled("SplitOfConst"))
-    patterns.insert<SplitOfConst>(context);
+  getConstPropONNXToONNXPatterns(patterns);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
 } // end anonymous namespace.
 
-void onnx_mlir::configureConstPropONNXToONNXPass(
-    int expansionBound, ArrayRef<std::string> disabledPatterns) {
+void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
+  if (!isConstantPropagationEnabled())
+    return;
+  populateWithGenerated(patterns);
+  if (isNotDisabled("SplitOfConst"))
+    patterns.insert<SplitOfConst>(patterns.getContext());
+}
+
+void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
+    ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled) {
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
   ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
       disabledPatterns.begin(), disabledPatterns.end());
+  ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled =
+      constantPropIsEnabled;
 }
 
 /*!
