@@ -4,7 +4,7 @@
 
 //===---------- ZLowToLLVMCommon.hpp - Lowering from ZLow to LLVM ---------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -46,6 +46,7 @@ enum class API {
   ZDNN_TANH,
   ZDNN_SIGMOID,
   ZDNN_SOFTMAX,
+  ZDNN_SQRT,
   // RNN operations
   ZDNN_LSTM,
   ZDNN_GRU,

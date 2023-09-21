@@ -4,7 +4,7 @@
 
 //===------------------ Elementwise.cpp - ZHigh Operations ----------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -102,6 +102,14 @@ LogicalResult ZHighTanhOp::inferShapes(
 // SigmoiOp
 
 LogicalResult ZHighSigmoidOp::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// SqrtOp
+
+LogicalResult ZHighSqrtOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }

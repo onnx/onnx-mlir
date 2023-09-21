@@ -807,6 +807,11 @@ struct ZLowOpFor<ZHighSigmoidOp> {
   using Op = ZLowSigmoidOp;
 };
 
+template <>
+struct ZLowOpFor<ZHighSqrtOp> {
+  using Op = ZLowSqrtOp;
+};
+
 template <typename OP_TYPE>
 struct ZHighToZLowUnaryOpLowering : public ConversionPattern {
   ZHighToZLowUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)

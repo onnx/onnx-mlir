@@ -2,7 +2,7 @@
 
 //===- ONNXToZHigh.td - Replacing ONNX Ops by ZHigh Ops -*- tablegen ------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -247,7 +247,16 @@ def replaceONNXMaxPattern : Pat<
                                             (NoneLayoutAttr)),
                               (returnType $s_x)))
 >;
- 
+
+//===----------------------------------------------------------------------===//
+// ONNXSqrtOp %X = ZHighUnstickOp (ZHighSqrtOp (ZHighStickOp %X))
+//===----------------------------------------------------------------------===//
+def replaceONNXSqrtPattern : Pat<
+  (ONNXSqrtOp $x),
+  (ZHighUnstickOp (ZHighSqrtOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
+                                  (returnType $s_x)))
+>; 
+
 //===----------------------------------------------------------------------===//
 // ONNXSoftmaxOp %X = ONNXSqueezeOp
 //                        (ZHighUnstickOp

@@ -4,7 +4,7 @@
 
 //===---------- ZLowToLLVM.cpp - Lowering from ZLow to LLVM ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -80,6 +80,10 @@ API APIFor<ZLowTanhOp>() {
 template <>
 API APIFor<ZLowSigmoidOp>() {
   return API::ZDNN_SIGMOID;
+}
+template <>
+API APIFor<ZLowSqrtOp>() {
+  return API::ZDNN_SQRT;
 }
 
 class ZLowStickLowering : public mlir::ConvertToLLVMPattern {
@@ -1529,6 +1533,7 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
       ZLowUnaryElementwiseOpLowering<ZLowReluOp>,
       ZLowUnaryElementwiseOpLowering<ZLowTanhOp>,
       ZLowUnaryElementwiseOpLowering<ZLowSigmoidOp>,
+      ZLowUnaryElementwiseOpLowering<ZLowSqrtOp>,
       // Other operations
       ZLowPool2DLowering<ZLowAvgPool2DOp>,
       ZLowPool2DLowering<ZLowMaxPool2DOp>

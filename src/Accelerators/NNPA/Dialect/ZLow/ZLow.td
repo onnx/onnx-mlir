@@ -2,7 +2,7 @@
 
 //===-- ZLowOps.td -- ZLow Dialect Operation Definitions -*- tablegen ------==//
 //
-// Copyright 2019-2020 The IBM Research Authors
+// Copyright 2019-2023 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -176,6 +176,17 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable]> {
                        AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
                        AnyTypeOf<[AnyMemRef]>:$Out,
                        StrAttr:$act_func);
+}
+
+def ZLowSqrtOp:ZLow_Op<"sqrt", [MemRefsNormalizable]> {
+  let summary = "ZLow sqrt operation";
+  let description = [{
+  ZLow operation to perform a sqrt.
+  }];
+  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$X,
+                       AnyTypeOf<[MemRefOf<[I64]>]>:$shape,
+                       AnyTypeOf<[AnyMemRef]>:$Out,
+                       StrAttr:$layout);
 }
 
 def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable]> {

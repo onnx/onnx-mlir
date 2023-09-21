@@ -4,7 +4,7 @@
 
 //===---------- ZLowToLLVMCommon.hpp - Lowering from ZLow to LLVM ---------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -67,6 +67,7 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     ApiSpec(API::ZDNN_TANH, "zdnn_tanh", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_SIGMOID, "zdnn_sigmoid", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_SOFTMAX, "zdnn_softmax", int32Ty, {opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_SQRT, "zdnn_sqrt", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
     // RNN operations
     ApiSpec(API::ZDNN_LSTM, "zdnn_lstm", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_GRU, "zdnn_gru", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}, false),

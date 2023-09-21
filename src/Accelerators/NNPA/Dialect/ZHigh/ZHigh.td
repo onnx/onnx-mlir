@@ -2,7 +2,7 @@
 
 //===----- ZHigh.td -- ZHigh Dialect Operation Definitions -*- tablegen ----==//
 //
-// Copyright 2019-2020 The IBM Research Authors
+// Copyright 2019-2023 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -425,6 +425,25 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
   let results = (outs ZTensor_3DS:$Out);
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * ZHighSoftmaxOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighSqrtOp:ZHigh_Op<"Sqrt", [Pure, SameOperandsAndResultLayout,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Sqrt operation";
+  let description = [{
+    ZHigh operation to perform a Sqrt.
+  }];
+  let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
+  let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighSqrtOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
