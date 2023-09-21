@@ -63,16 +63,16 @@ def getRankOf :
 	NativeCodeCall<"$0.getType().cast<ShapedType>().getRank()">;
 
 // Create an ArrayAttr of IntergerAttr(s) of [$0].
-def createArrayAttrOf : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfNToM($_builder, $0, $0)">;
+def createDenseElementsAttrOf : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, $0, $0)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
-def createArrayAttrOfOneToRankOf : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
+def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
-def createArrayAttrOfOneToRankOfExclusive : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 2)">;
+def createDenseElementsAttrOfOneToRankOfExclusive : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 2)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
@@ -307,9 +307,9 @@ def FuseAddConvNullBiasPattern: Pat<
   (ONNXConvOp
      $x, $w,
      // new_b
-     (ONNXSqueezeV11Op
+     (ONNXSqueezeOp
         $y,
-        (createArrayAttrOfOneToRankOf $y)),
+        (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $y))),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasShapeAndRank:$res),
@@ -329,9 +329,9 @@ def FuseAddConvPattern: Pat<
      // new_b
      (ONNXAddOp
         $b,
-        (ONNXSqueezeV11Op
+        (ONNXSqueezeOp
            $y,
-           (createArrayAttrOfOneToRankOf $y))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $y)))),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasShapeAndRank:$res),
@@ -371,7 +371,10 @@ def FuseMulConvNullBiasPattern: Pat<
   (ONNXConvOp
      $x,
      // new_w
-     (ONNXMulOp $w, (ONNXUnsqueezeV11Op $y, (createArrayAttrOf(getRankOf $y)))),
+     (ONNXMulOp
+        $w,
+        (ONNXUnsqueezeOp $y,
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOf(getRankOf $y))))),
      // unchanged operands and attributes.
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
@@ -746,7 +749,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
      // w_
      (ONNXMulOp
         $w,
-        (ONNXUnsqueezeV11Op
+        (ONNXUnsqueezeOp
            (ONNXDivOp:$coefficientW
               $scale,
               (ONNXSqrtOp
@@ -754,7 +757,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
                     $var,
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (createArrayAttrOfOneToRankOf $w))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $w)))),
      // b_
      (ONNXAddOp
         $B,
@@ -789,7 +792,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
      // x * a
      (ONNXMulOp
         $x,
-        (ONNXUnsqueezeV11Op
+        (ONNXUnsqueezeOp
            (ONNXDivOp:$a
               $scale,
               (ONNXSqrtOp
@@ -797,11 +800,11 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
                     $var,
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (createArrayAttrOfOneToRankOfExclusive $x))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOfExclusive $x)))),
      // b
-     (ONNXUnsqueezeV11Op
+     (ONNXUnsqueezeOp
        (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
-       (createArrayAttrOfOneToRankOfExclusive $x))),
+       (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOfExclusive $x)))),
   [(HasRankGT<2> $x)], [], (addBenefit 0)
 >;
 
