@@ -42,7 +42,7 @@ func.func @duplicated_onnx_node_name(%arg0: tensor<3x2xf32>, %arg1: tensor<3x2xf
 // CHECK-LABEL:  func.func @duplicated_onnx_node_name
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x2xf32>, [[PARAM_1_:%.+]]: tensor<3x2xf32>) -> tensor<3x2xf32> {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) {onnx_node_name = "residual/add1"} : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<3x2xf32>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_1_]]) {onnx_node_name = "residual/add1_onnx.Add_0"} : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<3x2xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_1_]]) {onnx_node_name = "residual/add1_0"} : (tensor<3x2xf32>, tensor<3x2xf32>) -> tensor<3x2xf32>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<3x2xf32>
 // CHECK:         }
 }

@@ -19,11 +19,13 @@
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
 
 #define DEBUG_TYPE "set-onnx-node-name"
 
 using namespace mlir;
+using namespace onnx_mlir;
 
 namespace {
 
@@ -90,10 +92,16 @@ void SetONNXNodeNamePass::runOnOperation() {
 
 std::string SetONNXNodeNamePass::generateNodeName(Operation *op) {
   std::string opName = op->getName().getStringRef().str();
-  std::string res = "";
+  // Try to use the common way of setting node name that is used in the
+  // instrumentation. Not use fileLineLoc since it includes a fixed model file
+  // name and contains symbols that are not friendly to users.
+  std::string res = getNodeNameInPresenceOfOpt(op, /*useFileLine=*/false);
+  if (res == "NOTSET")
+    res = "";
+
   // Try to relate this op to the op that produces its inputs.
   // In that case, onnx_node_name = first_input_onnx_node_name + opName + id.
-  if (op->getOperands().size() > 0) {
+  if (res.empty() && op->getOperands().size() > 0) {
     // Use the first input if it has onnx_node_name.
     if (auto firstInputOp = dyn_cast_if_present<Operation *>(
             op->getOperands()[0].getDefiningOp())) {
@@ -111,7 +119,7 @@ std::string SetONNXNodeNamePass::generateNodeName(Operation *op) {
     }
   }
   // Otherwise, onnx_node_name = opName + id.
-  if (res == "")
+  if (res.empty())
     res = opName;
 
   // Append ID to make it unique.
