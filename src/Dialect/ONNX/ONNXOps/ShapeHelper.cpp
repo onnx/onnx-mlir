@@ -835,8 +835,6 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
     pattern = 1;
   } else if (customOp.getShapeInferPattern() == "MDBroadcast") {
     pattern = 2;
-  } else if (customOp.getShapeInferPattern() == "PartialSame") {
-    pattern = 3;
   } else {
     // ToFix: move the check into verifier
     llvm_unreachable("The specified shape_infer_pattern is not supported"
@@ -862,24 +860,6 @@ LogicalResult ONNXCustomOpShapeHelper::computeShape() {
     return ONNXUnaryOpShapeHelper::computeShape();
   } else if (pattern == 2) {
     return ONNXBroadcastOpShapeHelper::computeShape();
-  } else if (pattern == 3) {
-    // ToFix: special handling now, and will be generalized as a pattern
-    // Similar to  setOutputDimsFromOperand(operands[0]) except that the first
-    // dimension is ignored.
-    // Inline setOutputDimsFormOperand with modification
-
-    outputRank = createIE->getShapedTypeRank(operands[0]) - 1;
-    DimsExpr dims;
-    createIE->getShapeAsDims(operands[0], dims);
-    inputsDims.emplace_back(dims);
-
-    DimsExpr outputDims;
-    outputDims.emplace_back(dims[1]);
-    outputDims.emplace_back(dims[2]);
-    outputDims.emplace_back(dims[3]);
-    setOutputDims(outputDims);
-
-    return success();
   }
   return success();
 }
