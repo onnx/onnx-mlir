@@ -136,17 +136,17 @@ func.func @test_nonmaxsuppression_center_point_box_format(%arg0: tensor<1x6x4xf3
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.addf [[LOAD_BOXES_MEM_4_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.mulf [[LOAD_BOXES_MEM_3_]], [[LOAD_BOXES_MEM_2_]] : f32
 // CHECK-DAG:                 [[VAR_58_:%.+]] = arith.mulf [[LOAD_BOXES_MEM_7_]], [[LOAD_BOXES_MEM_6_]] : f32
-// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.maxf [[VAR_42_]], [[VAR_54_]] : f32
-// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.maxf [[VAR_46_]], [[VAR_50_]] : f32
+// CHECK-DAG:                 [[VAR_59_:%.+]] = arith.maxnumf [[VAR_42_]], [[VAR_54_]] : f32
+// CHECK-DAG:                 [[VAR_60_:%.+]] = arith.maxnumf [[VAR_46_]], [[VAR_50_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.minf [[VAR_44_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.minf [[VAR_48_]], [[VAR_52_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.minnumf [[VAR_44_]], [[VAR_56_]] : f32
+// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.minnumf [[VAR_48_]], [[VAR_52_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_63_:%.+]] = arith.subf [[VAR_61_]], [[VAR_59_]] : f32
 // CHECK-DAG:                 [[VAR_64_:%.+]] = arith.subf [[VAR_62_]], [[VAR_60_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_65_:%.+]] = arith.maxf [[VAR_63_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_66_:%.+]] = arith.maxf [[VAR_64_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_65_:%.+]] = arith.maxnumf [[VAR_63_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_66_:%.+]] = arith.maxnumf [[VAR_64_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_67_:%.+]] = arith.mulf [[VAR_65_]], [[VAR_66_]] : f32
 // CHECK-DAG:                 [[VAR_68_:%.+]] = arith.addf [[VAR_57_]], [[VAR_58_]] : f32
@@ -313,16 +313,16 @@ func.func @test_nonmaxsuppression_flipped_coordinates(%arg0: tensor<1x6x4xf32>, 
 // CHECK-DAG:                 [[VAR_46_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.mulf [[VAR_45_]], [[VAR_46_]] : f32
-// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_52_:%.+]] = arith.subf [[VAR_50_]], [[VAR_48_]] : f32
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxnumf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.mulf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.addf [[VAR_44_]], [[VAR_47_]] : f32
@@ -489,16 +489,16 @@ func.func @test_nonmaxsuppression_identical_boxes(%arg0: tensor<1x10x4xf32>, %ar
 // CHECK-DAG:                 [[VAR_46_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.mulf [[VAR_45_]], [[VAR_46_]] : f32
-// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_52_:%.+]] = arith.subf [[VAR_50_]], [[VAR_48_]] : f32
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxnumf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.mulf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.addf [[VAR_44_]], [[VAR_47_]] : f32
@@ -665,16 +665,16 @@ func.func @test_nonmaxsuppression_limit_output_size(%arg0: tensor<1x6x4xf32>, %a
 // CHECK-DAG:                 [[VAR_46_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.mulf [[VAR_45_]], [[VAR_46_]] : f32
-// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_52_:%.+]] = arith.subf [[VAR_50_]], [[VAR_48_]] : f32
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxnumf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.mulf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.addf [[VAR_44_]], [[VAR_47_]] : f32
@@ -840,16 +840,16 @@ func.func @test_nonmaxsuppression_single_box(%arg0: tensor<1x1x4xf32>, %arg1: te
 // CHECK-DAG:                 [[VAR_46_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.mulf [[VAR_45_]], [[VAR_46_]] : f32
-// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_52_:%.+]] = arith.subf [[VAR_50_]], [[VAR_48_]] : f32
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxnumf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.mulf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.addf [[VAR_44_]], [[VAR_47_]] : f32
@@ -1016,16 +1016,16 @@ func.func @test_nonmaxsuppression_suppress_by_IOU(%arg0: tensor<1x6x4xf32>, %arg
 // CHECK-DAG:                 [[VAR_46_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.mulf [[VAR_45_]], [[VAR_46_]] : f32
-// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_52_:%.+]] = arith.subf [[VAR_50_]], [[VAR_48_]] : f32
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxnumf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.mulf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.addf [[VAR_44_]], [[VAR_47_]] : f32
@@ -1192,16 +1192,16 @@ func.func @test_nonmaxsuppression_suppress_by_IOU_and_scores(%arg0: tensor<1x6x4
 // CHECK-DAG:                 [[VAR_46_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.mulf [[VAR_45_]], [[VAR_46_]] : f32
-// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_48_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_52_:%.+]] = arith.subf [[VAR_50_]], [[VAR_48_]] : f32
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_54_:%.+]] = arith.maxnumf [[VAR_52_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_56_:%.+]] = arith.mulf [[VAR_54_]], [[VAR_55_]] : f32
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.addf [[VAR_44_]], [[VAR_47_]] : f32
@@ -1370,16 +1370,16 @@ func.func @test_nonmaxsuppression_two_batches(%arg0: tensor<2x6x4xf32>, %arg1: t
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_48_:%.+]] = arith.mulf [[VAR_46_]], [[VAR_47_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_52_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_52_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-DAG:                 [[VAR_54_:%.+]] = arith.subf [[VAR_52_]], [[VAR_50_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.maxf [[VAR_54_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.maxnumf [[VAR_54_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.mulf [[VAR_55_]], [[VAR_56_]] : f32
 // CHECK-DAG:                 [[VAR_58_:%.+]] = arith.addf [[VAR_45_]], [[VAR_48_]] : f32
@@ -1548,16 +1548,16 @@ func.func @test_nonmaxsuppression_two_classes(%arg0: tensor<1x6x4xf32>, %arg1: t
 // CHECK-DAG:                 [[VAR_47_:%.+]] = arith.subf [[LOAD_RES_4_MEM_7_]], [[LOAD_RES_4_MEM_5_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_48_:%.+]] = arith.mulf [[VAR_46_]], [[VAR_47_]] : f32
-// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
-// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.maxf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
-// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
-// CHECK-DAG:                 [[VAR_52_:%.+]] = arith.minf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
+// CHECK-DAG:                 [[VAR_49_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_1_]], [[LOAD_RES_4_MEM_5_]] : f32
+// CHECK-DAG:                 [[VAR_50_:%.+]] = arith.maxnumf [[LOAD_RES_4_MEM_]], [[LOAD_RES_4_MEM_4_]] : f32
+// CHECK-DAG:                 [[VAR_51_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_3_]], [[LOAD_RES_4_MEM_7_]] : f32
+// CHECK-DAG:                 [[VAR_52_:%.+]] = arith.minnumf [[LOAD_RES_4_MEM_2_]], [[LOAD_RES_4_MEM_6_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_53_:%.+]] = arith.subf [[VAR_51_]], [[VAR_49_]] : f32
 // CHECK-DAG:                 [[VAR_54_:%.+]] = arith.subf [[VAR_52_]], [[VAR_50_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.maxf [[VAR_54_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_55_:%.+]] = arith.maxnumf [[VAR_53_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_56_:%.+]] = arith.maxnumf [[VAR_54_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_57_:%.+]] = arith.mulf [[VAR_55_]], [[VAR_56_]] : f32
 // CHECK-DAG:                 [[VAR_58_:%.+]] = arith.addf [[VAR_45_]], [[VAR_48_]] : f32
@@ -1737,17 +1737,17 @@ func.func @test_nonmaxsuppression_unknown_dims(%arg0: tensor<?x?x?xf32>, %arg1: 
 // CHECK-DAG:                 [[VAR_58_:%.+]] = arith.addf [[LOAD_BOXES_MEM_4_]], [[VAR_57_]] : f32
 // CHECK-DAG:                 [[VAR_59_:%.+]] = arith.mulf [[LOAD_BOXES_MEM_3_]], [[LOAD_BOXES_MEM_2_]] : f32
 // CHECK-DAG:                 [[VAR_60_:%.+]] = arith.mulf [[LOAD_BOXES_MEM_7_]], [[LOAD_BOXES_MEM_6_]] : f32
-// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.maxf [[VAR_44_]], [[VAR_56_]] : f32
-// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.maxf [[VAR_48_]], [[VAR_52_]] : f32
+// CHECK-DAG:                 [[VAR_61_:%.+]] = arith.maxnumf [[VAR_44_]], [[VAR_56_]] : f32
+// CHECK-DAG:                 [[VAR_62_:%.+]] = arith.maxnumf [[VAR_48_]], [[VAR_52_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_63_:%.+]] = arith.minf [[VAR_46_]], [[VAR_58_]] : f32
-// CHECK-DAG:                 [[VAR_64_:%.+]] = arith.minf [[VAR_50_]], [[VAR_54_]] : f32
+// CHECK-DAG:                 [[VAR_63_:%.+]] = arith.minnumf [[VAR_46_]], [[VAR_58_]] : f32
+// CHECK-DAG:                 [[VAR_64_:%.+]] = arith.minnumf [[VAR_50_]], [[VAR_54_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_65_:%.+]] = arith.subf [[VAR_63_]], [[VAR_61_]] : f32
 // CHECK-DAG:                 [[VAR_66_:%.+]] = arith.subf [[VAR_64_]], [[VAR_62_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:                 [[VAR_67_:%.+]] = arith.maxf [[VAR_65_]], [[CST_0_dot_000000_]] : f32
-// CHECK-DAG:                 [[VAR_68_:%.+]] = arith.maxf [[VAR_66_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_67_:%.+]] = arith.maxnumf [[VAR_65_]], [[CST_0_dot_000000_]] : f32
+// CHECK-DAG:                 [[VAR_68_:%.+]] = arith.maxnumf [[VAR_66_]], [[CST_0_dot_000000_]] : f32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:                 [[VAR_69_:%.+]] = arith.mulf [[VAR_67_]], [[VAR_68_]] : f32
 // CHECK-DAG:                 [[VAR_70_:%.+]] = arith.addf [[VAR_59_]], [[VAR_60_]] : f32
