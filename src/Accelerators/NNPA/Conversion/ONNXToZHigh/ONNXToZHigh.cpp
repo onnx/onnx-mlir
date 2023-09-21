@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -286,20 +287,48 @@ struct ONNXToZHighLoweringPass
   ONNXToZHighLoweringPass() = default;
   ONNXToZHighLoweringPass(const ONNXToZHighLoweringPass &pass)
       : PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>>() {}
-  ONNXToZHighLoweringPass(mlir::ArrayRef<std::string> execNodesOnCpu) {
-    this->execNodesOnCpu = execNodesOnCpu;
-  }
   void runOnOperation() final;
-
-public:
-  ListOption<std::string> execNodesOnCpu{*this, "execNodesOnCpu",
-      llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
-                     "specified nodes are forced to run on the CPU instead of "
-                     "using the zDNN. The node name is an optional attribute "
-                     "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-      llvm::cl::ZeroOrMore};
 };
 } // end anonymous namespace.
+
+void getONNXToZHighOneOpPatterns(RewritePatternSet &patterns) {
+  MLIRContext *context = patterns.getContext();
+  populateWithGenerated(patterns);
+  patterns.insert<ONNXSumOpPatternEnhancedRecursion>(context);
+}
+
+void getONNXToZHighOneOpDynamicallyLegal(
+    ConversionTarget *target, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXAddOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSubOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMulOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXDivOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSumOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMinOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMaxOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXReluOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXTanhOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSigmoidOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXLogOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXExpOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXGemmOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXLSTMOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXGRUOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis);
+}
+
+void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
+  MLIRContext *context = patterns.getContext();
+  patterns.insert<replaceONNXMatMulAddPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddPattern2>(context);
+  patterns.insert<replaceONNXReluConvPattern>(context);
+  patterns.insert<replaceONNXLogSoftmaxPattern>(context);
+}
 
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
@@ -318,6 +347,10 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
       func::FuncDialect, arith::ArithDialect>();
 
+  // NOTE: if we change the order of calling combinedPatterns and single op
+  // patterns, make sure to change the order in DevicePlacement.cpp also to make
+  // them synced.
+
   // Combined ONNX ops to ZHigh lowering.
   // There are some combinations of ONNX ops that can be lowering into a single
   // ZHigh op, e.g. ONNXMatMul and ONNXAdd can be lowered to ZHighMatmul.
@@ -325,18 +358,14 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // a single ONNX Op, because the single op lowering might have conditions that
   // prohibit the combined ops lowering happened.
   RewritePatternSet combinedPatterns(&getContext());
-  combinedPatterns.insert<replaceONNXMatMulAddPattern1>(&getContext());
-  combinedPatterns.insert<replaceONNXMatMulAddPattern2>(&getContext());
-  combinedPatterns.insert<replaceONNXReluConvPattern>(&getContext());
-  combinedPatterns.insert<replaceONNXLogSoftmaxPattern>(&getContext());
+  onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  populateWithGenerated(patterns);
-  patterns.insert<ONNXSumOpPatternEnhancedRecursion>(&getContext());
+  onnx_mlir::getONNXToZHighOneOpPatterns(patterns);
 
   // This is to make sure we don't want to alloc any MemRef at this high-level
   // representation.
@@ -346,32 +375,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  addDynamicallyLegalOpFor<ONNXAddOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSubOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMulOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXDivOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSumOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMinOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReluOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSigmoidOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLogOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXExpOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXConvOp>(&target, &dimAnalysis, execNodesOnCpu);
+  getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -382,11 +386,6 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> createONNXToZHighPass() {
   return std::make_unique<ONNXToZHighLoweringPass>();
-}
-
-std::unique_ptr<Pass> createONNXToZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu) {
-  return std::make_unique<ONNXToZHighLoweringPass>(execNodesOnCpu);
 }
 
 } // namespace onnx_mlir
