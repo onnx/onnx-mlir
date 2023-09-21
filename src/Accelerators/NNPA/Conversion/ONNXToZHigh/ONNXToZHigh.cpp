@@ -262,12 +262,13 @@ struct ONNXToZHighLoweringPass
 };
 } // end anonymous namespace.
 
-void getONNXToZHighPatterns(RewritePatternSet &patterns) {
+void getONNXToZHighOneOpPatterns(RewritePatternSet &patterns) {
+  MLIRContext *context = patterns.getContext();
   populateWithGenerated(patterns);
-  patterns.insert<ONNXSumOpPatternEnhancedRecursion>(patterns.getContext());
+  patterns.insert<ONNXSumOpPatternEnhancedRecursion>(context);
 }
 
-void getONNXToZHighDynamicallyLegal(
+void getONNXToZHighOneOpDynamicallyLegal(
     ConversionTarget *target, const DimAnalysis *dimAnalysis) {
   addDynamicallyLegalOpFor<ONNXAddOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXSubOp>(target, dimAnalysis);
@@ -292,6 +293,14 @@ void getONNXToZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis);
 }
 
+void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
+  MLIRContext *context = patterns.getContext();
+  patterns.insert<replaceONNXMatMulAddPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddPattern2>(context);
+  patterns.insert<replaceONNXReluConvPattern>(context);
+  patterns.insert<replaceONNXLogSoftmaxPattern>(context);
+}
+
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
@@ -309,6 +318,10 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
       func::FuncDialect, arith::ArithDialect>();
 
+  // NOTE: if we change the order of calling combinedPatterns and single op
+  // patterns, make sure to change the order in DevicePlacement.cpp also to make
+  // them synced.
+
   // Combined ONNX ops to ZHigh lowering.
   // There are some combinations of ONNX ops that can be lowering into a single
   // ZHigh op, e.g. ONNXMatMul and ONNXAdd can be lowered to ZHighMatmul.
@@ -316,17 +329,14 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // a single ONNX Op, because the single op lowering might have conditions that
   // prohibit the combined ops lowering happened.
   RewritePatternSet combinedPatterns(&getContext());
-  combinedPatterns.insert<replaceONNXMatMulAddPattern1>(&getContext());
-  combinedPatterns.insert<replaceONNXMatMulAddPattern2>(&getContext());
-  combinedPatterns.insert<replaceONNXReluConvPattern>(&getContext());
-  combinedPatterns.insert<replaceONNXLogSoftmaxPattern>(&getContext());
+  onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  onnx_mlir::getONNXToZHighPatterns(patterns);
+  onnx_mlir::getONNXToZHighOneOpPatterns(patterns);
 
   // This is to make sure we don't want to alloc any MemRef at this high-level
   // representation.
@@ -336,7 +346,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  getONNXToZHighDynamicallyLegal(&target, &dimAnalysis);
+  getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`

@@ -23,6 +23,7 @@
 
 namespace onnx_mlir {
 
+const std::string DEVICE_ATTRIBUTE = "device";
 const std::string CPU_DEVICE = "cpu";
 const std::string NNPA_DEVICE = "nnpa";
 
@@ -35,7 +36,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
                                              OP_TYPE op) {
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr device =
-        genericOp->getAttrOfType<mlir::StringAttr>("device");
+        genericOp->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
     assert((!device ||
                (device &&
                    (device.getValue().equals_insensitive("") ||
@@ -71,22 +72,6 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
       isLegalForNNPA =
           !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
     }
-
-    // Users specified NNPA device of an op, but the compiler found the op is
-    // not legal for NNPA, e.g. in case of dynamic shape.  In this case, print
-    // out a warning message.
-    if (device && device.getValue().equals_insensitive(NNPA_DEVICE) &&
-        !isLegalForNNPA) {
-      llvm::outs() << "Warning: though the following operation was specified "
-                      "to run on NNPA, the compiler found that NNPA did not "
-                      "support that operation. It's potentially that the "
-                      "compiler was not able to check broadcasting in case of "
-                      "dynamic shape so that it thought the operation was not "
-                      "legal for NNPA.\n";
-      op.dump();
-      return false;
-    }
-
     return !isLegalForNNPA;
   });
 }
