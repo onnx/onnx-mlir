@@ -26,7 +26,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
 ARG NPROC=4
 ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
-ARG TEST_CONSTANT_PROP
+ARG TEST_CONSTANT_PROP=true
 ARG TEST_MCPU
 ARG KEEPSRC
 
@@ -56,10 +56,6 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && TEST_MCPU=${TEST_MCPU:-$([ "$(uname -m)" = "s390x" ] && echo z14 || \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
-# Enable Constant Propagation 
-    && TEST_CONSTANT_PROP=${TEST_CONSTANT_PROP:-$([ "$(uname -m)" = "s390x" ] && echo true || \
-                                                ([ "$(uname -m)" = "x86_64" ] &&  echo true || \
-                                                ([ "$(uname -m)" = "ppc64le" ] && echo true || echo true)))} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
     && make check-docs \
     && make check-unittest \
