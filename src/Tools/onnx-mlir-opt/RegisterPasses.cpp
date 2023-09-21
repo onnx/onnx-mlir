@@ -168,6 +168,12 @@ void registerMLIRPasses() {
     return mlir::createAsyncToAsyncRuntimePass();
   });
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createAsyncRuntimeRefCountingPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createAsyncRuntimeRefCountingOptPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createConvertAsyncToLLVMPass();
   });
 }
