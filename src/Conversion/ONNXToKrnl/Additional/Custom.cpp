@@ -54,6 +54,9 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
       outputAllocs.emplace_back(alloc);
     }
 
+    // Lower to Krnl for special CustomOp
+    // Create Krnl.Call
+
     // Handle the attributes: exclude the attributes used for analysis
     // function_name is passed explicitly. Others may include shape inference
     std::vector<std::string> excludeStrings = {"function_name",
@@ -65,7 +68,6 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
           excludeStrings.end())
         attributeNames.push_back(attrName);
     }
-
     rewriter.create<KrnlCallOp>(loc, customOp.getFunctionName().str(),
         outputAllocs, op, operands, attributeNames);
 
