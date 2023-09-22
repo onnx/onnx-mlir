@@ -1245,16 +1245,74 @@ struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
     MemRefType outputMemRefType =
         typeConverter->convertType(op->getResults()[0].getType())
             .cast<MemRefType>();
-    Value alloc =
-        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims(0));
+
+    // Value alloc =
+    //     create.mem.alignedAlloc(outputMemRefType,
+    //     shapeHelper.getOutputDims(0));
 
     Value Y = operands[0];
     Value sequenceLens = operands[1];
     Value initialH = operands[2];
+    // Let's just reuse the buffer of Y
+    Value alloc = Y;
 
-    // Code copied from GRU.cpp: calculateState
     int64_t yRank = outputMemRefType.getShape().size();
+
+    // The loop nested for padding is as follows:
+    // for (bs  from 0 to batch size ) {
+    //   sequenceUB = sequence_lens[bs]
+    //   for sequenceIV = max(0, sequenceUB), SEQ_LENGTH
+    //     for (directioIV for directions)
+    //       for (hs for hidden states)
+    //         Y[sequenceIV, directionIV, bs, hs] = initValue
+
+    // Create loop for batch
     Value iZero = create.math.constantIndex(0);
+    ValueRange batchLoop = create.krnl.defineLoops(1);
+    create.krnl.iterate(batchLoop, batchLoop, {iZero}, {create.mem.dim(Y, 2)},
+        [&](KrnlBuilder &createKrnl, ValueRange batchIndices) {
+          MathBuilder createMath(createKrnl);
+          IndexExprScope ieScope(createKrnl);
+          Value bs = batchIndices[0];
+          Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+          // The lower bound for loop of padding the batch should be
+          // max(0, sequenceUB) in integer type for possible negative value
+          Value seqLB = createMath.cast(rewriter.getIndexType(),
+              createMath.max(
+                  createMath.constant(sequenceUB.getType(), 0), sequenceUB));
+          SmallVector<Value, 4> yLbs;
+          SmallVector<Value, 4> yUbs;
+          yLbs.emplace_back(seqLB);
+          yLbs.emplace_back(iZero);
+          yLbs.emplace_back(iZero);
+          yUbs.emplace_back(create.mem.dim(Y, 0));
+          yUbs.emplace_back(create.mem.dim(Y, 1));
+          yUbs.emplace_back(create.mem.dim(Y, 3));
+
+          KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+          rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
+          ValueRange loops = create.krnl.defineLoops(yRank - 1);
+          create.krnl.iterate(loops, loops, yLbs, yUbs,
+              [&](KrnlBuilder &createKrnl, ValueRange indices) {
+                Value sequenceIV(indices[0]);
+                Value directionIV(indices[1]);
+                Value hs(indices[2]);
+                Value initial;
+                if (isNoneValue(initialH)) {
+                  initial = createMath.constant(
+                      outputMemRefType.getElementType(), 0.);
+                } else {
+                  initial = createKrnl.load(initialH, {directionIV, bs, hs});
+                }
+                createKrnl.store(
+                    initial, alloc, {sequenceIV, directionIV, bs, hs});
+              });
+        });
+
+#if 0
+    // This implementation is copied from GRU.cpp: calculateState.
+    // The code is simple but may be less efficient.
+    // I keep the code here for future to test the performance on real model
     SmallVector<Value, 4> yLbs(yRank, iZero);
     SmallVector<Value, 4> yUbs;
     for (unsigned r = 0; r < yRank; ++r) {
@@ -1282,6 +1340,7 @@ struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
           Value newV = createMath.select(cond, /*padding*/ initial, currentV);
           createKrnl.store(newV, alloc, indices);
         });
+#endif
 
     rewriter.replaceOp(op, alloc);
     return success();
