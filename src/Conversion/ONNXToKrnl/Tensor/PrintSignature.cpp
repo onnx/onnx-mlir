@@ -43,6 +43,13 @@ struct ONNXPrintSignatureLowering
       if (!oper.getType().isa<NoneType>())
         printVal.emplace_back(oper);
     int64_t printNum = printVal.size();
+    if (printNum == 0) {
+      // Print tensor without any valid tensor.
+      Value noneVal = nullptr;
+      rewriter.replaceOpWithNewOp<KrnlPrintOp>(
+          op, msg + "(no tensors)\n%e", noneVal);
+      return success();
+    }
     Value lastVal = printVal.pop_back_val();
     // Print all but the last one.
     for (Value oper : printVal) {
@@ -50,13 +57,8 @@ struct ONNXPrintSignatureLowering
       msg = "%i";
     }
     // Print the last one with replace with new op.
-    if (printNum > 0) {
-      rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(
-          op, msg + ", %t\n%e", lastVal);
-    } else {
-      Value noneVal = nullptr;
-      rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(op, msg + "\n%e", noneVal);
-    }
+    rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(
+        op, msg + ", %t\n%e", lastVal);
     return success();
   }
 };
