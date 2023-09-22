@@ -102,6 +102,21 @@ Value getLSTMGRUGetY(
   return val;
 }
 
+Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
+    Value val, Value resY, Value sequenceLens, Value initialH) {
+
+  Value noneValue;
+  if (isNoneValue(resY)) {
+    return noneValue;
+  }
+
+  if (isNoneValue(sequenceLens))
+    return getLSTMGRUGetY(loc, rewriter, val, resY);
+
+  std::vector<Value> inputs = {val, sequenceLens, initialH};
+  return rewriter.create<zhigh::ZHighFixGRUYOp>(loc, resY.getType(), inputs);
+}
+
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
@@ -159,6 +174,20 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     llvm_unreachable("Invalid direction.");
   }
   return ret;
+}
+
+Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
+    Value val, Value resY, Value resYh, Value X, StringAttr direction,
+    Value sequenceLens) {
+  Value noneValue;
+  if (isNoneValue(resYh) || isNoneValue(val))
+    return noneValue;
+
+  if (isNoneValue(sequenceLens))
+    return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
+
+  std::vector<Value> inputs = {val, sequenceLens};
+  return rewriter.create<zhigh::ZHighFixGRUYhOp>(loc, resYh.getType(), inputs);
 }
 
 Value getLSTMGRUGetYc(
