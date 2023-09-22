@@ -14,6 +14,7 @@
 
 #include "CompilerUtils.hpp"
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
@@ -35,6 +36,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/FrontendDialectTransformer.hpp"
+#include "src/Builder/ModelInputShaper.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
@@ -182,6 +184,35 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
   if (!module) {
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
     exit(1);
+  }
+
+  // Set shape information if required.
+  // Only set shape if the module has a single function.
+  uint64_t numOfFuncOp = 0;
+  func::FuncOp funcOp;
+  module->walk([&](func::FuncOp f) {
+    funcOp = f;
+    numOfFuncOp++;
+  });
+  if ((numOfFuncOp == 1) && (!shapeInformation.empty())) {
+    ModelInputShaper modelInputShaper_;
+    modelInputShaper_.setShapeInformation(shapeInformation);
+    auto funcType = dyn_cast<FunctionType>(funcOp.getFunctionType());
+    ArrayRef<Type> argTypes = funcType.getInputs();
+    SmallVector<Type, 4> newArgTypes;
+    for (uint64_t i = 0; i < argTypes.size(); ++i) {
+      Type argTy = argTypes[i];
+      // Get user's shape information.
+      argTy = modelInputShaper_.reshape(i, argTy);
+      // Update the arguments.
+      funcOp.getBody().back().getArgument(i).setType(argTy);
+      newArgTypes.emplace_back(argTy);
+    }
+    // Update the function type.
+    FunctionType newType =
+        FunctionType::get(&context, newArgTypes, funcType.getResults());
+    ConversionPatternRewriter rewriter(&context);
+    rewriter.updateRootInPlace(funcOp, [&] { funcOp.setType(newType); });
   }
 }
 
@@ -589,6 +620,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
 
   if (inputIsSTDIN || inputIsONNX || inputIsONNXText || inputIsJSON) {
     ImportOptions options;
+    options.verboseOutput = VerboseOutput;
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;

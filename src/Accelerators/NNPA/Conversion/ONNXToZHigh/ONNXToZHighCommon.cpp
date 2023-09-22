@@ -17,7 +17,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
-using namespace onnx_mlir;
+namespace onnx_mlir {
 
 /// Get transposed tensor by using a permutation array.
 Value emitONNXTranspose(
@@ -67,3 +67,5 @@ ValueRange splitAlongAxis(MultiDialectBuilder<OnnxBuilder> &create, Value X,
   ValueRange splits = create.onnx.split(splitTy, X, splitSizes, axis);
   return splits;
 }
+
+} // namespace onnx_mlir

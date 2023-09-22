@@ -31,8 +31,9 @@ std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter = true);
 
 /// Pass for ONNX graph level optimization
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
-std::unique_ptr<mlir::Pass> createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU, bool enableSimdDataLayoutOpt);
+std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
+    bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
+    bool enableConvOptPass);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
@@ -44,8 +45,8 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
-void configureConstPropONNXToONNXPass(
-    int expansionBound, llvm::ArrayRef<std::string> disabledPatterns = {});
+void configureConstPropONNXToONNXPass(int expansionBound,
+    llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 

@@ -58,7 +58,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.14.0"
+current_onnx_version = "1.14.1"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
@@ -87,7 +87,7 @@ version_dict = {
  'Asinh': [9],
  'Atan': [7],
  'Atanh': [9],
- 'AveragePool': [11],
+ 'AveragePool': [19],
  'BatchNormalization': [15],
  'Bernoulli': [15],
  'Binarizer': [1],
@@ -226,7 +226,7 @@ version_dict = {
  'ReduceSumSquare': [18, 13],
  'Relu': [14],
  'Reshape': [19],
- 'Resize': [18, 13, 11, 10],
+ 'Resize': [19, 13, 11, 10],
  'ReverseSequence': [10],
  'RoiAlign': [16],
  'Round': [11],
@@ -489,6 +489,7 @@ custom_builder_unranked_ops_list = [
     'Sqrt',
     'Squeeze',
     'SqueezeV11',
+    'Unsqueeze',
     'UnsqueezeV11',
 ]
 # Custom builder op list for operations with broadcast; we can deduce the right

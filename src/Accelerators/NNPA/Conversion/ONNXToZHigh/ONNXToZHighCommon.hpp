@@ -14,57 +14,67 @@
 
 #pragma once
 
+#include "llvm/ADT/STLExtras.h"
+
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 #include "mlir/Dialect/Async/IR/Async.h"
-#include "mlir/IR/DialectImplementation.h"
-#include "mlir/IR/FunctionImplementation.h"
-#include "mlir/IR/IRMapping.h"
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/TypeSwitch.h"
 
+namespace onnx_mlir {
+
+const std::string DEVICE_ATTRIBUTE = "device";
+const std::string CPU_DEVICE = "cpu";
+const std::string NNPA_DEVICE = "nnpa";
 
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
-    mlir::ArrayRef<std::string> execNodesOnCpu) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, execNodesOnCpu](
+    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *)> checkLegalityFn =
+        nullptr) {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, checkLegalityFn](
                                              OP_TYPE op) {
-    // Check operations to be forced to run on CPU.
     mlir::Operation *genericOp = op.getOperation();
-    mlir::StringAttr nodeName =
-        genericOp->getAttrOfType<mlir::StringAttr>("onnx_node_name");
-    if (nodeName) {
-      bool exists =
-          llvm::any_of(execNodesOnCpu, [nodeName](llvm::StringRef val) {
-            return nodeName.getValue().equals_insensitive(val);
-          });
-      if (exists)
-        return true;
-    }
-    /* Comment out here to disable original matmul splitting
-    // Check zDNN limitations
-    // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
-    bool exceedLimit =
-        llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
-          if (auto valueType = operand.getType().dyn_cast<mlir::ShapedType>()) {
-            // Check if static dimension size exceeds zDNN limitations
-            llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
-            if (llvm::any_of(valueShape, [](int64_t dim) {
-                  return (!mlir::ShapedType::isDynamic(dim)) &&
-                         (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-                }))
-              return true;
-          }
-          return false;
-        });
-    if (exceedLimit)
+    mlir::StringAttr device =
+        genericOp->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+    assert((!device ||
+               (device &&
+                   (device.getValue().equals_insensitive("") ||
+                       device.getValue().equals_insensitive(CPU_DEVICE) ||
+                       device.getValue().equals_insensitive(NNPA_DEVICE)))) &&
+           "Invalid device name");
+
+    // If device is CPU, force to run the op on CPU.
+    if (device && device.getValue().equals_insensitive(CPU_DEVICE))
       return true;
-    */
-    return !isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
+
+    // If not CPU, check if the op is legal for NNPA.
+    bool isLegalForNNPA = false;
+    if (checkLegalityFn)
+      isLegalForNNPA = !checkLegalityFn(op, dimAnalysis);
+    else {
+      // Check zDNN limitations for each input tensors.
+      // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
+      bool exceedLimit =
+          llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
+            if (auto valueType =
+                    operand.getType().dyn_cast<mlir::ShapedType>()) {
+              // Check if static dimension size exceeds zDNN limitations
+              llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
+              if (llvm::any_of(valueShape, [](int64_t dim) {
+                    return (!mlir::ShapedType::isDynamic(dim)) &&
+                           (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
+                  }))
+                return true;
+            }
+            return false;
+          });
+      isLegalForNNPA =
+          !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
+    }
+    return !isLegalForNNPA;
   });
 }
 
@@ -84,3 +94,4 @@ mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
     mlir::Value X, int64_t axis,
     int64_t chunkSize = NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
+} // namespace onnx_mlir

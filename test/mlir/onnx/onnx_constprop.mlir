@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --constprop-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --constprop-onnx --enable-constant-prop=true %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 // Common tests. Use ONNXAddOp as example.
@@ -1618,6 +1618,22 @@ func.func @test_expand_broadcast() -> tensor<*xf32> {
 
 // -----
 
+// Expand's shape can be shorter than the data input shape.
+func.func @test_expand_2_broadcast() -> tensor<*xf32> {
+  %0 = onnx.Constant dense<[[[1.0], [3.0], [5.0]]]> : tensor<1x3x1xf32>
+  %1 = onnx.Constant dense<[1, 2]> : tensor<2xi64>
+  %2 = "onnx.Expand"(%0, %1) : (tensor<1x3x1xf32>, tensor<2xi64>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func.func @test_expand_2_broadcast
+  // CHECK-SAME:   () -> tensor<1x3x2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[1.000000e+00, 1.000000e+00], [3.000000e+00, 3.000000e+00], [5.000000e+00, 5.000000e+00]{{.}}{{.}}> : tensor<1x3x2xf32>
+  // CHECK:           onnx.Return [[VAR_0_]] : tensor<1x3x2xf32>
+  // CHECK:         }
+}
+
+// -----
+
 func.func @test_gather_axis_0() -> tensor<*xf32>{
   %0 = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
   %1 = onnx.Constant dense<[[0, 1], [1, 2]]> : tensor<2x2xi64>
@@ -1658,6 +1674,21 @@ func.func @test_gather_negative_index() -> tensor<*xf32>{
   // CHECK-SAME:   () -> tensor<3x1x2xf32> {
   // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}{{.}}[1.000000e+00, 1.900000e+00]{{.}}, {{.}}[2.300000e+00, 3.900000e+00]{{.}}, {{.}}[4.500000e+00, 5.900000e+00]{{.}}{{.}}> : tensor<3x1x2xf32>
   // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x1x2xf32>
+  // CHECK:         }
+}
+
+// -----
+
+func.func @test_gather_rank0_int32_indices() -> tensor<*xf32>{
+  %0 = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %1 = onnx.Constant dense<1> : tensor<i32>
+  %2 = "onnx.Gather"(%0, %1) {axis = 0 : si64} : (tensor<3x2xf32>, tensor<i32>) -> tensor<*xf32>
+  "onnx.Return"(%2) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL:  func @test_gather_rank0_int32_indices
+  // CHECK-SAME:   () -> tensor<2xf32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2.300000e+00, 3.400000e+00]> : tensor<2xf32>
+  // CHECK:           onnx.Return [[VAR_0_]] : tensor<2xf32>
   // CHECK:         }
 }
 

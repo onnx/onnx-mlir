@@ -86,8 +86,8 @@ LogicalResult ONNXAveragePoolOpShapeHelper::computeShape() {
   ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
   return customComputeShape(operandAdaptor.getX(), /*W*/ nullptr,
       poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
-      poolOp.getStrides(),
-      /*dilation*/ std::nullopt, /*hasFilter*/ false, poolOp.getCeilMode());
+      poolOp.getStrides(), poolOp.getDilations(), /*hasFilter*/ false,
+      poolOp.getCeilMode());
 }
 
 } // namespace onnx_mlir
@@ -116,6 +116,8 @@ LogicalResult ONNXAveragePoolOp::verify() {
           this, nullptr, getKernelShape(), spatialRank)))
     return failure();
   if (failed(verifyStrides<ONNXAveragePoolOp>(this, spatialRank)))
+    return failure();
+  if (failed(verifyDilations<ONNXAveragePoolOp>(this, spatialRank)))
     return failure();
   if (failed(verifyPadding<ONNXAveragePoolOp>(this, spatialRank)))
     return failure();

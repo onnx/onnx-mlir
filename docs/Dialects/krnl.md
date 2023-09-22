@@ -148,9 +148,9 @@ means to block the for loop referred to by %i using a tile size of 4.
 _Call operation_
 
 The call operation provides a generic way to replace an ONNX Op with a call
-to an external function at Krnl level.
-`funcName` attributes determines which function to call.
-`parameters` is the inputs to Krnl.Call. It includes the outputs and inputs
+to an external function at Krnl level. 
+`funcName` attributes determines which function to call. 
+`parameters` is the inputs to Krnl.Call. It includes the outputs and inputs 
 of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
 The external function is assumed NOT to allocate or free any memory.
 'numOfOutput` attribute to tell how manu outputs Memref in parameters.
@@ -563,7 +563,7 @@ for (i0 = 0; i0 < 10; i0++)
     // Some operations.
 ```
 
-Traits: ImplicitKrnlTerminator
+Traits: SingleBlock, SingleBlockImplicitTerminator<KrnlTerminatorOp>
 
 Interfaces: LoopLikeOpInterface
 
@@ -907,7 +907,31 @@ to assist with maintaining the relative positioning of loop and inner-loop state
 This construct is particularly helpful, for example, for lowering statements that
 are nested imperfectly between an "eager" and a "lazy" loop.
 
-Traits: ImplicitKrnlTerminator
+Traits: SingleBlock, SingleBlockImplicitTerminator<KrnlTerminatorOp>
+
+### `krnl.parallel` (KrnlParallelOp)
+
+_Krnl parallel operation_
+
+
+Syntax:
+
+```
+operation ::= `krnl.parallel` $loop attr-dict `:` type($loop)
+```
+
+Parallelize the specified loops. krnl.parallel should be placed as the last
+operator before krnl.iterate. Since we do not want to parallelize the loop
+until we interpret krnl.block, krnl.permute and krnl.unroll.
+```
+krnl.parallel %i
+```
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `loop` | any type
 
 ### `krnl.permute` (KrnlPermuteOp)
 
