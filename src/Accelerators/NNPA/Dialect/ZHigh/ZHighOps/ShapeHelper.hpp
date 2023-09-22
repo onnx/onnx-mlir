@@ -50,6 +50,7 @@ DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForGRUOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForLSTMOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighUnstickOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighMeanReduce2DOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighFixGRUYhOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER_ZHIGH
 
 //===----------------------------------------------------------------------===//
@@ -165,6 +166,8 @@ public:
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {}
 };
+
+using ZHighFixGRUYOpShapeHelper = ONNXUnaryOpShapeHelper;
 
 } // namespace zhigh
 } // namespace onnx_mlir
