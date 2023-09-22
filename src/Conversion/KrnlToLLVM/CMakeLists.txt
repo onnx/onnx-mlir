@@ -35,6 +35,6 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRReconcileUnrealizedCasts
   MLIRSCFToControlFlow
   MLIRShapeToStandard
-  MLIRVectorToLLVMPass
+  MLIRVectorToLLVM
   onnx
   )

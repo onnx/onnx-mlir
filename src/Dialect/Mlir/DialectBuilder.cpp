@@ -278,7 +278,7 @@ Value MathBuilder::floor(Value val) const {
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MinNumFOp>(loc(), lhs, rhs);
+    return b().create<arith::MinFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MinUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -289,7 +289,7 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MaxNumFOp>(loc(), lhs, rhs);
+    return b().create<arith::MaxFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
