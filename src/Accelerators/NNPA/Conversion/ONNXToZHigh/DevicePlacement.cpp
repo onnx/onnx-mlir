@@ -59,6 +59,7 @@ void DevicePlacementPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
+  bool useCostBenefitEstimation = true;
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
   // operations that are not converted. Those non-converted ops are running on
@@ -108,9 +109,15 @@ void DevicePlacementPass::runOnOperation() {
     StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
     if (device && !device.getValue().empty())
       return WalkResult::advance();
-    // Otherwise, set device.
-    if (!cpuOps.contains(op))
-      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
+    // Op that is legal (should remain on the CPU) as determined by compiler analysis.
+    if (cpuOps.contains(op))
+      return WalkResult::advance();
+    // Now we have an operation that can work on the NNPA, check if its beneficial
+    if (useCostBenefitEstimation) {
+      // hi alex
+    }
+    // Compiler determined that we want this op on the NNPA, mark as such.
+    op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
     return WalkResult::advance();
   });
 }
