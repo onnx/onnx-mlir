@@ -58,7 +58,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.14.0"
+current_onnx_version = "1.14.1"
 
 # Check the version of onnx package being used.
 if (not check_operation_version and not list_operation_version) and current_onnx_version != onnx.__version__ :
