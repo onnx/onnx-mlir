@@ -155,11 +155,13 @@ parser.add_argument('--upper-bound',
                     " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
                     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
                     " uint64, int64, float16, float32, float64")
-parser.add_argument('--warmup',
+parser.add_argument('-w',
+                    '--warmup',
                     type=lambda s: check_non_negative("--warmup", s),
                     default=0,
                     help="The number of warmup inference runs")
-parser.add_argument('--n-iteration',
+parser.add_argument('-n',
+                    '--n-iteration',
                     type=lambda s: check_positive("--n-iteration", s),
                     default=1,
                     help="The number of inference runs excluding warmup")
@@ -495,6 +497,10 @@ def verify_outs(actual_outs, ref_outs):
 def warning(msg):
     print("Warning:", msg)
 
+def data_without_top_bottom_quartile(data, percent):
+    data = np.array(sorted(data))
+    trim = int(percent*data.size/100.0)
+    return data[trim:-trim]
 
 def main():
     if not (args.model or args.load_so):
@@ -646,14 +652,19 @@ def main():
             end = time.perf_counter()
             elapsed = end - start
             perf_results += [elapsed]
-            print("  {} iteration: {} seconds".format(ordinal(i+1), elapsed))
+            print("  {} iteration, {}, seconds".format(ordinal(i+1), elapsed))
 
         # Print statistics info, e.g., min/max/stddev inference time.
         if args.n_iteration > 1 :
-            print("  Statistics (excluding warmup):"
-                  " min {}, max {}, mean {}, stddev {}".format(
+            print("  Statistics 1 (excluding warmup),"
+                  " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
                 np.min(perf_results), np.max(perf_results),
-                np.mean(perf_results), np.std(perf_results, dtype=np.float64)))
+                np.mean(perf_results),np.std(perf_results, dtype=np.float64)))
+            t_perf_results = data_without_top_bottom_quartile(perf_results, 25)
+            print("  Statistics 2 (no warmup/quart.),"
+                  " min, {:.6e}, max, {:.6e}, mean, {:.6e}, stdev, {:.6e}".format(
+                np.min(t_perf_results), np.max(t_perf_results),
+                np.mean(t_perf_results),np.std(t_perf_results, dtype=np.float64)))
 
 
         # Print the output if required.
