@@ -524,6 +524,7 @@ public:
       subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
     }
     // Emit sub matrix multiplication.
+    int64_t submId = -1;
     SmallVector<Value> resSubAs;
     for (Value a : subAs) {
       ArrayRef<int64_t> subAShape = getShape(a.getType());
@@ -531,11 +532,18 @@ public:
       // dimension M.
       SmallVector<Value> subMatrices;
       for (Value b : subBs) {
+        submId += 1;
         auto executeBodyBuilder = [&](OpBuilder &executeBuilder,
                                       Location executeLoc,
                                       ValueRange executeArgs) {
-          MultiDialectBuilder<OnnxBuilder> executeCreate(
+          MultiDialectBuilder<OnnxBuilder, MathBuilder> executeCreate(
               executeBuilder, executeLoc);
+          // Set affinity
+          Type intType = rewriter.getIntegerType(64);
+          Value id = executeCreate.math.constant(intType, submId);
+          SmallVector<Value, 2> parameters = {id};
+          executeBuilder.create<KrnlCallOp>(
+              executeLoc, "threadAffine", 1, parameters);
           Value sm = executeCreate.onnx.matmul(unrankedType, a, b, false);
           Value smMemref = executeCreate.onnx.toMemref(sm);
           executeBuilder.create<async::YieldOp>(

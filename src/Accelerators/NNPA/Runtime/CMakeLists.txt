@@ -5,6 +5,7 @@
 add_onnx_mlir_library(RuntimeNNPA STATIC
   OMRuntimeNNPA.c
   OMMatMulAsyncNNPA.c
+  OMThreadAffinity.c
 
   EXCLUDE_FROM_OM_LIBS
 
