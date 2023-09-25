@@ -100,7 +100,6 @@ void DevicePlacementPass::runOnOperation() {
                          legalizedOps2, legalizedOps3));
 
   // Now annotate accelerator operations in the IR with `device` attribute.
-  fprintf(stderr, "hi alex, start walking\n");
   module.walk([&](Operation *op) -> WalkResult {
     fprintf(stderr, "hi alex, handle op\n  ");
     op->dump();
@@ -120,13 +119,10 @@ void DevicePlacementPass::runOnOperation() {
       return WalkResult::advance();
     // Now we have an operation that can work on the NNPA, check if its
     // beneficial
-    fprintf(stderr, "  before cost benefit analysis\n  ");
     if (useCostBenefitEstimation && !isOpFasterOnNNPA(op, &dimAnalysis)) {
-      fprintf(stderr, "hi alex, cpu is faster\n");
       op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
       return WalkResult::advance();
     }
-    fprintf(stderr, "hi alex, NNPA  is faster\n");
     // Compiler determined that we want this op on the NNPA, mark as such.
     op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
     return WalkResult::advance();

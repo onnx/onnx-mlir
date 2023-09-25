@@ -63,8 +63,6 @@ bool isElementwiseOpFasterOnNNPA(Operation *op, Value oper,
     const DimAnalysis *dimAnalysis, PERF_MODEL3 modelForCPU,
     PERF_MODEL3 modelForNNPA) {
 
-  fprintf(stderr, "hi alex, check if unary/binary is faster\n  ");
-  op->dump();
   // At this time, use only 1 of the two operands.
   ShapedType operType = oper.getType().dyn_cast_or_null<ShapedType>();
   assert(operType && operType.hasRank() && "expected shaped type with rank");
