@@ -246,6 +246,8 @@ int64_t mlirTypeToOnnxType(mlir::Type elemType);
 /// Check if a value is a scalar tensor.
 bool isScalarTensor(mlir::Value v);
 
+bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
+
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//

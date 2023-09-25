@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include "mlir/IR/BuiltinOps.h"
+
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 namespace onnx_mlir {

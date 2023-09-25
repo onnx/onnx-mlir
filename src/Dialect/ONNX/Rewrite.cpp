@@ -914,6 +914,11 @@ public:
 private:
   // Check if a Pow can be simply rewritten as a sequence of multiply ops.
   bool CanExpandPowOpToMul(ONNXPowOp op, int64_t &powVal) const {
+#if 1 // hi alex
+    int64_t integerExponentVal;
+    return (hasIntegerPowerExponent(&op, integerExponentVal) &&
+            integerExponentVal >= 0 && integerExponentVal <= maxPower);
+#else
     Value exponent = op.getY();
     ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
     if (!elementAttr)
@@ -932,6 +937,7 @@ private:
         return true;
     }
     return false;
+#endif
   }
   // Data.
   int64_t maxPower;

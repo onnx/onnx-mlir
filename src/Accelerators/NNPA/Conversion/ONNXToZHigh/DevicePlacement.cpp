@@ -23,6 +23,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -99,7 +100,11 @@ void DevicePlacementPass::runOnOperation() {
                          legalizedOps2, legalizedOps3));
 
   // Now annotate accelerator operations in the IR with `device` attribute.
+  fprintf(stderr, "hi alex, start walking\n");
   module.walk([&](Operation *op) -> WalkResult {
+    fprintf(stderr, "hi alex, handle op\n  ");
+    op->dump();
+
     if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
       return WalkResult::advance();
     // No annotation for these ops.
@@ -109,13 +114,19 @@ void DevicePlacementPass::runOnOperation() {
     StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
     if (device && !device.getValue().empty())
       return WalkResult::advance();
-    // Op that is legal (should remain on the CPU) as determined by compiler analysis.
+    // Op that is legal (should remain on the CPU) as determined by compiler
+    // analysis.
     if (cpuOps.contains(op))
       return WalkResult::advance();
-    // Now we have an operation that can work on the NNPA, check if its beneficial
-    if (useCostBenefitEstimation) {
-      // hi alex
+    // Now we have an operation that can work on the NNPA, check if its
+    // beneficial
+    fprintf(stderr, "  before cost benefit analysis\n  ");
+    if (useCostBenefitEstimation && !isOpFasterOnNNPA(op, &dimAnalysis)) {
+      fprintf(stderr, "hi alex, cpu is faster\n");
+      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
+      return WalkResult::advance();
     }
+    fprintf(stderr, "hi alex, NNPA  is faster\n");
     // Compiler determined that we want this op on the NNPA, mark as such.
     op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
     return WalkResult::advance();
