@@ -787,7 +787,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV11Op>();
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
-  target.addIllegalOp<ONNXEinsumOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV2Op>();
   target.addIllegalOp<ONNXPadV11Op>();
@@ -811,11 +810,17 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
   target.addIllegalOp<ONNXUnsqueezeV11Op>();
+
+  target.addDynamicallyLegalOp<ONNXEinsumOp>([](ONNXEinsumOp op) {
+    return !onnx_mlir::DecomposeEinsumPattern::isDecomposable(op);
+  });
+
   target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
     ONNXShapeOp shapeOp;
     ONNXTransposeOp transposeOp;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
+
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
