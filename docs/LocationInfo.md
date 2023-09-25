@@ -3,9 +3,9 @@
 # Maintain and Use Location Info in onnx-mlir
 
 Support of Location info propagation in transformation is one of the attractive features of MLIR. onnx-mlir can takes advantage of this feature in compiler transformation, and runtime debugging. This document describes how to maintain and use the location info in onnx-mlir.  program of the In onnx-mlir, there are three types of tests to ensure correctness of implementation:
-1. [Overview] (#overview)
-2. [ONNX Model]](#model-model)
-2. [MLIR File](#mlir-file)
+1. [Overview] (#Overview)
+2. [ONNX Model] (#OONX-model)
+2. [MLIR File] (#mlir-file)
 
 ## Overview
 - All onnx-mlir transformations are required to propagate the location info from the source to the target
