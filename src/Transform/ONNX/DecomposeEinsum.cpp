@@ -13,6 +13,7 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/Math/EinsumHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #include <tuple>
 #include <unordered_map>
@@ -547,17 +548,29 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
   //
   // TODO: detect when we don't decompose to ReduceSum or MatMul and
   // accept all types in those cases
+  Location loc = einsumOp.getLoc();
   ValueRange inputs = einsumOp.getInputs();
+
   Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
   if (!isDecomposableElementType(elementType))
-    return einsumOp.emitOpError(
-        "unsupported element type prevents Einsum decomposition");
+    return rewriter.notifyMatchFailure(
+        loc, "unsupported element type prevents Einsum decomposition");
 
-  if (!llvm::all_of(inputs.getTypes(),
-          [](Type t) { return t.cast<ShapedType>().hasStaticShape(); }))
-    return einsumOp.emitOpError("unknown shapes prevent Einsum decomposition");
+  if (!llvm::all_of(inputs.getTypes(), hasStaticShape))
+    return rewriter.notifyMatchFailure(
+        loc, "unknown shapes prevent Einsum decomposition");
 
-  Location loc = einsumOp.getLoc();
+  // Wait for shape inference to assign static result shape because otherwise
+  // rewriter.replaceOp(einsumOp, result) will fail with
+  //
+  //   failed to materialize conversion for result #0 of operation
+  //   'onnx.Einsum' that remained live after conversion
+  //
+  // because of the shape mismatch between einsumOp and result.
+  if (!hasStaticShape(einsumOp.getOutput().getType()))
+    return rewriter.notifyMatchFailure(
+        loc, "unknown result shape prevent Einsum decomposition");
+
   ONNXEinsumOpAdaptor operandAdaptor(einsumOp);
   auto errorFn = [&einsumOp]() {
     return einsumOp.emitOpError()
@@ -570,6 +583,16 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
   Value result = decomposer.decompose();
   rewriter.replaceOp(einsumOp, result);
   return success();
+}
+
+/*static*/
+bool DecomposeEinsumPattern::isDecomposable(mlir::ONNXEinsumOp einsumOp) {
+  // TODO: deduplicate repeated logic from matchAndRewrite()
+  ValueRange inputs = einsumOp.getInputs();
+  Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  return isDecomposableElementType(elementType) &&
+         llvm::all_of(inputs.getTypes(), hasStaticShape) &&
+         hasStaticShape(einsumOp.getOutput().getType());
 }
 
 } // namespace onnx_mlir
