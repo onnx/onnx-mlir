@@ -48,4 +48,10 @@ llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
         "level. Default is true."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaEnableZHighCostModel("enable-zhigh-cost-model",
+    llvm::cl::desc("Enabling cost model to estimate if ONNX operations will be "
+                   "faster on the NNPA or the CPU. Works best with static "
+                   "shapes. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 } // namespace onnx_mlir

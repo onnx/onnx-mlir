@@ -39,11 +39,22 @@ struct DevicePlacementPass
     : public PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DevicePlacementPass)
 
+  DevicePlacementPass() = default;
+  DevicePlacementPass(const DevicePlacementPass &pass)
+      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
+  DevicePlacementPass(bool useZHighCostModel) {
+    this->useZHighCostModel = useZHighCostModel;
+  }
+
   StringRef getArgument() const override { return "device-placement"; }
 
   StringRef getDescription() const override {
     return "Device placement for NNPA";
   }
+
+  Option<bool> useZHighCostModel{*this, "use-zhigh-cost-model",
+      llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
+      llvm::cl::init(false)};
 
   void runOnOperation() final;
 };
@@ -60,7 +71,6 @@ void DevicePlacementPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
-  bool useCostBenefitEstimation = true;
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
   // operations that are not converted. Those non-converted ops are running on
@@ -101,9 +111,6 @@ void DevicePlacementPass::runOnOperation() {
 
   // Now annotate accelerator operations in the IR with `device` attribute.
   module.walk([&](Operation *op) -> WalkResult {
-    fprintf(stderr, "hi alex, handle op\n  ");
-    op->dump();
-
     if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
       return WalkResult::advance();
     // No annotation for these ops.
@@ -119,7 +126,7 @@ void DevicePlacementPass::runOnOperation() {
       return WalkResult::advance();
     // Now we have an operation that can work on the NNPA, check if its
     // beneficial
-    if (useCostBenefitEstimation && !isOpFasterOnNNPA(op, &dimAnalysis)) {
+    if (useZHighCostModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
       op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
       return WalkResult::advance();
     }
@@ -138,6 +145,10 @@ namespace onnx_mlir {
  */
 std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
   return std::make_unique<DevicePlacementPass>();
+}
+
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(bool useZHighCostModel) {
+  return std::make_unique<DevicePlacementPass>(useZHighCostModel);
 }
 
 } // namespace onnx_mlir
