@@ -30,7 +30,7 @@ float convertNNPALevel(std::string inputNNPALevel) {
   try {
     retNNPAFloat = std::strtof(
         inputNNPALevel.substr(1, inputNNPALevel.size()).c_str(), NULL);
-  } catch(...) {
+  } catch (...) {
     retNNPAFloat = 0;
   }
   return retNNPAFloat;
