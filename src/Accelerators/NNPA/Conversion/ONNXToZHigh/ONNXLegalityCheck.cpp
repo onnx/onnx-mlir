@@ -15,12 +15,34 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 using namespace mlir;
 using namespace onnx_mlir;
+
+/// Convert the input NNPA level, ie. "z16", to a floating point value
+/// representing the level, ie. "16.0".
+float convertNNPALevel(std::string inputNNPALevel) {
+  float retNNPAFloat = 0;
+  try {
+     retNNPAFloat = std::strtof(inputNNPALevel.substr(1, inputNNPALevel.size()).c_str(), NULL);
+  } catch(...) {
+     retNNPAFloat = 0;
+  }
+  return retNNPAFloat;
+}
+
+/// A function to check whether the input NNPA level, ie. "z16", is compatible
+/// with the current NNPA level.
+bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
+  if (convertNNPALevel(inputNNPALevel) <= convertNNPALevel(mcpu)) {
+    return true;
+  }
+  return false;
+}
 
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
@@ -240,8 +262,13 @@ bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
 }
 
 /// Default legality check.
+/// This template is not directly called.
 template <typename OP_TYPE>
 bool isSuitableForZDNN(OP_TYPE op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   return false;
 }
 
@@ -250,6 +277,10 @@ bool isSuitableForZDNN(OP_TYPE op, const DimAnalysis *dimAnalysis) {
 template <>
 bool isSuitableForZDNN<ONNXAddOp>(
     ONNXAddOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
@@ -261,6 +292,10 @@ bool isSuitableForZDNN<ONNXAddOp>(
 template <>
 bool isSuitableForZDNN<ONNXSubOp>(
     ONNXSubOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
@@ -272,6 +307,10 @@ bool isSuitableForZDNN<ONNXSubOp>(
 template <>
 bool isSuitableForZDNN<ONNXMulOp>(
     ONNXMulOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
@@ -283,6 +322,10 @@ bool isSuitableForZDNN<ONNXMulOp>(
 template <>
 bool isSuitableForZDNN<ONNXDivOp>(
     ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getB()))
@@ -294,6 +337,10 @@ bool isSuitableForZDNN<ONNXDivOp>(
 template <>
 bool isSuitableForZDNN<ONNXSumOp>(
     ONNXSumOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   // Do not support a single input.
   if (op.getData_0().size() < 2)
     return false;
@@ -316,6 +363,10 @@ bool isSuitableForZDNN<ONNXSumOp>(
 template <>
 bool isSuitableForZDNN<ONNXMinOp>(
     ONNXMinOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
     return false;
@@ -332,6 +383,10 @@ bool isSuitableForZDNN<ONNXMinOp>(
 template <>
 bool isSuitableForZDNN<ONNXMaxOp>(
     ONNXMaxOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
     return false;
@@ -349,6 +404,10 @@ bool isSuitableForZDNN<ONNXMaxOp>(
 template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(
     ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
@@ -363,6 +422,10 @@ bool isSuitableForZDNN<ONNXSoftmaxOp>(
 template <>
 bool isSuitableForZDNN<ONNXReluOp>(
     ONNXReluOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
@@ -373,6 +436,10 @@ bool isSuitableForZDNN<ONNXReluOp>(
 template <>
 bool isSuitableForZDNN<ONNXTanhOp>(
     ONNXTanhOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
@@ -383,6 +450,10 @@ bool isSuitableForZDNN<ONNXTanhOp>(
 template <>
 bool isSuitableForZDNN<ONNXSigmoidOp>(
     ONNXSigmoidOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
@@ -393,6 +464,10 @@ bool isSuitableForZDNN<ONNXSigmoidOp>(
 template <>
 bool isSuitableForZDNN<ONNXLogOp>(
     ONNXLogOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
@@ -403,6 +478,10 @@ bool isSuitableForZDNN<ONNXLogOp>(
 template <>
 bool isSuitableForZDNN<ONNXExpOp>(
     ONNXExpOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   if (!isValidElementTypeAndRank(op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
@@ -413,6 +492,10 @@ bool isSuitableForZDNN<ONNXExpOp>(
 template <>
 bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
     return false;
@@ -467,6 +550,11 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   Value B = op.getB();
   Value C = op.getC();
 
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
+
   // Check data type.
   if (!isValidElementTypeAndRank(A))
     return false;
@@ -519,6 +607,11 @@ bool isSuitableForZDNN<ONNXGemmOp>(
 template <>
 bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
     ONNXReduceMeanV13Op op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
+
   // Check data type.
   if (!isValidElementTypeAndRank(op.getData()))
     return false;
@@ -559,6 +652,11 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   Value W = op.getW();
   Value R = op.getR();
   Value B = op.getB();
+
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
 
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
@@ -635,6 +733,11 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   Value R = op.getR();
   Value B = op.getB();
 
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
+
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
       (direction != BIDIRECTIONAL))
@@ -702,6 +805,11 @@ bool isSuitableForZDNN<ONNXGRUOp>(
 template <>
 bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
+
   // Check data type.
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
@@ -725,6 +833,11 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
 template <>
 bool isSuitableForZDNN<ONNXAveragePoolOp>(
     ONNXAveragePoolOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
+
   // Check data type.
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
@@ -782,6 +895,11 @@ static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
 template <>
 bool isSuitableForZDNN<ONNXConvOp>(
     ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
+
   // Check data type.
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
@@ -863,6 +981,11 @@ bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
   ShapedType outputType = op.getO_Y().getType().cast<ShapedType>();
   ArrayRef<int64_t> shapeInput = inputType.getShape();
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
+
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    return false;
+  }
 
   // 4D tensors(N x C x H x W) are supported as input and output.
   if (shapeInput.size() != 4 || shapeOutput.size() != 4)

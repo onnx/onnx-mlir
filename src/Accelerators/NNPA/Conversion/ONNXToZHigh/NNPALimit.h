@@ -4,7 +4,7 @@
 
 //===----------------------- NNPALimit.h ----------------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,3 +28,9 @@ static constexpr int64_t NNPA_MAXIMUM_TENSOR_SIZE = 4294967296;
 // See zDNN API doc
 static constexpr int64_t MAXIMUM_NUM_HIDDEN_SIZE_LSTM = 8192;
 static constexpr int64_t MAXIMUM_NUM_HIDDEN_SIZE_GRU = 10880;
+
+// The NNPA levels.
+static constexpr const char* NNPA_Z13 = "z13";
+static constexpr const char* NNPA_Z14 = "z14";
+static constexpr const char* NNPA_Z15 = "z15";
+static constexpr const char* NNPA_Z16 = "z16";
