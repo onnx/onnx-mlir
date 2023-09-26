@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMONNXToZHigh
   ONNXToZHighCommon.cpp
 
   DEPENDS
+  OMCompilerOptions
   OMONNXONNXToZHighIncGen
   libzdnn
 
@@ -27,6 +28,7 @@ add_onnx_mlir_library(OMRewriteONNXForZHigh
   ONNXToZHighCommon.cpp
 
   DEPENDS
+  OMCompilerOptions
   OMONNXRewriteONNXForZHighIncGen
   libzdnn
   
