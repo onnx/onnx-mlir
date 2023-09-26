@@ -11,7 +11,7 @@
 // This file contains the code to test 2D matrix multiply code.
 //
 //===----------------------------------------------------------------------===//
-
+#include <sys/time.h>
 // Common.hpp needs to be included first to correctly suppress the rapidcheck.h
 // warnings.
 #include "Common.hpp"
@@ -31,10 +31,25 @@ static bool isOMMatmulTheSameAsNaiveImplFor(
   static int testNum = 0;
   printf("attempt %d with i %d, j %d, k %d\n", ++testNum, I, J, K);
   MatMul2DLibBuilder matmul(SHARED_LIB_BASE.str(), I, J, K);
-  return matmul.build() && matmul.compileAndLoad() &&
-         matmul.checkInstructionFromEnv("TEST_INSTRUCTION") &&
-         matmul.prepareInputsFromEnv("TEST_DATARANGE") && matmul.run() &&
-         matmul.verifyOutputs();
+  struct timeval time1;
+  struct timeval time2;
+  float diff_time;
+  bool prepare = matmul.build() && matmul.compileAndLoad() &&
+                 matmul.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+                 matmul.prepareInputsFromEnv("TEST_DATARANGE");
+  gettimeofday(&time1, NULL);
+  bool run = matmul.run();
+  gettimeofday(&time2, NULL);
+  diff_time = time2.tv_sec - time1.tv_sec +
+              (float)(time2.tv_usec - time1.tv_usec) / 1000000;
+  printf("diff: %f[s]\n", diff_time);
+
+  bool post = matmul.verifyOutputs();
+  return prepare && run && post;
+  //  return matmul.build() && matmul.compileAndLoad() &&
+  //         matmul.checkInstructionFromEnv("TEST_INSTRUCTION") &&
+  //         matmul.prepareInputsFromEnv("TEST_DATARANGE") && matmul.run() &&
+  //         matmul.verifyOutputs();
 }
 } // namespace test
 } // namespace onnx_mlir
@@ -66,7 +81,8 @@ int main(int argc, char *argv[]) {
     return 1;
   */
   // TODO: temprary change for debugging
-  RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(2, 512, 2));
+  // RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(2, 512, 2));
+  RC_ASSERT(isOMMatmulTheSameAsNaiveImplFor(512, 1024, 512));
   /*
   printf("RapidCheck Matrix-Matrix test case generation.\n");
   bool success = rc::check("Matrix-Matrix Matmul implementation correctness", []() {
