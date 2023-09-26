@@ -7,9 +7,9 @@
 3. [MLIR File](#MLIR-file)
 
 ## Summary
-Support of Location info propagation in transformation is one of the attractive features of MLIR. onnx-mlir can takes advantage of this feature in compiler transformation, and runtime debugging. This document describes how to maintain and use the location info in onnx-mlir.  program of the In onnx-mlir, there are three types of tests to ensure correctness of implementation:
+Support of Location info propagation in transformation is one of the attractive features of MLIR. onnx-mlir can takes advantage of this feature in compiler transformation, and runtime debugging. This document describes how to maintain and use the location info in onnx-mlir. In summary:
 - All onnx-mlir transformations are required to propagate the location info from the source to the target
-- Create localtion info when an ONNX model is imported. If there is `onnx_node_name` string attribute for an opteration, the string is transferred to its location. Otherwise, Unknown location is used.
+- Create location info when an ONNX model is imported. If there is `onnx_node_name` string attribute for an operation, the string is transferred to its location. Otherwise, Unknown location is used.
 - MLIR adds file location (in form of filename:line:column) to nodes when reading in a MLIR file, unless the MLIR file already contains location.
 - Use the flag `--preserveLocations` to turn on location info in the output.
 - With the previous two combined, we can track the source of error by dumping out the MLIR file(without `--preserveLocations`) at desired stage (for example, EmitONNXIR, or EmitMLIR), and then continuing transformation by loading the dumped file. The location info will be line number for that dumped file, providing more details than just from the onnx model. 
