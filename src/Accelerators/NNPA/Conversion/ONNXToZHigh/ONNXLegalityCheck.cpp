@@ -28,9 +28,10 @@ using namespace onnx_mlir;
 float convertNNPALevel(std::string inputNNPALevel) {
   float retNNPAFloat = 0;
   try {
-     retNNPAFloat = std::strtof(inputNNPALevel.substr(1, inputNNPALevel.size()).c_str(), NULL);
+    retNNPAFloat = std::strtof(
+        inputNNPALevel.substr(1, inputNNPALevel.size()).c_str(), NULL);
   } catch(...) {
-     retNNPAFloat = 0;
+    retNNPAFloat = 0;
   }
   return retNNPAFloat;
 }
