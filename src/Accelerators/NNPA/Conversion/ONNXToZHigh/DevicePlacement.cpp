@@ -193,22 +193,15 @@ void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
       StringRef opNodeType = op->getName().getStringRef();
       StringRef opNodeName =
           op->getAttrOfType<mlir::StringAttr>("onnx_node_name").getValue();
-
+      // Match operations.
       if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
         continue;
       if (!std::regex_match(opNodeName.str(), std::regex(nodeName.str())))
         continue;
-
+      // Set device.
       op->setAttr(
           DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
       updatedOps.insert(op);
-
-      // if (opNodeType.equals_insensitive(nodeType.value()) &&
-      //     opNodeName.equals_insensitive(nodeName.value())) {
-      //   op->setAttr(DEVICE_ATTRIBUTE,
-      //       StringAttr::get(module.getContext(), device.value()));
-      //   updatedOps.insert(op);
-      // }
     }
     workingOps = llvm::set_difference(workingOps, updatedOps);
   }
