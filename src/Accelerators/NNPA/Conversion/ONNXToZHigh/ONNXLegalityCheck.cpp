@@ -39,10 +39,11 @@ float convertNNPALevel(std::string inputNNPALevel) {
 /// A function to check whether the input NNPA level, ie. "z16", is compatible
 /// with the current NNPA level.
 bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
-  if (convertNNPALevel(inputNNPALevel) <= convertNNPALevel(mcpu)) {
-    return true;
-  }
-  return false;
+  float inLevel = convertNNPALevel(inputNNPALevel);
+  float mcpuLevel = convertNNPALevel(mcpu);
+  if (inLevel == 0 && mcpuLevel == 0)
+    return false;
+  return inLevel <= mcpuLevel;
 }
 
 /// A function to check whether a value's element type is valid for zAIU or not.
@@ -263,13 +264,8 @@ bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
 }
 
 /// Default legality check.
-/// This template is not directly called.
 template <typename OP_TYPE>
 bool isSuitableForZDNN(OP_TYPE op, const DimAnalysis *dimAnalysis) {
-  // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    return false;
-  }
   return false;
 }
 
