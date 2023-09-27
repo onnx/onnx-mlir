@@ -71,54 +71,6 @@ double estimatedTimeForNNPA_MatMul_3ds(double B, double N, double M, double K) {
   return 6.1299740116770674e-12 * complexity + 2.7113063170731707e-06;
 }
 
-// Operation MatMul_all_3ds: estimated times with cross over at complexity =
-// 32057.
-double estimatedTimeForCPU_MatMul_all_3ds(
-    double B, double N, double M, double K) {
-  double complexity = B * (N * M * K);
-  // Regression for CPU with r2 = 0.9907461032132769
-  return 8.557471095127001e-11 * complexity + 2.651819741343577e-07;
-}
-double estimatedTimeForNNPA_MatMul_all_3ds(
-    double B, double N, double M, double K) {
-  double complexity =
-      B * ms_ceiling(N, 2.0) * ms_ceiling(M, 64.0) * ms_ceiling(K, 64.0);
-  // Regression for NNPA with r2 = 0.6007285904343204
-  return 4.573189269510686e-12 * complexity + 2.8618706688323212e-06;
-}
-
-// Operation MatMul_e1_3ds: estimated times with cross over at complexity =
-// 19563.
-double estimatedTimeForCPU_MatMul_e1_3ds(
-    double B, double N, double M, double K) {
-  double complexity = B * (N * M * K);
-  // Regression for CPU with r2 = 0.994413521405784
-  return 8.705012847704432e-11 * complexity + 1.9122006955294004e-06;
-}
-double estimatedTimeForNNPA_MatMul_e1_3ds(
-    double B, double N, double M, double K) {
-  double complexity =
-      B * ms_ceiling(N, 2.0) * ms_ceiling(M, 64.0) * ms_ceiling(K, 64.0);
-  // Regression for NNPA with r2 = 0.8949993703987157
-  return 1.9660671208761047e-12 * complexity + 3.5767057707073767e-06;
-}
-
-// Operation MatMul_e2_3ds: estimated times with cross over at complexity =
-// 33816.
-double estimatedTimeForCPU_MatMul_e2_3ds(
-    double B, double N, double M, double K) {
-  double complexity = B * (N * M * K);
-  // Regression for CPU with r2 = 0.9994614139056304
-  return 8.39578711725025e-11 * complexity + 2.739079754718904e-07;
-}
-double estimatedTimeForNNPA_MatMul_e2_3ds(
-    double B, double N, double M, double K) {
-  double complexity =
-      B * ms_ceiling(N, 2.0) * ms_ceiling(M, 64.0) * ms_ceiling(K, 64.0);
-  // Regression for NNPA with r2 = 0.929669464549952
-  return 4.083643957216863e-12 * complexity + 2.9749801639764202e-06;
-}
-
 // Operation Max_3ds: estimated times with cross over at complexity = 28928.
 double estimatedTimeForCPU_Max_3ds(double e3, double e2, double e1) {
   double complexity = e3 * e2 * e1;

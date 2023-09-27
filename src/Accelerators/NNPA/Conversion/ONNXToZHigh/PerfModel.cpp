@@ -27,7 +27,7 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
-// hi alex namespace {
+namespace {
 //===----------------------------------------------------------------------===//
 // Auto-generated model.
 using PERF_MODEL3 = std::function<double(double, double, double)>;
@@ -367,7 +367,7 @@ bool checkIfOpFasterOnNNPA<ONNXGemmOp>(
       op.getTransA(), op.getTransB(), dimAnalysis);
 }
 
-// hi alex } // namespace
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // Function to perform evaluation.
