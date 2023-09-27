@@ -38,7 +38,15 @@ print(outputs)
 
 class InferenceSession:
 
-    def __init__(self, model_path):
+    def __init__(self, model_path, target="cpu", **kwarg):
+        self.target = target
+        if "options" in kwarg :
+          self.options = kwarg["options"]
+        else :
+          self.options = ""
+
+        print("target : ", self.target)
+        print(" options : ", self.options)
 
         # Initialize status
 
@@ -89,10 +97,14 @@ class InferenceSession:
         output_path = os.path.join(self.temp_dir.name,
                                    self.temp_lib_name)
         command_str += ['-o', output_path]
+        if self.target == 'zAIU' :
+            command_str += ['--maccel=NNPA']
+        command_str += self.options.split()
+        print("command_str : ", command_str)
 
         # Compile the model.
 
-        print 'Compiling the model ...'
+        print ('Compiling the model ...')
         start = time.perf_counter()
         (ok, msg) = self.execute_commands(command_str)
         end = time.perf_counter()
@@ -111,7 +123,7 @@ class InferenceSession:
 
         # Use the generated shared library to create an execution session.
 
-        print 'Loading the compiled model ...'
+        print ('Loading the compiled model ...')
         start = time.perf_counter()
         shared_lib_path = os.path.join(self.temp_dir.name,
                 self.temp_lib_name + '.so')
@@ -147,12 +159,12 @@ class InferenceSession:
             inputs = [runInputs]
         else:
             msg = 'Inputs have to be a dictionary or list.'
-            print msg
+            print (msg)
             exit(1)
 
         # Should we check the elements in inputs are np.array?
 
-        print 'Running inference ...'
+        print ('Running inference ...')
         start = time.perf_counter()
         outs = self.sess.run(inputs)
         end = time.perf_counter()
@@ -161,8 +173,8 @@ class InferenceSession:
         return outs
 
     def execute_commands(self, cmds):
-        if VERBOSE:
-            print cmds
+        if self.VERBOSE:
+            print (cmds)
         out = subprocess.Popen(cmds, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
         (stdout, stderr) = out.communicate()
