@@ -270,6 +270,7 @@ void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
 // Support for location.
 //===----------------------------------------------------------------------===//
 
-std::string getNodeNameInPresenceOfOpt(mlir::Operation *op);
+std::string getNodeNameInPresenceOfOpt(
+    mlir::Operation *op, bool useFileLine = true);
 
 } // namespace onnx_mlir

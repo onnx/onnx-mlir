@@ -724,7 +724,14 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
 // 2) `getNodeNameInPresenceOfOpt` from
 //    `src/Dialect/ONNX/ONNXOps/OpHelper.cpp`
 
-std::string getNodeNameInPresenceOfOpt(Operation *op) {
+std::string getNodeNameInPresenceOfOpt(Operation *op, bool useFileLine) {
+  auto getNameFromFileLineLoc = [](FileLineColLoc loc, std::string &name,
+                                    std::string postfix = "") {
+    std::string filename =
+        llvm::sys::path::filename(loc.getFilename().str()).str();
+    name += filename + ":" + std::to_string(loc.getLine()) + postfix;
+  };
+
   StringAttr nodeName;
   // Try with op onnx_node_name attribute.
   nodeName = op->getAttrOfType<StringAttr>("onnx_node_name");
@@ -742,10 +749,10 @@ std::string getNodeNameInPresenceOfOpt(Operation *op) {
     for (Location locIt : fusedLoc.getLocations()) {
       if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
         name += nameLocIt.getName().str() + "-";
-      else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
-        std::string filename =
-            llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
-        name += filename + ":" + std::to_string(fileLineColLoc.getLine()) + "-";
+      else if (useFileLine) {
+        if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+          getNameFromFileLineLoc(fileLineColLoc, name, "-");
+        }
       }
     }
     if (name.empty())
@@ -754,12 +761,12 @@ std::string getNodeNameInPresenceOfOpt(Operation *op) {
       name.pop_back(); // remove last "-"
     return name;
   }
-  if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
-    std::string filename =
-        llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
-    std::string name =
-        filename + ":" + std::to_string(fileLineColLoc.getLine());
-    return name;
+  if (useFileLine) {
+    if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+      std::string name = "";
+      getNameFromFileLineLoc(fileLineColLoc, name);
+      return name;
+    }
   }
   return "NOTSET";
 }
