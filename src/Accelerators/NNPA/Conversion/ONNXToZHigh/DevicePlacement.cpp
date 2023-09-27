@@ -52,7 +52,7 @@ struct DevicePlacementPass
     return "Device placement for NNPA";
   }
 
-  Option<bool> useZHighPerfModel{*this, "use-zhigh-cost-model",
+  Option<bool> useZHighPerfModel{*this, "use-zhigh-perf-model",
       llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
       llvm::cl::init(false)};
 
