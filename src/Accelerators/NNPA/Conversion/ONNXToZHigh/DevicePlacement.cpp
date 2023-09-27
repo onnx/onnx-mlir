@@ -15,6 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <regex>
+
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SetOperations.h"
@@ -38,6 +40,8 @@ namespace {
 
 struct DevicePlacementPass
     : public PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>> {
+  using OpSetType = DenseSet<Operation *>;
+
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DevicePlacementPass)
 
   StringRef getArgument() const override { return "device-placement"; }
@@ -79,12 +83,12 @@ struct DevicePlacementPass
 
 private:
   std::string DEVICE_KEY = "device";
+  std::string DEVICE_PLACEMENT_KEY = "device_placement";
   std::string NODE_TYPE_KEY = "node_type";
   std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
 };
 
 void DevicePlacementPass::runOnOperation() {
-  using OpSetType = DenseSet<Operation *>;
   ModuleOp module = getOperation();
   MLIRContext *context = &getContext();
 
@@ -131,11 +135,11 @@ void DevicePlacementPass::runOnOperation() {
       module, target, std::move(Patterns3), legalizedOps3);
 
   // Get the legalized ops that will run on the host.
-  OpSetType cpuOps = llvm::set_intersection<OpSetType, OpSetType>(
-      legalizedOps1, llvm::set_intersection<OpSetType, OpSetType>(
-                         legalizedOps2, legalizedOps3));
+  OpSetType cpuOps = llvm::set_intersection(
+      legalizedOps1, llvm::set_intersection(legalizedOps2, legalizedOps3));
 
-  // Now annotate accelerator operations in the IR with `device` attribute.
+  // Now annotate accelerator operations in the IR with `device` attribute,
+  // according to the compiler decision.
   module.walk([&](Operation *op) -> WalkResult {
     if (isExcludedOp(op))
       return WalkResult::advance();
@@ -163,38 +167,48 @@ void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
           /*RequiresNullTerminator=*/false)));
   auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
   llvm::json::Object *jsonContent = jsonFile.getAsObject();
-  llvm::json::Array *jsonArr = jsonContent->getArray("device_placement");
+  llvm::json::Array *jsonArr = jsonContent->getArray(DEVICE_PLACEMENT_KEY);
   if (!jsonArr || jsonArr->empty())
     return;
 
   // Collect operations to work on.
-  llvm::SmallSet<Operation *, 32> workingOps;
+  OpSetType workingOps;
   module.walk([&](Operation *op) {
     if (!isExcludedOp(op))
       workingOps.insert(op);
   });
 
-  // To reduce complexity, once an operation is assigned device, we remove it
+  // To reduce complexity, once an operation is assigned a device, we remove it
   // from the set workingOps.
   for (llvm::json::Value v : *jsonArr) {
     llvm::json::Object *vobj = v.getAsObject();
-    std::optional<StringRef> device = vobj->getString(DEVICE_KEY);
-    std::optional<StringRef> nodeType = vobj->getString(NODE_TYPE_KEY);
-    std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
-    llvm::outs() << "device: " << device.value().str()
-                 << ", nodetype: " << nodeType.value().str()
-                 << ", nodeName: " << nodeName.value().str() << "\n";
-    llvm::SmallSet<Operation *, 32> updatedOps;
+    StringRef device = vobj->getString(DEVICE_KEY).value();
+    StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
+    StringRef nodeName = vobj->getString(ONNX_NODE_NAME_KEY).value();
+    LLVM_DEBUG(llvm::dbgs()
+               << "device: " << device.str() << ", nodeType: " << nodeType.str()
+               << ", nodeName: " << nodeName.str() << "\n");
+    OpSetType updatedOps;
     for (Operation *op : workingOps) {
       StringRef opNodeType = op->getName().getStringRef();
       StringRef opNodeName =
           op->getAttrOfType<mlir::StringAttr>("onnx_node_name").getValue();
-      if (opNodeType.equals_insensitive(nodeType.value()) &&
-          opNodeName.equals_insensitive(nodeName.value())) {
-        op->setAttr(DEVICE_ATTRIBUTE,
-            StringAttr::get(module.getContext(), device.value()));
-        updatedOps.insert(op);
-      }
+
+      if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
+        continue;
+      if (!std::regex_match(opNodeName.str(), std::regex(nodeName.str())))
+        continue;
+
+      op->setAttr(
+          DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
+      updatedOps.insert(op);
+
+      // if (opNodeType.equals_insensitive(nodeType.value()) &&
+      //     opNodeName.equals_insensitive(nodeName.value())) {
+      //   op->setAttr(DEVICE_ATTRIBUTE,
+      //       StringAttr::get(module.getContext(), device.value()));
+      //   updatedOps.insert(op);
+      // }
     }
     workingOps = llvm::set_difference(workingOps, updatedOps);
   }
@@ -230,7 +244,7 @@ void DevicePlacementPass::saveConfigToJSONFile(ModuleOp &module) {
   // Create a JSON configuration file.
   if (!saveConfigFile.empty()) {
     llvm::json::Object jsonContent{
-        {"device_placement", llvm::json::Value(std::move(jsonArr))}};
+        {DEVICE_PLACEMENT_KEY, llvm::json::Value(std::move(jsonArr))}};
     std::error_code EC;
     llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
     if (EC)

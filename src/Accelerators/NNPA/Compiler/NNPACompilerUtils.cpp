@@ -151,7 +151,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
-    pm.addPass(onnx_mlir::createDevicePlacementPass());
+    pm.addPass(onnx_mlir::createDevicePlacementPass(
+        loadDevicePlacementFile, saveDevicePlacementFile));
   }
 
   if (emissionTarget >= EmitMLIR) {
