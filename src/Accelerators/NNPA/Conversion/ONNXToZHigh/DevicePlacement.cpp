@@ -21,6 +21,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
@@ -50,12 +51,17 @@ struct DevicePlacementPass
   DevicePlacementPass() = default;
   DevicePlacementPass(const DevicePlacementPass &pass)
       : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
-  DevicePlacementPass(std::string configFile) {
+  DevicePlacementPass(std::string loadConfigFile, std::string saveConfigFile) {
+    this->loadConfigFile = loadConfigFile;
     this->saveConfigFile = saveConfigFile;
   }
 
   Option<std::string> saveConfigFile{*this, "save-config-file",
       llvm::cl::desc("Path to save a device configuration file in JSON format"),
+      llvm::cl::init("")};
+
+  Option<std::string> loadConfigFile{*this, "load-config-file",
+      llvm::cl::desc("Path to load a device configuration file in JSON format"),
       llvm::cl::init("")};
 
   bool isExcludedOp(Operation *op) {
@@ -68,7 +74,13 @@ struct DevicePlacementPass
   }
 
   void runOnOperation() final;
+  void loadConfigFromJSONFile(ModuleOp &module);
   void saveConfigToJSONFile(ModuleOp &module);
+
+private:
+  std::string DEVICE_KEY = "device";
+  std::string NODE_TYPE_KEY = "node_type";
+  std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
 };
 
 void DevicePlacementPass::runOnOperation() {
@@ -83,6 +95,8 @@ void DevicePlacementPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
+  if (!loadConfigFile.empty())
+    loadConfigFromJSONFile(module);
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
   // operations that are not converted. Those non-converted ops are running on
@@ -139,6 +153,53 @@ void DevicePlacementPass::runOnOperation() {
     saveConfigToJSONFile(module);
 }
 
+// Global object to ease error reporting, it consumes errors and crash the
+// application with a meaningful message.
+static llvm::ExitOnError ExitOnErr;
+
+void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
+  auto Buf = ExitOnErr(errorOrToExpected(
+      llvm::MemoryBuffer::getFile(loadConfigFile, /*bool IsText=*/true,
+          /*RequiresNullTerminator=*/false)));
+  auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
+  llvm::json::Object *jsonContent = jsonFile.getAsObject();
+  llvm::json::Array *jsonArr = jsonContent->getArray("device_placement");
+  if (!jsonArr || jsonArr->empty())
+    return;
+
+  // Collect operations to work on.
+  llvm::SmallSet<Operation *, 32> workingOps;
+  module.walk([&](Operation *op) {
+    if (!isExcludedOp(op))
+      workingOps.insert(op);
+  });
+
+  // To reduce complexity, once an operation is assigned device, we remove it
+  // from the set workingOps.
+  for (llvm::json::Value v : *jsonArr) {
+    llvm::json::Object *vobj = v.getAsObject();
+    std::optional<StringRef> device = vobj->getString(DEVICE_KEY);
+    std::optional<StringRef> nodeType = vobj->getString(NODE_TYPE_KEY);
+    std::optional<StringRef> nodeName = vobj->getString(ONNX_NODE_NAME_KEY);
+    llvm::outs() << "device: " << device.value().str()
+                 << ", nodetype: " << nodeType.value().str()
+                 << ", nodeName: " << nodeName.value().str() << "\n";
+    llvm::SmallSet<Operation *, 32> updatedOps;
+    for (Operation *op : workingOps) {
+      StringRef opNodeType = op->getName().getStringRef();
+      StringRef opNodeName =
+          op->getAttrOfType<mlir::StringAttr>("onnx_node_name").getValue();
+      if (opNodeType.equals_insensitive(nodeType.value()) &&
+          opNodeName.equals_insensitive(nodeName.value())) {
+        op->setAttr(DEVICE_ATTRIBUTE,
+            StringAttr::get(module.getContext(), device.value()));
+        updatedOps.insert(op);
+      }
+    }
+    workingOps = llvm::set_difference(workingOps, updatedOps);
+  }
+}
+
 void DevicePlacementPass::saveConfigToJSONFile(ModuleOp &module) {
   llvm::json::Array jsonArr;
   module.walk([&](Operation *op) -> WalkResult {
@@ -150,16 +211,16 @@ void DevicePlacementPass::saveConfigToJSONFile(ModuleOp &module) {
             ? op->getAttrOfType<mlir::StringAttr>("device").getValue().str()
             : "";
     std::string nodeTypeStr = op->getName().getStringRef().str();
-    std::string onnxNodeNameStr =
+    std::string nodeNameStr =
         op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
             ? op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
                   .getValue()
                   .str()
             : "";
     llvm::json::Value jsonObj = llvm::json::Object{
-        {"device", deviceStr},
-        {"node_type", nodeTypeStr},
-        {"onnx_node_name", onnxNodeNameStr},
+        {DEVICE_KEY, deviceStr},
+        {NODE_TYPE_KEY, nodeTypeStr},
+        {ONNX_NODE_NAME_KEY, nodeNameStr},
     };
     jsonArr.emplace_back(jsonObj);
 
@@ -171,12 +232,12 @@ void DevicePlacementPass::saveConfigToJSONFile(ModuleOp &module) {
     llvm::json::Object jsonContent{
         {"device_placement", llvm::json::Value(std::move(jsonArr))}};
     std::error_code EC;
-    llvm::raw_fd_ostream JsonOS(saveConfigFile, EC);
+    llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
     if (EC)
       report_fatal_error("Error saving device placement json file : " +
                          StringRef(EC.message()));
-    JsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
-    JsonOS.close();
+    jsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
+    jsonOS.close();
   }
 }
 
@@ -192,8 +253,8 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
 }
 
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
-    std::string saveConfigFile) {
-  return std::make_unique<DevicePlacementPass>(saveConfigFile);
+    std::string loadConfigFile, std::string saveConfigFile) {
+  return std::make_unique<DevicePlacementPass>(loadConfigFile, saveConfigFile);
 }
 
 } // namespace onnx_mlir
