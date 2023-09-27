@@ -42,8 +42,8 @@ struct DevicePlacementPass
   DevicePlacementPass() = default;
   DevicePlacementPass(const DevicePlacementPass &pass)
       : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
-  DevicePlacementPass(bool useZHighCostModel) {
-    this->useZHighCostModel = useZHighCostModel;
+  DevicePlacementPass(bool useZHighPerfModel) {
+    this->useZHighPerfModel = useZHighPerfModel;
   }
 
   StringRef getArgument() const override { return "device-placement"; }
@@ -52,7 +52,7 @@ struct DevicePlacementPass
     return "Device placement for NNPA";
   }
 
-  Option<bool> useZHighCostModel{*this, "use-zhigh-cost-model",
+  Option<bool> useZHighPerfModel{*this, "use-zhigh-cost-model",
       llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
       llvm::cl::init(false)};
 
@@ -73,7 +73,7 @@ void DevicePlacementPass::runOnOperation() {
   // (Reserved for cost model and user configuration file)
 #define BEFORE 1 // hi alex
 #if BEFORE == 1
-  if (useZHighCostModel) {
+  if (useZHighPerfModel) {
     module.walk([&](Operation *op) -> WalkResult {
       if (op->getDialect()->getNamespace() !=
           ONNXDialect::getDialectNamespace())
@@ -149,7 +149,7 @@ void DevicePlacementPass::runOnOperation() {
       // Now we have an operation that can work on the NNPA, check if its
       // beneficial
 #if BEFORE == 0
-    if (useZHighCostModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
+    if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
       op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
       return WalkResult::advance();
     }
@@ -171,8 +171,8 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
   return std::make_unique<DevicePlacementPass>();
 }
 
-std::unique_ptr<mlir::Pass> createDevicePlacementPass(bool useZHighCostModel) {
-  return std::make_unique<DevicePlacementPass>(useZHighCostModel);
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(bool useZHighPerfModel) {
+  return std::make_unique<DevicePlacementPass>(useZHighPerfModel);
 }
 
 } // namespace onnx_mlir
