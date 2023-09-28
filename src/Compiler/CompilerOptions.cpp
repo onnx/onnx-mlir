@@ -126,8 +126,7 @@ static llvm::cl::opt<OptLevel, true> OptimizationLevelOpt(
     llvm::cl::values(clEnumVal(O0, "Optimization level 0 (default):"),
         clEnumVal(O1, "Optimization level 1"),
         clEnumVal(O2, "Optimization level 2"),
-        clEnumVal(O3,
-            "Optimization level 3, SIMD is enabled")),
+        clEnumVal(O3, "Optimization level 3, SIMD is enabled")),
     llvm::cl::location(OptimizationLevel), llvm::cl::init(O0),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
