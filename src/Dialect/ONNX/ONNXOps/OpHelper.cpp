@@ -688,6 +688,29 @@ bool isScalarTensor(Value v) {
               (getRank(v.getType()) == 1 && getShape(v.getType())[0] == 1)));
 }
 
+bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
+  Value exponent = op->getY();
+  ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
+  if (!elementAttr)
+    return false;
+  if (elementAttr.getNumElements() != 1)
+    return false;
+  Type elementType = elementAttr.getElementType();
+  if (elementType.isa<FloatType>()) {
+    double floatVal = getScalarValue<double>(elementAttr, elementType);
+    if (floatVal == ceil(floatVal)) {
+      // We essentially have an integer value represented as a float.
+      exponentValue = (int64_t)floatVal;
+      return true;
+    }
+  } else if (elementType.isa<IntegerType>()) {
+    exponentValue = getScalarValue<int64_t>(elementAttr, elementType);
+    return true;
+  }
+  // Other type, just fails.
+  return false;
+}
+
 //===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//

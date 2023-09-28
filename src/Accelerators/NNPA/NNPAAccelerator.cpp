@@ -73,7 +73,7 @@ void NNPAAccelerator::registerDialects(mlir::DialectRegistry &registry) const {
 void NNPAAccelerator::registerPasses(int optLevel) const {
   LLVM_DEBUG(llvm::dbgs() << "Registering passes for NNPA accelerator\n");
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return onnx_mlir::createDevicePlacementPass();
+    return onnx_mlir::createDevicePlacementPass(nnpaEnableZHighPerfModel);
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
