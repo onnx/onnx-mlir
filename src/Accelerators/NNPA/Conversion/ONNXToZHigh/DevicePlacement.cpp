@@ -71,28 +71,6 @@ void DevicePlacementPass::runOnOperation() {
 
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
-#define BEFORE 1 // hi alex
-#if BEFORE == 1
-  if (useZHighPerfModel) {
-    module.walk([&](Operation *op) -> WalkResult {
-      if (op->getDialect()->getNamespace() !=
-          ONNXDialect::getDialectNamespace())
-        return WalkResult::advance();
-      // No annotation for these ops.
-      if (isa<ONNXEntryPointOp, ONNXReturnOp, ONNXConstantOp>(op))
-        return WalkResult::advance();
-      // If `device` is already set, respect it.
-      StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-      if (device && !device.getValue().empty())
-        return WalkResult::advance();
-      // If operation is slower on NNPA, mark it to run on CPU.
-      if (!isOpFasterOnNNPA(op, &dimAnalysis)) {
-        op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
-      }
-      return WalkResult::advance();
-    });
-  }
-#endif
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
   // operations that are not converted. Those non-converted ops are running on
@@ -148,12 +126,10 @@ void DevicePlacementPass::runOnOperation() {
       return WalkResult::advance();
       // Now we have an operation that can work on the NNPA, check if its
       // beneficial
-#if BEFORE == 0
     if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
       op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
       return WalkResult::advance();
     }
-#endif
     // Compiler determined that we want this op on the NNPA, mark as such.
     op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
     return WalkResult::advance();
