@@ -124,8 +124,8 @@ void DevicePlacementPass::runOnOperation() {
     // analysis.
     if (cpuOps.contains(op))
       return WalkResult::advance();
-      // Now we have an operation that can work on the NNPA, check if its
-      // beneficial
+    // Now we have an operation that can work on the NNPA, check if its
+    // beneficial
     if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
       op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
       return WalkResult::advance();
