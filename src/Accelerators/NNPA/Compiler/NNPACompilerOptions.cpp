@@ -40,13 +40,17 @@ llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
         "level. Default is true."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<std::string> loadDevicePlacementFile{"load-device-placement-file",
-    llvm::cl::desc("Load device placement configuration from a JSON file. To "
-                   "have a template for the JSON file, use "
-                   "-save-device-placement-file=cfg.json."),
+llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
+    "nnpa-load-device-placement-file",
+    llvm::cl::desc(
+        "Load device placement configuration from a JSON file. To "
+        "have a template for the JSON file, use "
+        "-save-device-placement-file=cfg.json. Note that we can use regex for "
+        "string values in the JSON file to match operations."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<std::string> saveDevicePlacementFile{"save-device-placement-file",
+llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile{
+    "nnpa-save-device-placement-file",
     llvm::cl::desc("Save device placement configuration to a JSON file."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 

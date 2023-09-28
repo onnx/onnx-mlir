@@ -46,7 +46,7 @@ extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::opt<bool> nnpaClipToDLFloatRange;
 extern llvm::cl::opt<bool> nnpaEnableZHighToOnnx;
 extern llvm::cl::opt<bool> profileZHighIR;
-extern llvm::cl::opt<std::string> loadDevicePlacementFile;
-extern llvm::cl::opt<std::string> saveDevicePlacementFile;
+extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
+extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 
 } // namespace onnx_mlir

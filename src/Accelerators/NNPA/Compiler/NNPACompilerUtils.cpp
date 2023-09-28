@@ -152,7 +152,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
     pm.addPass(onnx_mlir::createDevicePlacementPass(
-        loadDevicePlacementFile, saveDevicePlacementFile));
+        nnpaLoadDevicePlacementFile, nnpaSaveDevicePlacementFile));
   }
 
   if (emissionTarget >= EmitMLIR) {
