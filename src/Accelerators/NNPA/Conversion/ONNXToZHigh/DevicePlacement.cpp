@@ -13,6 +13,15 @@
 // - user configuration file if given
 // - a cost model
 //
+// Device placement is done via setting `device` attribute for each operation.
+// Values for `device` attribute is one of the following strings:
+// - "": an empty string means the compiler decides whether the operation is on
+// CPU or NNPA.
+// - "nnpa": the operation may run on NNPA or CPU, and the final decision is
+// made by the compiler. If `device=nnpa` is the result of this device-placement
+// pass, then it means the compiler thinks it is suitable for NNPA.
+// - "cpu": the operation is guaranteed to run on CPU.
+//
 //===----------------------------------------------------------------------===//
 
 #include <regex>
@@ -37,6 +46,10 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 namespace {
+
+// Global object to ease error reporting, it consumes errors and crash the
+// application with a meaningful message.
+static llvm::ExitOnError ExitOnErr;
 
 struct DevicePlacementPass
     : public PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>> {
@@ -68,6 +81,22 @@ struct DevicePlacementPass
       llvm::cl::desc("Path to load a device configuration file in JSON format"),
       llvm::cl::init("")};
 
+  void runOnOperation() final;
+
+private:
+  ModuleOp module;
+  MLIRContext *context = nullptr;
+  // Keep target operations to avoid walking through the module again.
+  // Use vector to keep the order deterministic.
+  SmallVector<Operation *, 32> ops;
+
+  // JSON keys.
+  std::string DEVICE_KEY = "device";
+  std::string DEVICE_PLACEMENT_KEY = "device_placement";
+  std::string NODE_TYPE_KEY = "node_type";
+  std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
+
+  // Exclude these operations from device placement.
   bool isExcludedOp(Operation *op) {
     if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
       return true;
@@ -77,30 +106,47 @@ struct DevicePlacementPass
     return false;
   }
 
-  void runOnOperation() final;
-  void loadConfigFromJSONFile(ModuleOp &module);
-  void saveConfigToJSONFile(ModuleOp &module);
-
-private:
-  std::string DEVICE_KEY = "device";
-  std::string DEVICE_PLACEMENT_KEY = "device_placement";
-  std::string NODE_TYPE_KEY = "node_type";
-  std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
+  // Functions to load/save device placement from/to a JSON file.
+  // JSON file example:
+  // ```json
+  // {
+  //   "device_placement": [
+  //     {
+  //       "device": "cpu",
+  //       "node_type": "onnx.Relu",
+  //       "onnx_node_name": "Relu_[1,2]"
+  //     },
+  //     {
+  //       "device": "nnpa",
+  //       "node_type": "onnx.Sigmoid",
+  //       "onnx_node_name": ".*"
+  //     }
+  //   ]
+  // }
+  // ```
+  void loadConfigFromJSONFile();
+  void saveConfigToJSONFile();
 };
 
 void DevicePlacementPass::runOnOperation() {
-  ModuleOp module = getOperation();
-  MLIRContext *context = &getContext();
+  this->module = getOperation();
+  this->context = &getContext();
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
   DimAnalysis dimAnalysis(module);
   dimAnalysis.analyze();
 
+  // Collects target operations from the module.
+  module.walk([&](Operation *op) {
+    if (!isExcludedOp(op))
+      ops.emplace_back(op);
+  });
+
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
   if (!loadConfigFile.empty())
-    loadConfigFromJSONFile(module);
+    loadConfigFromJSONFile();
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
   // operations that are not converted. Those non-converted ops are running on
@@ -140,28 +186,21 @@ void DevicePlacementPass::runOnOperation() {
 
   // Now annotate accelerator operations in the IR with `device` attribute,
   // according to the compiler decision.
-  module.walk([&](Operation *op) -> WalkResult {
-    if (isExcludedOp(op))
-      return WalkResult::advance();
+  for (Operation *op : ops) {
     // Set device if it is empty or unavailable.
     StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
     if (!device || device.getValue().empty()) {
       if (!cpuOps.contains(op))
         op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
     }
-    return WalkResult::advance();
-  });
+  }
 
   // Create a JSON configuration file if required.
   if (!saveConfigFile.empty())
-    saveConfigToJSONFile(module);
+    saveConfigToJSONFile();
 }
 
-// Global object to ease error reporting, it consumes errors and crash the
-// application with a meaningful message.
-static llvm::ExitOnError ExitOnErr;
-
-void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
+void DevicePlacementPass::loadConfigFromJSONFile() {
   auto Buf = ExitOnErr(errorOrToExpected(
       llvm::MemoryBuffer::getFile(loadConfigFile, /*bool IsText=*/true,
           /*RequiresNullTerminator=*/false)));
@@ -172,14 +211,8 @@ void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
     return;
 
   // Collect operations to work on.
-  OpSetType workingOps;
-  module.walk([&](Operation *op) {
-    if (!isExcludedOp(op))
-      workingOps.insert(op);
-  });
-
-  // To reduce complexity, once an operation is assigned a device, we remove it
-  // from the set workingOps.
+  OpSetType workingOps(ops.begin(), ops.end());
+  // Go over operations in the JSON and find matched operation in the IR.
   for (llvm::json::Value v : *jsonArr) {
     llvm::json::Object *vobj = v.getAsObject();
     StringRef device = vobj->getString(DEVICE_KEY).value();
@@ -193,7 +226,7 @@ void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
       StringRef opNodeType = op->getName().getStringRef();
       StringRef opNodeName =
           op->getAttrOfType<mlir::StringAttr>("onnx_node_name").getValue();
-      // Match operations.
+      // Match operation.
       if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
         continue;
       if (!std::regex_match(opNodeName.str(), std::regex(nodeName.str())))
@@ -203,15 +236,16 @@ void DevicePlacementPass::loadConfigFromJSONFile(ModuleOp &module) {
           DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
       updatedOps.insert(op);
     }
+    // To reduce complexity, once an operation is assigned a device, we remove
+    // it from the set workingOps.
     workingOps = llvm::set_difference(workingOps, updatedOps);
   }
 }
 
-void DevicePlacementPass::saveConfigToJSONFile(ModuleOp &module) {
+void DevicePlacementPass::saveConfigToJSONFile() {
+  // Parsing the module to JSON object.
   llvm::json::Array jsonArr;
-  module.walk([&](Operation *op) -> WalkResult {
-    if (isExcludedOp(op))
-      return WalkResult::advance();
+  for (Operation *op : ops) {
     // Create a JSON object for this operation.
     std::string deviceStr =
         op->getAttrOfType<mlir::StringAttr>("device")
@@ -230,22 +264,18 @@ void DevicePlacementPass::saveConfigToJSONFile(ModuleOp &module) {
         {ONNX_NODE_NAME_KEY, nodeNameStr},
     };
     jsonArr.emplace_back(jsonObj);
-
-    return WalkResult::advance();
-  });
-
-  // Create a JSON configuration file.
-  if (!saveConfigFile.empty()) {
-    llvm::json::Object jsonContent{
-        {DEVICE_PLACEMENT_KEY, llvm::json::Value(std::move(jsonArr))}};
-    std::error_code EC;
-    llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
-    if (EC)
-      report_fatal_error("Error saving device placement json file : " +
-                         StringRef(EC.message()));
-    jsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
-    jsonOS.close();
   }
+  llvm::json::Object jsonContent{
+      {DEVICE_PLACEMENT_KEY, llvm::json::Value(std::move(jsonArr))}};
+
+  // Exporting the JSON object to a file.
+  std::error_code EC;
+  llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
+  if (EC)
+    report_fatal_error(
+        "Error saving device placement json file : " + StringRef(EC.message()));
+  jsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
+  jsonOS.close();
 }
 
 } // namespace
