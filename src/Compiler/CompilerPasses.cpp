@@ -46,7 +46,7 @@ void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
   configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
-      onnxConstPropDisablePatterns,disableConstantProp);
+      onnxConstPropDisablePatterns, disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
