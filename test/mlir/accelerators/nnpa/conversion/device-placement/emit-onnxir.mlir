@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitONNXIR --maccel=NNPA --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitONNXIR --maccel=NNPA --disable-constant-prop=true --printIR %s | FileCheck %s
 
 module attributes {llvm.data_layout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64", llvm.target_triple = "s390x-ibm-linux", "onnx-mlir.symbol-postfix" = "model"} {
   func.func @mnist(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attributes {input_names = ["Input3"], output_names = ["Plus214_Output_0"]} {
