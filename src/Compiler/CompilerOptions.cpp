@@ -69,7 +69,7 @@ std::string reportHeapBefore;                          // onnx-mlir only
 std::string reportHeapAfter;                           // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
-bool enableConstantProp;                               // onnx-mlir only
+bool disableConstantProp;                              // onnx-mlir only
 std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
@@ -127,7 +127,7 @@ static llvm::cl::opt<OptLevel, true> OptimizationLevelOpt(
         clEnumVal(O1, "Optimization level 1"),
         clEnumVal(O2, "Optimization level 2"),
         clEnumVal(O3,
-            "Optimization level 3, constant propagation and SIMD is enabled")),
+            "Optimization level 3, SIMD is enabled")),
     llvm::cl::location(OptimizationLevel), llvm::cl::init(O0),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
@@ -462,10 +462,10 @@ static llvm::cl::opt<bool, true> enableConvOptPassOpt("enable-conv-opt-pass",
     llvm::cl::location(enableConvOptPass), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> enableConstantPropOpt("enable-constant-prop",
-    llvm::cl::desc("Enable Constant Propagation (default is false)\n"
-                   "Set to 'true' to enable Constant Propagation at Level O3."),
-    llvm::cl::location(enableConstantProp), llvm::cl::init(false),
+static llvm::cl::opt<bool, true> disableConstantPropOpt("disable-constant-prop",
+    llvm::cl::desc("Disable Constant Propagation (default is false)\n"
+                   "Set to 'true' to disable Constant Propagation."),
+    llvm::cl::location(disableConstantProp), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>> extraLibPathsOpt(
