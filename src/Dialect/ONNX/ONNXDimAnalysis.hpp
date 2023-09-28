@@ -14,7 +14,8 @@
 
 #pragma once
 
-#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Value.h"
 
 namespace onnx_mlir {
 
