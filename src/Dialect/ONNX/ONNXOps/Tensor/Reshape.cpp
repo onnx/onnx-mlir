@@ -48,6 +48,8 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   //   than one dim in the output has value -1.
 
   // Compute the total number of elements using the input data operand.
+  // dataRank will be 0 if Data is unranked tensor.
+  // The number of element will not be computed
   IndexExpr numOfElements = LiteralIndexExpr(1);
   for (unsigned i = 0; i < dataRank; ++i)
     numOfElements = numOfElements * createIE->getShapeAsDim(data, i);
@@ -116,7 +118,9 @@ LogicalResult ONNXReshapeOp::verify() {
 
 LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  // Cannot infer shape without data rank or static shape of shape.
+  // Cannot infer shape without data rank and static shape of shape.
+  // If shape is constant shape, the rank of the output known.
+  // This step may be helpful to reach the fix point.
   // TODO: Infer shape without data rank if shape is a constant
   //       without -1 and without 0 and allowzero.
   if (!hasShapeAndRank(getData()) && !hasStaticShape(getShape().getType()))
