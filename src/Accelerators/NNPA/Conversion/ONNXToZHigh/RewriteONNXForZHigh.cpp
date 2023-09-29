@@ -563,6 +563,13 @@ public:
         Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
         waitOps.emplace_back(asyncAwaitOutTensor);
       }
+      for (Value b : subBs) {
+        // Call dummy function to prevent deallocation of a and b.
+        SmallVector<Value, 2> parameters = {
+            create.onnx.toMemref(a), create.onnx.toMemref(b)};
+        rewriter.create<KrnlCallOp>(
+            loc, "dummyFuncForKeepParam", 1, parameters);
+      }
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
         // Concat sub results along dimension M of B.

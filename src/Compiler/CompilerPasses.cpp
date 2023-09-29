@@ -220,9 +220,8 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  // TODO: Temporarily disable for async execution
-  // pm.addNestedPass<func::FuncOp>(
-  //    mlir::bufferization::createBufferDeallocationPass());
+  pm.addNestedPass<func::FuncOp>(
+      mlir::bufferization::createBufferDeallocationPass());
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this
