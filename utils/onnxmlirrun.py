@@ -45,25 +45,28 @@ class InferenceSession:
         else :
           self.options = ""
 
-        print("target : ", self.target)
-        print(" options : ", self.options)
-
-        # Initialize status
-
-        self.compiled = False
-        self.loaded = False
-
         # Initialize parameters
 
         self.VERBOSE = os.environ.get('VERBOSE', False)
         self.input_model_path = model_path
 
         # name for the compiled library in temporary directory
-
         self.temp_lib_name = 'model'
-        if not os.environ.get('ONNX_MLIR_HOME', None):
-            raise RuntimeError('Environment variable ONNX_MLIR_HOME is not set, please set it to the path to the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR executables and libraries can be found, typically `onnx-mlir/build/Debug`'
-                               )
+
+
+        # locate onnx-mlir compiler and its library
+        if 'ONNX_MLIR_HOME' in kwarg :
+            self.ONNX_MLIR_HOME = kwarg['ONNX_MLIR_HOME']
+        elif not os.environ.get('ONNX_MLIR_HOME', None) :
+            raise RuntimeError(
+                'The path to the HOME directory of onnx-mlir should be set with either'
+                'keyword parameter ONNX_MLIR_HOME in the session initialization,'
+                'or with environment variable ONNX_MLIR_HOME.'
+                'The HOME directory for onnx-mlir refers to the parent folder containing the'
+                'bin, lib, etc sub-folders in which ONNX-MLIR executables and libraries can'
+                'be found, typically `onnx-mlir/build/Debug`')
+        else : 
+            self.ONNX_MLIR_HOME = os.environ['ONNX_MLIR_HOME']
 
         self.ONNX_MLIR_EXENAME = 'onnx-mlir'
         if sys.platform == 'win32':
@@ -72,9 +75,9 @@ class InferenceSession:
         # Compiler package related parameters.
         # Should be changed when package is installed
 
-        self.ONNX_MLIR = os.path.join(os.environ['ONNX_MLIR_HOME'],
+        self.ONNX_MLIR = os.path.join(self.ONNX_MLIR_HOME,
                 'bin', self.ONNX_MLIR_EXENAME)
-        self.RUNTIME_DIR = os.path.join(os.environ['ONNX_MLIR_HOME'],
+        self.RUNTIME_DIR = os.path.join(self.ONNX_MLIR_HOME,
                 'lib')
         sys.path.append(self.RUNTIME_DIR)
         try:
@@ -82,6 +85,11 @@ class InferenceSession:
         except ImportError:
             raise ImportError('Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`.You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default'
                               )
+        # Initialize status
+        self.compiled = False
+        self.loaded = False
+
+
 
     def compile(self):
 
@@ -98,9 +106,8 @@ class InferenceSession:
                                    self.temp_lib_name)
         command_str += ['-o', output_path]
         if self.target == 'zAIU' :
-            command_str += ['--maccel=NNPA']
+            command_str += ['--maccel=NNPA', '-O3', '--mcpu=z16']
         command_str += self.options.split()
-        print("command_str : ", command_str)
 
         # Compile the model.
 
