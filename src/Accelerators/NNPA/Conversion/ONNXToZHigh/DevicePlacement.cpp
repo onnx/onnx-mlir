@@ -21,9 +21,9 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
 
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -110,30 +110,15 @@ void DevicePlacementPass::runOnOperation() {
                          legalizedOps2, legalizedOps3));
 
   // Now annotate accelerator operations in the IR with `device` attribute.
-  module.walk([&](Operation *op) -> WalkResult {
-    if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
-      return WalkResult::advance();
-    // No annotation for these ops.
-    if (isa<ONNXEntryPointOp, ONNXReturnOp, ONNXConstantOp>(op))
-      return WalkResult::advance();
-    // If `device` is already set, respect it.
-    StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-    if (device && !device.getValue().empty())
-      return WalkResult::advance();
-    // Op that is legal (should remain on the CPU) as determined by compiler
-    // analysis.
-    if (cpuOps.contains(op))
-      return WalkResult::advance();
-    // Now we have an operation that can work on the NNPA, check if its
-    // beneficial
-    if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
-      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
-      return WalkResult::advance();
-    }
-    // Compiler determined that we want this op on the NNPA, mark as such.
-    op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
-    return WalkResult::advance();
-  });
+  if (useZHighPerfModel)
+#if 1
+    PlaceBeneficialOpsOnNNPAWithStickUnstick(
+        context, module, &dimAnalysis, cpuOps);
+#else
+    PlaceBeneficialOpsOnNNPA(context, module, &dimAnalysis, cpuOps);
+#endif
+  else
+    PlaceAllLegalOpsOnNNPA(context, module, cpuOps);
 }
 
 } // namespace

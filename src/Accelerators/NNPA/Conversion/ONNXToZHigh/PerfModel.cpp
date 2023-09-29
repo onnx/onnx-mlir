@@ -35,26 +35,23 @@ using PERF_MODEL4 = std::function<double(double, double, double, double)>;
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.inc"
 
+double estimatedTimeForCPU_Stick_3ds(double e3, double e2, double e1) {
+  double complexity = e3 * e2 * e1;
+  double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
+
+  // Regression for CPU with r2 = 0.9192.
+  // Estimate is currently done from an excel spreadsheets in ticks.
+  double estimate = 2.567963643 * complexity +
+                    800.465159 / 2048.0 * complexity2 - 1881.627779;
+  if (estimate < 0)
+    estimate = 0;
+  // Estimate is in ticks, change it to seconds via 5.2GHz
+  estimate = estimate / 5.2e9;
+  return estimate;
+}
+
 //===----------------------------------------------------------------------===//
-// Support functions for reporting.
-
-// Return true with a debug message reporting reason for success on NNPA.
-inline bool fasterOnNNPA(Operation *op, std::string msg) {
-  LLVM_DEBUG({
-    llvm::dbgs() << "  Faster on NNPA: " << msg << " For op:";
-    op->dump();
-  });
-  return true;
-}
-
-// Return false with a debug message reporting reason for failure on NNPA.
-inline bool fasterOnCPU(Operation *op, std::string msg) {
-  LLVM_DEBUG({
-    llvm::dbgs() << "  Faster on CPU: " << msg << " For op:";
-    op->dump();
-  });
-  return false;
-}
+// Support functions
 
 // Summarize higher dims (leaving ub..rank-1 untouched). If none, return size
 // of 1. Otherwise, returns the cumulative multiplication of each of the static
@@ -76,10 +73,8 @@ inline int64_t summarizeHigherDims(
 //===----------------------------------------------------------------------===//
 // Support for unary/binary elementwise with possibly unknown dimensions.
 
-bool isElementwiseOpFasterOnNNPA(Operation *op, Value oper,
-    const DimAnalysis *dimAnalysis, PERF_MODEL3 modelForCPU,
-    PERF_MODEL3 modelForNNPA) {
-
+void processDim(Value oper, int64_t &e4, int64_t &e3, int64_t &e2, int64_t &e1,
+    std::string &msg) {
   // At this time, use only 1 of the two operands.
   ShapedType operType = oper.getType().dyn_cast_or_null<ShapedType>();
   assert(operType && operType.hasRank() && "expected shaped type with rank");
@@ -88,12 +83,12 @@ bool isElementwiseOpFasterOnNNPA(Operation *op, Value oper,
   llvm::ArrayRef<int64_t> shape = operType.getShape();
   // Gather all 4th...nth ranked shape together. If all dynamic; assume size
   // of 1.
-  std::string msg = "";
+  LLVM_DEBUG(msg = "");
   bool hasDynamicE4;
-  int64_t e4 = summarizeHigherDims(shape, operRank - 3, hasDynamicE4);
-  int64_t e3 = operRank >= 3 ? shape[operRank - 3] : 1;
-  int64_t e2 = operRank >= 2 ? shape[operRank - 2] : 1;
-  int64_t e1 = operRank >= 1 ? shape[operRank - 1] : 1;
+  e4 = summarizeHigherDims(shape, operRank - 3, hasDynamicE4);
+  e3 = operRank >= 3 ? shape[operRank - 3] : 1;
+  e2 = operRank >= 2 ? shape[operRank - 2] : 1;
+  e1 = operRank >= 1 ? shape[operRank - 1] : 1;
   // Handle dynamic shapes, eventually it would be good to have ranges given by
   // the user.
   if (hasDynamicE4) {
@@ -111,20 +106,31 @@ bool isElementwiseOpFasterOnNNPA(Operation *op, Value oper,
     e1 = 64; // Assume full.
     LLVM_DEBUG(msg += " E1=64: dyn, assume full tile.");
   }
-  double nnpaEstimatedTime = modelForNNPA(e4 * e3, e2, e1);
-  double cpuEstimatedTime = modelForCPU(e4 * e3, e2, e1);
-  LLVM_DEBUG(fprintf(stderr, "  Estimated times: nnpa %f, cpu %f\n",
-      nnpaEstimatedTime, cpuEstimatedTime));
-  if (nnpaEstimatedTime < cpuEstimatedTime)
-    return fasterOnNNPA(op, "Model estimates faster time on NNPA." + msg);
-  return fasterOnCPU(op, "Model estimates faster time on CPU." + msg);
+}
+
+void estimateTimeForElementwiseOp(Operation *op, Value oper,
+    const DimAnalysis *dimAnalysis, PERF_MODEL3 modelForCPU,
+    PERF_MODEL3 modelForNNPA, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+
+  // Process dim (collapse and handle dynamic sizes).
+  int64_t e4, e3, e2, e1;
+  std::string msg;
+  processDim(oper, e4, e3, e2, e1, msg);
+
+  cpuEstimatedTime = modelForCPU(e4 * e3, e2, e1);
+  nnpaEstimatedTime = modelForNNPA(e4 * e3, e2, e1);
+  LLVM_DEBUG(llvm::dbgs() << "  Estimated times for op " << op->getName()
+                          << ": nnpa " << nnpaEstimatedTime << ", cpu "
+                          << cpuEstimatedTime << "." << msg.c_str() << "\n");
 }
 
 //===----------------------------------------------------------------------===//
 // Support for matmul with possibly unknown dimensions.
 
-bool isMatMulOpFasterOnNNPA(Operation *op, Value a, Value b, bool aTransposed,
-    bool bTransposed, const DimAnalysis *dimAnalysis) {
+void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
+    bool bTransposed, const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
   // Scanning A.
   ShapedType aType = a.getType().dyn_cast_or_null<ShapedType>();
   assert(aType && aType.hasRank() && "expected shaped type with A rank");
@@ -152,7 +158,8 @@ bool isMatMulOpFasterOnNNPA(Operation *op, Value a, Value b, bool aTransposed,
   int64_t N = aN, M = aM, K = bK;
   // Rules common to matmul with/without broadcast.
   // Ideally we would have ranges to estimate cost when dynamic.
-  std::string msg = "";
+  std::string msg;
+  LLVM_DEBUG(msg = "");
   // Assume the broadcast B dim of the matmul will be small.
   if (aBDynamic) {
     LLVM_DEBUG(msg += " B+ for input A: assume size 1 for dynamic dims.");
@@ -216,14 +223,15 @@ bool isMatMulOpFasterOnNNPA(Operation *op, Value a, Value b, bool aTransposed,
       hasBroadcast /* no perf measurement yet for broadcast case*/) {
     // For no broadcast, pick the largest B dimension.
     int64_t B = std::max(aB, bB);
-    double nnpaEstimatedTime = estimatedTimeForNNPA_MatMul_3ds(B, N, M, K);
-    double cpuEstimatedTime = estimatedTimeForCPU_MatMul_3ds(B, N, M, K);
-    LLVM_DEBUG(fprintf(stderr,
-        "  Times for matmul: nnpa %f, cpu %f with dim (%i, %i, %i, %d)\n",
-        nnpaEstimatedTime, cpuEstimatedTime, (int)B, (int)N, (int)M, (int)K));
-    if (nnpaEstimatedTime < cpuEstimatedTime)
-      return fasterOnNNPA(op, "Model estimates faster time on NNPA." + msg);
-    return fasterOnCPU(op, "Model estimates faster time on CPU." + msg);
+    nnpaEstimatedTime = estimatedTimeForNNPA_MatMul_3ds(B, N, M, K);
+    cpuEstimatedTime = estimatedTimeForCPU_MatMul_3ds(B, N, M, K);
+    LLVM_DEBUG(llvm::dbgs()
+               << "  Estimated times for op " << op->getName() << " with dim ("
+               << B << ", " << N << ", " << M << ", " << K << "): nnpa "
+               << nnpaEstimatedTime << ", cpu " << cpuEstimatedTime << "."
+               << msg.c_str() << "\n");
+
+    return;
   }
   llvm_unreachable("should not get here");
 }
@@ -232,189 +240,225 @@ bool isMatMulOpFasterOnNNPA(Operation *op, Value a, Value b, bool aTransposed,
 // Processing for each op: binary elementwise.
 
 template <typename OP_TYPE>
-bool checkIfOpFasterOnNNPA(OP_TYPE op, const DimAnalysis *dimAnalysis) {
+void estimateTimeForOp(OP_TYPE op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
   llvm_unreachable("should have a model for all defined ops");
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXAddOp>(
-    ONNXAddOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Add_3ds, estimatedTimeForNNPA_Add_3ds);
+void estimateTimeForOp<ONNXAddOp>(ONNXAddOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Add_3ds, estimatedTimeForNNPA_Add_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXDivOp>(
-    ONNXDivOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Div_3ds, estimatedTimeForNNPA_Div_3ds);
+void estimateTimeForOp<ONNXDivOp>(ONNXDivOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Div_3ds, estimatedTimeForNNPA_Div_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXMaxOp>(
-    ONNXMaxOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Max_3ds, estimatedTimeForNNPA_Max_3ds);
+void estimateTimeForOp<ONNXMaxOp>(ONNXMaxOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Max_3ds, estimatedTimeForNNPA_Max_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXMinOp>(
-    ONNXMinOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Min_3ds, estimatedTimeForNNPA_Min_3ds);
+void estimateTimeForOp<ONNXMinOp>(ONNXMinOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Min_3ds, estimatedTimeForNNPA_Min_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXMulOp>(
-    ONNXMulOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Mul_3ds, estimatedTimeForNNPA_Mul_3ds);
+void estimateTimeForOp<ONNXMulOp>(ONNXMulOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Mul_3ds, estimatedTimeForNNPA_Mul_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXPowOp>(
-    ONNXPowOp op, const DimAnalysis *dimAnalysis) {
+void estimateTimeForOp<ONNXPowOp>(ONNXPowOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
   int64_t exponentValue;
   if (hasIntegerPowerExponent(&op, exponentValue)) {
     if (exponentValue == 2)
-      return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
+      estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0),
           dimAnalysis, estimatedTimeForCPU_Pow_2_3ds,
-          estimatedTimeForNNPA_Pow_2_3ds);
+          estimatedTimeForNNPA_Pow_2_3ds, cpuEstimatedTime, nnpaEstimatedTime);
     if (exponentValue == 3)
-      return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
+      estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0),
           dimAnalysis, estimatedTimeForCPU_Pow_3_3ds,
-          estimatedTimeForNNPA_Pow_3_3ds);
+          estimatedTimeForNNPA_Pow_3_3ds, cpuEstimatedTime, nnpaEstimatedTime);
     if (exponentValue == 4)
-      return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
+      estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0),
           dimAnalysis, estimatedTimeForCPU_Pow_4_3ds,
-          estimatedTimeForNNPA_Pow_4_3ds);
+          estimatedTimeForNNPA_Pow_4_3ds, cpuEstimatedTime, nnpaEstimatedTime);
   }
   // For other power exponent, just use pow of 8.
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Pow_8_3ds,
-      estimatedTimeForNNPA_Pow_8_3ds);
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Pow_8_3ds, estimatedTimeForNNPA_Pow_8_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXSubOp>(
-    ONNXSubOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      dimAnalysis, estimatedTimeForCPU_Sub_3ds, estimatedTimeForNNPA_Sub_3ds);
+void estimateTimeForOp<ONNXSubOp>(ONNXSubOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
+      estimatedTimeForCPU_Sub_3ds, estimatedTimeForNNPA_Sub_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 //===----------------------------------------------------------------------===//
 // Processing for each op: unary elementwise.
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXExpOp>(
-    ONNXExpOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(),
-      dimAnalysis, estimatedTimeForCPU_Exp_3ds, estimatedTimeForNNPA_Exp_3ds);
+void estimateTimeForOp<ONNXExpOp>(ONNXExpOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Exp_3ds, estimatedTimeForNNPA_Exp_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXLogOp>(
-    ONNXLogOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(),
-      dimAnalysis, estimatedTimeForCPU_Log_3ds, estimatedTimeForNNPA_Log_3ds);
+void estimateTimeForOp<ONNXLogOp>(ONNXLogOp op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Log_3ds, estimatedTimeForNNPA_Log_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXReluOp>(
-    ONNXReluOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(),
-      dimAnalysis, estimatedTimeForCPU_Relu_3ds, estimatedTimeForNNPA_Relu_3ds);
+void estimateTimeForOp<ONNXReluOp>(ONNXReluOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Relu_3ds, estimatedTimeForNNPA_Relu_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXSigmoidOp>(
-    ONNXSigmoidOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(),
-      dimAnalysis, estimatedTimeForCPU_Sigmoid_3ds,
-      estimatedTimeForNNPA_Sigmoid_3ds);
+void estimateTimeForOp<ONNXSigmoidOp>(ONNXSigmoidOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Sigmoid_3ds, estimatedTimeForNNPA_Sigmoid_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXSoftmaxOp>(
-    ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(),
-      dimAnalysis, estimatedTimeForCPU_Softmax_3ds,
-      estimatedTimeForNNPA_Softmax_3ds);
+void estimateTimeForOp<ONNXSoftmaxOp>(ONNXSoftmaxOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Softmax_3ds, estimatedTimeForNNPA_Softmax_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXTanhOp>(
-    ONNXTanhOp op, const DimAnalysis *dimAnalysis) {
-  return isElementwiseOpFasterOnNNPA(op.getOperation(), op.getOperand(),
-      dimAnalysis, estimatedTimeForCPU_Tanh_3ds, estimatedTimeForNNPA_Tanh_3ds);
+void estimateTimeForOp<ONNXTanhOp>(ONNXTanhOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_Tanh_3ds, estimatedTimeForNNPA_Tanh_3ds,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 //===----------------------------------------------------------------------===//
 // Processing for each op: MatMul.
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXMatMulOp>(
-    ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
-  return isMatMulOpFasterOnNNPA(op.getOperation(), op.getOperand(0),
-      op.getOperand(1), false /*a transposed*/, false /*b transposed*/,
-      dimAnalysis);
+void estimateTimeForOp<ONNXMatMulOp>(ONNXMatMulOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForMatMulOp(op.getOperation(), op.getOperand(0), op.getOperand(1),
+      false /*a transposed*/, false /*b transposed*/, dimAnalysis,
+      cpuEstimatedTime, nnpaEstimatedTime);
 }
 
 template <>
-bool checkIfOpFasterOnNNPA<ONNXGemmOp>(
-    ONNXGemmOp op, const DimAnalysis *dimAnalysis) {
-  return isMatMulOpFasterOnNNPA(op.getOperation(), op.getA(), op.getB(),
-      op.getTransA(), op.getTransB(), dimAnalysis);
+void estimateTimeForOp<ONNXGemmOp>(ONNXGemmOp op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForMatMulOp(op.getOperation(), op.getA(), op.getB(),
+      op.getTransA(), op.getTransB(), dimAnalysis, cpuEstimatedTime,
+      nnpaEstimatedTime);
 }
 
 } // namespace
 
-//===----------------------------------------------------------------------===//
-// Function to perform evaluation.
-
 namespace onnx_mlir {
 
-bool isOpFasterOnNNPA(mlir::Operation *op, const DimAnalysis *dimAnalysis) {
-  LLVM_DEBUG({
-    llvm::dbgs() << "Test cost-benefit of CPU/NNPA for op ";
-    op->dump();
-  });
-  // Binary elementwise NNPA candidate ops.
-  if (auto addOp = dyn_cast<ONNXAddOp>(op))
-    return checkIfOpFasterOnNNPA(addOp, dimAnalysis);
-  if (auto divOp = dyn_cast<ONNXDivOp>(op))
-    return checkIfOpFasterOnNNPA(divOp, dimAnalysis);
-  if (auto maxOp = dyn_cast<ONNXMaxOp>(op))
-    return checkIfOpFasterOnNNPA(maxOp, dimAnalysis);
-  if (auto minOp = dyn_cast<ONNXMinOp>(op))
-    return checkIfOpFasterOnNNPA(minOp, dimAnalysis);
-  if (auto mulOp = dyn_cast<ONNXMulOp>(op))
-    return checkIfOpFasterOnNNPA(mulOp, dimAnalysis);
-  if (auto powOp = dyn_cast<ONNXPowOp>(op))
-    return checkIfOpFasterOnNNPA(powOp, dimAnalysis);
-  if (auto subOp = dyn_cast<ONNXSubOp>(op))
-    return checkIfOpFasterOnNNPA(subOp, dimAnalysis);
-  // Unary elementwise NNPA candidate ops.
-  if (auto expOp = dyn_cast<ONNXExpOp>(op))
-    return checkIfOpFasterOnNNPA(expOp, dimAnalysis);
-  if (auto logOp = dyn_cast<ONNXLogOp>(op))
-    return checkIfOpFasterOnNNPA(logOp, dimAnalysis);
-  if (auto reluOp = dyn_cast<ONNXReluOp>(op))
-    return checkIfOpFasterOnNNPA(reluOp, dimAnalysis);
-  if (auto sigmoidOp = dyn_cast<ONNXSigmoidOp>(op))
-    return checkIfOpFasterOnNNPA(sigmoidOp, dimAnalysis);
-  if (auto softmaxOp = dyn_cast<ONNXSoftmaxOp>(op))
-    return checkIfOpFasterOnNNPA(softmaxOp, dimAnalysis);
-  if (auto tanhOp = dyn_cast<ONNXTanhOp>(op))
-    return checkIfOpFasterOnNNPA(tanhOp, dimAnalysis);
-  // Matmul.
-  if (auto matMulOp = dyn_cast<ONNXMatMulOp>(op))
-    return checkIfOpFasterOnNNPA(matMulOp, dimAnalysis);
-  if (auto gemmOp = dyn_cast<ONNXGemmOp>(op))
-    return checkIfOpFasterOnNNPA(gemmOp, dimAnalysis);
+//===----------------------------------------------------------------------===//
+// Estimate time for ops that have a model.
 
-  // Unknown, issue a warning and assume its faster on NNPA
-  return fasterOnNNPA(op, "Candidate for NNPA without model; please add.");
+double estimateTimeForStickOp(Value oper) {
+  // Process dim (collapse and handle dynamic sizes).
+  int64_t e4, e3, e2, e1;
+  std::string msg;
+  processDim(oper, e4, e3, e2, e1, msg);
+  return estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+}
+
+double estimateTimeForUnstickOp(Value oper) {
+  // Process dim (collapse and handle dynamic sizes).
+  int64_t e4, e3, e2, e1;
+  std::string msg;
+  processDim(oper, e4, e3, e2, e1, msg);
+  // At this time, use same estimate for stick and unstick.
+  return estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+}
+
+bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
+    double &cpuEstimatedTime, double &nnpaEstimatedTime) {
+  bool opHasModel = true;
+  if (auto addOp = dyn_cast<ONNXAddOp>(op))
+    estimateTimeForOp(addOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto divOp = dyn_cast<ONNXDivOp>(op))
+    estimateTimeForOp(divOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto maxOp = dyn_cast<ONNXMaxOp>(op))
+    estimateTimeForOp(maxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto minOp = dyn_cast<ONNXMinOp>(op))
+    estimateTimeForOp(minOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto mulOp = dyn_cast<ONNXMulOp>(op))
+    estimateTimeForOp(mulOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto powOp = dyn_cast<ONNXPowOp>(op))
+    estimateTimeForOp(powOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto subOp = dyn_cast<ONNXSubOp>(op))
+    estimateTimeForOp(subOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  // Unary elementwise NNPA candidate ops.
+  else if (auto expOp = dyn_cast<ONNXExpOp>(op))
+    estimateTimeForOp(expOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto logOp = dyn_cast<ONNXLogOp>(op))
+    estimateTimeForOp(logOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto reluOp = dyn_cast<ONNXReluOp>(op))
+    estimateTimeForOp(reluOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto sigmoidOp = dyn_cast<ONNXSigmoidOp>(op))
+    estimateTimeForOp(
+        sigmoidOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto softmaxOp = dyn_cast<ONNXSoftmaxOp>(op))
+    estimateTimeForOp(
+        softmaxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto tanhOp = dyn_cast<ONNXTanhOp>(op))
+    estimateTimeForOp(tanhOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  // Matmul.
+  else if (auto matMulOp = dyn_cast<ONNXMatMulOp>(op))
+    estimateTimeForOp(
+        matMulOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else if (auto gemmOp = dyn_cast<ONNXGemmOp>(op))
+    estimateTimeForOp(gemmOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  else
+    opHasModel = false;
+
+  return opHasModel;
 }
 
 } // namespace onnx_mlir
