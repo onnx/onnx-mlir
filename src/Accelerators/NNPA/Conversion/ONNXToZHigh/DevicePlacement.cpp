@@ -23,6 +23,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -38,11 +39,22 @@ struct DevicePlacementPass
     : public PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DevicePlacementPass)
 
+  DevicePlacementPass() = default;
+  DevicePlacementPass(const DevicePlacementPass &pass)
+      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
+  DevicePlacementPass(bool useZHighPerfModel) {
+    this->useZHighPerfModel = useZHighPerfModel;
+  }
+
   StringRef getArgument() const override { return "device-placement"; }
 
   StringRef getDescription() const override {
     return "Device placement for NNPA";
   }
+
+  Option<bool> useZHighPerfModel{*this, "use-zhigh-perf-model",
+      llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
+      llvm::cl::init(false)};
 
   void runOnOperation() final;
 };
@@ -108,9 +120,18 @@ void DevicePlacementPass::runOnOperation() {
     StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
     if (device && !device.getValue().empty())
       return WalkResult::advance();
-    // Otherwise, set device.
-    if (!cpuOps.contains(op))
-      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
+    // Op that is legal (should remain on the CPU) as determined by compiler
+    // analysis.
+    if (cpuOps.contains(op))
+      return WalkResult::advance();
+    // Now we have an operation that can work on the NNPA, check if its
+    // beneficial
+    if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
+      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
+      return WalkResult::advance();
+    }
+    // Compiler determined that we want this op on the NNPA, mark as such.
+    op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
     return WalkResult::advance();
   });
 }
@@ -124,6 +145,10 @@ namespace onnx_mlir {
  */
 std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
   return std::make_unique<DevicePlacementPass>();
+}
+
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(bool useZHighPerfModel) {
+  return std::make_unique<DevicePlacementPass>(useZHighPerfModel);
 }
 
 } // namespace onnx_mlir
