@@ -597,6 +597,12 @@ def GetLSTMGRUGetY :
 def GetLSTMGRUGetYh :
         NativeCodeCall<"getLSTMGRUGetYh($_loc, $_builder, $0, $1, $2, $3, $4)">;
 
+def GetLSTMGRUGetYWithSequenceLens :
+        NativeCodeCall<"getLSTMGRUGetYWithSequenceLens($_loc, $_builder, $0, $1, $2, $3)">;
+
+def GetLSTMGRUGetYhWithSequenceLens :
+        NativeCodeCall<"getLSTMGRUGetYhWithSequenceLens($_loc, $_builder, $0, $1, $2, $3, $4, $5)">;
+
 def GetLSTMGRUGetYc :
         NativeCodeCall<"getLSTMGRUGetYc($_loc, $_builder, $0, $1)">;
 
@@ -608,7 +614,7 @@ def EmitONNXSplitOp8Results :
 
 //===----------------------------------------------------------------------===//
 // Y, Y_h, Y_c =
-//      ONNXLSTMOp $x, $w, $r, $b, $initial_h, $requence_lens,
+//      ONNXLSTMOp $x, $w, $r, $b, $initial_h, $sequence_lens,
 //                 $initial_c, $p, $activation_alpha, $activation_beta,
 //                 $activations, $clip, $direction, $hidden_size,
 //                 $input_forget)
@@ -616,7 +622,7 @@ def EmitONNXSplitOp8Results :
 
 // Pattern1 for the not-none bias($b) and not-none Y($res__0) case
 def replaceONNXLSTMPattern1 : Pattern<
-  (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXLSTMOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
     $activations, $clip, $direction, $hidden_size,
     $input_forget, $layout),
@@ -657,7 +663,7 @@ def replaceONNXLSTMPattern1 : Pattern<
 
 // Pattern2 for the none bias($b) and not-none Y($res__0) case
 def replaceONNXLSTMPattern2 : Pattern<
-  (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXLSTMOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
      $activations, $clip, $direction, $hidden_size,
      $input_forget, $layout),
@@ -691,7 +697,7 @@ def replaceONNXLSTMPattern2 : Pattern<
 
 // Pattern3 for the not-none bias($b) and none Y($res__0) case
 def replaceONNXLSTMPattern3 : Pattern<
-  (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXLSTMOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
     $initial_c, $p, $activation_alpha, $activation_beta,
     $activations, $clip, $direction, $hidden_size,
     $input_forget, $layout),
@@ -732,7 +738,7 @@ def replaceONNXLSTMPattern3 : Pattern<
 
 // Pattern4 for the none bias($b) and none Y($res__0) case
 def replaceONNXLSTMPattern4 : Pattern<
-  (ONNXLSTMOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXLSTMOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
      $initial_c, $p, $activation_alpha, $activation_beta,
      $activations, $clip, $direction, $hidden_size,
      $input_forget, $layout),
@@ -766,14 +772,14 @@ def replaceONNXLSTMPattern4 : Pattern<
 
 //===----------------------------------------------------------------------===//
 // Y, Y_h =
-//      ONNXGRUOp $x, $w, $r, $b, $initial_h, $requence_lens, $initial_h,
+//      ONNXGRUOp $x, $w, $r, $b, $initial_h, $sequence_lens, $initial_h,
 //                $activation_alpha, $activation_beta, $activations, $clip,
 //                $direction, $hidden_size, $linear_before_reset)
 //===----------------------------------------------------------------------===//
 
 // Pattern1 for the not-none bias($b) and not-none Y($res__0) case
 def replaceONNXGRUPattern1 : Pattern<
-  (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXGRUOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
      $direction, $hidden_size, $layout, $linear_before_reset),
   [
@@ -804,15 +810,15 @@ def replaceONNXGRUPattern1 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNotNoneType:$b), (IsNotNoneType:$res__0)]
 >;
 
 // Pattern2 for the none bias($b) and not-none Y($res__0) case
 def replaceONNXGRUPattern2 : Pattern<
-  (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXGRUOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
      $direction, $hidden_size, $layout, $linear_before_reset),
   [
@@ -835,15 +841,15 @@ def replaceONNXGRUPattern2 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0, (returnType $res__0)),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNoneType:$b), (IsNotNoneType:$res__0)]
 >;
 
 // Pattern3 for the not-none bias($b) and none Y($res__0) case
 def replaceONNXGRUPattern3 : Pattern<
-  (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXGRUOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
      $direction, $hidden_size, $layout, $linear_before_reset),
   [
@@ -874,15 +880,15 @@ def replaceONNXGRUPattern3 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNotNoneType:$b), (IsNoneType:$res__0)]
 >;
 
 // Pattern4 for the none bias($b) and none Y($res__0) case
 def replaceONNXGRUPattern4 : Pattern<
-  (ONNXGRUOp:$res $x, $w, $r, $b, $requence_lens, $initial_h,
+  (ONNXGRUOp:$res $x, $w, $r, $b, $sequence_lens, $initial_h,
      $activation_alpha, $activation_beta, $activations, $clip,
      $direction, $hidden_size, $layout, $linear_before_reset),
   [
@@ -905,8 +911,8 @@ def replaceONNXGRUPattern4 : Pattern<
    // from two return values of ZHighGRUOp(=$zHighGRU).
    //
    (ZHighUnstickOp:$unstick_HnOutput $zhighGRU__0),
-   (GetLSTMGRUGetY $unstick_HnOutput, $res__0),
-   (GetLSTMGRUGetYh $unstick_HnOutput, $res__0, $res__1, $x, $direction),
+   (GetLSTMGRUGetYWithSequenceLens $unstick_HnOutput, $res__0, $sequence_lens, $initial_h),
+   (GetLSTMGRUGetYhWithSequenceLens $unstick_HnOutput, $res__0, $res__1, $x, $direction, $sequence_lens),
   ],
   [(IsNoneType:$b), (IsNoneType:$res__0)]
 >;

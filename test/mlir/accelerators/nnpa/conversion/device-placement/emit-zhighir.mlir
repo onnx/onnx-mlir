@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --EmitZHighIR --maccel=NNPA --printIR %s | FileCheck %s
+// RUN: onnx-mlir --EmitZHighIR --maccel=NNPA --disable-constant-prop=true --printIR %s | FileCheck %s
 
 // Note that, we intentionally add `device=cpu` into onnx.Gemm to force it run on CPU.
 module { 
@@ -19,7 +19,7 @@ module {
     %13 = "onnx.Relu"(%12) {device = "nnpa", onnx_node_name = "ReLU114"} : (tensor<1x16x14x14xf32>) -> tensor<1x16x14x14xf32>
     %14 = "onnx.MaxPoolSingleOut"(%13) {auto_pad = "NOTSET", ceil_mode = 0 : si64, device = "nnpa", kernel_shape = [3, 3], onnx_node_name = "Pooling160", pads = [0, 0, 0, 0], storage_order = 0 : si64, strides = [3, 3]} : (tensor<1x16x14x14xf32>) -> tensor<1x16x4x4xf32>
     %15 = "onnx.Reshape"(%14, %5) {allowzero = 0 : si64, onnx_node_name = "Times212_reshape0"} : (tensor<1x16x4x4xf32>, tensor<2xi64>) -> tensor<1x256xf32>
-    %16 = "onnx.Gemm"(%15, %8, %7) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, device = "cpu", transA = 0 : si64, transB = 0 : si64} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
+    %16 = "onnx.Gemm"(%15, %8, %7) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, device = "cpu", onnx_node_name = "Times212_reshape0_onnx.Gemm_2", transA = 0 : si64, transB = 0 : si64} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
     return %16 : tensor<1x10xf32>
   }
   "onnx.EntryPoint"() {func = @mnist} : () -> ()
@@ -49,7 +49,7 @@ module {
 // CHECK:           [[VAR_17_:%.+]] = "zhigh.MaxPool2D"([[VAR_16_]]) {kernel_shape = [3, 3], padding_type = "VALID_PADDING", strides = [3, 3]} : (tensor<1x14x14x16xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x4x4x16xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_18_:%.+]] = "zhigh.Unstick"([[VAR_17_]]) : (tensor<1x4x4x16xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1x16x4x4xf32>
 // CHECK:           [[VAR_19_:%.+]] = "onnx.Reshape"([[VAR_18_]], [[VAR_3_]]) {allowzero = 0 : si64, onnx_node_name = "Times212_reshape0"} : (tensor<1x16x4x4xf32>, tensor<2xi64>) -> tensor<1x256xf32>
-// CHECK:           [[VAR_20_:%.+]] = "onnx.Gemm"([[VAR_19_]], [[VAR_6_]], [[VAR_5_]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, device = "cpu", transA = 0 : si64, transB = 0 : si64} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
+// CHECK:           [[VAR_20_:%.+]] = "onnx.Gemm"([[VAR_19_]], [[VAR_6_]], [[VAR_5_]]) {alpha = 1.000000e+00 : f32, beta = 1.000000e+00 : f32, device = "cpu", onnx_node_name = "Times212_reshape0_onnx.Gemm_2", transA = 0 : si64, transB = 0 : si64} : (tensor<1x256xf32>, tensor<256x10xf32>, tensor<1x10xf32>) -> tensor<1x10xf32>
 // CHECK:           return [[VAR_20_]] : tensor<1x10xf32>
 // CHECK:         }
 // CHECK:         "onnx.EntryPoint"() {func = @mnist} : () -> ()

@@ -101,10 +101,10 @@ def run_onnx_mlir_opt(code_file_name, omo_command, output_file_name):
     command.append(code_file_name)
     if debug:
         debug_command_str += "//    " + ' '.join(command) + "\n"
-    res = subprocess.run(command, capture_output=True, text=True).stdout
+    proc = subprocess.run(command, capture_output=True, text=True)
     # Write command output
     with open(output_file_name, 'w') as f:
-        f.write(res)
+        f.write(proc.stdout)
 
 def run_mlir2FileCheck(model_file_name, compiled_file_name, 
         m2fc_command, output_file_name):
@@ -302,8 +302,9 @@ def main(argv):
                 print_usage('Got too many "// RUN:" command.', file_format=True)
             run_command_num = 1
             run_command = m.group(1)
-            # Strip the "%s" and "-split-input-file"
+            # Strip the "%s" and ("--split-input-file" or "-split-input-file")
             run_command = run_command.replace("%s", "")
+            run_command = run_command.replace("--split-input-file", "")
             run_command = run_command.replace("-split-input-file", "")
             continue
         # Handle function

@@ -47,8 +47,7 @@ void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
   configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
-      onnxConstPropDisablePatterns,
-      OptimizationLevel >= 3 || enableConstantProp);
+      onnxConstPropDisablePatterns, disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
@@ -126,6 +125,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
   pm.addPass(createScrubDisposablePass());
+
+  // Set onnx_node_name if it is missing. Keep this pass at the end of this
+  // function and just before instrumentation.
+  pm.addPass(createSetONNXNodeNamePass());
 
   // Add instrumentation for Onnx Ops
   // Keep this pass at the end of this function.

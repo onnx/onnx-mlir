@@ -46,7 +46,7 @@ std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
 void configureConstPropONNXToONNXPass(int expansionBound,
-    llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled);
+    llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
 
@@ -71,6 +71,9 @@ std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
+
+/// Pass for setting onnx_node_name attribute if absent.
+std::unique_ptr<mlir::Pass> createSetONNXNodeNamePass();
 
 /// Pass for verifying Onnx ops before lowering to Krnl
 std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();

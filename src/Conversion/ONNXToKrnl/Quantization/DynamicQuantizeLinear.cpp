@@ -105,7 +105,7 @@ struct ONNXDynamicQuantizeLinearOpLowering
     create.krnl.store(scale, YScale);
 
     // Compute y_zero_point.
-    Value interZeroPoint = create.math.div(create.math.sub(qMin, xMin), scale);
+    Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
     // Saturate zero point.
     Value saturateZeroPoint =
         create.onnx.clip(interZeroPoint, qMin, qMax, /*scalarType=*/true);

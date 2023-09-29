@@ -474,6 +474,11 @@ def HasUnitStrides: Constraint<
   "has unit strides"
 >;
 
+def ShouldDecomposeConvTransposeOp: Constraint<
+  CPred<"onnx_mlir::shouldDecomposeConvTransposeOp($_self)">,
+  "X and W have static spatial dims and ConvTransposeOp decomposition is enabled"
+>;
+
 def HasStaticSpatialDims: Constraint<
   CPred<"onnx_mlir::hasStaticSpatialDims($_self)">,
   "has static spatial dims"
@@ -496,7 +501,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(HasUnitStrides:$strides), (HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)], [],
+   [(ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
    (addBenefit 1)
 >;
 
@@ -513,7 +518,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
-   [(HasStaticSpatialDims:$x), (HasStaticSpatialDims:$w)], [],
+   [(ShouldDecomposeConvTransposeOp:$res)], [],
    (addBenefit 0)
 >;
 

@@ -22,8 +22,8 @@ fusedmatmuller (float[2,3] lhs, float[4,3] rhs) => (float[2,4] output) {
 // CHECK-LABEL: func.func @main_graph
 // CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<2x3xf32>, [[PARAM_1_:%.+]]: tensor<4x3xf32>) -> tensor<2x4xf32> {{.*}} {
 // CHECK:         [[VAR_0_:%.+]] = onnx.Constant dense<1.250000e-01> : tensor<1xf32>
-// CHECK:         [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
-// CHECK:         [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<2x3xf32>, tensor<3x4xf32>) -> tensor<2x4xf32>
-// CHECK:         [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_0_]]) : (tensor<2x4xf32>, tensor<1xf32>) -> tensor<2x4xf32>
+// CHECK:         [[VAR_1_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {onnx_node_name = {{.*}}, perm = [1, 0]} : (tensor<4x3xf32>) -> tensor<3x4xf32>
+// CHECK:         [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) {onnx_node_name = {{.*}}} : (tensor<2x3xf32>, tensor<3x4xf32>) -> tensor<2x4xf32>
+// CHECK:         [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_0_]]) {onnx_node_name = {{.*}}} : (tensor<2x4xf32>, tensor<1xf32>) -> tensor<2x4xf32>
 // CHECK:         return [[VAR_3_]] : tensor<2x4xf32>
 // CHECK:       }

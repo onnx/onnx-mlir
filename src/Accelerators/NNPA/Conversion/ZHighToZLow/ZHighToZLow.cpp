@@ -1361,6 +1361,195 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
+// Lower ZHigh FixGRUY to Krnl
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowFixGRUYOpLowering : public ConversionPattern {
+  ZHighToZLowFixGRUYOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighFixGRUYOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+
+    ZHighFixGRUYOpAdaptor operandAdaptor(operands);
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
+
+    // create alloc
+    ZHighFixGRUYOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    MemRefType outputMemRefType =
+        typeConverter->convertType(op->getResults()[0].getType())
+            .cast<MemRefType>();
+
+    // Value alloc =
+    //     create.mem.alignedAlloc(outputMemRefType,
+    //     shapeHelper.getOutputDims(0));
+
+    Value Y = operands[0];
+    Value sequenceLens = operands[1];
+    Value initialH = operands[2];
+    // Let's just reuse the buffer of Y
+    Value alloc = Y;
+
+    int64_t yRank = outputMemRefType.getShape().size();
+
+    // The loop nested for padding is as follows:
+    // for (bs  from 0 to batch size ) {
+    //   sequenceUB = sequence_lens[bs]
+    //   for sequenceIV = max(0, sequenceUB), SEQ_LENGTH
+    //     for (directioIV for directions)
+    //       for (hs for hidden states)
+    //         Y[sequenceIV, directionIV, bs, hs] = initValue
+
+    // Create loop for batch
+    Value iZero = create.math.constantIndex(0);
+    ValueRange batchLoop = create.krnl.defineLoops(1);
+    create.krnl.iterate(batchLoop, batchLoop, {iZero}, {create.mem.dim(Y, 2)},
+        [&](KrnlBuilder &createKrnl, ValueRange batchIndices) {
+          MathBuilder createMath(createKrnl);
+          IndexExprScope ieScope(createKrnl);
+          Value bs = batchIndices[0];
+          Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+          // The lower bound for loop of padding the batch should be
+          // max(0, sequenceUB) in integer type for possible negative value
+          Value seqLB = createMath.cast(rewriter.getIndexType(),
+              createMath.max(
+                  createMath.constant(sequenceUB.getType(), 0), sequenceUB));
+          SmallVector<Value, 4> yLbs;
+          SmallVector<Value, 4> yUbs;
+          yLbs.emplace_back(seqLB);
+          yLbs.emplace_back(iZero);
+          yLbs.emplace_back(iZero);
+          yUbs.emplace_back(create.mem.dim(Y, 0));
+          yUbs.emplace_back(create.mem.dim(Y, 1));
+          yUbs.emplace_back(create.mem.dim(Y, 3));
+
+          KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+          rewriter.setInsertionPointToStart(&regionOp.getBodyRegion().front());
+          ValueRange loops = create.krnl.defineLoops(yRank - 1);
+          create.krnl.iterate(loops, loops, yLbs, yUbs,
+              [&](KrnlBuilder &createKrnl, ValueRange indices) {
+                Value sequenceIV(indices[0]);
+                Value directionIV(indices[1]);
+                Value hs(indices[2]);
+                Value initial;
+                if (isNoneValue(initialH)) {
+                  initial = createMath.constant(
+                      outputMemRefType.getElementType(), 0.);
+                } else {
+                  initial = createKrnl.load(initialH, {directionIV, bs, hs});
+                }
+                createKrnl.store(
+                    initial, alloc, {sequenceIV, directionIV, bs, hs});
+              });
+        });
+
+#if 0
+    // This implementation is copied from GRU.cpp: calculateState.
+    // The code is simple but may be less efficient.
+    // I keep the code here for future to test the performance on real model
+    SmallVector<Value, 4> yLbs(yRank, iZero);
+    SmallVector<Value, 4> yUbs;
+    for (unsigned r = 0; r < yRank; ++r) {
+      yUbs.emplace_back(create.mem.dim(Y, r));
+    }
+
+    ValueRange loops = create.krnl.defineLoops(yRank);
+    create.krnl.iterate(loops, loops, yLbs, yUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          MathBuilder createMath(createKrnl);
+          IndexExprScope ieScope(createKrnl);
+          Value sequenceIV(indices[0]);
+          Value directionIV(indices[1]);
+          Value bs(indices[2]), hs(indices[3]);
+          Value currentV = createKrnl.load(Y, indices);
+          Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+          Value initial;
+          if (isNoneValue(initialH)) {
+            initial = createMath.constant(currentV.getType(), 0.);
+          } else {
+            initial = createKrnl.load(initialH, {directionIV, bs, hs});
+          }
+          Value cond = createMath.sge(
+              createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+          Value newV = createMath.select(cond, /*padding*/ initial, currentV);
+          createKrnl.store(newV, alloc, indices);
+        });
+#endif
+
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
+// Lower ZHigh FixGRUYh to Krnl
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowFixGRUYhOpLowering : public ConversionPattern {
+  ZHighToZLowFixGRUYhOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(
+            typeConverter, ZHighFixGRUYhOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+
+    ZHighFixGRUYhOpAdaptor operandAdaptor(operands);
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
+        create(rewriter, loc);
+
+    // create alloc
+    ZHighFixGRUYhOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    MemRefType outputMemRefType =
+        typeConverter->convertType(op->getResults()[0].getType())
+            .cast<MemRefType>();
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims(0));
+
+    Value Y = operands[0];
+    Value sequenceLens = operands[1];
+
+    // Code copied from GRU.cpp: calculateState
+    int64_t htRank = 3;
+    Value iZero = create.math.constantIndex(0);
+    Value iOne = create.math.constantIndex(1);
+    SmallVector<Value, 2> htLbs(htRank, iZero);
+    SmallVector<Value, 2> htUbs;
+    for (unsigned r = 0; r < htRank; ++r) {
+      // skip the first two dim for sequence and batch
+      htUbs.emplace_back(create.mem.dim(Y, r + 1));
+    }
+    Value seqSize = create.mem.dim(Y, 0);
+    ValueRange loops = create.krnl.defineLoops(htRank);
+    create.krnl.iterate(loops, loops, htLbs, htUbs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          MathBuilder createMath(createKrnl);
+          IndexExprScope ieScope(createKrnl);
+          Value bs(indices[1]), hs(indices[2]);
+          Value directionIV(indices[0]);
+          Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+          Value bound = createMath.min(
+              createMath.cast(seqSize.getType(), sequenceUB), seqSize);
+          Value index = createMath.sub(bound, iOne);
+          Value lastHt = createKrnl.load(Y, {index, directionIV, bs, hs});
+          createKrnl.store(lastHt, alloc, {directionIV, bs, hs});
+        });
+
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Lower ZHigh Conv2D to ZLow Conv2D
 //===----------------------------------------------------------------------===//
 struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
@@ -1479,6 +1668,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowMatMulWaitOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowGRUOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowFixGRUYOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowFixGRUYhOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBatchNormOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowConv2DOpLowering>(typeConverter, ctx);
   patterns
