@@ -119,7 +119,7 @@ LogicalResult ONNXReshapeOp::inferShapes(
   // Cannot infer shape without data rank or static shape of shape.
   // TODO: Infer shape without data rank if shape is a constant
   //       without -1 and without 0 and allowzero.
-  if (!hasShapeAndRank(getData()) || !hasStaticShape(getShape().getType()))
+  if (!hasShapeAndRank(getData()) && !hasStaticShape(getShape().getType()))
     return success();
 
   Type elementType = getData().getType().cast<ShapedType>().getElementType();
