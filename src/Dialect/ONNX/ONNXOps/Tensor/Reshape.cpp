@@ -77,11 +77,24 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     numOfElementsFromShape = numOfElementsFromShape * dim;
   }
 
-  // All the output dims except the one with -1 are computed. Thus, only
-  // update the dim with -1 here.
-  for (unsigned i = 0; i < outputRank; ++i)
-    outputDims[i] = outputDims[i].selectOrSelf(
-        outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+  // When data is ranked tensor, all the output dims except the one with -1
+  // are computed. Thus, only update the dim with -1 here.
+  // When data is unranked tensor, output dims with -1 or 0 (allowzero == 0)
+  // should be -1 (represented as QuestionmarkIndexExpr)
+  for (unsigned i = 0; i < outputRank; ++i) {
+    if (hasShapeAndRank(data)) {
+      outputDims[i] = outputDims[i].selectOrSelf(
+          outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+    } else {
+      // ToFix: can not check getAllowzero because the operandAdaptor is
+      // constructed without attributes
+      // Anyway the question mark is a conservative but correct result.
+      outputDims[i] = outputDims[i].selectOrSelf(
+          outputDims[i] == 0, QuestionmarkIndexExpr(false));
+      outputDims[i] = outputDims[i].selectOrSelf(
+          outputDims[i] == -1, QuestionmarkIndexExpr(false));
+    }
+  }
 
   // Save the final result.
   setOutputDims(outputDims);
