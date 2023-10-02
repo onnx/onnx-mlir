@@ -311,6 +311,8 @@ struct DevicePlacementWithStickUnstickCost {
     for (Value inputVal : opX->getOperands()) {
       // Investigate the operation that defines inputVal (which is used by op)
       Operation *definingOp = inputVal.getDefiningOp();
+      if (!definingOp)
+        continue;
       // Classify all other users of this input value.
       int64_t cpuOpCount, nnpaOpCount, nnpaCandidateOpCount, nnpaNeutralOpCount;
       classifyValueUsage(inputVal, /*skip op X that we are analyzing*/ opX,
