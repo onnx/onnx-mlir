@@ -27,26 +27,22 @@ agraph (float[12,3,5] X, float[5] S) => (float[12,3,5] LN) {
 // CHECK:           [[VAR_11_:%.+]] = onnx.ConstantOfShape([[VAR_10_]]) {value = dense<1> : tensor<1xi64>} : (tensor<1xi64>) -> tensor<?xi64>
 // CHECK-DAG:       [[VAR_12_:%.+]] = "onnx.Concat"([[VAR_9_]], [[VAR_11_]]) {axis = 0 : si64} : (tensor<2xi64>, tensor<?xi64>) -> tensor<?xi64>
 // CHECK-DAG:       [[VAR_13_:%.+]] = "onnx.Flatten"([[PARAM_0_]]) {axis = -1 : si64} : (tensor<12x3x5xf32>) -> tensor<36x5xf32>
+// CHECK:           [[VAR_14_:%.+]] = "onnx.Cast"([[VAR_13_]]) {saturate = 1 : si64, to = f32} : (tensor<36x5xf32>) -> tensor<36x5xf32>
+// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.ReduceMeanV13"([[VAR_14_]]) {axes = [1], keepdims = 1 : si64} : (tensor<36x5xf32>) -> tensor<36x1xf32>
+// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.Mul"([[VAR_14_]], [[VAR_14_]]) : (tensor<36x5xf32>, tensor<36x5xf32>) -> tensor<36x5xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_14_:%.+]] = "onnx.Cast"([[VAR_13_]]) {saturate = 1 : si64, to = f32} : (tensor<36x5xf32>) -> tensor<36x5xf32>
-// CHECK-DAG:       [[VAR_15_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_16_:%.+]] = "onnx.ReduceMean"([[VAR_14_]], [[VAR_15_]]) {axes = [1], keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<36x5xf32>, none) -> tensor<36x1xf32>
-// CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.Mul"([[VAR_14_]], [[VAR_14_]]) : (tensor<36x5xf32>, tensor<36x5xf32>) -> tensor<36x5xf32>
-// CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_19_:%.+]] = "onnx.ReduceMean"([[VAR_17_]], [[VAR_18_]]) {axes = [1], keepdims = 1 : si64, noop_with_empty_axes = 0 : si64} : (tensor<36x5xf32>, none) -> tensor<36x1xf32>
-// CHECK-DAG:       [[VAR_20_:%.+]] = "onnx.Mul"([[VAR_16_]], [[VAR_16_]]) : (tensor<36x1xf32>, tensor<36x1xf32>) -> tensor<36x1xf32>
-// CHECK:           [[VAR_21_:%.+]] = "onnx.Sub"([[VAR_19_]], [[VAR_20_]]) : (tensor<36x1xf32>, tensor<36x1xf32>) -> tensor<36x1xf32>
-// CHECK:           [[VAR_22_:%.+]] = "onnx.Add"([[VAR_21_]], [[VAR_2_]]) : (tensor<36x1xf32>, tensor<f32>) -> tensor<36x1xf32>
-// CHECK-DAG:       [[VAR_23_:%.+]] = "onnx.Sqrt"([[VAR_22_]]) : (tensor<36x1xf32>) -> tensor<36x1xf32>
-// CHECK-DAG:       [[VAR_24_:%.+]] = "onnx.Sub"([[VAR_14_]], [[VAR_16_]]) : (tensor<36x5xf32>, tensor<36x1xf32>) -> tensor<36x5xf32>
-// CHECK:           [[VAR_25_:%.+]] = "onnx.Div"([[VAR_24_]], [[VAR_23_]]) : (tensor<36x5xf32>, tensor<36x1xf32>) -> tensor<36x5xf32>
-// CHECK-DAG:       [[VAR_26_:%.+]] = "onnx.Cast"([[VAR_25_]]) {saturate = 1 : si64, to = f32} : (tensor<36x5xf32>) -> tensor<36x5xf32>
-// CHECK-DAG:       [[VAR_27_:%.+]] = "onnx.Flatten"([[PARAM_1_]]) {axis = 0 : si64} : (tensor<5xf32>) -> tensor<1x5xf32>
-// CHECK:           [[VAR_28_:%.+]] = "onnx.Mul"([[VAR_26_]], [[VAR_27_]]) : (tensor<36x5xf32>, tensor<1x5xf32>) -> tensor<36x5xf32>
-// CHECK:           [[VAR_29_:%.+]] = "onnx.Identity"([[VAR_28_]]) : (tensor<36x5xf32>) -> tensor<36x5xf32>
-// CHECK-DAG:       [[VAR_30_:%.+]] = "onnx.Reshape"([[VAR_29_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<36x5xf32>, tensor<3xi64>) -> tensor<12x3x5xf32>
-// CHECK-DAG:       [[VAR_31_:%.+]] = "onnx.Reciprocal"([[VAR_23_]]) : (tensor<36x1xf32>) -> tensor<36x1xf32>
-// CHECK:           onnx.Return [[VAR_30_]] : tensor<12x3x5xf32>
+// CHECK-DAG:       [[VAR_17_:%.+]] = "onnx.ReduceMeanV13"([[VAR_16_]]) {axes = [1], keepdims = 1 : si64} : (tensor<36x5xf32>) -> tensor<36x1xf32>
+// CHECK-DAG:       [[VAR_18_:%.+]] = "onnx.Mul"([[VAR_15_]], [[VAR_15_]]) : (tensor<36x1xf32>, tensor<36x1xf32>) -> tensor<36x1xf32>
+// CHECK:           [[VAR_19_:%.+]] = "onnx.Sub"([[VAR_17_]], [[VAR_18_]]) : (tensor<36x1xf32>, tensor<36x1xf32>) -> tensor<36x1xf32>
+// CHECK:           [[VAR_20_:%.+]] = "onnx.Add"([[VAR_19_]], [[VAR_2_]]) : (tensor<36x1xf32>, tensor<f32>) -> tensor<36x1xf32>
+// CHECK-DAG:       [[VAR_21_:%.+]] = "onnx.Sqrt"([[VAR_20_]]) : (tensor<36x1xf32>) -> tensor<36x1xf32>
+// CHECK-DAG:       [[VAR_22_:%.+]] = "onnx.Sub"([[VAR_14_]], [[VAR_15_]]) : (tensor<36x5xf32>, tensor<36x1xf32>) -> tensor<36x5xf32>
+// CHECK:           [[VAR_23_:%.+]] = "onnx.Div"([[VAR_22_]], [[VAR_21_]]) : (tensor<36x5xf32>, tensor<36x1xf32>) -> tensor<36x5xf32>
+// CHECK-DAG:       [[VAR_24_:%.+]] = "onnx.Cast"([[VAR_23_]]) {saturate = 1 : si64, to = f32} : (tensor<36x5xf32>) -> tensor<36x5xf32>
+// CHECK-DAG:       [[VAR_25_:%.+]] = "onnx.Flatten"([[PARAM_1_]]) {axis = 0 : si64} : (tensor<5xf32>) -> tensor<1x5xf32>
+// CHECK:           [[VAR_26_:%.+]] = "onnx.Mul"([[VAR_24_]], [[VAR_25_]]) : (tensor<36x5xf32>, tensor<1x5xf32>) -> tensor<36x5xf32>
+// CHECK:           [[VAR_27_:%.+]] = "onnx.Identity"([[VAR_26_]]) : (tensor<36x5xf32>) -> tensor<36x5xf32>
+// CHECK-DAG:       [[VAR_28_:%.+]] = "onnx.Reshape"([[VAR_27_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<36x5xf32>, tensor<3xi64>) -> tensor<12x3x5xf32>
+// CHECK-DAG:       [[VAR_29_:%.+]] = "onnx.Reciprocal"([[VAR_21_]]) : (tensor<36x1xf32>) -> tensor<36x1xf32>
+// CHECK:           onnx.Return [[VAR_28_]] : tensor<12x3x5xf32>
 // CHECK:         }
