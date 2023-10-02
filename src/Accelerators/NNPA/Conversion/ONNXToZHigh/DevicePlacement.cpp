@@ -36,6 +36,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -57,20 +58,20 @@ struct DevicePlacementPass
 
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DevicePlacementPass)
 
+  DevicePlacementPass() = default;
+  DevicePlacementPass(const DevicePlacementPass &pass)
+      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
+  DevicePlacementPass(std::string loadConfigFile, std::string saveConfigFile,
+      bool useZHighPerfModel) {
+    this->loadConfigFile = loadConfigFile;
+    this->saveConfigFile = saveConfigFile;
+    this->useZHighPerfModel = useZHighPerfModel;
+  }
+
   StringRef getArgument() const override { return "device-placement"; }
 
   StringRef getDescription() const override {
     return "Device placement for NNPA";
-  }
-
-  // Make sure that we have a valid default constructor and copy
-  // constructor to make sure that the options are initialized properly.
-  DevicePlacementPass() = default;
-  DevicePlacementPass(const DevicePlacementPass &pass)
-      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
-  DevicePlacementPass(std::string loadConfigFile, std::string saveConfigFile) {
-    this->loadConfigFile = loadConfigFile;
-    this->saveConfigFile = saveConfigFile;
   }
 
   Option<std::string> saveConfigFile{*this, "save-config-file",
@@ -80,6 +81,10 @@ struct DevicePlacementPass
   Option<std::string> loadConfigFile{*this, "load-config-file",
       llvm::cl::desc("Path to load a device configuration file in JSON format"),
       llvm::cl::init("")};
+
+  Option<bool> useZHighPerfModel{*this, "use-zhigh-perf-model",
+      llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
+      llvm::cl::init(false)};
 
   void runOnOperation() final;
 
@@ -189,10 +194,20 @@ void DevicePlacementPass::runOnOperation() {
   for (Operation *op : ops) {
     // Set device if it is empty or unavailable.
     StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-    if (!device || device.getValue().empty()) {
-      if (!cpuOps.contains(op))
-        op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
+    if (device && !device.getValue().empty())
+      continue;
+    // Op that is legal (should remain on the CPU) as determined by compiler
+    // analysis.
+    if (cpuOps.contains(op))
+      continue;
+    // Now we have an operation that can work on the NNPA, check if its
+    // beneficial
+    if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
+      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
+      continue;
     }
+    // Compiler determined that we want this op on the NNPA, mark as such.
+    op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
   }
 
   // Create a JSON configuration file if required.
@@ -290,8 +305,10 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
 }
 
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
-    std::string loadConfigFile, std::string saveConfigFile) {
-  return std::make_unique<DevicePlacementPass>(loadConfigFile, saveConfigFile);
+    std::string loadConfigFile, std::string saveConfigFile,
+    bool useZHighPerfModel) {
+  return std::make_unique<DevicePlacementPass>(
+      loadConfigFile, saveConfigFile, useZHighPerfModel);
 }
 
 } // namespace onnx_mlir

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --constprop-onnx --enable-constant-prop=true %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --constprop-onnx %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 // Common tests. Use ONNXAddOp as example.

@@ -46,12 +46,19 @@ llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
         "Load device placement configuration from a JSON file. To "
         "have a template for the JSON file, use "
         "-save-device-placement-file=cfg.json. Note that we can use regex for "
-        "string values in the JSON file to match operations."),
+        "string values in the JSON file to match operations. The compiler uses "
+        "C++ std::regex_match function for matching."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
 llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile{
     "nnpa-save-device-placement-file",
     llvm::cl::desc("Save device placement configuration to a JSON file."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<bool> nnpaEnableZHighPerfModel("enable-zhigh-perf-model",
+    llvm::cl::desc("Enabling performance cost model to estimate if ONNX "
+                   "operations will be faster on the NNPA or the CPU. Works "
+                   "best with static shapes. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 } // namespace onnx_mlir
