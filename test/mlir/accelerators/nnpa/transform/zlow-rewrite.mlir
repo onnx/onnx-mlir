@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
 #map = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
 func.func @remove_dangling_stick(%arg0: memref<?x?xf32>) -> memref<?x?xf32> {

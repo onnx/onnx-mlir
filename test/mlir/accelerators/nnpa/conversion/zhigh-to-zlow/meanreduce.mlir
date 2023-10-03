@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @should_lower_to_zlow(%arg0: tensor<1x5x7x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<*xf32> {
   %0 = "zhigh.MeanReduce2d"(%arg0) : (tensor<1x5x7x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<*xf32>
