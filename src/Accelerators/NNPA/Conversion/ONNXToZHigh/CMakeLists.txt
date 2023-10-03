@@ -58,6 +58,7 @@ add_onnx_mlir_library(OMZHighToONNX
 
 add_onnx_mlir_library(OMDevicePlacement
   DevicePlacement.cpp
+  PerfModel.cpp
 
   DEPENDS
   libzdnn

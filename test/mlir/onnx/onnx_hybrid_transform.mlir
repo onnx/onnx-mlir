@@ -1,6 +1,6 @@
-// RUN: onnx-mlir-opt --enable-constant-prop=true -onnx-hybrid-transform="constant-propagation=false decomposition=false" %s | FileCheck %s
-// RUN: onnx-mlir-opt --enable-constant-prop=true -onnx-hybrid-transform=constant-propagation=false %s | FileCheck --check-prefix=DECOMPOSE %s
-// RUN: onnx-mlir-opt --enable-constant-prop=true -onnx-hybrid-transform=decomposition=false %s | FileCheck --check-prefix=CONSTPROP %s
+// RUN: onnx-mlir-opt  -onnx-hybrid-transform="constant-propagation=false decomposition=false" %s | FileCheck %s
+// RUN: onnx-mlir-opt  -onnx-hybrid-transform=constant-propagation=false %s | FileCheck --check-prefix=DECOMPOSE %s
+// RUN: onnx-mlir-opt  -onnx-hybrid-transform=decomposition=false %s | FileCheck --check-prefix=CONSTPROP %s
 
 // Illustrates the back and forth between shape inference and the
 // BinaryOpBroadcastAxisPattern canonicalization pattern:

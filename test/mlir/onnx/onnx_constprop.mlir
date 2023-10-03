@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --constprop-onnx --enable-constant-prop=true %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --constprop-onnx %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 // Common tests. Use ONNXAddOp as example.
@@ -1916,3 +1916,47 @@ func.func @test_sum_3_inputs() -> tensor<2x2xf32> {
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_if_true(%arg0 : tensor<*xf16>, %arg1 : tensor<1xi64>, %arg2 : tensor<*xf16>) -> tensor<?xi64> {
+    %487 = onnx.Constant dense<true> : tensor<1xi1>
+    %488 = "onnx.If"(%487) ({
+      %6277 = onnx.Constant dense<1> : tensor<1xi64>
+      %6278 = "onnx.Squeeze"(%arg0, %arg1) : (tensor<*xf16>, tensor<1xi64>) -> tensor<?x?x?xf16>
+      onnx.Yield %6278 : tensor<?x?x?xf16>
+    }, {
+      %6277 = "onnx.Identity"(%arg2) : (tensor<*xf16>) -> tensor<?x?x?x?xf16>
+      onnx.Yield %6277 : tensor<?x?x?x?xf16>
+    }) : (tensor<1xi1>) -> tensor<*xf16>
+    %490 = "onnx.Shape"(%488) { start = 0 : si64} : (tensor<*xf16>) -> tensor<?xi64>
+   onnx.Return %490 : tensor<?xi64>
+}
+// CHECK-LABEL:  func.func @test_if_true
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>, [[PARAM_1_:%.+]]: tensor<1xi64>, [[PARAM_2_:%.+]]: tensor<*xf16>) -> tensor<?xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Squeeze"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<*xf16>, tensor<1xi64>) -> tensor<?x?x?xf16>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) {start = 0 : si64} : (tensor<?x?x?xf16>) -> tensor<?xi64>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?xi64>
+// CHECK:         }
+
+// -----
+
+func.func @test_if_false(%arg0 : tensor<*xf16>, %arg1 : tensor<1xi64>, %arg2 : tensor<*xf16>) -> tensor<?xi64> {
+    %487 = onnx.Constant dense<false> : tensor<1xi1>
+    %488 = "onnx.If"(%487) ({
+      %6277 = onnx.Constant dense<1> : tensor<1xi64>
+      %6278 = "onnx.Squeeze"(%arg0, %arg1) : (tensor<*xf16>, tensor<1xi64>) -> tensor<?x?x?xf16>
+      onnx.Yield %6278 : tensor<?x?x?xf16>
+    }, {
+      %6277 = "onnx.Identity"(%arg2) : (tensor<*xf16>) -> tensor<?x?x?x?xf16>
+      onnx.Yield %6277 : tensor<?x?x?x?xf16>
+    }) : (tensor<1xi1>) -> tensor<*xf16>
+    %490 = "onnx.Shape"(%488) { start = 0 : si64} : (tensor<*xf16>) -> tensor<?xi64>
+   onnx.Return %490 : tensor<?xi64>
+}
+// CHECK-LABEL:  func.func @test_if_false
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>, [[PARAM_1_:%.+]]: tensor<1xi64>, [[PARAM_2_:%.+]]: tensor<*xf16>) -> tensor<?xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Identity"([[PARAM_2_]]) : (tensor<*xf16>) -> tensor<?x?x?x?xf16>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) {start = 0 : si64} : (tensor<?x?x?x?xf16>) -> tensor<?xi64>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?xi64>
+// CHECK:         }

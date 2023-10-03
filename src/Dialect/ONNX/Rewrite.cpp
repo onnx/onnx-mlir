@@ -720,7 +720,7 @@ public:
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
     assert(operand.size() == 1 && "should be called with singleton range");
-    Value input = operand[0];
+    Value input = operand[0].get();
     if (!input.getType().isa<NoneType>()) {
       Value transposed = transpose(input, perm);
       operand.assign(transposed);
@@ -914,24 +914,8 @@ public:
 private:
   // Check if a Pow can be simply rewritten as a sequence of multiply ops.
   bool CanExpandPowOpToMul(ONNXPowOp op, int64_t &powVal) const {
-    Value exponent = op.getY();
-    ElementsAttr elementAttr = getElementAttributeFromONNXValue(exponent);
-    if (!elementAttr)
-      return false;
-    if (elementAttr.getNumElements() != 1)
-      return false;
-    Type elementType = elementAttr.getElementType();
-    if (elementType.isa<FloatType>()) {
-      double floatVal = getScalarValue<double>(elementAttr, elementType);
-      powVal = ceil(floatVal);
-      if (powVal == floatVal && powVal >= 0 && powVal <= maxPower)
-        return true;
-    } else if (elementType.isa<IntegerType>()) {
-      powVal = getScalarValue<int64_t>(elementAttr, elementType);
-      if (powVal >= 0 && powVal <= maxPower)
-        return true;
-    }
-    return false;
+    return (hasIntegerPowerExponent(&op, powVal) && powVal >= 0 &&
+            powVal <= maxPower);
   }
   // Data.
   int64_t maxPower;

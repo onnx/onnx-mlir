@@ -65,12 +65,12 @@ namespace {
 struct ConstPropONNXToONNXPassConfiguration {
   static int expansionBound;
   static StringSet<> disabledPatterns;
-  static bool constantPropIsEnabled;
+  static bool constantPropIsDisabled;
 };
 
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
 StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
-bool ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled = false;
+bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
 
 // Precondition: result has ranked tensor type with static shape and int or
 // float element type.
@@ -90,12 +90,12 @@ bool satisfiesExpansionBound(Value result) {
          getSizeInBytes(resultType);
 }
 
-// We want to enable Constant Propagation only for Level O3 or when a user
-// manually specifies the "enable-constant-prop" flag.
-bool isConstantPropagationEnabled() {
-  bool enable = (/*enableConstantProp*/ ConstPropONNXToONNXPassConfiguration::
-          constantPropIsEnabled);
-  return enable;
+// We want to disable Constant Propagation when a user
+// manually specifies the "disable-constant-prop" flag.
+bool isConstantPropagationDisabled() {
+  bool disable = (/*disableConstantProp*/ ConstPropONNXToONNXPassConfiguration::
+          constantPropIsDisabled);
+  return disable;
 }
 
 bool isNotDisabled(StringRef name) {
@@ -1023,6 +1023,42 @@ public:
   }
 };
 
+class IfOfConst : public OpRewritePattern<ONNXIfOp> {
+public:
+  using OpRewritePattern<ONNXIfOp>::OpRewritePattern;
+
+  LogicalResult match(ONNXIfOp ifOp) const override {
+    if (!isDenseONNXConstant(ifOp.getCond()))
+      return failure();
+    return success();
+  }
+
+  void rewrite(ONNXIfOp ifOp, PatternRewriter &rewriter) const override {
+    Value cond = ifOp.getCond();
+    ElementsAttr condElements = getConstValueElements(cond);
+    auto splitValues = condElements.getValues<bool>();
+    Region *region;
+    if (splitValues[0] == 0) {
+      region = &ifOp.getElseBranch();
+    } else {
+      region = &ifOp.getThenBranch();
+    }
+
+    assert(
+        region->hasOneBlock() && "Then/Else region should have only one block");
+
+    Operation *yieldOp = region->front().getTerminator();
+    ValueRange yields = yieldOp->getOperands();
+    SmallVector<Value, 4> outputs(yields.begin(), yields.end());
+    Block *newBlock =
+        rewriter.splitBlock(&region->front(), region->front().begin());
+
+    rewriter.eraseOp(yieldOp);
+    rewriter.inlineBlockBefore(newBlock, ifOp);
+    rewriter.replaceOp(ifOp, outputs);
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Code to manage the pass.
 //===----------------------------------------------------------------------===//
@@ -1053,20 +1089,21 @@ void ConstPropONNXToONNXPass::runOnOperation() {
 } // end anonymous namespace.
 
 void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
-  if (!isConstantPropagationEnabled())
+  if (isConstantPropagationDisabled())
     return;
   populateWithGenerated(patterns);
   if (isNotDisabled("SplitOfConst"))
     patterns.insert<SplitOfConst>(patterns.getContext());
+  patterns.insert<IfOfConst>(patterns.getContext());
 }
 
 void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
-    ArrayRef<std::string> disabledPatterns, bool constantPropIsEnabled) {
+    ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled) {
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
   ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
       disabledPatterns.begin(), disabledPatterns.end());
-  ConstPropONNXToONNXPassConfiguration::constantPropIsEnabled =
-      constantPropIsEnabled;
+  ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled =
+      constantPropIsDisabled;
 }
 
 /*!
