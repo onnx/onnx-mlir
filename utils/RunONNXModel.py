@@ -550,7 +550,7 @@ def warning(msg):
 def data_without_top_bottom_quartile(data, percent):
     data = np.array(sorted(data))
     trim = int(percent * data.size / 100.0)
-    if data.size - 2 * trim < 1:
+    if trim == 0 or data.size - 2 * trim < 1:
         # Want at least one element, return as is.
         return data
     return data[trim:-trim]
