@@ -720,7 +720,7 @@ public:
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
     assert(operand.size() == 1 && "should be called with singleton range");
-    Value input = operand[0];
+    Value input = operand[0].get();
     if (!input.getType().isa<NoneType>()) {
       Value transposed = transpose(input, perm);
       operand.assign(transposed);
