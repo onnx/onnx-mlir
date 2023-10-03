@@ -22,6 +22,7 @@ import variables
 from variables import *
 import _ctypes
 
+
 # determine the dynamic input and dim
 def determine_dynamic_parameters(test_name):
     if not args.dynamic:
@@ -49,7 +50,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
     env_string = ""
     if dynamic_inputs_dims is not None:
         first_input = True
-        for (input_index, dim_indices) in dynamic_inputs_dims.items():
+        for input_index, dim_indices in dynamic_inputs_dims.items():
             if first_input:
                 env_string += str(input_index)
                 first_input = False
@@ -77,7 +78,7 @@ def check_instruction(test_name, exec_name):
 
 
 def compile_model(model, emit):
-    suffix = {"lib": ".so", "obj" : ".o", "jni": ".jar"}
+    suffix = {"lib": ".so", "obj": ".o", "jni": ".jar"}
     target = {"lib": "--EmitLib", "obj": "--EmitObj", "jni": "--EmitJNI"}
     name = model.graph.name
 
@@ -98,8 +99,12 @@ def compile_model(model, emit):
     onnx.save(model, model_name)
 
     if args.verbose:
-        print(("Success" if os.path.exists(model_name) else "Failure") +
-              " saving " + model_name, file=sys.stderr)
+        print(
+            ("Success" if os.path.exists(model_name) else "Failure")
+            + " saving "
+            + model_name,
+            file=sys.stderr,
+        )
 
     exec_base = os.path.join(model_dir, name)
     exec_name = exec_base + suffix[emit]
@@ -123,8 +128,10 @@ def compile_model(model, emit):
     if args.constants_to_file:
         command_list.append("--store-constants-to-file=true")
     if args.constants_to_file_total_threshold:
-        command_list.append("--constants-to-file-total-threshold=" +
-                            str(args.constants_to_file_total_threshold))
+        command_list.append(
+            "--constants-to-file-total-threshold="
+            + str(args.constants_to_file_total_threshold)
+        )
 
     command_list.append(target[emit])
     command_list.append(model_name)
