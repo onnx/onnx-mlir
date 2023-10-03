@@ -30,6 +30,7 @@ typedef enum {
   InstrumentBeforeOp = 0x0,
   InstrumentAfterOp = 0x1,
   InstrumentReportTime = 0x2,
+  InstrumentInit = 0x3,
   InstrumentReportMemory = 0x4,
 } InstrumentActions;
 
@@ -66,6 +67,11 @@ typedef enum {
   (x) = (x) | (0x1ull << (unsigned int)InstrumentReportMemory)
 #define IS_INSTRUMENT_REPORT_MEMORY(x)                                         \
   ((x) & (0x1ull << (unsigned int)InstrumentReportMemory))
+
+#define SET_INSTRUMENT_INIT(x)                                        \
+  (x) = (x) | (0x1ull << (unsigned int)InstrumentInit)
+#define IS_INSTRUMENT_INIT(x)                                         \
+  ((x) & (0x1ull << (unsigned int)InstrumentInit))
 
 /* Second - third byte. */
 #define INSTRUMENT_OP_NAME_MASK 0x3Full /* Max 64 chars. */
