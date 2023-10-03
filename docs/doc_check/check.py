@@ -26,11 +26,15 @@ from doc_parser import try_parse_and_handle_directive
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "root_dir",
-    help="directory in which to look for documentation to operate on")
+    "root_dir", help="directory in which to look for documentation to operate on"
+)
 
-parser.add_argument('--exclude_dirs', nargs='+',
-                    help='a set of directories to exclude, with path specified relative to root_dir', default=[])
+parser.add_argument(
+    "--exclude_dirs",
+    nargs="+",
+    help="a set of directories to exclude, with path specified relative to root_dir",
+    default=[],
+)
 
 
 def main(root_dir, exclude_dirs):
@@ -38,7 +42,7 @@ def main(root_dir, exclude_dirs):
         exclude_dirs[i] = os.path.normpath(os.path.join(root_dir, exclude_dir))
 
     ctx = DocCheckerCtx(root_dir)
-    for doc_file in chain(Path(root_dir).rglob('*.md'), Path(root_dir).rglob('*.dc')):
+    for doc_file in chain(Path(root_dir).rglob("*.md"), Path(root_dir).rglob("*.dc")):
         doc_file = os.path.normpath(doc_file)
         # Skip, if doc file is in directories to be excluded.
         if any([str(doc_file).startswith(exclude_dir) for exclude_dir in exclude_dirs]):
