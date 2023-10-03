@@ -23,13 +23,13 @@ import check
 
 class TestStringMethods(unittest.TestCase):
     def test_basic(self):
-        check.main('./file-same-as-stdout/success/', [])
+        check.main("./file-same-as-stdout/success/", [])
 
     def test_failure(self):
         with self.assertRaises(ValueError) as context:
-            check.main('./file-same-as-stdout/failure/', [])
-        self.assertTrue('Check file-same-as-stdout failed' in str(
-            context.exception))
+            check.main("./file-same-as-stdout/failure/", [])
+        self.assertTrue("Check file-same-as-stdout failed" in str(context.exception))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -1192,9 +1192,6 @@ private:
         onnx::OpSchemaRegistry::Instance(),
         /*options=*/{}, in_model_functions_);
 
-    std::string scopeName =
-        node.name() + ":" + node.op_type() + ":" + functionProto.name();
-
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
     if (schema) {
@@ -1209,6 +1206,10 @@ private:
 
     // TODO: Reuse importGraph() logic.
     {
+      opset_map_ = std::move(function_opset_map);
+
+      std::string scopeName =
+          node.name() + ":" + node.op_type() + ":" + functionProto.name();
       frontend_symbols_.pushScope(scopeName);
       onnx_type_map.pushScope(scopeName);
 
@@ -1246,7 +1247,7 @@ private:
 
     // Restore caller context.
     if (schema) {
-      callerModelFunctions = std::move(in_model_functions_);
+      in_model_functions_ = std::move(callerModelFunctions);
     }
     opset_map_ = std::move(callerOpsetMap);
     frontend_symbols_ = std::move(callerScope);
