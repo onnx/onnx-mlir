@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --maccel=NNPA  --printIR --EmitZHighIR --instrument-stage=Onnx --instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime -tag="test" %s | FileCheck %s
+// RUN: onnx-mlir --mcpu=z16 --maccel=NNPA  --printIR --EmitZHighIR --instrument-stage=Onnx --instrument-ops=onnx.* --InstrumentBeforeOp --InstrumentAfterOp --InstrumentReportTime -tag="test" %s | FileCheck %s
 
 func.func @test_instrument_add_onnx(%arg0 : tensor<10x10xf32>, %arg1 : tensor<10x10xf32>) -> tensor<*xf32> {
   %0 = "onnx.Add"(%arg0, %arg1) {onnx_node_name = "onnx.Add"} : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<*xf32>

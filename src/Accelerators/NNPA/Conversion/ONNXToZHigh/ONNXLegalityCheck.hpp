@@ -4,7 +4,7 @@
 
 //===---------- ONNXLegalityCheck.hpp - Check legality for ONNX ops -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -25,6 +25,10 @@
 template <typename OP_TYPE>
 bool isSuitableForZDNN(
     OP_TYPE op, const onnx_mlir::DimAnalysis *dimAnalysis = nullptr);
+
+/// Check if the input NNPA level is compatible with the current NNPA
+/// level.
+bool isCompatibleWithNNPALevel(std::string inputNNPALevel);
 
 /// Get padding type using shape helper. This returns
 /// `SAME_PADDING`, `VALID_PADDING`, or empty.

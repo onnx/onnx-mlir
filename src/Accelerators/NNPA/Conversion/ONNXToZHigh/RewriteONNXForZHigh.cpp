@@ -499,6 +499,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   // broadcasting.
   addDynamicallyLegalOpFor<ONNXAddOp>(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -508,6 +511,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       });
   addDynamicallyLegalOpFor<ONNXDivOp>(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -515,6 +521,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       });
   addDynamicallyLegalOpFor<ONNXMulOp>(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -522,6 +531,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       });
   addDynamicallyLegalOpFor<ONNXSubOp>(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -540,6 +552,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   // one where N-D will become 3-D or to split MatMul into smaller MatMuls.
   addDynamicallyLegalOpFor<ONNXMatMulOp>(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
         Type aType = op.getA().getType();
         Type bType = op.getB().getType();
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
@@ -579,10 +594,14 @@ void getRewriteONNXForZHighDynamicallyLegal(
       });
 
   // Illegalize SoftmaxOp if
+  // - the NNPA level is not compatible, or
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
+        // Check NNPA level.
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
         Value input = op.getInput();
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
           if ((shapedType.getRank() > 3) &&
