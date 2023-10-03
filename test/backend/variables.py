@@ -23,6 +23,7 @@ import sys
 import argparse
 import tempfile
 
+
 # Reimplement strtobool per PEP 632 and python 3.12 deprecation
 def strtobool(s: str) -> bool:
     if s.lower() in ["y", "yes", "t", "true", "on", "1"]:
@@ -31,6 +32,7 @@ def strtobool(s: str) -> bool:
         return False
     else:
         raise ValueError(f"{s} cannot be converted to bool")
+
 
 def get_args_from_env():
     # Casting with "bool" does not work well. When you specify TEST_VERBOSE=xxx,
@@ -83,7 +85,9 @@ def get_args_from_env():
     parser.add_argument(
         "--constants_to_file",
         action="store_true",
-        default=(strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False),
+        default=(
+            strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False
+        ),
         help="whether store constants to file or not, passed to the compiler",
     )
     parser.add_argument(
@@ -108,13 +112,17 @@ def get_args_from_env():
     parser.add_argument(
         "--input_verification",
         action="store_true",
-        default=(strtobool(TEST_INPUT_VERIFICATION) if TEST_INPUT_VERIFICATION else False),
+        default=(
+            strtobool(TEST_INPUT_VERIFICATION) if TEST_INPUT_VERIFICATION else False
+        ),
         help="enable input verification tests (default: false if TEST_INPUT_VERIFICATION env var not set)",
     )
     parser.add_argument(
         "--instruction_check",
         action="store_true",
-        default=(strtobool(TEST_INSTRUCTION_CHECK) if TEST_INSTRUCTION_CHECK else False),
+        default=(
+            strtobool(TEST_INSTRUCTION_CHECK) if TEST_INSTRUCTION_CHECK else False
+        ),
         help="check if specific instruction is included in generated library (default: false if TEST_INSTRUCTION_CHECK env var not set)",
     )
     parser.add_argument(
@@ -235,8 +243,8 @@ def get_runtime_vars():
     if args.maccel:
         print("  targeting maccel:", args.maccel, file=sys.stderr)
 
-    RUNTIME_DIR = ''
-    TEST_DRIVER = ''
+    RUNTIME_DIR = ""
+    TEST_DRIVER = ""
     if args.compilerlib:
         import test_config_compilerlib
 
@@ -295,7 +303,12 @@ except NameError:
 
 # test_xxx
 try:
-    _, _, _, _ = test_for_dynamic, test_for_constant, test_for_constants_to_file, test_need_converter
+    _, _, _, _ = (
+        test_for_dynamic,
+        test_for_constant,
+        test_for_constants_to_file,
+        test_need_converter,
+    )
 except NameError:
     test_for_dynamic = []
     test_for_constant = []
