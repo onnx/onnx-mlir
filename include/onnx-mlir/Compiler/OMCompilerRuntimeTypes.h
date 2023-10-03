@@ -30,8 +30,8 @@ typedef enum {
   InstrumentBeforeOp = 0x0,
   InstrumentAfterOp = 0x1,
   InstrumentReportTime = 0x2,
-  InstrumentInit = 0x3,
-  InstrumentReportMemory = 0x4,
+  InstrumentReportMemory = 0x3,
+  InstrumentInit = 0x4,
 } InstrumentActions;
 
 /* Definition of setter/getter from a 64 bit unsigned int. Use 64 bit only to
