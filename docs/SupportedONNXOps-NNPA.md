@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- To update, run `make onnx_mlir_supported_ops` -->
+<!--- python3 documentOps.py --arch NNPA --input ../test/accelerators/NNPA/backend/CMakeLists.txt --path . --notes -->
 
 # Supported ONNX Operation for Target *NNPA*.
 
