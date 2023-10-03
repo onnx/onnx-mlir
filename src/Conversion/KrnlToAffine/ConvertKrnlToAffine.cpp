@@ -210,13 +210,12 @@ public:
     // Find the forOp associated with loopRef, get ready to insert into
     // forOp body.
     // Cast to affine.forOp or affine.parallelOp
-    Block &loopBody = dyn_cast_or_null<AffineForOp>(loopRefToOp[loopRef])
-                          ? llvm::cast<AffineForOp>(loopRefToOp[loopRef])
-                                .getLoopBody()
-                                .front()
-                          : llvm::cast<AffineParallelOp>(loopRefToOp[loopRef])
-                                .getLoopBody()
-                                .front();
+    Block &loopBody =
+        dyn_cast_or_null<AffineForOp>(loopRefToOp[loopRef])
+            ? llvm::cast<AffineForOp>(loopRefToOp[loopRef]).getRegion().front()
+            : llvm::cast<AffineParallelOp>(loopRefToOp[loopRef])
+                  .getRegion()
+                  .front();
     auto insertPt = loopBody.begin();
 
     // Find the ops to transfer (saved into a Movable) associated with
