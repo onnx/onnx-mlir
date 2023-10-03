@@ -32,32 +32,49 @@ import getopt
 import re
 import numpy as np
 
-def print_usage(msg = ""):
+
+def print_usage(msg=""):
     if msg:
         print("Error:", msg, "\n")
     print("make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]")
     print("  [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]")
     print("")
-    print("Usage: Report statistics on compiler and runtime characteristics of onnx ops.")
+    print(
+        "Usage: Report statistics on compiler and runtime characteristics of onnx ops."
+    )
     print("")
     print("Compile-time statistics are collected from a `onnx-mlir` compiler output")
-    print("with the `--opt-report` option equal to `Simd` or other supported sub-options.")
+    print(
+        "with the `--opt-report` option equal to `Simd` or other supported sub-options."
+    )
     print("")
-    print("Runtime statistics are collected from the runtime output of a model compiled.")
-    print("with the `--profile-ir` option equal to `Onnx` or other supported sub-options.")
+    print(
+        "Runtime statistics are collected from the runtime output of a model compiled."
+    )
+    print(
+        "with the `--profile-ir` option equal to `Onnx` or other supported sub-options."
+    )
     print("")
-    print("When both compile time and runtime statistics are provided at the same time,")
-    print("it will correlate the performance metrics with data gathered at compile time.")
+    print(
+        "When both compile time and runtime statistics are provided at the same time,"
+    )
+    print(
+        "it will correlate the performance metrics with data gathered at compile time."
+    )
     print("")
     print("Additional help.")
     print("  If you need more specific info on individual success/failure, run ")
-    print("  `onnx-mlir --debug-only=lowering-to-krnl` and look at the compiler output.")
+    print(
+        "  `onnx-mlir --debug-only=lowering-to-krnl` and look at the compiler output."
+    )
     print("  Use `-l 3` to correlate the node name printed here with compiler output.")
     print("")
     print("Parameters:")
     print("  -c/--compile <file_log>: File name containing the compile-time statistics")
     print("                       or runtime signature statistics.")
-    print("  -r/--runtime <file_log>: File name containing the runtime time statistics.")
+    print(
+        "  -r/--runtime <file_log>: File name containing the runtime time statistics."
+    )
     print("  -a/--stats <name>:   Print specific statistics:")
     print("                       simd: Print simd optimization stats.")
     print("                       Default if a compile time file is given.")
@@ -71,49 +88,60 @@ def print_usage(msg = ""):
     print("                       2: Also list metrics.")
     print("                       3: Also list node name.")
     print("  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.")
-    print("  -supported:          Focus only on ops that are supported. Namely, the report")
+    print(
+        "  -supported:          Focus only on ops that are supported. Namely, the report"
+    )
     print("                       will skip ops for which compile-time statistics list")
     print("                       the 'unsupported' keyword in its printout.")
-    print("                       For SIMD/parallel statistics, this include all ops that")
+    print(
+        "                       For SIMD/parallel statistics, this include all ops that"
+    )
     print("                       have currently no support for it.")
     print("  -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or")
     print("                       microsecond ('us).")
-    print("  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`.")
+    print(
+        "  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`."
+    )
     print("  -v/--verbose:        Run in verbose mode (see error and warnings).")
     print("  -h/--help:           Print usage.")
     print("")
     exit(1)
 
+
 ################################################################################
 # Global info.
 
 # For statistic info.
-op_count_dict = {}        # op -> count
-op_detail_count_dict = {} # op -> {dictionary of detailed pattern -> count}
-op_time_dict = {}         # op -> cumulative time
+op_count_dict = {}  # op -> count
+op_detail_count_dict = {}  # op -> {dictionary of detailed pattern -> count}
+op_time_dict = {}  # op -> cumulative time
 op_detail_time_dict = {}  # op -> {dictionary of detailed pattern -> cumulative time}
 
 # For timing info
 node_time_dict = {}  # op + node_name -> time statistic
 node_time_used = {}  # op + node_name -> 1 if used; not present if unused.
-tot_time = 0         # total time.
+tot_time = 0  # total time.
 
-focus_on_op_with_pattern = r'.*'
+focus_on_op_with_pattern = r".*"
 spurious_node_name_count = 0
 error_missing_time = 0
 supported_only = False
 has_timing = False
 verbose = False
 sorting_preference = ""
-report_level = 0 # 0: none; 1: details; 2: extra info; 3: plus node names
-time_unit = 1 # seconds
+report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names
+time_unit = 1  # seconds
+
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
-    return r'^==' + stat_name + r'-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)'
+    return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
-simd_legend = "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
+simd_legend = (
+    "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
+)
 sig_legend = "comma separated list of shapes with inputs followed by results"
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
@@ -122,17 +150,20 @@ perf_legend = "(after|before), time for op(s), time since start(s)"
 ################################################################################
 # # Support.
 
+
 # To record time, use op name and node name to better disambiguate.
 def get_timing_key(op, node_name):
-    p = re.match(r'(.*)-(simd|par)', op)
+    p = re.match(r"(.*)-(simd|par)", op)
     if p:
         op = p[1]
     return op + "_=_" + node_name
 
+
 def get_op_node_from_timing_key(timing_key):
-    p = re.match(r'(.*)_=_(.*)', timing_key)
-    assert(p is not None)
+    p = re.match(r"(.*)_=_(.*)", timing_key)
+    assert p is not None
     return (p[1], p[2])
+
 
 # Add num to dict[key]
 def add_to_dict_entry(dict, key, num):
@@ -140,6 +171,7 @@ def add_to_dict_entry(dict, key, num):
         return dict[key] + num
     # First visit, entry does not exist.
     return num
+
 
 # Dict1 is a dictionary of dictionaries. First locate the secondary directory,
 # dict1[key1], and then add num to the key2 entry of that secondary dictionary.
@@ -151,13 +183,15 @@ def add_to_dict2_entry(dict1, key1, key2, num):
         dict2[key2] = add_to_dict_entry(dict2, key2, num)
         return dict2
     # First visit, secondary dict is empty.
-    return { key2 : num}
+    return {key2: num}
+
 
 def append_to_dict_entry(dict, key, num):
     if key in dict:
         return np.append(dict[key], num)
     # First visit, entry does not exist.
     return np.array([num])
+
 
 def append_to_dict2_entry(dict1, key1, key2, num):
     if key1 in dict1:
@@ -167,7 +201,7 @@ def append_to_dict2_entry(dict1, key1, key2, num):
         dict2[key2] = append_to_dict_entry(dict2, key2, num)
         return dict2
     # First visit, secondary dict is empty.
-    return { key2 : np.array([num])}
+    return {key2: np.array([num])}
 
 
 def record_pattern(op, node_name, detail_key):
@@ -180,7 +214,8 @@ def record_pattern(op, node_name, detail_key):
     op_count_dict[op] = add_to_dict_entry(op_count_dict, op, 1)
     if report_level > 0:
         op_detail_count_dict[op] = add_to_dict2_entry(
-            op_detail_count_dict, op, detail_key, 1)
+            op_detail_count_dict, op, detail_key, 1
+        )
 
     # Has timing for this node?
     if not has_timing:
@@ -190,19 +225,26 @@ def record_pattern(op, node_name, detail_key):
     if not timing_key in node_time_dict:
         error_missing_time += 1
         if verbose:
-            print("> timing key", timing_key, "with no times found in the performance data.")
+            print(
+                "> timing key",
+                timing_key,
+                "with no times found in the performance data.",
+            )
         return
     # Update timing summaries
     time = node_time_dict[timing_key]
     op_time_dict[op] = append_to_dict_entry(op_time_dict, op, time)
     if report_level > 0:
         op_detail_time_dict[op] = append_to_dict2_entry(
-            op_detail_time_dict, op, detail_key, time)
+            op_detail_time_dict, op, detail_key, time
+        )
     # Record timing key as used.
     node_time_used[timing_key] = 1
 
+
 ################################################################################
 # Parse line (generic).
+
 
 def parse_line(line, report_str, is_perf_stat):
     global focus_on_op_with_pattern, supported_only
@@ -216,10 +258,10 @@ def parse_line(line, report_str, is_perf_stat):
     node_name = p[2]
     details = p[3]
     # If we process supported op only, search for "unsupported" in details.
-    if supported_only and re.search(r'unsupported', details) is not None:
+    if supported_only and re.search(r"unsupported", details) is not None:
         return (False, "", "", "")
     # If we process perf, we don't care about the "before"
-    if is_perf_stat and re.search(r'before', details) is not None:
+    if is_perf_stat and re.search(r"before", details) is not None:
         return (False, "", "", "")
 
     # Check if we have an op that we focus on; if not skip.
@@ -229,10 +271,12 @@ def parse_line(line, report_str, is_perf_stat):
     # Have a perfect match.
     return (True, op, node_name, details)
 
+
 parse_line.last_node_name = ""
 
 ################################################################################
 # Parse file for statistics.
+
 
 def get_secondary_key(node_name, details):
     global report_level
@@ -249,27 +293,29 @@ def get_secondary_key(node_name, details):
         return node_name + ", " + details
     return ""
 
+
 def parse_file_for_stat(file_name, stat_name):
     global node_time_dict, node_time_used
     global report_level, has_timing
 
     try:
-        file = open(file_name, 'r')
+        file = open(file_name, "r")
     except OSError:
-        print_usage("Could not open file `"+file_name+"`")
+        print_usage("Could not open file `" + file_name + "`")
 
     report_str = common_report_str(stat_name)
-    is_perf_stat = re.match(r'PERF', stat_name)
+    is_perf_stat = re.match(r"PERF", stat_name)
     for line in file:
         # Parse line.
-        (has_stat, op, node_name, details) = parse_line(line.rstrip(),
-            report_str, is_perf_stat)
+        (has_stat, op, node_name, details) = parse_line(
+            line.rstrip(), report_str, is_perf_stat
+        )
         if not has_stat:
             continue
         # Use stat.
         secondary_key = get_secondary_key(node_name, details)
         record_pattern(op, node_name, secondary_key)
-    
+
     # Continue processing if has timing.
     if not has_timing:
         return
@@ -281,25 +327,26 @@ def parse_file_for_stat(file_name, stat_name):
         secondary_key = get_secondary_key(node_name, "")
         record_pattern(op, node_name, secondary_key)
 
+
 ################################################################################
 # Parse file for performance
+
 
 def parse_file_for_perf(file_name, stat_name):
     global node_time_dict, tot_time
     global spurious_node_name_count, verbose, has_timing
 
     try:
-        file = open(file_name, 'r')
+        file = open(file_name, "r")
     except OSError:
-        print_usage("Could not open file `"+file_name+"`")
+        print_usage("Could not open file `" + file_name + "`")
 
     report_str = common_report_str(stat_name)
-    time_stat_dict = {} # op+op_name -> numpy array of times
+    time_stat_dict = {}  # op+op_name -> numpy array of times
     last_node_name = ""
     for line in file:
         # Parse line.
-        (has_stat, op, node_name, details) = parse_line(line.rstrip(),
-            report_str, True)
+        (has_stat, op, node_name, details) = parse_line(line.rstrip(), report_str, True)
         if not has_stat:
             continue
         # Keep only after times.
@@ -321,21 +368,25 @@ def parse_file_for_perf(file_name, stat_name):
         node_time_dict[node] = np.average(time_stat_dict[node])
     has_timing = True
 
+
 ################################################################################
 # make report
+
 
 def get_percent(n, d):
     if d == 0.0:
         return 0.0
     return n * 100 / d
 
+
 def get_sorting_key(count, name, time):
     global sorting_preference
     if sorting_preference == "num":
-        key = - count
+        key = -count
     if sorting_preference == "name":
         return name
-    return - time
+    return -time
+
 
 def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
@@ -371,7 +422,9 @@ def make_report(stat_message):
                 det_time = 0
                 if det_key in det_time_dict:
                     det_time = np.sum(det_time_dict[det_key])
-                    count_time_str += ", {:.7f}".format(det_time * time_unit / det_count)
+                    count_time_str += ", {:.7f}".format(
+                        det_time * time_unit / det_count
+                    )
                     count_time_str += ", {:.7f}".format(det_time * time_unit)
                     count_time_str += ", {:.1f}%".format(get_percent(det_time, time))
 
@@ -398,7 +451,7 @@ def make_report(stat_message):
             unit_str = "(s)"
         elif time_unit == 1000:
             unit_str = "(ms)"
-        elif time_unit == 1000*1000:
+        elif time_unit == 1000 * 1000:
             unit_str = "(us)"
         num_desc += ", average time " + unit_str
         num_desc += ", cumulative time " + unit_str
@@ -419,7 +472,7 @@ def make_report(stat_message):
     stat_details += ", ordered_by " + sorting_preference
     if has_timing:
         stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
-    print("Statistics start"+stat_details)
+    print("Statistics start" + stat_details)
     for key in sorted(sorted_output):
         print(sorted_output[key])
     print("Statistics end" + stat_details)
@@ -440,6 +493,7 @@ def make_report(stat_message):
 ################################################################################
 # Main.
 
+
 def main(argv):
     global report_level, focus_on_op_with_pattern, supported_only, time_unit, verbose
     global sorting_preference
@@ -450,37 +504,48 @@ def main(argv):
     make_legend = ""
     try:
         opts, args = getopt.getopt(
-            argv, "c:f:hl:r:s:u:v",
-            ["compile=", "focus=", "help", "level=", "runtime=", "stats="
-             "sort=", "supported", "unit=", "verbose"])
+            argv,
+            "c:f:hl:r:s:u:v",
+            [
+                "compile=",
+                "focus=",
+                "help",
+                "level=",
+                "runtime=",
+                "stats=" "sort=",
+                "supported",
+                "unit=",
+                "verbose",
+            ],
+        )
     except getopt.GetoptError:
         print_usage("Failure to parse inputs")
     for opt, arg in opts:
-        if opt in ('-c', "--compile"):
+        if opt in ("-c", "--compile"):
             compile_file_name = arg
-        elif opt in ('-f', "--focus"):
+        elif opt in ("-f", "--focus"):
             focus_on_op_with_pattern = arg
             if report_level == 0:
                 report_level = 1
-        elif opt in ('-h', "--help"):
+        elif opt in ("-h", "--help"):
             print_usage()
-        elif opt in ('-l', "--level"):
+        elif opt in ("-l", "--level"):
             report_level = int(arg)
-            if (report_level<0 or report_level > 3):
+            if report_level < 0 or report_level > 3:
                 print_usage("detail levels are 0, 1, 2, or 3")
-        elif opt in ('-r', "--runtime"):
+        elif opt in ("-r", "--runtime"):
             runtime_file_name = arg
         elif opt in ("-s", "--stats"):
-            if re.match(r'\s*par\s*', arg):
+            if re.match(r"\s*par\s*", arg):
                 make_stats = "PAR"
                 make_legend = "none"
-            elif re.match(r'\s*perf\s*', arg):
+            elif re.match(r"\s*perf\s*", arg):
                 make_stats = "PERF"
                 make_legend = perf_legend
-            elif re.match(r'\s*sig?\s*', arg):
+            elif re.match(r"\s*sig?\s*", arg):
                 make_stats = "SIG"
                 make_legend = sig_legend
-            elif re.match(r'\s*simd\s*', arg):
+            elif re.match(r"\s*simd\s*", arg):
                 make_stats = "SIMD"
                 make_legend = simd_legend
             else:
@@ -488,24 +553,24 @@ def main(argv):
         elif opt in ("--supported"):
             supported_only = True
         elif opt in ("--sort"):
-            if re.match(r'\s*name\s*', arg):
+            if re.match(r"\s*name\s*", arg):
                 sorting_preference = "name"
-            elif re.match(r'\s*num\s*', arg):
+            elif re.match(r"\s*num\s*", arg):
                 sorting_preference = "num"
-            elif re.match(r'\s*time\s*', arg):
+            elif re.match(r"\s*time\s*", arg):
                 sorting_preference = "time"
             else:
                 print_usage("sorting options are 'name', 'num', or 'time'")
-        elif opt in ('-u', "--unit"):
-            if re.match(r'\s*s\s*', arg):
+        elif opt in ("-u", "--unit"):
+            if re.match(r"\s*s\s*", arg):
                 time_unit = 1
-            elif re.match(r'\s*ms\s*', arg):
+            elif re.match(r"\s*ms\s*", arg):
                 time_unit = 1000
-            elif re.match(r'\s*us\s*', arg):
-                time_unit = 1000*1000
+            elif re.match(r"\s*us\s*", arg):
+                time_unit = 1000 * 1000
             else:
                 print_usage("time units are 's', 'ms', or 'us'")
-        elif opt in ('-v', "--verbose"):
+        elif opt in ("-v", "--verbose"):
             verbose = True
 
     # Default stats.
