@@ -72,8 +72,8 @@ There are two ways to change device of an operation:
 For the former option, it is straighforward, just changing the value of the `device` attribute of an operation, for example, changing `device=nnpa` to `device=cpu`.
 
 For the later option, users can obtain a template file from `--save-device-placement-file`, and use it as the starting point of modification.
-We use C++ std::regex_match function to match operations based on `node_type` and `onnx_node_name`.
-The JSON file will contains a list of records for each operation matching. The order of the records does matter. If one operation matches a record and is set device, it will not be set device again even when it matches the later records in the list.
+We use C++ std::regex_match function to match operations based on `node_type` and `onnx_node_name`. Both `node_type` and `onnx_node_name` must be satisfied.
+The JSON file will contains a list of records for each operation matching. The order of the records does matter. If one operation matches a record and is set device, it will not be set device again even when it matches the later records in the list. If one operation does not match a record but matches a later record, the operation is still set device by the later record. In other words, the device of an operation is set by the first matched record.
 
 Below are some examples for the later option. Given an input program:
 ```mlir
