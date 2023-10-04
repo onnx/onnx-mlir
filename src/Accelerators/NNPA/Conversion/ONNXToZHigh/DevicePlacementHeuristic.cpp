@@ -27,7 +27,7 @@
 #include <cmath>
 #include <functional>
 
-#define DEBUG_TYPE "device-placement-heuristics"
+#define DEBUG_TYPE "device-placement-heuristic"
 #define DEBUG 2
 
 using namespace mlir;
@@ -364,6 +364,7 @@ struct DevicePlacementWithStickUnstickCost {
       llvm::dbgs()
           << "Test cost-benefit with stick/unstick of CPU/NNPA for op\n";
       op->dump();
+      llvm::dbgs() << "\n";
     });
     // Estimate time
     double cpuTime, nnpaTime, nnpaTimeWithOverheads;
@@ -470,7 +471,6 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
         modified++;
         assignToNNPA(op, context);
       }
-      LLVM_DEBUG(llvm::dbgs() << "\n");
     }
     if (last) {
       break;

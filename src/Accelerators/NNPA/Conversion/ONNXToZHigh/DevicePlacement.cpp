@@ -34,6 +34,7 @@
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/MemoryBuffer.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
@@ -60,12 +61,14 @@ struct DevicePlacementPass
 
   DevicePlacementPass() = default;
   DevicePlacementPass(const DevicePlacementPass &pass)
-      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
+      : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {
+    this->placementHeuristic = QualifyingOps;
+  }
   DevicePlacementPass(std::string loadConfigFile, std::string saveConfigFile,
-      bool useZHighPerfModel) {
+      NNPAPlacementHeuristic placementHeuristic) {
     this->loadConfigFile = loadConfigFile;
     this->saveConfigFile = saveConfigFile;
-    this->useZHighPerfModel = useZHighPerfModel;
+    this->placementHeuristic = placementHeuristic;
   }
 
   StringRef getArgument() const override { return "device-placement"; }
@@ -82,9 +85,23 @@ struct DevicePlacementPass
       llvm::cl::desc("Path to load a device configuration file in JSON format"),
       llvm::cl::init("")};
 
-  Option<bool> useZHighPerfModel{*this, "use-zhigh-perf-model",
-      llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
+  // Placement heuristic switches (policy driven by placementHeuristic).
+  NNPAPlacementHeuristic placementHeuristic;
+  // Option useXXX listed in decreasing order of priority, if multiple are
+  // selected.
+  Option<bool> useFasterWithStickOps{*this, "use-faster-with-stick",
+      llvm::cl::desc("Enable FasterOpsWithStick NNPAPlacementHeuristic"),
       llvm::cl::init(false)};
+  Option<bool> useFasterOps{*this, "use-faster",
+      llvm::cl::desc("Enable FasterOps NNPAPlacementHeuristic"),
+      llvm::cl::init(false)};
+  // Method to override placement using useXXX flags
+  void initPlacementHeuristic() {
+    if (useFasterWithStickOps)
+      placementHeuristic = FasterOpsWithStick;
+    else if (useFasterOps)
+      placementHeuristic = FasterOps;
+  }
 
   void runOnOperation() final;
 
@@ -190,16 +207,16 @@ void DevicePlacementPass::runOnOperation() {
       legalizedOps1, llvm::set_intersection(legalizedOps2, legalizedOps3));
 
 #if 1
-if (useZHighPerfModel)
-#if 1
+  initPlacementHeuristic();
+  if (placementHeuristic == QualifyingOps)
+    PlaceAllLegalOpsOnNNPA(context, ops, cpuOps);
+  else if (placementHeuristic == FasterOps)
+    PlaceBeneficialOpsOnNNPA(context, ops, &dimAnalysis, cpuOps);
+  else if (placementHeuristic == FasterOpsWithStick)
     PlaceBeneficialOpsOnNNPAWithStickUnstick(
         context, module, ops, &dimAnalysis, cpuOps);
-#else
-    PlaceBeneficialOpsOnNNPA(context, ops, &dimAnalysis, cpuOps);
-#endif
-  else
-    PlaceAllLegalOpsOnNNPA(context, ops, cpuOps);
-#else
+
+#else // hi alex, remove
   // Now annotate accelerator operations in the IR with `device` attribute,
   // according to the compiler decision.
   for (Operation *op : ops) {
@@ -318,9 +335,9 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
 
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
     std::string loadConfigFile, std::string saveConfigFile,
-    bool useZHighPerfModel) {
+    NNPAPlacementHeuristic placementHeuristic) {
   return std::make_unique<DevicePlacementPass>(
-      loadConfigFile, saveConfigFile, useZHighPerfModel);
+      loadConfigFile, saveConfigFile, placementHeuristic);
 }
 
 } // namespace onnx_mlir
