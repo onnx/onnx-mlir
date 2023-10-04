@@ -73,3 +73,13 @@ func.func @test_gather_nd_2(%arg0 : tensor<2x2x2xf32>, %arg1 : tensor<2x1x2xi64>
 // CHECK:           [[RES:%.+]] = memref.reinterpret_cast [[RES_BUFFER]] to offset: [0], sizes: [2, 1, 2], strides: [2, 2, 1] : memref<4xf32> to memref<2x1x2xf32>
 // CHECK:           return [[RES]] : memref<2x1x2xf32>
 }
+
+// -----
+
+// COM: Test GatherND with dynamic shape
+func.func @test_gather_nd_with_dynamic_shape(%arg0 : tensor<2x2xf32>, %arg1 : tensor<?x2xi64>) -> tensor<?xf32> {
+  %0 = "onnx.GatherND"(%arg0, %arg1) {batch_dims = 0 : si64} : (tensor<2x2xf32>, tensor<?x2xi64>) -> tensor<?xf32>
+  "func.return"(%0) : (tensor<?xf32>) -> ()
+}
+
+// -----

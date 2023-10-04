@@ -26,3 +26,10 @@ func.func @test_gather_scalar(%arg0: tensor<4xi64>, %arg1: tensor<i64>) -> tenso
 // CHECK:           return [[RES_]] : memref<i64>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_gather_with_dynamic_indices(%arg0: tensor<?x2xi64>, %arg1: tensor<?xi64>) -> tensor<?x2xi64> {
+  %0 = "onnx.Gather"(%arg0, %arg1) {axis = 0 : si64} : (tensor<?x2xi64>, tensor<?xi64>) -> tensor<?x2xi64>
+  return %0 : tensor<?x2xi64>
+}
