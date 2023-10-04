@@ -73,7 +73,7 @@ For the former option, it is straighforward, just changing the value of the `dev
 
 For the later option, users can obtain a template file from `--save-device-placement-file`, and use it as the starting point of modification.
 We use C++ std::regex_match function to match operations based on `node_type` and `onnx_node_name`. Both `node_type` and `onnx_node_name` must be satisfied.
-The JSON file will contains a list of records for each operation matching. The order of the records does matter. If one operation matches a record and is set device, it will not be set device again even when it matches the later records in the list. If one operation does not match a record but matches a later record, the operation is still set device by the later record. In other words, the device of an operation is set by the first matched record.
+The JSON file will contain a list of records for each operation matching. The order of the records does matter. If one operation matches a record and is set device, it will not be set device again even when it matches the later records in the list. If one operation does not match a record but matches a later record, the operation is still set device by the later record. In other words, the device of an operation is set by the first matched record.
 
 Below are some examples for the later option. Given an input program:
 ```mlir
@@ -123,6 +123,47 @@ func.func @test_load_config_file_all_on_cpu(%arg0: tensor<?x?x?xf32>) -> tensor<
       "device": "nnpa",
       "node_type": "onnx.Sigmoid",
       "onnx_node_name": "Sigmoid_0"
+    }
+  ]
+}
+```
+
+4. `onnx.Relu` does not match because there is no operation with `node_type = Relu`, so only `onnx.Sigmoid` is set device.
+```json
+{
+  "device_placement": [
+    {
+      "device": "cpu",
+      "node_type": "Relu",
+      "onnx_node_name": "Relu_(1|2)"
+    },
+    {
+      "device": "cpu",
+      "node_type": "onnx.Sigmoid",
+      "onnx_node_name": "Sigmoid_0"
+    }
+  ]
+}
+```
+
+5. We have two overlapping records both matching on `onnx.Relu`. In this case, only the first matched record will set device. Thus, `Relu_0` and `Relu_1` have device "cpu" by matching the first record, `Relu_2` operation has device "cpu" by matching the third record.
+```json
+{
+  "device_placement": [
+    {
+      "device": "cpu",
+      "node_type": "onnx.Relu",
+      "onnx_node_name": "Relu_(0|1)"
+    },
+    {
+      "device": "nnpa",
+      "node_type": "onnx.Sigmoid",
+      "onnx_node_name": "Sigmoid_0"
+    },
+    {
+      "device": "nnpa",
+      "node_type": "onnx.Relu",
+      "onnx_node_name": "Relu_(1|2)"
     }
   ]
 }
