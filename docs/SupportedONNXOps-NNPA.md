@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- To update, run `make onnx_mlir_supported_ops` -->
+<!--- To update, run `make onnx_mlir_supported_ops_NNPA' -->
 
 # Supported ONNX Operation for Target *NNPA*.
 
