@@ -25,6 +25,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
@@ -502,6 +503,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
+        // Check element type.
+        if (!isValidElementTypeAndRank(op.getA(), true))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -514,6 +518,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
+        // Check element type.
+        if (!isValidElementTypeAndRank(op.getA(), true))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -524,6 +531,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
+        // Check element type.
+        if (!isValidElementTypeAndRank(op.getA(), true))
+          return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
                  (isDefinedByONNXConstantOp(op.getB()) &&
@@ -533,6 +543,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return true;
+        // Check element type.
+        if (!isValidElementTypeAndRank(op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -555,9 +568,17 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
-        Type aType = op.getA().getType();
-        Type bType = op.getB().getType();
+
+        Value A = op.getA();
+        Value B = op.getB();
+        Type aType = A.getType();
+        Type bType = B.getType();
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
+          return true;
+        // Check element type.
+        if (!isValidElementTypeAndRank(A, true))
+          return true;
+        if (!isValidElementTypeAndRank(B, true))
           return true;
 
         int64_t aRank = getRank(aType);
@@ -604,6 +625,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
           return true;
         Value input = op.getInput();
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
+          // Check element type.
+          if (!isValidElementTypeAndRank(input, true))
+            return true;
+          // Check rank.
           if ((shapedType.getRank() > 3) &&
               ((op.getAxis() == shapedType.getRank() - 1) ||
                   (op.getAxis() == -1))) {
