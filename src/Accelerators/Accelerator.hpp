@@ -108,7 +108,7 @@ public:
   //===--------------------------------------------------------------------===//
 
   /// Convert TensorType to MemRefType.
-  /// Acccelators may have special versions of TensorType. If not, override this
+  /// Accelerators may have special versions of TensorType. If not, override this
   /// method and return nullptr.
   virtual mlir::MemRefType convertTensorTypeToMemRefType(
       const mlir::TensorType tensorType) const = 0;
