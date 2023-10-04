@@ -36,7 +36,8 @@ import numpy as np
 def print_usage(msg=""):
     if msg:
         print("Error:", msg, "\n")
-    print("""
+    print(
+        """
 Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
 make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
       [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]
@@ -86,7 +87,8 @@ Parameters:
   -w/--warmup <num>:   If multiple runtime statistics are given, ignore the first
                        <num> stats. Default is zero.
   -h/--help:           Print usage.
-    """)
+    """
+    )
     exit(1)
 
 
@@ -118,8 +120,10 @@ time_unit = 1  # seconds
 def common_report_str(stat_name):
     return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
 
+
 def match_start_report(line):
-    return re.match(r'==START-REPORT==', line)
+    return re.match(r"==START-REPORT==", line)
+
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
 simd_legend = (
@@ -133,6 +137,7 @@ perf_legend = "(after|before), time for op(s), time since start(s)"
 ################################################################################
 # # Support.
 
+
 # To record time, use op name and node name to better disambiguate.
 def get_timing_key(op, node_name):
     p = re.match(r"(.*)-(simd|par)", op)
@@ -140,10 +145,12 @@ def get_timing_key(op, node_name):
         op = p[1]
     return op + "_=_" + node_name
 
+
 def get_op_node_from_timing_key(timing_key):
     p = re.match(r"(.*)_=_(.*)", timing_key)
     assert p is not None
     return (p[1], p[2])
+
 
 # Add num to dict[key]
 def add_to_dict_entry(dict, key, num):
@@ -151,6 +158,7 @@ def add_to_dict_entry(dict, key, num):
         return dict[key] + num
     # First visit, entry does not exist.
     return num
+
 
 # Dict1 is a dictionary of dictionaries. First locate the secondary directory,
 # dict1[key1], and then add num to the key2 entry of that secondary dictionary.
@@ -164,11 +172,13 @@ def add_to_dict2_entry(dict1, key1, key2, num):
     # First visit, secondary dict is empty.
     return {key2: num}
 
+
 def append_to_dict_entry(dict, key, num):
     if key in dict:
         return np.append(dict[key], num)
     # First visit, entry does not exist.
     return np.array([num])
+
 
 def append_to_dict2_entry(dict1, key1, key2, num):
     if key1 in dict1:
@@ -179,6 +189,7 @@ def append_to_dict2_entry(dict1, key1, key2, num):
         return dict2
     # First visit, secondary dict is empty.
     return {key2: np.array([num])}
+
 
 def record_pattern(op, node_name, detail_key):
     global op_count_dict, op_detail_count_dict
@@ -217,8 +228,10 @@ def record_pattern(op, node_name, detail_key):
     # Record timing key as used.
     node_time_used[timing_key] = 1
 
+
 ################################################################################
 # Parse line (generic).
+
 
 def parse_line(line, report_str, is_perf_stat):
     global focus_on_op_with_pattern, supported_only
@@ -245,8 +258,10 @@ def parse_line(line, report_str, is_perf_stat):
     # Have a perfect match.
     return (True, op, node_name, details)
 
+
 ################################################################################
 # Parse file for statistics.
+
 
 def get_secondary_key(node_name, details):
     global report_level
@@ -306,10 +321,12 @@ def parse_file_for_stat(file_name, stat_name):
         secondary_key = get_secondary_key(node_name, "")
         record_pattern(op, node_name, secondary_key)
 
+
 ################################################################################
 # Parse file for performance
 
-def parse_file_for_perf(file_name, stat_name, warmup_num = 0):
+
+def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     global node_time_dict, tot_time
     global verbose, has_timing
 
@@ -327,14 +344,14 @@ def parse_file_for_perf(file_name, stat_name, warmup_num = 0):
         line = line.rstrip()
         if match_start_report(line):
             has_start = True
-            break # On to the first measurement.
+            break  # On to the first measurement.
     if not has_start:
         # Failed to have any timing info, stop.
         return
 
-    time_stat_dict_all_meas = {} # op+op_name -> numpy array of times
+    time_stat_dict_all_meas = {}  # op+op_name -> numpy array of times
     while has_start:
-        time_stat_dict = {} # op+op_name -> numpy array of times
+        time_stat_dict = {}  # op+op_name -> numpy array of times
         has_start = False
         start_count += 1
         meas_tot_time = 0
@@ -343,7 +360,7 @@ def parse_file_for_perf(file_name, stat_name, warmup_num = 0):
             # New measurement set?
             if match_start_report(line):
                 has_start = True
-                break # On to the next measurement.
+                break  # On to the next measurement.
 
             # Parse line.
             (has_stat, op, node_name, details) = parse_line(line, report_str, True)
@@ -369,32 +386,43 @@ def parse_file_for_perf(file_name, stat_name, warmup_num = 0):
         for node in time_stat_dict:
             time = np.average(time_stat_dict[node])
             time_stat_dict_all_meas[node] = append_to_dict_entry(
-                time_stat_dict_all_meas, node, time)
+                time_stat_dict_all_meas, node, time
+            )
         # Add a "tot time" entry.
         time_stat_dict_all_meas["tot_time"] = append_to_dict_entry(
-                time_stat_dict_all_meas, "tot_time", meas_tot_time)
-    
+            time_stat_dict_all_meas, "tot_time", meas_tot_time
+        )
+
     # Encountered now all the measurements, has no more.
     meas_num = start_count - warmup_num
-    assert meas_num>0, "expected at least one set of measurement after warmups"
+    assert meas_num > 0, "expected at least one set of measurement after warmups"
     discard_num = int(meas_num / 4)
-    print("Gather stats from", start_count, "measurement sets with", warmup_num, 
-          "warmup; keep inner", meas_num - 2 * discard_num, "experiment(s)")
+    print(
+        "Gather stats from",
+        start_count,
+        "measurement sets with",
+        warmup_num,
+        "warmup; keep inner",
+        meas_num - 2 * discard_num,
+        "experiment(s)",
+    )
     for node in time_stat_dict_all_meas:
         # Verify that we have the right number of measurements.
         time_array = time_stat_dict_all_meas[node][warmup_num:]
         assert time_array.size == meas_num
-        if discard_num > 0 and meas_num - 2*discard_num > 0:
+        if discard_num > 0 and meas_num - 2 * discard_num > 0:
             time_array = np.sort(time_array)
-            time_array = time_array[discard_num : -discard_num]
+            time_array = time_array[discard_num:-discard_num]
         node_time_dict[node] = np.average(time_array)
     # Success.
     has_timing = True
     tot_time = node_time_dict["tot_time"]
     del node_time_dict["tot_time"]
 
+
 ################################################################################
 # make report
+
 
 def get_percent(n, d):
     if d == 0.0:
@@ -533,7 +561,7 @@ def main(argv):
                 "supported",
                 "unit=",
                 "verbose",
-                "warmup="
+                "warmup=",
             ],
         )
     except getopt.GetoptError:
