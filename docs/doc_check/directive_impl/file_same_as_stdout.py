@@ -15,7 +15,7 @@ import subprocess
 import difflib
 import sys
 
-logger = logging.getLogger('doc-check')
+logger = logging.getLogger("doc-check")
 
 from doc_parser import *
 from utils import *
@@ -23,24 +23,27 @@ from utils import *
 
 def handle(config, ctx):
     logger.debug(
-        "Handling a file-same-as-stdout directive with config {}".format(
-            config))
+        "Handling a file-same-as-stdout directive with config {}".format(config)
+    )
 
     # Read in file content.
     file = config["file"]
-    with open(os.path.join(ctx.root_dir, file), encoding='utf-8') as f:
+    with open(os.path.join(ctx.root_dir, file), encoding="utf-8") as f:
         file_content = f.read()
 
     # Execute command and retrieve output.
     cmd = config["cmd"]
-    cmd_stdout = subprocess.run(cmd, stdout=subprocess.PIPE,
-                                cwd=ctx.root_dir).stdout.decode('utf-8')
+    cmd_stdout = subprocess.run(
+        cmd, stdout=subprocess.PIPE, cwd=ctx.root_dir
+    ).stdout.decode("utf-8")
 
     # Compute diff.
-    diff = difflib.unified_diff(file_content.splitlines(keepends=True),
-                                cmd_stdout.splitlines(keepends=True),
-                                fromfile=file,
-                                tofile="$({})".format(" ".join(cmd)))
+    diff = difflib.unified_diff(
+        file_content.splitlines(keepends=True),
+        cmd_stdout.splitlines(keepends=True),
+        fromfile=file,
+        tofile="$({})".format(" ".join(cmd)),
+    )
     diff = list(diff)
 
     # If diff is non-trivial, raise error and display diff.
@@ -50,4 +53,4 @@ def handle(config, ctx):
         raise ValueError("Check file-same-as-stdout failed")
 
 
-ext_to_patterns = {'.dc': 'file-same-as-stdout\\((.*)\\)'}
+ext_to_patterns = {".dc": "file-same-as-stdout\\((.*)\\)"}

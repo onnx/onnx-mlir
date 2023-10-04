@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @remove_stick_and_unstick_same_layout(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "zhigh.Stick"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32, #zhigh.layout<{ dataLayout = "2D"}>>

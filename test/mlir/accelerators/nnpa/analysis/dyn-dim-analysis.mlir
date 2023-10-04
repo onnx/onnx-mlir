@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --onnx-dim-analysis %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --onnx-dim-analysis %s -split-input-file | FileCheck %s
 
 // COM: test zdnn unary operations. Use Relu as a sample.
 func.func @test_stick_unary_unstick(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
