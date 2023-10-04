@@ -49,7 +49,7 @@ bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
 /// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
-bool isValidElementTypeAndRank(Value val) {
+bool isValidElementTypeAndRank(Value val, bool donotCheckRank) {
   if (val.getType().isa<NoneType>())
     return true;
   if (auto valueType = val.getType().dyn_cast_or_null<ShapedType>()) {
@@ -58,6 +58,8 @@ bool isValidElementTypeAndRank(Value val) {
     if (elementType.isa<FloatType>() &&
         (elementType.cast<FloatType>().getWidth() == 16 ||
             elementType.cast<FloatType>().getWidth() == 32)) {
+      if (donotCheckRank)
+        return true;
       // Rank must be in range of (0, 4].
       if (!valueType.hasRank())
         return false;

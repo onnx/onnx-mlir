@@ -20,6 +20,11 @@
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
+/// A function to check whether a value's element type is valid for zAIU or not.
+/// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
+/// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
+bool isValidElementTypeAndRank(mlir::Value val, bool donotCheckRank = false);
+
 /// A function to check whether an ONNX op is suitable for being lowered to zDNN
 /// or not.
 template <typename OP_TYPE>
