@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --zhigh-clip-to-dlfloat -split-input-file %s || FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --zhigh-clip-to-dlfloat -split-input-file %s || FileCheck %s
 
 func.func @should_clip_stick(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> { 
   %0 = "zhigh.Stick"(%arg0) {layout = "3DS"} : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32, #zhigh.layout<{dataLayout = "3DS"}>>
