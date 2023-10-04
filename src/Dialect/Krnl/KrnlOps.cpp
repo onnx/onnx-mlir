@@ -506,7 +506,9 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
-Region &KrnlIterateOp::getLoopBody() { return getBodyRegion(); }
+::llvm::SmallVector<mlir::Region *> KrnlIterateOp::getLoopRegions() {
+  return {&getBodyRegion()};
+}
 
 LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of

@@ -13,13 +13,26 @@
 // - user configuration file if given
 // - a cost model
 //
+// Device placement is done via setting `device` attribute for each operation.
+// Values for `device` attribute is one of the following strings:
+// - "": an empty string means the compiler decides whether the operation is on
+// CPU or NNPA.
+// - "nnpa": the operation may run on NNPA or CPU, and the final decision is
+// made by the compiler. If `device=nnpa` is the result of this device-placement
+// pass, then it means the compiler thinks it is suitable for NNPA.
+// - "cpu": the operation is guaranteed to run on CPU.
+//
 //===----------------------------------------------------------------------===//
+
+#include <regex>
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/DevicePlacementHeuristic.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
@@ -35,14 +48,23 @@ using namespace onnx_mlir;
 
 namespace {
 
+// Global object to ease error reporting, it consumes errors and crash the
+// application with a meaningful message.
+static llvm::ExitOnError ExitOnErr;
+
 struct DevicePlacementPass
     : public PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>> {
+  using OpSetType = DenseSet<Operation *>;
+
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DevicePlacementPass)
 
   DevicePlacementPass() = default;
   DevicePlacementPass(const DevicePlacementPass &pass)
       : PassWrapper<DevicePlacementPass, OperationPass<ModuleOp>>() {}
-  DevicePlacementPass(bool useZHighPerfModel) {
+  DevicePlacementPass(std::string loadConfigFile, std::string saveConfigFile,
+      bool useZHighPerfModel) {
+    this->loadConfigFile = loadConfigFile;
+    this->saveConfigFile = saveConfigFile;
     this->useZHighPerfModel = useZHighPerfModel;
   }
 
@@ -52,25 +74,84 @@ struct DevicePlacementPass
     return "Device placement for NNPA";
   }
 
+  Option<std::string> saveConfigFile{*this, "save-config-file",
+      llvm::cl::desc("Path to save a device configuration file in JSON format"),
+      llvm::cl::init("")};
+
+  Option<std::string> loadConfigFile{*this, "load-config-file",
+      llvm::cl::desc("Path to load a device configuration file in JSON format"),
+      llvm::cl::init("")};
+
   Option<bool> useZHighPerfModel{*this, "use-zhigh-perf-model",
       llvm::cl::desc("Enable ZHigh cost model for ops on NNPA vs CPU"),
       llvm::cl::init(false)};
 
   void runOnOperation() final;
+
+private:
+  ModuleOp module;
+  MLIRContext *context = nullptr;
+  // Keep target operations to avoid walking through the module again.
+  // Use vector to keep the order deterministic.
+  SmallVector<Operation *, 32> ops;
+
+  // JSON keys.
+  std::string DEVICE_KEY = "device";
+  std::string DEVICE_PLACEMENT_KEY = "device_placement";
+  std::string NODE_TYPE_KEY = "node_type";
+  std::string ONNX_NODE_NAME_KEY = "onnx_node_name";
+
+  // Exclude these operations from device placement.
+  bool isExcludedOp(Operation *op) {
+    if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
+      return true;
+    // No annotation for these ops.
+    if (isa<ONNXEntryPointOp, ONNXReturnOp, ONNXConstantOp>(op))
+      return true;
+    return false;
+  }
+
+  // Functions to load/save device placement from/to a JSON file.
+  // JSON file example:
+  // ```json
+  // {
+  //   "device_placement": [
+  //     {
+  //       "device": "cpu",
+  //       "node_type": "onnx.Relu",
+  //       "onnx_node_name": "Relu_[1,2]"
+  //     },
+  //     {
+  //       "device": "nnpa",
+  //       "node_type": "onnx.Sigmoid",
+  //       "onnx_node_name": ".*"
+  //     }
+  //   ]
+  // }
+  // ```
+  void loadConfigFromJSONFile();
+  void saveConfigToJSONFile();
 };
 
 void DevicePlacementPass::runOnOperation() {
-  using OpSetType = DenseSet<Operation *>;
-  ModuleOp module = getOperation();
-  MLIRContext *context = &getContext();
+  this->module = getOperation();
+  this->context = &getContext();
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
   DimAnalysis dimAnalysis(module);
   dimAnalysis.analyze();
 
+  // Collects target operations from the module.
+  module.walk([&](Operation *op) {
+    if (!isExcludedOp(op))
+      ops.emplace_back(op);
+  });
+
   // Cost model and user configuration file go here if it's given.
   // (Reserved for cost model and user configuration file)
+  if (!loadConfigFile.empty())
+    loadConfigFromJSONFile();
 
   // Run patterns that converts ONNX to ZHigh with analysis mode to collect
   // operations that are not converted. Those non-converted ops are running on
@@ -105,20 +186,123 @@ void DevicePlacementPass::runOnOperation() {
       module, target, std::move(Patterns3), legalizedOps3);
 
   // Get the legalized ops that will run on the host.
-  OpSetType cpuOps = llvm::set_intersection<OpSetType, OpSetType>(
-      legalizedOps1, llvm::set_intersection<OpSetType, OpSetType>(
-                         legalizedOps2, legalizedOps3));
+  OpSetType cpuOps = llvm::set_intersection(
+      legalizedOps1, llvm::set_intersection(legalizedOps2, legalizedOps3));
 
-  // Now annotate accelerator operations in the IR with `device` attribute.
-  if (useZHighPerfModel)
+#if 1
+if (useZHighPerfModel)
 #if 1
     PlaceBeneficialOpsOnNNPAWithStickUnstick(
-        context, module, &dimAnalysis, cpuOps);
+        context, module, ops, &dimAnalysis, cpuOps);
 #else
-    PlaceBeneficialOpsOnNNPA(context, module, &dimAnalysis, cpuOps);
+    PlaceBeneficialOpsOnNNPA(context, ops, &dimAnalysis, cpuOps);
 #endif
   else
-    PlaceAllLegalOpsOnNNPA(context, module, cpuOps);
+    PlaceAllLegalOpsOnNNPA(context, ops, cpuOps);
+#else
+  // Now annotate accelerator operations in the IR with `device` attribute,
+  // according to the compiler decision.
+  for (Operation *op : ops) {
+    // Set device if it is empty or unavailable.
+    StringAttr device = op->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+    if (device && !device.getValue().empty())
+      continue;
+    // Op that is legal (should remain on the CPU) as determined by compiler
+    // analysis.
+    if (cpuOps.contains(op))
+      continue;
+    // Now we have an operation that can work on the NNPA, check if its
+    // beneficial
+    if (useZHighPerfModel && !isOpFasterOnNNPA(op, &dimAnalysis)) {
+      op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, CPU_DEVICE));
+      continue;
+    }
+    // Compiler determined that we want this op on the NNPA, mark as such.
+    op->setAttr(DEVICE_ATTRIBUTE, StringAttr::get(context, NNPA_DEVICE));
+  }
+#endif
+
+  // Create a JSON configuration file if required.
+  if (!saveConfigFile.empty())
+    saveConfigToJSONFile();
+}
+
+void DevicePlacementPass::loadConfigFromJSONFile() {
+  auto Buf = ExitOnErr(errorOrToExpected(
+      llvm::MemoryBuffer::getFile(loadConfigFile, /*bool IsText=*/true,
+          /*RequiresNullTerminator=*/false)));
+  auto jsonFile = ExitOnErr(llvm::json::parse(Buf->getBuffer()));
+  llvm::json::Object *jsonContent = jsonFile.getAsObject();
+  llvm::json::Array *jsonArr = jsonContent->getArray(DEVICE_PLACEMENT_KEY);
+  if (!jsonArr || jsonArr->empty())
+    return;
+
+  // Collect operations to work on.
+  OpSetType workingOps(ops.begin(), ops.end());
+  // Go over operations in the JSON and find matched operation in the IR.
+  for (llvm::json::Value v : *jsonArr) {
+    llvm::json::Object *vobj = v.getAsObject();
+    StringRef device = vobj->getString(DEVICE_KEY).value();
+    StringRef nodeType = vobj->getString(NODE_TYPE_KEY).value();
+    StringRef nodeName = vobj->getString(ONNX_NODE_NAME_KEY).value();
+    LLVM_DEBUG(llvm::dbgs()
+               << "device: " << device.str() << ", nodeType: " << nodeType.str()
+               << ", nodeName: " << nodeName.str() << "\n");
+    OpSetType updatedOps;
+    for (Operation *op : workingOps) {
+      StringRef opNodeType = op->getName().getStringRef();
+      StringRef opNodeName =
+          op->getAttrOfType<mlir::StringAttr>("onnx_node_name").getValue();
+      // Match operation.
+      if (!std::regex_match(opNodeType.str(), std::regex(nodeType.str())))
+        continue;
+      if (!std::regex_match(opNodeName.str(), std::regex(nodeName.str())))
+        continue;
+      // Set device.
+      op->setAttr(
+          DEVICE_ATTRIBUTE, StringAttr::get(module.getContext(), device));
+      updatedOps.insert(op);
+    }
+    // To reduce complexity, once an operation is assigned a device, we remove
+    // it from the set workingOps.
+    workingOps = llvm::set_difference(workingOps, updatedOps);
+  }
+}
+
+void DevicePlacementPass::saveConfigToJSONFile() {
+  // Parsing the module to JSON object.
+  llvm::json::Array jsonArr;
+  for (Operation *op : ops) {
+    // Create a JSON object for this operation.
+    std::string deviceStr =
+        op->getAttrOfType<mlir::StringAttr>("device")
+            ? op->getAttrOfType<mlir::StringAttr>("device").getValue().str()
+            : "";
+    std::string nodeTypeStr = op->getName().getStringRef().str();
+    std::string nodeNameStr =
+        op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
+            ? op->getAttrOfType<mlir::StringAttr>("onnx_node_name")
+                  .getValue()
+                  .str()
+            : "";
+    llvm::json::Value jsonObj = llvm::json::Object{
+        {DEVICE_KEY, deviceStr},
+        {NODE_TYPE_KEY, nodeTypeStr},
+        {ONNX_NODE_NAME_KEY, nodeNameStr},
+    };
+    jsonArr.emplace_back(jsonObj);
+  }
+  llvm::json::Object jsonContent{
+      {DEVICE_PLACEMENT_KEY, llvm::json::Value(std::move(jsonArr))}};
+
+  // Exporting the JSON object to a file.
+  std::error_code EC;
+  llvm::raw_fd_ostream jsonOS(saveConfigFile, EC);
+  if (EC)
+    report_fatal_error(
+        "Error saving device placement json file : " + StringRef(EC.message()));
+  jsonOS << llvm::json::Value(std::move(jsonContent)) << "\n";
+  jsonOS.close();
 }
 
 } // namespace
@@ -132,8 +316,11 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass() {
   return std::make_unique<DevicePlacementPass>();
 }
 
-std::unique_ptr<mlir::Pass> createDevicePlacementPass(bool useZHighPerfModel) {
-  return std::make_unique<DevicePlacementPass>(useZHighPerfModel);
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(
+    std::string loadConfigFile, std::string saveConfigFile,
+    bool useZHighPerfModel) {
+  return std::make_unique<DevicePlacementPass>(
+      loadConfigFile, saveConfigFile, useZHighPerfModel);
 }
 
 } // namespace onnx_mlir

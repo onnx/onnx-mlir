@@ -53,20 +53,6 @@ bool isMappedToNNPA(Operation *op) {
   return device && device.getValue().equals_insensitive(NNPA_DEVICE);
 }
 
-// Determine if op is unsuitable because its not an ONNX op of interest, or its
-// device field is already marked.
-bool isUnsuitableOp(Operation *op) {
-  if (op->getDialect()->getNamespace() != ONNXDialect::getDialectNamespace())
-    return true;
-  // No annotation for these ops.
-  if (isa<ONNXEntryPointOp, ONNXReturnOp, ONNXConstantOp>(op))
-    return true;
-  // If `device` is already set, respect it.
-  if (isMappedToDevice(op))
-    return true;
-  return false;
-}
-
 // Determine if op is unsuitable because its not an ONNX op of interest, or it
 // is already mapped to the CPU device.
 bool isNNPAFriendlyOp(Operation *op) {
@@ -155,14 +141,12 @@ struct DevicePlacementWithStickUnstickCost {
   DevicePlacementWithStickUnstickCost() = delete;
   DevicePlacementWithStickUnstickCost(MLIRContext *context, ModuleOp module,
       const DimAnalysis *dimAnalysis, const OpSetType &cpuOps)
-      : context(context), module(module), dimAnalysis(dimAnalysis),
-        cpuOps(cpuOps) {
-    characterizeOps();
+      : context(context), dimAnalysis(dimAnalysis), cpuOps(cpuOps) {
+    characterizeOps(module);
   }
 
   // Data
   MLIRContext *context;
-  ModuleOp module;
   const DimAnalysis *dimAnalysis;
   // All ops that must execute on CPU, aka not eligible to run on  NNPA. Ops
   // in this set can be marked as device=CPU.
@@ -174,7 +158,7 @@ struct DevicePlacementWithStickUnstickCost {
   // thi set can be marked as device=CPU.
   OpSetType nnpaNeutralOps;
 
-  void characterizeOps() {
+  void characterizeOps(ModuleOp module) {
     nnpaCandidateOps.clear();
     nnpaNeutralOps.clear();
     module.walk([&](Operation *op) -> WalkResult {
@@ -418,42 +402,42 @@ struct DevicePlacementWithStickUnstickCost {
 
 namespace onnx_mlir {
 
-void PlaceAllLegalOpsOnNNPA(
-    MLIRContext *context, ModuleOp module, const OpSetType &cpuOps) {
-  module.walk([&](Operation *op) -> WalkResult {
-    if (isUnsuitableOp(op))
-      return WalkResult::advance();
+void PlaceAllLegalOpsOnNNPA(MLIRContext *context,
+    const SmallVector<Operation *, 32> &ops, const OpSetType &cpuOps) {
+  for (Operation *op : ops) {
+    if (isMappedToDevice(op))
+      continue;
     // Op that cannot go on NNPA.
     if (cpuOps.contains(op))
-      return WalkResult::advance();
+      continue;
     // Compiler determined that we want this op on the NNPA, mark as such.
     assignToNNPA(op, context);
-    return WalkResult::advance();
-  });
+  }
 }
 
-void PlaceBeneficialOpsOnNNPA(MLIRContext *context, ModuleOp module,
-    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps) {
-  module.walk([&](Operation *op) -> WalkResult {
-    if (isUnsuitableOp(op))
-      return WalkResult::advance();
+void PlaceBeneficialOpsOnNNPA(MLIRContext *context,
+    const SmallVector<Operation *, 32> &ops, const DimAnalysis *dimAnalysis,
+    const OpSetType &cpuOps) {
+  for (Operation *op : ops) {
+    if (isMappedToDevice(op))
+      continue;
     // Op that cannot go on NNPA.
     if (cpuOps.contains(op))
-      return WalkResult::advance();
+      continue;
     // Now we have an operation that can work on the NNPA, check if its
     // beneficial
     if (!isOpFasterOnNNPA(op, dimAnalysis)) {
       assignToCPU(op, context);
-      return WalkResult::advance();
+      continue;
     }
     // Compiler determined that we want this op on the NNPA, mark as such.
     assignToNNPA(op, context);
-    return WalkResult::advance();
-  });
+  }
 }
 
 void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
-    ModuleOp module, const DimAnalysis *dimAnalysis, const OpSetType &cpuOps) {
+    ModuleOp module, const SmallVector<Operation *, 32> &ops,
+    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps) {
   // Init model.
   DevicePlacementWithStickUnstickCost model(
       context, module, dimAnalysis, cpuOps);
@@ -464,12 +448,12 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
     bool first = (i == 0);
     bool last = (i == ub - 1);
     LLVM_DEBUG(llvm::dbgs() << "\n\n\nPlacement Iteration " << i << "\n\n");
-    module.walk([&](Operation *op) -> WalkResult {
-      if (isUnsuitableOp(op))
-        return WalkResult::advance();
+    for (Operation *op : ops) {
+      if (isMappedToDevice(op))
+        continue;
       // Op that cannot go on NNPA.
       if (cpuOps.contains(op))
-        return WalkResult::advance();
+        continue;
       // Now we have an operation that can work on the NNPA, check if its
       // beneficial
       bool significant;
@@ -479,7 +463,7 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
           assignToCPU(op, context);
         }
         LLVM_DEBUG(llvm::dbgs() << "\n");
-        return WalkResult::advance();
+        continue;
       }
       // Compiler determined that we want this op on the NNPA, mark as such.
       if (!first || significant) {
@@ -487,8 +471,7 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
         assignToNNPA(op, context);
       }
       LLVM_DEBUG(llvm::dbgs() << "\n");
-      return WalkResult::advance();
-    });
+    }
     if (last) {
       break;
     } else if (first) {

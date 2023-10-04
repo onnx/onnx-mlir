@@ -1,5 +1,5 @@
 
-// RUN: onnx-mlir --maccel=NNPA -v -tag="test" %s -o %t 2>&1 | FileCheck %s
+// RUN: onnx-mlir --mcpu=z16 --maccel=NNPA -v -tag="test" %s -o %t 2>&1 | FileCheck %s
 
 // -----
 

@@ -22,14 +22,16 @@ namespace onnx_mlir {
 
 using OpSetType = mlir::DenseSet<mlir::Operation *>;
 
-void PlaceAllLegalOpsOnNNPA(
-    mlir::MLIRContext *context, mlir::ModuleOp module, const OpSetType &cpuOps);
+void PlaceAllLegalOpsOnNNPA(mlir::MLIRContext *context,
+    const llvm::SmallVector<mlir::Operation *, 32> &ops,
+    const OpSetType &cpuOps);
 
-void PlaceBeneficialOpsOnNNPA(mlir::MLIRContext *context, mlir::ModuleOp module,
+void PlaceBeneficialOpsOnNNPA(mlir::MLIRContext *context,
+    const llvm::SmallVector<mlir::Operation *, 32> &ops,
     const DimAnalysis *dimAnalysis, const OpSetType &cpuOps);
 
 void PlaceBeneficialOpsOnNNPAWithStickUnstick(mlir::MLIRContext *context,
-    mlir::ModuleOp module, const DimAnalysis *dimAnalysis,
-    const OpSetType &cpuOps);
+    mlir::ModuleOp module, const llvm::SmallVector<mlir::Operation *, 32> &ops,
+    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps);
 
 } // namespace onnx_mlir
