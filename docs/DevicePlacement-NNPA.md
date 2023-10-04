@@ -29,7 +29,7 @@ Below is an example of the output of `--EmitONNXIR --maccel=NNPA`:
 
 The option is to save the device placement configuration into a JSON file. This option is convenient when users don't want to interrupt the compilation.
 
-The JSON file will contains a list of operation records. Each record includes three key-value pairs wher keys are: 
+The JSON file will contains a list of operation records. Each record includes three key-value pairs where keys are: 
 - "device": similar to `device` attribute in the operation.
 - "node_type": ONNX node type, e.g. `onnx.Conv`, `onnx.MatMul`.
 - "onnx_node_name": a string to denote ONNX node names.
@@ -73,6 +73,7 @@ For the former option, it is straighforward, just changing the value of the `dev
 
 For the later option, users can obtain a template file from `--save-device-placement-file`, and use it as the starting point of modification.
 We use C++ std::regex_match function to match operations based on `node_type` and `onnx_node_name`.
+The JSON file will contains a list of records for each operation matching. The order of the records does matter. If one operation matches a record and is set device, it will not be set device again even when it matches the later records in the list.
 
 Below are some examples for the later option. Given an input program:
 ```mlir
