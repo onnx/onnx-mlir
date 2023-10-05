@@ -114,6 +114,7 @@ verbose = False
 sorting_preference = ""
 report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names
 time_unit = 1  # seconds
+marker_str =  ""
 
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
@@ -443,7 +444,7 @@ def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
     global has_timing, time_unit, error_missing_time
-    global report_level, supported_only, verbose
+    global report_level, supported_only, verbose, marker_str
     global sorting_preference
 
     # Gather statistics in a dictionary so that we may sort the entries.
@@ -525,7 +526,7 @@ def make_report(stat_message):
         stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
     print("Statistics start" + stat_details)
     for key in sorted(sorted_output):
-        print(sorted_output[key])
+        print(marker_str + sorted_output[key])
     print("Statistics end" + stat_details)
 
     # Report spurious node name if any.
@@ -539,7 +540,8 @@ def make_report(stat_message):
 
 
 def main(argv):
-    global report_level, focus_on_op_with_pattern, supported_only, time_unit, verbose
+    global report_level, focus_on_op_with_pattern, supported_only, time_unit
+    global marker_str, verbose
     global sorting_preference
 
     compile_file_name = ""
@@ -556,8 +558,10 @@ def main(argv):
                 "focus=",
                 "help",
                 "level=",
+                "marker=",
                 "runtime=",
-                "stats=" "sort=",
+                "stats=",
+                "sort=",
                 "supported",
                 "unit=",
                 "verbose",
@@ -579,6 +583,8 @@ def main(argv):
             report_level = int(arg)
             if report_level < 0 or report_level > 3:
                 print_usage("detail levels are 0, 1, 2, or 3")
+        elif opt in ("--marker"):
+            marker_str = arg + ", "
         elif opt in ("-r", "--runtime"):
             runtime_file_name = arg
         elif opt in ("-s", "--stats"):
