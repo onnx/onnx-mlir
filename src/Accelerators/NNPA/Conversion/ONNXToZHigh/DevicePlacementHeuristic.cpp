@@ -118,7 +118,7 @@ inline void assignToCPU(Operation *op, MLIRContext *context) {
 // Simply determine if operation is faster on CPU or NNPA.
 bool isOpFasterOnNNPA(Operation *op, const DimAnalysis *dimAnalysis) {
   LLVM_DEBUG({
-    llvm::dbgs() << "Test cost-benefit of CPU/NNPA for op\n";
+    llvm::dbgs() << "\nTest cost-benefit of CPU/NNPA for op\n";
     op->dump();
   });
   // Estimate time
@@ -212,10 +212,10 @@ struct DevicePlacementWithStickUnstickCost {
     std::string msg = "";
     for (Operation *userOp : value.getUsers()) {
       // Skip op if requested.
-      if (userOp == opToSkip)
-        msg = " Skipped op.";
-      // Test ops that are already mapped.
-      else if (isMappedToCPU(userOp))
+      if (userOp == opToSkip) {
+        LLVM_DEBUG(msg = " Skipped op.");
+        // Test ops that are already mapped.
+      } else if (isMappedToCPU(userOp))
         cpuOpCount++;
       else if (isMappedToNNPA(userOp))
         nnpaOpCount++;
@@ -292,11 +292,20 @@ struct DevicePlacementWithStickUnstickCost {
     assert(!isMappedToDevice(opX) && "cannot evaluate an already mapped op");
     double totalCostBenefit = 0;
     LLVM_DEBUG(llvm::dbgs() << "  Look at cost benefit for inputs:\n");
+    OpSetType visitedDefiningOps;
     for (Value inputVal : opX->getOperands()) {
       // Investigate the operation that defines inputVal (which is used by op)
       Operation *definingOp = inputVal.getDefiningOp();
       if (!definingOp)
         continue;
+      // If we have AddOp(%3, %3), should visit cost associated with %3 input
+      // only once.
+      if (visitedDefiningOps.contains(definingOp)) {
+        LLVM_DEBUG(llvm::dbgs() << "    has multiple use of same input\n");
+        continue;
+      }
+      visitedDefiningOps.insert(definingOp);
+
       // Classify all other users of this input value.
       int64_t cpuOpCount, nnpaOpCount, nnpaCandidateOpCount, nnpaNeutralOpCount;
       classifyValueUsage(inputVal, /*skip op X that we are analyzing*/ opX,
@@ -339,32 +348,25 @@ struct DevicePlacementWithStickUnstickCost {
         LLVM_DEBUG(llvm::dbgs() << "      def-op on NNPA (case 6), -1 stick "
                                 << -costOfStickOp << ".\n");
         totalCostBenefit -= costOfStickOp;
-      } else if (nnpaCandidateOps.contains(definingOp)) {
-#if 0
-        double discountedCost = 0.5 * costOfStickOp;
-        LLVM_DEBUG(llvm::dbgs()
-                   << "      def-op is NNPA-candidate (case 6'), -1/n stick "
-                   << -discountedCost << ".\n");
-        totalCostBenefit -= discountedCost;
-#endif
       }
     }
     return totalCostBenefit;
   }
 
-  bool significantlyFaster(double fast, double slow) {
-    // At least 2x faster.
-    return 2.0 * fast <= slow;
+  bool significantlyFaster(double fast, double slow, double factor) {
+    // At least factor x faster.
+    return factor * fast <= slow;
   }
 
-  // Determine if op is faster on the NNPA or not. Significant is set if the op
-  // is 2x faster / slower on the device.
-  bool isOpFasterOnNNPA(Operation *op, bool &significant) {
+  // Determine if op is faster on the NNPA or not. To be faster than the CPU,
+  // expect the NNPA to be at least minFactor faster than CPU. Significant is
+  // set if the op is significantFactor faster / slower on the device.
+  bool isOpFasterOnNNPA(Operation *op, double minFactor,
+      double significantFactor, bool &significant) {
     LLVM_DEBUG({
       llvm::dbgs()
-          << "Test cost-benefit with stick/unstick of CPU/NNPA for op\n";
+          << "\nTest cost-benefit with stick/unstick of CPU/NNPA for op\n";
       op->dump();
-      llvm::dbgs() << "\n";
     });
     // Estimate time
     double cpuTime, nnpaTime, nnpaTimeWithOverheads;
@@ -373,24 +375,24 @@ struct DevicePlacementWithStickUnstickCost {
       double useCostBenefit = costBenefitIncurredForResults(op);
       double inputCostBenefit = costBenefitIncurredForInputs(op);
       nnpaTimeWithOverheads = nnpaTime + useCostBenefit + inputCostBenefit;
-      LLVM_DEBUG(llvm::dbgs() << "  New estimated nnpa time with stick/unstick:"
-                              << nnpaTimeWithOverheads << ".\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  New estimated nnpa time with stick/unstick:"
+                 << nnpaTimeWithOverheads << " vs cpu " << cpuTime << ".\n");
     } else {
       // No performance model for this operation, assume faster on NNPA;
       cpuTime = 10;
       nnpaTime = nnpaTimeWithOverheads = 1;
       LLVM_DEBUG(llvm::dbgs() << "    no time estimate, assume NNPA better\n.");
     }
-    if (nnpaTimeWithOverheads <= cpuTime) {
+    if (nnpaTimeWithOverheads * minFactor <= cpuTime) {
       // For significant, don't take overheads into account as it may change
       // depending on mapping.
-      significant = significantlyFaster(nnpaTime, cpuTime);
+      significant = significantlyFaster(nnpaTime, cpuTime, significantFactor);
       return fasterOnNNPA(op, significant);
     }
     // For significant, don't take overheads into account as it may change
     // depending on mapping.
-    significant = significantlyFaster(cpuTime, nnpaTime);
-    std::string msg = "";
+    significant = significantlyFaster(cpuTime, nnpaTime, significantFactor);
     return fasterOnCPU(op, significant);
   }
 
@@ -438,7 +440,8 @@ void PlaceBeneficialOpsOnNNPA(MLIRContext *context,
 
 void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
     ModuleOp module, const SmallVector<Operation *, 32> &ops,
-    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps) {
+    const DimAnalysis *dimAnalysis, const OpSetType &cpuOps, double minFactor,
+    double significantFactor) {
   // Init model.
   DevicePlacementWithStickUnstickCost model(
       context, module, dimAnalysis, cpuOps);
@@ -458,12 +461,12 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(MLIRContext *context,
       // Now we have an operation that can work on the NNPA, check if its
       // beneficial
       bool significant;
-      if (!model.isOpFasterOnNNPA(op, significant)) {
+      if (!model.isOpFasterOnNNPA(
+              op, minFactor, significantFactor, significant)) {
         if (last || significant) {
           modified++;
           assignToCPU(op, context);
         }
-        LLVM_DEBUG(llvm::dbgs() << "\n");
         continue;
       }
       // Compiler determined that we want this op on the NNPA, mark as such.

@@ -115,6 +115,7 @@ sorting_preference = ""
 report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names
 time_unit = 1  # seconds
 
+
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
     return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"

@@ -35,21 +35,6 @@ using PERF_MODEL4 = std::function<double(double, double, double, double)>;
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/PerfModel.inc"
 
-double estimatedTimeForCPU_Stick_3ds(double e3, double e2, double e1) {
-  double complexity = e3 * e2 * e1;
-  double complexity2 = e3 * ms_ceiling(e2, 32.0) * ms_ceiling(e1, 64.0);
-
-  // Regression for CPU with r2 = 0.9192.
-  // Estimate is currently done from an excel spreadsheets in ticks.
-  double estimate = 2.567963643 * complexity +
-                    800.465159 / 2048.0 * complexity2 - 1881.627779;
-  if (estimate < 0)
-    estimate = 0;
-  // Estimate is in ticks, change it to seconds via 5.2GHz
-  estimate = estimate / 5.2e9;
-  return estimate;
-}
-
 //===----------------------------------------------------------------------===//
 // Support functions
 
@@ -292,20 +277,20 @@ void estimateTimeForOp<ONNXPowOp>(ONNXPowOp op, const DimAnalysis *dimAnalysis,
   if (hasIntegerPowerExponent(&op, exponentValue)) {
     if (exponentValue == 2)
       estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0),
-          dimAnalysis, estimatedTimeForCPU_Pow_2_3ds,
-          estimatedTimeForNNPA_Pow_2_3ds, cpuEstimatedTime, nnpaEstimatedTime);
+          dimAnalysis, estimatedTimeForCPU_Pow2_3ds,
+          estimatedTimeForNNPA_Pow2_3ds, cpuEstimatedTime, nnpaEstimatedTime);
     if (exponentValue == 3)
       estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0),
-          dimAnalysis, estimatedTimeForCPU_Pow_3_3ds,
-          estimatedTimeForNNPA_Pow_3_3ds, cpuEstimatedTime, nnpaEstimatedTime);
+          dimAnalysis, estimatedTimeForCPU_Pow3_3ds,
+          estimatedTimeForNNPA_Pow3_3ds, cpuEstimatedTime, nnpaEstimatedTime);
     if (exponentValue == 4)
       estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0),
-          dimAnalysis, estimatedTimeForCPU_Pow_4_3ds,
-          estimatedTimeForNNPA_Pow_4_3ds, cpuEstimatedTime, nnpaEstimatedTime);
+          dimAnalysis, estimatedTimeForCPU_Pow4_3ds,
+          estimatedTimeForNNPA_Pow4_3ds, cpuEstimatedTime, nnpaEstimatedTime);
   }
   // For other power exponent, just use pow of 8.
   estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(0), dimAnalysis,
-      estimatedTimeForCPU_Pow_8_3ds, estimatedTimeForNNPA_Pow_8_3ds,
+      estimatedTimeForCPU_Pow8_3ds, estimatedTimeForNNPA_Pow8_3ds,
       cpuEstimatedTime, nnpaEstimatedTime);
 }
 
@@ -373,6 +358,18 @@ void estimateTimeForOp<ONNXTanhOp>(ONNXTanhOp op,
 }
 
 //===----------------------------------------------------------------------===//
+// Processing for each op: ReduceMean.
+
+template <>
+void estimateTimeForOp<ONNXReduceMeanV13Op>(ONNXReduceMeanV13Op op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime) {
+  estimateTimeForElementwiseOp(op.getOperation(), op.getOperand(), dimAnalysis,
+      estimatedTimeForCPU_ReduceMean_4d, estimatedTimeForNNPA_ReduceMean_4d,
+      cpuEstimatedTime, nnpaEstimatedTime);
+}
+
+//===----------------------------------------------------------------------===//
 // Processing for each op: MatMul.
 
 template <>
@@ -393,6 +390,8 @@ void estimateTimeForOp<ONNXGemmOp>(ONNXGemmOp op,
       nnpaEstimatedTime);
 }
 
+
+
 } // namespace
 
 namespace onnx_mlir {
@@ -405,7 +404,7 @@ double estimateTimeForStickOp(Value oper) {
   int64_t e4, e3, e2, e1;
   std::string msg;
   processDim(oper, e4, e3, e2, e1, msg);
-  return estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+  return estimatedTimeForNNPA_Stick_3ds(e4 * e3, e2, e1);
 }
 
 double estimateTimeForUnstickOp(Value oper) {
@@ -413,8 +412,7 @@ double estimateTimeForUnstickOp(Value oper) {
   int64_t e4, e3, e2, e1;
   std::string msg;
   processDim(oper, e4, e3, e2, e1, msg);
-  // At this time, use same estimate for stick and unstick.
-  return estimatedTimeForCPU_Stick_3ds(e4 * e3, e2, e1);
+  return estimatedTimeForNNPA_Unstick_3ds(e4 * e3, e2, e1);
 }
 
 bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
@@ -449,6 +447,9 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
         softmaxOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   else if (auto tanhOp = dyn_cast<ONNXTanhOp>(op))
     estimateTimeForOp(tanhOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+  // Reduce
+  else if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanV13Op>(op))
+    estimateTimeForOp(reduceMeanOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Matmul.
   else if (auto matMulOp = dyn_cast<ONNXMatMulOp>(op))
     estimateTimeForOp(
