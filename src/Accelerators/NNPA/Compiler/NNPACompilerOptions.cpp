@@ -63,7 +63,8 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
     llvm::cl::values(
         clEnumVal(QualifyingOps, "Place all qualifying ops on NNPA (default)"),
         clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA"),
-        clEnumVal(FasterOpsWithStick, "FasterOps with stick/unstick cost")),
+        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost"),
+        clEnumVal(MuchFasterOpsWSU, "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
 } // namespace onnx_mlir

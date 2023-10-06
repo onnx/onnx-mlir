@@ -42,9 +42,10 @@ typedef enum {
 } NNPAEmissionTargetType;
 
 typedef enum {
-  QualifyingOps,
-  FasterOps,
-  FasterOpsWithStick
+  QualifyingOps,    /* Any ops that qualify for NNPA will go on NNPA. */
+  FasterOps,        /* Only qualifying ops that are faster on NNPA */
+  FasterOpsWSU,     /* FasterOps with With Stick and Unstick (WSU) cost.*/
+  MuchFasterOpsWSU, /* FasterOpsWSU only if significantly faster. */
 } NNPAPlacementHeuristic;
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
