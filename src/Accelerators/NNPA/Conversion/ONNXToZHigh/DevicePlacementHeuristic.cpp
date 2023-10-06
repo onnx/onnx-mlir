@@ -391,8 +391,14 @@ struct DevicePlacementWithStickUnstickCost {
       return fasterOnNNPA(op, significant);
     }
     // For significant, don't take overheads into account as it may change
-    // depending on mapping.
-    significant = significantlyFaster(cpuTime, nnpaTime, significantFactor);
+    // depending on mapping. We use here a fix 2x factor, as "never" want to go
+    // on NNPA if CPU is 2x faster. This is unlike using a variable significant
+    // factor to go to the NNPA; in some cases, we may want to only go to NNPA
+    // if it goes, for example 10x faster on NNPA. When using a 10x factor, we
+    // don't want to force a CPU usage if CPU goes 10 faster (as we are trying
+    // to be only conservative when going to the NNPA, not staying on the CPU).
+    // Thus this different factor here
+    significant = significantlyFaster(cpuTime, nnpaTime, 2.0);
     return fasterOnCPU(op, significant);
   }
 

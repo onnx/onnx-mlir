@@ -390,8 +390,6 @@ void estimateTimeForOp<ONNXGemmOp>(ONNXGemmOp op,
       nnpaEstimatedTime);
 }
 
-
-
 } // namespace
 
 namespace onnx_mlir {
@@ -449,7 +447,8 @@ bool estimateTimeForOpWithModel(Operation *op, const DimAnalysis *dimAnalysis,
     estimateTimeForOp(tanhOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Reduce
   else if (auto reduceMeanOp = dyn_cast<ONNXReduceMeanV13Op>(op))
-    estimateTimeForOp(reduceMeanOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
+    estimateTimeForOp(
+        reduceMeanOp, dimAnalysis, cpuEstimatedTime, nnpaEstimatedTime);
   // Matmul.
   else if (auto matMulOp = dyn_cast<ONNXMatMulOp>(op))
     estimateTimeForOp(
