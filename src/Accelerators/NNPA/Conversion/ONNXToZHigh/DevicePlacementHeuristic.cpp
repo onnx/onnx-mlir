@@ -167,8 +167,9 @@ struct DevicePlacementWithStickUnstickCost {
         return WalkResult::advance();
       // Ops that cannot/may not go on NNPA but can operate on NNPA data "for
       // free" are included here in NNPA neutral ops.
-      // hi alex: add lots of ops here
-      if (isa<ONNXConstantOp>(op)) {
+      // I assume here (not really true) that transpose and reshape can carry
+      // the stickified data.
+      if (isa<ONNXConstantOp, ONNXTransposeOp, ONNXReshapeOp>(op)) {
         nnpaNeutralOps.insert(op);
         return WalkResult::advance();
       }
