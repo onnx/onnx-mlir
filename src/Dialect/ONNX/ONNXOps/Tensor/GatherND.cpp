@@ -63,10 +63,10 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
   for (int64_t i = 0; i < b; ++i)
     outputDims.emplace_back(batchDims[i]);
   for (int64_t i = b; i < indicesRank - 1; ++i) {
-   if (indicesShape[i] == ShapedType::kDynamic)
-     outputDims.emplace_back(dataDims[i]);
-   else
-     outputDims.emplace_back(indicesDims[i]);
+    if (indicesShape[i] == ShapedType::kDynamic)
+      outputDims.emplace_back(dataDims[i]);
+    else
+      outputDims.emplace_back(indicesDims[i]);
   }
 
   // When indices.shape[-1] < data_rank - b,
