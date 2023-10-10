@@ -36,75 +36,59 @@ import numpy as np
 def print_usage(msg=""):
     if msg:
         print("Error:", msg, "\n")
-    print("make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]")
-    print("  [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]")
-    print("")
     print(
-        "Usage: Report statistics on compiler and runtime characteristics of onnx ops."
+        """
+Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
+make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
+      [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]
+      [-w <num>]
+          
+Compile-time statistics are collected from a `onnx-mlir` compiler output
+with the `--opt-report` option equal to `Simd` or other supported sub-options.
+
+Runtime statistics are collected from the runtime output of a model compiled.
+with the `--profile-ir` option equal to `Onnx` or other supported sub-options.
+  
+When both compile time and runtime statistics are provided at the same time,
+it will correlate the performance metrics with data gathered at compile time.
+ 
+Additional help.
+  If you need more specific info on individual success/failure, run
+  `onnx-mlir --debug-only=lowering-to-krnl` and look at the compiler output.
+  Use `-l 3` to correlate the node name printed here with compiler output.
+
+Parameters:
+  -c/--compile <file_log>: File name containing the compile-time statistics
+                           or runtime signature statistics.
+  -r/--runtime <file_log>: File name containing the runtime time statistics.
+
+  -a/--stats <name>:   Print specific statistics:
+                       simd: Print simd optimization stats.
+                             Default if a compile time file is given.
+                       par:  Print parallel optimization stats.
+                       sig:  Print signatures of op.
+                       perf: Print runtime execution time of ops.
+                             Default if no compile time file is given.
+  -l/--level <num>:    Print detailed level of statistics:
+                       0: Just count successful/unsuccessful ops (default).
+                       1: Also count reasons for success/failure.
+                       2: Also list metrics.
+                       3: Also list node name.
+  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+  -supported:          Focus only on ops that are supported. Namely, the report
+                       will skip ops for which compile-time statistics list
+                       the 'unsupported' keyword in its printout.
+                       For SIMD/parallel statistics, this include all ops that
+                       have currently no support for it.
+  -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or
+                       microsecond ('us).
+  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`.
+  -v/--verbose:        Run in verbose mode (see error and warnings).
+  -w/--warmup <num>:   If multiple runtime statistics are given, ignore the first
+                       <num> stats. Default is zero.
+  -h/--help:           Print usage.
+    """
     )
-    print("")
-    print("Compile-time statistics are collected from a `onnx-mlir` compiler output")
-    print(
-        "with the `--opt-report` option equal to `Simd` or other supported sub-options."
-    )
-    print("")
-    print(
-        "Runtime statistics are collected from the runtime output of a model compiled."
-    )
-    print(
-        "with the `--profile-ir` option equal to `Onnx` or other supported sub-options."
-    )
-    print("")
-    print(
-        "When both compile time and runtime statistics are provided at the same time,"
-    )
-    print(
-        "it will correlate the performance metrics with data gathered at compile time."
-    )
-    print("")
-    print("Additional help.")
-    print("  If you need more specific info on individual success/failure, run ")
-    print(
-        "  `onnx-mlir --debug-only=lowering-to-krnl` and look at the compiler output."
-    )
-    print("  Use `-l 3` to correlate the node name printed here with compiler output.")
-    print("")
-    print("Parameters:")
-    print("  -c/--compile <file_log>: File name containing the compile-time statistics")
-    print("                       or runtime signature statistics.")
-    print(
-        "  -r/--runtime <file_log>: File name containing the runtime time statistics."
-    )
-    print("  -a/--stats <name>:   Print specific statistics:")
-    print("                       simd: Print simd optimization stats.")
-    print("                       Default if a compile time file is given.")
-    print("                       par: Print parallel optimization stats.")
-    print("                       sig: Print signatures of op.")
-    print("                       perf: Print runtime execution time of ops.")
-    print("                       Default if no compile time file is given.")
-    print("  -l/--level <num>:    Print detailed level of statistics:")
-    print("                       0: Just count successful/unsuccessful ops (default).")
-    print("                       1: Also count reasons for success/failure.")
-    print("                       2: Also list metrics.")
-    print("                       3: Also list node name.")
-    print("  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.")
-    print(
-        "  -supported:          Focus only on ops that are supported. Namely, the report"
-    )
-    print("                       will skip ops for which compile-time statistics list")
-    print("                       the 'unsupported' keyword in its printout.")
-    print(
-        "                       For SIMD/parallel statistics, this include all ops that"
-    )
-    print("                       have currently no support for it.")
-    print("  -u/--unit <str>:     Time in second ('s', default), millisecond ('ms') or")
-    print("                       microsecond ('us).")
-    print(
-        "  --sort <str>:        Sort output by op 'name', occurrence 'num' or `time`."
-    )
-    print("  -v/--verbose:        Run in verbose mode (see error and warnings).")
-    print("  -h/--help:           Print usage.")
-    print("")
     exit(1)
 
 
@@ -123,7 +107,6 @@ node_time_used = {}  # op + node_name -> 1 if used; not present if unused.
 tot_time = 0  # total time.
 
 focus_on_op_with_pattern = r".*"
-spurious_node_name_count = 0
 error_missing_time = 0
 supported_only = False
 has_timing = False
@@ -136,6 +119,10 @@ time_unit = 1  # seconds
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
 def common_report_str(stat_name):
     return r"^==" + stat_name + r"-REPORT==,\s*([0-9a-zA-Z\.\-]+)\s*,\s*([^,]*),\s*(.*)"
+
+
+def match_start_report(line):
+    return re.match(r"==START-REPORT==", line)
 
 
 # ==SIMD-REPORT==, ..., <explanations>, <VL>, <simd-trip-count>
@@ -248,7 +235,7 @@ def record_pattern(op, node_name, detail_key):
 
 def parse_line(line, report_str, is_perf_stat):
     global focus_on_op_with_pattern, supported_only
-    global verbose, spurious_node_name_count
+    global verbose
 
     p = re.match(report_str, line)
     if p is None:
@@ -271,8 +258,6 @@ def parse_line(line, report_str, is_perf_stat):
     # Have a perfect match.
     return (True, op, node_name, details)
 
-
-parse_line.last_node_name = ""
 
 ################################################################################
 # Parse file for statistics.
@@ -305,7 +290,16 @@ def parse_file_for_stat(file_name, stat_name):
 
     report_str = common_report_str(stat_name)
     is_perf_stat = re.match(r"PERF", stat_name)
+    start_count = 0
     for line in file:
+        line = line.rstrip()
+
+        # Only gather stats for the first set of measurement.
+        if match_start_report(line):
+            start_count += 1
+            if start_count >= 2:
+                break
+
         # Parse line.
         (has_stat, op, node_name, details) = parse_line(
             line.rstrip(), report_str, is_perf_stat
@@ -332,9 +326,9 @@ def parse_file_for_stat(file_name, stat_name):
 # Parse file for performance
 
 
-def parse_file_for_perf(file_name, stat_name):
+def parse_file_for_perf(file_name, stat_name, warmup_num=0):
     global node_time_dict, tot_time
-    global spurious_node_name_count, verbose, has_timing
+    global verbose, has_timing
 
     try:
         file = open(file_name, "r")
@@ -342,31 +336,88 @@ def parse_file_for_perf(file_name, stat_name):
         print_usage("Could not open file `" + file_name + "`")
 
     report_str = common_report_str(stat_name)
-    time_stat_dict = {}  # op+op_name -> numpy array of times
-    last_node_name = ""
-    for line in file:
-        # Parse line.
-        (has_stat, op, node_name, details) = parse_line(line.rstrip(), report_str, True)
-        if not has_stat:
-            continue
-        # Keep only after times.
-        detail_array = details.split(",")
-        key = get_timing_key(op, node_name)
-        time = float(detail_array[1])
-        tot_time += time
-        time_stat_dict[key] = append_to_dict_entry(time_stat_dict, key, time)
 
-    # Normally, an <op>-<node-name> pair should be seen only once in a run,
-    # except for loops and some other circumstances (e.g. multiple dim op for
-    # a given original onnx op). Because in any case, the report will be done
-    # on visiting N time a op-nodename combination that has N instances, and
-    # thus adding N times the value from "node_time_dict[node]", we must take
-    # here the average. We loose distinguishing the variability of the timing
-    # of the same op with same op name, but this is ok. Taking the sum is just
-    # wrong, as we would add N times the sum of the N time measurements.
-    for node in time_stat_dict:
-        node_time_dict[node] = np.average(time_stat_dict[node])
+    # Skip lines until the first start report
+    has_start = False
+    start_count = 0
+    for line in file:
+        line = line.rstrip()
+        if match_start_report(line):
+            has_start = True
+            break  # On to the first measurement.
+    if not has_start:
+        # Failed to have any timing info, stop.
+        return
+
+    time_stat_dict_all_meas = {}  # op+op_name -> numpy array of times
+    while has_start:
+        time_stat_dict = {}  # op+op_name -> numpy array of times
+        has_start = False
+        start_count += 1
+        meas_tot_time = 0
+        for line in file:
+            line = line.rstrip()
+            # New measurement set?
+            if match_start_report(line):
+                has_start = True
+                break  # On to the next measurement.
+
+            # Parse line.
+            (has_stat, op, node_name, details) = parse_line(line, report_str, True)
+            if not has_stat:
+                continue
+            # Keep only after times.
+            detail_array = details.split(",")
+            key = get_timing_key(op, node_name)
+            time = float(detail_array[1])
+            meas_tot_time += time
+            time_stat_dict[key] = append_to_dict_entry(time_stat_dict, key, time)
+
+        # Has reach the end or a new START_REPORT, summarize this.
+
+        # Normally, an <op>-<node-name> pair should be seen only once in a run,
+        # except for loops and some other circumstances (e.g. multiple dim op for
+        # a given original onnx op). Because in any case, the report will be done
+        # on visiting N time a op-nodename combination that has N instances, and
+        # thus adding N times the value from "node_time_dict[node]", we must take
+        # here the average. We loose distinguishing the variability of the timing
+        # of the same op with same op name, but this is ok. Taking the sum is just
+        # wrong, as we would add N times the sum of the N time measurements.
+        for node in time_stat_dict:
+            time = np.average(time_stat_dict[node])
+            time_stat_dict_all_meas[node] = append_to_dict_entry(
+                time_stat_dict_all_meas, node, time
+            )
+        # Add a "tot time" entry.
+        time_stat_dict_all_meas["tot_time"] = append_to_dict_entry(
+            time_stat_dict_all_meas, "tot_time", meas_tot_time
+        )
+
+    # Encountered now all the measurements, has no more.
+    meas_num = start_count - warmup_num
+    assert meas_num > 0, "expected at least one set of measurement after warmups"
+    discard_num = int(meas_num / 4)
+    print(
+        "Gather stats from",
+        start_count,
+        "measurement sets with",
+        warmup_num,
+        "warmup; keep inner",
+        meas_num - 2 * discard_num,
+        "experiment(s)",
+    )
+    for node in time_stat_dict_all_meas:
+        # Verify that we have the right number of measurements.
+        time_array = time_stat_dict_all_meas[node][warmup_num:]
+        assert time_array.size == meas_num
+        if discard_num > 0 and meas_num - 2 * discard_num > 0:
+            time_array = np.sort(time_array)
+            time_array = time_array[discard_num:-discard_num]
+        node_time_dict[node] = np.average(time_array)
+    # Success.
     has_timing = True
+    tot_time = node_time_dict["tot_time"]
+    del node_time_dict["tot_time"]
 
 
 ################################################################################
@@ -392,7 +443,7 @@ def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
     global has_timing, time_unit, error_missing_time
-    global report_level, supported_only, verbose, spurious_node_name_count
+    global report_level, supported_only, verbose
     global sorting_preference
 
     # Gather statistics in a dictionary so that we may sort the entries.
@@ -478,14 +529,7 @@ def make_report(stat_message):
     print("Statistics end" + stat_details)
 
     # Report spurious node name if any.
-    if spurious_node_name_count:
-        if error_missing_time:
-            print("> Spurious node name were detected.")
-            print("> Timing information was missing for some of the nodes.")
-        else:
-            print("> Spurious node name were detected and fixed.")
-        print("> Run with `-v` for detailed list of fixes and errors.")
-    elif error_missing_time:
+    if error_missing_time:
         print("> Timing information was missing for some of the nodes.")
         print("> Run with `-v` for detailed list of errors.")
 
@@ -502,10 +546,11 @@ def main(argv):
     runtime_file_name = ""
     make_stats = ""
     make_legend = ""
+    warmup_num = 0
     try:
         opts, args = getopt.getopt(
             argv,
-            "c:f:hl:r:s:u:v",
+            "c:f:hl:r:s:u:vw:",
             [
                 "compile=",
                 "focus=",
@@ -516,6 +561,7 @@ def main(argv):
                 "supported",
                 "unit=",
                 "verbose",
+                "warmup=",
             ],
         )
     except getopt.GetoptError:
@@ -572,6 +618,8 @@ def main(argv):
                 print_usage("time units are 's', 'ms', or 'us'")
         elif opt in ("-v", "--verbose"):
             verbose = True
+        elif opt in ("-w", "--warmup"):
+            warmup_num = int(arg)
 
     # Default stats.
     if not make_stats:
@@ -591,14 +639,14 @@ def main(argv):
         else:
             sorting_preference = "name"
     if compile_file_name and runtime_file_name:
-        parse_file_for_perf(runtime_file_name, "PERF")
+        parse_file_for_perf(runtime_file_name, "PERF", warmup_num)
         parse_file_for_stat(compile_file_name, make_stats)
         make_report(make_legend)
     elif compile_file_name:
         parse_file_for_stat(compile_file_name, make_stats)
         make_report(make_legend)
     elif runtime_file_name:
-        parse_file_for_perf(runtime_file_name, "PERF")
+        parse_file_for_perf(runtime_file_name, "PERF", warmup_num)
         parse_file_for_stat(runtime_file_name, "PERF")
         make_report(make_legend)
     else:
