@@ -568,7 +568,7 @@ public:
         SmallVector<Value, 2> parameters = {
             create.onnx.toMemref(a), create.onnx.toMemref(b)};
         rewriter.create<KrnlCallOp>(
-            loc, "dummyFuncForKeepParam", 1, parameters);
+            loc, "dummyFuncForKeepParam", 2, parameters);
       }
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
@@ -584,15 +584,15 @@ public:
     if (resSubAs.size() > 1)
       // Concat sub results along dimension N of A.
       res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
-    for (Value a : subAs) {
-      for (Value b : subBs) {
-        // Call dummy function to prevent deallocation of a and b.
-        SmallVector<Value, 2> parameters = {
-            create.onnx.toMemref(a), create.onnx.toMemref(b)};
-        rewriter.create<KrnlCallOp>(
-            loc, "dummyFuncForKeepParam", 1, parameters);
-      }
-    }
+    //    for (Value a : subAs) {
+    //      for (Value b : subBs) {
+    //        // Call dummy function to prevent deallocation of a and b.
+    //        SmallVector<Value, 2> parameters = {
+    //            create.onnx.toMemref(a), create.onnx.toMemref(b)};
+    //        rewriter.create<KrnlCallOp>(
+    //            loc, "dummyFuncForKeepParam", 1, parameters);
+    //      }
+    //    }
 
     rewriter.replaceOp(op, res);
     return success();
