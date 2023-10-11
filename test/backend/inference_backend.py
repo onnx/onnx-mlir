@@ -1023,10 +1023,19 @@ def get_test_models():
         },
         # ==OP== GatherND
         # ==MIN== 11
-        "test_gathernd_example_int32_cpu": {STATIC_SHAPE: {}, CONSTANT_INPUT: {-1}},
-        "test_gathernd_example_float32_cpu": {STATIC_SHAPE: {}, CONSTANT_INPUT: {-1}},
+        "test_gathernd_example_int32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1}
+        },
+        "test_gathernd_example_float32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1}
+        },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gemm
