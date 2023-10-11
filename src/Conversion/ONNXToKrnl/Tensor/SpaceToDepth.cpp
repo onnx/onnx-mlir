@@ -77,6 +77,7 @@ struct ONNXSpaceToDepthOpLowering
     LLVM_DEBUG(llvm::dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
 
     rewriter.replaceOp(op, reshapeRes2);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

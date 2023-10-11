@@ -71,19 +71,11 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createSetONNXNodeNamePass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createONNXPreKrnlVerifyPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createKrnlEnableMemoryPoolPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createKrnlBundleMemoryPoolsPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return krnl::createKrnlOptimizeMemoryPoolsPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -162,6 +154,15 @@ void registerMLIRPasses() {
   });
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createPrintOpStatsPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertSCFToOpenMPPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createConvertOpenMPToLLVMPass();
+  });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createFinalizeMemRefToLLVMConversionPass();
   });
 }
 

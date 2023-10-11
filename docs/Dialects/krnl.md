@@ -563,7 +563,7 @@ for (i0 = 0; i0 < 10; i0++)
     // Some operations.
 ```
 
-Traits: ImplicitKrnlTerminator
+Traits: SingleBlock, SingleBlockImplicitTerminator<KrnlTerminatorOp>
 
 Interfaces: LoopLikeOpInterface
 
@@ -907,7 +907,31 @@ to assist with maintaining the relative positioning of loop and inner-loop state
 This construct is particularly helpful, for example, for lowering statements that
 are nested imperfectly between an "eager" and a "lazy" loop.
 
-Traits: ImplicitKrnlTerminator
+Traits: SingleBlock, SingleBlockImplicitTerminator<KrnlTerminatorOp>
+
+### `krnl.parallel` (KrnlParallelOp)
+
+_Krnl parallel operation_
+
+
+Syntax:
+
+```
+operation ::= `krnl.parallel` $loop attr-dict `:` type($loop)
+```
+
+Parallelize the specified loops. krnl.parallel should be placed as the last
+operator before krnl.iterate. Since we do not want to parallelize the loop
+until we interpret krnl.block, krnl.permute and krnl.unroll.
+```
+krnl.parallel %i
+```
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `loop` | any type
 
 ### `krnl.permute` (KrnlPermuteOp)
 

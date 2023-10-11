@@ -131,6 +131,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     rewriter.replaceOp(op, alloc);
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
@@ -279,6 +280,7 @@ struct ONNXInstanceNormalizationOpLowering
         }); // For all batches, channels.
 
     rewriter.replaceOp(op, resMemRef);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

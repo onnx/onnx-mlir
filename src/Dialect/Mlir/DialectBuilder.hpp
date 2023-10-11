@@ -360,7 +360,10 @@ struct SCFBuilder final : DialectBuilder {
   void ifThenElse(mlir::Value cond,
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
-
+  // Create a for loop.
+  void forLoop(mlir::Value lowerBound, mlir::Value upperBound, int64_t step,
+      mlir::function_ref<void(SCFBuilder &, mlir::Value)> bodyFn) const;
+  // Create a parallel for loop.
   void parallelLoop(mlir::ValueRange lowerBounds, mlir::ValueRange upperBounds,
       mlir::ValueRange steps,
       mlir::function_ref<void(SCFBuilder &, mlir::ValueRange)> bodyFn) const;
@@ -434,10 +437,13 @@ struct VectorBuilder final : DialectBuilder {
   // possible, return the largest SIMD unroll factor (starting at maxSimdUnroll)
   // that divide the cumulative static size of the memref being collapsed for
   // SIMD.
+  // estimatedSimdLoopTripCount: provide an estimation of the SIMD loop trip
+  // count. If runtime, return -1; if cannot simdize, return 0; if compile time
+  // (or a multiple of a compile time value): return that literal.
   int64_t SuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
-      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll,
-      bool canPad = false) const;
+      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+      int64_t &estimatedSimdLoopTripCount) const;
 
 private:
   bool isPowerOf2(uint64_t num) const;

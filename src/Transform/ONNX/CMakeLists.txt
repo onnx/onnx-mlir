@@ -10,6 +10,7 @@ add_onnx_mlir_library(OMONNXRewrite
   Decompose.cpp
   DecomposeEinsum.cpp
   ScrubDisposablePass.cpp
+  SetONNXNodeName.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
@@ -38,7 +39,6 @@ add_onnx_mlir_library(OMShapeInferencePass
   OMShapeInferenceOpInterface
   MLIRFuncDialect
   MLIRPass
-  OMCompilerOptions
   OMShapeInference
   )
 
@@ -72,6 +72,7 @@ add_onnx_mlir_library(OMHybridTransform
   LINK_LIBS PUBLIC
   OMONNXOps
   OMShapeInferenceOpInterface
+  OMONNXRewrite
   MLIRPass
   MLIRTransforms
   OMShapeInference

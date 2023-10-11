@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --convert-onnx-to-krnl %s -split-input-file | FileCheck %s
 
 module  {
   func.func @remove_stick_2d() -> tensor<2x3xf32> {

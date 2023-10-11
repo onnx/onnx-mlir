@@ -114,6 +114,11 @@ Value OnnxBuilder::div(Value A, Value B) const {
   return createOpAndInferShapes<ONNXDivOp>(toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
+  return createOpAndInferShapes<ONNXExpandOp>(
+      outputType, toTensor(input), toTensor(shape));
+}
+
 Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   // Gemm only supports rank 2.
   bool canUseGemm = useGemm && A.getType().isa<ShapedType>() &&
@@ -433,8 +438,17 @@ ElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
   return getElementAttributeFromONNXValue(value);
 }
 
-// For analysis, we never create values, so return null.
+// Return null if the value at index i is not a constant.
 Value IndexExprBuilderForAnalysis::getVal(Value intArrayVal, uint64_t i) {
+  // Value, e.g. `tensor<3xi64>`, may come from `onnx.Concat` of constant and
+  // runtime values. Thus, we potentially get a constant value at index i.
+  if (areDimsFromConcat(intArrayVal)) {
+    SmallVector<Value, 4> dims;
+    getDims(intArrayVal, dims);
+    if (isDenseONNXConstant(dims[i]))
+      return dims[i];
+  }
+  // Otherwise, for analysis, never create values, so return null.
   return nullptr;
 }
 

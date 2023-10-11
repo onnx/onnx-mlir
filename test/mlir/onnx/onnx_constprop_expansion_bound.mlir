@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --constprop-onnx --onnx-const-prop-expansion-bound=2 %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --constprop-onnx  --onnx-const-prop-expansion-bound=2 %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 // Constant propagate ONNXAddOp only if expansion bound satisfied

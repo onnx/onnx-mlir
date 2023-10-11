@@ -4,7 +4,7 @@
 
 //===----------- ONNXConstProp.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Pass/Passes.hpp"
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -20,6 +23,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -27,11 +32,12 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
 #include <numeric>
+
+#define DEBUG_TYPE "constprop-onnx"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -58,9 +64,13 @@ namespace {
 // Populated by configureConstPropONNXToONNXPass().
 struct ConstPropONNXToONNXPassConfiguration {
   static int expansionBound;
+  static StringSet<> disabledPatterns;
+  static bool constantPropIsDisabled;
 };
 
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
+StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
+bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
 
 // Precondition: result has ranked tensor type with static shape and int or
 // float element type.
@@ -78,6 +88,22 @@ bool satisfiesExpansionBound(Value result) {
   }
   return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
          getSizeInBytes(resultType);
+}
+
+// We want to disable Constant Propagation when a user
+// manually specifies the "disable-constant-prop" flag.
+bool isConstantPropagationDisabled() {
+  bool disable = (/*disableConstantProp*/ ConstPropONNXToONNXPassConfiguration::
+          constantPropIsDisabled);
+  return disable;
+}
+
+bool isNotDisabled(StringRef name) {
+  bool ok =
+      !ConstPropONNXToONNXPassConfiguration::disabledPatterns.contains(name);
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE " isNotDisabled " << name << " " << ok
+                          << "\n");
+  return ok;
 }
 
 ElementsAttr getConstValueElements(Value constValue) {
@@ -700,123 +726,19 @@ Value ConstPropSqueeze(
 }
 
 //===----------------------------------------------------------------------===//
-// Code to perform constant propagation for split.
-//===----------------------------------------------------------------------===//
-
-template <typename Op>
-LogicalResult ConstPropSplitPatternCommon(
-    Op splitOp, PatternRewriter &rewriter, std::optional<ArrayAttr> splitAttr) {
-  // Basic info.
-  unsigned numResults = splitOp.getNumResults();
-  Value input = splitOp.getInput();
-  if (!isDenseONNXConstant(input))
-    return failure();
-  ShapedType inputType = input.getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
-
-  uint64_t splitAxis = splitOp.getAxis();
-  int64_t splitAxisSize = inputShape[splitAxis];
-  std::vector<int64_t> splitSizes(numResults, splitAxisSize / numResults);
-  if (splitAttr.has_value()) {
-    for (unsigned int i = 0; i < numResults; ++i)
-      splitSizes[i] = ArrayAttrIntVal(splitAttr, i);
-    // TODO: Figure out why std::reduce() doesn't work on Linux s390x. Until
-    //       then we're using std::accumulate() instead.
-    assert(splitAxisSize ==
-               std::accumulate(splitSizes.begin(), splitSizes.end(), 0) &&
-           "split values must sum to axis size");
-  } else {
-    // If split attribute is not specified, split size is equally divided.
-    // TODO: Follow the onnx spec which is more relaxed (albeit incomplete).
-    assert(splitAxisSize % numResults == 0 &&
-           "The dimension at the split axis is expected to be divisible by "
-           "the number of results");
-  }
-
-  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  ElementsAttr inputElements = getConstValueElements(input);
-  std::vector<ElementsAttr> resElements =
-      elementsBuilder.split(inputElements, splitAxis, splitSizes);
-  std::vector<Value> resValues;
-  resValues.reserve(numResults);
-  for (unsigned int i = 0; i < numResults; ++i) {
-    Value replacingValue = splitOp.getResult(i);
-    ElementsAttr splitElements = resElements[i];
-    resValues.push_back(
-        createReplacingConstantOp(rewriter, replacingValue, splitElements));
-  }
-  rewriter.replaceOp(splitOp, resValues);
-  return success();
-}
-
-class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
-public:
-  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
-    std::optional<ArrayAttr> optionalAttr;
-
-    auto split = splitOp.getSplit();
-    if (auto splitConstOp = getONNXConstantOp(split)) {
-      // Checking value of split parameter.
-      optionalAttr.emplace(createArrayAttrFromConstantOp(splitConstOp));
-    } else if (!split.getType().isa<NoneType>()) {
-      llvm_unreachable("dynamic split not yet supported");
-    }
-
-    return ConstPropSplitPatternCommon(splitOp, rewriter, optionalAttr);
-  }
-};
-
-class ConstPropSplitV11Pattern : public OpRewritePattern<ONNXSplitV11Op> {
-public:
-  using OpRewritePattern<ONNXSplitV11Op>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXSplitV11Op splitOp, PatternRewriter &rewriter) const override {
-    return ConstPropSplitPatternCommon(splitOp, rewriter, splitOp.getSplit());
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ScatterND.
 //===----------------------------------------------------------------------===//
 
-class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
-public:
-  using OpRewritePattern<ONNXScatterNDOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXScatterNDOp scatterNdOp, PatternRewriter &rewriter) const override {
-    // Match
-    if (!scatterNdOp.getResult().getType().isa<RankedTensorType>())
-      return failure();
-
-    if (!isDenseONNXConstant(scatterNdOp.getData()))
-      return failure();
-
-    if (!isDenseONNXConstant(scatterNdOp.getIndices()))
-      return failure();
-
-    if (!isDenseONNXConstant(scatterNdOp.getUpdates()))
-      return failure();
-
-    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    ElementsAttr dataElements = getConstValueElements(scatterNdOp.getData());
-    ElementsAttr indicesElements =
-        getConstValueElements(scatterNdOp.getIndices());
-    ElementsAttr updatesElements =
-        getConstValueElements(scatterNdOp.getUpdates());
-    ElementsAttr scatteredElements = elementsBuilder.scatterND(
-        dataElements, indicesElements, updatesElements);
-    Value constOpResult = createReplacingConstantOp(
-        rewriter, scatterNdOp.getData(), scatteredElements);
-
-    rewriter.replaceOp(scatterNdOp, constOpResult);
-    return success();
-  }
-};
+Value ConstPropScatterND(PatternRewriter &rewriter, Value replacingValue,
+    Value data, Value indices, Value updates) {
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr dataElements = getConstValueElements(data);
+  ElementsAttr indicesElements = getConstValueElements(indices);
+  ElementsAttr updatesElements = getConstValueElements(updates);
+  ElementsAttr scatteredElements =
+      elementsBuilder.scatterND(dataElements, indicesElements, updatesElements);
+  return createReplacingConstantOp(rewriter, replacingValue, scatteredElements);
+}
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for CastOp.
@@ -1036,6 +958,108 @@ Value ConstPropNonZero(
 #include "src/Transform/ONNX/ONNXConstProp.inc"
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for split.
+// Not done with tablegen which doesn't support variadic results.
+//===----------------------------------------------------------------------===//
+
+std::vector<Value> ConstPropSplit(PatternRewriter &rewriter,
+    ResultRange replacingValues, Value input, Value split, int64_t axis) {
+  unsigned numResults = replacingValues.size();
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+
+  int64_t splitAxisSize = inputShape[axis];
+  SmallVector<int64_t> splitSizes(numResults, splitAxisSize / numResults);
+  if (isa<NoneType>(split.getType())) {
+    // If split attribute is not specified, split size is equally divided.
+    // TODO: Follow the onnx spec which is more relaxed (albeit incomplete).
+    assert(splitAxisSize % numResults == 0 &&
+           "The dimension at the split axis is expected to be divisible by "
+           "the number of results");
+  } else {
+    ElementsAttr splitElements = getConstValueElements(split);
+    assert(splitElements.size() == numResults &&
+           "split length should match the number of results");
+    auto splitValues = splitElements.getValues<int64_t>();
+    splitSizes.assign(splitValues.begin(), splitValues.end());
+    // TODO: Figure out why std::reduce() doesn't work on Linux s390x. Until
+    //       then we're using std::accumulate() instead.
+    assert(splitAxisSize ==
+               std::accumulate(splitSizes.begin(), splitSizes.end(), 0) &&
+           "split values must sum to axis size");
+  }
+
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr inputElements = getConstValueElements(input);
+  std::vector<ElementsAttr> resElements =
+      elementsBuilder.split(inputElements, axis, splitSizes);
+  std::vector<Value> resValues;
+  resValues.reserve(numResults);
+  for (unsigned int i = 0; i < numResults; ++i) {
+    ElementsAttr splitElements = resElements[i];
+    resValues.push_back(
+        createReplacingConstantOp(rewriter, replacingValues[i], splitElements));
+  }
+  return resValues;
+}
+
+class SplitOfConst : public OpRewritePattern<ONNXSplitOp> {
+public:
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult match(ONNXSplitOp splitOp) const override {
+    if (!isDenseONNXConstant(splitOp.getInput()))
+      return failure();
+    Value split = splitOp.getSplit();
+    if (!(isa<NoneType>(split.getType()) || isDenseONNXConstant(split)))
+      return failure();
+    return success();
+  }
+
+  void rewrite(ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+    rewriter.replaceOp(splitOp,
+        ConstPropSplit(rewriter, splitOp.getResults(), splitOp.getInput(),
+            splitOp.getSplit(), splitOp.getAxis()));
+  }
+};
+
+class IfOfConst : public OpRewritePattern<ONNXIfOp> {
+public:
+  using OpRewritePattern<ONNXIfOp>::OpRewritePattern;
+
+  LogicalResult match(ONNXIfOp ifOp) const override {
+    if (!isDenseONNXConstant(ifOp.getCond()))
+      return failure();
+    return success();
+  }
+
+  void rewrite(ONNXIfOp ifOp, PatternRewriter &rewriter) const override {
+    Value cond = ifOp.getCond();
+    ElementsAttr condElements = getConstValueElements(cond);
+    auto splitValues = condElements.getValues<bool>();
+    Region *region;
+    if (splitValues[0] == 0) {
+      region = &ifOp.getElseBranch();
+    } else {
+      region = &ifOp.getThenBranch();
+    }
+
+    assert(
+        region->hasOneBlock() && "Then/Else region should have only one block");
+
+    Operation *yieldOp = region->front().getTerminator();
+    ValueRange yields = yieldOp->getOperands();
+    SmallVector<Value, 4> outputs(yields.begin(), yields.end());
+    Block *newBlock =
+        rewriter.splitBlock(&region->front(), region->front().begin());
+
+    rewriter.eraseOp(yieldOp);
+    rewriter.inlineBlockBefore(newBlock, ifOp);
+    rewriter.replaceOp(ifOp, outputs);
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Code to manage the pass.
 //===----------------------------------------------------------------------===//
 
@@ -1049,7 +1073,6 @@ struct ConstPropONNXToONNXPass
     return "ConstProp ONNX operations into composition of "
            "other ONNX operations.";
   }
-
   void runOnOperation() final;
 };
 
@@ -1058,18 +1081,29 @@ void ConstPropONNXToONNXPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  populateWithGenerated(patterns);
-  patterns.insert<ConstPropSplitPattern>(&getContext());
-  patterns.insert<ConstPropSplitV11Pattern>(&getContext());
-  patterns.insert<ConstPropScatterNDPattern>(&getContext());
+  getConstPropONNXToONNXPatterns(patterns);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
 } // end anonymous namespace.
 
-void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound) {
+void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
+  if (isConstantPropagationDisabled())
+    return;
+  populateWithGenerated(patterns);
+  if (isNotDisabled("SplitOfConst"))
+    patterns.insert<SplitOfConst>(patterns.getContext());
+  patterns.insert<IfOfConst>(patterns.getContext());
+}
+
+void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
+    ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled) {
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
+  ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
+      disabledPatterns.begin(), disabledPatterns.end());
+  ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled =
+      constantPropIsDisabled;
 }
 
 /*!

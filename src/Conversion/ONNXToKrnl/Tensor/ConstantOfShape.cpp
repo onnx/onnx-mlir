@@ -93,6 +93,7 @@ struct ONNXConstantOfShapeOpLowering
     // Replace this operation with the generated alloc.
     rewriter.replaceOp(op, alloc);
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

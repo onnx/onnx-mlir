@@ -1,7 +1,5 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
-
-// -----
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx  --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
 
 func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
@@ -628,3 +626,38 @@ func.func @test_onnx_conv2d_not_insert_onnxpad_if_auto_pad_is_valid(%arg0: tenso
   // CHECK-NOT: "onnx.Pad"
 }
 
+// -----
+
+func.func @test_replace_add_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?xi64>) -> tensor<2x4xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %4 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<1x?xf32>
+  %5 = "onnx.Add"(%arg0, %4) : (tensor<2x4xf32>, tensor<1x?xf32>) -> tensor<2x4xf32>
+  return %5 : tensor<2x4xf32>
+
+// CHECK-LABEL:  func.func @test_replace_add_zero_expand
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<2x4xf32> {
+// CHECK-NOT:       onnx.Add
+// CHECK:           return [[PARAM_0_]] : tensor<2x4xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_replace_sub_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?xi64>) -> tensor<2x4xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %4 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<1x?xf32>
+  %5 = "onnx.Sub"(%arg0, %4) : (tensor<2x4xf32>, tensor<1x?xf32>) -> tensor<2x4xf32>
+  return %5 : tensor<2x4xf32>
+
+// CHECK-LABEL:  func.func @test_replace_sub_zero_expand
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<2x4xf32> {
+// CHECK-NOT:       onnx.Sub
+// CHECK:           return [[PARAM_0_]] : tensor<2x4xf32>
+// CHECK:         }
+}

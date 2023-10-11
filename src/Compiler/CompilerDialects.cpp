@@ -34,6 +34,7 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   registry.insert<ONNXDialect>();
   registry.insert<KrnlDialect>();
   registry.insert<cf::ControlFlowDialect>();
+  registry.insert<mlir::omp::OpenMPDialect>();
 
   // Initialize accelerator(s) if required.
   accel::initAccelerators(accels);

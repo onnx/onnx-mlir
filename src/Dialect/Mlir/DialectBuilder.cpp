@@ -278,7 +278,7 @@ Value MathBuilder::floor(Value val) const {
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MinFOp>(loc(), lhs, rhs);
+    return b().create<arith::MinNumFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MinUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -289,7 +289,7 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MaxFOp>(loc(), lhs, rhs);
+    return b().create<arith::MaxNumFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -1348,6 +1348,19 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
+void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
+    function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
+  MathBuilder createMath(*this);
+  Value stepVal = createMath.constantIndex(step);
+  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+      [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
+          ValueRange args) {
+        SCFBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVar);
+        yield();
+      });
+}
+
 void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
@@ -1577,6 +1590,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
   uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  // TODO alex, should relax this
   assert(VL == machineVL && "only natural sizes supported at this time");
   assert(N % machineVL == 0 &&
          "can only reduces multiple of VL vectors at this time");
@@ -1621,10 +1635,14 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
 int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
-    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad) const {
+    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+    int64_t &estimatedSimdLoopTripCount) const {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
+  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
   if (VL == 0) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
     return 0;
@@ -1634,11 +1652,13 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
   IndexExpr dynSize;
   bool isStaticSize = createMem.getStaticAndDynamicMemSize(
       memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
-  if (isStaticSize && staticSize < maxSimdUnroll) {
+  if (isStaticSize && staticSize < VL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
-                            << " too short \n");
+                            << " too short for a VL of " << VL << "\n");
     return 0;
   }
+  // Unless otherwise disabled, here is the estimated trip count.
+  estimatedSimdLoopTripCount = staticSize > 1 ? staticSize : -1;
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     return maxSimdUnroll * VL;
@@ -1654,7 +1674,6 @@ int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
     return 0;
   }
   // See if we can get a unroll factor.
-  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   for (int64_t u = maxSimdUnroll; u > 0; --u) {
     if (staticSize % (u * VL) == 0) {
       LLVM_DEBUG(llvm::dbgs()

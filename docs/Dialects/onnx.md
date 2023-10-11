@@ -523,11 +523,7 @@ AveragePool consumes an input tensor X and applies average pooling across
  ```
  output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
  ```
- if ceil_mode is enabled
-
- ```
- * pad_shape[i] is sum of pads along axis i
- ```
+ if ceil_mode is enabled `pad_shape[i]` is the sum of pads along axis `i`.
 
  `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following:
  ```
@@ -554,6 +550,7 @@ Effects: MemoryEffects::Effect{}
 | `auto_pad` | ::mlir::StringAttr | string attribute
 | `ceil_mode` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 | `count_include_pad` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
 | `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
@@ -957,18 +954,24 @@ Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface),
 
 Effects: MemoryEffects::Effect{}
 
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `saturate` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
-| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
+| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `target_type` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values
+| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 1-bit signless integer values or tensor of string type values or tensor of bfloat16 type values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.CastMap` (ONNXCastMapOp)
 
@@ -1941,6 +1944,46 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
 
+### `onnx.DeformConv` (ONNXDeformConvOp)
+
+_ONNX DeformConv operation_
+
+Performs deformable convolution as described in https://arxiv.org/abs/1703.06211 and https://arxiv.org/abs/1811.11168.
+This operator specification supports the general N-D case. Note that most common use cases have 2D or 3D data.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `dilations` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `kernel_shape` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `offset_group` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `pads` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `strides` | ::mlir::ArrayAttr | 64-bit integer array attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `W` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `offset` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `mask` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
+
 ### `onnx.DepthToSpace` (ONNXDepthToSpaceOp)
 
 _ONNX DepthToSpace operation_
@@ -2003,6 +2046,8 @@ The dequantization formula is `y = (x - x_zero_point) * x_scale`. `x_scale` and 
 for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantization.
 `x_zero_point` and `x` must have same type. `x` and `y` must have same shape. In the case of dequantizing int32,
 there's no zero point (zero point is supposed to be 0).
+`zero-point` is usually not used in the case of float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz quantization,
+but the dequantization formula remains the same for consistency and 'x_scale' still determines the output type.
 
 Traits: AlwaysSpeculatableImplTrait
 
@@ -2020,15 +2065,15 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values
-| `x_scale` | tensor of 32-bit float values
-| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or none type
+| `x` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
+| `x_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
+| `x_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of 32-bit signless integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 32-bit float values
+| `y` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values
 
 ### `onnx.Det` (ONNXDetOp)
 
@@ -3609,13 +3654,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `input` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `output` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
 
 ### `onnx.If` (ONNXIfOp)
 
@@ -3639,7 +3684,7 @@ Effects: MemoryEffects::Effect{}
 
 | Result | Description |
 | :----: | ----------- |
-| `outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values
 
 ### `onnx.Imputer` (ONNXImputerOp)
 
@@ -4454,13 +4499,13 @@ Effects: MemoryEffects::Effect{}
 | :-----: | ----------- |
 | `M` | tensor of 64-bit signless integer values or none type
 | `cond` | tensor of 1-bit signless integer values or none type
-| `v_initial` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `v_initial` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `v_final_and_scan_outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values
+| `v_final_and_scan_outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or SeqType of tensor of 8-bit unsigned integer values values or SeqType of tensor of 16-bit unsigned integer values values or SeqType of tensor of 32-bit unsigned integer values values or SeqType of tensor of 64-bit unsigned integer values values or SeqType of tensor of 8-bit signless integer values values or SeqType of tensor of 16-bit signless integer values values or SeqType of tensor of 32-bit signless integer values values or SeqType of tensor of 64-bit signless integer values values or SeqType of tensor of bfloat16 type values values or SeqType of tensor of 16-bit float values values or SeqType of tensor of 32-bit float values values or SeqType of tensor of 64-bit float values values or SeqType of tensor of string type values values or SeqType of tensor of 1-bit signless integer values values or SeqType of tensor of complex type with 32-bit float elements values values or SeqType of tensor of complex type with 64-bit float elements values values or SeqType of tensor of f8E4M3FN type values values or SeqType of tensor of f8E4M3FNUZ type values values or SeqType of tensor of f8E5M2 type values values or SeqType of tensor of f8E5M2FNUZ type values values or OptType of SeqType of tensor of 8-bit unsigned integer values values values or OptType of SeqType of tensor of 16-bit unsigned integer values values values or OptType of SeqType of tensor of 32-bit unsigned integer values values values or OptType of SeqType of tensor of 64-bit unsigned integer values values values or OptType of SeqType of tensor of 8-bit signless integer values values values or OptType of SeqType of tensor of 16-bit signless integer values values values or OptType of SeqType of tensor of 32-bit signless integer values values values or OptType of SeqType of tensor of 64-bit signless integer values values values or OptType of SeqType of tensor of bfloat16 type values values values or OptType of SeqType of tensor of 16-bit float values values values or OptType of SeqType of tensor of 32-bit float values values values or OptType of SeqType of tensor of 64-bit float values values values or OptType of SeqType of tensor of string type values values values or OptType of SeqType of tensor of 1-bit signless integer values values values or OptType of SeqType of tensor of complex type with 32-bit float elements values values values or OptType of SeqType of tensor of complex type with 64-bit float elements values values values or OptType of tensor of 8-bit unsigned integer values values or OptType of tensor of 16-bit unsigned integer values values or OptType of tensor of 32-bit unsigned integer values values or OptType of tensor of 64-bit unsigned integer values values or OptType of tensor of 8-bit signless integer values values or OptType of tensor of 16-bit signless integer values values or OptType of tensor of 32-bit signless integer values values or OptType of tensor of 64-bit signless integer values values or OptType of tensor of bfloat16 type values values or OptType of tensor of 16-bit float values values or OptType of tensor of 32-bit float values values or OptType of tensor of 64-bit float values values or OptType of tensor of string type values values or OptType of tensor of 1-bit signless integer values values or OptType of tensor of complex type with 32-bit float elements values values or OptType of tensor of complex type with 64-bit float elements values values or OptType of tensor of f8E4M3FN type values values or OptType of tensor of f8E4M3FNUZ type values values or OptType of tensor of f8E5M2 type values values or OptType of tensor of f8E5M2FNUZ type values values
 
 ### `onnx.LpNormalization` (ONNXLpNormalizationOp)
 
@@ -5734,6 +5779,8 @@ The three supported `modes` are (similar to corresponding modes supported by `nu
 
 3) `edge` - pads with the edge values of array
 
+4) `wrap` - wrap-around padding as if the data tensor forms a torus
+
 
 Example 1 (`constant` mode):
 
@@ -5796,6 +5843,29 @@ output = [
     [1.0, 1.0, 1.0, 1.2],
     [2.3, 2.3, 2.3, 3.4],
     [4.5, 4.5, 4.5, 5.7],
+]
+```
+
+Example 4 (`wrap` mode):
+
+```
+data = [
+    [1.0, 1.2],
+    [2.3, 3.4],
+    [4.5, 5.7],
+]
+
+pads = [2, 1, 1, 1]
+
+mode = 'wrap'
+
+output = [
+    [3.4, 2.3, 3.4, 2.3],
+    [5.7, 4.5, 5.7, 4.5],
+    [1.2, 1.0, 1.2, 1.0],
+    [3.4, 2.3, 3.4, 2.3],
+    [5.7, 4.5, 5.7, 4.5],
+    [1.2, 1.0, 1.2, 1.0],
 ]
 ```
 
@@ -6230,9 +6300,13 @@ _ONNX QuantizeLinear operation_
 
 The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor.
 The scale factor and zero point must have same shape, and can be either a scalar for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantization.
-The quantization formula is y = saturate ((x / y_scale) + y_zero_point).
+The quantization formula is `y = saturate ((x / y_scale) + y_zero_point)`.
 For saturation, it saturates to [0, 255] if it's uint8, or [-128, 127] if it's int8.
-For (x / y_scale), it's rounding to the nearest even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type.
+For (x / y_scale), it's rounding to the nearest even. Refer to https://en.wikipedia.org/wiki/Rounding for details.
+'y_zero_point' and 'y' must have same type.
+'y_zero_point' is usually not used for quantization to float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz,
+but the quantization formula remains the same for consistency and
+the type of the attribute 'y_zero_point' still determines the quantization type.
 
 Traits: AlwaysSpeculatableImplTrait
 
@@ -6245,20 +6319,21 @@ Effects: MemoryEffects::Effect{}
 | Attribute | MLIR Type | Description |
 | :-------: | :-------: | ----------- |
 | `axis` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `saturate` | ::mlir::IntegerAttr | 64-bit signed integer attribute
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `x` | tensor of 32-bit float values or tensor of 32-bit signless integer values
-| `y_scale` | tensor of 32-bit float values
-| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or none type
+| `x` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values
+| `y_scale` | tensor of 32-bit float values or tensor of 16-bit float values or tensor of bfloat16 type values or tensor of 32-bit signless integer values
+| `y_zero_point` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values
+| `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.RNN` (ONNXRNNOp)
 
@@ -7376,22 +7451,24 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 | `shape` | tensor of 64-bit signless integer values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `reshaped` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `reshaped` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.Resize` (ONNXResizeOp)
 
 _ONNX Resize operation_
 
 Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-Each dimension value of the output tensor is: <br/>
-  `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+Each dimension value of the output tensor is:
+```
+output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)
+```
 if input \\"sizes\\" is not specified.
 
 Traits: AlwaysSpeculatableImplTrait
@@ -7565,7 +7642,7 @@ dialects.
 
 Traits: AlwaysSpeculatableImplTrait, HasParent<func::FuncOp>, ReturnLike, Terminator
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), RegionBranchTerminatorOpInterface
 
 Effects: MemoryEffects::Effect{}
 
@@ -8011,13 +8088,13 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `initial_state_and_scan_inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `initial_state_and_scan_inputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `final_state_and_scan_outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `final_state_and_scan_outputs` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 ### `onnx.ScatterElements` (ONNXScatterElementsOp)
 
@@ -8593,7 +8670,7 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 #### Results:
 
@@ -8809,7 +8886,7 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `data` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
 #### Results:
 
@@ -10220,7 +10297,7 @@ It terminates a ONNXLoop/Scan/IfOp region.
 
 Traits: AlwaysSpeculatableImplTrait, ReturnLike, Terminator
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), RegionBranchTerminatorOpInterface
 
 Effects: MemoryEffects::Effect{}
 

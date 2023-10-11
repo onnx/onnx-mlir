@@ -243,6 +243,11 @@ mlir::Type convertONNXTypeToMLIRType(
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
+/// Check if a value is a scalar tensor.
+bool isScalarTensor(mlir::Value v);
+
+bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
+
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
@@ -260,5 +265,12 @@ bool areDimsFromConcat(mlir::Value val);
 
 /// Get all dimensions that are stored by the value.
 void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
+
+//===----------------------------------------------------------------------===//
+// Support for location.
+//===----------------------------------------------------------------------===//
+
+std::string getNodeNameInPresenceOfOpt(
+    mlir::Operation *op, bool useFileLine = true);
 
 } // namespace onnx_mlir

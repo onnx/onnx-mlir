@@ -304,7 +304,7 @@ int64_t NeonVectorMachineSupport::getVectorLength(
     case GenericOps::CompareGop:
     case GenericOps::ConversionGop:
     case GenericOps::CopySignGop:
-    // case GenericOps::DivGop:
+    case GenericOps::DivGop:
     case GenericOps::FloorGop:
     case GenericOps::FmaGop:
     case GenericOps::MinMaxGop:

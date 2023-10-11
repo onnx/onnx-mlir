@@ -31,7 +31,6 @@
 #include "src/Builder/ImportONNXUtils.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
 #include "src/Builder/SymbolTable.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -165,7 +164,7 @@ public:
     opset_map_ = GetOpsetImportsFromProto(model); // Which opsets to use.
     in_model_functions_ = GetModelLocalFunctions(model);
     importGraph(model.graph());
-    if (VerboseOutput) {
+    if (options_.verboseOutput) {
       llvm::outs()
           << "The ONNX model has " << num_of_parameters_
           << " elements in its initializers. This value would be close to and "
@@ -1193,9 +1192,6 @@ private:
         onnx::OpSchemaRegistry::Instance(),
         /*options=*/{}, in_model_functions_);
 
-    std::string scopeName =
-        node.name() + ":" + node.op_type() + ":" + functionProto.name();
-
     // Save caller context, while generating function body.
     ModelLocalFunctionsMap callerModelFunctions;
     if (schema) {
@@ -1210,6 +1206,10 @@ private:
 
     // TODO: Reuse importGraph() logic.
     {
+      opset_map_ = std::move(function_opset_map);
+
+      std::string scopeName =
+          node.name() + ":" + node.op_type() + ":" + functionProto.name();
       frontend_symbols_.pushScope(scopeName);
       onnx_type_map.pushScope(scopeName);
 
@@ -1235,7 +1235,10 @@ private:
       }
 
       for (auto &name : functionProto.output()) {
-        outputs.push_back(LookupOnnxName(name));
+        // Skip missing optional outputs: they are not mapped.
+        if (const Value *valuePtr = frontend_symbols_.GetByOnnxName(name)) {
+          outputs.push_back(*valuePtr);
+        }
       }
 
       frontend_symbols_.popScope(scopeName);
@@ -1244,7 +1247,7 @@ private:
 
     // Restore caller context.
     if (schema) {
-      callerModelFunctions = std::move(in_model_functions_);
+      in_model_functions_ = std::move(callerModelFunctions);
     }
     opset_map_ = std::move(callerOpsetMap);
     frontend_symbols_ = std::move(callerScope);
@@ -1273,6 +1276,8 @@ private:
     int nOut = 0;
     getNodeInputs(node, inputs);
     nOut = node.output().size();
+    // ToFix: The type inference may go wrong if the element type of the output
+    // of CustomOp is not the same as the first input.
     buildOutputAndOperation<ONNXCustomOp>(node, inputs, nIn, nOut, attributes);
   }
 
@@ -1386,6 +1391,17 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
     }
   }
 
+  // Note: when options.useOnnxModelTypes is true, the onnx::shape_inference
+  // cannot handle non-onnx operations (represented as CustomOp in onnx-mlir)
+  // Assertion error if the model contains a such operation.
+  // onnx-mlir handles the CustomOp in a different way. It assumes the common
+  // pattern that the element type of the output is the same
+  // as the the first input. And later shape inference will use the
+  // shape-inference-pattern attribute to perform shape inference on CustomOp.
+  // The type assumption in the Importer may be incorrect and cause
+  // trouble.
+  // ToFix: the shape-inference-pattern should be added and used in Importer.
+
   // Did not do downward convert because support for BatchNorm is missing
   if (options.invokeOnnxVersionConverter &&
       originVersion < CURRENT_ONNX_OPSET) {
@@ -1475,14 +1491,18 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
       return InvalidOnnxFormat;
     }
   } else {
-    std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
-    // check if the input file is opened
-    if (!input.is_open()) {
-      *errorMessage = "Unable to open or access " + model_fname.str();
-      return InvalidInputFileAccess;
+    bool parse_success;
+    if (model_fname.str() == "-")
+      parse_success = model.ParseFromIstream(&std::cin);
+    else {
+      std::fstream input(model_fname.str(), std::ios::in | std::ios::binary);
+      // check if the input file is opened
+      if (!input.is_open()) {
+        *errorMessage = "Unable to open or access " + model_fname.str();
+        return InvalidInputFileAccess;
+      }
+      parse_success = model.ParseFromIstream(&input);
     }
-
-    auto parse_success = model.ParseFromIstream(&input);
     if (!parse_success) {
       *errorMessage = "Onnx Model Parsing Failed on " + model_fname.str();
       return InvalidOnnxFormat;

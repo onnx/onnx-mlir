@@ -31,7 +31,7 @@
 # This script relies on RunONNXModel.py to compile, run, and test. The actual
 # commands used by this script are printed on stdout, so that users may call
 # them manually if they wish to employ more RunONNXModel.py options.
-# 
+#
 ################################################################################
 
 import os
@@ -51,108 +51,145 @@ from onnx import numpy_helper
 from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
 from collections import OrderedDict
 
-LOG_LEVEL       = { 'debug':    logging.DEBUG,
-                    'info':     logging.INFO,
-                    'warning':  logging.WARNING,
-                    'error':    logging.ERROR,
-                    'critical': logging.CRITICAL }
+LOG_LEVEL = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+}
 # For Parallel verbose
-VERBOSITY_LEVEL = { 'debug':    10,
-                    'info':     5,
-                    'warning':  1,
-                    'error':    0,
-                    'critical': 0 }
+VERBOSITY_LEVEL = {"debug": 10, "info": 5, "warning": 1, "error": 0, "critical": 0}
+
 
 def valid_onnx_input(fname):
-    valid_exts = ['onnx', 'mlir']
+    valid_exts = ["onnx", "mlir"]
     ext = os.path.splitext(fname)[1][1:]
 
     if ext not in valid_exts:
         parser.error(
-            "Only accept an input model with one of extensions {}".format(
-                valid_exts))
+            "Only accept an input model with one of extensions {}".format(valid_exts)
+        )
     return fname
 
+
 # Command arguments.
-parser = argparse.ArgumentParser(prog="CheckONNXModel.py",
-    description="Compile and run an ONNX/MLIR model twice. " 
-                "Once with reference compiler options (-r) to set the reference values. "
-                "And once with test compiler options (-t) to verify the validity of these options.")
-parser.add_argument('-m', '--model',
-                    type=lambda s: valid_onnx_input(s),
-                    help="Path to an ONNX model (.onnx or .mlir)")
-parser.add_argument('-r', '--ref-compile-args',
-                    type=str,
-                    default="-O0",
-                    help="Reference arguments passed directly to onnx-mlir command."
-                    " See bin/onnx-mlir --help")
-parser.add_argument('-t', '--test-compile-args',
-                    type=str,
-                    default="-O3",
-                    help="Reference arguments passed directly to onnx-mlir command."
-                    " See bin/onnx-mlir --help")
-parser.add_argument('-s', '--save-ref',
-                    metavar='PATH',
-                    type=str,
-                    help="Path to a folder to save the inputs and outputs"
-                    " in protobuf")
-parser.add_argument('--shape-info',
-                    type=str,
-                    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
-                    "Used to generate random inputs for the model if --load-ref is not set")
-parser.add_argument('--skip-ref',
-                    action='store_true',
-                    help="Skip building the ref compilation, assuming it was built before.")
-parser.add_argument('-l',
-                     '--log-level',
-                     choices=[ 'debug', 'info', 'warning', 'error', 'critical' ],
-                     default='info',
-                     help="log level, default info")
+parser = argparse.ArgumentParser(
+    prog="CheckONNXModel.py",
+    description="Compile and run an ONNX/MLIR model twice. "
+    "Once with reference compiler options (-r) to set the reference values. "
+    "And once with test compiler options (-t) to verify the validity of these options.",
+)
+parser.add_argument(
+    "-m",
+    "--model",
+    type=lambda s: valid_onnx_input(s),
+    help="Path to an ONNX model (.onnx or .mlir).",
+)
+parser.add_argument(
+    "-r",
+    "--ref-compile-args",
+    type=str,
+    default="-O0",
+    help="Reference arguments passed directly to onnx-mlir command."
+    " See bin/onnx-mlir --help.",
+)
+parser.add_argument(
+    "-t",
+    "--test-compile-args",
+    type=str,
+    default="-O3",
+    help="Reference arguments passed directly to onnx-mlir command."
+    " See bin/onnx-mlir --help.",
+)
+parser.add_argument(
+    "-s",
+    "--save-ref",
+    metavar="PATH",
+    type=str,
+    help="Path to a folder to save the inputs and outputs" " in protobuf.",
+)
+parser.add_argument(
+    "--shape-info",
+    type=str,
+    help="Shape for each dynamic input of the model, e.g. 0:1x10x20,1:7x5x3. "
+    "Used to generate random inputs for the model if --load-ref is not set.",
+)
+parser.add_argument(
+    "--skip-ref",
+    action="store_true",
+    help="Skip building the ref compilation, assuming it was built before.",
+)
+parser.add_argument(
+    "-l",
+    "--log-level",
+    choices=["debug", "info", "warning", "error", "critical"],
+    default="info",
+    help="log level, default info.",
+)
+parser.add_argument(
+    "--seed",
+    type=str,
+    default="42",
+    help="seed to initialize the random num generator for inputs.",
+)
 
 args = parser.parse_args()
 
-VERBOSE = os.environ.get('VERBOSE', False)
+VERBOSE = os.environ.get("VERBOSE", False)
 
-if (not os.environ.get('ONNX_MLIR_HOME', None)):
+if not os.environ.get("ONNX_MLIR_HOME", None):
     raise RuntimeError(
         "Environment variable ONNX_MLIR_HOME is not set, please set it to the path to "
         "the HOME directory for onnx-mlir. The HOME directory for onnx-mlir refers to "
         "the parent folder containing the bin, lib, etc sub-folders in which ONNX-MLIR "
-        "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
+        "executables and libraries can be found, typically `onnx-mlir/build/Debug`."
     )
+
 
 # log to stderr so that stdout can be used for check results
 def get_logger():
-    logging.basicConfig(stream=sys.stderr,
-                        level=LOG_LEVEL[args.log_level],
-                        format='[%(asctime)s] %(levelname)s: %(message)s')
-    return logging.getLogger('RunONNXModelZoo.py')
+    logging.basicConfig(
+        stream=sys.stderr,
+        level=LOG_LEVEL[args.log_level],
+        format="[%(asctime)s] %(levelname)s: %(message)s",
+    )
+    return logging.getLogger("RunONNXModelZoo.py")
+
 
 logger = get_logger()
+
 
 def print_cmd(cmd):
     str = ""
     for s in cmd:
-        m = re.match(r'--compile-args=(.*)', s)
+        m = re.match(r"--compile-args=(.*)", s)
         if m is not None:
-            str += " --compile-args=\"" + m.group(1) + "\""
+            str += ' --compile-args="' + m.group(1) + '"'
         else:
             str += " " + s
     return str
 
+
 def execute_commands(cmds, cwd=None, tmout=None):
-    logger.debug('cmd={} cwd={}'.format(' '.join(cmds), cwd))
-    out = subprocess.Popen(cmds, cwd=cwd,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE)
+    logger.debug("cmd={} cwd={}".format(" ".join(cmds), cwd))
+    out = subprocess.Popen(
+        cmds, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     try:
         stdout, stderr = out.communicate(timeout=tmout)
     except subprocess.TimeoutExpired:
         # Kill the child process and finish communication
         out.kill()
         stdout, stderr = out.communicate()
-        return (False, (stderr.decode("utf-8") + stdout.decode("utf-8") +
-                        "Timeout after {} seconds".format(tmout)))
+        return (
+            False,
+            (
+                stderr.decode("utf-8")
+                + stdout.decode("utf-8")
+                + "Timeout after {} seconds".format(tmout)
+            ),
+        )
     msg = stderr.decode("utf-8") + stdout.decode("utf-8")
     if out.returncode == -signal.SIGSEGV:
         return (False, msg + "Segfault")
@@ -160,18 +197,19 @@ def execute_commands(cmds, cwd=None, tmout=None):
         return (False, msg + "Return code {}".format(out.returncode))
     return (True, stdout.decode("utf-8"))
 
+
 def main():
     if not (args.model):
         print("error: no input model, use argument --model.")
         print(parser.format_usage())
         exit(1)
 
-    #Process common options.
-    path = os.path.join(os.environ['ONNX_MLIR_HOME'], "..", "..", "utils")
+    # Process common options.
+    path = os.path.join(os.environ["ONNX_MLIR_HOME"], "..", "..", "utils")
     cmd = path + "/RunONNXModel.py"
     model_str = "--model=" + args.model
     test_dir = "check-ref"
-    if  args.save_ref:
+    if args.save_ref:
         test_dir = args.save_ref
     # Reference command
 
@@ -183,6 +221,7 @@ def main():
     # Possible shape info
     if args.shape_info:
         ref_cmd += ["--shape-info=" + args.shape_info]
+    ref_cmd += ["--seed=" + args.seed]
     # Model name.
     ref_cmd += [model_str]
 
@@ -202,7 +241,7 @@ def main():
     print()
     if args.skip_ref:
         if not os.path.exists(test_dir):
-            print("could not find \""+test_dir+"\" ref dir, abort.")
+            print('could not find "' + test_dir + '" ref dir, abort.')
             exit(1)
         print("> Reference already built, skip.")
     else:
@@ -212,8 +251,11 @@ def main():
             print("Filed while executing reference compile and run")
             print(msg)
             exit(1)
-        print(">   Successfully ran the reference example, saved refs in \"" + 
-              test_dir + "\"." )
+        print(
+            '>   Successfully ran the reference example, saved refs in "'
+            + test_dir
+            + '".'
+        )
 
     # Execute ref
     print()
@@ -225,9 +267,11 @@ def main():
         print(">   Failed test command:", print_cmd(test_cmd))
         print()
         exit(1)
-    print(">   Successfully ran the test example and verified against \"" +
-            test_dir + "\"." )
+    print(
+        '>   Successfully ran the test example and verified against "' + test_dir + '".'
+    )
     print()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
