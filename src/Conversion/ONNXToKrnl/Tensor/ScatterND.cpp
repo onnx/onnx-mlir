@@ -14,9 +14,6 @@
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#ifndef MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
 
 using namespace mlir;
 
@@ -100,8 +97,8 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
               IndexExpr index = NonAffineIndexExpr(indexVal);
               outputAccessFct.emplace_back(index);
             } else {
-              IndexExpr index =
-                  SymbolIndexExpr(loopInd[MIN(i, loopInd.size() - 1)]);
+              IndexExpr index = SymbolIndexExpr(
+                  loopInd[std::min<unsigned>(i, loopInd.size() - 1)]);
               outputAccessFct.emplace_back(index);
             }
           }
