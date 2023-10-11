@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/IRMapping.h"
@@ -27,6 +28,9 @@
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #include <map>
+
+#include <llvm/Support/Debug.h>
+#define DEBUG_TYPE "foo"
 
 using namespace mlir;
 
@@ -629,6 +633,79 @@ private:
     return (loadOp && unstickOp);
   }
 };
+/*
+class MoveAllocOpOutsideOfAsyncExecPattern : public
+OpRewritePattern<memref::AllocOp> { public: using
+OpRewritePattern<memref::AllocOp>::OpRewritePattern;
+
+LogicalResult matchAndRewrite(
+      memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
+  Value allocMemref = allocOp.getResult();
+  for (Operation *user : allocMemref.getUsers()) {
+    Block *userBlock = user->getBlock();
+    Operation *userBlockParentOp = userBlock->getParentOp();
+    if (auto executeOp = dyn_cast_or_null<async::ExecuteOp>(userBlockParentOp))
+{ LLVM_DEBUG(llvm::dbgs() << "executeOp: "  << executeOp << " \n"); if (auto
+yieldOp = dyn_cast_or_null<async::YieldOp>(user)) { LLVM_DEBUG(llvm::dbgs() <<
+"yieldOp: " << yieldOp << " \n"); LLVM_DEBUG(llvm::dbgs() << "allocOp: " <<
+allocOp << " \n"); allocOp->moveBefore(executeOp);
+      }
+    }
+  }
+
+//    Value memRef = allocOp.getResult();
+//    MemRefType memRefType = memRef.getType().dyn_cast<MemRefType>();
+//    Type elementType = memRefType.getElementType();
+
+//    // Input is a block argument, ignore it.
+//    if (stickInput.dyn_cast<BlockArgument>())
+//      return failure();
+
+  // Rewrite
+  // rewriter.eraseOp(stickOp);
+  // stickRes.replaceAllUsesWith(unstickInput);
+
+  return success();
+}
+};
+*/
+
+class MoveAllocOpOutsideOfAsyncExecPattern
+    : public OpRewritePattern<async::YieldOp> {
+public:
+  using OpRewritePattern<memref::AllocOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      async::YieldOp yieldOp, PatternRewriter &rewriter) const override {
+    if (yieldOp.getOperands().empty())
+      return failure();
+    Value yieldOperand = yieldOp.getOperands()[0];
+    Block *block = yieldOp.getBlock();
+    Operation *executeOp = block->getParentOp();
+    LLVM_DEBUG(llvm::dbgs() << "executeOp: " << executeOp << " \n");
+    if (auto yieldOp = dyn_cast_or_null<async::YieldOp>(user)) {
+      LLVM_DEBUG(llvm::dbgs() << "yieldOp: " << yieldOp << " \n");
+      LLVM_DEBUG(llvm::dbgs() << "allocOp: " << allocOp << " \n");
+      allocOp->moveBefore(executeOp);
+    }
+  }
+}
+
+//    Value memRef = allocOp.getResult();
+//    MemRefType memRefType = memRef.getType().dyn_cast<MemRefType>();
+//    Type elementType = memRefType.getElementType();
+
+//    // Input is a block argument, ignore it.
+//    if (stickInput.dyn_cast<BlockArgument>())
+//      return failure();
+
+// Rewrite
+// rewriter.eraseOp(stickOp);
+// stickRes.replaceAllUsesWith(unstickInput);
+
+return success();
+}
+};
 
 /*!
  *  Function pass that optimizes ZLowIR.
@@ -652,6 +729,7 @@ public:
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
     patterns.insert<UnstickLoadStoreStickRemovalPattern>(
         &getContext(), removableStickOps);
+    patterns.insert<MoveAllocOpOutsideOfAsyncExecPattern>(&getContext());
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
