@@ -71,12 +71,12 @@ void PlaceBeneficialOpsOnNNPA(mlir::MLIRContext *context,
  * @param significantNNPAFactor NNPA has to be at least significantFactor faster
  * than CPU to seed/force computations on the NNPA.
  *
- * The significantCPUFactor can be smaller, as if it's not looking good for the
- * NNPA, we may as well seed the computation on CPU for ops that are much better
- * on the CPU. For significantNNPAFactor, we may want it much higher as we might
- * want only to send there really beneficial ops on the NNPA. Combining a high
- * significantNNPAFactor with a large minFactor, the heuristic will put only ops
- * that are really beneficial on the NNPA.
+ * @note The significantCPUFactor can be smaller, as if it's not looking good
+ * for the NNPA, we may as well seed the computation on CPU for ops that are
+ * much better on the CPU. For significantNNPAFactor, we may want it much higher
+ * as we might want only to send there really beneficial ops on the NNPA.
+ * Combining a high significantNNPAFactor with a large minFactor, the heuristic
+ * will put only ops that are really beneficial on the NNPA.
  */
 void PlaceBeneficialOpsOnNNPAWithStickUnstick(mlir::MLIRContext *context,
     mlir::ModuleOp module, const llvm::SmallVector<mlir::Operation *, 32> &ops,
