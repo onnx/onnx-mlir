@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference %s -split-input-file | FileCheck %s
 
 func.func @gru_return_single_step(%input : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x27xf32, #zhigh.layout<{dataLayout = "ZRH"}>>, %input_bias : tensor<1x27xf32, #zhigh.layout<{dataLayout = "ZRH"}>>, %hidden_weights : tensor<1x9x27xf32, #zhigh.layout<{dataLayout = "ZRH"}>>, %hidden_bias : tensor<1x27xf32, #zhigh.layout<{dataLayout = "ZRH"}>>) -> tensor<*xf32> {
 

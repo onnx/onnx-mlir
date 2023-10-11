@@ -875,9 +875,49 @@ func.func @test_reshape_3(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_reshape_unrank_1(%arg0 : tensor<*xf16>, %arg1 : tensor<3xi64>) -> tensor<*xf16> {
+%0 = "onnx.Reshape"(%arg0, %arg1) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<*xf16>
+onnx.Return %0 : tensor<*xf16>
+}
+// CHECK-LABEL:  func.func @test_reshape_unrank_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>, [[PARAM_1_:%.+]]: tensor<3xi64>) -> tensor<?x?x?xf16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[PARAM_1_]]) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<?x?x?xf16>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?x?xf16>
+// CHECK:         }
+
+// -----
+
+func.func @test_reshape_unrank_2(%arg0 : tensor<*xf16>) -> tensor<*xf16> {
+%cst = onnx.Constant dense<[0, 2, 3]> : tensor<3xi64>
+%0 = "onnx.Reshape"(%arg0, %cst) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<*xf16>
+onnx.Return %0 : tensor<*xf16>
+}
+// CHECK-LABEL:  func.func @test_reshape_unrank_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>) -> tensor<?x2x3xf16> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[0, 2, 3]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<?x2x3xf16>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x2x3xf16>
+// CHECK:         }
+
+// -----
+
+func.func @test_reshape_unrank_3(%arg0 : tensor<*xf16>) -> tensor<*xf16> {
+%cst = onnx.Constant dense<[4, -1, 3]> : tensor<3xi64>
+%0 = "onnx.Reshape"(%arg0, %cst) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<*xf16>
+onnx.Return %0 : tensor<*xf16>
+}
+// CHECK-LABEL:  func.func @test_reshape_unrank_3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf16>) -> tensor<4x?x3xf16> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[4, -1, 3]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<*xf16>, tensor<3xi64>) -> tensor<4x?x3xf16>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<4x?x3xf16>
+// CHECK:         }
+
 //===----------------------------------------------------------------------===//
 /// Test the flatten op inference.
 //===----------------------------------------------------------------------===//
+
+// -----
 
 func.func @test_flatten_1(%arg0 : tensor<5x2x3x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = 1 : si64} : (tensor<5x2x3x4xf32>) -> tensor<*xf32>
