@@ -125,7 +125,7 @@ mlir::Value getDimOrConstant(mlir::ConversionPatternRewriter &rewriter,
 
 /// Check whether this op should be lowered to Krnl.Call according to option
 /// opsToCall. The op name is used for matching
-bool checkOpToCall(mlir::Operation *op, std::string opsForCall);
+bool checkOpToCall(std::string opName, std::string opsForCall);
 
 //===----------------------------------------------------------------------===//
 // Fold and emit support.
