@@ -36,6 +36,7 @@ int onnxConstPropExpansionBound;                       // common for both
 std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
+std::string opsForCall;                                // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -74,7 +75,6 @@ std::vector<std::string> extraLibPaths;                // onnx-mlir only
 std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
-std::string opsForCall;                                // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
