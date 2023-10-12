@@ -50,14 +50,14 @@ void PlaceBeneficialOpsOnNNPA(mlir::MLIRContext *context,
     const DimAnalysis *dimAnalysis, const OpSetType &cpuOps);
 
 /**
- * Place all ops that qualify for NNPA execution on the NNPA when the operations
- * are estimated run faster on the NNPA, including the costs of Stick and
- * Unstick necessary for NNPA execution. The algorithm starts to place on the
- * CPU/NNPA operations that are significantly faster on CPU/NNPA. Then it aims
- * to add operations to the NNPA when the new operations are faster including
- * the additional (if any) stick/unstick required for these less significantly
- * faster NNPA operations. Three factors below can modify the sensitivity at
- * which ops are assigned to the NNPA.
+ * Place all operations that qualify for NNPA execution on the NNPA when the
+ * operations are estimated run faster on the NNPA, including the costs of Stick
+ * and Unstick necessary for NNPA execution. The algorithm starts to place on
+ * the CPU/NNPA operations that are significantly faster on CPU/NNPA. Then it
+ * aims to add operations to the NNPA when the new operations are faster
+ * including the additional (if any) stick/unstick required for these less
+ * significantly faster NNPA operations. Three factors below can modify the
+ * sensitivity at which ops are assigned to the NNPA.
  *
  * @param context Context of the model.
  * @param ops ONNX ops that should be considered in the device assignment.
