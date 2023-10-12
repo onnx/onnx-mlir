@@ -22,17 +22,14 @@ namespace onnx_mlir {
 namespace {
 std::vector<Value> allocForONNXConvOp(ONNXConvOp convOp,
     ONNXConvOpAdaptor adaptor, ConversionPatternRewriter &rewriter,
-    const TypeConverter *const typeConverter) {
+    const TypeConverter *const typeConverter,
+    ONNXConvOpShapeHelper &shapeHelper) {
   Operation *op = convOp.getOperation();
   Location loc = ONNXLoc<ONNXConvOp>(op);
-  ValueRange operands = adaptor.getOperands();
 
   // Get shape.
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
-
-  ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-  shapeHelper.computeShapeAndAssertOnFailure();
 
   // Convert the output type to MemRefType.
   Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -268,8 +265,8 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        allocForONNXConvOp(convOp, adaptor, rewriter, typeConverter)[0];
+    Value alloc = allocForONNXConvOp(
+        convOp, adaptor, rewriter, typeConverter, shapeHelper)[0];
     MemRefType memRefType = alloc.getType().cast<MemRefType>();
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
@@ -280,10 +277,24 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
 };
 
 struct ONNXConvOpToCall : public OpConversionPattern<ONNXConvOp> {
-  ONNXConvOpToCall(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXConvOpToCall(
+      TypeConverter &typeConverter, MLIRContext *ctx, std::string opsForCall)
+      : OpConversionPattern(
+            typeConverter, ctx, /*benefit higher than default*/ 10),
+        opsForCall(opsForCall) {}
+  std::string opsForCall;
 
-  LogicalResult matchAndRewrite(ONNXConvOp convOp, ONNXConvOpAdaptor adaptor,
+  LogicalResult match(ONNXConvOp convOp) const final {
+    Operation *op = convOp.getOperation();
+    if (!checkOpToCall(op, opsForCall))
+      return failure();
+
+    // Additional checks
+
+    return success();
+  }
+
+  void rewrite(ONNXConvOp convOp, ONNXConvOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = convOp.getOperation();
     Location loc = ONNXLoc<ONNXConvOp>(op);
@@ -293,9 +304,11 @@ struct ONNXConvOpToCall : public OpConversionPattern<ONNXConvOp> {
     MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
         rewriter, loc);
 
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        allocForONNXConvOp(convOp, adaptor, rewriter, typeConverter)[0];
+    Value alloc = allocForONNXConvOp(
+        convOp, adaptor, rewriter, typeConverter, shapeHelper)[0];
 
     // Create krnl.call here.
     // You may customize the krnl.call according to your library
@@ -305,18 +318,14 @@ struct ONNXConvOpToCall : public OpConversionPattern<ONNXConvOp> {
         /*keep all attributes*/ true);
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
-    return success();
   }
 };
 
 void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
     std::string opsForCall) {
-  if (checkOpToCall("Conv", opsForCall)) {
-    patterns.insert<ONNXConvOpToCall>(typeConverter, ctx);
-  } else {
-    patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
-  }
+  patterns.insert<ONNXConvOpToCall>(typeConverter, ctx, opsForCall);
+  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
