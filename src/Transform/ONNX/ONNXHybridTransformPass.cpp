@@ -138,7 +138,7 @@ struct ONNXHybridTransformPass
     if (failed(applyPatternsAndFoldGreedily(body, patterns, config))) {
       llvm::errs() << "Warning: onnx-hybrid-transform didn't converge with "
                       "max-num-rewrites="
-                   << maxNumRewrites << "\n";
+                   << maxNumRewrites.getValue() << "\n";
     }
 
     inferFunctionReturnShapes(f);
