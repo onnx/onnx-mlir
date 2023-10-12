@@ -124,8 +124,6 @@ struct ONNXHybridTransformPass
   }
 
   void runOnOperation() override {
-    // TODO: check if it's necessary to skip functions with names not
-    // ending in "main_graph" (see ShapeInferencePass.cpp)
     func::FuncOp f = getOperation();
     Region &body = f.getBody();
 
