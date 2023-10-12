@@ -1,6 +1,7 @@
-// RUN: onnx-mlir-opt  -onnx-hybrid-transform="constant-propagation=false decomposition=false" %s | FileCheck %s
-// RUN: onnx-mlir-opt  -onnx-hybrid-transform=constant-propagation=false %s | FileCheck --check-prefix=DECOMPOSE %s
-// RUN: onnx-mlir-opt  -onnx-hybrid-transform=decomposition=false %s | FileCheck --check-prefix=CONSTPROP %s
+// RUN: onnx-mlir-opt -onnx-hybrid-transform="constant-propagation=false decomposition=false" %s | FileCheck %s
+// RUN: onnx-mlir-opt -onnx-hybrid-transform=constant-propagation=false %s | FileCheck --check-prefix=DECOMPOSE %s
+// RUN: onnx-mlir-opt -onnx-hybrid-transform=decomposition=false %s | FileCheck --check-prefix=CONSTPROP %s
+// RUN: onnx-mlir-opt -onnx-hybrid-transform=max-num-rewrites=1 %s 2>&1 | FileCheck --check-prefix=LIMIT %s
 
 // Illustrates the back and forth between shape inference and the
 // BinaryOpBroadcastAxisPattern canonicalization pattern:
@@ -332,3 +333,6 @@ func.func @test_inception_v2_6_snippet(%arg0: tensor<1x3x224x224xf32>, %arg1: te
 // CONSTPROP:           [[VAR_34_:%.+]] = "onnx.Relu"([[VAR_33_]]) : (tensor<1x64x28x28xf32>) -> tensor<1x64x28x28xf32>
 // CONSTPROP:           return [[VAR_34_]] : tensor<1x64x28x28xf32>
 // CONSTPROP:         }
+
+// LIMIT: Warning: onnx-hybrid-transform didn't converge with max-num-rewrites=1
+// LIMIT-LABEL:  func.func @test_inception_v2_6_snippet
