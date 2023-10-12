@@ -76,6 +76,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable SIMD data layout optimizations"),
       llvm::cl::init(false)};
 
+  Option<int> maxNumRewrites{*this, "max-num-rewrites",
+      llvm::cl::desc("Limit the number of rewrites. -1 means no limit."),
+      llvm::cl::init(300)};
+
   FrozenRewritePatternSet patterns;
 
   ONNXHybridTransformPass() = default;
@@ -129,7 +133,13 @@ struct ONNXHybridTransformPass
 
     GreedyRewriteConfig config;
     config.useTopDownTraversal = true;
-    (void)applyPatternsAndFoldGreedily(body, patterns, config);
+    config.maxNumRewrites =
+        maxNumRewrites == -1 ? GreedyRewriteConfig::kNoLimit : maxNumRewrites;
+    if (failed(applyPatternsAndFoldGreedily(body, patterns, config))) {
+      llvm::errs() << "Warning: onnx-hybrid-transform didn't converge with "
+                      "max-num-rewrites="
+                   << maxNumRewrites << "\n";
+    }
 
     inferFunctionReturnShapes(f);
   }
