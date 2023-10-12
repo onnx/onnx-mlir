@@ -68,11 +68,11 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
 
-  Option<bool> enableConvOpt{*this, "enable-conv-opt",
+  Option<bool> convOpt{*this, "conv-opt",
       llvm::cl::desc("Enable convolution optimization for CPU"),
       llvm::cl::init(false)};
 
-  Option<bool> enableSimdDataLayoutOpt{*this, "simd-data-layout",
+  Option<bool> simdDataLayout{*this, "simd-data-layout",
       llvm::cl::desc("Enable SIMD data layout optimizations"),
       llvm::cl::init(false)};
 
@@ -90,8 +90,8 @@ struct ONNXHybridTransformPass
   }
 
   ONNXHybridTransformPass(bool enableConvOpt, bool enableSimdDataLayoutOpt) {
-    this->enableConvOpt = enableConvOpt;
-    this->enableSimdDataLayoutOpt = enableSimdDataLayoutOpt;
+    this->convOpt = enableConvOpt;
+    this->simdDataLayout = enableSimdDataLayoutOpt;
   }
 
   StringRef getArgument() const override { return "onnx-hybrid-transform"; }
@@ -119,8 +119,8 @@ struct ONNXHybridTransformPass
       getDecomposeONNXToONNXPatterns(cumulativePatterns);
     }
 
-    if (enableConvOpt) {
-      getConvOptONNXToONNXPatterns(enableSimdDataLayoutOpt, cumulativePatterns);
+    if (convOpt) {
+      getConvOptONNXToONNXPatterns(simdDataLayout, cumulativePatterns);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
