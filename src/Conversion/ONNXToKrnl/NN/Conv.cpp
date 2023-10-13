@@ -240,8 +240,8 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Insert allocation for the result of this operation.
-    Value alloc =
-        allocForONNXOp<ONNXConvOp>(convOp, rewriter, typeConverter, shapeHelper)[0];
+    Value alloc = allocForONNXOp<ONNXConvOp>(
+        convOp, rewriter, typeConverter, shapeHelper)[0];
     MemRefType memRefType = alloc.getType().cast<MemRefType>();
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
