@@ -473,7 +473,8 @@ void populateLoweringONNXCustomOpPattern(
 template <typename OP_TYPE>
 std::vector<mlir::Value> allocForONNXOp(mlir::Operation *op,
     mlir::ConversionPatternRewriter &rewriter,
-    const mlir::TypeConverter *const typeConverter, ONNXOpShapeHelper &shapeHelper) {
+    const mlir::TypeConverter *const typeConverter,
+    ONNXOpShapeHelper &shapeHelper) {
   mlir::Location loc = ONNXLoc<OP_TYPE>(op);
 
   // Get shape.
@@ -501,8 +502,8 @@ std::vector<mlir::Value> allocForONNXOp(mlir::Operation *op,
 template <typename OP_TYPE, typename SHAPEHELPER_TYPE>
 struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
   using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
-  ONNXGenericOpToCall(
-      mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx, std::string opsForCall)
+  ONNXGenericOpToCall(mlir::TypeConverter &typeConverter,
+      mlir::MLIRContext *ctx, std::string opsForCall)
       : mlir::OpConversionPattern<OP_TYPE>(
             typeConverter, ctx, /*benefit higher than default*/ 10),
         opsForCall(opsForCall) {}
@@ -530,8 +531,8 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
     SHAPEHELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     // Insert an allocation and deallocation for the result of this operation.
-    std::vector<mlir::Value> allocs =
-        allocForONNXOp<OP_TYPE>(onnxOp, rewriter, this->typeConverter, shapeHelper);
+    std::vector<mlir::Value> allocs = allocForONNXOp<OP_TYPE>(
+        onnxOp, rewriter, this->typeConverter, shapeHelper);
 
     // Create krnl.call here.
     // You may customize the krnl.call according to your library
@@ -540,12 +541,11 @@ struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
     rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
         /*keep all attributes*/ true);
     rewriter.replaceOp(op, allocs);
-    //onnxToKrnlSimdReport(op);
   }
 };
 
-using ONNXConvOpToCall=ONNXGenericOpToCall<mlir::ONNXConvOp, ONNXConvOpShapeHelper>;
-
+using ONNXConvOpToCall =
+    ONNXGenericOpToCall<mlir::ONNXConvOp, ONNXConvOpShapeHelper>;
 
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.
