@@ -21,6 +21,14 @@
 
 namespace onnx_mlir {
 
-bool isOpFasterOnNNPA(mlir::Operation *op, const DimAnalysis *dimAnalysis);
+// When an op has a model, define the CPU and NNPA estimated times and return
+// true. When an op does not have a model, just return false.
+bool estimateTimeForOpWithModel(mlir::Operation *op,
+    const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
+    double &nnpaEstimatedTime);
 
-}
+// Estimate the CPU time for stick/unstick given the shape in oper
+double estimateTimeForStickOp(mlir::Value oper);
+double estimateTimeForUnstickOp(mlir::Value oper);
+
+} // namespace onnx_mlir
