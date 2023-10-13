@@ -19,35 +19,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-namespace {
-// Try to make this function be generic enough for all ONNXOps
-std::vector<Value> allocForONNXConvOp(Operation *op,
-    ConversionPatternRewriter &rewriter,
-    const TypeConverter *const typeConverter, ONNXOpShapeHelper &shapeHelper) {
-  Location loc = ONNXLoc<ONNXConvOp>(op);
-
-  // Get shape.
-  MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
-      rewriter, loc);
-
-  std::vector<Value> allocs;
-  for (uint64_t i = 0; i < op->getResults().size(); i++) {
-    Value output = op->getResults()[i];
-    // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(output.getType());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
-
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims(i));
-    allocs.emplace_back(alloc);
-  }
-  return allocs;
-}
-} // namespace
-
 struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
   ONNXConvOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
@@ -268,60 +239,15 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // Insert an allocation and deallocation for the result of this operation.
+    // Insert allocation for the result of this operation.
     Value alloc =
-        allocForONNXConvOp(convOp, rewriter, typeConverter, shapeHelper)[0];
+        allocForONNXOp<ONNXConvOp>(convOp, rewriter, typeConverter, shapeHelper)[0];
     MemRefType memRefType = alloc.getType().cast<MemRefType>();
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
     return success();
-  }
-};
-
-struct ONNXConvOpToCall : public OpConversionPattern<ONNXConvOp> {
-  ONNXConvOpToCall(
-      TypeConverter &typeConverter, MLIRContext *ctx, std::string opsForCall)
-      : OpConversionPattern(
-            typeConverter, ctx, /*benefit higher than default*/ 10),
-        opsForCall(opsForCall) {}
-  std::string opsForCall;
-
-  LogicalResult match(ONNXConvOp convOp) const final {
-    Operation *op = convOp.getOperation();
-    if (!checkOpToCall(op, opsForCall))
-      return failure();
-
-    // Additional checks
-
-    return success();
-  }
-
-  void rewrite(ONNXConvOp convOp, ONNXConvOpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const final {
-    Operation *op = convOp.getOperation();
-    Location loc = ONNXLoc<ONNXConvOp>(op);
-    ValueRange operands = adaptor.getOperands();
-
-    // Get shape.
-    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
-        rewriter, loc);
-
-    ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
-    // Insert an allocation and deallocation for the result of this operation.
-    std::vector<Value> allocs =
-        allocForONNXConvOp(convOp, rewriter, typeConverter, shapeHelper);
-
-    // Create krnl.call here.
-    // You may customize the krnl.call according to your library
-    // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
-    std::string funcName = op->getName().getStringRef().str().substr(5);
-    rewriter.create<KrnlCallOp>(loc, funcName, allocs, op, operands,
-        /*keep all attributes*/ true);
-    rewriter.replaceOp(op, allocs);
-    onnxToKrnlSimdReport(op);
   }
 };
 
