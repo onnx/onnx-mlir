@@ -149,3 +149,77 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
 }
 
 // TODO: should there be a shape inference for this one?
+
+//===----------------------------------------------------------------------===//
+// LayerNormalization
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXLayerNormalizationOp::verify() {
+  ONNXLayerNormalizationOpAdaptor operandAdaptor =
+      ONNXLayerNormalizationOpAdaptor(*this);
+  // Get attributes.
+  int64_t axis = -1;
+  std::optional<int64_t> optionalAxis = getAxis();
+  if (optionalAxis.has_value())
+    axis = optionalAxis.value();
+
+  // Get operands.
+  Value X = operandAdaptor.getX();
+  Value scale = operandAdaptor.getScale();
+  Value B = operandAdaptor.getB();
+
+  // Check X.
+  if (!hasShapeAndRank(X)) {
+    // Won't be able to do any checking at this stage.
+    return success();
+  }
+  ShapeType XType = X.getType().cast<ShapedType>();
+  auto XShape = XType.getShape();
+  int64_t XRank = XShape.size();
+  Type XElementType = XType.getElementType();
+
+  // Axis attribute (if specified) must be in the range [-r,r), where r =
+  // rank(input).
+  if (axis < -XRank || axis >= XRank)
+    return emitOpError("axis must be in [-r, r) range]");
+  if (axis < 0)
+    axis += XRank;
+
+  // Check bias B.
+  if (hasShapeAndRank(B)) {
+    // Can check at this stage.
+    Type bType = B.getType().cast<ShapedType>();
+    auto bShape = bType.getShape();
+    SmallVector<int64_t> bcastShape;
+    if (!OpTrait::util::getBroadcastedShape(XShape, bShape, bcastShape))
+      emitOpError(
+          "LayerNormalization op with incompatible B shapes (broadcast)");
+    if (bcastShape.size() != XRank)
+      emitOpError("LayerNormalization op with incompatible B shapes "
+                  "(unidirectional broadcast)");
+  }
+
+  // Check scale.
+  if (hasShapeAndRank(scale)) {
+    // Can check at this stage.
+    auto scaleType = scale.getType().cast<ShapedType>();
+    auto scaleShape = scaleType.getShape();
+    SmallVector<int64_t> bcastShape;
+    if (!OpTrait::util::getBroadcastedShape(XShape, scaleShape, bcastShape))
+      emitOpError(
+          "LayerNormalization op with incompatible scale shapes (broadcast)");
+    if (bcastShape.size() != XRank)
+      emitOpError("LayerNormalization op with incompatible scale shapes "
+                  "(unidirectional broadcast)");
+  }
+
+  return success();
+}
+
+namespace onnx_mlir {
+
+mlir::LogicalResult ONNXLayerNormalizationOpShapeHelper::computeShape() final {
+  return success();
+}
+
+} // namespace onnx_mlir
