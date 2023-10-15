@@ -642,66 +642,58 @@ public:
 
   LogicalResult matchAndRewrite(
       async::ExecuteOp executeOp, PatternRewriter &rewriter) const override {
-    // Get allocOps in body of async.execute
+    // Get allocOps from body of async.execute
     SmallVector<memref::AllocOp, 4> regionAllocOps;
     for (Operation &op : executeOp.getBodyRegion().getOps()) {
-      if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
-        // LLVM_DEBUG(llvm::dbgs() << "allocOp: " << allocOp << " \n");
+      if (auto allocOp = dyn_cast<memref::AllocOp>(op))
         regionAllocOps.push_back(allocOp);
-      }
     }
-
+    // Move the allocOp before async.execute when it is an operand of
+    // async.yeild.
     async::YieldOp yieldOp =
         cast<async::YieldOp>(executeOp.getBody()->getTerminator());
     // TODO: support multiple operands
+    if (yieldOp.getOperands().size() > 1)
+      return failure();
     Value yieldOperand = yieldOp.getOperands()[0];
     auto yAllocOp =
         dyn_cast_or_null<memref::AllocOp>(yieldOperand.getDefiningOp());
     if (yAllocOp) {
       if (llvm::none_of(regionAllocOps,
-              [&](memref::AllocOp aop) { return aop == yAllocOp; })) {
+              [&](memref::AllocOp aop) { return aop == yAllocOp; }))
         return failure();
-      } else {
+      else
         yAllocOp->moveBefore(executeOp);
-      }
     } else {
       return failure();
     }
 
-    //
+    // Get users of async.await
+    // TODO: Support multiple body results.
+    if (executeOp.getBodyResults().size() > 1)
+      return failure();
     Value executeOpResult = executeOp.getBodyResults()[0];
-    // LLVM_DEBUG(llvm::dbgs() << "executeOpResult: " << executeOpResult << "
-    // \n");
     SmallVector<Operation *, 4> awaitOutUsers;
     for (Operation *user : executeOpResult.getUsers()) {
       if (auto awaitOp = llvm::dyn_cast<async::AwaitOp>(user)) {
         Value awaitOpOut = awaitOp.getResult();
         LLVM_DEBUG(llvm::dbgs() << "awaitOpOut: " << awaitOpOut << " \n");
-        for (Operation *user0 : awaitOpOut.getUsers()) {
-          awaitOutUsers.push_back(user0);
-        }
+        for (Operation *awaitUser : awaitOpOut.getUsers())
+          awaitOutUsers.push_back(awaitUser);
       }
     }
-    LLVM_DEBUG(llvm::dbgs()
-               << "awaitOutUsers.size(): " << awaitOutUsers.size() << " \n");
-    if (yAllocOp->getBlock() != awaitOutUsers[0]->getBlock()) {
-      Operation *op = awaitOutUsers[0]->getParentOp();
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointAfter(op);
 
-      SmallVector<Value, 2> parameters = {
-          yAllocOp.getResult(), yAllocOp.getResult()};
-      rewriter.create<KrnlCallOp>(
-          op->getLoc(), "dummyFuncForKeepParam", 2, parameters);
-
-    } else {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointAfter(awaitOutUsers[0]);
-      SmallVector<Value, 2> parameters = {
-          yAllocOp.getResult(), yAllocOp.getResult()};
-      rewriter.create<KrnlCallOp>(
-          awaitOutUsers[0]->getLoc(), "dummyFuncForKeepParam", 2, parameters);
-    }
+    // Insert deallocOp after the result is used.
+    Operation *insertionPointOp;
+    if (yAllocOp->getBlock() != awaitOutUsers[0]->getBlock())
+      insertionPointOp = awaitOutUsers[0]->getParentOp();
+    else
+      insertionPointOp = awaitOutUsers[0];
+    Location loc = insertionPointOp->getLoc();
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(insertionPointOp);
+    create.mem.dealloc(yAllocOp.getResult());
 
     return success();
   }
