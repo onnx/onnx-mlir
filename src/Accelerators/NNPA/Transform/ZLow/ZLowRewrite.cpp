@@ -25,6 +25,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
 #include <map>
@@ -641,12 +642,11 @@ public:
 
   LogicalResult matchAndRewrite(
       async::ExecuteOp executeOp, PatternRewriter &rewriter) const override {
-    LLVM_DEBUG(llvm::dbgs() << "executeOp: " << executeOp << " \n");
-    // AllocOps in async.execute
+    // Get allocOps in body of async.execute
     SmallVector<memref::AllocOp, 4> regionAllocOps;
     for (Operation &op : executeOp.getBodyRegion().getOps()) {
-      if (auto allocOp = dyn_cast_or_null<memref::AllocOp>(op)) {
-        LLVM_DEBUG(llvm::dbgs() << "allocOp: " << allocOp << " \n");
+      if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
+        // LLVM_DEBUG(llvm::dbgs() << "allocOp: " << allocOp << " \n");
         regionAllocOps.push_back(allocOp);
       }
     }
@@ -655,8 +655,9 @@ public:
         cast<async::YieldOp>(executeOp.getBody()->getTerminator());
     // TODO: support multiple operands
     Value yieldOperand = yieldOp.getOperands()[0];
-    if (auto yAllocOp =
-            dyn_cast_or_null<memref::AllocOp>(yieldOperand.getDefiningOp())) {
+    auto yAllocOp =
+        dyn_cast_or_null<memref::AllocOp>(yieldOperand.getDefiningOp());
+    if (yAllocOp) {
       if (llvm::none_of(regionAllocOps,
               [&](memref::AllocOp aop) { return aop == yAllocOp; })) {
         return failure();
@@ -666,6 +667,42 @@ public:
     } else {
       return failure();
     }
+
+    //
+    Value executeOpResult = executeOp.getBodyResults()[0];
+    // LLVM_DEBUG(llvm::dbgs() << "executeOpResult: " << executeOpResult << "
+    // \n");
+    SmallVector<Operation *, 4> awaitOutUsers;
+    for (Operation *user : executeOpResult.getUsers()) {
+      if (auto awaitOp = llvm::dyn_cast<async::AwaitOp>(user)) {
+        Value awaitOpOut = awaitOp.getResult();
+        LLVM_DEBUG(llvm::dbgs() << "awaitOpOut: " << awaitOpOut << " \n");
+        for (Operation *user0 : awaitOpOut.getUsers()) {
+          awaitOutUsers.push_back(user0);
+        }
+      }
+    }
+    LLVM_DEBUG(llvm::dbgs()
+               << "awaitOutUsers.size(): " << awaitOutUsers.size() << " \n");
+    if (yAllocOp->getBlock() != awaitOutUsers[0]->getBlock()) {
+      Operation *op = awaitOutUsers[0]->getParentOp();
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(op);
+
+      SmallVector<Value, 2> parameters = {
+          yAllocOp.getResult(), yAllocOp.getResult()};
+      rewriter.create<KrnlCallOp>(
+          op->getLoc(), "dummyFuncForKeepParam", 2, parameters);
+
+    } else {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(awaitOutUsers[0]);
+      SmallVector<Value, 2> parameters = {
+          yAllocOp.getResult(), yAllocOp.getResult()};
+      rewriter.create<KrnlCallOp>(
+          awaitOutUsers[0]->getLoc(), "dummyFuncForKeepParam", 2, parameters);
+    }
+
     return success();
   }
 };
