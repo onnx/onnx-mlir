@@ -155,13 +155,10 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXLayerNormalizationOp::verify() {
-  ONNXLayerNormalizationOpAdaptor operandAdaptor =
-      ONNXLayerNormalizationOpAdaptor(*this);
+  auto operandAdaptor = ONNXLayerNormalizationOpAdaptor(*this);
+
   // Get attributes.
-  int64_t axis = -1;
-  std::optional<int64_t> optionalAxis = getAxis();
-  if (optionalAxis.has_value())
-    axis = optionalAxis.value();
+  int64_t axis = getAxis();
 
   // Get operands.
   Value X = operandAdaptor.getX();
@@ -173,8 +170,8 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
     // Won't be able to do any checking at this stage.
     return success();
   }
-  ShapeType XType = X.getType().cast<ShapedType>();
-  auto XShape = XType.getShape();
+  ShapedType XType = X.getType().cast<ShapedType>();
+  ArrayRef<int64_t> XShape = XType.getShape();
   int64_t XRank = XShape.size();
   Type XElementType = XType.getElementType();
 
@@ -188,29 +185,33 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
   // Check bias B.
   if (hasShapeAndRank(B)) {
     // Can check at this stage.
-    Type bType = B.getType().cast<ShapedType>();
-    auto bShape = bType.getShape();
+    ShapedType bType = B.getType().cast<ShapedType>();
+    ArrayRef<int64_t> bShape = bType.getShape();
     SmallVector<int64_t> bcastShape;
     if (!OpTrait::util::getBroadcastedShape(XShape, bShape, bcastShape))
       emitOpError(
           "LayerNormalization op with incompatible B shapes (broadcast)");
-    if (bcastShape.size() != XRank)
+    if ((int64_t)bcastShape.size() != XRank)
       emitOpError("LayerNormalization op with incompatible B shapes "
                   "(unidirectional broadcast)");
+    if (bType.getElementType() != XElementType)
+      emitOpError("LayerNormalization op with incompatible B type");
   }
 
   // Check scale.
   if (hasShapeAndRank(scale)) {
     // Can check at this stage.
-    auto scaleType = scale.getType().cast<ShapedType>();
-    auto scaleShape = scaleType.getShape();
+    ShapedType scaleType = scale.getType().cast<ShapedType>();
+    ArrayRef<int64_t> scaleShape = scaleType.getShape();
     SmallVector<int64_t> bcastShape;
     if (!OpTrait::util::getBroadcastedShape(XShape, scaleShape, bcastShape))
       emitOpError(
           "LayerNormalization op with incompatible scale shapes (broadcast)");
-    if (bcastShape.size() != XRank)
+    if ((int64_t)bcastShape.size() != XRank)
       emitOpError("LayerNormalization op with incompatible scale shapes "
                   "(unidirectional broadcast)");
+    if (scaleType.getElementType() != XElementType)
+      emitOpError("LayerNormalization op with incompatible scale type");
   }
 
   return success();
@@ -218,8 +219,54 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
 
 namespace onnx_mlir {
 
-mlir::LogicalResult ONNXLayerNormalizationOpShapeHelper::computeShape() final {
+mlir::LogicalResult ONNXLayerNormalizationOpShapeHelper::computeShape() {
+
+  ONNXLayerNormalizationOpAdaptor operandAdaptor(operands);
+  ONNXLayerNormalizationOp lnOp = llvm::cast<ONNXLayerNormalizationOp>(op);
+
+  // Get rank and axis attribute.
+  int64_t axis = lnOp.getAxis();
+  Value X = operandAdaptor.getX();
+  int64_t XRank = X.getType().cast<ShapedType>().getRank();
+  if (axis < 0)
+    axis += XRank;
+
+  // Compute the shape of the first output and all the inputs.
+  llvm::SmallVector<Value, 3> operandsForBroadcast;
+  operandsForBroadcast.emplace_back(X);
+  operandsForBroadcast.emplace_back(operandAdaptor.getScale());
+  if (!isNoneValue(operandAdaptor.getB()))
+    operandsForBroadcast.emplace_back(operandAdaptor.getB());
+  if (failed(ONNXBroadcastOpShapeHelper::customComputeShape(
+          operandsForBroadcast, nullptr)))
+    return failure();
+
+  // Compute mean output shape if requested.
+  if (!isNoneValue(lnOp.getMean())) {
+    DimsExpr meanShape(getOutputDims(0));
+    for (int64_t r = axis; r < XRank; ++r)
+      meanShape[r] = LiteralIndexExpr(1);
+    setOutputDims(meanShape, 1, false);
+  }
+  // Compute invStdDev output shape if requested.
+  if (!isNoneValue(lnOp.getInvStdDev())) {
+    DimsExpr invStdDevShape(getOutputDims(0));
+    for (int64_t r = axis; r < XRank; ++r)
+      invStdDevShape[r] = LiteralIndexExpr(1);
+    setOutputDims(invStdDevShape, 2, false);
+  }
   return success();
 }
-
 } // namespace onnx_mlir
+
+LogicalResult ONNXLayerNormalizationOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // If any input is not ranked tensor, do nothing. Account for possibly null
+  // inputs (B).
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
+      (!isNoneValue(getB()) && !hasShapeAndRank(getB())))
+    return success();
+  Type commonType = getX().getType().cast<RankedTensorType>().getElementType();
+  ONNXLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(commonType);
+}
