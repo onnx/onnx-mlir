@@ -67,7 +67,7 @@ def get_test_models():
     #
     # SEMANTIC for LABELING (one line per directive)
     # see utils/genSupportedOps.py
-    # command processed by makefile.
+    # command processed by makefile `make onnx_mlir_supported_ops_cpu`
 
     variables.node_test_to_enable_dict = {
         ############################################################
@@ -1278,7 +1278,283 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_layer_normalization_2d_axis0_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # ==OP== LayerNormalization
+        # ==MIN== 17
+        "test_layer_normalization_2d_axis0_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis1_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis1_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis1_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis_negative_1_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis_negative_1_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis_negative_1_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis_negative_2_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis_negative_2_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_2d_axis_negative_2_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis0_epsilon_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis0_epsilon_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis0_epsilon_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis1_epsilon_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis1_epsilon_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis1_epsilon_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis2_epsilon_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis2_epsilon_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis2_epsilon_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_1_epsilon_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_1_epsilon_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_1_epsilon_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_2_epsilon_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_2_epsilon_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_2_epsilon_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_3_epsilon_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_3_epsilon_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_3d_axis_negative_3_epsilon_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis0_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis0_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis0_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis1_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis1_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis1_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis2_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis2_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis2_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis3_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis3_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis3_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_1_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_1_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_1_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_2_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_2_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_2_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_3_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_3_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_3_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_4_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_4_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_4d_axis_negative_4_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_default_axis_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_default_axis_expanded_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
+        "test_layer_normalization_default_axis_expanded_ver18_cpu": {
+            STATIC_SHAPE:{}, 
+            DYNAMIC_SHAPE:{-1:{-1}}, 
+            CONSTANT_INPUT:{-1}
+        },
         # ==OP== LeakyRelu
         # ==MIN== 6
         "test_leakyrelu_cpu": {
