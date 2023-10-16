@@ -103,6 +103,11 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value axes, bool keepDims = true,
       bool noop_with_empty_axes = false) const;
 
+  // ONNXReduceMeanOp
+  mlir::Value reduceMean(mlir::Type outputType, mlir::Value data,
+      mlir::Value axes, bool keepDims = true,
+      bool noop_with_empty_axes = false) const;
+
   // ONNXReduceMinOp
   mlir::Value reduceMin(mlir::Type outputType, mlir::Value data,
       mlir::Value axes, bool keepDims = true,
@@ -123,6 +128,9 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value reshapeToNDim(
       mlir::Value val, int64_t N, bool collapseMostSignificant) const;
 
+  // ONNXReciprocalOp
+  mlir::Value reciprocal(mlir::Type outputType, mlir::Value input) const;
+
   // ONNXReverseSequenceOp
   mlir::Value reverseSequence(mlir::Type outputType, mlir::Value input,
       mlir::Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const;
@@ -139,6 +147,9 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value steps) const;
   mlir::Value slice(mlir::Type outputType, mlir::Value input, int64_t start,
       int64_t end, int64_t step = 1) const; // 1D slice
+
+  // ONNXSqrtOp
+  mlir::Value sqrt(mlir::Value input) const;
 
   // ONNXSplitOp
   mlir::ValueRange split(mlir::TypeRange outputTypes, mlir::Value input,

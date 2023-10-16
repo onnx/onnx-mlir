@@ -28,7 +28,7 @@ from collections import OrderedDict
 
 
 def valid_onnx_input(fname):
-    valid_exts = ["onnx", "mlir"]
+    valid_exts = ["onnx", "mlir", "onnxtext"]
     ext = os.path.splitext(fname)[1][1:]
 
     if ext not in valid_exts:
@@ -612,7 +612,7 @@ def main():
             if args.model.endswith(".onnx"):
                 input_model_path = os.path.join(temp_dir, "model.onnx")
                 onnx.save(model, input_model_path)
-            elif args.model.endswith(".mlir"):
+            elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
             else:
                 print("Invalid input model path. Must end with .onnx or .mlir")
