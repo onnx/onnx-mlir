@@ -26,56 +26,51 @@ from onnx.backend.base import Device, DeviceType, Backend
 from onnx.backend.test import BackendTest
 
 TestCase = namedtuple(
-    "TestCase", ["name", "model_name", "model", "input", "output", "kind"])
+    "TestCase", ["name", "model_name", "model", "input", "output", "kind"]
+)
 
 
 def load_model_tests(kind):
     test_arr = [
         (
             "wrong_number_of_inputs_less",
-            [np.ones((3, 4, 5)).astype('float32')],
-            'Wrong number of input tensors: expect 2, but got 1',
+            [np.ones((3, 4, 5)).astype("float32")],
+            "Wrong number of input tensors: expect 2, but got 1",
         ),
         (
             "wrong_number_of_inputs_more",
             [
-                np.ones((3, 4, 5)).astype('float32'),
-                np.ones((3, 4, 5)).astype('float32'),
-                np.ones((3, 4, 5)).astype('float32')
+                np.ones((3, 4, 5)).astype("float32"),
+                np.ones((3, 4, 5)).astype("float32"),
+                np.ones((3, 4, 5)).astype("float32"),
             ],
-            'Wrong number of input tensors: expect 2, but got 3',
+            "Wrong number of input tensors: expect 2, but got 3",
         ),
         (
             "wrong_rank_less",
-            [
-                np.ones((3, 4, 5)).astype('float32'),
-                np.ones((3, 4)).astype('float32')
-            ],
-            'Wrong rank for the input 1: expect 3, but got 2',
+            [np.ones((3, 4, 5)).astype("float32"), np.ones((3, 4)).astype("float32")],
+            "Wrong rank for the input 1: expect 3, but got 2",
         ),
         (
             "wrong_rank_more",
             [
-                np.ones((3, 4, 5)).astype('float32'),
-                np.ones((3, 4, 5, 1)).astype('float32')
+                np.ones((3, 4, 5)).astype("float32"),
+                np.ones((3, 4, 5, 1)).astype("float32"),
             ],
-            'Wrong rank for the input 1: expect 3, but got 4',
+            "Wrong rank for the input 1: expect 3, but got 4",
         ),
         (
             "wrong_data_type",
-            [
-                np.ones((3, 4, 5)).astype('int32'),
-                np.ones((3, 4, 5)).astype('float32')
-            ],
-            'Wrong data type for the input 0: expect f32',
+            [np.ones((3, 4, 5)).astype("int32"), np.ones((3, 4, 5)).astype("float32")],
+            "Wrong data type for the input 0: expect f32",
         ),
         (
             "wrong_dim_size",
             [
-                np.ones((3, 4, 1)).astype('float32'),
-                np.ones((3, 4, 5)).astype('float32')
+                np.ones((3, 4, 1)).astype("float32"),
+                np.ones((3, 4, 5)).astype("float32"),
             ],
-            'Wrong size for the dimension 2 of the input 0: expect 5, but got 1',
+            "Wrong size for the dimension 2 of the input 0: expect 5, but got 1",
         ),
     ]
 
@@ -91,7 +86,8 @@ def load_model_tests(kind):
                 input=in_data,
                 output=out_data,
                 kind=kind,
-            ))
+            )
+        )
 
     return testcases
 
@@ -106,8 +102,7 @@ class AddModel:
         y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [3, 4, 5])
 
         # Create the graph (GraphProto)
-        graph = helper.make_graph([node], "{}_{}".format("add", name),
-                                  [x1, x2], [y])
+        graph = helper.make_graph([node], "{}_{}".format("add", name), [x1, x2], [y])
 
         # Create the model (ModelProto)
         model = helper.make_model(graph)
@@ -123,24 +118,21 @@ class InputVerificationBackendTest(BackendTest):
         self._exclude_patterns = set()  # type: Set[Pattern[Text]]
         self._xfail_patterns = set()  # type: Set[Pattern[Text]]
 
-        self._test_items = defaultdict(
-            dict)  # type: Dict[Text, Dict[Text, TestItem]]
+        self._test_items = defaultdict(dict)  # type: Dict[Text, Dict[Text, TestItem]]
 
         for rt in load_model_tests(kind="node"):
             self._add_model_test(rt, "Node")
 
     @classmethod
-    def assert_similar_outputs(cls, ref_output,
-                               output):  # type: (str, str) -> None
+    def assert_similar_outputs(cls, ref_output, output):  # type: (str, str) -> None
         assert (
             ref_output in output
         ), "Verification message {} does not match expected value {}.".format(
-            output, ref_output)
+            output, ref_output
+        )
 
-    def _add_model_test(self, model_test,
-                        kind):  # type: (TestCase, Text) -> None
-        model_marker = [None
-                        ]  # type: List[Optional[Union[ModelProto, NodeProto]]]
+    def _add_model_test(self, model_test, kind):  # type: (TestCase, Text) -> None
+        model_marker = [None]  # type: List[Optional[Union[ModelProto, NodeProto]]]
 
         def run(test_self, device):  # type: (Any, Text) -> None
             model_marker[0] = model_test.model
@@ -156,7 +148,7 @@ class InputVerificationBackendTest(BackendTest):
 
 @contextmanager
 def redirect_c_stdout(stream):
-    """ Borrowed from:
+    """Borrowed from:
     - https://eli.thegreenplace.net/2015/redirecting-all-kinds-of-stdout-in-python/
     """
     # The original fd stdout points to.
@@ -167,20 +159,22 @@ def redirect_c_stdout(stream):
         # Flush the C-level buffer stdout
         # Note: this does not work on Windows.
         libc = ctypes.CDLL(None)
-        c_stdout = ctypes.c_void_p.in_dll(libc, '__stdoutp' if sys.platform == 'darwin' else 'stdout')
+        c_stdout = ctypes.c_void_p.in_dll(
+            libc, "__stdoutp" if sys.platform == "darwin" else "stdout"
+        )
         libc.fflush(c_stdout)
         # Flush and close sys.stdout - also closes the file descriptor (fd)
         sys.stdout.close()
         # Make original_stdout_fd point to the same file as to_fd
         os.dup2(to_fd, original_stdout_fd)
         # Create a new sys.stdout that points to the redirected fd
-        sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, 'wb'))
+        sys.stdout = io.TextIOWrapper(os.fdopen(original_stdout_fd, "wb"))
 
     # Save a copy of the original stdout fd in saved_stdout_fd
     saved_stdout_fd = os.dup(original_stdout_fd)
     try:
         # Create a temporary file and redirect stdout to it
-        tfile = tempfile.TemporaryFile(mode='w+b')
+        tfile = tempfile.TemporaryFile(mode="w+b")
         _redirect_stdout(tfile.fileno())
         # Yield to caller, then redirect stdout back to the saved fd
         yield
@@ -210,7 +204,7 @@ class InputVerificationExecutionSession(object):
                 session.run(inputs)
             except RuntimeError as re:
                 pass
-        output = f.getvalue().decode('utf-8')
+        output = f.getvalue().decode("utf-8")
         return output
 
 

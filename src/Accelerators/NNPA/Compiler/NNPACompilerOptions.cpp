@@ -26,14 +26,6 @@ llvm::cl::opt<NNPAEmissionTargetType> nnpaEmissionTarget(
         clEnumVal(EmitZNONE, "Do not emit NNPA-related target (default)")),
     llvm::cl::init(EmitZNONE), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
-    llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
-                   "specified nodes are forced to run on the CPU instead of "
-                   "using the zDNN. The node name is an optional attribute "
-                   "in onnx graph, which is `onnx_node_name` in ONNX IR."),
-    llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
-    llvm::cl::cat(OnnxMlirOptions)};
-
 llvm::cl::opt<bool> nnpaClipToDLFloatRange("nnpa-clip-to-dlfloat-range",
     llvm::cl::desc("Clip CPU tensors to dlfloat range before stickification to "
                    "avoid out-of-range. Only clip Softmax inputs at this "
@@ -48,10 +40,32 @@ llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
         "level. Default is true."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
-llvm::cl::opt<bool> nnpaEnableZHighPerfModel("enable-zhigh-perf-model",
-    llvm::cl::desc("Enabling performance cost model to estimate if ONNX "
-                   "operations will be faster on the NNPA or the CPU. Works "
-                   "best with static shapes. Default is false."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
+    "nnpa-load-device-placement-file",
+    llvm::cl::desc(
+        "Load device placement configuration from a JSON file. To "
+        "have a template for the JSON file, use "
+        "-save-device-placement-file=cfg.json. Note that we can use regex for "
+        "string values in the JSON file to match operations. The compiler uses "
+        "C++ std::regex_match function for matching."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile{
+    "nnpa-save-device-placement-file",
+    llvm::cl::desc("Save device placement configuration to a JSON file."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
+    "nnpa-placement-heuristic",
+    llvm::cl::desc(
+        "[Optional] Choose NNPA-related heuristic to place operations "
+        "on NNPA device:"),
+    llvm::cl::values(
+        clEnumVal(QualifyingOps, "Place all qualifying ops on NNPA (default)"),
+        clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA"),
+        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost"),
+        clEnumVal(MuchFasterOpsWSU,
+            "Much/Significantly FasterOps with stick/unstick cost")),
+    llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
 } // namespace onnx_mlir
