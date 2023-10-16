@@ -279,8 +279,9 @@ struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
 
 // Helper for ONNXLayerNormalizationOp (B and Scales broadcast to input X)
 struct ONNXLayerNormalizationOpShapeHelper : public ONNXBroadcastOpShapeHelper {
- ONNXLayerNormalizationOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
-      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+  ONNXLayerNormalizationOpShapeHelper(mlir::Operation *op,
+      mlir::ValueRange operands, IndexExprBuilder *ieBuilder = nullptr,
+      IndexExprScope *scope = nullptr)
       : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
             /*hasUniBroadcasting*/ true) {}
   virtual ~ONNXLayerNormalizationOpShapeHelper() {}
