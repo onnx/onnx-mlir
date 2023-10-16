@@ -36,8 +36,6 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include <llvm/Support/Debug.h>
-#define DEBUG_TYPE "foo"
 
 using namespace mlir;
 
@@ -496,7 +494,6 @@ public:
     ArrayRef<int64_t> outputShape = getShape(outputType);
     Type elementType = getElementType(bType);
     auto unrankedType = UnrankedTensorType::get(elementType);
-    LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 00.\n");
     // Expect 2D or 3D input.
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
       return failure();
@@ -505,7 +502,6 @@ public:
     int64_t M = bShape[bRank - 1];
     int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
     chunkSize = (chunkSize > 0) ? chunkSize : 65536;
-    LLVM_DEBUG(llvm::dbgs() << "chunkSize = " << chunkSize << "\n");
 
     bool nExceeded = N > chunkSize;
     bool mExceeded = M > chunkSize;
@@ -584,15 +580,6 @@ public:
     if (resSubAs.size() > 1)
       // Concat sub results along dimension N of A.
       res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
-    //    for (Value a : subAs) {
-    //      for (Value b : subBs) {
-    //        // Call dummy function to prevent deallocation of a and b.
-    //        SmallVector<Value, 2> parameters = {
-    //            create.onnx.toMemref(a), create.onnx.toMemref(b)};
-    //        rewriter.create<KrnlCallOp>(
-    //            loc, "dummyFuncForKeepParam", 1, parameters);
-    //      }
-    //    }
 
     rewriter.replaceOp(op, res);
     return success();
