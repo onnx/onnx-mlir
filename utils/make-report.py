@@ -539,7 +539,8 @@ def make_report(stat_message):
 
 
 def main(argv):
-    global report_level, focus_on_op_with_pattern, supported_only, time_unit, verbose
+    global report_level, focus_on_op_with_pattern, supported_only, time_unit
+    global verbose
     global sorting_preference
 
     compile_file_name = ""
@@ -557,7 +558,8 @@ def main(argv):
                 "help",
                 "level=",
                 "runtime=",
-                "stats=" "sort=",
+                "stats=",
+                "sort=",
                 "supported",
                 "unit=",
                 "verbose",
@@ -641,13 +643,22 @@ def main(argv):
     if compile_file_name and runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF", warmup_num)
         parse_file_for_stat(compile_file_name, make_stats)
+        print(
+            'Report using runtime file "'
+            + runtime_file_name
+            + '" and compile file "'
+            + compile_file_name
+            + '"'
+        )
         make_report(make_legend)
     elif compile_file_name:
         parse_file_for_stat(compile_file_name, make_stats)
+        print('Report using compile file "' + compile_file_name + '"')
         make_report(make_legend)
     elif runtime_file_name:
         parse_file_for_perf(runtime_file_name, "PERF", warmup_num)
         parse_file_for_stat(runtime_file_name, "PERF")
+        print('Report using runtime file "' + runtime_file_name + '"')
         make_report(make_legend)
     else:
         print_usage("Command requires an input file name (compile/runtime or both).\n")

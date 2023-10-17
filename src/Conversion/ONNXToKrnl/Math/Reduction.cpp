@@ -702,10 +702,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
           inRank, outRank, dynamicAxes, maskVal, outInDimMap, divisorForMean,
           enableParallel);
-      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
-          estimatedSimdLoopTripCount,
-          (parallelSimd ? "no simd because no supported for parallel scheme"
-                        : "unsupported"));
+      std::string msg;
+      if (parallelSimd)
+        msg = "no simd because no supported for parallel scheme";
+      else
+        msg = "unsupported";
+      onnxToKrnlSimdReport(
+          op, /*successful*/ false, /*vl*/ 0, estimatedSimdLoopTripCount, msg);
     }
     rewriter.replaceOp(op, alloc);
     return success();
