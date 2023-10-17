@@ -5294,6 +5294,113 @@ def ONNXPadOp:ONNX_Op<"Pad",
     let hasVerifier = 1;
 }
 
+def ONNXPadV18Op:ONNX_Op<"PadV18",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX Pad operation";
+  let description = [{
+  Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
+  a padded tensor (`output`) is generated.
+  
+  The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):
+  
+  1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0, empty string, or False)
+  
+  2) `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis
+  
+  3) `edge` - pads with the edge values of array
+  
+  
+  Example 1 (`constant` mode):
+  
+  Insert 0 pads to the beginning of the second dimension.
+  
+  ```
+  data = [
+      [1.0, 1.2],
+      [2.3, 3.4],
+      [4.5, 5.7],
+  ]
+  
+  pads = [0, 2, 0, 0]
+  
+  mode = 'constant'
+  
+  constant_value = 0.0
+  
+  output = [
+      [0.0, 0.0, 1.0, 1.2],
+      [0.0, 0.0, 2.3, 3.4],
+      [0.0, 0.0, 4.5, 5.7],
+  ]
+  ```
+  
+  Example 2 (`reflect` mode):
+  
+  ```
+  data = [
+      [1.0, 1.2],
+      [2.3, 3.4],
+      [4.5, 5.7],
+  ]
+  
+  pads = [0, 2, 0, 0]
+  
+  mode = 'reflect'
+  
+  output = [
+      [1.0, 1.2, 1.0, 1.2],
+      [2.3, 3.4, 2.3, 3.4],
+      [4.5, 5.7, 4.5, 5.7],
+  ]
+  ```
+  
+  Example 3 (`edge` mode):
+  
+  ```
+  data = [
+      [1.0, 1.2],
+      [2.3, 3.4],
+      [4.5, 5.7],
+  ]
+  
+  pads = [0, 2, 0, 0]
+  
+  mode = 'edge'
+  
+  output = [
+      [1.0, 1.0, 1.0, 1.2],
+      [2.3, 2.3, 2.3, 3.4],
+      [4.5, 4.5, 4.5, 5.7],
+  ]
+  ```
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+    TensorOf<[I64]>:$pads,
+    AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, NoneType]>:$constant_value,
+    AnyTypeOf<[TensorOf<[I32]>, TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedStrAttr<StrAttr, "constant">:$mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXPadV18OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
 def ONNXPadV13Op:ONNX_Op<"PadV13",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX Pad operation";
@@ -7005,6 +7112,50 @@ def ONNXResizeOp:ONNX_Op<"Resize",
     }
   }];
   let hasVerifier = 1;
+}
+
+def ONNXResizeV18Op:ONNX_Op<"ResizeV18",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX Resize operation";
+  let description = [{
+  Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+  Each dimension value of the output tensor is: <br/>
+    `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+  if input \\"sizes\\" is not specified.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$roi,
+    AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$scales,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$sizes,
+    DefaultValuedAttr<SI64Attr, "0">:$antialias,
+    OptionalAttr<I64ArrayAttr>:$axes,
+    DefaultValuedStrAttr<StrAttr, "half_pixel">:$coordinate_transformation_mode,
+    DefaultValuedAttr<F32Attr, "-0.75">:$cubic_coeff_a,
+    DefaultValuedAttr<SI64Attr, "0">:$exclude_outside,
+    DefaultValuedAttr<F32Attr, "0.0">:$extrapolation_value,
+    DefaultValuedStrAttr<StrAttr, "stretch">:$keep_aspect_ratio_policy,
+    DefaultValuedStrAttr<StrAttr, "nearest">:$mode,
+    DefaultValuedStrAttr<StrAttr, "round_prefer_floor">:$nearest_mode);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 4;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXResizeV18OpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ONNXResizeV13Op:ONNX_Op<"ResizeV13",
