@@ -1915,7 +1915,7 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 }
 
 Value LLVMBuilder::null(Type type) const {
-  return b().create<LLVM::NullOp>(loc(), type);
+  return b().create<LLVM::ZeroOp>(loc(), type);
 }
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {
