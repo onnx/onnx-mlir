@@ -36,6 +36,7 @@ int onnxConstPropExpansionBound;                       // common for both
 std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
+std::string opsForCall;                                // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -408,6 +409,15 @@ static llvm::cl::opt<bool, true> enableSimdDataLayoutOpt("simd-data-layout",
     llvm::cl::desc("Enable SIMD optimization for convolution (default=false)\n"
                    "Set to 'true' if you want to enable SIMD optimizations."),
     llvm::cl::location(enableSimdDataLayout), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string, true> opsForCallOpt("ops-for-call",
+    llvm::cl::desc("Specify which ops are lowered to knrl.call instead of"
+                   "krnl loops. op name are used to check against this option."
+                   "Names of opa are separated with space."
+                   "Example: ops-for-call=Conv MatMul"
+                   "The regexp match will be used to check against op name"),
+    llvm::cl::location(opsForCall), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",

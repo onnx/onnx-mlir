@@ -16,9 +16,9 @@
 
 #include "llvm/ADT/STLExtras.h"
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 #include "mlir/Dialect/Async/IR/Async.h"

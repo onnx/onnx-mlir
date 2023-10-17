@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
+#include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Convert.hpp"
 #include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Stickify.hpp"
 
