@@ -117,11 +117,11 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     for (int64_t i = 0; i < outputDims.size(); i++)
       outputDimsSize = outputDimsSize * outputDims[i];
     SmallVector<IndexExpr> outputIndexExpr = {outputDimsSize};
-    int64_t dim =
-        outputDimsSize.isLiteral() ? outputDimsSize.getLiteral() : ShapedType::kDynamic;
+    int64_t dim = outputDimsSize.isLiteral() ? outputDimsSize.getLiteral()
+                                             : ShapedType::kDynamic;
     Type outputType = dataType.getElementType();
-    Value outputDataBuffer = create.mem.alloc(
-        MemRefType::get({dim}, outputType), outputIndexExpr);
+    Value outputDataBuffer =
+        create.mem.alloc(MemRefType::get({dim}, outputType), outputIndexExpr);
     // Initialize the index used to store the result values.
     Value iZero = create.math.constantIndex(0);
     Value iOne = create.math.constantIndex(1);
