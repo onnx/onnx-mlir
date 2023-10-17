@@ -47,7 +47,6 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
       ONNXGatherNDOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = gatherNDOp.getOperation();
-    llvm::dbgs() << "XXX ONNXGatherNDOpLowering::matchAndRewrite: " << *op << "\n";
     Location loc = ONNXLoc<ONNXGatherNDOp>(op);
     ValueRange operands = adaptor.getOperands();
 
@@ -115,10 +114,14 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
 
     // Allocate a 1D output buffer.
     IndexExpr outputDimsSize = oneIE;
-    for (int64_t i = 0; i < b; i++)
+    for (int64_t i = 0; i < outputDims.size(); i++)
       outputDimsSize = outputDimsSize * outputDims[i];
     SmallVector<IndexExpr> outputIndexExpr = {outputDimsSize};
-    Value outputDataBuffer = create.mem.alignedAlloc(outputMemRefType, outputIndexExpr);
+    int64_t dim =
+        outputDimsSize.isLiteral() ? outputDimsSize.getLiteral() : ShapedType::kDynamic;
+    Type outputType = dataType.getElementType();
+    Value outputDataBuffer = create.mem.alloc(
+        MemRefType::get({dim}, outputType), outputIndexExpr);
     // Initialize the index used to store the result values.
     Value iZero = create.math.constantIndex(0);
     Value iOne = create.math.constantIndex(1);
