@@ -395,6 +395,7 @@ OpsWithVerifier = [
     "If",
     "IsInf",
     "InstanceNormalization",
+    "LayerNormalization",
     "Less",
     "LessOrEqual",
     "LogSoftmax",
