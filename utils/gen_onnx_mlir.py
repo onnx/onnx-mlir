@@ -48,13 +48,13 @@ parser.add_argument(
 parser.add_argument(
     "--check-operation-version",
     help="check whether the imported onnx package has new operation or "
-    " newer version of operation compared with version stored in  version_dicts",
+    " newer version of operation compared with version stored in version_dict",
     action="store_true",
     default=False,
 )
 parser.add_argument(
     "--list-operation-version",
-    help="list the version stored in version_dicts without performing checks",
+    help="list the version stored in version_dict without performing checks",
     action="store_true",
     default=False,
 )
