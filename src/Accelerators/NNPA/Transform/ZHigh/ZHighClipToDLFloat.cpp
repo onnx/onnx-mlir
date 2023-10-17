@@ -23,6 +23,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -113,15 +114,9 @@ public:
 
     // Clip the input values if required since the values are potentially
     // out-of-bound of dlfloat.
-    // dlfloat value =  (-1)^s * 2^(e-31) * (1 + m/512), e=[0, 63], m=[0, 511],
-    // according to the paper: "DLFloat: A 16-b Floating Point Format Designed
-    // for Deep Learning Training and Inference", Ankur Agrawal, et al.,
-    // (e=63, m=511) is preserved for NaN and Infinity, so use (e=63p, m=510)
-    // as the minimum value for clipping.
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    float dlfMin = -1 * (1L << 32) * (1.0 + (510.0 / 512.0));
     DenseElementsAttr minAttr = DenseElementsAttr::get<float>(
-        RankedTensorType::get({1}, inputElementType), dlfMin);
+        RankedTensorType::get({1}, inputElementType), DLF16_MIN);
     Value minVal = create.onnx.constant(minAttr);
     Value clippedVal = create.onnx.max({input, minVal});
     Value replacedVal = rewriter.create<ZHighStickOp>(
