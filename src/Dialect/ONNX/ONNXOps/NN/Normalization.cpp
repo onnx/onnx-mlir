@@ -187,11 +187,11 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
     // Can check at this stage.
     ShapedType bType = B.getType().cast<ShapedType>();
     ArrayRef<int64_t> bShape = bType.getShape();
-    SmallVector<int64_t> bcastShape;
-    if (!OpTrait::util::getBroadcastedShape(XShape, bShape, bcastShape))
+    SmallVector<int64_t> BBroadcastShape;
+    if (!OpTrait::util::getBroadcastedShape(XShape, bShape, BBroadcastShape))
       emitOpError(
           "LayerNormalization op with incompatible B shapes (broadcast)");
-    if ((int64_t)bcastShape.size() != XRank)
+    if ((int64_t)BBroadcastShape.size() != XRank)
       emitOpError("LayerNormalization op with incompatible B shapes "
                   "(unidirectional broadcast)");
     if (bType.getElementType() != XElementType)
@@ -203,11 +203,12 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
     // Can check at this stage.
     ShapedType scaleType = scale.getType().cast<ShapedType>();
     ArrayRef<int64_t> scaleShape = scaleType.getShape();
-    SmallVector<int64_t> bcastShape;
-    if (!OpTrait::util::getBroadcastedShape(XShape, scaleShape, bcastShape))
+    SmallVector<int64_t> scaleBroadcastShape;
+    if (!OpTrait::util::getBroadcastedShape(
+            XShape, scaleShape, scaleBroadcastShape))
       emitOpError(
           "LayerNormalization op with incompatible scale shapes (broadcast)");
-    if ((int64_t)bcastShape.size() != XRank)
+    if ((int64_t)scaleBroadcastShape.size() != XRank)
       emitOpError("LayerNormalization op with incompatible scale shapes "
                   "(unidirectional broadcast)");
     if (scaleType.getElementType() != XElementType)
