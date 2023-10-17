@@ -204,7 +204,8 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
     ShapedType scaleType = scale.getType().cast<ShapedType>();
     ArrayRef<int64_t> scaleShape = scaleType.getShape();
     SmallVector<int64_t> scaleBroadcastShape;
-    if (!OpTrait::util::getBroadcastedShape(XShape, scaleShape, scaleBroadcastShape))
+    if (!OpTrait::util::getBroadcastedShape(
+            XShape, scaleShape, scaleBroadcastShape))
       emitOpError(
           "LayerNormalization op with incompatible scale shapes (broadcast)");
     if ((int64_t)scaleBroadcastShape.size() != XRank)
