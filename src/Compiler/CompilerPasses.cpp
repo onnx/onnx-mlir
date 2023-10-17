@@ -66,6 +66,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   pm.addInstrumentation(
       std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     // For starters only illustrating the new hybrid pass by replacing 3 passes
