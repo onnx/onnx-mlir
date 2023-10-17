@@ -420,7 +420,7 @@ struct ONNXLayerNormalizationOpLowering
     Value var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
     Value varWithEpsilon = create.onnx.add(var, epsilon);
     Value stdDev = create.onnx.sqrt(varWithEpsilon);
-    Value invStdDev = create.onnx.reciprocal(reductionType, stdDev);
+    Value invStdDev = create.onnx.reciprocal(stdDev);
     Value d = create.onnx.sub(X, meanOfX);
     Value normalized = create.onnx.mul(d, invStdDev);
     Value Y = create.onnx.mul(normalized, lnOp.getScale());

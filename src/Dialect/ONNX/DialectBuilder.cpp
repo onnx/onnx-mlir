@@ -220,7 +220,8 @@ Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
       toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
 }
 
-Value OnnxBuilder::reciprocal(Type outputType, Value input) const {
+Value OnnxBuilder::reciprocal(Value input) const {
+  Type outputType = input.getType(); // input == output type.
   return createTypedOpAndInferShapes<ONNXReciprocalOp>(
       toTensor(outputType), toTensor(input));
 }
