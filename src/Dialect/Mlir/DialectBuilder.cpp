@@ -1188,7 +1188,9 @@ memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
   assert(!hasNonIdentityLayout(outputType) && "MemRef is not normalized");
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
   Type indexType = b().getIndexType();
-  int64_t rank = outputType.getRank();
+  int64_t rank = dims.size();
+  assert(
+      rank == outputType.getRank() && "expect identical rank of dims and type");
   // Shape for reshaping from N1D to N-D saved into memory.
   Value shapeND = alignedAlloc(MemRefType::get({rank}, indexType));
   for (int64_t i = 0; i < rank; ++i) {
