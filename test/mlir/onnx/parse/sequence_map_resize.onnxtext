@@ -37,7 +37,7 @@ preprocess (input_batch) => (output_tensor)
 // CHECK-DAG:         [[VAR_3_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:         [[VAR_4_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:         [[VAR_5_:%.+]] = "onnx.Resize"([[ARG_1_]], [[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {antialias = 1 : si64, axes = [0, 1], coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "not_smaller", mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<?x?x3xui8>, none, none, tensor<2xi64>) -> tensor<?x?x3xui8>
+// CHECK-DAG:         [[VAR_5_:%.+]] = "onnx.ResizeV18"([[ARG_1_]], [[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {antialias = 1 : si64, axes = [0, 1], coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "not_smaller", mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<?x?x3xui8>, none, none, tensor<2xi64>) -> tensor<?x?x3xui8>
 // CHECK-DAG:         [[VAR_6_:%.+]] = onnx.Constant dense<224> : tensor<2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_7_:%.+]] = "onnx.CenterCropPad"([[VAR_5_]], [[VAR_6_]]) {axes = [0, 1]} : (tensor<?x?x3xui8>, tensor<2xi64>) -> tensor<224x224x3xui8>
