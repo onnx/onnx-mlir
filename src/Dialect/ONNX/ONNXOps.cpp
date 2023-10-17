@@ -240,7 +240,8 @@ Operation *ONNXDialect::materializeConstant(
     OpBuilder &builder, Attribute value, Type type, Location loc) {
   // The attribute could be either a UnitAttr or DenseElementsAttr, IntAttr,
   // FloatAttr and etc.
-  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or ONNXConstantOp.
+  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or
+  // ONNXConstantOp.
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   Value result =
       isa<UnitAttr>(value) ? create.onnx.none() : create.onnx.constant(value);
