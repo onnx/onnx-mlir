@@ -102,7 +102,9 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     ONNXUniqueOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
     Value X = operandAdaptor.getX();
-    ArrayRef<int64_t> xShape = getShape(X.getType());
+    SmallVector<IndexExpr> XDims;
+    create.krnlIE.getShapeAsDims(X, XDims);
+
     Type elementType = X.getType().cast<MemRefType>().getElementType();
     int64_t rank = create.krnlIE.getShapedTypeRank(X);
     int64_t sorted = operandAdaptor.getSorted();
@@ -139,20 +141,20 @@ struct ONNXUniqueOpLowering : public ConversionPattern {
     if (axis < 0) {
       outputYDims.emplace_back(totalDimExpr);
       outputIndexDims.emplace_back(totalDimExpr);
-      DimIndexExpr inputDimExpr = LiteralIndexExpr(xShape[0]);
+      DimIndexExpr inputDimExpr = XDims[0];
       for (int64_t i = 1; i < rank; i++) {
-        inputDimExpr = inputDimExpr * LiteralIndexExpr(xShape[i]);
+        inputDimExpr = inputDimExpr * XDims[i];
       }
       outputInverseIndexDims.emplace_back(inputDimExpr);
     } else {
       for (int64_t i = 0; i < rank; i++) {
-        DimIndexExpr tDimExpr = LiteralIndexExpr(xShape[i]);
+        DimIndexExpr tDimExpr = XDims[i];
         if (i == axis)
           tDimExpr = totalDimExpr;
         outputYDims.emplace_back(tDimExpr);
       }
       outputIndexDims.emplace_back(totalDimExpr);
-      outputInverseIndexDims.emplace_back(LiteralIndexExpr(xShape[axis]));
+      outputInverseIndexDims.emplace_back(XDims[axis]);
     }
     //
     // Insert an allocation and deallocation for the outputs.
