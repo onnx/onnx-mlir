@@ -92,10 +92,6 @@ void registerOMPasses(int optLevel) {
     return createElideConstGlobalValuePass();
   });
 
-  //  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-  //    return createRemoveUnrealizedConversionCastOpForTensorToMemrefPass();
-  //  });
-
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertSeqToMemrefPass();
   });
