@@ -459,7 +459,7 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Transform/ONNX/ONNXDecompose.inc"
 
-#ifdef ONNX_MLIR_ENABLE_MHLO
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
 
 RankedTensorType createResultType(
     Type outputType, int64_t axisValue, bool keepDims) {
@@ -519,7 +519,7 @@ struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   }
 };
 
-void populateDecomposingONNXBeforeMhloPatterns(
+void populateDecomposingONNXBeforeStableHloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<SoftmaxPattern>(ctx);
 }
@@ -833,26 +833,26 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   });
 
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
-#ifdef ONNX_MLIR_ENABLE_MHLO
-  // ONNXtoMhlo pass has own rewriting for ConvTranspose Op using mhlo ops.
-  // To avoid conflict with it, decomposing for ConvTranspose is disabled
-  // when the target is mhlo.
-  if (this->target != "mhlo") {
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
+  // ONNXtoStableHlo pass has own rewriting for ConvTranspose Op using
+  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose is
+  // disabled when the target is stablehlo.
+  if (this->target != "stablehlo") {
 #endif
     target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
         [](ONNXConvTransposeOp op) {
           return !onnx_mlir::shouldDecomposeConvTransposeOp(op);
         });
-#ifdef ONNX_MLIR_ENABLE_MHLO
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
   }
 #endif
 #endif
 
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
-#ifdef ONNX_MLIR_ENABLE_MHLO
-  if (this->target == "mhlo") {
-    populateDecomposingONNXBeforeMhloPatterns(patterns, context);
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
+  if (this->target == "stablehlo") {
+    populateDecomposingONNXBeforeStableHloPatterns(patterns, context);
     target.addIllegalOp<ONNXSoftmaxOp>();
   }
 #endif
