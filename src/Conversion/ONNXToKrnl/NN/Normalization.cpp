@@ -328,29 +328,6 @@ struct ONNXLayerNormalizationOpLowering
     MemRefType YMemRefType, meanMemRefType, ISDMemRefType;
     // bool computeMean = false, computeISD = false;
 
-    Type convertedYType = typeConverter->convertType(lnOp.getY().getType());
-    assert(convertedYType && convertedYType.isa<MemRefType>() &&
-           "Failed to convert Y type to MemRefType");
-    YMemRefType = convertedYType.cast<MemRefType>();
-
-    if (!isNoneValue(lnOp.getMean())) {
-      // computeMean = true;
-      Type convertedMeanType =
-          typeConverter->convertType(lnOp.getMean().getType());
-      assert(convertedMeanType && convertedMeanType.isa<MemRefType>() &&
-             "Failed to convert Mean type to MemRefType");
-      meanMemRefType = convertedMeanType.cast<MemRefType>();
-    }
-
-    if (!isNoneValue(lnOp.getInvStdDev())) {
-      // computeISD = true;
-      Type convertedISDType =
-          typeConverter->convertType(lnOp.getInvStdDev().getType());
-      assert(convertedISDType && convertedISDType.isa<MemRefType>() &&
-             "Failed to convert Inverse Std Dev type to MemRefType");
-      ISDMemRefType = convertedISDType.cast<MemRefType>();
-    }
-
     // Get info.
     Value X = adaptor.getX();
     int64_t axis = lnOp.getAxis();
@@ -364,20 +341,18 @@ struct ONNXLayerNormalizationOpLowering
     int64_t innermostLoopCollapse = XRank - axis;
 
     // Detect if we can use SIMD
-    int64_t VL = 0;
+    int64_t VL = 0; // VL of 0 means no SIMD.
     int64_t estimatedSimdLoopTripCount;
-    bool isSIMD = false;
     if (enableSIMD) {
       VectorMachineSupport *vms =
           VectorMachineSupport::getGlobalVectorMachineSupport();
       VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
           innermostLoopCollapse, 4, /*canPad*/ false,
           estimatedSimdLoopTripCount);
-      isSIMD = VL > 0;
       LLVM_DEBUG({
         llvm::dbgs() << "  SIMD: " << innermostLoopCollapse << " loops, VL "
                      << VL << "\n";
-        if (!isSIMD)
+        if (VL == 0)
           llvm::dbgs() << "  SIMD: no good VL\n";
       });
     }
