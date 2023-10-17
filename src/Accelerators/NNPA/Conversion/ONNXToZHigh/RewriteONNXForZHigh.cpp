@@ -345,15 +345,13 @@ public:
 
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ValueRange subAs(A), subBs(B);
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
     if (nExceeded) {
       // Split A along the dimension N.
-      subAs = splitAlongAxis(create, A, aRank - 2, serialChunkSize);
+      subAs = splitAlongAxis(create, A, aRank - 2);
     }
     if (mExceeded) {
       // Split B along the dimension M.
-      subBs = splitAlongAxis(create, B, bRank - 1, serialChunkSize);
+      subBs = splitAlongAxis(create, B, bRank - 1);
     }
     // Emit sub matrix multiplication.
     SmallVector<Value> resSubAs;
@@ -404,12 +402,8 @@ public:
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
-    nExceeded = N > serialChunkSize;
-    mExceeded = M > serialChunkSize;
-    // nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
-    // mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
     if (!(nExceeded || mExceeded))
       return false;
 
@@ -597,12 +591,12 @@ public:
 void getRewriteONNXForZHighPatterns(
     RewritePatternSet &patterns, DimAnalysis *dimAnalysis) {
   populateWithGenerated(patterns);
+  patterns.insert<ParallelMatMulPattern>(patterns.getContext());
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
       patterns.getContext(), dimAnalysis);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
       patterns.getContext(), dimAnalysis);
-  patterns.insert<ParallelMatMulPattern>(patterns.getContext());
 }
 
 void getRewriteONNXForZHighDynamicallyLegal(
