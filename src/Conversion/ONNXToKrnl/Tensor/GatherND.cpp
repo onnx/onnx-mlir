@@ -81,10 +81,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
-    DimsExpr outputDims;
-    create.krnlIE.getShapeAsDims(op->getResults()[0], outputDims);
-    int64_t outputRank = outputMemRefType.getShape().size();
+    DimsExpr outputDims = shapeHelper.getOutputDims();
 
     // Reshape 'indices' to the 3D shape:
     //   [batchDimSize, indicesDimsSize, indices.shape[-1]].
@@ -114,7 +111,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
 
     // Allocate a 1D output buffer.
     IndexExpr outputDimsSize = oneIE;
-    for (int64_t i = 0; i < outputDims.size(); i++)
+    for (uint64_t i = 0; i < outputDims.size(); i++)
       outputDimsSize = outputDimsSize * outputDims[i];
     SmallVector<IndexExpr> outputIndexExpr = {outputDimsSize};
     int64_t dim = outputDimsSize.isLiteral() ? outputDimsSize.getLiteral()
