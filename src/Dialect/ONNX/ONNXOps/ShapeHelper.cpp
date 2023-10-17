@@ -182,6 +182,8 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
+  assert((elementType.isa<VectorType>() || !elementType.isa<ShapedType>()) &&
+         "element type cannot be a shaped type other than vector type");
   uint64_t resNum = op->getNumResults();
   for (uint64_t i = 0; i < resNum; ++i) {
     // If we have an optional type, leave it as is.
