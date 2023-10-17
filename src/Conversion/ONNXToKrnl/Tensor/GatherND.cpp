@@ -118,8 +118,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     for (int64_t i = 0; i < b; i++)
       outputDimsSize = outputDimsSize * outputDims[i];
     SmallVector<IndexExpr> outputIndexExpr = {outputDimsSize};
-    Value outputDataBuffer = create.mem.alloc(outputMemRefType, outputIndexExpr);
-
+    Value outputDataBuffer = create.mem.alignedAlloc(outputMemRefType, outputIndexExpr);
     // Initialize the index used to store the result values.
     Value iZero = create.math.constantIndex(0);
     Value iOne = create.math.constantIndex(1);
