@@ -4,7 +4,7 @@
 
 //===------- convert.cpp - Data Conversion --------------------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,13 +13,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Convert.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/DLF16Conversion.hpp"
 
 /// fp32 -> dlf16 conversion.
 uint64_t fp32_to_dlf16(
     float *fp32_data, uint16_t *dflt16_data, uint64_t num_fields) {
-  for (uint64_t i = 0; i < num_fields; i++)
-    dflt16_data[i] = NNP1(fp32_data[i]).uint();
+  for (uint64_t i = 0; i < num_fields; i++) {
+    // Clip the fp32 value into the dlf16 range.
+    float fp32_elem = fp32_data[i];
+    if (fp32_elem < DLF16_MIN)
+      fp32_elem = DLF16_MIN;
+    if (fp32_elem > DLF16_MAX)
+      fp32_elem = DLF16_MAX;
+    // Convert to dlf16.
+    dflt16_data[i] = NNP1(fp32_elem).uint();
+  }
   return num_fields;
 }
 
