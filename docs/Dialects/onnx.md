@@ -7726,6 +7726,50 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
 
+### `onnx.ResizeV18` (ONNXResizeV18Op)
+
+_ONNX Resize operation_
+
+Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
+Each dimension value of the output tensor is: <br/>
+  `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+if input \\"sizes\\" is not specified.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+| Attribute | MLIR Type | Description |
+| :-------: | :-------: | ----------- |
+| `antialias` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `axes` | ::mlir::ArrayAttr | 64-bit integer array attribute
+| `coordinate_transformation_mode` | ::mlir::StringAttr | string attribute
+| `cubic_coeff_a` | ::mlir::FloatAttr | 32-bit float attribute
+| `exclude_outside` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+| `extrapolation_value` | ::mlir::FloatAttr | 32-bit float attribute
+| `keep_aspect_ratio_policy` | ::mlir::StringAttr | string attribute
+| `mode` | ::mlir::StringAttr | string attribute
+| `nearest_mode` | ::mlir::StringAttr | string attribute
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+| `roi` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or none type
+| `scales` | tensor of 32-bit float values or none type
+| `sizes` | tensor of 64-bit signless integer values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 8-bit unsigned integer values or tensor of 16-bit unsigned integer values or tensor of 32-bit unsigned integer values or tensor of 64-bit unsigned integer values or tensor of 8-bit signless integer values or tensor of 16-bit signless integer values or tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of string type values or tensor of 1-bit signless integer values or tensor of complex type with 32-bit float elements values or tensor of complex type with 64-bit float elements values
+
 ### `onnx.Return` (ONNXReturnOp)
 
 _Function return operation_
