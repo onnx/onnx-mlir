@@ -326,7 +326,7 @@ struct ONNXLayerNormalizationOpLowering
 
     // Convert the output type to MemRefType.
     MemRefType YMemRefType, meanMemRefType, ISDMemRefType;
-    bool computeMean = false, computeISD = false;
+    // bool computeMean = false, computeISD = false;
 
     Type convertedYType = typeConverter->convertType(lnOp.getY().getType());
     assert(convertedYType && convertedYType.isa<MemRefType>() &&
@@ -334,7 +334,7 @@ struct ONNXLayerNormalizationOpLowering
     YMemRefType = convertedYType.cast<MemRefType>();
 
     if (!isNoneValue(lnOp.getMean())) {
-      computeMean = true;
+      // computeMean = true;
       Type convertedMeanType =
           typeConverter->convertType(lnOp.getMean().getType());
       assert(convertedMeanType && convertedMeanType.isa<MemRefType>() &&
@@ -343,7 +343,7 @@ struct ONNXLayerNormalizationOpLowering
     }
 
     if (!isNoneValue(lnOp.getInvStdDev())) {
-      computeISD = true;
+      // computeISD = true;
       Type convertedISDType =
           typeConverter->convertType(lnOp.getInvStdDev().getType());
       assert(convertedISDType && convertedISDType.isa<MemRefType>() &&
@@ -387,15 +387,11 @@ struct ONNXLayerNormalizationOpLowering
         onnx_mlir::createDenseElementsAttrFromFloatAttr(
             rewriter, elementType, epsilonAttr);
     Value epsilon = create.onnx.constant(epsilonDenseAttr);
-#if 0
-        // Allocate output data.
-    Value yMemRef = create.mem.alignedAlloc(X, YMemRefType);
 
-#endif
     return generateONNXCode(rewriter, create, lnOp, epsilon, axis);
   }
 
-  // Generate the original ONNX operations.
+  // Generate the original ONNX operations. This is the unoptimized path.
   // TODO: conversions of types are not handled.
   LogicalResult generateONNXCode(ConversionPatternRewriter &rewriter,
       MDBuilder &create, ONNXLayerNormalizationOp lnOp, Value epsilon,
