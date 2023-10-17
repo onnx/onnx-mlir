@@ -214,7 +214,7 @@ version_dict = {
     "OptionalHasElement": [18],
     "Or": [7],
     "PRelu": [16],
-    "Pad": [19, 13, 11, 2],
+    "Pad": [19, 18, 13, 11, 2],
     "Pow": [15],
     "QLinearConv": [10],
     "QLinearMatMul": [10],
