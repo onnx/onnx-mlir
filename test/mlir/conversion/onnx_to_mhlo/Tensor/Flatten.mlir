@@ -1,12 +1,17 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-mhlo %s --canonicalize -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-stablehlo %s --canonicalize -split-input-file | FileCheck %s
 
 // Test normal case
 func.func @test_flatten(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-// CHECK-LABEL: func @test_flatten
-// CHECK: %0 = mhlo.reshape %arg0 : (tensor<5x5x1x32xf32>) -> tensor<25x32xf32>
 }
+
+// CHECK-LABEL:  func.func @test_flatten
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<25x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = shape.const_shape [25, 32] : tensor<2xindex>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, tensor<2xindex>) -> tensor<25x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<25x32xf32>
+// CHECK:         }
 
 // -----
 
@@ -14,9 +19,14 @@ func.func @test_flatten(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 func.func @test_flatten_negative_axis(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.Flatten"(%arg0) {axis = -2 : si64} : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-// CHECK-LABEL: func @test_flatten_negative_axis
-// CHECK: %0 = mhlo.reshape %arg0 : (tensor<5x5x1x32xf32>) -> tensor<25x32xf32>
 }
+
+// CHECK-LABEL:  func.func @test_flatten_negative_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<25x32xf32> {
+// CHECK:           [[VAR_0_:%.+]] = shape.const_shape [25, 32] : tensor<2xindex>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, tensor<2xindex>) -> tensor<25x32xf32>
+// CHECK:           return [[VAR_1_]] : tensor<25x32xf32>
+// CHECK:         }
 
 // -----
 
@@ -24,28 +34,37 @@ func.func @test_flatten_negative_axis(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*x
 func.func @test_flatten_with_default_axis(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.Flatten"(%arg0) : (tensor<5x5x1x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-// CHECK-LABEL: func @test_flatten_with_default_axis
-// CHECK: %0 = mhlo.reshape %arg0 : (tensor<5x5x1x32xf32>) -> tensor<5x160xf32>
 }
+
+// CHECK-LABEL:  func.func @test_flatten_with_default_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>) -> tensor<5x160xf32> {
+// CHECK:           [[VAR_0_:%.+]] = shape.const_shape [5, 160] : tensor<2xindex>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_0_]] : (tensor<5x5x1x32xf32>, tensor<2xindex>) -> tensor<5x160xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x160xf32>
+// CHECK:         }
 
 // -----
 
 func.func @test_flatten1(%arg0 : tensor<2x?x4xf32>) -> tensor<*xf32> {
   %1 = "onnx.Flatten"(%arg0) {axis = 2 : si64} : (tensor<2x?x4xf32>) -> tensor<*xf32>
   "func.return"(%1) : (tensor<*xf32>) -> ()
-// CHECK-LABEL: func @test_flatten1
-// CHECK-SAME: ([[PARAM_0_:%.+]]: tensor<2x?x4xf32>) -> tensor<?x4xf32> {
-// CHECK-DAG:    [[C2:%.+]] = arith.constant 2 : index
-// CHECK-DAG:    [[C0:%.+]] = arith.constant 0 : index
-// CHECK-DAG:    [[C1:%.+]] = arith.constant 1 : index
-// CHECK-NEXT:    %0 = shape.shape_of %arg0 : tensor<2x?x4xf32> -> tensor<3xindex>
-// CHECK-NEXT:    %1 = shape.get_extent %0, [[C0]] : tensor<3xindex>, index -> index
-// CHECK-NEXT:    %2 = shape.mul %1, [[C1]] : index, index -> index
-// CHECK-NEXT:    %3 = shape.get_extent %0, [[C1]] : tensor<3xindex>, index -> index
-// CHECK-NEXT:    %4 = shape.mul %2, %3 : index, index -> index
-// CHECK-NEXT:    %5 = shape.get_extent %0, [[C2]] : tensor<3xindex>, index -> index
-// CHECK-NEXT:    %6 = shape.mul %5, [[C1]] : index, index -> index
-// CHECK-NEXT:    %7 = shape.from_extents %4, %6 : index, index
-// CHECK-NEXT:    %8 = shape.to_extent_tensor %7 : !shape.shape -> tensor<2xindex>
-// CHECK-NEXT:    %9 = mhlo.dynamic_reshape %arg0, %8 : (tensor<2x?x4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
 }
+
+// CHECK-LABEL:  func.func @test_flatten1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x?x4xf32>) -> tensor<?x4xf32> {
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[VAR_0_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<2x?x4xf32> -> tensor<3xindex>
+// CHECK:           [[VAR_1_:%.+]] = shape.get_extent [[VAR_0_]], [[CST_0_]] : tensor<3xindex>, index -> index
+// CHECK-DAG:       [[VAR_2_:%.+]] = shape.mul [[VAR_1_]], [[CST_1_]] : index, index -> index
+// CHECK-DAG:       [[VAR_3_:%.+]] = shape.get_extent [[VAR_0_]], [[CST_1_]] : tensor<3xindex>, index -> index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_4_:%.+]] = shape.mul [[VAR_2_]], [[VAR_3_]] : index, index -> index
+// CHECK-DAG:       [[VAR_5_:%.+]] = shape.get_extent [[VAR_0_]], [[CST_2_]] : tensor<3xindex>, index -> index
+// CHECK:           [[VAR_6_:%.+]] = shape.mul [[VAR_5_]], [[CST_1_]] : index, index -> index
+// CHECK:           [[VAR_7_:%.+]] = shape.from_extents [[VAR_4_]], [[VAR_6_]] : index, index
+// CHECK:           [[VAR_8_:%.+]] = shape.to_extent_tensor [[VAR_7_]] : !shape.shape -> tensor<2xindex>
+// CHECK:           [[VAR_9_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_8_]] : (tensor<2x?x4xf32>, tensor<2xindex>) -> tensor<?x4xf32>
+// CHECK:           return [[VAR_9_]] : tensor<?x4xf32>
+// CHECK:         }

@@ -9,7 +9,7 @@
 // =============================================================================
 //
 // This file contains the dialect build for the TOSA dialect. Uses the same
-// implementation as ONNXToMhlo with minor differences.
+// implementation as ONNXToStableHlo with minor differences.
 //
 //===----------------------------------------------------------------------===//
 
@@ -256,7 +256,7 @@ ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
 
 Value IndexExprBuilderForTosa::getVal(Value intArrayVal, uint64_t i) {
   MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Need to add some acceptable dialects to MHLO conversion.
+  // Need to add some acceptable dialects to TOSA conversion.
   llvm_unreachable(
       "unimplemented (see IndexExprBuilderForKrnl for functionality).");
 }

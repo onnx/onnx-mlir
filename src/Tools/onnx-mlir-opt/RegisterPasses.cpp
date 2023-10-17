@@ -126,8 +126,9 @@ void registerOMPasses(int optLevel) {
   });
 
 #ifdef ONNX_MLIR_ENABLE_MHLO
-  mlir::registerPass(
-      []() -> std::unique_ptr<mlir::Pass> { return createLowerToMhloPass(); });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createLowerToStableHloPass();
+  });
 #endif
 }
 
