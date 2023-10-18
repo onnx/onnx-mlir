@@ -3615,6 +3615,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
