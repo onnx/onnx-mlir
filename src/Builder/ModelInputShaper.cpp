@@ -55,13 +55,22 @@ void ModelInputShaper::setShapeInformation(
   if (!shapeInformation.empty()) {
     std::stringstream shapeInfoString(shapeInformation);
     std::string shapeString;
+    bool hasAllInputSetting = false;
     while (std::getline(shapeInfoString, shapeString, ',')) {
+      assert(!hasAllInputSetting &&
+             "When -1 is used for all inputs, no other setting is allowed.");
       size_t pos = shapeString.find(':');
       std::string inputString = shapeString.substr(0, pos);
       std::string dimString = shapeString.substr(pos + 1);
 
       int64_t inputID = std::stoi(inputString);
-      assert(inputID >= 0 && "input_id must be >= 0");
+      assert((inputID >= 0 || inputID == kUserAllInputs) &&
+             "input_id must be -1 or >= 0");
+      if (inputID == kUserAllInputs) {
+        assert(inputs_shape_information_.empty() &&
+               "When -1 is used for all inputs, no other setting is allowed.");
+        hasAllInputSetting = true;
+      }
 
       std::stringstream dimSizes(dimString);
       std::string dimStr;
@@ -98,9 +107,12 @@ RankedTensorType forceShape(
 
 Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
   if (auto tensorTy = inputType.dyn_cast<TensorType>()) {
+    if (!tensorTy.hasRank())
+      return inputType;
+    auto rankedTensorTy = tensorTy.cast<RankedTensorType>();
+    ArrayRef<int64_t> origDims = rankedTensorTy.getShape();
     // Update the input dimensions based on internal information.
-    if (force_dim_dynamic_enabled_ && tensorTy.hasRank()) {
-      auto rankedTensorTy = tensorTy.cast<RankedTensorType>();
+    if (force_dim_dynamic_enabled_) {
       auto it = forced_inputs_dims_.find(kUserDynamic);
       if (it != forced_inputs_dims_.end())
         return forceShape(rankedTensorTy, it->second);
@@ -110,9 +122,29 @@ Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
     }
 
     // Change to the custom shape if users provide.
-    auto it = inputs_shape_information_.find(inputIndex);
-    if (it != inputs_shape_information_.end())
-      return RankedTensorType::get(it->second, tensorTy.getElementType());
+    // Support partial custom shape counting from the outermost dimension. For
+    // example, if custom shape is 0:3x5, it only changes the first and second
+    // dimensions though the input has 3 dimensions. In that case, the third
+    // dimension is unchanged.
+    auto it = inputs_shape_information_.find(kUserAllInputs);
+    if (it == inputs_shape_information_.end()) {
+      // Users do not specify same dimensions for all inputs.
+      // Find the specific input index.
+      it = inputs_shape_information_.find(inputIndex);
+      if (it == inputs_shape_information_.end()) {
+        // Not found the specific input index, give up.
+        return inputType;
+      }
+    }
+    SmallVector<int64_t, 4> customDims;
+    std::vector<int64_t> userDims = it->second;
+    for (uint64_t i = 0; i < origDims.size(); ++i) {
+      if (i < userDims.size())
+        customDims.emplace_back(userDims[i]);
+      else
+        customDims.emplace_back(origDims[i]);
+    }
+    return RankedTensorType::get(customDims, tensorTy.getElementType());
   }
 
   // Default to not reshape.
