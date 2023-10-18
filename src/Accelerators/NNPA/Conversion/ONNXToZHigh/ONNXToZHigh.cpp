@@ -345,8 +345,8 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
-      func::FuncDialect, arith::ArithDialect>();
-
+      func::FuncDialect, arith::ArithDialect, mlir::async::AsyncDialect>();
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
   // NOTE: if we change the order of calling combinedPatterns and single op
   // patterns, make sure to change the order in DevicePlacement.cpp also to make
   // them synced.

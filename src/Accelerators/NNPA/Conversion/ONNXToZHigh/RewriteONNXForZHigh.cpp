@@ -473,6 +473,14 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
+
+    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
+    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
+    bool nExceeded = false;
+    bool mExceeded = false;
+    if (!canBeRewritten(matmulOp, nExceeded, mExceeded, chunkSize))
+      return failure();
+
     Location loc = matmulOp.getLoc();
     Operation *op = matmulOp.getOperation();
     Value A = matmulOp.getA(); // NxK
@@ -484,23 +492,11 @@ public:
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
     int64_t outputRank = getRank(outputType);
-    ArrayRef<int64_t> aShape = getShape(aType);
-    ArrayRef<int64_t> bShape = getShape(bType);
     ArrayRef<int64_t> outputShape = getShape(outputType);
     Type elementType = getElementType(bType);
     auto unrankedType = UnrankedTensorType::get(elementType);
     // Expect 2D or 3D input.
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
-      return failure();
-    // Expect N or M exceeds NNPA limitation.
-    int64_t N = aShape[aRank - 2];
-    int64_t M = bShape[bRank - 1];
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
-
-    bool nExceeded = N > chunkSize;
-    bool mExceeded = M > chunkSize;
-    if (!(nExceeded || mExceeded))
       return failure();
 
     // Rewrite
@@ -579,6 +575,32 @@ public:
     rewriter.replaceOp(op, res);
     return success();
   }
+  static bool canBeRewritten(
+      ONNXMatMulOp matmulOp, bool &nExceeded, bool &mExceeded, int chunkSize) {
+    Value A = matmulOp.getA(); // NxK
+    Value B = matmulOp.getB(); // KxM
+
+    Type aType = A.getType();
+    Type bType = B.getType();
+    int64_t aRank = getRank(aType);
+    int64_t bRank = getRank(bType);
+    ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
+
+    // Expect 2D or 3D input.
+    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
+      return false;
+
+    // Expect N or M exceeds NNPA limitation.
+    int64_t N = aShape[aRank - 2];
+    int64_t M = bShape[bRank - 1];
+    nExceeded = N > chunkSize;
+    mExceeded = M > chunkSize;
+    if (!(nExceeded || mExceeded))
+      return false;
+
+    return true;
+  }
 };
 
 //===----------------------------------------------------------------------===//
@@ -591,8 +613,8 @@ public:
 void getRewriteONNXForZHighPatterns(
     RewritePatternSet &patterns, DimAnalysis *dimAnalysis) {
   populateWithGenerated(patterns);
-  patterns.insert<ParallelMatMulPattern>(patterns.getContext());
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
+  patterns.insert<ParallelMatMulPattern>(patterns.getContext());
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
       patterns.getContext(), dimAnalysis);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
@@ -704,6 +726,14 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic
         // or exceeds NNPA limitation.
         bool nExceeded, mExceeded;
+
+        int chunkSize =
+            getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
+        chunkSize = (chunkSize > 0) ? chunkSize : 65536;
+        if (ParallelMatMulPattern::canBeRewritten(
+                op, nExceeded, mExceeded, chunkSize))
+          return false;
+
         if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded))
           return false;
 
@@ -787,22 +817,21 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect,
-      mlir::async::AsyncDialect>();
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
+      func::FuncDialect, arith::ArithDialect, mlir::async::AsyncDialect,
+      math::MathDialect>();
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
   onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis);
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   onnx_mlir::getRewriteONNXForZHighPatterns(patterns, &dimAnalysis);
 
-  auto function = getOperation();
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
-    signalPassFailure();
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
-  //  if (failed(applyPartialConversion(module, target, std::move(patterns))))
-  //    signalPassFailure();
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+    signalPassFailure();
 }
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
