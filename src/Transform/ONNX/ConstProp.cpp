@@ -245,6 +245,11 @@ struct ElementWiseBinaryOpImpl<ONNXSumOp, T, EnableNotBool<T>> {
   static T eval(T lhs, T rhs) { return lhs + rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXPowOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return std::pow(lhs, rhs); }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
