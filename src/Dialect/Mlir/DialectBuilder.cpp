@@ -1138,6 +1138,8 @@ memref::ReshapeOp MemRefBuilder::reshape(
   llvm::SmallVector<int64_t, 4> outputShape;
   IndexExpr::getShape(destDims, outputShape);
   // Allocate data structure for dimensions.
+  // Question: is there a more optimized sequence if destDims is entirely
+  // literal.
   Type indexType = b().getIndexType();
   int64_t outputRank = destDims.size();
   Value outputShapeInMem =

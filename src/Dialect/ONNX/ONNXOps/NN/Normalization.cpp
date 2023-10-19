@@ -175,12 +175,8 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
   int64_t XRank = XShape.size();
   Type XElementType = XType.getElementType();
 
-  // Axis attribute (if specified) must be in the range [-r,r), where r =
-  // rank(input).
-  if (axis < -XRank || axis >= XRank)
+  if (!isAxisInRange(axis, XRank))
     return emitOpError("axis must be in [-r, r) range]");
-  if (axis < 0)
-    axis += XRank;
 
   // Check bias B.
   if (hasShapeAndRank(B)) {
@@ -226,11 +222,9 @@ mlir::LogicalResult ONNXLayerNormalizationOpShapeHelper::computeShape() {
   ONNXLayerNormalizationOp lnOp = llvm::cast<ONNXLayerNormalizationOp>(op);
 
   // Get rank and axis attribute.
-  int64_t axis = lnOp.getAxis();
   Value X = operandAdaptor.getX();
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
-  if (axis < 0)
-    axis += XRank;
+  int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
 
   // Compute the shape of the first output and all the inputs.
   llvm::SmallVector<Value, 3> operandsForBroadcast;

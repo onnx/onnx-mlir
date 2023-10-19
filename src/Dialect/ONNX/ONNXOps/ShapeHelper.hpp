@@ -42,6 +42,15 @@ namespace onnx_mlir {
 // Support functions.
 //===----------------------------------------------------------------------===//
 
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is
+// true.  Assert when not in range. Return positive axis.
+int64_t getAxisInRange(int64_t axis, int64_t rank, bool includeRank = false);
+int64_t getAxisInRange(int64_t axis, mlir::Value val, bool includeRank = false);
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is true.
+// Return false when not in range; set axis to positive value when in range.
+bool isAxisInRange(int64_t &axis, int64_t rank, bool includeRank = false);
+bool isAxisInRange(int64_t &axis, mlir::Value val, bool includeRank = false);
+
 // Update a tensor type by using the given shape, elementType and encoding.
 // TODO: when all ops are migrated to the new scheme, make this function private
 // to ONNXOpShapeHelper.
