@@ -68,14 +68,6 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
 
-  Option<bool> convOpt{*this, "conv-opt",
-      llvm::cl::desc("Enable convolution optimization for CPU"),
-      llvm::cl::init(false)};
-
-  Option<bool> simdDataLayout{*this, "simd-data-layout",
-      llvm::cl::desc("Enable SIMD data layout optimizations"),
-      llvm::cl::init(false)};
-
   Option<int> maxNumRewrites{*this, "max-num-rewrites",
       llvm::cl::desc("Limit the number of rewrites. -1 means no limit."),
       llvm::cl::init(300)};
@@ -87,11 +79,6 @@ struct ONNXHybridTransformPass
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
       : patterns(pass.patterns) {
     copyOptionValuesFrom(&pass);
-  }
-
-  ONNXHybridTransformPass(bool enableConvOpt, bool enableSimdDataLayoutOpt) {
-    this->convOpt = enableConvOpt;
-    this->simdDataLayout = enableSimdDataLayoutOpt;
   }
 
   StringRef getArgument() const override { return "onnx-hybrid-transform"; }
@@ -119,10 +106,6 @@ struct ONNXHybridTransformPass
       getDecomposeONNXToONNXPatterns(cumulativePatterns);
     }
 
-    if (convOpt) {
-      getConvOptONNXToONNXPatterns(simdDataLayout, cumulativePatterns);
-    }
-
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
     return success();
   }
@@ -148,10 +131,5 @@ struct ONNXHybridTransformPass
 } // namespace
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass() {
-  return std::make_unique<ONNXHybridTransformPass>();
-}
-
-std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
-    bool enableConvOpt, bool enableSimdDataLayoutOpt) {
   return std::make_unique<ONNXHybridTransformPass>();
 }

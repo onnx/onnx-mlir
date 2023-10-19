@@ -68,8 +68,6 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
 std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
-std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
-    bool enableConvOpt, bool enableSimdDataLayoutOpt = false);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
