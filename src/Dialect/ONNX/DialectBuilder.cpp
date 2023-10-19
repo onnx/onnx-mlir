@@ -88,6 +88,21 @@ Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
   return constant(denseAttr);
 }
 
+Value OnnxBuilder::conv(Type Y, Value X, Value W, Value B, StringRef autoPad,
+    ArrayRef<int64_t> dilations, int64_t group, ArrayRef<int64_t> kernelShape,
+    ArrayRef<int64_t> pads, ArrayRef<int64_t> strides) const {
+  StringAttr autoPadAttr = b().getStringAttr(autoPad);
+  ArrayAttr dilationsAttr = b().getI64ArrayAttr(dilations);
+  IntegerAttr groupAttr =
+      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
+          APInt(64, group, /*isSigned=*/true));
+  ArrayAttr kernelShapeAttr = b().getI64ArrayAttr(kernelShape);
+  ArrayAttr padsAttr = b().getI64ArrayAttr(pads);
+  ArrayAttr stridesAttr = b().getI64ArrayAttr(strides);
+  return createOpAndInferShapes<ONNXConvOp>(toTensor(Y), X, W, B, autoPadAttr,
+      dilationsAttr, groupAttr, kernelShapeAttr, padsAttr, stridesAttr);
+}
+
 Value OnnxBuilder::dim(Value input, int axis) const {
   Type resultType = RankedTensorType::get({1}, b().getI64Type());
   IntegerAttr axisAttr =
@@ -299,6 +314,10 @@ Value OnnxBuilder::sub(Value A, Value B) const {
              B.getType().cast<ShapedType>().getElementType()) &&
          "A and B must have the same element type");
   return createOpAndInferShapes<ONNXSubOp>(toTensor(A), toTensor(B));
+}
+
+Value OnnxBuilder::sum(Type outputType, ValueRange inputs) const {
+  return createTypedOpAndInferShapes<ONNXSumOp>(toTensor(outputType), inputs);
 }
 
 Value OnnxBuilder::transpose(
