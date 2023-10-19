@@ -109,10 +109,7 @@ RankedTensorType forceShape(
 } // namespace
 
 Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
-  if (auto tensorTy = inputType.dyn_cast<TensorType>()) {
-    if (!tensorTy.hasRank())
-      return inputType;
-    auto rankedTensorTy = tensorTy.cast<RankedTensorType>();
+  if (auto rankedTensorTy = inputType.dyn_cast<RankedTensorType>()) {
     ArrayRef<int64_t> origDims = rankedTensorTy.getShape();
     // Update the input dimensions based on internal information.
     if (force_dim_dynamic_enabled_) {
@@ -147,7 +144,7 @@ Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
       else
         customDims.emplace_back(origDims[i]);
     }
-    return RankedTensorType::get(customDims, tensorTy.getElementType());
+    return RankedTensorType::get(customDims, rankedTensorTy.getElementType());
   }
 
   // Default to not reshape.
