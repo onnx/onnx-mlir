@@ -57,8 +57,6 @@ void ModelInputShaper::setShapeInformation(
     std::string shapeString;
     bool hasAllInputSetting = false;
     while (std::getline(shapeInfoString, shapeString, ',')) {
-      assert(!hasAllInputSetting &&
-             "When -1 is used for all inputs, no other setting is allowed.");
       size_t pos = shapeString.find(':');
       std::string inputString = shapeString.substr(0, pos);
       std::string dimString = shapeString.substr(pos + 1);
@@ -66,11 +64,8 @@ void ModelInputShaper::setShapeInformation(
       int64_t inputID = std::stoi(inputString);
       assert((inputID >= 0 || inputID == kUserAllInputs) &&
              "input_id must be -1 or >= 0");
-      if (inputID == kUserAllInputs) {
-        assert(inputs_shape_information_.empty() &&
-               "When -1 is used for all inputs, no other setting is allowed.");
+      if (inputID == kUserAllInputs)
         hasAllInputSetting = true;
-      }
 
       std::stringstream dimSizes(dimString);
       std::string dimStr;
@@ -83,7 +78,15 @@ void ModelInputShaper::setShapeInformation(
           dimSize = ShapedType::kDynamic;
         dims.emplace_back(dimSize);
       }
+      // The semantics of c++ map.insert() makes sure that only the first
+      // setting of inputID is inserted.
       inputs_shape_information_.insert(std::make_pair(inputID, dims));
+    }
+    if (hasAllInputSetting && (inputs_shape_information_.size() > 1)) {
+      llvm::outs()
+          << "Warning: Found multiple settings that includes -1:d1xd2x...xdn "
+             "for all inputs. Only the first -1:d1xd2x...xdn is effective and "
+             "the other settings are ignored.\n";
     }
   }
 }
