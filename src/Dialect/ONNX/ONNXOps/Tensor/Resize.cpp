@@ -45,17 +45,18 @@ bool isAbsent(Value input) {
 } // namespace
 
 LogicalResult ONNXResizeOpShapeHelper::computeShape() {
-  ONNXResizeOpAdaptor operandAdaptor(operands);
+  ONNXResizeOpAdaptor operandAdaptor(operands, cast<ONNXResizeOp>(op));
+  if (operandAdaptor.getAxes().has_value())
+    return op->emitOpError("axes are unsupported");
   uint64_t rank = createIE->getShapedTypeRank(operandAdaptor.getX());
   DimsExpr inputDims, outputDims;
   createIE->getShapeAsDims(operandAdaptor.getX(), inputDims);
   bool scalesIsAbsent = isAbsent(operandAdaptor.getScales());
-
   if (!scalesIsAbsent) {
     // Read and save scales as float.
     createIE->getFloatFromArrayAsNonAffine(operandAdaptor.getScales(), scales);
     if (inputDims.size() != scales.size())
-      return op->emitError("expected scales to have the same rank as input");
+      return op->emitOpError("expected scales to have the same rank as input");
     // Compute output dims = int(floor(float(input dims) * scales)).
     for (uint64_t i = 0; i < rank; ++i) {
       // Special case for scale == 1.0 as converts are then needed.
@@ -73,7 +74,7 @@ LogicalResult ONNXResizeOpShapeHelper::computeShape() {
     // Output size is defined by input `sizes`.
     createIE->getIntFromArrayAsSymbols(operandAdaptor.getSizes(), outputDims);
     if (inputDims.size() != outputDims.size())
-      return op->emitError("expected scales to have the same rank as input");
+      return op->emitOpError("expected sizes to have the same rank as input");
     // Compute scales as float(output dims) / float(input dims).
     for (uint64_t i = 0; i < rank; ++i) {
       IndexExpr floatInputDim = inputDims[i].convertToFloat();
