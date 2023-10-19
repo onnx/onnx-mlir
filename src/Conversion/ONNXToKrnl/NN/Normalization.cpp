@@ -303,6 +303,67 @@ struct ONNXInstanceNormalizationOpLowering
 // Layer Normalization
 //===----------------------------------------------------------------------===//
 
+using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+    MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder>;
+
+// Generate the original ONNX operations. This is the unoptimized path.
+// TODO: conversions of types are not handled.
+LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ONNXLayerNormalizationOp lnOp) {
+  MDBuilder create(rewriter, loc);
+  Value X = lnOp.getX(); // Original value, not translated.
+  TensorType XType = X.getType().cast<TensorType>();
+  Type elementType = XType.getElementType();
+  int64_t XRank = XType.getRank();
+  int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+  // Get epsilon
+  FloatAttr epsilonAttr = lnOp.getEpsilonAttr();
+  DenseElementsAttr epsilonDenseAttr =
+      onnx_mlir::createDenseElementsAttrFromFloatAttr(
+          rewriter, elementType, epsilonAttr);
+  Value epsilon = create.onnx.constant(epsilonDenseAttr);
+
+  // Create reduction axes array.
+  llvm::SmallVector<int64_t, 4> axesIntArray, reductionShape;
+  for (int64_t r = 0; r < axis; ++r)
+    reductionShape.emplace_back(XType.getShape()[r]);
+  for (int64_t r = axis; r < XRank; ++r) {
+    reductionShape.emplace_back(1);
+    axesIntArray.emplace_back(r);
+  }
+  Value axes =
+      create.onnx.constant(create.getBuilder().getI64TensorAttr(axesIntArray));
+  TensorType reductionType = RankedTensorType::get(reductionShape, elementType);
+  // Reduction of input
+  Value meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+  Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
+  Value XPow2 = create.onnx.mul(X, X);
+  Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
+  Value var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+  Value varWithEpsilon = create.onnx.add(var, epsilon);
+  Value stdDev = create.onnx.sqrt(varWithEpsilon);
+  Value invStdDev = create.onnx.reciprocal(stdDev);
+  Value d = create.onnx.sub(X, meanOfX);
+  Value normalized = create.onnx.mul(d, invStdDev);
+  Value Y = create.onnx.mul(normalized, lnOp.getScale());
+  if (!isNoneValue(lnOp.getB()))
+    Y = create.onnx.add(Y, lnOp.getB());
+  llvm::SmallVector<Value, 3> outputs;
+  outputs.emplace_back(Y);
+  Value noneValue;
+  if (isNoneValue(lnOp.getMean()))
+    outputs.emplace_back(noneValue);
+  else
+    outputs.emplace_back(meanOfX);
+  if (isNoneValue(lnOp.getInvStdDev()))
+    outputs.emplace_back(noneValue);
+  else
+    outputs.emplace_back(invStdDev);
+  rewriter.replaceOp(lnOp, outputs);
+  return success();
+}
+
 struct ONNXLayerNormalizationOpLowering
     : public OpConversionPattern<ONNXLayerNormalizationOp> {
   ONNXLayerNormalizationOpLowering(
@@ -310,8 +371,6 @@ struct ONNXLayerNormalizationOpLowering
       : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {}
 
   bool enableSIMD;
-  using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-      MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder>;
 
   LogicalResult matchAndRewrite(ONNXLayerNormalizationOp lnOp,
       ONNXLayerNormalizationOpAdaptor adaptor,
@@ -357,65 +416,10 @@ struct ONNXLayerNormalizationOpLowering
       });
     }
 
-    return generateONNXCode(rewriter, create, lnOp);
+    return generateONNXLayerNormalizationOpONNXCode(rewriter, loc, lnOp);
   }
 
-  // Generate the original ONNX operations. This is the unoptimized path.
-  // TODO: conversions of types are not handled.
-  LogicalResult generateONNXCode(ConversionPatternRewriter &rewriter,
-      MDBuilder &create, ONNXLayerNormalizationOp lnOp) const {
-    Value X = lnOp.getX(); // Original value, not translated.
-    TensorType XType = X.getType().cast<TensorType>();
-    Type elementType = XType.getElementType();
-    int64_t XRank = XType.getRank();
-    int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
-    // Get epsilon.
-    FloatAttr epsilonAttr = lnOp.getEpsilonAttr();
-    DenseElementsAttr epsilonDenseAttr =
-        onnx_mlir::createDenseElementsAttrFromFloatAttr(
-            rewriter, elementType, epsilonAttr);
-    Value epsilon = create.onnx.constant(epsilonDenseAttr);
-    // Create reduction axes array.
-    llvm::SmallVector<int64_t, 4> axesInReduction, reductionShape;
-    for (int64_t r = 0; r < axis; ++r)
-      reductionShape.emplace_back(XType.getShape()[r]);
-    for (int64_t r = axis; r < XRank; ++r) {
-      reductionShape.emplace_back(1);
-      axesInReduction.emplace_back(r);
-    }
-    Value axes = create.onnx.constant(
-        create.getBuilder().getI64TensorAttr(axesInReduction));
-    TensorType reductionType =
-        RankedTensorType::get(reductionShape, elementType);
-    // Reduction of input
-    Value meanOfX = create.onnx.reduceMean(reductionType, X, axes);
-    Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
-    Value XPow2 = create.onnx.mul(X, X);
-    Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
-    Value var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
-    Value varWithEpsilon = create.onnx.add(var, epsilon);
-    Value stdDev = create.onnx.sqrt(varWithEpsilon);
-    Value invStdDev = create.onnx.reciprocal(stdDev);
-    Value d = create.onnx.sub(X, meanOfX);
-    Value normalized = create.onnx.mul(d, invStdDev);
-    Value Y = create.onnx.mul(normalized, lnOp.getScale());
-    if (!isNoneValue(lnOp.getB()))
-      Y = create.onnx.add(Y, lnOp.getB());
-    llvm::SmallVector<Value, 3> outputs;
-    outputs.emplace_back(Y);
-    Value noneValue;
-    if (isNoneValue(lnOp.getMean()))
-      outputs.emplace_back(noneValue);
-    else
-      outputs.emplace_back(meanOfX);
-    if (isNoneValue(lnOp.getInvStdDev()))
-      outputs.emplace_back(noneValue);
-    else
-      outputs.emplace_back(invStdDev);
-    rewriter.replaceOp(lnOp, outputs);
-    return success();
-  }
-
+#if 0
   // hi alex, assume for now outerBlockSize of 1.
   LogicalResult generateIterWithSIMD(ConversionPatternRewriter &rewriter,
       MDBuilder &create, ONNXLayerNormalizationOp lnOp, 
@@ -431,15 +435,18 @@ struct ONNXLayerNormalizationOpLowering
         Value initVec = create.vec.splat(vecType, init);
 
       }
+#endif
+
 };
 
-void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
-  patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
-      typeConverter, ctx);
-  patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
-  patterns.insert<ONNXLayerNormalizationOpLowering>(
-      typeConverter, ctx, enableSIMD);
-}
+
+  void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
+    patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
+        typeConverter, ctx);
+    patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
+    patterns.insert<ONNXLayerNormalizationOpLowering>(
+        typeConverter, ctx, enableSIMD);
+  }
 
 } // namespace onnx_mlir
