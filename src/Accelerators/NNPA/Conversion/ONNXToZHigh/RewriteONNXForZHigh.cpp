@@ -473,14 +473,6 @@ public:
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
-
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
-    bool nExceeded = false;
-    bool mExceeded = false;
-    if (!canBeRewritten(matmulOp, nExceeded, mExceeded, chunkSize))
-      return failure();
-
     Location loc = matmulOp.getLoc();
     Operation *op = matmulOp.getOperation();
     Value A = matmulOp.getA(); // NxK
@@ -495,6 +487,15 @@ public:
     ArrayRef<int64_t> outputShape = getShape(outputType);
     Type elementType = getElementType(bType);
     auto unrankedType = UnrankedTensorType::get(elementType);
+
+    ArrayRef<int64_t> bShape = getShape(bType);
+    int64_t M = bShape[bRank - 1];
+    int chunkSize = getChunkSize(M);
+    bool nExceeded = false;
+    bool mExceeded = false;
+    if (!canBeRewritten(matmulOp, nExceeded, mExceeded, chunkSize))
+      return failure();
+
     // Expect 2D or 3D input.
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
       return failure();
@@ -542,6 +543,8 @@ public:
             TypeRange{smDummyMemref.getType()}, ValueRange(), ValueRange(),
             executeBodyBuilder);
         subMatrices.emplace_back(execute.getBodyResults()[0]);
+        rewriter.eraseOp(smDummy.getDefiningOp());
+        rewriter.eraseOp(smDummyMemref.getDefiningOp());
       }
       SmallVector<Value> waitOps;
       for (Value subMatrix : subMatrices) {
@@ -591,15 +594,36 @@ public:
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
       return false;
 
-    // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
+
+    int mDimsizeThres = getenv("MINDIMSIZETHRES")
+                            ? atoi(getenv("MINDIMSIZETHRES"))
+                            : NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    bool largeDimSize = M >= mDimsizeThres;
+    if (!largeDimSize)
+      return false;
+
+    // Expect N or M exceeds NNPA limitation.
     nExceeded = N > chunkSize;
     mExceeded = M > chunkSize;
     if (!(nExceeded || mExceeded))
       return false;
 
+    if (auto executeOp =
+            llvm::dyn_cast<async::ExecuteOp>(matmulOp->getParentOp()))
+      return false;
+
     return true;
+  }
+
+  static int getChunkSize(int dimM) {
+    //    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) :
+    //    -65536; chunkSize = (chunkSize > 0) ? chunkSize : 65536;
+    int numDevices = getenv("NUMDEVICES") ? atoi(getenv("NUMDEVICES")) : 1;
+    int chunkSize =
+        (dimM + numDevices - 1) / numDevices; // Round-up of dimM / numDevices
+    return chunkSize;
   }
 };
 
@@ -727,9 +751,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // or exceeds NNPA limitation.
         bool nExceeded, mExceeded;
 
-        int chunkSize =
-            getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-        chunkSize = (chunkSize > 0) ? chunkSize : 65536;
+        int64_t M = bShape[bRank - 1];
+        int chunkSize = ParallelMatMulPattern::getChunkSize(M);
         if (ParallelMatMulPattern::canBeRewritten(
                 op, nExceeded, mExceeded, chunkSize))
           return false;
