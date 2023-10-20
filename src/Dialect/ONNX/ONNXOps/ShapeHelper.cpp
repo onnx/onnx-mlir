@@ -31,6 +31,39 @@ using namespace mlir;
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
+// Support functions
+//===----------------------------------------------------------------------===//
+
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is true.
+// Return false when not in range; set axis to positive value when in range.
+bool isAxisInRange(int64_t &axis, int64_t rank, bool includeRank) {
+  int64_t ub = includeRank ? rank + 1 : rank;
+  if (axis < -rank || axis >= ub)
+    return false;
+  if (axis < 0)
+    axis += rank;
+  return true;
+}
+
+bool isAxisInRange(int64_t &axis, Value val, bool includeRank) {
+  ShapedType shapedType = val.getType().cast<ShapedType>();
+  assert(shapedType && "expected a shaped type to determine the rank for axis");
+  return isAxisInRange(axis, shapedType.getRank(), includeRank);
+}
+
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is
+// true.  Assert when not in range. Return positive axis.
+int64_t getAxisInRange(int64_t axis, int64_t rank, bool includeRank) {
+  assert(isAxisInRange(axis, rank, includeRank) && "expected axis in range");
+  return axis;
+}
+
+int64_t getAxisInRange(int64_t axis, Value val, bool includeRank) {
+  assert(isAxisInRange(axis, val, includeRank) && "expected axis in range");
+  return axis;
+}
+
+//===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
 //===----------------------------------------------------------------------===//
 

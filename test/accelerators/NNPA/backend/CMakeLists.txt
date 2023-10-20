@@ -93,7 +93,7 @@ endif()
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA
-    # ==ADDITIONAL_PARAGRAPH== NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
+    # ==ADDITIONAL_PARAGRAPH== NNPA has hardware limitations in dimension index size and tensor size, which are described in [NNPALimit.h](../src/Accelerators/NNPA/Support/NNPALimit.h). They are large enough for normal use cases, but if your model exceeds the limitations, CPU is used instead of NNPA.
 
     # ==OP== Add
     # ==MIN== 6

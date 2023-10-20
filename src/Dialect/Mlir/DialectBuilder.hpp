@@ -440,7 +440,7 @@ struct VectorBuilder final : DialectBuilder {
   // estimatedSimdLoopTripCount: provide an estimation of the SIMD loop trip
   // count. If runtime, return -1; if cannot simdize, return 0; if compile time
   // (or a multiple of a compile time value): return that literal.
-  int64_t SuitableUnrollFactor(VectorMachineSupport *vms,
+  int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
       int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
       int64_t &estimatedSimdLoopTripCount) const;

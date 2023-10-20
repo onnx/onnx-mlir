@@ -753,10 +753,12 @@ private:
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
         importGraph(attr.g(), region, op, false);
-        // Output types are propagated from region terminator to op results
-        // in opWithTypeInference logic below.
-        assert(opName.hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
-               "Subgraph ops must implement ResultTypeInferenceOpInterface");
+        if (!options_.useOnnxModelTypes) {
+          // Output types are propagated from region terminator to op results
+          // in opWithTypeInference logic below.
+          assert(opName.hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
+                 "Subgraph ops must implement ResultTypeInferenceOpInterface");
+        }
       }
     }
     if (auto opWithTypeInference =

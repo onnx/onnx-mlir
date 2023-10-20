@@ -341,8 +341,11 @@ void populateLoweringONNXCategoryMapperOpPattern(
 void populateLoweringONNXConvOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
     std::string opsForCall);
-void populateLoweringONNXNormalizationOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+mlir::LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::ONNXLayerNormalizationOp lnOp);
+void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD);
 void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
