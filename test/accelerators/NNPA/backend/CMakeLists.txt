@@ -19,6 +19,11 @@ file(GENERATE
   )
 
 file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/onnxmlir_node_tests.py
+  INPUT ${ONNX_BACKENDTEST_SRC_DIR}/onnxmlir_node_tests.py
+  )
+
+file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/signature_backend.py
   INPUT ${ONNX_BACKENDTEST_SRC_DIR}/signature_backend.py
   )
