@@ -14,6 +14,7 @@
 
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Support/LogicalResult.h"
@@ -228,6 +229,56 @@ public:
   }
 };
 
+class ONNXClipOpLoweringToTOSA : public OpConversionPattern<ONNXClipOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  using OpAdaptor = ONNXClipOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXClipOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto res = adaptor.getInput();
+    auto min = adaptor.getMin();
+    auto max = adaptor.getMax();
+
+    auto matchIntOrFloat = [&](Value val) -> std::tuple<bool, int64_t, float> {
+      APInt valueInt(64, 0);
+      APFloat valueFloat(0.0f);
+      if (matchPattern(val, m_ConstantInt(&valueInt))) {
+        auto intVal = valueInt.getSExtValue();
+        return {true, intVal, static_cast<float>(intVal)};
+      }
+      if (matchPattern(val, m_ConstantFloat(&valueFloat))) {
+        float floatVal = valueFloat.convertToFloat();
+        return {true, static_cast<int64_t>(floatVal), floatVal};
+      }
+      return {false, 0, 0.0};
+    };
+
+    // Use ClampOp if min and max are splat constants.
+    // Otherwise, MaximumOp and MinimumOp to clamp min and max, respectively.
+    auto [isSplatConstMin, minInt, minFloat] = matchIntOrFloat(min);
+    auto [isSplatConstMax, maxInt, maxFloat] = matchIntOrFloat(max);
+    if (isSplatConstMin && isSplatConstMax) {
+      rewriter.replaceOpWithNewOp<mlir::tosa::ClampOp>(op, op.getType(), res,
+          rewriter.getI64IntegerAttr(minInt),
+          rewriter.getI64IntegerAttr(maxInt),
+          rewriter.getF32FloatAttr(minFloat),
+          rewriter.getF32FloatAttr(maxFloat));
+    } else {
+      if (!isNoneValue(min)) {
+        res = tosa::CreateOpAndInfer<mlir::tosa::MaximumOp>(
+            rewriter, op->getLoc(), op.getType(), res, min);
+      }
+      if (!isNoneValue(max)) {
+        res = tosa::CreateOpAndInfer<mlir::tosa::MinimumOp>(
+            rewriter, op->getLoc(), op.getType(), res, max);
+      }
+      rewriter.replaceOp(op, res);
+    }
+    return success();
+  }
+};
+
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
@@ -262,7 +313,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
-      ONNXMulOpLoweringToTosa>(typeConverter, ctx);
+      ONNXMulOpLoweringToTosa, ONNXClipOpLoweringToTOSA>(typeConverter, ctx);
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);
