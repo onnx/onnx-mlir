@@ -1001,7 +1001,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
-    // Alloca a small temp vector.
+    // Alloca a small temp vector. Should be private if parallel.
     MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
     Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
     // Define loops for input dimensions, blocking the inner out dim by VL
