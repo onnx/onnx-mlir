@@ -303,8 +303,9 @@ struct ONNXInstanceNormalizationOpLowering
 // Layer Normalization
 //===----------------------------------------------------------------------===//
 
-using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-    MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder, AffineBuilderKrnlMem>;
+using MDBuilder =
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
+        MathBuilder, VectorBuilder, OnnxBuilder, AffineBuilderKrnlMem>;
 
 static inline void replaceLayerNormalizationOp(
     ConversionPatternRewriter &rewriter, ONNXLayerNormalizationOp lnOp, Value Y,
@@ -423,7 +424,7 @@ struct ONNXLayerNormalizationOpLowering
     }
 
 #if 1
-    return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 1, 4);
+    return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, 4);
 #else
     return generateONNXLayerNormalizationOpONNXCode(rewriter, loc, lnOp);
 #endif
@@ -458,7 +459,8 @@ struct ONNXLayerNormalizationOpLowering
       /* flat inputs */ Value XMemRef,
       /* flat outputs */ Value YMemRef, Value meanMemRef, Value invStdDevMemRef,
       /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
-      /* value params */ Value i, Value redDim, Value epsilon,
+      /* index expr param */ IndexExpr redDim,
+      /* value params */ Value i,  Value epsilon,
       /* int params */ int64_t B, int64_t VL) const {
     // Vector type.
     Type elementType = YMemRef.getType().cast<ShapedType>().getElementType();
@@ -471,11 +473,9 @@ struct ONNXLayerNormalizationOpLowering
       create.vec.store(initVec, redMemRef, {o, zero});
       create.vec.store(initVec, redMemRef2, {o, zero});
     });
-#if 1
     // Perform reduction of entire vectors.
     IndexExpr izero = LiteralIndexExpr(0);
-    IndexExpr iredDim = SymbolIndexExpr(redDim);
-    create.affineKMem.forIE(izero, iredDim, VL,
+    create.affineKMem.forIE(izero, redDim, VL,
         [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
           MDBuilder create(ck);
           // load X, compute X**2, sum into reductions.
@@ -496,37 +496,9 @@ struct ONNXLayerNormalizationOpLowering
           });
         });
 
-#else
-    // Perform reduction of entire vectors.
-    ValueRange reductionLoopDefs = create.krnl.defineLoops(1);
-    ValueRange blockedReductionLoopDefs =
-        create.krnl.block(reductionLoopDefs[0], VL);
-    create.krnl.iterate({reductionLoopDefs[0]}, {blockedReductionLoopDefs[0]},
-        {zero}, {redDim},
-        [&](onnx_mlir::KrnlBuilder &ck, mlir::ValueRange indices) {
-          MDBuilder create(ck);
-          Value j = indices[0];
-          // load X, compute X**2, sum into reductions.
-          inlineFor(create, B, [&](int64_t d, Value o) {
-            Value ii = create.math.add(i, o);
-            // Load X, compute X2.
-            Value currX = create.vec.load(vecType, XMemRef, {ii, j});
-            Value currXSquare = create.math.mul(currX, currX);
-            // Load reductions.
-            Value currRed = create.vec.load(vecType, redMemRef, {o, zero});
-            Value currRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
-            // perform reductions.
-            Value newRed = create.math.add(currRed, currX);
-            Value newRed2 = create.math.add(currRed2, currXSquare);
-            // Store reductions.
-            create.vec.store(newRed, redMemRef, {o, zero});
-            create.vec.store(newRed2, redMemRef2, {o, zero});
-          });
-        });
-#endif
     // Sum across, compute mean, var, standard deviation and its inverse.
     Value mean[B], invStdDev[B];
-    Value redDimFloat = create.math.cast(elementType, redDim);
+    Value redDimFloat = create.math.cast(elementType, redDim.getValue());
     Value oneFloat = create.math.constant(elementType, 1.0);
     inlineFor(create, B, [&](int64_t d, Value o) {
       // Load reductions.
@@ -547,9 +519,8 @@ struct ONNXLayerNormalizationOpLowering
       Value stdDev = create.math.sqrt(varEps);
       invStdDev[d] = create.math.div(oneFloat, stdDev);
     });
-// Normalize of entire vectors.
-#if 1
-    create.affineKMem.forIE(izero, iredDim, VL,
+    // Normalize of entire vectors.
+    create.affineKMem.forIE(izero, redDim, VL,
         [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
           MDBuilder create(ck);
           // load X, compute X**2, sum into reductions.
@@ -565,30 +536,6 @@ struct ONNXLayerNormalizationOpLowering
             create.vec.store(normalizedX, YMemRef, {ii, j});
           });
         });
-
-#else
-    ValueRange reductionLoopDefs2 = create.krnl.defineLoops(1);
-    ValueRange blockedReductionLoopDefs2 =
-        create.krnl.block(reductionLoopDefs2[0], VL);
-    create.krnl.iterate({reductionLoopDefs2[0]}, {blockedReductionLoopDefs2[0]},
-        {zero}, {redDim},
-        [&](onnx_mlir::KrnlBuilder &ck, mlir::ValueRange indices) {
-          MDBuilder create(ck);
-          Value j = indices[0];
-          // load X, compute X**2, sum into reductions.
-          inlineFor(create, B, [&](int64_t d, Value o) {
-            Value ii = create.math.add(i, o);
-            // Load X, compute X2.
-            Value currX = create.vec.load(vecType, XMemRef, {ii, j});
-            Value meanSplat = create.vec.splat(vecType, mean[d]);
-            Value XMinusMean = create.math.sub(currX, meanSplat);
-            Value invStdDevSplat = create.vec.splat(vecType, invStdDev[d]);
-            Value normalizedX = create.math.mul(XMinusMean, invStdDevSplat);
-            // Skip for now the scale and bias.
-            create.vec.store(normalizedX, YMemRef, {ii, j});
-          });
-        });
-#endif
     // save mean and std dev if requested.
     if (meanMemRef) {
       inlineFor(create, B, [&](int64_t d, Value o) {
@@ -649,7 +596,7 @@ struct ONNXLayerNormalizationOpLowering
           MDBuilder create(ck);
           generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef, YFlatMemRef,
               meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2,
-              loopIndices[0], XFlatDims[1].getValue(), epsilon, 1, VL);
+              XFlatDims[1], loopIndices[0], epsilon, 1, VL);
         });
 #else
     // Iterate over 1st dim by block
@@ -673,7 +620,7 @@ struct ONNXLayerNormalizationOpLowering
           IndexExprScope innerScope(ck);
           generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef, YFlatMemRef,
               meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2,
-              blockedLoopIndices[0], XFlatDims[1].getValue(), epsilon, B, VL);
+              XFlatDims[1], blockedLoopIndices[0],  epsilon, B, VL);
         });
     // if block full
     // if block not full... iterate over individual blocks
