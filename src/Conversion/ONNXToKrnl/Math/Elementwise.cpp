@@ -1607,7 +1607,11 @@ public:
   // For example, comparison ops, and cast Op.
   MemRefType getOutputType(MemRefType outputType);
 
-  Value emitFuseOps(Value producerResult, ValueRange loopInd = {});
+  // Generate the code for the ops to be fused
+  // procedureResult is the scalar value from producer
+  // alloc is used to get the tensor for the producer, which is required by
+  // by the shape helper.
+  Value emitFuseOps(Value producerResult, Value alloc, ValueRange loopInd = {});
 
   void replaceOrEraseONNXOps(Value alloc);
 
@@ -1772,11 +1776,21 @@ bool OpFusionHelper::areInputsValidForFusion(
 
     // ToFix: This restriction can be relaxed if ShapeHelper utility is used
     // to generate load in future.
+
+    // Check whether this input is not larger in shape of the defOp, which
+    // means that the iteration space for the defOp is enough.
+    // Otherwise, the loop nest should be defined according to the tensor with
+    // larger space.
+    // ToFix: Add the code with dim analysis.
+
+    /*
     if (!hasStaticShape(useOp->getOperand(i).getType()))
       return false;
+
     ArrayRef<int64_t> inputShape = getShape(useOp->getOperand(i).getType());
     if (inputShape != defShape)
       return false;
+    */
   }
 
   return true;
@@ -1819,7 +1833,7 @@ MemRefType OpFusionHelper::getOutputType(MemRefType outputType) {
 }
 
 // Emit fusion Ops
-Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
+Value OpFusionHelper::emitFuseOps(Value defOpResult, Value alloc, ValueRange loopInd) {
   if (isFusibleListEmpty())
     return defOpResult;
 
@@ -1837,31 +1851,25 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
 
     // Prepare Values for EmitScalarOpFor<T>
     SmallVector<Value, 2> inputValues;
-    // ToFix: expect to use new utility for this purpose
-    // There is an issue to fix: cannot getRemappedValue for the Value that is
-    // currently handling: the defOp.
-    // Otherwise, runtime error: "null operand found" caused by
-    // just calling the function without using the result!
-#if 0
     SmallVector<Value, 4> useOperands;
     for (auto oper : useOp->getOperands()) {
       if (oper.getDefiningOp() != defOp)
         useOperands.emplace_back(rewriter.getRemappedValue(oper));
+      else
+        // ToFix: expect to use new utility for this purpose
+        useOperands.emplace_back(alloc);
     }
-    LogicalResult res =
-        rewriter.getRemappedValues(useOp->getOperands(), useOperands);
-    assert(succeeded(res) && "Could not remap value for rewriter");
+    // Use shape helper to generate load index
     ONNXBroadcastOpShapeHelper shapeHelper(
         useOp, useOperands, &create.krnlIE, nullptr, false);
-#endif
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     for (size_t i = 0; i < useOp->getOperands().size(); i++) {
       Value inputValue = useOp->getOperand(i);
       Operation *inputOp = inputValue.getDefiningOp();
       if (inputOp == defOp) {
         inputValues.emplace_back(defOpResult);
       } else {
-        // ToFix: expect to use new utility to handle any broadcast cases
-#if 0
         IndexExprScope innerScope(create.krnl, shapeHelper.getScope());
         SmallVector<IndexExpr, 4> outputAccessExprs;
         getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
@@ -1870,16 +1878,13 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, ValueRange loopInd) {
             inputValue, i, outputAccessExprs, loadAccessExprs, true);
         assert(succeeded(res) && "Could not compute access indices");
         Value load = create.krnl.loadIE(useOperands[i], loadAccessExprs);
-#endif
-        // The shape is guaranteed to be the same.
-        Value load =
-            create.krnl.load(rewriter.getRemappedValue(inputValue), loopInd);
         inputValues.emplace_back(load);
       }
     }
     defOpResult =
         emitScalar(rewriter, loc, useOp, currentElementType, inputValues);
     defOp = useOp;
+    alloc = defOp->getResult(0);
   }
   return defOpResult;
 }
@@ -2034,7 +2039,7 @@ struct ONNXElementwiseUnaryOpLowering
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
                 rewriter, loc, op, elementType, args);
             loweredOpResult =
-                opFusionHelper.emitFuseOps(loweredOpResult, loopInd);
+                opFusionHelper.emitFuseOps(loweredOpResult, alloc, loopInd);
             // Store result in the resulting array.
             createKrnl.store(loweredOpResult, alloc, loopInd);
           });
@@ -2055,7 +2060,7 @@ struct ONNXElementwiseUnaryOpLowering
       }
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
           rewriter, loc, op, elementType, args);
-      loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult);
+      loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult, alloc);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
     }
@@ -2209,7 +2214,7 @@ struct ONNXElementwiseBinaryOpLowering
             Value result = emitScalarOpFor<ElementwiseBinaryOp>(
                 rewriter, loc, op, outputElementType, {lhs, rhs});
 
-            result = opFusionHelper.emitFuseOps(result, loopInd);
+            result = opFusionHelper.emitFuseOps(result, alloc, loopInd);
             // Store result in the resulting array.
             createKrnl.store(result, alloc, loopInd);
           });
@@ -2221,7 +2226,7 @@ struct ONNXElementwiseBinaryOpLowering
       Value result = emitScalarOpFor<ElementwiseBinaryOp>(
           rewriter, loc, op, outputElementType, {lhs, rhs});
 
-      result = opFusionHelper.emitFuseOps(result);
+      result = opFusionHelper.emitFuseOps(result, alloc);
       // Store result in the resulting array.
       create.krnl.store(result, alloc);
     }
@@ -2378,7 +2383,7 @@ struct ONNXElementwiseVariadicOpLowering
 
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
-            finalResult = opFusionHelper.emitFuseOps(finalResult, loopInd);
+            finalResult = opFusionHelper.emitFuseOps(finalResult, alloc, loopInd);
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
@@ -2395,7 +2400,7 @@ struct ONNXElementwiseVariadicOpLowering
       }
       Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
           rewriter, loc, op, outputElementType, accumulated);
-      finalResult = opFusionHelper.emitFuseOps(finalResult);
+      finalResult = opFusionHelper.emitFuseOps(finalResult, alloc);
       // Store result in the resulting array.
       create.krnl.store(finalResult, alloc);
     }
