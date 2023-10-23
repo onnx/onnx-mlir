@@ -303,10 +303,12 @@ struct ONNXInstanceNormalizationOpLowering
 // Layer Normalization
 //===----------------------------------------------------------------------===//
 
-using MDBuilder =
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
-        MathBuilder, VectorBuilder, OnnxBuilder, AffineBuilderKrnlMem>;
+using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+    MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder,
+    AffineBuilderKrnlMem, SCFBuilder>;
 
+// Gather the 3 results (possibly none values) and replace the original op by
+// these results.
 static inline void replaceLayerNormalizationOp(
     ConversionPatternRewriter &rewriter, ONNXLayerNormalizationOp lnOp, Value Y,
     Value meanOfX, Value invStdDev) {
@@ -454,14 +456,18 @@ struct ONNXLayerNormalizationOpLowering
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
   }
 
+  // Limitation: scale and bias are either a scalar (to be splatted) or has the
+  // same size as the flattened inner dim of X. That info is known at compile
+  // time.
   void generateIterWithSIMD(ConversionPatternRewriter &rewriter,
       MDBuilder &create, ONNXLayerNormalizationOp lnOp,
-      /* flat inputs */ Value XMemRef,
+      /* flat inputs */ Value XMemRef, Value scaleMemRef, Value BMemRef,
       /* flat outputs */ Value YMemRef, Value meanMemRef, Value invStdDevMemRef,
       /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
       /* index expr param */ IndexExpr redDim,
-      /* value params */ Value i,  Value epsilon,
-      /* int params */ int64_t B, int64_t VL) const {
+      /* value params */ Value i, Value epsilon,
+      /* int params */ int64_t B, int64_t VL, bool hasScalarScale,
+      bool hasScalarB) const {
     // Vector type.
     Type elementType = YMemRef.getType().cast<ShapedType>().getElementType();
     VectorType vecType = VectorType::get({VL}, elementType);
@@ -532,8 +538,27 @@ struct ONNXLayerNormalizationOpLowering
             Value XMinusMean = create.math.sub(currX, meanSplat);
             Value invStdDevSplat = create.vec.splat(vecType, invStdDev[d]);
             Value normalizedX = create.math.mul(XMinusMean, invStdDevSplat);
-            // Skip for now the scale and bias.
-            create.vec.store(normalizedX, YMemRef, {ii, j});
+            // Process with multiplying by scale (scalar or 1D vector).
+            Value scale;
+            if (hasScalarScale) {
+              Value scalar = create.krnl.load(scaleMemRef, {zero});
+              scale = create.vec.splat(vecType, scalar);
+            } else {
+              scale = create.vec.load(vecType, scaleMemRef, {j});
+            }
+            Value Y = create.math.mul(normalizedX, scale);
+            // Process with adding bias (scalar or 1D vector), if provided.
+            if (BMemRef && !isNoneValue(BMemRef)) {
+              Value bias;
+              if (hasScalarB) {
+                Value scalar = create.krnl.load(BMemRef, {zero});
+                bias = create.vec.splat(vecType, scalar);
+              } else {
+                bias = create.vec.load(vecType, BMemRef, {j});
+              }
+              Y = create.math.add(Y, bias);
+            }
+            create.vec.store(Y, YMemRef, {ii, j});
           });
         });
     // save mean and std dev if requested.
@@ -566,12 +591,32 @@ struct ONNXLayerNormalizationOpLowering
     Value epsilon =
         create.math.constant(elementType, lnOp.getEpsilon().convertToDouble());
 
-    // Flatten inputs.
+    // Flatten X input.
     Value XFlatMemRef, scaleFlatMemRef, BFlatMemRef;
-    DimsExpr XFlatDims;
+    DimsExpr XFlatDims, flatDims;
     XFlatMemRef = create.mem.reshapeToFlat2D(
         XMemRef, shapeHelper.inputsDims[0], XFlatDims, axis);
-
+    // Fully latten scale input.
+    // hi alex: need to get the index expr size from var, not shape helper.
+    int64_t scaleRank =
+        adaptor.getScale().getType().cast<MemRefType>().getRank();
+    DimsExpr scaleDims;
+    for (int64_t i = 0; i < scaleRank; ++i)
+      scaleDims.emplace_back(shapeHelper.inputsDims[1][i]);
+    scaleFlatMemRef = create.mem.reshapeToFlatInnermost(
+        adaptor.getScale(), scaleDims, flatDims, scaleRank);
+    bool hasScalarScale = flatDims[0].isLiteralAndIdenticalTo(1);
+    // Fully latten bias input, if present.
+    bool hasScalarB = false;
+    if (!isNoneValue(lnOp.getB())) {
+      int64_t BRank = adaptor.getB().getType().cast<MemRefType>().getRank();
+      DimsExpr BDims;
+      for (int64_t i = 0; i < BRank; ++i)
+        BDims.emplace_back(shapeHelper.inputsDims[2][i]);
+      BFlatMemRef = create.mem.reshapeToFlatInnermost(
+          adaptor.getB(), BDims, flatDims, BRank);
+      hasScalarB = flatDims[0].isLiteralAndIdenticalTo(1);
+    }
     // Convert outputs, alloc data, and flatten them too.
     Value YMemRef, meanMemRef, invStdDevMemRef;
     Value YFlatMemRef, meanFlatMemRef, invStdDevFlatMemRef;
@@ -588,17 +633,6 @@ struct ONNXLayerNormalizationOpLowering
     MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
     Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
     Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
-#if 0
-    ValueRange loopDefs = create.krnl.defineLoops(1);
-    IndexExpr zero = LiteralIndexExpr(0);
-    create.krnl.iterateIE({loopDefs[0]}, {loopDefs[0]}, {zero}, {XFlatDims[0]},
-        [&](KrnlBuilder &ck, ValueRange loopIndices) {
-          MDBuilder create(ck);
-          generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef, YFlatMemRef,
-              meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2,
-              XFlatDims[1], loopIndices[0], epsilon, 1, VL);
-        });
-#else
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDefs[0], B);
@@ -606,7 +640,6 @@ struct ONNXLayerNormalizationOpLowering
     create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef[0]}, {zero},
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
-#if 0
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
           IndexExpr blockedUB =
@@ -615,18 +648,35 @@ struct ONNXLayerNormalizationOpLowering
               blockedCurrIndex, LiteralIndexExpr(B), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
-#endif
-          // hi alex, only do full
-          IndexExprScope innerScope(ck);
-          generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef, YFlatMemRef,
-              meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2,
-              XFlatDims[1], blockedLoopIndices[0],  epsilon, B, VL);
-        });
-    // if block full
-    // if block not full... iterate over individual blocks
-#endif
-    // hi alex, not sure if I can just return the non-flatten variables, or if I
-    // need to reshape fhe flattened ones.
+          create.scf.ifThenElse(
+              isNotFullVal,
+              [&](SCFBuilder &scf) {
+                MDBuilder create(scf);
+                // create.krnl.printf("partial tile\n");
+                Value startOfLastBlockVal = blockedCurrIndex.getValue();
+                Value blockedUBVal = blockedUB.getValue();
+                create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
+                    [&](SCFBuilder &scf, Value blockLocalInd) {
+                      MDBuilder create(scf);
+                      generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
+                          scaleFlatMemRef, BFlatMemRef, YFlatMemRef,
+                          meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
+                          tmpRedMemRef2, XFlatDims[1], blockLocalInd, epsilon,
+                          1, VL, hasScalarScale, hasScalarB);
+                    }); /* for inside blocked loop */
+              },
+              [&](SCFBuilder &scf) {
+                MDBuilder create(scf);
+                // create.krnl.printf("full tile\n");
+                generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
+                    scaleFlatMemRef, BFlatMemRef, YFlatMemRef, meanFlatMemRef,
+                    invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2,
+                    XFlatDims[1], blockedLoopIndices[0], epsilon, B, VL,
+                    hasScalarScale, hasScalarB);
+              });
+        }); /* blocked loop */
+    // We don't seem to need to reshape fhe flattened memref, just pass the
+    // original ones.
     replaceLayerNormalizationOp(
         rewriter, lnOp, YMemRef, meanMemRef, invStdDevMemRef);
     return success();
