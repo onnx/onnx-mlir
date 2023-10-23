@@ -63,7 +63,7 @@ VERBOSITY_LEVEL = {"debug": 10, "info": 5, "warning": 1, "error": 0, "critical":
 
 
 def valid_onnx_input(fname):
-    valid_exts = ["onnx", "mlir"]
+    valid_exts = ["onnx", "mlir", "onnxtext"]
     ext = os.path.splitext(fname)[1][1:]
 
     if ext not in valid_exts:

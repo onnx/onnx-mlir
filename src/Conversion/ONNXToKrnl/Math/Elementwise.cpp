@@ -1396,7 +1396,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
-  uVL = create.vec.SuitableUnrollFactor(vms, memRefType,
+  uVL = create.vec.computeSuitableUnrollFactor(vms, memRefType,
       shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
       /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({

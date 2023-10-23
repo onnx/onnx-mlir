@@ -1960,3 +1960,19 @@ func.func @test_if_false(%arg0 : tensor<*xf16>, %arg1 : tensor<1xi64>, %arg2 : t
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Shape"([[VAR_0_]]) {start = 0 : si64} : (tensor<?x?x?x?xf16>) -> tensor<?xi64>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?xi64>
 // CHECK:         }
+
+// -----
+
+func.func @test_pow() -> tensor<2x2xf32> {
+  %0 = onnx.Constant dense<64.0> : tensor<2x2xf32>
+  %1 = onnx.Constant dense<0.5> : tensor<f32>
+  %2 = "onnx.Pow"(%0, %1) : (tensor<2x2xf32> , tensor<f32>) -> tensor<2x2xf32>
+  onnx.Return %2 : tensor<2x2xf32>
+
+// CHECK-LABEL:  func.func @test_pow
+// CHECK-SAME:   () -> tensor<2x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<8.000000e+00> : tensor<2x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<2x2xf32>
+// CHECK:         }
+}
+

@@ -1633,7 +1633,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
 }
 
-int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
+int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
     int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
     int64_t &estimatedSimdLoopTripCount) const {

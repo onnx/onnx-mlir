@@ -163,6 +163,9 @@ def CreateLessOrEqualOfTwoConst :
 def CreateGreaterOrEqualOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXGreaterOrEqualOp>($_builder, $0, $1, $2)">;
 
+def CreatePowOfTwoConst :
+   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXPowOp>($_builder, $0, $1, $2)">;
+
 def CreateWhereOfThreeConst :
    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
 
@@ -921,5 +924,19 @@ def ScatterNDOfConst : NamedPat<"ScatterNDOfConst",
      (IsFromDenseONNXConstantOp:$indices),
      (IsFromDenseONNXConstantOp:$updates),
      (EqualString<"none"> $reduction)]>;
+
+//===----------------------------------------------------------------------===//
+// Constant Propagation for Pow
+//===----------------------------------------------------------------------===//
+
+def PowConstProp : NamedPat<"PowConstProp",
+    // From pow(c1, c2).
+    (ONNXPowOp:$powOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
+                      (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To c1^c2
+    (CreatePowOfTwoConst $powOp, $lhs, $rhs),
+    // Power constraints
+    [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
+     (SatisfiesExpansionBound:$powOp)]>;
 
 #endif // ONNX_CONSTPROP

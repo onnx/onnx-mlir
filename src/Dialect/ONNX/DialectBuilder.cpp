@@ -196,6 +196,14 @@ Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,
       toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
 }
 
+Value OnnxBuilder::reduceMean(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceMeanOp>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
 Value OnnxBuilder::reduceMin(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true
@@ -210,6 +218,12 @@ Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
   int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
   return createTypedOpAndInferShapes<ONNXReduceSumOp>(toTensor(outputType),
       toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
+Value OnnxBuilder::reciprocal(Value input) const {
+  Type outputType = input.getType(); // input == output type.
+  return createTypedOpAndInferShapes<ONNXReciprocalOp>(
+      toTensor(outputType), toTensor(input));
 }
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
@@ -259,6 +273,10 @@ Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
   Value endVal = constant(b().getI64TensorAttr(ArrayRef<int64_t>({end})));
   Value stepVal = constant(b().getI64TensorAttr(ArrayRef<int64_t>({step})));
   return slice(outputType, input, startVal, endVal, /*axis*/ zeroVal, stepVal);
+}
+
+Value OnnxBuilder::sqrt(Value input) const {
+  return createOpAndInferShapes<ONNXSqrtOp>(toTensor(input));
 }
 
 ValueRange OnnxBuilder::split(

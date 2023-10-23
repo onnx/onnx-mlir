@@ -254,9 +254,9 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
         "shapes for dynamic inputs.\n"
         "\"value\" is in the format of "
         "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
-        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices starting from "
-        "0, and\n"
-        "\"D1, D2, ...\" are dimension sizes (positive integers of -1 for "
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
+        "0 or being -1 for all input indices), and\n"
+        "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
     llvm::cl::cat(OnnxMlirOptions));
@@ -301,7 +301,7 @@ static llvm::cl::opt<float, true> constantsToFileTotalThresholdOpt(
         "bytes of constants is greater than this threshold. "
         "store-constants-to-file must be enabled for this to be effective. "
         "Only count constants whose size is greater than "
-        "constants-to-file-single-threshold. Value is in GB."),
+        "constants-to-file-single-threshold. Value is in GB. Default is 2GB."),
     llvm::cl::location(constantsToFileTotalThreshold), llvm::cl::init(2.0),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -312,7 +312,7 @@ static llvm::cl::opt<float, true> constantsToFileSingleThresholdOpt(
         "bytes is greater than this threshold. "
         "store-constants-to-file must be enabled for this to be effective. "
         "Total sizes in bytes of satisfied constants must be greater than "
-        "constants-to-file-total-threshold. Value is in KB."),
+        "constants-to-file-total-threshold. Value is in KB. Default is 1KB."),
     llvm::cl::location(constantsToFileSingleThreshold), llvm::cl::init(1.0),
     llvm::cl::cat(OnnxMlirOptions));
 
