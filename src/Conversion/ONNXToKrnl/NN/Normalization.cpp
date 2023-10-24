@@ -16,11 +16,8 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-<<<<<<< HEAD
 #include <functional>
 
-=======
->>>>>>> main
 #define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
