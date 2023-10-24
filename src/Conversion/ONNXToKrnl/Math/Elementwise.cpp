@@ -1580,16 +1580,18 @@ typedef mlir::Value (*EmitScalarFunc)(mlir::ConversionPatternRewriter &rewriter,
 class OpFusionHelper {
 public:
   // Constructor
-  OpFusionHelper(
-      mlir::ConversionPatternRewriter &rewriter, mlir::Operation *rootOp)
-      : rootOp(rootOp), rewriter(rewriter), fusibleOps(), fuseEmitFuctions() {}
+  OpFusionHelper(mlir::ConversionPatternRewriter &rewriter,
+      mlir::Operation *rootOp, DimAnalysis *dimAnalysis)
+      : rootOp(rootOp), rewriter(rewriter), dimAnalysis(dimAnalysis),
+        fusibleOps(), fuseEmitFuctions() {}
 
   // Fusion should not break any control dependence
   static bool isControlFlowValidForFusion(Operation *useOp, Operation *defOp);
 
   // Check whether the inputs of the useOp are valid for useOp to be fused
   // with the defOp. The defOp defines one of useOp's inputs.
-  static bool areInputsValidForFusion(Operation *useOp, Operation *defOp);
+  static bool areInputsValidForFusion(
+      Operation *useOp, Operation *defOp, DimAnalysis *dimAnalysis);
 
   // Check whether the op is fusible along the use-def chain from the defOp.
   // If true, record the op and its scalar op.
@@ -1618,6 +1620,7 @@ public:
 private:
   mlir::Operation *rootOp;
   mlir::ConversionPatternRewriter &rewriter;
+  DimAnalysis *dimAnalysis;
   llvm::SmallVector<mlir::Operation *, 2> fusibleOps;
   llvm::SmallVector<EmitScalarFunc, 2> fuseEmitFuctions;
 }; // End of OpFusionHelper Declaration
@@ -1627,10 +1630,11 @@ private:
 template <typename T>
 bool enqueueFusibleOpImpl(Operation *useOp, Operation *defOp,
     SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions,
+    DimAnalysis *dimAnalysis) {
   if (isa<T>(useOp)) {
     if (OpFusionHelper::isControlFlowValidForFusion(useOp, defOp) &&
-        OpFusionHelper::areInputsValidForFusion(useOp, defOp)) {
+        OpFusionHelper::areInputsValidForFusion(useOp, defOp, dimAnalysis)) {
       fusibleOps.emplace_back(useOp);
       fuseEmitFunctions.emplace_back(emitScalarOpFor<T>);
       return true;
@@ -1643,23 +1647,28 @@ bool enqueueFusibleOpImpl(Operation *useOp, Operation *defOp,
 template <typename T = void, class... Ts>
 bool enqueueFusibleOp(Operation *useOp, Operation *defOp,
     SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions);
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions,
+    DimAnalysis *dimAnalysis);
 
 template <typename T, class... Ts>
 bool enqueueFusibleOp(Operation *useOp, Operation *defOp,
     SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
-  if (enqueueFusibleOpImpl<T>(useOp, defOp, fusibleOps, fuseEmitFunctions)) {
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions,
+    DimAnalysis *dimAnalysis) {
+  if (enqueueFusibleOpImpl<T>(
+          useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis)) {
     return true;
   } else {
-    return enqueueFusibleOp<Ts...>(useOp, defOp, fusibleOps, fuseEmitFunctions);
+    return enqueueFusibleOp<Ts...>(
+        useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis);
   }
 }
 
 template <>
 bool enqueueFusibleOp(Operation *useOp, Operation *defOp,
     SmallVector<Operation *, 2> &fusibleOps,
-    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions) {
+    SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions,
+    DimAnalysis *dimAnalysis) {
   return false;
 }
 
@@ -1693,7 +1702,7 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
       mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
       mlir::ONNXSubOp, mlir::ONNXSumOp, mlir::ONNXXorOp>(
-      useOp, defOp, fusibleOps, fuseEmitFunctions);
+      useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis);
 }
 
 // Only operations are in the same block are allowed to fuse.
@@ -1739,7 +1748,7 @@ bool OpFusionHelper::isControlFlowValidForFusion(
 // assumed the canonicalization has hoisted all constant to the beginning of the
 // function by fold function.
 bool OpFusionHelper::areInputsValidForFusion(
-    Operation *useOp, Operation *defOp) {
+    Operation *useOp, Operation *defOp, DimAnalysis *dimAnalysis) {
   // Elementwise unary operation is always fusible
   if (useOp->getOperands().size() == 1)
     return true;
@@ -1773,24 +1782,33 @@ bool OpFusionHelper::areInputsValidForFusion(
         return false;
       }
     }
+  }
 
-    // ToFix: This restriction can be relaxed if ShapeHelper utility is used
-    // to generate load in future.
+  // Check whether this shape of the defOp is the same as the shape of
+  // the output of use op. If true, the iteration space from the defOp is
+  // sufficient for the element-wise operation for the useOp, even if
+  // MDBroadcast occurs in the useOp.
+  // Otherwise, the loop nest should be defined according to the tensor with
+  // larger space.
 
-    // Check whether this input is not larger in shape of the defOp, which
-    // means that the iteration space for the defOp is enough.
-    // Otherwise, the loop nest should be defined according to the tensor with
-    // larger space.
-    // ToFix: Add the code with dim analysis.
+  Value output = useOp->getResult(0);
+  // First check the rank
+  if (getRank(defOp->getResultTypes()[0]) !=
+      getRank(useOp->getResultTypes()[0]))
+    return false;
 
-    /*
-    if (!hasStaticShape(useOp->getOperand(i).getType()))
+  if (dimAnalysis) {
+    if (!dimAnalysis->sameShape(defOp->getResult(0), useOp->getResult(0)))
+      return false;
+  } else {
+    // If there is no dimAnalysis, check the simplest case.
+    // Static and the same shape
+    if (!hasStaticShape(useOp->getResultTypes()[0]))
       return false;
 
-    ArrayRef<int64_t> inputShape = getShape(useOp->getOperand(i).getType());
+    ArrayRef<int64_t> inputShape = getShape(useOp->getResultTypes()[0]);
     if (inputShape != defShape)
       return false;
-    */
   }
 
   return true;
@@ -1833,7 +1851,8 @@ MemRefType OpFusionHelper::getOutputType(MemRefType outputType) {
 }
 
 // Emit fusion Ops
-Value OpFusionHelper::emitFuseOps(Value defOpResult, Value alloc, ValueRange loopInd) {
+Value OpFusionHelper::emitFuseOps(
+    Value defOpResult, Value alloc, ValueRange loopInd) {
   if (isFusibleListEmpty())
     return defOpResult;
 
@@ -1849,14 +1868,15 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, Value alloc, ValueRange loo
     MDBuilder create(rewriter, loc);
     Type currentElementType = getElementType(useOp->getResults()[0].getType());
 
-    // Prepare Values for EmitScalarOpFor<T>
-    SmallVector<Value, 2> inputValues;
+    // useOperands is used for ShapeHelper and load op.
+    // getRemappedValue is needed for load op.
     SmallVector<Value, 4> useOperands;
     for (auto oper : useOp->getOperands()) {
       if (oper.getDefiningOp() != defOp)
         useOperands.emplace_back(rewriter.getRemappedValue(oper));
       else
-        // ToFix: expect to use new utility for this purpose
+        // load will not needed because of useOpResult.
+        // This value is only needed by shape helper.
         useOperands.emplace_back(alloc);
     }
     // Use shape helper to generate load index
@@ -1864,6 +1884,8 @@ Value OpFusionHelper::emitFuseOps(Value defOpResult, Value alloc, ValueRange loo
         useOp, useOperands, &create.krnlIE, nullptr, false);
     shapeHelper.computeShapeAndAssertOnFailure();
 
+    // Prepare Values for EmitScalarOpFor<T>
+    SmallVector<Value, 2> inputValues;
     for (size_t i = 0; i < useOp->getOperands().size(); i++) {
       Value inputValue = useOp->getOperand(i);
       Operation *inputOp = inputValue.getDefiningOp();
@@ -2002,7 +2024,7 @@ struct ONNXElementwiseUnaryOpLowering
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Try to fuse the unary elementwise consumers
-    OpFusionHelper opFusionHelper(rewriter, op);
+    OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
@@ -2170,7 +2192,7 @@ struct ONNXElementwiseBinaryOpLowering
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Try to fuse the unary elementwise consumers
-    OpFusionHelper opFusionHelper(rewriter, op);
+    OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
@@ -2333,7 +2355,7 @@ struct ONNXElementwiseVariadicOpLowering
     LLVM_DEBUG(llvm::dbgs() << "  scalar execution\n");
 
     // Try to fuse the unary elementwise consumers
-    OpFusionHelper opFusionHelper(rewriter, op);
+    OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
@@ -2383,7 +2405,8 @@ struct ONNXElementwiseVariadicOpLowering
 
             Value finalResult = emitPostProcessingFor<ElementwiseVariadicOp>(
                 rewriter, loc, op, outputElementType, accumulated);
-            finalResult = opFusionHelper.emitFuseOps(finalResult, alloc, loopInd);
+            finalResult =
+                opFusionHelper.emitFuseOps(finalResult, alloc, loopInd);
             // Store result in the resulting array.
             createKrnl.storeIE(finalResult, alloc, outputAccessExprs);
           });
