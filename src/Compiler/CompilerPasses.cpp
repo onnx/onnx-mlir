@@ -70,35 +70,38 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3 passes
-    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+    // Convolution Optimization for CPU: enable when there are no accelerators.
+    if (targetCPU && enableConvOptPass) {
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
+          enableSimdDataLayout && !disableSimdOption));
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createONNXHybridTransformPass());
+    }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
-  // Convolution Optimization for CPU: enable when there are no accelerators.
-  if (targetCPU && enableConvOptPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
-        enableSimdDataLayout && !disableSimdOption));
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
-  // There are more opportunities for const propagation once all tensors have
-  // inferred shapes.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-  if (onnxOpTransformThreshold > 0) {
-    // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
-        onnxOpTransformReport, targetCPU,
-        enableSimdDataLayout && !disableSimdOption, enableConvOptPass));
-  } else {
-    // Statically add extra passes
-    for (int i = 0; i < repeatOnnxTransform; i++) {
-      pm.addPass(mlir::createCanonicalizerPass());
+    // Convolution Optimization for CPU: enable when there are no accelerators.
+    if (targetCPU && enableConvOptPass) {
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
+          enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass());
+    }
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    if (onnxOpTransformThreshold > 0) {
+      // Dynamic iterate in ONNXOpTransformPass
+      pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
+          onnxOpTransformReport, targetCPU,
+          enableSimdDataLayout && !disableSimdOption, enableConvOptPass));
+    } else {
+      // Statically add extra passes
+      for (int i = 0; i < repeatOnnxTransform; i++) {
+        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+        pm.addNestedPass<func::FuncOp>(
+            onnx_mlir::createConstPropONNXToONNXPass());
+      }
     }
   }
 
@@ -108,9 +111,6 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.
   if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3
-    // passes here. The plan is to replace most of the passes in
-    // addONNXToMLIRPasses.
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
