@@ -243,3 +243,29 @@ func.func @fuse_element_16(%arg0: tensor<4x?xf32>, %arg1: tensor<?xf32>) -> tens
 // CHECK:           return [[RES_1_]] : memref<4x?xf32>
 // CHECK:         }
 
+// -----
+
+func.func @fuse_element_17(%arg0: tensor<?x5xf32>, %arg1: tensor<?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.Sqrt"(%arg0) : (tensor<?x5xf32>) -> tensor<*xf32>
+  %1 = "onnx.Add"(%0, %arg1) : (tensor<*xf32>, tensor<?xf32>) -> tensor<*xf32>
+  return %1 : tensor<*xf32>
+}
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
+// CHECK-LABEL:  func.func @fuse_element_17
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x5xf32>, [[PARAM_1_:%.+]]: memref<?xf32>) -> memref<?x5xf32> {
+// CHECK:           [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK:           [[VAR_dim_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x5xf32>
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_dim_]]) {{.*}}: memref<?x5xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
+// CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_]] : memref<?x5xf32>
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_0_]]([[VAR_dim_0_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5){
+// CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x5xf32>
+// CHECK-DAG:         [[VAR_3_:%.+]] = math.sqrt [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_:%.+]] = krnl.load [[PARAM_1_]]{{.}}[[VAR_1_]]#1] : memref<?xf32>
+// CHECK:             [[VAR_5_:%.+]] = arith.addf [[VAR_3_]], [[LOAD_PARAM_1_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x5xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<?x5xf32>
+// CHECK:         }
+

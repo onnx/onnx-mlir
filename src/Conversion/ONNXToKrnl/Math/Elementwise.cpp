@@ -1753,18 +1753,6 @@ bool OpFusionHelper::areInputsValidForFusion(
   if (useOp->getOperands().size() == 1)
     return true;
 
-  // To fuse Elementwise op with more one operands with the producer,
-  // the shape of the output the user Op has to have the same size
-  // output as that of the producer Op. Here dimension expansion with size
-  // 1 is allowed. Refer to hasNoBroadcast() definition.
-  // ToFix: This PR simply check static shape and does not use symbolic
-  // shape analysis and BroadcastShapeHelper
-  // Some discussion can be found at
-  // https://github.com/onnx/onnx-mlir/issues/2199
-
-  if (!hasStaticShape(defOp->getResults()[0].getType()))
-    return false;
-
   Type defOutputType = defOp->getResultTypes()[0];
   Type useOutputType = useOp->getResultTypes()[0];
   ArrayRef<int64_t> defShape = getShape(defOutputType);
@@ -1773,6 +1761,7 @@ bool OpFusionHelper::areInputsValidForFusion(
     return false;
   }
 
+  // Check the inputs in the defOp
   for (size_t i = 0; i < useOp->getOperands().size(); i++) {
     // Only input from block argument and constant is allowed,
     // if the input does not come from the defining Op
