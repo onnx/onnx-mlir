@@ -426,10 +426,12 @@ struct ONNXLayerNormalizationOpLowering
     // Detect if we can use SIMD based on inout/X output/Y shape.
     VectorMachineSupport *vms =
         VectorMachineSupport::getGlobalVectorMachineSupport();
+#if 1
     if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
       LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
       return false;
     }
+#endif
 
     int64_t simdLoopStaticTripCount;
     VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
