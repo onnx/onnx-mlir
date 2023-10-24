@@ -175,6 +175,8 @@ LogicalResult ONNXLayerNormalizationOp::verify() {
   int64_t XRank = XShape.size();
   Type XElementType = XType.getElementType();
 
+  // Axis attribute (if specified) must be in the range [-r,r), where r =
+  // rank(input).
   if (!isAxisInRange(axis, XRank))
     return emitOpError("axis must be in [-r, r) range]");
 

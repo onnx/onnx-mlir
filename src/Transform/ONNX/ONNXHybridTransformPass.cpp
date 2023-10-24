@@ -23,8 +23,11 @@
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
 #include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Transform/ONNX/ConvOpt.hpp"
 #include "src/Transform/ONNX/Decompose.hpp"
 #include "src/Transform/ONNX/ShapeInference.hpp"
+
+#include <iterator>
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -47,6 +50,10 @@ namespace {
 // and from the subgraph(s): The first run propagates input shapes from the
 // parent op to the subgraph(s) and the last run(s) propagate(s) result shapes
 // from the subgraph(s) to the parent op.
+//
+// The default values of max-num-rewrites-offset and max-num-rewrites-multiplier
+// were calibrated to the model https://huggingface.co/xlnet-large-cased
+// which has 1882 func ops and needs config.maxNumRewrites > 232 to converge.
 struct ONNXHybridTransformPass
     : public PassWrapper<ONNXHybridTransformPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ONNXHybridTransformPass)
@@ -66,6 +73,14 @@ struct ONNXHybridTransformPass
   Option<bool> decomposition{*this, "decomposition",
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
+
+  Option<int> maxNumRewritesOffset{*this, "max-num-rewrites-offset",
+      llvm::cl::desc("Rewrites limit: -1 means no limit, otherwise "
+                     "added to func #ops * max-num-rewrites-multiplier"),
+      llvm::cl::init(20)};
+
+  Option<float> maxNumRewritesMultiplier{*this, "max-num-rewrites-multiplier",
+      llvm::cl::desc("Rewrites limit factor"), llvm::cl::init(0.2)};
 
   FrozenRewritePatternSet patterns;
 
@@ -106,14 +121,26 @@ struct ONNXHybridTransformPass
   }
 
   void runOnOperation() override {
-    // TODO: check if it's necessary to skip functions with names not
-    // ending in "main_graph" (see ShapeInferencePass.cpp)
     func::FuncOp f = getOperation();
     Region &body = f.getBody();
 
     GreedyRewriteConfig config;
     config.useTopDownTraversal = true;
-    (void)applyPatternsAndFoldGreedily(body, patterns, config);
+    if (maxNumRewritesOffset == -1) {
+      config.maxNumRewrites = GreedyRewriteConfig::kNoLimit;
+    } else {
+      // Count the top level ops in f, i.e., excluding sub-regions.
+      float numOps = std::distance(body.op_begin(), body.op_end());
+      config.maxNumRewrites =
+          maxNumRewritesOffset + maxNumRewritesMultiplier * numOps;
+    }
+    if (failed(applyPatternsAndFoldGreedily(body, patterns, config))) {
+      llvm::errs() << "Warning: onnx-hybrid-transform didn't converge with "
+                   << "max-num-rewrites-offset="
+                   << maxNumRewritesOffset.getValue() << ", "
+                   << "max-num-rewrites-multiplier="
+                   << maxNumRewritesMultiplier.getValue() << "\n";
+    }
 
     inferFunctionReturnShapes(f);
   }
