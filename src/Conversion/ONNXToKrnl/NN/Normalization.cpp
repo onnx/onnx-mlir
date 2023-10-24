@@ -307,8 +307,8 @@ using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
     MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder,
     AffineBuilderKrnlMem, SCFBuilder>;
 
-// Gather the 3 results (possibly none values) and replace the original op by
-// these results.
+// Util: gather the 3 results (possibly none values) and replace the original op
+// by these results.
 static inline void replaceLayerNormalizationOp(
     ConversionPatternRewriter &rewriter, ONNXLayerNormalizationOp lnOp, Value Y,
     Value meanOfX, Value invStdDev) {
@@ -381,6 +381,82 @@ struct ONNXLayerNormalizationOpLowering
 
   bool enableSIMD;
 
+  bool isBroadcastCompatible(ONNXLayerNormalizationOpShapeHelper &shapeHelper,
+      Value operand, int64_t operandIndex, int64_t axis,
+      int64_t innermostLoopCollapse, int64_t XRank) const {
+    int64_t rank = operand.getType().cast<MemRefType>().getRank();
+    // If we have a scalar, broadcast is always ok.
+    if (rank <= 1) {
+      return true;
+    }
+    // When ranks are different, then unsuitable broadcast will happen.
+    if (rank != innermostLoopCollapse) {
+      LLVM_DEBUG(llvm::dbgs() << "  operand: bad broadcast, fail SIMD\n");
+      return false;
+    }
+    // Check that the dimensions are ok.
+    for (int64_t i = axis; i < XRank; ++i) {
+      // Should use Dim Analysis, constant dims for now.
+      if (!shapeHelper.inputsDims[operandIndex][i].isLiteralAndIdenticalTo(
+              shapeHelper.getOutputDims(0)[i])) {
+        LLVM_DEBUG(
+            llvm::dbgs() << "  operand: dynamic or different dim, fail SIMD\n");
+        return false;
+      }
+    }
+    // All good.
+    return true;
+  }
+
+  bool isSimdizable(MDBuilder &create, ONNXLayerNormalizationOp lnOp,
+      ONNXLayerNormalizationOpAdaptor adaptor,
+      ONNXLayerNormalizationOpShapeHelper &shapeHelper, int64_t &VL) const {
+    VL = 0;
+    if (!enableSIMD)
+      return false;
+
+    // Get info.
+    Value X = adaptor.getX();
+    MemRefType XMemRefType = X.getType().cast<MemRefType>();
+    Type elementType = XMemRefType.getElementType();
+    DimsExpr XDims = shapeHelper.inputsDims[0];
+    int64_t XRank = XMemRefType.getRank();
+    int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+    int64_t innermostLoopCollapse = XRank - axis;
+    // Detect if we can use SIMD based on inout/X output/Y shape.
+    VectorMachineSupport *vms =
+        VectorMachineSupport::getGlobalVectorMachineSupport();
+    if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
+      LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
+      return false;
+    }
+
+    int64_t simdLoopStaticTripCount;
+    VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
+        innermostLoopCollapse, 4, /*canPad*/ false, simdLoopStaticTripCount);
+    LLVM_DEBUG(llvm::dbgs()
+                   << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
+                   << " loops, VL " << VL << "\n";);
+    if (VL == 0) {
+      LLVM_DEBUG(llvm::dbgs() << "  SIMD: no good SIMD VL, fail\n");
+      return false;
+    }
+
+    // Now if we have SIMD, check scale and Bias have compatible broadcast with
+    // X/Y.
+    if (!isBroadcastCompatible(shapeHelper, adaptor.getScale(),
+            /*scale index*/ 1, axis, innermostLoopCollapse, XRank)) {
+      return false;
+    }
+    if (!isNoneValue(adaptor.getB()) &&
+        !isBroadcastCompatible(shapeHelper, adaptor.getB(), /*bias index*/ 2,
+            axis, innermostLoopCollapse, XRank)) {
+      return false;
+    }
+
+    return true;
+  }
+
   LogicalResult matchAndRewrite(ONNXLayerNormalizationOp lnOp,
       ONNXLayerNormalizationOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -394,42 +470,11 @@ struct ONNXLayerNormalizationOpLowering
         op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // Convert the output type to MemRefType.
-    MemRefType YMemRefType, meanMemRefType, ISDMemRefType;
-    // bool computeMean = false, computeISD = false;
-
-    // Get info.
-    Value X = adaptor.getX();
-    MemRefType XMemRefType = X.getType().cast<MemRefType>();
-    Type elementType = XMemRefType.getElementType();
-    int64_t XRank = XMemRefType.getRank();
-    DimsExpr XDims;
-    create.krnlIE.getShapeAsSymbols(X, XDims);
-    int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
-    int64_t innermostLoopCollapse = XRank - axis;
-
-    // Detect if we can use SIMD
-    int64_t VL = 0; // VL of 0 means no SIMD.
-    int64_t estimatedSimdLoopTripCount;
-    if (enableSIMD) {
-      VectorMachineSupport *vms =
-          VectorMachineSupport::getGlobalVectorMachineSupport();
-      VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
-          innermostLoopCollapse, 4, /*canPad*/ false,
-          estimatedSimdLoopTripCount);
-      LLVM_DEBUG({
-        llvm::dbgs() << "  SIMD: " << innermostLoopCollapse << " loops, VL "
-                     << VL << "\n";
-        if (VL == 0)
-          llvm::dbgs() << "  SIMD: no good VL\n";
-      });
+    int64_t VL;
+    if (isSimdizable(create, lnOp, adaptor, shapeHelper, VL)) {
+      return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, VL);
     }
-
-#if 1
-    return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, 4);
-#else
     return generateONNXLayerNormalizationOpONNXCode(rewriter, loc, lnOp);
-#endif
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
@@ -635,9 +680,19 @@ struct ONNXLayerNormalizationOpLowering
     Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
-    ValueRange blockedLoopDef = create.krnl.block(loopDefs[0], B);
     IndexExpr zero = LiteralIndexExpr(0);
-    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef[0]}, {zero},
+#if 1
+    create.krnl.iterateIE({loopDefs[0]}, {loopDefs[0]}, {zero}, {XFlatDims[0]},
+        [&](KrnlBuilder &ck, ValueRange loopIndices) {
+          MDBuilder create(ck);
+          generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
+              scaleFlatMemRef, BFlatMemRef, YFlatMemRef, meanFlatMemRef,
+              invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2, XFlatDims[1],
+              loopIndices[0], epsilon, 1, VL, hasScalarScale, hasScalarB);
+        });
+#else
+    ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
+    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDefs[0]}, {zero},
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
@@ -675,6 +730,7 @@ struct ONNXLayerNormalizationOpLowering
                     hasScalarScale, hasScalarB);
               });
         }); /* blocked loop */
+#endif
     // We don't seem to need to reshape fhe flattened memref, just pass the
     // original ones.
     replaceLayerNormalizationOp(
