@@ -641,22 +641,23 @@ struct ONNXLayerNormalizationOpLowering
     DimsExpr XFlatDims, flatDims;
     XFlatMemRef = create.mem.reshapeToFlat2D(
         XMemRef, shapeHelper.inputsDims[0], XFlatDims, axis);
+
     // Fully latten scale input.
-    // hi alex: need to get the index expr size from var, not shape helper.
     int64_t scaleRank =
         adaptor.getScale().getType().cast<MemRefType>().getRank();
     DimsExpr scaleDims;
-    for (int64_t i = 0; i < scaleRank; ++i)
+    for (int64_t i = XRank - scaleRank; i < XRank; ++i)
       scaleDims.emplace_back(shapeHelper.inputsDims[1][i]);
     scaleFlatMemRef = create.mem.reshapeToFlatInnermost(
         adaptor.getScale(), scaleDims, flatDims, scaleRank);
+
     bool hasScalarScale = flatDims[0].isLiteralAndIdenticalTo(1);
     // Fully latten bias input, if present.
     bool hasScalarB = false;
     if (!isNoneValue(lnOp.getB())) {
       int64_t BRank = adaptor.getB().getType().cast<MemRefType>().getRank();
       DimsExpr BDims;
-      for (int64_t i = 0; i < BRank; ++i)
+      for (int64_t i = XRank - BRank; i < XRank; ++i)
         BDims.emplace_back(shapeHelper.inputsDims[2][i]);
       BFlatMemRef = create.mem.reshapeToFlatInnermost(
           adaptor.getB(), BDims, flatDims, BRank);
@@ -681,16 +682,6 @@ struct ONNXLayerNormalizationOpLowering
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
     IndexExpr zero = LiteralIndexExpr(0);
-#if 1
-    create.krnl.iterateIE({loopDefs[0]}, {loopDefs[0]}, {zero}, {XFlatDims[0]},
-        [&](KrnlBuilder &ck, ValueRange loopIndices) {
-          MDBuilder create(ck);
-          generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
-              scaleFlatMemRef, BFlatMemRef, YFlatMemRef, meanFlatMemRef,
-              invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2, XFlatDims[1],
-              loopIndices[0], epsilon, 1, VL, hasScalarScale, hasScalarB);
-        });
-#else
     ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
     create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDefs[0]}, {zero},
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
@@ -730,7 +721,6 @@ struct ONNXLayerNormalizationOpLowering
                     hasScalarScale, hasScalarB);
               });
         }); /* blocked loop */
-#endif
     // We don't seem to need to reshape fhe flattened memref, just pass the
     // original ones.
     replaceLayerNormalizationOp(
