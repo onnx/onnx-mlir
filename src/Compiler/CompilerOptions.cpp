@@ -34,7 +34,6 @@ std::string march;                                     // common for both
 InstrumentStages instrumentStage;                      // common for both
 int onnxConstPropExpansionBound;                       // common for both
 std::vector<std::string> onnxConstPropDisablePatterns; // common for both
-bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
@@ -59,8 +58,6 @@ std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 bool instrumentONNXSignature;                          // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
-int onnxOpTransformThreshold;                          // onnx-mlir only
-bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
@@ -172,12 +169,6 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::value_desc("named constant propagation pattern to disable"),
         llvm::cl::location(onnxConstPropDisablePatterns),
         llvm::cl::cat(OnnxMlirCommonOptions));
-
-static llvm::cl::opt<bool, true> enableONNXHybridPassOpt("onnx-hybrid-pass",
-    llvm::cl::desc("Enable ONNX hybrid pass (default=true)\n"
-                   "Set to 'false' if you want to disable ONNX hybrid pass."),
-    llvm::cl::location(enableONNXHybridPass), llvm::cl::init(true),
-    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::list<std::string, std::vector<std::string>>
     functionsToDecomposeOpt("functions-to-decompose",
@@ -375,22 +366,6 @@ static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",
         "Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating "
         "commands."),
     llvm::cl::location(ONNXOpStats), llvm::cl::init(""),
-    llvm::cl::cat(OnnxMlirOptions));
-
-static llvm::cl::opt<int, true> onnxOpTransformThresholdOpt(
-    "onnx-op-transform-threshold",
-    llvm::cl::desc(
-        "Max iteration for dynamic op transform passes (default=3).\n"
-        "If set to 0, onnxOpTransformPass will be disabled, and\n"
-        "static iteration will be used"),
-    llvm::cl::location(onnxOpTransformThreshold), llvm::cl::init(3),
-    llvm::cl::cat(OnnxMlirOptions));
-
-static llvm::cl::opt<bool, true> onnxOpTransformReportOpt(
-    "onnx-op-transform-report",
-    llvm::cl::desc(
-        "Report diagnostic info for ONNX op transform/optimization passes."),
-    llvm::cl::location(onnxOpTransformReport), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> enableParallelOpt("parallel",

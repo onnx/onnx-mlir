@@ -29,12 +29,6 @@ namespace onnx_mlir {
 /// Pass for removing DisposableElementsAttr attributes.
 std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter = true);
 
-/// Pass for ONNX graph level optimization
-std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
-std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
-    bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
-    bool enableConvOptPass);
-
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
     const std::string &target = "");
