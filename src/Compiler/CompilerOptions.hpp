@@ -76,7 +76,6 @@ extern std::string march;                                     // common for both
 extern InstrumentStages instrumentStage;                      // common for both
 extern int onnxConstPropExpansionBound;                       // common for both
 extern std::vector<std::string> onnxConstPropDisablePatterns; // common for both
-extern bool enableONNXHybridPass;                             // common for both
 extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
@@ -101,8 +100,6 @@ extern std::string instrumentOps;                             // onnx-mlir only
 extern unsigned instrumentControlBits;                        // onnx-mlir only
 extern bool instrumentONNXSignature;                          // onnx-mlir only
 extern std::string ONNXOpStats;                               // onnx-mlir only
-extern int onnxOpTransformThreshold;                          // onnx-mlir only
-extern bool onnxOpTransformReport;                            // onnx-mlir only
 extern bool enableParallel;                                   // onnx-mlir only
 extern bool disableSimdOption;                                // onnx-mlir only
 extern bool enableSimdDataLayout;                             // onnx-mlir only

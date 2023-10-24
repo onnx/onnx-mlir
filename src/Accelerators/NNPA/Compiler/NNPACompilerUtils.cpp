@@ -111,15 +111,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
         onnx_mlir::zhigh::createZHighConstPropagationPass());
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
-  if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3 passes
-    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
-  } else {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 
