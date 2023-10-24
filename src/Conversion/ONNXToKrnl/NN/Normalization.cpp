@@ -412,13 +412,16 @@ struct ONNXLayerNormalizationOpLowering
       ONNXLayerNormalizationOpAdaptor adaptor,
       ONNXLayerNormalizationOpShapeHelper &shapeHelper, int64_t &VL) const {
     VL = 0;
-    if (!enableSIMD)
+    Operation *op = lnOp.getOperation();
+    if (!enableSIMD) {
+      onnxToKrnlSimdReport(
+          op, /*successful*/ false, 0, 0, "no simd because disabled");
       return false;
+    }
 
     // Get info.
     Value X = adaptor.getX();
     MemRefType XMemRefType = X.getType().cast<MemRefType>();
-    Type elementType = XMemRefType.getElementType();
     DimsExpr XDims = shapeHelper.inputsDims[0];
     int64_t XRank = XMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
@@ -426,12 +429,13 @@ struct ONNXLayerNormalizationOpLowering
     // Detect if we can use SIMD based on inout/X output/Y shape.
     VectorMachineSupport *vms =
         VectorMachineSupport::getGlobalVectorMachineSupport();
-#if 1
-    if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
-      LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
-      return false;
-    }
-#endif
+
+    // Do not want to disable SIMD for lack of sum across support at this stage.
+    // Type elementType = XMemRefType.getElementType();
+    // if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
+    //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
+    //   return false;
+    // }
 
     int64_t simdLoopStaticTripCount;
     VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
@@ -440,7 +444,8 @@ struct ONNXLayerNormalizationOpLowering
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
                    << " loops, VL " << VL << "\n";);
     if (VL == 0) {
-      LLVM_DEBUG(llvm::dbgs() << "  SIMD: no good SIMD VL, fail\n");
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
+          "no simd because could not find beneficial VL");
       return false;
     }
 
@@ -448,13 +453,19 @@ struct ONNXLayerNormalizationOpLowering
     // X/Y.
     if (!isBroadcastCompatible(shapeHelper, adaptor.getScale(),
             /*scale index*/ 1, axis, innermostLoopCollapse, XRank)) {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
+          "no simd because scale is not broadcast compatible");
       return false;
     }
     if (!isNoneValue(adaptor.getB()) &&
         !isBroadcastCompatible(shapeHelper, adaptor.getB(), /*bias index*/ 2,
             axis, innermostLoopCollapse, XRank)) {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
+          "no simd because bias is not broadcast compatible");
       return false;
     }
+    onnxToKrnlSimdReport(
+        op, /*successful*/ true, VL, simdLoopStaticTripCount, "successful");
 
     return true;
   }
