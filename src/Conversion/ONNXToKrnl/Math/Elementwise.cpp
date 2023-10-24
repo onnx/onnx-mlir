@@ -1765,8 +1765,10 @@ bool OpFusionHelper::areInputsValidForFusion(
   if (!hasStaticShape(defOp->getResults()[0].getType()))
     return false;
 
-  ArrayRef<int64_t> defShape = getShape(defOp->getResults()[0].getType());
-  ArrayRef<int64_t> useShape = getShape(useOp->getResults()[0].getType());
+  Type defOutputType = defOp->getResultTypes()[0];
+  Type useOutputType = useOp->getResultTypes()[0];
+  ArrayRef<int64_t> defShape = getShape(defOutputType);
+  ArrayRef<int64_t> useShape = getShape(useOutputType);
   if (defShape != useShape) {
     return false;
   }
@@ -1791,10 +1793,8 @@ bool OpFusionHelper::areInputsValidForFusion(
   // Otherwise, the loop nest should be defined according to the tensor with
   // larger space.
 
-  Value output = useOp->getResult(0);
   // First check the rank
-  if (getRank(defOp->getResultTypes()[0]) !=
-      getRank(useOp->getResultTypes()[0]))
+  if (getRank(defOutputType) != getRank(useOutputType))
     return false;
 
   if (dimAnalysis) {
@@ -1803,10 +1803,10 @@ bool OpFusionHelper::areInputsValidForFusion(
   } else {
     // If there is no dimAnalysis, check the simplest case.
     // Static and the same shape
-    if (!hasStaticShape(useOp->getResultTypes()[0]))
+    if (!hasStaticShape(useOutputType))
       return false;
 
-    ArrayRef<int64_t> inputShape = getShape(useOp->getResultTypes()[0]);
+    ArrayRef<int64_t> inputShape = getShape(useOutputType);
     if (inputShape != defShape)
       return false;
   }
