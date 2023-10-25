@@ -435,8 +435,8 @@ template bool definedBy<ONNXConstantOp>(Value v);
 template bool definedBy<ONNXDimOp>(Value v);
 template bool definedBy<ONNXExpandOp>(Value v);
 
-/// Check if a value is to store dimensions, meaning it is defined by
-/// Dim/Constant/Cast/Concat.
+/// Check if a value is to store dimensions, meaning it is a tensor of one
+/// element or concatenation of one-element tensors.
 bool areDims(Value val) {
   // Value must be a 1D tensor.
   Type vType = val.getType();
@@ -444,11 +444,9 @@ bool areDims(Value val) {
     return false;
 
   // Base case.
-  if (definedBy<ONNXConstantOp>(val) || definedBy<ONNXDimOp>(val) ||
-      definedBy<ONNXCastOp>(val)) {
-    // Value must be a 1D tensor of one element.
-    return (getShape(vType)[0] == 1);
-  }
+  // A dimension must be a 1D tensor of one i64 element.
+  if ((getShape(vType)[0] == 1) && getElementType(vType).isSignlessInteger(64))
+    return true;
 
   // Recursion case.
   if (definedBy<ONNXConcatOp>(val)) {

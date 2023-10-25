@@ -256,8 +256,8 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 template <typename OP>
 bool definedBy(mlir::Value v);
 
-/// Check if a value is to store dimensions, meaning it is defined by
-/// Dim/Constant/Cast/Concat.
+/// Check if a value is to store dimensions, meaning it is a tensor of one
+/// element or concatenation of one-element tensors.
 bool areDims(mlir::Value val);
 
 /// Check if a value is defined by Concat to store dimensions.

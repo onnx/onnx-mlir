@@ -2292,6 +2292,23 @@ func.func @test_expand_with_shape(%arg0 : tensor<2x1x6x1xf32>, %arg1: tensor<6x2
 
 // -----
 
+func.func @test_expand_with_concat(%arg0: tensor<1xi64>, %arg1: tensor<1xi64>, %arg2: tensor<f32>) -> tensor<?x1x?xf32> { 
+  %0 = onnx.Constant dense<1> : tensor<1xi64>                                                      
+  %1 = "onnx.Concat"(%arg0, %0, %arg1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+  %2 = "onnx.Expand"(%arg2, %1) : (tensor<f32>, tensor<3xi64>) -> tensor<?x1x?xf32>
+  return %2 : tensor<?x1x?xf32> 
+
+// CHECK-LABEL:  func.func @test_expand_with_concat
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1xi64>, [[PARAM_1_:%.+]]: tensor<1xi64>, [[PARAM_2_:%.+]]: tensor<f32>) -> tensor<?x1x?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<1xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Concat"([[PARAM_0_]], [[VAR_0_]], [[PARAM_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Expand"([[PARAM_2_]], [[VAR_1_]]) : (tensor<f32>, tensor<3xi64>) -> tensor<?x1x?xf32>
+// CHECK:           return [[VAR_2_]] : tensor<?x1x?xf32>
+// CHECK:         }
+}
+
+// -----
+
 //===----------------------------------------------------------------------===//
 /// Test shape inference for ReduceMean.
 //===----------------------------------------------------------------------===//
