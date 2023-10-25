@@ -90,10 +90,9 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     for (int64_t i = 0; i < b; i++)
       batchDimsSize = batchDimsSize * indicesDims[i];
     IndexExpr indicesDimsSize = oneIE;
-    for (int64_t i = 0; i < indicesRank; i++)
+    for (int64_t i = b; i < indicesRank - 1; i++)
       indicesDimsSize = indicesDimsSize * indicesDims[i];
-    IndexExpr BDS(batchDimsSize),
-        IDS(indicesDimsSize.floorDiv(batchDimsSize * indicesLastDim));
+    IndexExpr BDS(batchDimsSize), IDS(indicesDimsSize);
     LiteralIndexExpr ILD(indicesLastDim);
     DimsExpr newIndicesShape = {BDS, IDS, ILD};
     Value reshapedIndices =
