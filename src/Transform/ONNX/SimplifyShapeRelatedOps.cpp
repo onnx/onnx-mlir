@@ -321,6 +321,10 @@ public:
       // step = 0 (invalid).
       return failure();
 
+    if (indices.size() == 0)
+      // Empty result
+      return failure();
+
     // Replace SliceOp by ConcatOp of specific dimensions.
     SmallVector<Value, 4> dims;
     getDims(input, dims);
