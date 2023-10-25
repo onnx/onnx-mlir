@@ -430,6 +430,18 @@ struct ONNXLayerNormalizationOpLowering
     VectorMachineSupport *vms =
         VectorMachineSupport::getGlobalVectorMachineSupport();
 
+    // Implementation relies into splitting the input X into a 2D vector, with
+    // outer dim is batches, and inner dims is where the mean/stddev is
+    // performed. This approach could be extended with some work to handle cases
+    // where there is no batches at all (so everything is part of mean/std dev
+    // computation); this is not supported at this time. Most cases seen are
+    // just the last dim for mean/std dev.
+    if (axis == 0) {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "no simd because cannot handle case with axis=0");
+      return false;
+    }
+
     // Do not want to disable SIMD for lack of sum across support at this stage.
     // Type elementType = XMemRefType.getElementType();
     // if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
