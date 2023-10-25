@@ -84,7 +84,8 @@ static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
       // The correct axis is from ONNXDimOp.
       axis = dimOp.getAxis();
       okToInsert = true;
-    } else if (isa<ONNXCastOp>(op) || tensorType.isDynamicDim(axis))
+    } else if (isa<ONNXCastOp>(op) || (axis < (uint64_t)tensorType.getRank() &&
+                                          tensorType.isDynamicDim(axis)))
       okToInsert = true;
   }
 
