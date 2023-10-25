@@ -115,7 +115,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   }
 
   // Replace every DisposableElementsAttr with DenseElementsAttr.
-  // ZHighConstPropagationPass currently assumes that DenseElementsAttr is used.
+  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
   pm.addPass(createScrubDisposablePass());
 
   // Constant propagation at ZHighIR: constant stickify.
