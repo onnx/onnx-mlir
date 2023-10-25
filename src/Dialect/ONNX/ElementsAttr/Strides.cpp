@@ -10,20 +10,21 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
+#include "src/Support/Arrays.hpp"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-size_t getStridesPosition(
-    ArrayRef<int64_t> indices, ArrayRef<int64_t> strides) {
+uint64_t getStridesPosition(
+    ArrayRef<uint64_t> index, ArrayRef<int64_t> strides) {
   // Assert is commented out because this function is "on the fast path" called
   // for every element when iterating over DisposableElementsAttr values.
-  // assert(indices.size() == strides.size());
-  size_t pos = 0;
-  for (size_t axis = 0; axis < indices.size(); ++axis)
-    pos += indices[axis] * strides[axis];
+  // assert(index.size() == strides.size());
+  uint64_t pos = 0;
+  for (size_t axis = 0; axis < index.size(); ++axis)
+    pos += index[axis] * strides[axis];
   return pos;
 }
 
@@ -57,7 +58,7 @@ SmallVector<int64_t, 4> getSplatStrides(ArrayRef<int64_t> shape) {
   return SmallVector<int64_t, 4>(shape.size(), 0);
 }
 
-Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
+std::optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
     ArrayRef<int64_t> strides, ArrayRef<int64_t> reshapedShape) {
   assert(shape.size() == strides.size());
   assert(ShapedType::getNumElements(shape) ==
@@ -111,18 +112,22 @@ Optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
         ++a1;
       }
     } while (a1 < rank1 && last == shape[a1] * strides[a1]);
-    assert(total == n * strides[a1 - 1]);
+    assert(total == n * last);
     // Add contiguous strides for axes in reshapedShape with dimSizes product n.
     int64_t n2 = 1;
     while (a2 < rank2 && n2 * reshapedShape[a2] <= n) {
-      n2 *= reshapedShape[a2];
-      total /= reshapedShape[a2];
-      reshapedStrides.push_back(total);
+      if (reshapedShape[a2] == 1) {
+        reshapedStrides.push_back(0);
+      } else {
+        n2 *= reshapedShape[a2];
+        total /= reshapedShape[a2];
+        reshapedStrides.push_back(total);
+      }
       ++a2;
     }
     if (n2 < n)
       return std::nullopt;
-    assert(strides[a1 - 1] == reshapedStrides[a2 - 1]);
+    assert(last == total);
   } while (a1 < rank1);
   assert(a2 == rank2);
   assert(a2 == reshapedStrides.size());
@@ -158,23 +163,23 @@ SmallVector<int64_t, 4> untransposeDims(
   return unpermutedDims;
 }
 
-SmallVector<int64_t, 4> unflattenIndex(
-    ArrayRef<int64_t> shape, int64_t flatIndex) {
-  SmallVector<int64_t, 4> indices;
-  int64_t rank = shape.size();
+SmallVector<uint64_t, 4> unflattenIndex(
+    ArrayRef<int64_t> shape, uint64_t flattenedIndex) {
+  SmallVector<uint64_t, 4> index;
+  size_t rank = shape.size();
   if (rank > 0) {
-    indices.resize_for_overwrite(rank);
-    for (int64_t axis = rank - 1; axis >= 1; --axis) {
-      int64_t dimSize = shape[axis];
-      assert(dimSize > 0 && "cannot unflatten shape with zeros");
-      int64_t rem = flatIndex % dimSize;
-      flatIndex /= dimSize;
-      indices[axis] = rem;
+    index.resize_for_overwrite(rank);
+    for (size_t axis = rank - 1; axis >= 1; --axis) {
+      assert(shape[axis] > 0 && "cannot unflatten shape with zeros");
+      uint64_t dimSize = shape[axis];
+      uint64_t rem = flattenedIndex % dimSize;
+      flattenedIndex /= dimSize;
+      index[axis] = rem;
     }
-    assert(flatIndex < shape[0]);
-    indices[0] = flatIndex;
+    assert(static_cast<int64_t>(flattenedIndex) < shape[0]);
+    index[0] = flattenedIndex;
   }
-  return indices;
+  return index;
 }
 
 namespace {
@@ -182,10 +187,11 @@ template <typename T>
 void restrideArrayImpl(unsigned elementBytewidth, ArrayRef<int64_t> shape,
     ArrayRef<int64_t> srcStrides, ArrayRef<char> src,
     MutableArrayRef<char> dst) {
-  assert(sizeof(T) == elementBytewidth && "dispatch sanity check");
-  StridedArrayRef<T> stridedSrcT(castArrayRef<T>(src), srcStrides);
+  assert(sizeof(T) == elementBytewidth && "dispatch safety check");
+  ArrayRef<T> srcT = castArrayRef<T>(src);
   MutableArrayRef<T> dstT = castMutableArrayRef<T>(dst);
-  mapStrides<T, T>(shape, dstT, stridedSrcT, [&](T elem) { return elem; });
+  for (auto &idxoffs : StridesRange<1>(shape, {srcStrides}))
+    dstT[idxoffs.flattenedIndex] = srcT[idxoffs[0]];
 }
 } // namespace
 

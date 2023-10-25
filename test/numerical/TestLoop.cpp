@@ -18,6 +18,8 @@
 
 #include "src/Runtime/OMTensorHelper.hpp"
 
+#include "mlir/Parser/Parser.h"
+
 static const llvm::StringRef SHARED_LIB_BASE("./TestLoop_main_graph");
 
 using namespace mlir;
@@ -32,7 +34,7 @@ module {
     ^bb0(%body_arg0: tensor<i64>, %body_arg1: tensor<i1>, %body_arg2: tensor<1xi64>):
       %body_0 = "onnx.Identity"(%body_arg1) : (tensor<i1>) -> tensor<i1>
       %body_1 = "onnx.Add"(%body_arg0, %body_arg2) : (tensor<i64>, tensor<1xi64>) -> tensor<1xi64>
-      onnx.Return %body_0, %body_1, %body_1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+      onnx.Yield %body_0, %body_1, %body_1 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
@@ -50,7 +52,7 @@ module {
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
       %1 = "onnx.Less"(%body_arg0, %0) : (tensor<i64>, tensor<i64>) -> tensor<i1>
       %2 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-    onnx.Return %1, %2, %2 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+    onnx.Yield %1, %2, %2 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %0#0, %0#1 : tensor<1xi64>, tensor<?x1xi64>
   }
@@ -65,7 +67,7 @@ module {
       %0 = "onnx.Constant"() {value = dense<3> : tensor<i64>} : () -> tensor<i64>
       %1 = "onnx.Less"(%body_arg0, %0) : (tensor<i64>, tensor<i64>) -> tensor<i1>
       %2 = "onnx.Add"(%body_arg2, %body_arg0) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-    onnx.Return %1, %2 : tensor<i1>, tensor<1xi64>
+    onnx.Yield %1, %2 : tensor<i1>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> tensor<1xi64>
     return %0 : tensor<1xi64>
   }
@@ -81,7 +83,7 @@ module {
     ^bb0(%i: tensor<i64>, %body_cond: tensor<i1>, %y_prev: tensor<1xi64>):
       %2 = "onnx.Add"(%y_prev, %i) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
       %3 = "onnx.Add"(%2, %const_offset) : (tensor<1xi64>, tensor<i64>) -> tensor<1xi64>
-      onnx.Return %body_cond, %3, %3 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
+      onnx.Yield %body_cond, %3, %3 : tensor<i1>, tensor<1xi64>, tensor<1xi64>
     }) : (tensor<i64>, tensor<i1>, tensor<1xi64>) -> (tensor<1xi64>, tensor<?x1xi64>)
     return %y_final, %y_scan : tensor<1xi64>, tensor<?x1xi64>
   }
@@ -97,7 +99,7 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
         std::numeric_limits<int64_t>::max(),
     const int64_t constOffset = 0) {
   MLIRContext ctx;
-  registerDialects(ctx);
+  loadDialects(ctx);
 
   auto module = mlir::parseSourceString<ModuleOp>(moduleIR, &ctx);
   OwningOpRef<ModuleOp> moduleRef(std::move(module));
@@ -110,26 +112,28 @@ bool isOMLoopTheSameAsNaiveImplFor(std::string moduleIR,
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   omTensorGetElem<int64_t>(tripCountTensor.get(), {}) = tripCount;
-  inputs.emplace_back(move(tripCountTensor));
+  inputs.emplace_back(std::move(tripCountTensor));
 
   auto condTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(nullptr, 0, OM_DATA_TYPE::ONNX_TYPE_BOOL),
       omTensorDestroy);
   omTensorGetElem<bool>(condTensor.get(), {}) = true;
-  inputs.emplace_back(move(condTensor));
+  inputs.emplace_back(std::move(condTensor));
 
   int64_t yInitShape[1] = {1};
   auto yInitTensor = OMTensorUniquePtr(
       omTensorCreateEmpty(&yInitShape[0], 1, OM_DATA_TYPE::ONNX_TYPE_INT64),
       omTensorDestroy);
   omTensorGetElem<int64_t>(yInitTensor.get(), {0}) = yInit;
-  inputs.emplace_back(move(yInitTensor));
+  inputs.emplace_back(std::move(yInitTensor));
 
+  std::string modelTag = getCompilerOption(OptionKind::ModelTag);
   onnx_mlir::ExecutionSession sess(
-      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
+      onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib),
+      modelTag);
   std::vector<onnx_mlir::OMTensorUniquePtr> outputs;
   try {
-    outputs = sess.run(move(inputs));
+    outputs = sess.run(std::move(inputs));
   } catch (const std::runtime_error &error) {
     std::cerr << "error while running: " << error.what() << std::endl;
     return false;
@@ -160,9 +164,10 @@ int main(int argc, char *argv[]) {
       onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
-  setCompilerOption(OptionKind::CompilerOptLevel, "3");
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestLoop\n", nullptr, "TEST_ARGS");
+  initCompilerConfig();
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 

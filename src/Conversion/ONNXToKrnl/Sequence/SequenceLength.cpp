@@ -19,22 +19,25 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSequenceLengthOpLowering : public ConversionPattern {
+struct ONNXSequenceLengthOpLowering
+    : public OpConversionPattern<ONNXSequenceLengthOp> {
   ONNXSequenceLengthOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXSequenceLengthOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSequenceLengthOp seqOp,
+      ONNXSequenceLengthOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXSequenceLengthOpAdaptor operandAdaptor(operands);
+    Operation *op = seqOp.getOperation();
+    Location loc = ONNXLoc<ONNXSequenceLengthOp>(op);
+
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     IndexExprScope IEScope(&rewriter, loc);
 
-    auto input = operandAdaptor.getInputSequence();
-    auto outputVal = create.mem.dim(input, 0);
+    Value input = adaptor.getInputSequence();
+    Value outputVal = create.mem.dim(input, 0);
 
     rewriter.replaceOp(op, outputVal);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

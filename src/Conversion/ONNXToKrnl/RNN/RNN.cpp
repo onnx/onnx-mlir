@@ -4,7 +4,7 @@
 
 //===----------------- RNN.cpp - Lowering RNN Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -44,7 +44,7 @@ struct RnnBiasPack {
 
 template <>
 bool hasAllNoneOutput<ONNXRNNOp>(ONNXRNNOp *op) {
-  return (isFromNone(op->getY()) && isFromNone(op->getYH()));
+  return (isNoneValue(op->getY()) && isNoneValue(op->getYH()));
 }
 
 template <>
@@ -209,7 +209,7 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
   StringRef direction = op->getDirection();
 
   // Split B.
-  if (!isFromNone(B)) {
+  if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     Type elementType = B.getType().cast<ShapedType>().getElementType();
     int64_t hiddenSize = bShape[1] / 2;
@@ -259,7 +259,7 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
 template <>
 RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
     ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, ONNXRNNOp *op,
+    const TypeConverter *typeConverter, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
   RnnState state;
 
@@ -268,15 +268,15 @@ RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getY(), checkInsertDealloc(op->getOperation(), 0));
+  state.allH =
+      allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getY());
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getYH(), checkInsertDealloc(op->getOperation(), 1));
+  state.ht =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
 
-  // Insert allocation and deallocation the intermedidate Ht for the forward and
+  // Insert allocation and deallocation the intermediate Ht for the forward and
   // reverse directions.
   // Ht :: [batch_size, hidden_size]
   // Ct :: [batch_size, hidden_size]
@@ -300,7 +300,8 @@ template <>
 void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
-    RnnBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
+    RnnBiasPack biasPack, Value sequenceIV, Value directionIV,
+    Value sequenceLens, Value initialH, bool isForward) {
   // Equations for RNN.
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   // Shape information:
@@ -310,6 +311,9 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Ht : [batch_size, hidden_size]
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
+
+  // ToFix: add support of sequenceLens for RNN
+  assert(isNoneValue(sequenceLens) && "not implemented yet");
 
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
@@ -353,7 +357,7 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
 
         // Store the intermediate Ht.
         createKrnl.store(nextHt, Ht, indices);
-        if (!isFromNone(state.allH))
+        if (!isNoneValue(state.allH))
           createKrnl.store(
               nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
       });
@@ -366,9 +370,9 @@ void stateToOutput<ONNXRNNOp, RnnState>(ConversionPatternRewriter &rewriter,
   auto direction = op->getDirection();
 
   // First output: all sequences.
-  outputs.emplace_back((isFromNone(op->getY()) ? noneValue : state.allH));
+  outputs.emplace_back((isNoneValue(op->getY()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isFromNone(op->getYH()))
+  if (isNoneValue(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(

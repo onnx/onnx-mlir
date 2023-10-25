@@ -50,6 +50,20 @@ public:
   static mlir::DenseElementsAttr toDenseElementsAttr(
       mlir::ElementsAttr elements);
 
+  // Compares contents for equality. Argument shapes must be broadcast
+  // compatible. Element types must the same.
+  // Asserts if these preconditions are violated (doesn't return false as that
+  // would hide whether the lhs and rhs are different or incompatible).
+  //
+  // TODO: Move this function to a better place, since it doesn't build
+  //       anything, but it's here for now for efficient elements access.
+  static bool equal(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
+
+  // More efficient way to test if lhs is equal to a single (broadcasted)
+  // value broadcastedRhsValue. Equivalent to equal(lhs, splatRhs) where
+  // splatRhs is a splat ElementsAttr with value broadcastedRhsValue.
+  static bool allEqual(mlir::ElementsAttr lhs, WideNum broadcastedRhsValue);
+
   template <typename T>
   using Filler = std::function<void(llvm::MutableArrayRef<T>)>;
 
@@ -108,6 +122,11 @@ public:
   mlir::ElementsAttr castElementType(
       mlir::ElementsAttr elms, mlir::Type newElementType);
 
+  // Returns an ElementsAttr with the values clipped to the range [min, max].
+  //
+  // Reuses elms' underlying data without a data copy.
+  mlir::ElementsAttr clip(mlir::ElementsAttr elms, WideNum min, WideNum max);
+
   // Returns a transposed ElementsAttr.
   //
   // Reuses elms' underlying data without a data copy.
@@ -130,30 +149,72 @@ public:
   // Splits the tensor in elms along axis into sizes.size() tensors where
   // tensor[i].shape[axis] == sizes[i], and they all sum to elms.shape[axis].
   //
-  // The returned tensors don't reuse elms' underlyind data, unless sizes.size()
+  // The returned tensors don't reuse elms' underlying data, unless sizes.size()
   // is 1 and elms is returned.
   std::vector<mlir::ElementsAttr> split(
       mlir::ElementsAttr elms, unsigned axis, llvm::ArrayRef<int64_t> sizes);
 
-  // Assumption: reducer is associative and commutative.
+  // Concatenates the tensors along axis.
+  mlir::ElementsAttr concat(
+      llvm::ArrayRef<mlir::ElementsAttr> elms, unsigned axis);
+
+  // Slices the tensor.
+  // shape, start, steps lengths must equal the tensor rank.
+  // shape and start must be non-negative.
+  // Negative steps means slicing backwards.
+  mlir::ElementsAttr slice(mlir::ElementsAttr elms,
+      llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> starts,
+      llvm::ArrayRef<int64_t> steps);
+
+  // Pads the tensor.
+  // 'pads' length must equal two times the tensor rank and all
+  // entries must be non-negative.
+  mlir::ElementsAttr pad(
+      mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> pads, WideNum padValue);
+
+  // Gathers a tensor of the values from an input tensor given by a tensor of
+  // indices, along the specified axis.
+  // Follows the specification of the onnx Gather operation.
+  mlir::ElementsAttr gather(
+      mlir::ElementsAttr input, mlir::ElementsAttr indices, unsigned axis);
+
+  // Returns copy of input with updates from a tensor of update values at the
+  // index positions given by a tensor of indices.
+  // Follows the specification of the onnx ScatterND operation.
+  mlir::ElementsAttr scatterND(mlir::ElementsAttr input,
+      mlir::ElementsAttr indices, mlir::ElementsAttr updates);
+
+  // Assumptions: elms is non-empty, reducer is associative and commutative.
   mlir::ElementsAttr reduce(mlir::ElementsAttr elms,
       llvm::ArrayRef<unsigned> axes, bool keepdims,
       WideNum (*reducer)(WideNum, WideNum));
 
+  // Returns the matrix product like numpy.matmul.
+  mlir::ElementsAttr matMul(mlir::ElementsAttr lhs, mlir::ElementsAttr rhs);
+
+  // Returns tensor of given type and shape with [start + i * delta ...]
+  // for i in [0, type.getNumElements()) in row-major order.
+  mlir::ElementsAttr range(mlir::ShapedType, WideNum start, WideNum delta);
+
+  // Returns indices of non-zero elements like numpy.nonzero,
+  // but for scalar input produces output shape [0, N] instead of [1, N],
+  // which is different from Numpy's behavior.
+  mlir::ElementsAttr nonZero(mlir::ElementsAttr elms);
+
 private:
   struct ElementsProperties;
 
-  ElementsProperties getElementsProperties(mlir::ElementsAttr elements) const;
+  static ElementsProperties getElementsProperties(mlir::ElementsAttr elements);
 
-  ArrayBuffer<WideNum> getWideNumsAndStrides(
-      mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) const {
+  static ArrayBuffer<WideNum> getWideNumsAndStrides(
+      mlir::ElementsAttr elms, llvm::SmallVectorImpl<int64_t> &strides) {
     return getWideNumsAndExpandedStrides(
-        elms, elms.getType().getShape(), strides);
+        elms, elms.getShapedType().getShape(), strides);
   }
 
-  ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(mlir::ElementsAttr elms,
-      llvm::ArrayRef<int64_t> expandedShape,
-      llvm::SmallVectorImpl<int64_t> &expandedStrides) const;
+  static ArrayBuffer<WideNum> getWideNumsAndExpandedStrides(
+      mlir::ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
+      llvm::SmallVectorImpl<int64_t> &expandedStrides);
 
   // A transformer mutates elements.
   using Transformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;

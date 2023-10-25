@@ -9,6 +9,9 @@
 // Defines language-specific pattern match optimizations for ONNX using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
+// When adding a canonicalizer for a new operation, please add that operation to
+// the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef ONNX_REWRITE
@@ -23,6 +26,7 @@ include "src/Dialect/ONNX/ONNX.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -59,16 +63,16 @@ def getRankOf :
 	NativeCodeCall<"$0.getType().cast<ShapedType>().getRank()">;
 
 // Create an ArrayAttr of IntergerAttr(s) of [$0].
-def createArrayAttrOf : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfNToM($_builder, $0, $0)">;
+def createDenseElementsAttrOf : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, $0, $0)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
-def createArrayAttrOfOneToRankOf : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1)">;
+def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
-def createArrayAttrOfOneToRankOfExclusive : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 2)">;
+def createDenseElementsAttrOfOneToRankOfExclusive : NativeCodeCall<
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 2)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
@@ -133,7 +137,12 @@ class HaveSameDim<int dim>: Constraint<
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
 
-def GetUnitAttr: NativeCodeCall<"$_builder.getUnitAttr()">;
+def HaveSameStaticShape: Constraint<
+  CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
+  "Two tensors have the same static shape">;
+
+// Create a unit constant that will be used as none input.
+def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
@@ -141,7 +150,7 @@ def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
 
 def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
 
-def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($0)">>;
+def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($_self)">>;
 
 def HasSameElementType : Constraint<
     CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
@@ -172,12 +181,6 @@ def IsStaticShapeTensor:
       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
     "hasStaticShape">;
 
-def AreTheSameAxisArray: Constraint<
-    CPred<"onnx_mlir::AreTheSameAxisArray("
-          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
-          "$1, $2)">,
-    "Two axis arrays are the same">;
-
 def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
           "Has the specified constant shape">;
@@ -195,11 +198,17 @@ def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
          CPred<" onnx_mlir::getONNXConstantOp($_self).getValueAttr().isa<DenseElementsAttr>() ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
-def AreTheSameConstantOpDenseAttr: Constraint<
-    CPred<"onnx_mlir::AreTheSameConstantOpDenseAttr($_builder,"
+def AreTheSameAxesConstant: Constraint<
+    CPred<"onnx_mlir::AreTheSameAxesConstant("
           "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
           "$1, $2)">,
-    "Two ConstantOps have the same dense attribute values">;
+    "Two values are constants with the same axis values">;
+
+def AreTheSameAxesArrayAttr: Constraint<
+    CPred<"onnx_mlir::AreTheSameAxesArrayAttr("
+          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "$1, $2)">,
+    "Two axis arrays are the same">;
 
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
     CPred<"llvm::all_of("
@@ -232,6 +241,17 @@ def AxisIsTheLastDim: Constraint<
         "(onnx_mlir::hasShapeAndRank($0) &&"
         " ($0.getType().cast<ShapedType>().getRank() == $1.getValue().getSExtValue() + 1))">,
   "Axis is the last dimension of the input"
+>;
+
+// Check a AffineMap is identity or not.
+def IsIdentityAffineMap : Constraint<
+  CPred<"$_self.isIdentity()">,
+  "Is identity AffineMap"
+>;
+
+/// Compose two affine maps.
+def GetComposedMap : NativeCodeCall<
+ "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
 >;
 
 //===----------------------------------------------------------------------===//
@@ -287,12 +307,13 @@ def FuseAddConvNullBiasPattern: Pat<
   (ONNXConvOp
      $x, $w,
      // new_b
-     (ONNXSqueezeV11Op
+     (ONNXSqueezeOp
         $y,
-        (createArrayAttrOfOneToRankOf $y)),
+        (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $y))),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-  [(HasNoneType $b),
+  [(HasShapeAndRank:$res),
+   (HasNoneType $b),
    (AttributeIsNotNull:$denseAttr),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
@@ -308,12 +329,13 @@ def FuseAddConvPattern: Pat<
      // new_b
      (ONNXAddOp
         $b,
-        (ONNXSqueezeV11Op
+        (ONNXSqueezeOp
            $y,
-           (createArrayAttrOfOneToRankOf $y))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $y)))),
      // unchanged operands and attributes.
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-  [(NotNoneType $b),
+  [(HasShapeAndRank:$res),
+   (NotNoneType $b),
    (AttributeIsNotNull:$denseAttr),
    (AllDimsFromAxisToEndAre<1, 1>:$y),
    (RankXMinusRankYIs<1> $res, $y)]
@@ -349,7 +371,10 @@ def FuseMulConvNullBiasPattern: Pat<
   (ONNXConvOp
      $x,
      // new_w
-     (ONNXMulOp $w, (ONNXUnsqueezeV11Op $y, (createArrayAttrOf(getRankOf $y)))),
+     (ONNXMulOp
+        $w,
+        (ONNXUnsqueezeOp $y,
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOf(getRankOf $y))))),
      // unchanged operands and attributes.
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
@@ -376,11 +401,14 @@ def FuseMulConvNullBiasPattern: Pat<
 def IdentityEliminationPattern : Pat<(ONNXIdentityOp $arg),
                                      (replaceWithValue $arg)>;
 
-// y, mask = onnx.Dropout(x) -> y, mask = x, none
-def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $ratio),
-  [(replaceWithValue $arg), (ONNXConstantOp (GetNullAttr), (GetUnitAttr), 
-   (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), (GetNullAttr), 
-   (GetNullAttr))]>;
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXDropoutOp
+//===----------------------------------------------------------------------===//
+
+// We assume that training_mode is not true so output, mask become data, none.
+// output, mask = onnx.Dropout(data) -> output, mask = data, none
+def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $data, $ratio, $training_mode, $seed),
+  [(replaceWithValue $data), (CreateNoneValue)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXCastOp
@@ -388,14 +416,15 @@ def DropoutEliminationPattern : Pattern<(ONNXDropoutOp $arg, $arg1, $arg2, $rati
 
 // ONNX_Op (onnx.Cast (%X, $type)) = ONNX_Op (%X)
 def CastEliminationPattern : Pat<
-	(ONNXCastOp $arg, $type),
+	(ONNXCastOp $arg, $saturate, $type),
 	(replaceWithValue $arg),
   [(HasSameElementType $arg, $type)]>;
 
-// onnx.Cast (onnx.Cast (%X, $type1)), $type2 = onnx.Cast (%X, $typ2)
-def FuseCastCastPattern : Pat<
-	(ONNXCastOp (ONNXCastOp $arg, $_), $type),
-	(ONNXCastOp $arg, $type)>;
+// TODO: Reintroduce pattern for sound type combinations, see issue #2210.
+//// onnx.Cast (onnx.Cast (%X, $type1)), $type2 = onnx.Cast (%X, $type2)
+//def FuseCastCastPattern : Pat<
+//  (ONNXCastOp (ONNXCastOp $arg, $_), $type),
+//  (ONNXCastOp $arg, $type)>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp
@@ -451,7 +480,7 @@ class FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<Op elmOp>:  Pat<
 def FuseTransposeAndAtanPattern :
     FuseTransposeAndElementwiseUnaryOpPattern<ONNXAtanOp>;
 def FuseTransposeAndCastPattern :
-    FuseTransposeAndElementwiseUnaryWithOneArgOpPattern<ONNXCastOp>;
+    FuseTransposeAndElementwiseUnaryWithTwoArgOpPattern<ONNXCastOp>;
 def FuseTransposeAndCeilPattern :
     FuseTransposeAndElementwiseUnaryOpPattern<ONNXCeilOp>;
 def FuseTransposeAndCosPattern :
@@ -553,13 +582,21 @@ def FuseReshapePattern:  Pat<
   // Remove the first reshape op.
   (ONNXReshapeOp $v, $s2, $az2)>;
 
-def RemoveIdentityReshapePattern:  Pat<
+def RemoveIdentityReshapePattern1:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
   (ONNXReshapeOp $val, $shape, $az),
-  // Remove the transpose.
+  // Remove the reshape.
   (replaceWithValue $val),
   // Check that val has the specified shape.
   [(HasSpecifiedConstantShape $val, $shape)]>;
+
+def RemoveIdentityReshapePattern2:  Pat<
+  // Remove an identity pattern. Output and input shapes are static and the same. 
+  (ONNXReshapeOp:$out $val, $_, $_),
+  // Remove the reshape.
+  (replaceWithValue $val),
+  // Check that val and out have the same static shape.
+  [(HaveSameStaticShape $out, $val)]>;
 
 def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
@@ -593,8 +630,7 @@ def RemoveSqueezeUnsqueezePattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $val, $u_axes, $s_axes)]>;
 
 /// Combine squeeze and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Unsqueeze {axes = [a, b, c]} (%X)) = %X
@@ -604,28 +640,27 @@ def RemoveSqueezeV11UnsqueezeV11Pattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $val, $u_axes, $s_axes)]>;
 
 /// Combine squeeze, cast and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Cast (Unsqueeze {axes = [a, b, c]} (%X))) = Cast %X
 def RemoveSqueezeCastUnsqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXSqueezeOp (ONNXCastOp (ONNXUnsqueezeOp $val, $u_axes), $castTo), $s_axes),
+  (ONNXSqueezeOp (ONNXCastOp (ONNXUnsqueezeOp $val, $u_axes), $saturate, $castTo), $s_axes),
   // Remove both squeeze and unsqueeze.
-  (ONNXCastOp $val, $castTo),
+  (ONNXCastOp $val, $saturate, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $val, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $val, $u_axes, $s_axes)]>;
 
 /// Combine squeeze, cast and unsqueeze.
 /// Squeeze {axes = [a, b, c]} (Cast (Unsqueeze {axes = [a, b, c]} (%X))) = Cast %X
 def RemoveSqueezeV11CastUnsqueezeV11Pattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXSqueezeV11Op (ONNXCastOp (ONNXUnsqueezeV11Op $val, $u_axes), $castTo), $s_axes),
+  (ONNXSqueezeV11Op (ONNXCastOp (ONNXUnsqueezeV11Op $val, $u_axes), $saturate, $castTo), $s_axes),
   // Remove both squeeze and unsqueeze.
-  (ONNXCastOp $val, $castTo),
+  (ONNXCastOp $val, $saturate, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $val, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $val, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXUnsqueezeOp
@@ -639,8 +674,7 @@ def RemoveUnsqueezeSqueezePattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $res, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Squeeze {axes = [a, b, c]} (%X)) = %X
@@ -650,28 +684,27 @@ def RemoveUnsqueezeV11SqueezeV11Pattern:  Pat<
   // Remove both squeeze and unsqueeze.
   (replaceWithValue $val),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $res, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze, cast, and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Cast (Squeeze {axes = [a, b, c]} (%X))) = Cast %X
 def RemoveUnsqueezeCastSqueezePattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXUnsqueezeOp (ONNXCastOp (ONNXSqueezeOp:$res $val, $s_axes), $castTo), $u_axes),
+  (ONNXUnsqueezeOp (ONNXCastOp (ONNXSqueezeOp:$res $val, $s_axes), $saturate, $castTo), $u_axes),
   // Remove both squeeze and unsqueeze.
-  (ONNXCastOp $val, $castTo),
+  (ONNXCastOp $val, $saturate, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameConstantOpDenseAttr $res, $u_axes, $s_axes),
-   (IsFromONNXConstantOp $u_axes), (IsFromONNXConstantOp $s_axes)]>;
+  [(AreTheSameAxesConstant $res, $u_axes, $s_axes)]>;
 
 /// Combine unsqueeze, cast, and squeeze.
 /// Unsqueeze {axes = [a, b, c]} (Cast (Squeeze {axes = [a, b, c]} (%X))) = Cast %X
 def RemoveUnsqueezeV11CastSqueezeV11Pattern:  Pat<
   // Squeeze and the unsqueeze with the same axes.
-  (ONNXUnsqueezeV11Op (ONNXCastOp (ONNXSqueezeV11Op:$res $val, $s_axes), $castTo), $u_axes),
+  (ONNXUnsqueezeV11Op (ONNXCastOp (ONNXSqueezeV11Op:$res $val, $s_axes), $saturate, $castTo), $u_axes),
   // Remove both squeeze and unsqueeze.
-  (ONNXCastOp $val, $castTo),
+  (ONNXCastOp $val, $saturate, $castTo),
   // Check that both ops use the same `axes`.
-  [(AreTheSameAxisArray $res, $u_axes, $s_axes)]>;
+  [(AreTheSameAxesArrayAttr $res, $u_axes, $s_axes)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXBatchNormOp
@@ -716,7 +749,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
      // w_
      (ONNXMulOp
         $w,
-        (ONNXUnsqueezeV11Op
+        (ONNXUnsqueezeOp
            (ONNXDivOp:$coefficientW
               $scale,
               (ONNXSqrtOp
@@ -724,7 +757,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
                     $var,
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (createArrayAttrOfOneToRankOf $w))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $w)))),
      // b_
      (ONNXAddOp
         $B,
@@ -733,7 +766,7 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
            (subtractOrNeg $res, $b, $mean))),
 
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
-     [], (addBenefit 1)
+     [], [], (addBenefit 1)
 >;
 
 //===----------------------------------------------------------------------===//
@@ -759,7 +792,7 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
      // x * a
      (ONNXMulOp
         $x,
-        (ONNXUnsqueezeV11Op
+        (ONNXUnsqueezeOp
            (ONNXDivOp:$a
               $scale,
               (ONNXSqrtOp
@@ -767,12 +800,12 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
                     $var,
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (createArrayAttrOfOneToRankOfExclusive $x))),
+           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOfExclusive $x)))),
      // b
-     (ONNXUnsqueezeV11Op
+     (ONNXUnsqueezeOp
        (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
-       (createArrayAttrOfOneToRankOfExclusive $x))),
-  [(HasRankGT<2> $x)], (addBenefit 0)
+       (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOfExclusive $x)))),
+  [(HasRankGT<2> $x)], [], (addBenefit 0)
 >;
 
 // Special case of BatchNorm whose input shape is [N]. In this case, 'scale',
@@ -795,7 +828,7 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
                     (createDenseElementsAttrFromFloatAttr $res, $epsilon)))))),
      // b
      (ONNXSubOp $bias, (ONNXMulOp $mean, $a))),
-  [(HasRankOf<1> $x)], (addBenefit 0)
+  [(HasRankOf<1> $x)], [], (addBenefit 0)
 >;
 
 //===----------------------------------------------------------------------===//
@@ -834,13 +867,13 @@ def SizeToConstantPattern: Pat<
 // Rewrite GlobalAveragePool using ReduceMean.
 def GlobalAveragePoolPattern: Pat<
   (ONNXGlobalAveragePoolOp $x),
-  (ONNXReduceMeanOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+  (ONNXReduceMeanV13Op $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
 >;
 
 // Rewrite GlobalMaxPool using ReduceMax.
 def GlobalMaxPoolPattern: Pat<
   (ONNXGlobalMaxPoolOp $x),
-  (ONNXReduceMaxOp $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+  (ONNXReduceMaxV13Op $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
 >;
 
 //===----------------------------------------------------------------------===//
@@ -917,10 +950,12 @@ def ConstantOpNormalizationPattern6: Pat<
 // Canonicalization for ONNXLessOp
 //===----------------------------------------------------------------------===//
 
+// The 'saturate' attribute shouldn't matter but we require it to be the same
+// for $a and $b to avoid applying the pattern in surprising ways.
 def LessOpSameCastPattern: Pat<
-   (ONNXLessOp (ONNXCastOp:$cast_a $a, $to1), (ONNXCastOp $b, $to2)),
+   (ONNXLessOp (ONNXCastOp:$cast_a $a, $saturate1, $to1), (ONNXCastOp $b, $saturate2, $to2)),
    (ONNXLessOp $a, $b),
-   [(HaveSameElementType $a, $b), (Equal $to1, $to2),
+   [(HaveSameElementType $a, $b), (Equal $saturate1, $saturate2), (Equal $to1, $to2),
     (HaveSameElementTypeBitWidth $a, $cast_a),
     (ElementTypeIsNotUnsigned:$cast_a)]
 >;
@@ -950,6 +985,33 @@ def SoftmaxV11ToLatestPattern: Pat<
    (ONNXSoftmaxV11Op $input, $axisAttr),
    (ONNXSoftmaxOp $input, $axisAttr),
    [(AxisIsTheLastDim $input, $axisAttr)]
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXShapeTransform
+//===----------------------------------------------------------------------===//
+
+// Remove ShapeTransform with identity map.
+def ShapeTransformIdentityPattern : Pat<
+  (ONNXShapeTransformOp $arg, $map1),
+  (replaceWithValue $arg),
+  [(IsIdentityAffineMap:$map1)]
+>;
+
+// Rewrite
+// ```
+//   onnx.ShapeTransform {#map1} (onnx.ShapeTransform {#map2} (%X))
+// ```
+// into
+// ```
+//   onnx.ShapeTransform {#map} (%X)
+// ```
+// where `#map = compose(#map1, #map2)
+
+def ShapeTransformComposePattern : Pat<
+  (ONNXShapeTransformOp (ONNXShapeTransformOp $arg, $map1), $map2),
+  (ONNXShapeTransformOp $arg, (GetComposedMap $map2, $map1)),
+  []
 >;
 
 #endif // ONNX_REWRITE

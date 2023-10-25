@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -79,13 +80,13 @@ public:
     // Condition for transformation: all affine.load, memref.dim and
     // zlow.detach_layout are the ONLY users of the input, so that we can safely
     // remove zlow.detach_layout.
-    SmallVector<AffineLoadOp, 4> affineLoads;
+    SmallVector<affine::AffineLoadOp, 4> affineLoads;
     for (Operation *user : output.getUsers()) {
       if (user == op)
         continue;
       if (llvm::isa<memref::DimOp>(user))
         continue;
-      if (auto affineLoad = llvm::dyn_cast<AffineLoadOp>(user))
+      if (auto affineLoad = llvm::dyn_cast<affine::AffineLoadOp>(user))
         affineLoads.emplace_back(affineLoad);
       else
         return failure();
@@ -131,11 +132,11 @@ public:
     // Condition for transformation: all affine.store and zlow.attach_layout are
     // the ONLY users of the input, so that we can safely remove
     // zlow.attach_layout.
-    SmallVector<AffineStoreOp, 4> affineStores;
+    SmallVector<affine::AffineStoreOp, 4> affineStores;
     for (Operation *user : input.getUsers()) {
       if (user == op)
         continue;
-      if (auto affineStore = llvm::dyn_cast<AffineStoreOp>(user))
+      if (auto affineStore = llvm::dyn_cast<affine::AffineStoreOp>(user))
         affineStores.emplace_back(affineStore);
       else
         return failure();

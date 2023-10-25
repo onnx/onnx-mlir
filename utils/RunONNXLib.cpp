@@ -4,7 +4,7 @@
 
 //===----------------- RunONNXLib.cpp  ------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 /*
@@ -113,7 +113,7 @@ extern "C" OMTensorList *run_main_graph(OMTensorList *);
 extern "C" const char *omInputSignature(const char *);
 extern "C" const char *omOutputSignature(const char *);
 extern "C" OMTensor *omTensorCreateWithOwnership(
-    void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
+    void *, const int64_t *, int64_t, OM_DATA_TYPE, int64_t);
 extern "C" OMTensorList *TensorListCreate(OMTensor **, int);
 extern "C" void omTensorListDestroy(OMTensorList *list);
 // DLL definitions
@@ -122,7 +122,7 @@ const char *(*dll_omInputSignature)(const char *);
 const char *(*dll_omOutputSignature)(const char *);
 OMTensor *(*dll_omTensorCreateWithOwnership)(
     void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t);
-OMTensorList *(*dll_omTensorListCreateWithOwnership)(OMTensor **, int, int64_t);
+OMTensorList *(*dll_omTensorListCreate)(OMTensor **, int);
 void (*dll_omTensorListDestroy)(OMTensorList *);
 
 #if LOAD_MODEL_STATICALLY
@@ -130,7 +130,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_INPUT_SIGNATURE omInputSignature
 #define OM_OUTPUT_SIGNATURE omOutputSignature
 #define OM_TENSOR_CREATE omTensorCreateWithOwnership
-#define OM_TENSOR_LIST_CREATE omTensorListCreateWithOwnership
+#define OM_TENSOR_LIST_CREATE omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY omTensorListDestroy
 #define OPTIONS "hn:m:vd:r:"
 #else
@@ -138,7 +138,7 @@ void (*dll_omTensorListDestroy)(OMTensorList *);
 #define OM_INPUT_SIGNATURE dll_omInputSignature
 #define OM_OUTPUT_SIGNATURE dll_omOutputSignature
 #define OM_TENSOR_CREATE dll_omTensorCreateWithOwnership
-#define OM_TENSOR_LIST_CREATE dll_omTensorListCreateWithOwnership
+#define OM_TENSOR_LIST_CREATE dll_omTensorListCreate
 #define OM_TENSOR_LIST_DESTROY dll_omTensorListDestroy
 #define OPTIONS "e:hn:m:vd:r:"
 #endif
@@ -178,11 +178,10 @@ void loadDLL(string name, string entryPointName) {
   assert(!dlerror() && "failed to load omOutputSignature");
   dll_omTensorCreateWithOwnership =
       (OMTensor * (*)(void *, int64_t *, int64_t, OM_DATA_TYPE, int64_t))
-          dlsym(handle, "omTensorCreate");
-  assert(!dlerror() && "failed to load omTensorCreate");
-  dll_omTensorListCreateWithOwnership =
-      (OMTensorList * (*)(OMTensor **, int, int64_t))
-          dlsym(handle, "omTensorListCreate");
+          dlsym(handle, "omTensorCreateWithOwnership");
+  assert(!dlerror() && "failed to load omTensorCreateWithOwnership");
+  dll_omTensorListCreate = (OMTensorList * (*)(OMTensor **, int))
+      dlsym(handle, "omTensorListCreate");
   assert(!dlerror() && "failed to load omTensorListCreate");
   dll_omTensorListDestroy =
       (void (*)(OMTensorList *))dlsym(handle, "omTensorListDestroy");
@@ -326,10 +325,9 @@ OMTensorList *omTensorListCreateFromInputSignature(
   // Allocate array of inputs.
   int inputNum = JSONArray->size();
   assert(inputNum >= 0 && inputNum < 100 && "out of bound number of inputs");
-  OMTensor **inputTensors = nullptr;
-  if (inputNum > 0)
-    inputTensors = (OMTensor **)malloc(inputNum * sizeof(OMTensor *));
-  // Scan each input tensor
+
+  OMTensor *inputTensors[inputNum];
+
   int dimKnownAtRuntimeIndex = 0;
   for (int i = 0; i < inputNum; ++i) {
     auto JSONItem = (*JSONArray)[i].getAsObject();
@@ -385,6 +383,27 @@ OMTensorList *omTensorListCreateFromInputSignature(
         assert(data && "failed to allocate data");
       }
       tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
+    } else if (type.equals("string")) {
+      // Add the handling of string type. "string" is the type in function
+      // signature.
+      char **data = nullptr;
+      if (dataPtrList) {
+        data = (char **)dataPtrList[i];
+      } else if (dataAlloc) {
+        data = (char **)malloc(size * sizeof(char *));
+        assert(data && "failed to allocate data");
+        // Need to initialize the pointer for string
+        // The complexity is to free the space for string when the OMTensor
+        // is destroyed. Change in the OMTensor is needed.
+        // For test purpose, just assign a pointer of the static string
+        // example_str. Should be replaced with random initialization for
+        // string type (omTensorCreateWithRandomData)
+        static char example_str[] = "randomstr";
+        for (size_t j = 0; j < size; j++) {
+          data[j] = example_str;
+        }
+      }
+      tensor = OM_TENSOR_CREATE(data, shape, rank, ONNX_TYPE_DOUBLE, true);
     }
 
     assert(tensor && "add support for the desired type");
@@ -397,7 +416,7 @@ OMTensorList *omTensorListCreateFromInputSignature(
       cout << "and " << size << " elements" << endl;
     }
   }
-  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum, true);
+  return OM_TENSOR_LIST_CREATE(inputTensors, inputNum);
 }
 
 // Data structures for timing info.

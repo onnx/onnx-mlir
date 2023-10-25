@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,27 +15,33 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXTransposeOpLowering : public ConversionPattern {
+struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
   using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
       MemRefBuilder, MathBuilder>;
+  bool enableParallel = false;
 
-  ONNXTransposeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXTransposeOp::getOperationName(), 1, ctx) {}
+  ONNXTransposeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx),
+        enableParallel(enableParallel) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
+      ONNXTransposeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
+    Operation *op = transposeOp.getOperation();
+    Location loc = ONNXLoc<ONNXTransposeOp>(op);
+    ValueRange operands = adaptor.getOperands();
     MDBuilder create(rewriter, loc);
 
     // Operands and attributes.
-    ONNXTransposeOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value data = operandAdaptor.getData();
-    auto permAttr = operandAdaptor.getPerm();
+    Value data = adaptor.getData();
+    auto permAttr = adaptor.getPerm();
 
     // Input and output types.
     MemRefType inMemRefType = data.getType().cast<MemRefType>();
@@ -55,12 +61,12 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
     if (canBeViewOp(inMemRefType, permAttr)) {
       Value view = create.mem.reinterpretCast(data, outDims);
       rewriter.replaceOp(op, view);
+      // No work, no need to report on SIMD.
       return success();
     }
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        insertAllocAndDeallocSimple(rewriter, op, outMemRefType, loc, outDims);
+    Value alloc = create.mem.alignedAlloc(outMemRefType, outDims);
 
     // If the last N dimensions are not permuted, do block copying for the last
     // N dimensions. Input and Output's MemRefs must use an identity layout to
@@ -70,11 +76,13 @@ struct ONNXTransposeOpLowering : public ConversionPattern {
 
     if (auto numLastDims =
             unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr))
-      blockTranspose(data, alloc, permAttr, &create, numLastDims);
+      blockTranspose(
+          data, alloc, permAttr, &create, numLastDims, enableParallel);
     else
-      scalarTranspose(data, alloc, permAttr, &create);
+      scalarTranspose(data, alloc, permAttr, &create, enableParallel);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
@@ -82,7 +90,7 @@ private:
   // If transpose does not permute the non-1 dimensions, it is safe to lower
   // transpose to a view op.
   bool canBeViewOp(
-      MemRefType inMemRefType, Optional<ArrayAttr> permAttr) const {
+      MemRefType inMemRefType, std::optional<ArrayAttr> permAttr) const {
     ArrayRef<int64_t> dims = inMemRefType.getShape();
     uint64_t rank = inMemRefType.getRank();
 
@@ -103,7 +111,7 @@ private:
   // Determine how many consecutive inner-most dimensions are not permuted.
   // Only apply to MemRefs whose affine layout is identity.
   int unchangedInnerDimensions(MemRefType inputMemRefType,
-      MemRefType outputMemRefType, Optional<ArrayAttr> permAttr) const {
+      MemRefType outputMemRefType, std::optional<ArrayAttr> permAttr) const {
     // Verify that the input's affine layout is identity.
     AffineMap im = inputMemRefType.getLayout().getAffineMap();
     if (im.getNumResults() != 1 && !im.isIdentity())
@@ -127,12 +135,18 @@ private:
 
   // Do transpose by copying elements one-by-one.
   void scalarTranspose(Value inputMemRef, Value outputMemRef,
-      Optional<ArrayAttr> permAttr, MDBuilder *create) const {
+      std::optional<ArrayAttr> permAttr, MDBuilder *create,
+      bool enableParallel) const {
     uint64_t rank = outputMemRef.getType().cast<MemRefType>().getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> ubs;
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
+
+    if (enableParallel) {
+      create->krnl.parallel(loopDef[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Transpose \n");
+    }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -150,13 +164,14 @@ private:
   // Do transpose by copying block of consecutive elements in the inner-most
   // dimensions.
   void blockTranspose(Value inputMemRef, Value outputMemRef,
-      Optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims) const {
+      std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims,
+      bool enableParallel) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
     MemRefType inMemRefType = inputMemRef.getType().cast<MemRefType>();
     uint64_t rank = inMemRefType.getRank();
     uint64_t outerRank = rank - numLastDims;
 
-    // Input and output upperbounds.
+    // Input and output upper bounds.
     SmallVector<IndexExpr, 4> inUBs;
     create->krnlIE.getShapeAsDims(inputMemRef, inUBs);
     SmallVector<IndexExpr, 4> outUBs;
@@ -194,9 +209,15 @@ private:
     // Main loop defined over the outer-most dimensions.
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LiteralIndexExpr(0));
+    if (enableParallel) {
+      create->krnl.parallel(loopDef[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Transpose \n");
+    }
+
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
+          IndexExprScope loopScope(createKrnl);
           // Compute destination and source offsets for memcpy.
           IndexExpr destOffsetIE = LiteralIndexExpr(0);
           IndexExpr srcOffsetIE = LiteralIndexExpr(0);
@@ -219,8 +240,8 @@ private:
 };
 
 void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

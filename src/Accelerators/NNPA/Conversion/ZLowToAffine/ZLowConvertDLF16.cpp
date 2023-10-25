@@ -105,8 +105,7 @@ public:
     int64_t alignment = 4096;
     MemRefType output1DType =
         MemRefType::Builder(input1DType).setElementType(outputElementType);
-    Value output1D = insertAllocAndDeallocSimple(
-        rewriter, nullptr, output1DType, loc, ubs1D, alignment);
+    Value output1D = create.mem.alignedAlloc(output1DType, ubs1D, alignment);
 
     // SIMDize conversion between fp32 and dlf16.
     int64_t VL = 8;

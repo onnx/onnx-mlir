@@ -34,7 +34,8 @@ namespace krnl {
 
 class KrnlGetRefOpLowering : public ConvertToLLVMPattern {
 public:
-  using ConvertToLLVMPattern::createIndexConstant;
+  using ConvertToLLVMPattern::createIndexAttrConstant;
+  using ConvertToLLVMPattern::getIndexType;
 
   explicit KrnlGetRefOpLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
@@ -44,6 +45,7 @@ public:
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     KrnlGetRefOpAdaptor operandAdaptor(operands);
@@ -66,16 +68,17 @@ public:
         create.llvm.extractValue(memPoolType, operandAdaptor.getMempool(), {1});
 
     // Get pointer using the offset.
+    auto llvmOutputElementType = outputElementType.cast<Type>();
     auto offset = operandAdaptor.getOffset();
     auto llvmMemPoolType = typeConverter->convertType(memPoolType).cast<Type>();
     auto outputMemPoolTypePtrAlloc =
-        create.llvm.getElemPtr(llvmMemPoolType, alignedMemPoolBase, {offset});
+        create.llvm.getElemPtr(llvmMemPoolType, llvmOutputElementType,
+            alignedMemPoolBase, ArrayRef<LLVM::GEPArg>{offset});
 
     // Bitcast to output MemRef type i.e. from i8* to the element type
     // of the output MemRef.
-    auto llvmOutputElementType = outputElementType.cast<Type>();
     Value outputTypedPtrAlloc =
-        create.llvm.bitcast(LLVM::LLVMPointerType::get(llvmOutputElementType),
+        create.llvm.bitcast(getPointerType(context, llvmOutputElementType),
             outputMemPoolTypePtrAlloc);
 
     // Handle the static case.
@@ -111,8 +114,10 @@ public:
 
     // Offset in aligned pointer.
     // TODO: support non-zero here in the aligned case.
+
+    Type indexType = getIndexType();
     memRefDescriptor.setOffset(
-        rewriter, loc, createIndexConstant(rewriter, loc, 0));
+        rewriter, loc, createIndexAttrConstant(rewriter, loc, indexType, 0));
 
     if (memRefTy.getRank() != 0) {
       // Prepare sizes.
@@ -120,9 +125,10 @@ public:
       sizes.reserve(memRefTy.getRank());
       unsigned i = 0;
       for (int64_t s : memRefTy.getShape())
-        sizes.push_back(s == ShapedType::kDynamic
-                            ? operands[2 + i++]
-                            : createIndexConstant(rewriter, loc, s));
+        sizes.push_back(
+            s == ShapedType::kDynamic
+                ? operands[2 + i++]
+                : createIndexAttrConstant(rewriter, loc, indexType, s));
 
       // Store all sizes in the descriptor. Only dynamic sizes are passed in as
       // operands to AllocOp.
@@ -137,9 +143,11 @@ public:
           //   `runningStride *= sizes[index + 1]`
           runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,
                                               runningStride, sizes[index + 1])
-                                        : createIndexConstant(rewriter, loc, 1);
+                                        : createIndexAttrConstant(
+                                              rewriter, loc, indexType, 1);
         else
-          runningStride = createIndexConstant(rewriter, loc, strides[index]);
+          runningStride =
+              createIndexAttrConstant(rewriter, loc, indexType, strides[index]);
         strideValues[index] = runningStride;
       }
       // Fill size and stride descriptors in memref.

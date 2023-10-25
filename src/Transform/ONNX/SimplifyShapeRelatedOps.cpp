@@ -110,25 +110,6 @@ Value emitConcatOpForDims(MultiDialectBuilder<OnnxBuilder> create,
   return concatOutput;
 }
 
-/// Update the function signature if the op's output is the return value.
-void updateFunctionSignature(Operation *op) {
-  assert(op->getResults().size() == 1 && "Only support single result ops");
-  Operation *parentOp = op->getParentOp();
-  if (auto f = dyn_cast<func::FuncOp>(parentOp)) {
-    if (!f.back().empty() && f.back().back().hasTrait<OpTrait::IsTerminator>())
-      if (auto terminator = f.getBody().back().getTerminator()) {
-        for (Operation *user : op->getResults()[0].getUsers()) {
-          if (user == terminator) {
-            auto results = user->getOperandTypes();
-            f.setType(FunctionType::get(f.getContext(),
-                f.getFunctionType().getInputs(),
-                std::vector<Type>(results.begin(), results.end())));
-          }
-        }
-      }
-  }
-}
-
 /// Update the output shape using userDims.
 /// Return success if the output shape is updated. Otherwise, return failure.
 LogicalResult updateOutputType(
@@ -142,8 +123,6 @@ LogicalResult updateOutputType(
   if (newOutputType == oldOutputType)
     return failure();
 
-  // Update the function signature if the output type changed.
-  updateFunctionSignature(output.getDefiningOp());
   return success();
 }
 
@@ -485,14 +464,10 @@ struct SimplifyShapeRelatedOpsPass
     return "Perform ONNX to ONNX optimizations for shape-related operations";
   }
 
-  SimplifyShapeRelatedOpsPass(bool report) : report(report) {}
-
   void runOnOperation() final;
 
 private:
   void topDownShapeSimplification(MLIRContext *context, ModuleOp moduleOp);
-
-  bool report;
 };
 
 void SimplifyShapeRelatedOpsPass::topDownShapeSimplification(
@@ -542,8 +517,8 @@ void SimplifyShapeRelatedOpsPass::runOnOperation() {
   for (unsigned i = 0; i < 3; ++i) {
     topDownShapeSimplification(context, moduleOp);
     OpPassManager pm("builtin.module");
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass(report));
-    pm.addPass(onnx_mlir::createShapeInferencePass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     if (failed(runPipeline(pm, moduleOp)))
       return signalPassFailure();
@@ -557,8 +532,8 @@ namespace onnx_mlir {
 /*!
  * Create a SimplifyShapeRelatedOps pass.
  */
-std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass(bool report) {
-  return std::make_unique<SimplifyShapeRelatedOpsPass>(report);
+std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass() {
+  return std::make_unique<SimplifyShapeRelatedOpsPass>();
 }
 
 } // namespace onnx_mlir

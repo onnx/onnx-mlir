@@ -8,9 +8,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 #include "mlir/IR/Builders.h"
 
@@ -93,17 +93,9 @@ public:
   int test_FloatingPoint16() {
     std::cout << "test_FloatingPoint16:" << std::endl;
 
-    float_16 f9984(9984);
-    bfloat_16 fminus1(-1);
-    float_16 bfminus1(fminus1);
-    bfloat_16 bf9984(f9984);
-    assert(bfminus1.toFloat() == fminus1.toFloat());
-    assert(static_cast<float_16>(bf9984).toFloat() ==
-           static_cast<bfloat_16>(f9984).toFloat());
-
     // Test that constexpr works for all these:
-    constexpr float_16 f16z = float_16();
-    constexpr bfloat_16 bf16z = bfloat_16();
+    constexpr float_16 f16z{};
+    constexpr bfloat_16 bf16z{};
     constexpr BType df16 = toBType<decltype(f16z)>;
     constexpr BType dbf16 = toBType<decltype(bf16z)>;
     assert(df16 == toBType<float_16>);
@@ -117,6 +109,33 @@ public:
 
     return 0;
   }
+
+  int test_FloatingPoint8() {
+    std::cout << "test_FloatingPoint8:" << std::endl;
+
+    // Test that constexpr works for all these:
+    constexpr float_8e4m3fn f8e4m3fn{};
+    constexpr float_8e4m3fnuz f8e4m3fnuz{};
+    constexpr float_8e5m2 f8e5m2{};
+    constexpr float_8e5m2fnuz f8e5m2fnuz{};
+    constexpr BType df8e4m3fn = toBType<decltype(f8e4m3fn)>;
+    constexpr BType df8e4m3fnuz = toBType<decltype(f8e4m3fnuz)>;
+    constexpr BType df8e5m2 = toBType<decltype(f8e5m2)>;
+    constexpr BType df8e5m2fnuz = toBType<decltype(f8e5m2fnuz)>;
+    assert(df8e4m3fn == toBType<float_8e4m3fn>);
+    assert(df8e4m3fnuz == toBType<float_8e4m3fnuz>);
+    assert(df8e5m2 == toBType<float_8e5m2>);
+    assert(df8e5m2fnuz == toBType<float_8e5m2fnuz>);
+    assert((std::is_same_v<CppType<df8e4m3fn>, float_8e4m3fn>));
+    assert((std::is_same_v<CppType<df8e4m3fnuz>, float_8e4m3fnuz>));
+    assert((std::is_same_v<CppType<df8e5m2>, float_8e5m2>));
+    assert((std::is_same_v<CppType<df8e5m2fnuz>, float_8e5m2fnuz>));
+
+    constexpr WideNum n = WideNum::from(toBType<float_8e4m3fn>, true);
+    assert(n.dbl == 1.0);
+
+    return 0;
+  }
 };
 
 } // namespace
@@ -126,6 +145,7 @@ int main(int argc, char *argv[]) {
   int failures = 0;
   failures += test.test_dispatchByBType();
   failures += test.test_FloatingPoint16();
+  failures += test.test_FloatingPoint8();
   if (failures != 0) {
     std::cerr << failures << " test failures\n";
     return 1;

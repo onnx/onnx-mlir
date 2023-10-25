@@ -40,6 +40,11 @@ public class OMTensor {
     public final static int ONNX_TYPE_COMPLEX64  = 14;
     public final static int ONNX_TYPE_COMPLEX128 = 15;
     public final static int ONNX_TYPE_BFLOAT16   = 16;
+    public final static int ONNX_TYPE_FLOAT8E4M3FN = 17;
+    public final static int ONNX_TYPE_FLOAT8E4M3FNUZ = 18;
+    public final static int ONNX_TYPE_FLOAT8E5M2 = 19;
+    public final static int ONNX_TYPE_FLOAT8E5M2FNUZ = 20;
+    public final static int LAST_ONNX_TYPE = 20; // Alias for last ONNX_TYPE.
 
     public final static int[] ONNX_TYPE_SIZE = new int[] {
             0,  /* UNDEFINED  */
@@ -59,6 +64,10 @@ public class OMTensor {
             8,  /* COMPLEX64  */
             16, /* COMPLEX128 */
             2,  /* BFLOAT16   */
+            1,  /* FLOAT8E4M3FN */
+            1,  /* FLOAT8E4M3FNUZ */
+            1,  /* FLOAT8E5M2 */
+            1,  /* FLOAT8E5M2FNUZ */
     };
 
     public final static String[] ONNX_TYPE_NAME = new String[] {
@@ -79,6 +88,10 @@ public class OMTensor {
             "COMPLEX64",
             "COMPLEX128",
             "BFLOAT16",
+            "FLOAT8E4M3FN",
+            "FLOAT8E4M3FNUZ",
+            "FLOAT8E5M2",
+            "FLOAT8E5M2FNUZ",
     };
 
     private final ByteOrder nativeEndian = ByteOrder.nativeOrder();
@@ -509,7 +522,7 @@ public class OMTensor {
      * @param dataType data type to be set
      */
     public void setDataType(int dataType) {
-        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+        if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
         _dataType = dataType;
@@ -579,7 +592,7 @@ public class OMTensor {
      * @param endian data endian
      */
     protected OMTensor(ByteBuffer data, long[] shape, ByteOrder endian, int dataType) {
-        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+        if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
 	if (endian == null)
@@ -602,10 +615,13 @@ public class OMTensor {
         if (shape.length != strides.length)
             throw new IllegalArgumentException(
                     "shape.length (" + shape.length + ") != stride.length (" + strides.length + ")");
-        if (dataType < 0 || dataType > ONNX_TYPE_BFLOAT16)
+        if (dataType < 0 || dataType > LAST_ONNX_TYPE)
             throw new IllegalArgumentException(
                     "data type " + dataType + " unknown");
-        _data = data.order(nativeEndian);
+        /* data is owned by the native code. Make a copy to allow the JNI
+           wrapper to clean up the native memory. */
+        _data = ByteBuffer.allocateDirect(data.capacity()).order(nativeEndian);
+        _data.slice().put(data.order(nativeEndian));
         _dataType = dataType;
         _rank = shape.length;
         _shape = shape;

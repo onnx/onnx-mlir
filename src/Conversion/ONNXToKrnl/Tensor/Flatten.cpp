@@ -4,7 +4,7 @@
 
 //===---------------- Flatten.cpp - Lowering Flatten Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -22,9 +22,8 @@ namespace onnx_mlir {
 // Helper function to insert alloc and dealloc ops for memref of dynamic shape.
 //
 // Should namespace or static be used here?
-Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
-    ConversionPatternRewriter &rewriter, bool insertDealloc, Value input,
-    int64_t axisValue) {
+Value insertAllocForFlatten(MemRefType memRefType, Location loc,
+    ConversionPatternRewriter &rewriter, Value input, int64_t axisValue) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   memref::AllocOp alloc;
   auto inputShape = input.getType().cast<MemRefType>().getShape();
@@ -47,35 +46,29 @@ Value insertAllocAndDeallocForFlatten(MemRefType memRefType, Location loc,
     allocOperands.emplace_back(dimVal);
   }
 
-  alloc = create.mem.alignedAlloc(memRefType, allocOperands);
-  if (insertDealloc) {
-    Block *parentBlock = alloc.getOperation()->getBlock();
-    memref::DeallocOp dealloc = create.mem.dealloc(alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return alloc;
+  return create.mem.alignedAlloc(memRefType, allocOperands);
 }
 
-struct ONNXFlattenOpLowering : public ConversionPattern {
+struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
   ONNXFlattenOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXFlattenOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXFlattenOp flattenOp,
+      ONNXFlattenOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
 
     // Gather info.
-    Location loc = op->getLoc();
-    ONNXFlattenOp flattenOp = llvm::dyn_cast<ONNXFlattenOp>(op);
+    Operation *op = flattenOp.getOperation();
+    Location loc = ONNXLoc<ONNXFlattenOp>(op);
 
-    ONNXFlattenOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
+    Value input = adaptor.getInput();
     auto inputTy = input.getType().cast<MemRefType>();
     auto inputShape = inputTy.getShape();
     size_t inputRank = inputShape.size();
     int64_t axisValue = flattenOp.getAxis();
     if (axisValue < 0)
       axisValue = inputRank + axisValue;
+    MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -84,12 +77,10 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert alloc and dealloc
-    bool insertDealloc = checkInsertDealloc(op);
     Value alloc = (hasAllConstantDimensions(outputMemRefType))
-                      ? insertAllocAndDealloc(
-                            outputMemRefType, loc, rewriter, insertDealloc)
-                      : insertAllocAndDeallocForFlatten(outputMemRefType, loc,
-                            rewriter, insertDealloc, input, axisValue);
+                      ? create.mem.alignedAlloc(outputMemRefType)
+                      : insertAllocForFlatten(
+                            outputMemRefType, loc, rewriter, input, axisValue);
 
     // Define loops and iteration trip counts (equivalent to size of input)
     ValueRange indices;
@@ -101,7 +92,6 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
       addDimensionToPack(rewriter, loc, pack, input, i);
 
     // Create the loops
-    MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     KrnlIterateOp iterateOp = create.krnl.iterate(pack);
     Block &iterationBlock = iterateOp.getBodyRegion().front();
 
@@ -135,8 +125,8 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     for (int64_t i = 0; i < axisValue; i++)
       firstMapArgList.emplace_back(createMemRef.dim(input, i));
 
-    auto firstDimVal =
-        rewriter.create<AffineApplyOp>(loc, firstDimMap, firstMapArgList);
+    auto firstDimVal = rewriter.create<affine::AffineApplyOp>(
+        loc, firstDimMap, firstMapArgList);
 
     // Generate index for second dim of output
     AffineExpr secondIndexAE = rewriter.getAffineConstantExpr(0);
@@ -159,8 +149,8 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
     for (size_t i = axisValue; i < inputRank; i++)
       secondMapArgList.emplace_back(createMemRef.dim(input, i));
 
-    auto secondDimVal =
-        rewriter.create<AffineApplyOp>(loc, secondDimMap, secondMapArgList);
+    auto secondDimVal = rewriter.create<affine::AffineApplyOp>(
+        loc, secondDimMap, secondMapArgList);
 
     // Create the store
     SmallVector<Value, 2> outputMemRefVal = {firstDimVal, secondDimVal};
@@ -170,6 +160,7 @@ struct ONNXFlattenOpLowering : public ConversionPattern {
       create.krnl.store(inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

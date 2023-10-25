@@ -4,7 +4,7 @@
 
 //===------ RuntimeAPI.cpp - Implementation of Runtime API ----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022,2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,8 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
+#include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
@@ -57,23 +59,25 @@ Value RuntimeAPI::callApi(OpBuilder &builder, Location loc,
 
 RuntimeAPIRegistry::~RuntimeAPIRegistry() {}
 
-RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
+RuntimeAPIRegistry::RuntimeAPIRegistry(
+    ModuleOp &module, OpBuilder &builder, const LLVMTypeConverter &typeConvert)
     : registry() {
   MLIRContext *context = module.getContext();
   auto voidTy = LLVM::LLVMVoidType::get(context);
   auto int8Ty = IntegerType::get(context, 8);
-  auto opaquePtrTy = LLVM::LLVMPointerType::get(int8Ty);
-  auto opaquePtrPtrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
+  auto opaquePtrTy = onnx_mlir::krnl::getPointerType(context, int8Ty);
+  auto opaquePtrPtrTy = onnx_mlir::krnl::getPointerType(context, opaquePtrTy);
   auto int64Ty = IntegerType::get(context, 64);
-  auto int64PtrTy = LLVM::LLVMPointerType::get(int64Ty);
+  auto int64PtrTy = onnx_mlir::krnl::getPointerType(context, int64Ty);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
   // clang-format off
-  using API = RuntimeAPI::API;  
+  using API = RuntimeAPI::API;
   std::vector<RuntimeAPI> RuntimeAPISpecs = {
-    RuntimeAPI(API::CREATE_OMTENSOR_LIST, "omTensorListCreateWithOwnership", opaquePtrTy, {opaquePtrPtrTy, int64Ty, int64Ty}),
+    RuntimeAPI(API::CREATE_OMTENSOR_LIST, "omTensorListCreate", opaquePtrTy, {opaquePtrPtrTy, int64Ty}),
     RuntimeAPI(API::CREATE_OMTENSOR, "omTensorCreateUntyped", opaquePtrTy, {int64Ty}),
+    RuntimeAPI(API::DESTROY_OMTENSOR, "omTensorDestroy", voidTy, {opaquePtrTy}),
     RuntimeAPI(API::GET_DATA, "omTensorGetDataPtr", opaquePtrTy, {opaquePtrTy}),
     RuntimeAPI(API::SET_DATA, "omTensorSetDataPtr", voidTy, {opaquePtrTy, int64Ty, opaquePtrTy, opaquePtrTy}),
     RuntimeAPI(API::GET_DATA_RANK, "omTensorGetRank", int64Ty, {opaquePtrTy}),
@@ -84,6 +88,8 @@ RuntimeAPIRegistry::RuntimeAPIRegistry(ModuleOp &module, OpBuilder &builder)
     RuntimeAPI(API::GET_OMT_ARRAY, "omTensorListGetOmtArray", opaquePtrPtrTy, {opaquePtrTy}),
     RuntimeAPI(API::PRINT_OMTENSOR, "omTensorPrint", voidTy, {opaquePtrTy, opaquePtrTy}),
     RuntimeAPI(API::GET_OMTENSOR_LIST_SIZE, "omTensorListGetSize", int64Ty, {opaquePtrTy}),
+    RuntimeAPI(API::MMAP_BINARY_FILE, "omMMapBinaryFile", voidTy, {opaquePtrPtrTy, opaquePtrTy, int64Ty, int64Ty}),
+    RuntimeAPI(API::GET_EXTERNAL_CONSTANT_ADDR, "omGetExternalConstantAddr", voidTy, {opaquePtrPtrTy, opaquePtrPtrTy, int64Ty}),
   };
   // clang-format on
 

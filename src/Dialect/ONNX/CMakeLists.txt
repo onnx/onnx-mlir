@@ -19,6 +19,7 @@ add_onnx_mlir_library(OMONNXOps
   OnnxElementsAttrBuilder.cpp
   ONNXAttributes.cpp
   ONNXDialect.cpp
+  ONNXDimAnalysis.cpp
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
   ONNXOps/ShapeHelper.cpp
@@ -26,20 +27,20 @@ add_onnx_mlir_library(OMONNXOps
   Rewrite.cpp
 
   # Support for shape inference and verifiers
-  ONNXOps/Additional/CallOp.cpp
   ONNXOps/Additional/ConcatShapeTranspose.cpp
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp
+  ONNXOps/Additional/Return.cpp
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
+  ONNXOps/Additional/ShapeTransform.cpp
   ONNXOps/ControlFlow/If.cpp
   ONNXOps/ControlFlow/Loop.cpp
   ONNXOps/ControlFlow/Scan.cpp
   ONNXOps/ML/CategoryMapper.cpp
   ONNXOps/ML/OneHotEncoder.cpp
   ONNXOps/Math/Bernoulli.cpp
-  ONNXOps/Math/Clip.cpp
   ONNXOps/Math/DFT.cpp
   ONNXOps/Math/Einsum.cpp
   ONNXOps/Math/EinsumHelper.cpp
@@ -100,7 +101,7 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Tensor/Unique.cpp
   ONNXOps/Tensor/Unsqueeze.cpp
   ONNXOps/Tensor/Upsample.cpp
-
+  
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
@@ -114,9 +115,11 @@ add_onnx_mlir_library(OMONNXOps
   LINK_LIBS PUBLIC
   OMMlirDialects
   OMMlirUtilities
+  OMShapeHelperOpInterface
   OMONNXElementsAttr
   onnx
   MLIRFuncDialect
+  MLIRMemRefTransforms
   )
 
 configure_file(ONNXOps.td.inc.dc.in

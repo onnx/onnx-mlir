@@ -4,7 +4,7 @@
 
 //===---------------------- KrnlOps.cpp - Krnl Operations -----------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -75,7 +75,7 @@ static std::string typeToString(Type ty) {
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
-    std::string funcNameStr, Value resultVal, Operation *op,
+    std::string funcNameStr, ValueRange resultVals, Operation *op,
     ValueRange operands, bool copyAttrs) {
   // Creates parameters for KrnlCall for Optional input (with NoneType)
   // The semantics of optional input is ONNX Op specific and should be
@@ -87,20 +87,25 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   // Then the None input can be handled inside the external function.
   // Currently, onnx-mlir::NoneType is not handled by typeConverter of
   // ONNXToKrnl conversion.
-  SmallVector<Value, 4> allInputs;
-  allInputs.emplace_back(resultVal);
+  SmallVector<Value, 4> allInputs(resultVals);
   for (auto operand : operands) {
-    if (!isFromNone(operand))
+    if (!isNoneValue(operand))
       allInputs.emplace_back(operand);
   }
 
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
-  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  IntegerAttr numOfOutputAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, /*value=*/resultVals.size(), /*isSigned=*/true));
   if (!copyAttrs) {
-    build(builder, odsState, funcNameAttr, resultVal, allInputs);
+    build(builder, odsState, funcNameAttr, numOfOutputAttr,
+        ValueRange(allInputs));
   } else {
     std::vector<NamedAttribute> attributes;
-    attributes.emplace_back(namedAttr);
+    auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
+    auto namedAttr2 = builder.getNamedAttr("numOfOutput", numOfOutputAttr);
+    attributes.emplace_back(namedAttr1);
+    attributes.emplace_back(namedAttr2);
     for (auto namedAttr : op->getAttrs()) {
       attributes.emplace_back(namedAttr);
     }
@@ -109,26 +114,57 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 }
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
-    Value resultVal, Operation *op, ValueRange operands, bool copyAttrs) {
+    std::string funcNameStr, ValueRange resultVals, Operation *op,
+    ValueRange operands, std::vector<std::string> attributeNames) {
+  SmallVector<Value, 4> allInputs(resultVals);
+  for (auto operand : operands) {
+    if (!isNoneValue(operand))
+      allInputs.emplace_back(operand);
+  }
+
+  std::vector<NamedAttribute> attributes;
+  StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
+  auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
+  attributes.emplace_back(namedAttr1);
+
+  IntegerAttr numOfOutputAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, /*value=*/resultVals.size(), /*isSigned=*/true));
+  auto namedAttr2 = builder.getNamedAttr("numOfOutput", numOfOutputAttr);
+  attributes.emplace_back(namedAttr2);
+
+  for (auto attributeName : attributeNames) {
+    if (Attribute attr = op->getAttr(attributeName)) {
+      attributes.emplace_back(builder.getNamedAttr(attributeName, attr));
+    }
+  }
+  build(builder, odsState, TypeRange(), ValueRange(allInputs), attributes);
+}
+
+void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
+    ValueRange resultVals, Operation *op, ValueRange operands, bool copyAttrs) {
   // Create funcName
   std::string name = op->getName().getStringRef().str();
   std::replace(name.begin(), name.end(), '.', '_');
-  ShapedType resultType = resultVal.getType().cast<ShapedType>();
+  ShapedType resultType = resultVals[0].getType().cast<ShapedType>();
   Type elementType = resultType.getElementType();
   std::string funcNameStr = name + "_" + typeToString(elementType);
 
-  build(builder, odsState, funcNameStr, resultVal, op, operands, copyAttrs);
+  build(builder, odsState, funcNameStr, resultVals, op, operands, copyAttrs);
 }
 
 void KrnlCallOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  for (auto parameter : getParameters()) {
-    effects.emplace_back(MemoryEffects::Read::get(), parameter,
-        SideEffects::DefaultResource::get());
+
+  for (size_t i = 0; i < getParameters().size(); i++) {
+    if (i < (size_t)getNumOfOutput())
+      effects.emplace_back(MemoryEffects::Write::get(), getParameters()[i],
+          SideEffects::DefaultResource::get());
+    else
+      effects.emplace_back(MemoryEffects::Read::get(), getParameters()[i],
+          SideEffects::DefaultResource::get());
   }
-  effects.emplace_back(MemoryEffects::Write::get(), getResult(),
-      SideEffects::DefaultResource::get());
 }
 
 //===----------------------------------------------------------------------===//
@@ -355,7 +391,7 @@ struct LoopParser {
     if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
       unsigned currentNumOperands = result.operands.size();
       unsigned numDims = 0;
-      if (parseDimAndSymbolList(parser, result.operands, numDims))
+      if (affine::parseDimAndSymbolList(parser, result.operands, numDims))
         return failure();
 
       auto map = affineMapAttr.getValue();
@@ -470,7 +506,9 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
-Region &KrnlIterateOp::getLoopBody() { return getBodyRegion(); }
+::llvm::SmallVector<mlir::Region *> KrnlIterateOp::getLoopRegions() {
+  return {&getBodyRegion()};
+}
 
 LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of
@@ -663,7 +701,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
   return success(folded);
 }
 
-OpFoldResult KrnlVectorTypeCastOp::fold(ArrayRef<Attribute> operands) {
+OpFoldResult KrnlVectorTypeCastOp::fold(FoldAdaptor adaptor) {
   if (OpFoldResult folded = OpFoldResult())
     return folded;
   return succeeded(foldMemRefCast(*this)) ? getResult() : Value();
@@ -685,7 +723,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     Value kOdsGlobalUB, ArrayRef<int64_t> odsComputeTileSize,
     ArrayRef<int64_t> aOdsTileSize, ArrayRef<int64_t> bOdsTileSize,
     ArrayRef<int64_t> cOdsTileSize, bool odsSimdize, bool odsUnroll,
-    bool odsOvercompute) {
+    bool odsOverCompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayAttr computeTileSizeAttr =
@@ -698,7 +736,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
       loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, computeTileSizeAttr,
       aTileSizeAttr, bTileSizeAttr, cTileSizeAttr, odsSimdize, odsUnroll,
-      odsOvercompute);
+      odsOverCompute);
 }
 
 void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
@@ -706,7 +744,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
     Value odsB, ValueRange bOdsStart, Value odsC, ValueRange cOdsStart,
     ValueRange odsLoops, Value iOdsComputeStart, Value jOdsComputeStart,
     Value kOdsComputeStart, Value iOdsGlobalUB, Value jOdsGlobalUB,
-    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOvercompute) {
+    Value kOdsGlobalUB, bool odsSimdize, bool odsUnroll, bool odsOverCompute) {
   // Massage types.
   ValueRange loopRange(odsLoops);
   ArrayRef<int64_t> empty;
@@ -714,7 +752,7 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
   build(odsBuilder, odsState, odsA, aOdsStart, odsB, bOdsStart, odsC, cOdsStart,
       loopRange, iOdsComputeStart, jOdsComputeStart, kOdsComputeStart,
       iOdsGlobalUB, jOdsGlobalUB, kOdsGlobalUB, empty, empty, empty, empty,
-      odsSimdize, odsUnroll, odsOvercompute);
+      odsSimdize, odsUnroll, odsOverCompute);
 }
 
 LogicalResult KrnlMatMulOp::verify() {
@@ -877,14 +915,15 @@ void KrnlSeqExtractOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqExtractOp::buildDealloc(
+std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   MultiDialectBuilder<MemRefBuilder> create(builder, loc);
   return create.mem.dealloc(alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqExtractOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqExtractOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }
@@ -902,14 +941,15 @@ void KrnlSeqAllocOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
-Optional<Operation *> KrnlSeqAllocOp::buildDealloc(
+std::optional<Operation *> KrnlSeqAllocOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
   // MultiDialectBuilder<KrnlBuilder> create(builder, loc);
   return builder.create<KrnlSeqDeallocOp>(loc, alloc).getOperation();
 }
 
-Optional<Value> KrnlSeqAllocOp::buildClone(OpBuilder &builder, Value alloc) {
+std::optional<Value> KrnlSeqAllocOp::buildClone(
+    OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
 }

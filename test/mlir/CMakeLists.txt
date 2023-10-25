@@ -14,10 +14,10 @@ else()
   message(STATUS "Accelerator lit tests    : NONE")
 endif()
 
-if (ONNX_MLIR_ENABLE_MHLO)
-  set(ONNX_MLIR_MHLO_ENABLED 1)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
+  set(ONNX_MLIR_STABLEHLO_ENABLED 1)
 else()
-  set(ONNX_MLIR_MHLO_ENABLED 0)
+  set(ONNX_MLIR_STABLEHLO_ENABLED 0)
 endif()
 
 # Set LLVM_DEFAULT_EXTERNAL_LIT to an empty string to avoid warnings about the path
@@ -54,6 +54,7 @@ set(ONNX_MLIR_TEST_DEPENDS
   not
   split-file
   llvm-dis
+  binary-decoder
   )
 
 add_lit_testsuite(check-onnx-lit

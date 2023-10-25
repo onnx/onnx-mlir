@@ -4,7 +4,7 @@
 
 //===---------------- OneHot.cpp - Lowering OneHot Op -------------------===//
 //
-// Copyright 2021-2022 The IBM Research Authors.
+// Copyright 2021-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,19 +19,21 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXOneHotOpLowering : public ConversionPattern {
+struct ONNXOneHotOpLowering : public OpConversionPattern<ONNXOneHotOp> {
   ONNXOneHotOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXOneHotOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXOneHotOp onehotOp,
+      ONNXOneHotOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXOneHotOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-    Value indices = operandAdaptor.getIndices();
-    Value values = operandAdaptor.getValues();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    Operation *op = onehotOp.getOperation();
+    Location loc = ONNXLoc<ONNXOneHotOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value indices = adaptor.getIndices();
+    Value values = adaptor.getValues();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXOneHotOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -45,8 +47,8 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Load off/on vals found in values memref.
     LiteralIndexExpr minusOneIE(-1), zeroIE(0), oneIE(1);
@@ -110,6 +112,7 @@ struct ONNXOneHotOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

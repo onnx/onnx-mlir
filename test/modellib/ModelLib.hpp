@@ -22,7 +22,9 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/FileUtilities.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
@@ -168,6 +170,7 @@ private:
       bool isLast = false) const;
 };
 
+#define MAX_INPUT_RANK_FOR_TEST 3
 template <typename T1, typename T2>
 class CategoryMapperLibBuilder : public ModelLibBuilder {
   // Ensure template is instantiated with expected types.
@@ -183,18 +186,39 @@ class CategoryMapperLibBuilder : public ModelLibBuilder {
 public:
   // CategoryMapper attributes.
   struct CMAttributes {
-    llvm::ArrayRef<int64_t> cat_int64s;
-    llvm::ArrayRef<llvm::StringRef> cat_strings;
+    llvm::SmallVector<int64_t> cat_int64s;
+    llvm::SmallVector<llvm::StringRef> cat_strings;
     int64_t default_int;
     llvm::StringRef default_string;
   };
 
   CategoryMapperLibBuilder(std::string name, const CMAttributes &attributes,
-      llvm::ArrayRef<T1> input, llvm::ArrayRef<T2> expOutput)
+      llvm::ArrayRef<T1> input, llvm::ArrayRef<T2> expOutput, int inputRank)
       : ModelLibBuilder(name), attributes(attributes), input(input),
-        expOutput(expOutput) {
+        expOutput(expOutput), inputRank(inputRank) {
     assert(input.size() == expOutput.size() &&
            "Expecting input/expOutput to have the same size");
+    inputShape[0] = inputShape[1] = inputShape[2] = 0;
+    switch (inputRank) {
+    case 1:
+      inputShape[0] = static_cast<int64_t>(input.size());
+      break;
+    case 2:
+      assert(((input.size() % 2) == 0) &&
+             "CategoryMapperLibBuilder: invalid input size");
+      inputShape[0] = static_cast<int64_t>(input.size() / 2);
+      inputShape[1] = 2;
+      break;
+    case 3:
+      assert(((input.size() % 6) == 0) &&
+             "CategoryMapperLibBuilder: invalid input size");
+      inputShape[0] = static_cast<int64_t>(input.size() / 6);
+      inputShape[1] = 2;
+      inputShape[2] = 3;
+      break;
+    default:
+      llvm_unreachable("CategoryMapperLibBuilder: non supported rank");
+    }
   }
 
   bool build() final;
@@ -220,9 +244,11 @@ private:
   bool verifyResults(const OMTensor *out, const OMTensor *expected) const;
 
 private:
-  const CMAttributes &attributes;     // CategoryMapper attributes.
-  const llvm::ArrayRef<T1> input;     // model input data.
-  const llvm::ArrayRef<T2> expOutput; // expected result.
+  const CMAttributes &attributes;              // CategoryMapper attributes.
+  const llvm::ArrayRef<T1> input;              // model input data.
+  const llvm::ArrayRef<T2> expOutput;          // expected result.
+  const int inputRank;                         // rank of input
+  int64_t inputShape[MAX_INPUT_RANK_FOR_TEST]; // shape of input
 };
 
 class GemmLibBuilder : public ModelLibBuilder {
@@ -464,6 +490,24 @@ private:
   int D;
   llvm::SmallVector<int64_t, 3> xShape, hShape;
   OMTensor *wOmt, *rOmt, *bOmt;
+};
+
+// 2D elementwise with no broadcast
+class Elementwise2DLibBuilder : public ModelLibBuilder {
+public:
+  Elementwise2DLibBuilder(const std::string &modelName,
+      const std::string &onnxOpName, const int I, const int J);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  std::string onnxOpName;
+  const int I, J;
+  const int inputNum;
 };
 
 } // namespace test

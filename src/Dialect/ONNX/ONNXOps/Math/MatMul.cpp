@@ -189,6 +189,100 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
+LogicalResult ONNXMatMulIntegerOp::verify() {
+  ONNXMatMulIntegerOp::Adaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(getOperation()))
+    return success();
+
+  // If AZeroPoint is [M] (M != 1), A must be [M, K]
+  // If AZeroPoint rank is > 1, A must have the same rank, e.g.
+  // - [D1, D2, ..., DN, M, 1] if A is [D1, D2, ..., DN, M, K]
+  Value A = operandAdaptor.getA();
+  Value aZeroPoint = this->getAZeroPoint();
+  if (!isNoneValue(aZeroPoint)) {
+    auto aType = A.getType().cast<ShapedType>();
+    auto aZeroPointType = aZeroPoint.getType().cast<ShapedType>();
+    uint64_t aRank = aType.getRank();
+    uint64_t aZeroPointRank = aZeroPointType.getRank();
+    ArrayRef<int64_t> aShape = aType.getShape();
+    ArrayRef<int64_t> aZeroPointShape = aZeroPointType.getShape();
+    // If AZeroPoint is [M] (M != 1), A must be [M, K]
+    if ((aZeroPointRank == 1) && (!aZeroPointType.isDynamicDim(0)) &&
+        (aZeroPointShape[0] != 1) && (aRank != 2))
+      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+          *this->getOperation(), A, aRank, "2");
+    // If AZeroPoint's rank is > 1, it must be the same as A's rank.
+    if (aZeroPointRank > 1) {
+      // Same rank.
+      if (aZeroPointRank != aRank)
+        return onnx_mlir::Diagnostic::emitInputsMustHaveSameRankError(
+            *this->getOperation(), "A", aRank, "aZeroPoint", aZeroPointRank);
+      // Broadcasting at the last dimension.
+      for (uint64_t i = 0; i < aRank - 1; ++i) {
+        if (!aType.isDynamicDim(i) && !aZeroPointType.isDynamicDim(i) &&
+            (aShape[i] != aZeroPointShape[i])) {
+          return onnx_mlir::Diagnostic::emitDimensionsMustHaveSameValueError(
+              *this->getOperation(), "A", i, aShape[i], "aZeroPoint", i,
+              aZeroPointShape[i]);
+        }
+      }
+      uint64_t lastAxis = aRank - 1;
+      if (!aZeroPointType.isDynamicDim(lastAxis) &&
+          (aZeroPointShape[lastAxis] != 1)) {
+        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+            *this->getOperation(), aZeroPoint, lastAxis,
+            aZeroPointShape[lastAxis], "1");
+      }
+    }
+  }
+
+  // If BZeroPoint is [N] (N != 1), B must be [K, N]
+  // If BZeroPoint rank is > 1, B must have the same rank, e.g.
+  // - [D1, D2, ..., DN, 1, N] if A is [D1, D2, ..., DN, K, N]
+  Value B = operandAdaptor.getB();
+  Value bZeroPoint = this->getBZeroPoint();
+  if (!isNoneValue(bZeroPoint)) {
+    auto bType = dyn_cast<ShapedType>(B.getType());
+    auto bZeroPointType = dyn_cast<ShapedType>(bZeroPoint.getType());
+    uint64_t bRank = bType.getRank();
+    uint64_t bZeroPointRank = bZeroPointType.getRank();
+    ArrayRef<int64_t> bShape = bType.getShape();
+    ArrayRef<int64_t> bZeroPointShape = bZeroPointType.getShape();
+
+    // If BZeroPoint is [N] (N != 1), B must be [K, N]
+    if ((bZeroPointRank == 1) && (!bZeroPointType.isDynamicDim(0)) &&
+        (bZeroPointShape[0] != 1) && (bRank != 2))
+      return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
+          *this->getOperation(), B, bRank, "2");
+    // If BZeroPoint rank is > 1, B must have the same rank, e.g.
+    if (bZeroPointRank > 1) {
+      // Same rank.
+      if (bZeroPointRank != bRank)
+        return onnx_mlir::Diagnostic::emitInputsMustHaveSameRankError(
+            *this->getOperation(), "B", bRank, "bZeroPoint", bZeroPointRank);
+      // Broadcasting at the K dimension.
+      uint64_t kAxis = bRank - 2;
+      for (uint64_t i = 0; i < bRank; ++i) {
+        if (i == kAxis)
+          continue;
+        if (!bType.isDynamicDim(i) && !bZeroPointType.isDynamicDim(i) &&
+            (bShape[i] != bZeroPointShape[i])) {
+          return onnx_mlir::Diagnostic::emitDimensionsMustHaveSameValueError(
+              *this->getOperation(), "B", i, bShape[i], "bZeroPoint", i,
+              bZeroPointShape[i]);
+        }
+      }
+      if (!bZeroPointType.isDynamicDim(kAxis) &&
+          (bZeroPointShape[kAxis] != 1)) {
+        return onnx_mlir::Diagnostic::emitDimensionHasUnexpectedValueError(
+            *this->getOperation(), bZeroPoint, kAxis, bZeroPointShape[kAxis],
+            "1");
+      }
+    }
+  }
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // QLinearMatMulOp
 //===----------------------------------------------------------------------===//

@@ -10,9 +10,9 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
+#include "src/Support/Arrays.hpp"
 
 #include "mlir/IR/AttributeSupport.h"
 #include "mlir/IR/Attributes.h"
@@ -22,6 +22,7 @@
 #include "mlir/IR/OpImplementation.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #include <functional>
@@ -30,7 +31,7 @@
 namespace onnx_mlir {
 class DisposablePool;
 class ElementsAttrBuilder;
-}; // namespace onnx_mlir
+} // namespace onnx_mlir
 
 namespace mlir {
 
@@ -81,8 +82,8 @@ struct DisposableElementsAttributeStorage;
 //
 class DisposableElementsAttr
     : public Attribute::AttrBase<DisposableElementsAttr, Attribute,
-          DisposableElementsAttributeStorage, ElementsAttr::Trait,
-          TypedAttr::Trait> {
+          DisposableElementsAttributeStorage, TypedAttr::Trait,
+          ElementsAttr::Trait> {
   using Base::Base;
 
   // BType and WideNum are ubiquitous in the class definition and these using
@@ -264,6 +265,14 @@ public:
 
   // Makes deep copy.
   DenseElementsAttr toDenseElementsAttr() const;
+
+  static constexpr StringLiteral getMnemonic() { return {"dense_disposable"}; }
+
+  // Returns the underlying data as a flat byte array in row-major order.
+  // If the element type is bool the data holds one byte (with value 0 or 1) per
+  // bool (contrary to how DenseElementsAttr::getRawData() bit packs bools).
+  static std::unique_ptr<llvm::MemoryBuffer> parse(
+      AsmParser &parser, ShapedType type);
 
   void printWithoutType(AsmPrinter &printer) const;
 

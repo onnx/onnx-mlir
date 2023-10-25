@@ -4,7 +4,7 @@
 
 //===----------------Expand.cpp - Lowering Expand Op----------------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,19 +20,23 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXExpandOpLowering : public ConversionPattern {
+struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
   ONNXExpandOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXExpandOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXExpandOp expandOp,
+      ONNXExpandOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = expandOp.getOperation();
+    Location loc = ONNXLoc<ONNXExpandOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value input = adaptor.getInput();
+
+    MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder, MemRefBuilder>
+        create(rewriter, loc);
+
     // Get shape.
-    ONNXExpandOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
-    Location loc = op->getLoc();
-    IndexExprBuilderForKrnl createIE(rewriter, loc);
-    ONNXExpandOpShapeHelper shapeHelper(op, operands, &createIE);
+    ONNXExpandOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert the output type to MemRefType.
@@ -43,15 +47,14 @@ struct ONNXExpandOpLowering : public ConversionPattern {
     int64_t outputRank = outputMemRefType.getRank();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Iterate over the output values.
-    KrnlBuilder createKrnl(rewriter, loc);
-    ValueRange outputLoopDef = createKrnl.defineLoops(outputRank);
+    ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     LiteralIndexExpr zeroIE(0);
     SmallVector<IndexExpr, 4> lbs(outputRank, zeroIE);
-    createKrnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
+    create.krnl.iterateIE(outputLoopDef, outputLoopDef, lbs,
         shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange outputLoopInd) {
           IndexExprScope outputScope(createKrnl, shapeHelper.getScope());
@@ -65,6 +68,7 @@ struct ONNXExpandOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

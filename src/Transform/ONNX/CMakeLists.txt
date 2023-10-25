@@ -10,6 +10,7 @@ add_onnx_mlir_library(OMONNXRewrite
   Decompose.cpp
   DecomposeEinsum.cpp
   ScrubDisposablePass.cpp
+  SetONNXNodeName.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen
@@ -22,6 +23,15 @@ add_onnx_mlir_library(OMONNXRewrite
   )
 
 add_onnx_mlir_library(OMShapeInference
+  ShapeInference.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMShapeInferenceOpInterface
+  MLIRFuncDialect
+  )
+
+add_onnx_mlir_library(OMShapeInferencePass
   ShapeInferencePass.cpp
 
   LINK_LIBS PUBLIC
@@ -29,6 +39,7 @@ add_onnx_mlir_library(OMShapeInference
   OMShapeInferenceOpInterface
   MLIRFuncDialect
   MLIRPass
+  OMShapeInference
   )
 
 add_onnx_mlir_library(OMInstrumentONNX
@@ -39,7 +50,6 @@ add_onnx_mlir_library(OMInstrumentONNX
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
-  OMCompilerOptions
   OMONNXOps
   OMKrnlOps
   MLIRPass
@@ -52,8 +62,20 @@ add_onnx_mlir_library(OMOpTransform
   OMONNXOps
   MLIRPass
   OMONNXRewrite
-  OMShapeInference
+  OMShapeInferencePass
   MLIRTransforms
+  )
+
+add_onnx_mlir_library(OMHybridTransform
+  ONNXHybridTransformPass.cpp
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMShapeInferenceOpInterface
+  OMONNXRewrite
+  MLIRPass
+  MLIRTransforms
+  OMShapeInference
   )
 
 add_onnx_mlir_library(OMONNXPreKrnlVerifyONNX
@@ -71,21 +93,18 @@ add_onnx_mlir_library(OMONNXSimplifyShapeRelatedOps
   LINK_LIBS PUBLIC
   OMONNXOps
   OMONNXRewrite
-  OMShapeInference
+  OMShapeInferencePass
   MLIRFuncDialect
   MLIRPass
   MLIRTransforms
   )
 
-add_onnx_mlir_library(OMONNXDimAnalysis
-  ONNXDimAnalysis.cpp
+add_onnx_mlir_library(OMONNXStandardFuncReturnPass
+  StandardFuncReturnPass.cpp
 
   LINK_LIBS PUBLIC
-  OMONNXOps
-  OMONNXRewrite
-  OMShapeInference
-  OMShapeHelperOpInterface
+  MLIRTransformUtils
   MLIRFuncDialect
-  MLIRPass
-  MLIRTransforms
+  OMONNXOps
+  OMShapeInference
   )

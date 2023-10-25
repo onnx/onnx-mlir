@@ -1,3 +1,17 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===---------- OMResize.cpp - OMTensor C/C++ Implementation ----------===//
+//
+// Copyright 2022-2023 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains C/C++ neutral implementation of OMTensorList data
+// structures and helper functions.
+//
+//===----------------------------------------------------------------------===//
 #ifdef __cplusplus
 #include <cassert>
 #else
@@ -230,7 +244,7 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
          "Resize runtime: only float type is supported currently");
 
   int64_t rank = omTensorGetRank(data);
-  int64_t *inputShape = omTensorGetShape(data);
+  const int64_t *inputShape = omTensorGetShape(data);
   float *scale_factor = NULL;
   int64_t *output_size = NULL;
   if (scale_factor_OMT != NULL)
@@ -292,10 +306,11 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   free(coeffs_buffer);
 }
 
+// The parameters that are not used are commented out.
+// I, Tong Chen, forgot why only the default value for them are used.
+// ToFix: add the support for other value if needed
 void Resize_Scales(
-    OMTensor *output, OMTensor *data, OMTensor *scales,
-    char *coordinate_transformation_mode_str, float coeff_a,
-    int exclude_outside, float extrapolation_value, char *mode_str,
+    OMTensor *output, OMTensor *data, OMTensor *scales, char *mode_str,
     char *nearest_mode) {
   Coeff_Func_t coeffs_f = NULL;
   int coeffs_n = 0;
@@ -311,6 +326,7 @@ void Resize_Scales(
   } else {
     assert(0 && "Resize runtime: unsupported mode");
   }
+  
   interpolate_nd_OMTensor(
       /*OMTensor */ output,
       /*OMTensor */ data,
@@ -326,9 +342,7 @@ void Resize_Scales(
 }
 
 void Resize_Size(
-    OMTensor *output, OMTensor *data, OMTensor *size,
-    char *coordinate_transformation_mode_str, float coeff_a,
-    int exclude_outside, float extrapolation_value, char *mode_str,
+    OMTensor *output, OMTensor *data, OMTensor *size, char *mode_str,
     char *nearest_mode) {
   Coeff_Func_t coeffs_f = NULL;
   int coeffs_n = 0;

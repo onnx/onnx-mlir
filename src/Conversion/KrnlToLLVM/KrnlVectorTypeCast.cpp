@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlGetRefOp.cpp - Lower KrnlGetRefOp -------------------------===//
+//===------ KrnlVectorTypeCastOp.cpp - Lower KrnlVectorTypeCastOp ---------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file lowers the KrnlGetRefOp operator.
+// This file lowers the KrnlVectorTypeCastOp operator.
 //
 //===----------------------------------------------------------------------===//
 
@@ -85,8 +85,10 @@ public:
     if (offset == ShapedType::kDynamic)
       return failure();
 
-    memRefDescriptor.setOffset(
-        rewriter, loc, createIndexConstant(rewriter, loc, offset));
+    Type indexType = ConvertToLLVMPattern::getIndexType();
+
+    memRefDescriptor.setOffset(rewriter, loc,
+        createIndexAttrConstant(rewriter, loc, indexType, offset));
 
     // Get the sizes of the memref: all but the last one are copied from the
     // source memref. If the dimension size was static, the target memref would
@@ -98,19 +100,20 @@ public:
       if (ShapedType::isDynamic(dimSize))
         sizes.push_back(srcMemRefDesc.size(rewriter, loc, pos));
       else
-        sizes.push_back(createIndexConstant(rewriter, loc, dimSize));
+        sizes.push_back(
+            createIndexAttrConstant(rewriter, loc, indexType, dimSize));
     }
 
     if (!ShapedType::isDynamic(targetType.getShape().back())) {
       // The op is already verified to have the right size for the last
       // dimension.
-      sizes.push_back(
-          createIndexConstant(rewriter, loc, targetType.getShape().back()));
+      sizes.push_back(createIndexAttrConstant(
+          rewriter, loc, indexType, targetType.getShape().back()));
     } else {
       // We need to divide the dynamic size on the source by the vector width.
       // There is the implicit expectation that the last dimension of the
       // original memory is a multiple of the vector length.
-      Value vecWidth = createIndexConstant(rewriter, loc,
+      Value vecWidth = createIndexAttrConstant(rewriter, loc, indexType,
           targetType.getElementType().cast<ShapedType>().getNumElements());
       sizes.push_back(rewriter.create<LLVM::UDivOp>(loc,
           srcMemRefDesc.size(rewriter, loc, sourceType.getRank() - 1),
@@ -137,9 +140,11 @@ public:
         //   `runningStride *= sizes[index + 1]`.
         runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,
                                             runningStride, sizes[index + 1])
-                                      : createIndexConstant(rewriter, loc, 1);
+                                      : createIndexAttrConstant(
+                                            rewriter, loc, indexType, 1);
       else
-        runningStride = createIndexConstant(rewriter, loc, strides[index]);
+        runningStride =
+            createIndexAttrConstant(rewriter, loc, indexType, strides[index]);
       strideValues[index] = runningStride;
     }
 

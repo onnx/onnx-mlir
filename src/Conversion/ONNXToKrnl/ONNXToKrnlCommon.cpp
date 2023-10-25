@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -14,14 +14,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
+
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
-bool ONNXToKrnl_gEmitDealloc = false;
+#define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
 
@@ -44,8 +46,7 @@ Value OnnxToKrnlBuilder::reshape(
     for (const IndexExpr &dim : shapeDims)
       shape.push_back(dim.getLiteral());
 
-    auto constantOp = createONNXConstantOpWithDenseAttr(
-        b(), loc(), b().getI64TensorAttr(shape));
+    auto constantOp = create.onnx.constantInt64(shape);
 
     Value reshapeRes = create.onnx.reshape(
         MemRefType::get(shape, elementType), input, constantOp);
@@ -108,12 +109,47 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
   return transposeRes;
 }
 
+bool isScalarValue(Value value) {
+  ShapedType stype = value.getType().dyn_cast<ShapedType>();
+  assert(stype && "expected shaped type");
+  return stype.getRank() == 0;
+}
+
 /// Check if all operands are scalar values at compile time.
-bool hasAllScalarValues(ArrayRef<Value> values) {
+bool hasAllScalarValues(ValueRange values) {
   for (Value value : values) {
-    if (value.getType().cast<ShapedType>().getRank() != 0)
+    if (isNoneValue(value))
+      continue;
+    if (!isScalarValue(value))
       return false;
   }
+  return true;
+}
+
+// Check if we have a 'tensor<' ('1x')* 'x type>' type, namely a scalar or a
+// n-dimensional tensor of size 1 along all dimensions.
+bool hasOneElement(Value value) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  for (int64_t s : type.getShape())
+    if (s != 1)
+      return false;
+  return true;
+}
+
+// Same as above, but from the innermost dimensions up to innerDim.
+bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  mlir::ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = type.getRank();
+  for (int64_t i = rank - innerDim; i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
   return true;
 }
 
@@ -129,159 +165,32 @@ bool indicesAreNonNegativeConstants(Value indices) {
       [](const IntegerAttr &val) { return val.getInt() >= 0; });
 }
 
-/// Insert an allocation and deallocation for the given MemRefType.
-Value insertAllocAndDealloc(MemRefType type, Location loc,
-    PatternRewriter &rewriter, bool insertDealloc, Value operand,
-    int64_t alignment) {
-  MemRefBuilder createMemRef(rewriter, loc);
-  // Put together alloc operands for any dynamic dimensions of the memref.
-  memref::AllocOp alloc;
-  if (operand) {
-    auto memRefShape = type.getShape();
-    auto rank = memRefShape.size();
-
-    SmallVector<Value, 4> allocOperands;
-    for (unsigned int i = 0; i < rank; ++i)
-      if (memRefShape[i] < 0) {
-        auto dim = createMemRef.dim(operand, i);
-        allocOperands.push_back(dim);
-      }
-    alloc = createMemRef.alignedAlloc(type, allocOperands, alignment);
-  } else {
-    alloc = createMemRef.alignedAlloc(type, alignment);
-  }
-
-  if (!ONNXToKrnl_gEmitDealloc)
-    return alloc;
-
-  // Make sure to allocate at the beginning of the block if
-  // all dimensions are known.
-  auto *parentBlock = alloc.getOperation()->getBlock();
-  if (hasAllConstantDimensions(type))
-    alloc.getOperation()->moveBefore(&parentBlock->front());
-
-  if (insertDealloc) {
-    auto dealloc = createMemRef.dealloc(alloc);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-
-  return alloc;
-}
-
-// Simple version of insert alloc and dealloc that does not handle alignment
-// or additional operands (to be studied and added as needed). For unknown
-// dimensions, it uses the index expressions to retrieve the corresponding
-// values.
-Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
-    bool insertDealloc, int64_t alignment) {
-  // Constant, use the normal insert with no additional operands or alignment.
-  if (hasAllConstantDimensions(type))
-    return insertAllocAndDealloc(
-        type, loc, rewriter, insertDealloc, nullptr, alignment);
-  // Otherwise, take the unknown operands from the output dim IndexExpressions
-  SmallVector<Value, 2> allocOperands;
-  auto memRefShape = type.getShape();
-  auto rank = memRefShape.size();
-
-  for (unsigned int i = 0; i < rank; ++i) {
-    if (memRefShape[i] < 0) {
-      // have dyn shape
-      allocOperands.emplace_back(outputDims[i].getValue());
-    }
-  }
-  MemRefBuilder createMemRef(rewriter, loc);
-  memref::AllocOp allocOp =
-      createMemRef.alignedAlloc(type, allocOperands, alignment);
-
-  if (!ONNXToKrnl_gEmitDealloc)
-    return allocOp;
-
-  if (insertDealloc) {
-    auto *parentBlock = allocOp.getOperation()->getBlock();
-    auto dealloc = createMemRef.dealloc(allocOp);
-    dealloc.getOperation()->moveBefore(&parentBlock->back());
-  }
-  return allocOp;
-}
-
-Value insertAllocAndDeallocSimple(PatternRewriter &rewriter, Operation *op,
-    MemRefType type, Location loc, const SmallVectorImpl<IndexExpr> &outputDims,
-    int64_t alignment) {
-
-  bool insertDealloc = checkInsertDealloc(op);
-
-  return insertAllocAndDeallocSimple(
-      rewriter, op, type, loc, outputDims, insertDealloc, alignment);
-}
-
-// Determine if current function returns the result value of the
-// current op or the result value of reinterpret_cast op whose
-// operand is the result value of current op. If it does then
-// dealloc should not be inserted.
-bool checkInsertDealloc(Operation *currentOp, int resultIndex) {
-  if (ONNXToKrnl_gEmitDealloc == false)
-    return false;
-
-  auto parentBlock = currentOp->getBlock();
-  bool insertDealloc = true;
-
-  // Check if the result value of `currentOp` is an operand of
-  // `ReinterpretCastOp`, and store the result value of `ReinterpretCastOp`.
-  // Reshape, Squeeze, and Unsqueeze ops are checked because they are lowered
-  // to `ReinterpretCastOp`.
-  SmallVector<Value, 32> castOpResults;
-  if (currentOp->getNumResults() > 0) {
-    parentBlock->walk([currentOp, resultIndex, &castOpResults](Operation *op) {
-      if (isa<memref::ReinterpretCastOp>(op) || isa<ONNXReshapeOp>(op) ||
-          isa<ONNXSqueezeV11Op>(op) || isa<ONNXUnsqueezeV11Op>(op) ||
-          isa<ONNXSqueezeOp>(op) || isa<ONNXUnsqueezeOp>(op)) {
-        auto result = currentOp->getResult(resultIndex);
-        for (const auto &operand : op->getOperands())
-          if (operand == result)
-            castOpResults.emplace_back(op->getResults()[0]);
-      }
-    });
-  }
-  // If there is at least one result to investigate.
-  if (currentOp->getNumResults() > 0) {
-    parentBlock->walk([&insertDealloc, currentOp, resultIndex, &castOpResults](
-                          func::ReturnOp op) {
-      auto result = currentOp->getResult(resultIndex);
-      for (const auto &operand : op.getOperands()) {
-        // Determine if current function returns the result value of the
-        // current op.
-        if (operand == result)
-          insertDealloc = false;
-        // Determine if the result value of reinterpret_cast op whose operand
-        // is the result value of current op
-        for (const auto &castOpResult : castOpResults)
-          if (operand == castOpResult)
-            insertDealloc = false;
-      }
-    });
-  }
-  return insertDealloc;
-}
-
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
+//
+// Integers in axes must be in [0..inRank), that is they were normalized.
+//
+// Mapping responds to the following question:
+//   for a given output index (that is not a reduction index in presence of
+//   keepDim, by def of size 1), find the input index related to that given
+//   output index.
 std::map<int64_t, int64_t> getReductionMapping(
     MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
   std::map<int64_t, int64_t> OutInDimMap;
-  int64_t rank = inputTy.getRank();
+  int64_t inRank = inputTy.getRank();
 
   // Mark reduction axes.
   std::vector<bool> isReductionAxis;
-  for (decltype(rank) i = 0; i < rank; ++i) {
+  for (decltype(inRank) i = 0; i < inRank; ++i) {
     if (std::find(axes.begin(), axes.end(), i) != axes.end())
       isReductionAxis.push_back(true);
     else
       isReductionAxis.push_back(false);
   }
 
-  for (decltype(rank) inIndex = 0, outIndex = 0; inIndex < rank; ++inIndex) {
+  for (decltype(inRank) inIndex = 0, outIndex = 0; inIndex < inRank;
+       ++inIndex) {
     // If it is a reduction axis, there is no relationship among dimensions.
     if (isReductionAxis[inIndex]) {
       if (keepdims)
@@ -300,7 +209,8 @@ std::map<int64_t, int64_t> getReductionMapping(
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
   auto shape = operand.getType().cast<MemRefType>().getShape();
-  if (shape[index] < 0) {
+  assert(shape[index] != -1 && "expected kDynamic, not -1");
+  if (shape[index] == ShapedType::kDynamic) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     pack.pushConstantBound(0);
     pack.pushOperandBound(create.mem.dim(operand, index));
@@ -324,9 +234,32 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
-  return (shape[axis] < 0)
+  assert(shape[axis] != -1 && "expected kDynamic, not -1");
+  return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
              : create.math.constant(type, shape[axis]);
+}
+
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(Operation *op, std::string opsForCall) {
+  // Special cases for none or all
+  if (opsForCall == "")
+    return false;
+  if (opsForCall == "*")
+    return true;
+  // Get the name for op and remove the leading "onnx."
+  std::string opName = op->getName().stripDialect().str();
+  // To handle the case that onnx ops may have common part in name, a space
+  // is added as delimiter to search
+  std::string str = opsForCall + " ";
+  std::string sub = opName + " ";
+  int index = str.find(sub);
+  if (index == -1) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 namespace {
@@ -481,8 +414,9 @@ Value emitMemRefReinterpretCastOp(ConversionPatternRewriter &rewriter,
 /// By default, sort values in the descending order.
 Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Value input, int64_t axis, bool ascending) {
-  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder> create(
-      rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+      MemRefBuilder>
+      create(rewriter, loc);
   IndexExprScope scope(create.krnl);
 
   MemRefType inputMemRefType = input.getType().cast<MemRefType>();
@@ -496,9 +430,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
   create.krnlIE.getShapeAsDims(input, ubs);
 
   // Create and initialize the result.
-  Value order = insertAllocAndDeallocSimple(rewriter, nullptr,
-      MemRefType::get(inputMemRefType.getShape(), indexType), loc, ubs,
-      /*insertDealloc=*/true);
+  MemRefType type = MemRefType::get(inputMemRefType.getShape(), indexType);
+  Value order = create.mem.alignedAlloc(type, ubs);
   ValueRange initLoopDef = create.krnl.defineLoops(rank);
   create.krnl.iterateIE(initLoopDef, initLoopDef, lbs, ubs,
       [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -512,8 +445,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
-    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
@@ -678,7 +611,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addConversion([](SeqType seqType) {
-    ShapedType seqElementType = seqType.getElementType();
+    auto seqElementType = seqType.getElementType().cast<ShapedType>();
     Type elementType = seqElementType.getElementType();
     Type seqElementConvertedType;
     if (seqElementType.hasRank()) {
@@ -695,7 +628,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -705,7 +638,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -729,6 +662,60 @@ int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
     }
   }
   return alignment;
+}
+
+bool hasNonIdentityLayout(Value val) {
+  // None values have no layout... we are safe.
+  if (isNoneValue(val))
+    return false;
+  // Expect a memref now.
+  MemRefType type = val.getType().dyn_cast<MemRefType>();
+  assert(type && "expected a memref type");
+  return hasNonIdentityLayout(type);
+}
+
+bool hasNonIdentityLayout(ValueRange operands) {
+  for (Value val : operands)
+    if (hasNonIdentityLayout(val))
+      return true;
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
+    int64_t loopLevel, int64_t parallelLoopTripCount,
+    const std::string &comment) {
+  assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
+  StringAttr opName = op->getName().getIdentifier();
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+  // Print report on this op.
+  printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
+      (long long int)loopLevel, (long long int)parallelLoopTripCount);
+}
+
+void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
+    int64_t vectorLength, int64_t simdLoopTripCount,
+    const std::string &comment) {
+  assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
+  StringAttr opName = op->getName().getIdentifier();
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+  // Handling message.
+  std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
+  if (message.empty())
+    message = comment;
+  if (message.empty() && vectorLength == 0 && simdLoopTripCount == 0)
+    // No comments, all values indicate no simd
+    message = "unsupported";
+  // Print report on this op.
+  printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
+      (long long int)vectorLength, (long long int)simdLoopTripCount);
 }
 
 } // namespace onnx_mlir

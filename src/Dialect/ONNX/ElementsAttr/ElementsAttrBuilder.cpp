@@ -10,12 +10,17 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
+#include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/STLExtras.h"
+
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrHelper.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
+#include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <algorithm>
 #include <numeric>
 
 using namespace mlir;
@@ -100,6 +105,74 @@ DenseElementsAttr ElementsAttrBuilder::toDenseElementsAttr(
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+/*static*/
+bool ElementsAttrBuilder::equal(ElementsAttr lhs, ElementsAttr rhs) {
+  auto lhsType = lhs.getShapedType();
+  auto rhsType = rhs.getShapedType();
+  auto elementType = lhsType.getElementType();
+  assert(elementType == rhsType.getElementType() &&
+         "equal() requires identical element types");
+
+  SmallVector<int64_t> combinedShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsType.getShape(), rhsType.getShape(), combinedShape))
+    llvm_unreachable("equal() requires broadcast compatible shapes");
+
+  SmallVector<int64_t, 4> xpLhsStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
+
+  SmallVector<int64_t, 4> xpRhsStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
+
+  StridesRange<2> range(combinedShape, {xpLhsStrides, xpRhsStrides});
+  return dispatchByBType(btypeOfMlirType(elementType), [&](auto btype) {
+    using cpptype = CppType<btype>;
+    return llvm::all_of(range, [&](StridesIndexOffsets<2> idxoffs) {
+      constexpr BType TAG = toBType<cpptype>;
+      return lhsNums.get()[idxoffs[0]].narrow<TAG>() ==
+             rhsNums.get()[idxoffs[1]].narrow<TAG>();
+    });
+  });
+}
+
+/*static*/
+bool ElementsAttrBuilder::allEqual(
+    ElementsAttr lhs, WideNum broadcastedRhsValue) {
+  WideNum n = broadcastedRhsValue;
+  return dispatchByBType(
+      btypeOfMlirType(lhs.getElementType()), [lhs, n](auto btype) {
+        using cpptype = CppType<btype>;
+        auto nEquals = [n](cpptype x) {
+          constexpr BType TAG = toBType<cpptype>;
+          return n.narrow<TAG>() == x;
+        };
+        if (auto disposable = lhs.dyn_cast<DisposableElementsAttr>()) {
+          if (disposable.isTransformedOrCast()) {
+            ArrayBuffer<WideNum> nums = disposable.getBufferAsWideNums();
+            return llvm::all_of(nums.get(), [n](WideNum m) {
+              constexpr BType TAG = toBType<cpptype>;
+              return n.narrow<TAG>() == m.narrow<TAG>();
+            });
+          } else {
+            auto values = castArrayRef<cpptype>(disposable.getBufferBytes());
+            return llvm::all_of(values, nEquals);
+          }
+        } else if (auto dense = lhs.dyn_cast<DenseElementsAttr>()) {
+          if (dense.isSplat()) {
+            cpptype x = dense.getSplatValue<cpptype>();
+            return nEquals(x);
+          } else {
+            auto values = dense.getValues<cpptype>();
+            return llvm::all_of(values, nEquals);
+          }
+        }
+        // TODO: consider supporting more ElementsAttr types
+        llvm_unreachable("unexpected ElementsAttr instance");
+      });
+}
+
 ElementsAttr ElementsAttrBuilder::fromWideNums(
     ShapedType type, const Filler<WideNum> &wideDataFiller) {
   BType bufferBType = wideBTypeOfBType(btypeOfMlirType(type.getElementType()));
@@ -133,16 +206,22 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
       getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
   SmallVector<int64_t, 4> xpRhsStrides;
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
-    mapStrides<WideNum, WideNum, WideNum>(
-        combinedShape, dstNums, stridedLhs, stridedRhs, combiner);
+    // dstNums, lhsNums, rhsNums are accessed via raw pointers dst, lhs/rhsSrc
+    // because otherwise the ArrayRef range checks slow down the inner loop.
+    WideNum *dst = dstNums.data();
+    const WideNum *lhsSrc = lhsNums.get().data();
+    const WideNum *rhsSrc = rhsNums.get().data();
+    for (auto &idxoffs :
+        StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
+      dst[idxoffs.flattenedIndex] =
+          combiner(lhsSrc[idxoffs[0]], rhsSrc[idxoffs[1]]);
+    }
   });
 }
 
@@ -174,24 +253,26 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   SmallVector<int64_t, 4> xpLhsStrides;
   ArrayBuffer<WideNum> lhsNums =
       getWideNumsAndExpandedStrides(lhs, combinedShape, xpLhsStrides);
-  StridedArrayRef<WideNum> stridedLhs(lhsNums.get(), xpLhsStrides);
 
   SmallVector<int64_t, 4> xpRhsStrides;
   ArrayBuffer<WideNum> rhsNums =
       getWideNumsAndExpandedStrides(rhs, combinedShape, xpRhsStrides);
-  StridedArrayRef<WideNum> stridedRhs(rhsNums.get(), xpRhsStrides);
 
   return fromWideNums(combinedType, [&](MutableArrayRef<WideNum> dstNums) {
     // Copy cond into dstNums with broadcast.
     restrideArray<WideNum>(
         combinedShape, xpCondStrides, condNums.get(), dstNums);
 
-    WideNum *end = traverseStrides<WideNum *, WideNum, WideNum>(combinedShape,
-        dstNums.begin(), stridedLhs, stridedRhs,
-        [](WideNum *res, const WideNum *x, const WideNum *y) {
-          *res = res->u64 ? *x : *y;
-        });
-    assert(end == dstNums.end() && "traverses every dstNums element");
+    // dstNums, lhsNums, rhsNums are accessed via raw pointers dst, lhs/rhsSrc
+    // because otherwise the ArrayRef range checks slow down the inner loop.
+    WideNum *dst = dstNums.data();
+    const WideNum *lhsSrc = lhsNums.get().data();
+    const WideNum *rhsSrc = rhsNums.get().data();
+    for (auto &idxoffs :
+        StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
+      WideNum &res = dst[idxoffs.flattenedIndex];
+      res = res.u64 ? lhsSrc[idxoffs[0]] : rhsSrc[idxoffs[1]];
+    }
   });
 }
 
@@ -240,7 +321,7 @@ ElementsAttr ElementsAttrBuilder::castElementType(
 
   ElementsProperties props = getElementsProperties(elms);
 
-  ShapedType newType = elms.getType().clone(newElementType);
+  ShapedType newType = elms.getShapedType().clone(newElementType);
   BType newBType = btypeOfMlirType(newElementType);
   BType oldBType = btypeOfMlirType(oldElementType);
   BType newWideType = wideBTypeOfBType(newBType);
@@ -253,6 +334,23 @@ ElementsAttr ElementsAttrBuilder::castElementType(
                 functionTransformer(wideCaster(oldWideType, newWideType)));
   return create(newType, props.bufferBType, props.strides, props.buffer,
       std::move(transformer));
+}
+
+ElementsAttr ElementsAttrBuilder::clip(
+    ElementsAttr elms, WideNum min, WideNum max) {
+  return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    return doTransform(
+        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
+          constexpr BType TAG = toBType<cpptype>;
+          cpptype x = n.narrow<TAG>();
+          if (x < min.narrow<TAG>())
+            return min;
+          if (x > max.narrow<TAG>())
+            return max;
+          return n;
+        }));
+  });
 }
 
 namespace {
@@ -272,7 +370,7 @@ ElementsAttr ElementsAttrBuilder::transpose(
 
   ElementsProperties props = getElementsProperties(elms);
 
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   auto transposedShape = transposeDims(type.getShape(), perm);
   ShapedType transposedType = type.clone(transposedShape);
   auto transposedStrides = transposeDims(props.strides, perm);
@@ -282,7 +380,7 @@ ElementsAttr ElementsAttrBuilder::transpose(
 
 ElementsAttr ElementsAttrBuilder::reshape(
     ElementsAttr elms, ArrayRef<int64_t> reshapedShape) {
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   auto shape = type.getShape();
   if (reshapedShape == shape)
     return elms;
@@ -314,7 +412,7 @@ ElementsAttr ElementsAttrBuilder::reshape(
 
 ElementsAttr ElementsAttrBuilder::expand(
     ElementsAttr elms, ArrayRef<int64_t> expandedShape) {
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   if (expandedShape == type.getShape())
     return elms;
 
@@ -339,7 +437,7 @@ void splitImpl(ArrayRef<WideNum> data, size_t start, size_t len, size_t stride,
 
 std::vector<ElementsAttr> ElementsAttrBuilder::split(
     ElementsAttr elms, unsigned axis, ArrayRef<int64_t> sizes) {
-  auto type = elms.getType();
+  auto type = elms.getShapedType();
   auto shape = type.getShape();
   assert(axis < shape.size());
   auto axisSize = shape[axis];
@@ -374,9 +472,247 @@ std::vector<ElementsAttr> ElementsAttrBuilder::split(
   return results;
 }
 
+ElementsAttr ElementsAttrBuilder::concat(
+    ArrayRef<ElementsAttr> elms, unsigned axis) {
+  assert(elms.size() >= 1 && "concat tensors must be non-empty");
+
+  ElementsAttr first = elms.front();
+  ArrayRef<int64_t> firstShape = first.getShapedType().getShape();
+  size_t rank = firstShape.size();
+  assert(axis < rank && "concat axis out of range");
+  if (elms.size() == 1)
+    return first;
+
+  // Check elms are compatible and construct outShape:
+  SmallVector<int64_t> outShape(firstShape);
+  for (size_t i = 1; i < elms.size(); ++i) {
+    ElementsAttr next = elms[i];
+    assert(next.getElementType() == first.getElementType() &&
+           "concat tensors element types must agree");
+    ArrayRef<int64_t> nextShape = next.getShapedType().getShape();
+    assert(nextShape.size() == rank && "concat tensors ranks must agree");
+    for (unsigned a = 0; a < rank; ++a) {
+      assert((a == axis || nextShape[a] == firstShape[a]) &&
+             "concat tensors shapes must agree except for the concat axis");
+    }
+    outShape[axis] += nextShape[axis];
+  }
+
+  ShapedType outType = first.getShapedType().clone(outShape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    auto postAxisShape = ArrayRef(outShape).drop_front(axis + 1);
+    size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
+    // A "block" fixes the axes before axis and iterates over the others.
+    size_t outBlockLen = outShape[axis] * postAxisNumElements;
+    size_t start = 0;
+    for (ElementsAttr input : elms) {
+      ArrayRef<int64_t> inputShape = input.getShapedType().getShape();
+      size_t inputBlockLen = inputShape[axis] * postAxisNumElements;
+      SmallVector<int64_t> strides;
+      ArrayBuffer<WideNum> src = getWideNumsAndStrides(input, strides);
+      StridesRange<1> range(inputShape, {strides});
+      auto it = range.begin();
+      for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
+        for (size_t pos = 0; pos < inputBlockLen; ++pos) {
+          dst[offset + pos] = src.get()[it->at(0)];
+          ++it;
+        }
+      }
+      assert(it == range.end() && "input num elements mismatch");
+      start += inputBlockLen;
+    }
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
+    ArrayRef<int64_t> shape, ArrayRef<int64_t> starts,
+    ArrayRef<int64_t> steps) {
+  ShapedType outType = elms.getShapedType().clone(shape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    const WideNum *start = src.get().begin();
+    for (size_t axis = 0; axis < shape.size(); ++axis) {
+      start += starts[axis] * strides[axis];
+      strides[axis] *= steps[axis];
+    }
+    for (auto &idxoffs : StridesRange<1>(shape, {strides}))
+      dst[idxoffs.flattenedIndex] = *(start + idxoffs[0]);
+  });
+}
+
+namespace {
+ElementsAttr splat(ShapedType type, WideNum num) {
+  Type elemType = type.getElementType();
+  BType btype = btypeOfMlirType(elemType);
+  if (isFloatBType(btype))
+    return DenseElementsAttr::get(type, num.toAPFloat(btype));
+  if (isIntBType(btype))
+    return DenseElementsAttr::get(type, num.toAPInt(btype));
+  llvm_unreachable("unsupported element type");
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::pad(
+    ElementsAttr elms, ArrayRef<int64_t> pads, WideNum padValue) {
+  ArrayRef<int64_t> inputShape = elms.getShapedType().getShape();
+  size_t rank = inputShape.size();
+  if (rank == 0)
+    return elms;
+  ArrayRef<int64_t> leftPads = pads.take_front(rank);
+  ArrayRef<int64_t> rightPads = pads.take_back(rank);
+  SmallVector<int64_t> outShape(inputShape);
+  for (size_t axis = 0; axis < rank; ++axis)
+    outShape[axis] += leftPads[axis] + rightPads[axis];
+  ShapedType outType = elms.getShapedType().clone(outShape);
+  if (elms.empty())
+    return splat(outType, padValue);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    // The following unrolls the recurse(dst.begin(), elms.getValues())
+    // recursive algorithm described by the pseudo code:
+    //
+    //   def recurse(DstIter &out, SrcIter &inp, int axis = 0):
+    //     auto subSize = numElements(outShape.drop_front(axis + 1))
+    //     out = std::fill_n(out, leftPads[axis] * subSize)
+    //     if axis == rank - 1:
+    //       nunCols = inputShape.back()
+    //       out = std::copy(inp, inp += numCols, out)
+    //     else:
+    //       for i in range(inputShape[axis]):
+    //         recurse(out, inp, axis + 1)
+    //     out = std::fill_n(out, rightPads[axis] * subSize)
+
+    SmallVector<int64_t> betweenRowsPads(rank, 0);
+    int64_t beginPad = 0, endPad = 0;
+    int64_t multiplier = 1;
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      beginPad += leftPads[axis] * multiplier;
+      endPad += rightPads[axis] * multiplier;
+      betweenRowsPads[axis] = beginPad + endPad;
+      multiplier *= outShape[axis];
+    }
+
+    auto out = dst.begin();
+    out = std::fill_n(out, beginPad, padValue);
+
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    StridesRange<1> range(inputShape, {strides});
+    auto it = range.begin(), end = range.end();
+    assert(it != end && "elms must be non-empty");
+    assert(!inputShape.empty() && "elms must have rank > 0");
+    const int numCols = inputShape.back();
+    for (;;) {
+      // Copy next row from elms to dst.
+      for (int64_t col = 0; col < numCols; ++col, ++out, ++it) {
+        *out = src.get()[it->at(0)];
+      }
+
+      if (it == end)
+        break;
+
+      assert(it->index.back() == 0 && "it is at the start of a row");
+      int lastZero = rank - 1;
+      while (lastZero > 0 && it->index[lastZero - 1] == 0)
+        --lastZero;
+      out = std::fill_n(out, betweenRowsPads[lastZero], padValue);
+    }
+
+    out = std::fill_n(out, endPad, padValue);
+    assert(out == dst.end());
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::gather(
+    ElementsAttr input, ElementsAttr indices, unsigned axis) {
+  ShapedType inputType = input.getShapedType();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+  assert(axis < inputShape.size() && "gather axis out of range");
+  auto postAxisShape = inputShape.drop_front(axis + 1);
+  ShapedType indicesType = indices.getShapedType();
+  assert(indicesType.getElementType().isSignlessInteger() &&
+         "gather indices must be i32 or i64");
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
+  SmallVector<int64_t> outShape(inputShape.take_front(axis));
+  outShape.append(indicesShape.begin(), indicesShape.end());
+  outShape.append(postAxisShape.begin(), postAxisShape.end());
+  auto outType = inputType.clone(outShape);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
+    ArrayBuffer<WideNum> src = getElementsWideNums(input);
+    // Convert indices of any signed int element type to int64 by
+    // first promoting to WideNum and then casting to int64.
+    // In practice we support both int32 and int64 in this way.
+    ArrayBuffer<WideNum> indicesWideNums = getElementsWideNums(indices);
+    ArrayRef<int64_t> indicesArray =
+        castArrayRef<int64_t, WideNum>(indicesWideNums.get());
+    size_t axisInputSize = inputShape[axis];
+    size_t inputBlockLen = axisInputSize * postAxisNumElements;
+    size_t outBlockLen = indicesArray.size() * postAxisNumElements;
+    size_t start = 0;
+    WideNum *out = dst.begin();
+    for (int64_t idx : indicesArray) {
+      int64_t adjustedIdx = idx < 0 ? idx + axisInputSize : idx;
+      const WideNum *in = src.get().begin() + adjustedIdx * postAxisNumElements;
+      for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {
+        std::copy_n(in, postAxisNumElements, out + offset);
+        in += inputBlockLen;
+      }
+      start += postAxisNumElements;
+    }
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::scatterND(
+    ElementsAttr input, ElementsAttr indices, ElementsAttr updates) {
+  return fromWideNums(input.getShapedType(), [&](MutableArrayRef<WideNum> dst) {
+    // numpy implementation:
+    //
+    //   dst = np.copy(input)
+    //   outer = indices.shape[:-1]
+    //   for idx in np.ndindex(outer):
+    //     dst[indices[idx]] = updates[idx]
+
+    ArrayRef<int64_t> inputShape = input.getShapedType().getShape();
+    ArrayRef<int64_t> indicesShape = indices.getShapedType().getShape();
+    ArrayRef<int64_t> updatesShape = updates.getShapedType().getShape();
+
+    int64_t indices_nd = indicesShape.back();
+    auto outer = indicesShape.drop_back();
+    int64_t n_slices = ShapedType::getNumElements(outer);
+    int64_t slice_size =
+        ShapedType::getNumElements(updatesShape.drop_front(outer.size()));
+    SmallVector<int64_t, 4> inputStrides = getDefaultStrides(inputShape);
+    auto sliceStrides = llvm::ArrayRef(inputStrides).take_front(indices_nd);
+
+    readElementsWideNums(input, dst);
+    SmallVector<int64_t> updatesStrides;
+    ArrayBuffer<WideNum> updatesData =
+        getWideNumsAndStrides(updates, updatesStrides);
+    StridesRange<1> updatesRange(updatesShape, {updatesStrides});
+    auto updatesIter = updatesRange.begin();
+    ArrayBuffer<int64_t> indicesBuffer = getElementsArray<int64_t>(indices);
+    const int64_t *indicesIter = indicesBuffer.get().begin();
+    for (int64_t i = 0; i < n_slices; ++i) {
+      ArrayRef<uint64_t> idxs =
+          castArrayRef<uint64_t>(ArrayRef(indicesIter, indices_nd));
+      int64_t pos = getStridesPosition(idxs, sliceStrides);
+      for (int64_t j = 0; j < slice_size; ++j) {
+        dst[pos] = updatesData.get()[updatesIter->at(0)];
+        ++pos;
+        ++updatesIter;
+      }
+      indicesIter += indices_nd;
+    }
+    assert(
+        updatesIter == updatesRange.end() && "updates num elements mismatch");
+  });
+}
+
 ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     ArrayRef<unsigned> axes, bool keepdims,
     WideNum (*reducer)(WideNum, WideNum)) {
+  assert(!elms.empty());
   if (axes.empty())
     return elms;
 
@@ -386,11 +722,16 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
       std::unique(sortedAxes.begin(), sortedAxes.end()) == sortedAxes.end() &&
       "axes must be unique");
 
-  ShapedType type = elms.getType();
+  ShapedType type = elms.getShapedType();
   auto shape = type.getShape();
 
   SmallVector<int64_t, 4> strides;
   ArrayBuffer<WideNum> srcNums = getWideNumsAndStrides(elms, strides);
+
+  // axesShape and axesStrides describe the src elements that reduce together
+  // into one dst element.
+  // reducedShape and reducedStrides describe the mapping from src to dst
+  // for the first src element that reduces to each dst element.
   SmallVector<int64_t, 4> axesShape, reducedShape;
   SmallVector<int64_t, 4> axesStrides, reducedStrides;
   auto it = sortedAxes.begin();
@@ -409,47 +750,197 @@ ElementsAttr ElementsAttrBuilder::reduce(ElementsAttr elms,
     }
   }
 
-  // StridedArrayRef and traverseStrides are used in an unusual way below.
-  // (axesShape, axesStrides) on one hand and (reducedShape, reducedStrides)
-  // on the other hand partition (shape, strides) into two partial mappings
-  // of srcNums to the tensor shape.
-  //
-  // (axesShape, axesStrides) describes all the elements to reduce for each
-  // result element, namely count == ShapedType::getNumElements(axesShape).
-  // The outer traverseStrides "loop" runs count many times, each time
-  // calculating the offset of the next element to reduce.
-  // (Note that offsets be repeated if there are any zeros in axesStrides.)
-  //
-  // The inner traverseStrides loop reduces the next reduce element into the
-  // result for each each element in the resulting reduced tensor (dstNums).
-  StridedArrayRef<WideNum> axesStrided(srcNums.get(), axesStrides);
-  StridedArrayRef<WideNum> reducedStrided(srcNums.get(), reducedStrides);
   ShapedType reducedType = type.clone(reducedShape);
   return fromWideNums(reducedType, [&](MutableArrayRef<WideNum> dstNums) {
-    // First copy the 1st element to reduce to each result element in dstNums.
-    WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
-        dstNums.begin(), reducedStrided,
-        [](WideNum *dst, const WideNum *src) { *dst = *src; });
-    assert(end == dstNums.end() && "traverses every dstNums element");
-    int64_t count = traverseStrides<int64_t, WideNum>(
-        axesShape, 0, axesStrided, [&](int64_t counter, const WideNum *iter) {
-          // Skip if counter == 0 as 1st element is already copied to dstNums.
-          if (counter > 0) {
-            ptrdiff_t offset = iter - axesStrided.begin();
-            WideNum *end = traverseStrides<WideNum *, WideNum>(reducedShape,
-                dstNums.begin(), reducedStrided,
-                [&reducer, offset](WideNum *dst, const WideNum *src) {
-                  *dst = reducer(*dst, *(src + offset));
-                });
-            assert(end == dstNums.end() && "traverses every dstNums element");
-          }
-        });
-    assert(count == ShapedType::getNumElements(axesShape) &&
-           "traverses all reduce axes");
+    // Traverse and populate each element d in dstNums.
+    for (auto &idxoffs : StridesRange<1>(reducedShape, {reducedStrides})) {
+      WideNum &d = dstNums[idxoffs.flattenedIndex];
+      int64_t srcPos = idxoffs[0];
+      // Traverse all the elements that reduce together into d.
+      // srcNums elements may be repeated if there are zeros in axesStrides.
+      StridesRange<1> axesRange(axesShape, {axesStrides});
+      auto axesIter = axesRange.begin();
+      auto axesEnd = axesRange.end();
+      assert(axesIter->at(0) == 0 && "initial src offset must be zero");
+      d = srcNums.get()[srcPos];
+      while (++axesIter != axesEnd) {
+        int64_t srcOffset = axesIter->at(0);
+        d = reducer(d, srcNums.get()[srcPos + srcOffset]);
+      }
+    }
   });
 }
 
-auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
+ElementsAttr ElementsAttrBuilder::matMul(ElementsAttr lhs, ElementsAttr rhs) {
+  ShapedType lhsType = lhs.getShapedType();
+  ShapedType rhsType = rhs.getShapedType();
+  Type elementType = lhsType.getElementType();
+  assert(elementType == rhsType.getElementType() &&
+         "matMul() requires identical element types");
+  assert(!elementType.isInteger(1) && "matMul() elements must be numbers");
+
+  ArrayRef<int64_t> lhsShape = lhsType.getShape();
+  size_t lhsRank = lhsShape.size();
+
+  ArrayRef<int64_t> rhsShape = rhsType.getShape();
+  size_t rhsRank = rhsShape.size();
+
+  assert(lhsRank >= 1);
+  assert(rhsRank >= 1);
+  // If lhs is 1-D with dim size K then it's treated as a 1xK matrix,
+  // otherwise we refer to the last two dimension sizes of lhs as MxK.
+  // If rhs is 1-D with dim size K then it's treated as a Kx1 matrix
+  // otherwise we refer to the last two dimension sizes of rhs as KxN.
+  int64_t M = lhsRank == 1 ? 1 : lhsShape[lhsRank - 2];
+  int64_t N = rhsRank == 1 ? 1 : rhsShape[rhsRank - 1];
+  int64_t K = lhsShape[lhsRank - 1];
+  assert(K == rhsShape[rhsRank == 1 ? 0 : (rhsRank - 2)]);
+
+  // MatMul is similar to Reduce, because a MatMul is the same as broadcasts
+  // followed by element wise multiplication and then ReduceSum on the
+  // reduction axis. The implementation is is similar to Reduce:
+  // An outer loop runs over the elements of the result tensor and, for
+  // each result element, the dot product of a LHS row and a RHS column is
+  // computed in an inner loop.
+  //
+  // matMulShape is the result shape before the M or N axes are collapsed in
+  // the cases where lhs or rhs is a vector (has rank 1), it is used to
+  // drive the iteration in the outer loop.
+  //
+  // lhsRedStrides/rhsRedStrides are LHS/RHS strides for the outer loop
+  // ("Red" is short for "Reduced").
+  //
+  // matMulAxisLhsStride/matMulAxisRhsStride are the inner loop strides.
+
+  ArrayRef<int64_t> lhsBatchShape = lhsShape.drop_back(lhsRank == 1 ? 1 : 2);
+  ArrayRef<int64_t> rhsBatchShape = rhsShape.drop_back(rhsRank == 1 ? 1 : 2);
+  SmallVector<int64_t> combinedBatchShape;
+  if (!OpTrait::util::getBroadcastedShape(
+          lhsBatchShape, rhsBatchShape, combinedBatchShape))
+    llvm_unreachable("matMul() requires broadcast compatible batch shapes");
+  SmallVector<int64_t> matMulShape = combinedBatchShape;
+  matMulShape.push_back(M);
+  matMulShape.push_back(N);
+  size_t matMulRank = matMulShape.size();
+
+  SmallVector<int64_t> xpLhsShape = combinedBatchShape;
+  if (lhsRank != 1)
+    xpLhsShape.push_back(M);
+  xpLhsShape.push_back(K);
+  SmallVector<int64_t> lhsRedStrides;
+  ArrayBuffer<WideNum> lhsNums =
+      getWideNumsAndExpandedStrides(lhs, xpLhsShape, lhsRedStrides);
+  if (lhsRank == 1)
+    lhsRedStrides.insert(lhsRedStrides.end() - 1, 0);
+  assert(lhsRedStrides.size() == matMulRank);
+  // Record the LHS stride on the MatMul reduction axis and then clear it in
+  // the strides so it is ignored during the outer reduction loop below.
+  // (The MatMul reduction axis stride is used in the inner reduction loop.)
+  int64_t matMulAxisLhsStride = lhsRedStrides[matMulRank - 1];
+  lhsRedStrides[matMulRank - 1] = 0;
+
+  SmallVector<int64_t> xpRhsShape = combinedBatchShape;
+  xpRhsShape.push_back(K);
+  if (rhsRank != 1)
+    xpRhsShape.push_back(N);
+  SmallVector<int64_t> rhsRedStrides;
+  ArrayBuffer<WideNum> rhsNums =
+      getWideNumsAndExpandedStrides(rhs, xpRhsShape, rhsRedStrides);
+  if (rhsRank == 1)
+    rhsRedStrides.push_back(0);
+  assert(rhsRedStrides.size() == matMulRank);
+  // Record the RHS stride on the MatMul reduction axis and then clear it in
+  // the strides so it is ignored during the outer reduction loop below.
+  // (The MatMul reduction axis stride is used in the inner reduction loop.)
+  int64_t matMulAxisRhsStride = rhsRedStrides[matMulRank - 2];
+  rhsRedStrides[matMulRank - 2] = 0;
+
+  SmallVector<int64_t> resultShape = combinedBatchShape;
+  if (lhsRank != 1)
+    resultShape.push_back(M);
+  if (rhsRank != 1)
+    resultShape.push_back(N);
+  ShapedType resultType = lhsType.clone(resultShape);
+  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(elementType, [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      for (auto &idxoffs :
+          StridesRange<2>(matMulShape, {lhsRedStrides, rhsRedStrides})) {
+        // Traverse all the elements that reduce together into d.
+        // srcNums elements may be repeated if there are zeros in axesStrides.
+        cpptype accumulator = 0;
+        int64_t lhsPos = idxoffs[0];
+        int64_t rhsPos = idxoffs[1];
+        for (int64_t i = 0; i < K; ++i) {
+          accumulator += lhsNums.get()[lhsPos].narrow<TAG>() *
+                         rhsNums.get()[rhsPos].narrow<TAG>();
+          lhsPos += matMulAxisLhsStride;
+          rhsPos += matMulAxisRhsStride;
+        }
+        dstNums[idxoffs.flattenedIndex] = WideNum::widen<TAG>(accumulator);
+      }
+    });
+  });
+}
+
+ElementsAttr ElementsAttrBuilder::range(
+    ShapedType resultType, WideNum start, WideNum delta) {
+  return fromWideNums(resultType, [&](MutableArrayRef<WideNum> dstNums) {
+    wideZeroDispatchNonBool(resultType.getElementType(), [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      constexpr BType TAG = toBType<cpptype>;
+      // Traverse and populate each element d in dstNums.
+      cpptype x = start.narrow<TAG>();
+      for (auto &d : dstNums) {
+        d = WideNum::widen<TAG>(x);
+        x += delta.narrow<TAG>();
+      }
+    });
+  });
+}
+
+namespace {
+// Returns indices with non-zero values. The indices are placed back to back,
+// lexicographically sorted. Can be viewed as a [count, rank] shaped matrix
+// linearized in row-major order, where rank is the rank of elms' shape and
+// count is the number of non-zero values. AP_TYPE should be APFloat or APInt.
+// TODO: If this is too slow then reimplement in the style of allEqual()
+//       with WideNum instead of APFloat/APInt.
+template <typename AP_TYPE>
+SmallVector<int64_t> nonZeroIndices(ElementsAttr elms) {
+  SmallVector<int64_t> indices;
+  auto values = elms.getValues<AP_TYPE>();
+  for (const auto &idxpos :
+      StridesRange<0>(elms.getShapedType().getShape(), {})) {
+    if (!values[idxpos.flattenedIndex].isZero())
+      indices.append(idxpos.index.begin(), idxpos.index.end());
+  }
+  return indices;
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
+  SmallVector<int64_t> indices = isa<FloatType>(elms.getElementType())
+                                     ? nonZeroIndices<APFloat>(elms)
+                                     : nonZeroIndices<APInt>(elms);
+  int64_t rank = elms.getShapedType().getRank();
+  assert(indices.size() % rank == 0);
+  int64_t count = indices.size() / rank;
+  Type I64 = IntegerType::get(elms.getContext(), 64);
+  // Return transposition from shape [count, rank] to [rank, count].
+  auto nonZeroType = RankedTensorType::get({rank, count}, I64);
+  return fromArray<int64_t>(nonZeroType, [&](MutableArrayRef<int64_t> dst) {
+    for (int64_t i = 0; i < count; ++i) {
+      for (int64_t j = 0; j < rank; ++j)
+        dst[j * count + i] = indices[i * rank + j];
+    }
+  });
+}
+
+/*static*/
+auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
     -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
@@ -475,9 +966,10 @@ auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements) const
   llvm_unreachable("unexpected ElementsAttr instance");
 }
 
+/*static*/
 ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     ElementsAttr elms, llvm::ArrayRef<int64_t> expandedShape,
-    llvm::SmallVectorImpl<int64_t> &expandedStrides) const {
+    llvm::SmallVectorImpl<int64_t> &expandedStrides) {
   if (auto disposable = elms.dyn_cast<DisposableElementsAttr>()) {
     expandedStrides = expandStrides(disposable.getStrides(), expandedShape);
     return disposable.getBufferAsWideNums();
@@ -485,7 +977,7 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     expandedStrides = getSplatStrides(expandedShape);
     return ArrayBuffer<WideNum>::Vector(1, getElementsSplatWideNum(elms));
   } else {
-    auto strides = getDefaultStrides(elms.getType().getShape());
+    auto strides = getDefaultStrides(elms.getShapedType().getShape());
     expandedStrides = expandStrides(strides, expandedShape);
     return getElementsWideNums(elms);
   };
@@ -493,7 +985,8 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
 
 ElementsAttr ElementsAttrBuilder::doTransform(
     ElementsAttr elms, Type transformedElementType, Transformer transformer) {
-  ShapedType transformedType = elms.getType().clone(transformedElementType);
+  ShapedType transformedType =
+      elms.getShapedType().clone(transformedElementType);
 
   ElementsProperties props = getElementsProperties(elms);
 
@@ -519,7 +1012,6 @@ ElementsAttr ElementsAttrBuilder::fromRawBytes(
   std::unique_ptr<llvm::WritableMemoryBuffer> writeBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(size);
   bytesFiller(writeBuffer->getBuffer());
-  // We trust bytesFiller and skip testRawBytesValidityAndSplatness()
   return createWithDefaultStrides(type, bufferBType, std::move(writeBuffer));
 }
 

@@ -5,27 +5,32 @@ add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
+  Additional/ShapeTransform.cpp
+  Additional/Custom.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
-  Math/Clip.cpp
   Math/CumSum.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Hardmax.cpp
   Math/LRN.cpp
   Math/MatMul.cpp
+  Math/MatMulInteger.cpp
   Math/RandomNormal.cpp
   Math/RandomNormalLike.cpp
   Math/Reduction.cpp
   Math/Softmax.cpp
   Math/TopK.cpp
+  Math/Trilu.cpp
   NN/Conv.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
   ObjectDetection/NonMaxSuppression.cpp
+  Quantization/DynamicQuantizeLinear.cpp
+  Quantization/QuantizeLinear.cpp
   RNN/GRU.cpp
   RNN/LSTM.cpp
   RNN/RNN.cpp
@@ -69,6 +74,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Squeeze.cpp
   Tensor/Tile.cpp
   Tensor/Transpose.cpp
+  Tensor/Unique.cpp
   Tensor/Unsqueeze.cpp
 
   LINK_LIBS PUBLIC

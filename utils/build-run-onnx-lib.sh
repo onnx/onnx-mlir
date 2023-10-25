@@ -12,7 +12,7 @@
 
 # ask git for the onnx-mlir top level dir
 ONNX_MLIR=$(git rev-parse --show-toplevel)
-if [ $(pwd) != $ONNX_MLIR/build ] ; then
+if [ $(realpath $(pwd)) != $ONNX_MLIR/build ] ; then
   echo "Error: this script must be run from the build dir $ONNX_MLIR/build"
   exit 1
 fi
@@ -45,7 +45,7 @@ fi
 DRIVER_NAME=$ONNX_MLIR/utils/RunONNXLib.cpp
 RUN_BIN=$ONNX_MLIR_BIN/run-onnx-lib
 RUN_BIN_RELATIVE=${RUN_BIN#$(pwd)/}
-g++ $DRIVER_NAME -o $RUN_BIN -std=c++17 -D LOAD_MODEL_STATICALLY=$# \
+g++ -g $DRIVER_NAME -o $RUN_BIN -std=c++17 -D LOAD_MODEL_STATICALLY=$# \
 -I $LLVM_PROJECT/llvm/include -I $LLVM_PROJECT/build/include \
 -I $ONNX_MLIR/include -L $LLVM_PROJECT/build/lib \
 -lLLVMSupport -lLLVMDemangle -lcurses -lpthread -ldl "$@" &&

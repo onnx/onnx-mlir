@@ -4,7 +4,7 @@
 
 //===---------------- GatherND.cpp - Lowering GatherND Op -----------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,10 +23,9 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXGatherNDOpLowering : public ConversionPattern {
+struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
   ONNXGatherNDOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXGatherNDOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   // When true causes injection of print stmts in the generated code.
   static constexpr bool emitPrintStmts = false;
@@ -44,11 +43,13 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     createKrnl.printf(")\n");
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXGatherNDOp gatherNDOp,
+      ONNXGatherNDOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXGatherNDOpAdaptor operandAdaptor(operands);
-    ONNXGatherNDOp gatherNDOp = cast<ONNXGatherNDOp>(op);
-    Location loc = op->getLoc();
+    Operation *op = gatherNDOp.getOperation();
+    Location loc = ONNXLoc<ONNXGatherNDOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
         create(rewriter, loc);
@@ -60,9 +61,9 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value indices = operandAdaptor.getIndices();
-    int64_t b = gatherNDOp.getBatchDims();
+    Value data = adaptor.getData();
+    Value indices = adaptor.getIndices();
+    int64_t b = adaptor.getBatchDims();
     auto indicesType = indices.getType().cast<ShapedType>();
     auto dataType = data.getType().cast<ShapedType>();
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
@@ -79,7 +80,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     ArrayRef<int64_t> outputShape = outputMemRefType.getShape();
     int64_t outputRank = outputShape.size();
 
-    // Ensure the operation containts are satisfied.
+    // Ensure the operation constains are satisfied.
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
     assert(indicesRank >= 1 && "The rank of 'indices' must be >= 1");
     assert((outputRank == dataRank + indicesRank - indicesLastDim - 1 - b) &&
@@ -110,7 +111,8 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     // Reshape 'data' to shape [batchDimSize, data.shape[b:]]
     DimsExpr newDataShape = {BDS};
     for (int64_t i = b; i < dataRank; ++i) {
-      assert(dataShape[i] > 0 && "Cannot support data with dynamic dimensions");
+      assert(dataShape[i] != ShapedType::kDynamic &&
+             "Cannot support data with dynamic dimensions");
       LiteralIndexExpr dataDim(dataShape[i]);
       newDataShape.emplace_back(dataDim);
     }
@@ -256,7 +258,7 @@ struct ONNXGatherNDOpLowering : public ConversionPattern {
     LLVM_DEBUG(llvm::dbgs() << "reshapedOutput: " << reshapedOutput << "\n");
 
     rewriter.replaceOp(op, reshapedOutput);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

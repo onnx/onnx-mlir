@@ -36,7 +36,7 @@ The all_test_names.txt is automatically generated with command "make check-onnx-
 
 ### Adding ONNX-supported test cases to the current set of backend tests
 
-When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in `third_part/onnx/onnx/backend/test/case/node`. You can identify new tests by looking for the new operator in `test/backend/all_test_names.txt`. Once you have located new tests, you may add the new tests in the `test/backend/inference_backend.py.` Please note to add suffix `_cpu` to the onnx test name. Associated with the test, you can define how to run the tests for the new operator. For example:
+When the ONNX-to-Krnl conversion of an operator is added, the corresponding backend tests for this operator should be added to test.py. The available test cases can be found in `third_party/onnx/onnx/backend/test/case/node`. You can identify new tests by looking for the new operator in `test/backend/all_test_names.txt`. Once you have located new tests, you may add the new tests in the `test/backend/inference_backend.py.` Please note to add suffix `_cpu` to the onnx test name. Associated with the test, you can define how to run the tests for the new operator. For example:
 ```
         "test_and2d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
 ```
@@ -344,6 +344,8 @@ The standard way to add tracing code in the LLVM and MLIR projects is to use the
 
 To insert a single "printout" under debug control, the following template can be used.
 ```C++
+#include "llvm/Support/Debug.h"
+
 #define DEBUG_TYPE "my_opt_name_here"
 ...
 LLVM_DEBUG(llvm::dbgs() << "debug msg here" <<  obj_to_print << "\n");
@@ -375,11 +377,47 @@ Again, these debug statements can then be activated by adding the `--debug-only=
 
 ## ONNX Model Zoo
 
-We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models). The script can be invoked from the ONNX model zoo repository, e.g.,
+We provide a Python script [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) to check inference accuracy with models in the [ONNX model zoo](https://github.com/onnx/models).  [RunONNXModelZoo.py](../utils/RunONNXModelZoo.py) requires [RunONNXModel.py](../utils/RunONNXModel.py) to be in the same folder. For example, to check inference accuracy with mnist-8:
 
 ```bash
-$ git clone https://github.com/onnx/models
-$ cd models
-$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ /onnx-mlir/utils/RunONNXModelZoo.py -m mnist-8 -compile-args="-O3"
+$ mkdir test && cd test
+$ ln -s /onnx-mlir/utils/RunONNXModel.py
+$ ln -s /onnx-mlir/utils/RunONNXModelZoo.py
+$ ONNX_MLIR_HOME=/onnx-mlir/build/Release/ python RunONNXModelZoo.py -m mnist-8 -c="-O3"
 ```
-Run the script with `-h` to see all the options.
+Run the script with `-h` to see all the options. In addition to the `-m` flag to specify a model and `-c` flag to specify the compile options, useful options are the `-k` flag to leave the onnx model in the current directory as a `.tgz` file, and the `-l debug` flag to print lots of debugging info.
+
+To find out which models are available, run the script with `-p` to print the list of available models; or `-m` followed by an incomplete name, and the script will suggest the exact names. 
+
+Without specifying a model using `-m`, the script will check all models in the ONNX model zoo.
+
+### ONNX Model Zoo Performance analysis
+
+If you want to gather performance info about a model zoo (or any models, for that matter), simplest is to request the desired statistic at compile time (using `-profile-ir` flag), divert the output statistic to a file, and then analyze it using `make-report.py`. For example:
+```
+> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 -march=arm64 --profile-ir=Onnx" -m bertsquad-10
+...
+> make-report.py -r run.log
+...
+Statistics start (all ops).
+  onnx.Add, 112, 0.0130570
+  onnx.Cast, 105, 0.0001860
+  onnx.Concat, 55, 0.0001290
+  onnx.Constant, 473, 0.0008220
+```
+
+The runtime profiling info can be combined with specific compile-time statistics as well. Let's say that we are interested in SIMD statistics. We inform the compiler of the compile-time statistic to emit using `-opt-report` option, and inform `RunONNXModelZoo.py` that we want to preserve the compiler output using the `--log-to-file` option. For example
+```
+> ONNX_MLIR_INSTRUMENT_FILE=run.log RunONNXModelZoo.py -c "-O3 -march=arm64 -opt-report=Simd --profile-ir=Onnx" -m bertsquad-10 --log-to-file compile.log
+...
+> make-report.py -c compile.log -r run.log
+...
+Statistics start (all ops).
+  onnx.Add-simd, 112, 0.0130570
+  onnx.Cast, 23, 0.0000650
+  onnx.Gemm, 1, 0.0003570
+  onnx.Gemm-simd, 72, 0.8109330
+```
+In the listing above, the operations that were vectorized are summarized separately with a  `-simd` postfix appended to their respective operation names.
+
+The same options and environment variables works equally well for `RunONNXModel.py` and `RunONNXModelZoo.py`.

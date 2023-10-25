@@ -11,12 +11,17 @@
 // This file implements a set of rewriters for operations in the ONNX dialect
 // that can be rewritten by using other ONNX operations.
 //
+// When adding a canonicalizer for a new operation, please add that operation to
+// the OpsWithCanonicalizer list in utils/gen_onnx_mlir.py
+//
 //===----------------------------------------------------------------------===//
 
 #include <math.h>
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeUtilities.h"
+#include "llvm/ADT/SmallSet.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -40,20 +45,47 @@ Value subtractOrNeg(PatternRewriter &rewriter, Location loc, Value A, Value B) {
   return rewriter.create<ONNXSubOp>(loc, A, B);
 }
 
-// Create an ArrayAttr of IntegerAttr(s) of values in [1, N].
-ArrayAttr createArrayAttrOfOneToN(PatternRewriter &rewriter, int N) {
-  SmallVector<int64_t, 4> vals;
-  for (int i = 1; i <= N; ++i)
-    vals.emplace_back(i);
-  return rewriter.getI64ArrayAttr(vals);
-}
-
 // Create an ArrayAttr of IntegerAttr(s) of values in [N, M].
 ArrayAttr createArrayAttrOfNToM(PatternRewriter &rewriter, int N, int M) {
   SmallVector<int64_t, 4> vals;
   for (int i = N; i <= M; ++i)
     vals.emplace_back(i);
   return rewriter.getI64ArrayAttr(vals);
+}
+
+// Create an DenseElementsAttr of i64 values in [N, M].
+DenseElementsAttr createDenseElementsAttrOfNToM(
+    PatternRewriter &rewriter, int64_t N, int64_t M) {
+  SmallVector<int64_t, 4> vals;
+  for (int i = N; i <= M; ++i)
+    vals.emplace_back(i);
+  return rewriter.getI64TensorAttr(vals);
+}
+
+Value normalizeConstantOp(
+    PatternRewriter &rewriter, Value output, Attribute attr) {
+  ShapedType outputType = output.getType().cast<ShapedType>();
+  Type elementType = outputType.getElementType();
+
+  DenseElementsAttr denseAttr;
+  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
+    int64_t dim = arrayAttr.size();
+    auto tensorType = RankedTensorType::get({dim}, elementType);
+    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+  } else {
+    auto tensorType = RankedTensorType::get({}, elementType);
+    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
+    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
+    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
+    } else {
+      llvm_unreachable("unexpected Attribute");
+    }
+  }
+  OnnxBuilder createONNX(rewriter, output.getLoc());
+  return createONNX.constant(denseAttr);
 }
 
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
@@ -105,8 +137,7 @@ bool areProducedByTransposeOp(ValueRange values) {
 
 // Create a DenseElementsAttr based on the shape of type.
 DenseElementsAttr createDenseElementsAttrFromShape(PatternRewriter &rewriter,
-    Value value, int64_t start = 0,
-    llvm::Optional<int64_t> end = std::nullopt) {
+    Value value, int64_t start = 0, std::optional<int64_t> end = std::nullopt) {
 
   auto inType = value.getType().cast<ShapedType>();
   assert(inType.hasRank() && "inType must be ranked");
@@ -132,6 +163,49 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
       rewriter, shapeOp.getData(), start, end);
 }
 
+/// Test if two axis arrays contain the same values or not.
+/// If rank != 0 then negative axes are adjusted by adding rank.
+/// No checking is done for invariants like out of range axes
+/// or duplicate axes.
+bool AreTheSameAxesArrayAttr(
+    int64_t rank, ArrayAttr lhsAttr, ArrayAttr rhsAttr) {
+  if (!lhsAttr || !rhsAttr)
+    return false;
+
+  auto asSet = [rank](ArrayRef<Attribute> array) {
+    llvm::SmallSet<int64_t, 6> axes;
+    for (auto attr : array) {
+      int64_t axis = attr.cast<IntegerAttr>().getInt();
+      axes.insert(axis < 0 ? axis + rank : axis);
+    }
+    return axes;
+  };
+  return asSet(lhsAttr.getValue()) == asSet(rhsAttr.getValue());
+}
+
+// Same as AreTheSameAxesArrayAttr but takes (result value of)
+// ONNXConstantOp tensors as inputs.
+// Returns false if any of the input Values are not constant results.
+bool AreTheSameAxesConstant(int64_t rank, Value lhs, Value rhs) {
+  assert(cast<ShapedType>(lhs.getType()).getElementType().isInteger(64));
+  assert(cast<ShapedType>(rhs.getType()).getElementType().isInteger(64));
+  auto lhsConstOp = dyn_cast_or_null<ONNXConstantOp>(lhs.getDefiningOp());
+  auto rhsConstOp = dyn_cast_or_null<ONNXConstantOp>(rhs.getDefiningOp());
+  return lhsConstOp && rhsConstOp &&
+         AreTheSameAxesArrayAttr(rank,
+             createArrayAttrFromConstantOp(lhsConstOp),
+             createArrayAttrFromConstantOp(rhsConstOp));
+}
+
+/// Test if two values have the same static shape or not.
+bool haveSameStaticShape(Value lhs, Value rhs) {
+  if (!hasShapeAndRank(lhs) || !hasShapeAndRank(rhs))
+    return false;
+  Type lhsT = lhs.getType();
+  Type rhsT = rhs.getType();
+  return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
+}
+
 } // namespace onnx_mlir
 
 // =============================================================================
@@ -139,6 +213,182 @@ DenseElementsAttr createDenseElementsAttrFromShapeOp(
 // =============================================================================
 
 #include "src/Dialect/ONNX/ONNXRewrite.inc"
+
+// =============================================================================
+// Rewrite pattern for elementwise binary ops (not handled in Rewrite.td).
+// =============================================================================
+
+// Rewrites v1-v6 binary op with legacy axis and broadcast attributes set
+// by unsqueezing the rhs shape as needed and removing the axis and broadcast
+// attributes, provided that the operand shapes' ranks are known.
+// The v1-v6 binary ops with axis and broadcast attributes are:
+// Add, And, Div, Equal, Greater, Less, Or, Pow, Sub, Xor.
+template <typename OP_TYPE>
+class BinaryOpBroadcastAxisPattern : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    Operation *op = binaryOp.getOperation();
+
+    IntegerAttr bcast = op->getAttrOfType<IntegerAttr>("broadcast");
+    IntegerAttr axisAttr = op->getAttrOfType<IntegerAttr>("axis");
+    if (!bcast || bcast.getValue().getSExtValue() != 1 || !axisAttr) {
+      return failure(); // Pattern only applies when broadcast and axis are set.
+    }
+    int64_t axis = axisAttr.getValue().getSExtValue();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    ShapedType lhsType = cast<ShapedType>(lhs.getType());
+    ShapedType rhsType = cast<ShapedType>(rhs.getType());
+    if (!lhsType.hasRank() || !rhsType.hasRank()) {
+      return failure(); // Cannot apply pattern until ranks are known.
+    }
+    int64_t lhsRank = lhsType.getRank();
+    int64_t rhsRank = rhsType.getRank();
+    if (axis > lhsRank) {
+      return op->emitOpError("broadcast axis out of range: ")
+             << "axis " << axis << ", lhs type " << lhsType;
+    }
+    if (rhsRank > lhsRank - axis) {
+      return op->emitOpError("broadcast rhs shape too long: ")
+             << "axis " << axis << ", lhs type " << lhsType << ", rhs type "
+             << rhsType;
+    }
+
+    rewriter.updateRootInPlace(op, [&] {
+      if (rhsRank < lhsRank - axis) {
+        OnnxBuilder createONNX(rewriter, op->getLoc());
+        SmallVector<int64_t> axesArray;
+        SmallVector<int64_t> unsqueezedShape(rhsType.getShape());
+        for (int64_t x = rhsRank; x < lhsRank - axis; ++x) {
+          axesArray.push_back(x);
+          unsqueezedShape.push_back(1);
+        }
+        Value axes = createONNX.constantInt64(axesArray);
+        auto unsqueezedType =
+            RankedTensorType::get(unsqueezedShape, rhsType.getElementType());
+        Value unsqueezed = createONNX.unsqueeze(unsqueezedType, rhs, axes);
+        op->setOperand(1, unsqueezed);
+      }
+      Attribute removedAxisAttr = op->removeAttr("axis");
+      assert(removedAxisAttr && "axis should be removed");
+      Attribute removedBroadcastAttr = op->removeAttr("broadcast");
+      assert(removedBroadcastAttr && "broadcast should be removed");
+    });
+    return success();
+  }
+};
+
+// A pattern to turn
+//   `BinaryOp(Constant_X, ExpandOp(Constant_Y))`
+// into
+//   `ExpandOp(BinaryOp(Constant_X, Constant_Y))`
+// which put constants together so that BinaryOp can be folded. This pattern
+// only handles the case where one of the operand is a scalar constant. For such
+// a case, we can easily infer the shape operand for the resulting ExpandOp.
+
+template <typename OP_TYPE>
+class PropagateScalarConstantExpandPattern : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    Operation *op = binaryOp.getOperation();
+    Location loc = binaryOp.getLoc();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Type outputType = op->getResult(0).getType();
+
+    // Match
+    //  - lhs is a scalar constant, and
+    //  - rhs is ExpandOp whose input is a scalar constant, or vice versa.
+    Value expandShape = nullptr;
+    auto matchValue = [&expandShape](Value v) -> Value {
+      Value res = v;
+      if (auto expandOp =
+              dyn_cast_if_present<ONNXExpandOp>(res.getDefiningOp())) {
+        if (!expandShape) {
+          res = expandOp.getInput();
+          expandShape = expandOp.getShape();
+        }
+      }
+      if (isDenseONNXConstant(res) && isScalarTensor(res))
+        return res;
+      return nullptr;
+    };
+    Value lhsConstant = matchValue(lhs);
+    Value rhsConstant = matchValue(rhs);
+    if (!expandShape || !lhsConstant || !rhsConstant)
+      return failure();
+    // Does not handle empty shape in ExpandOp, e.g. of type tensor<0xdtype>.
+    if (!hasShapeAndRank(expandShape))
+      return failure();
+    ArrayRef<int64_t> dims = getShape(expandShape.getType());
+    if ((dims.size() == 1) && (dims[0] == 0))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value res = create.onnx.expand(outputType,
+        create.onnx.createOpAndInferShapes<OP_TYPE>(lhsConstant, rhsConstant),
+        expandShape);
+
+    rewriter.replaceOp(op, {res});
+    return success();
+  }
+};
+
+// =============================================================================
+// Rewrite pattern for Resize (not handled in Rewrite.td).
+// =============================================================================
+
+// The yolo4 model uses a float tensor with shape [0] to represent that roi
+// or scales is absent in accordance with the Resize v11 spec. This violates
+// the spec from v13 onwards which says that empty string
+// inputs represents absent arguments in the protobuf model representation.
+// We work around this by interpreting a tensor with empty shape as an
+// alternative way to express that an input is absent.
+class EmptyTensorInputsResizePattern : public OpRewritePattern<ONNXResizeOp> {
+public:
+  using OpRewritePattern<ONNXResizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXResizeOp onnxResizeOp, PatternRewriter &rewriter) const override {
+    bool emptyRoi = isEmptyTensor(onnxResizeOp.getRoi());
+    bool emptyScales = isEmptyTensor(onnxResizeOp.getScales());
+    bool emptySizes = isEmptyTensor(onnxResizeOp.getSizes());
+    if (emptyRoi || emptyScales || emptySizes) {
+      rewriter.updateRootInPlace(onnxResizeOp, [&] {
+        OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
+        if (emptyRoi)
+          onnxResizeOp.getRoiMutable().assign(createONNX.none());
+        if (emptyScales)
+          onnxResizeOp.getScalesMutable().assign(createONNX.none());
+        if (emptySizes)
+          onnxResizeOp.getSizesMutable().assign(createONNX.none());
+      });
+      return success();
+    } else {
+      return failure(); // pattern didn't apply and onnxResizeOp is unchanged
+    }
+  }
+
+private:
+  bool isEmptyTensor(Value input) const {
+    if (ShapedType shapedType = dyn_cast<ShapedType>(input.getType())) {
+      return shapedType.hasStaticShape() && shapedType.getNumElements() == 0;
+    } else {
+      return false;
+    }
+  }
+};
 
 // =============================================================================
 // Rewrite pattern for loop (not handled in Rewrite.td).
@@ -207,7 +457,7 @@ public:
     //     stepValue = ONNXConstantOp() {value = ...}
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
     //     cond_new = cond
-    //     ONNXReturnOp (cond_new, ..., ubValue, ..., newCounterValue, ...)
+    //     ONNXYieldOp (cond_new, ..., ubValue, ..., newCounterValue, ...)
     // ```
     bool matched;
     Value newMaxTripCountValue;
@@ -243,28 +493,27 @@ private:
 
   // A helper function to check whether an block argument is invariant to
   // iterations or not. By the definition of LoopOp, input block arguments are
-  // shifted by 1 to the left in ReturnOp. If a block argument is unchanged when
-  // being shifted in ReturnOp, then it is invariant to iterations.
-  bool isInvariantBlockArg(Value v, Operation *returnOp) const {
+  // shifted by 1 to the left in YieldOp. If a block argument is unchanged when
+  // being shifted in YieldOp, then it is invariant to iterations.
+  bool isInvariantBlockArg(Value v, Operation *yieldOp) const {
     return v.isa<BlockArgument>() &&
-           (v ==
-               returnOp
-                   ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
+           (v == yieldOp->getOperands()[v.cast<BlockArgument>().getArgNumber() -
+                                        1]);
   }
 
   // A helper function to check whether a value is defined by ONNXConstantOp in
   // the same block or an invariant block argument.
-  bool isIntConstantOrInvariantBlockArg(Value v, Operation *returnOp) const {
-    return ((v.isa<BlockArgument>() && isInvariantBlockArg(v, returnOp)) ||
+  bool isIntConstantOrInvariantBlockArg(Value v, Operation *yieldOp) const {
+    return ((v.isa<BlockArgument>() && isInvariantBlockArg(v, yieldOp)) ||
             (!v.isa<BlockArgument>() && isDefinedByIntegerConstantOp(v)));
   }
 
   // A helper function to check whether an block argument is updated by a Value
   // inside the loop or not.
-  bool isUpdatedArgByValue(Value v, Value newV, Operation *returnOp) const {
+  bool isUpdatedArgByValue(Value v, Value newV, Operation *yieldOp) const {
     return v.isa<BlockArgument>() &&
            (newV ==
-               returnOp
+               yieldOp
                    ->getOperands()[v.cast<BlockArgument>().getArgNumber() - 1]);
   }
 
@@ -295,7 +544,7 @@ private:
   //     stepValue = ONNXConstantOp() {value = ...}
   //     newCounterValue = ONNXAddOp(counterValue, stepValue).
   //     cond = LessOp(newCounterValue, ubValue)
-  //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+  //     ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)
   // ```
   std::pair<bool, Value> matchOp(
       PatternRewriter &rewriter, Location loc, ONNXLoopOp onnxLoopOp) const {
@@ -313,18 +562,18 @@ private:
     if (!loopBody.hasOneBlock())
       return std::make_pair(false, maxTripCountValue);
 
-    // Get ReturnOp of the body block.
+    // Get YieldOp of the body block.
     Block &bodyBlock = loopBody.front();
-    Operation *returnOp = bodyBlock.getTerminator();
-    if (!isa<ONNXReturnOp>(returnOp))
+    Operation *yieldOp = bodyBlock.getTerminator();
+    if (!isa<ONNXYieldOp>(yieldOp))
       return std::make_pair(false, maxTripCountValue);
 
     // Analyze the break condition of the loop body to see if we can derive a
     // new maximum trip count or not.
 
-    // The break condition is the first argument of ReturnOp.
-    // `ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)`
-    Value breakCond = returnOp->getOperands()[0];
+    // The break condition is the first argument of YieldOp.
+    // `ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)`
+    Value breakCond = yieldOp->getOperands()[0];
     if (breakCond.isa<BlockArgument>())
       return std::make_pair(false, maxTripCountValue);
     Operation *breakCondOp = breakCond.getDefiningOp();
@@ -356,15 +605,15 @@ private:
     //     stepValue = ONNXConstantOp() {value = ...}
     //     newCounterValue = ONNXAddOp(counterValue, stepValue).
     //     cond = LessOp(newCounterValue, ubValue)
-    //     ONNXReturnOp (cond, ..., ubValue, ..., newCounterValue, ...)
+    //     ONNXYieldOp (cond, ..., ubValue, ..., newCounterValue, ...)
     Operation *addOp = cast<ONNXAddOp>(newCounterValue.getDefiningOp());
     Value counterValue = addOp->getOperands()[0];
     Value stepValue = addOp->getOperands()[1];
     // Counter is a block argument and updated at each iteration.
-    if (!isUpdatedArgByValue(counterValue, newCounterValue, returnOp))
+    if (!isUpdatedArgByValue(counterValue, newCounterValue, yieldOp))
       return std::make_pair(false, maxTripCountValue);
     // Step must be a constant inside the loop or an invariant argument.
-    if (!isIntConstantOrInvariantBlockArg(stepValue, returnOp))
+    if (!isIntConstantOrInvariantBlockArg(stepValue, yieldOp))
       return std::make_pair(false, maxTripCountValue);
 
     // Check the lower bound of the break condition.
@@ -373,17 +622,17 @@ private:
 
     // Check the upper bound of the break condition.
     // UpperBound must be a constant inside the loop or an invariant argument.
-    if (!isIntConstantOrInvariantBlockArg(ubValue, returnOp))
+    if (!isIntConstantOrInvariantBlockArg(ubValue, yieldOp))
       return std::make_pair(false, maxTripCountValue);
 
     // Get values for upper bound and step if they are invariant arguments.
     // Otherwise, clone them to location outside the loop.
-    if (isInvariantBlockArg(ubValue, returnOp))
+    if (isInvariantBlockArg(ubValue, yieldOp))
       ubValue = getFedValue(ubValue, loopOp);
     else
       ubValue = cast<ONNXConstantOp>(rewriter.clone(*ubValue.getDefiningOp()))
                     .getResult();
-    if (isInvariantBlockArg(stepValue, returnOp))
+    if (isInvariantBlockArg(stepValue, yieldOp))
       stepValue = getFedValue(stepValue, loopOp);
     else
       stepValue =
@@ -444,6 +693,10 @@ private:
   }
 };
 
+// =============================================================================
+// Rewrite pattern for RNNs
+// =============================================================================
+
 namespace {
 // RNNOpRewriteLayoutPattern helper functions and classes.
 
@@ -467,7 +720,7 @@ public:
 
   void transposeInput(MutableOperandRange operand, ArrayAttr perm) {
     assert(operand.size() == 1 && "should be called with singleton range");
-    Value input = operand[0];
+    Value input = operand[0].get();
     if (!input.getType().isa<NoneType>()) {
       Value transposed = transpose(input, perm);
       operand.assign(transposed);
@@ -506,7 +759,7 @@ public:
   LogicalResult matchAndRewrite(
       ONNXOp onnxOp, PatternRewriter &rewriter) const override {
     if (onnxOp.getLayout() == 0) {
-      return success();
+      return failure();
     }
 
     InputOutputTransposer transposer(rewriter, onnxOp.getLoc());
@@ -554,6 +807,192 @@ public:
   }
 };
 
+// Rewrites sequence_lens from tensor<bsxi32> to none when bs = 1. It works
+// because by definition all batches (meaning one) has the same sequence length.
+// This rewrite helps the compiler not need to handle sequence_lens.
+template <typename ONNXOp>
+class RNNOpRewriteSeqLenPattern : public OpRewritePattern<ONNXOp> {
+public:
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp onnxOp, PatternRewriter &rewriter) const override {
+    Operation *op = onnxOp.getOperation();
+    Location loc = ONNXLoc<ONNXOp>(op);
+    Value X = onnxOp.getX();
+    Value initialH = onnxOp.getInitialH();
+    Value seqLen = onnxOp.getSequenceLens();
+
+    // sequence_lens is already none. Pattern does not match.
+    if (isNoneValue(seqLen))
+      return failure();
+
+    // Check if batchsize is 1. Batchsize can be in:
+    // - X: [seq_length, batch_size, input_size],
+    // - intial_h: [num_directions, batch_size, hidden_size]
+    // - sequence_lens: [batch_size], or
+    bool oneInX = false, oneInSeqLen = false, oneInInitalH = false;
+    if (isRankedShapedType(X.getType())) {
+      ArrayRef<int64_t> shape = getShape(X.getType());
+      oneInX = shape[1] == 1;
+    }
+    if (isRankedShapedType(seqLen.getType())) {
+      ArrayRef<int64_t> shape = getShape(seqLen.getType());
+      oneInSeqLen = (shape.size() == 1) && (shape[0] == 1);
+    }
+    if (!isNoneValue(initialH) && isRankedShapedType(initialH.getType())) {
+      ArrayRef<int64_t> shape = getShape(initialH.getType());
+      oneInInitalH = shape[1] == 1;
+    }
+    if (!oneInX && !oneInInitalH && !oneInSeqLen)
+      return failure();
+
+    // We know batchsize is 1. Rewrite now.
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Find the operand index of sequence_lens and update it with none.
+    bool updated = false;
+    for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+      if (op->getOperand(i) != seqLen)
+        continue;
+      op->setOperand(i, create.onnx.none());
+      updated = true;
+      break;
+    }
+    return updated ? success() : failure();
+  }
+};
+
+// =============================================================================
+// Rewrite pattern for Power
+// =============================================================================
+
+class PowToMulRewritePattern : public OpRewritePattern<ONNXPowOp> {
+public:
+  using OpRewritePattern<ONNXPowOp>::OpRewritePattern;
+
+  PowToMulRewritePattern(MLIRContext *context, int64_t maxPower)
+      : OpRewritePattern(context), maxPower(maxPower) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXPowOp powOp, PatternRewriter &rewriter) const override {
+    Operation *op = powOp.getOperation();
+    Location loc = powOp.getLoc();
+    int64_t exponent;
+    // Test legality
+    if (!CanExpandPowOpToMul(powOp, exponent))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value input = powOp.getX();
+
+    Value result = nullptr;
+    ShapedType resultType = powOp.getZ().getType().cast<ShapedType>();
+    Type elementType = getElementType(resultType);
+    if (exponent == 0) {
+      Attribute one = isa<FloatType>(elementType)
+                          ? (Attribute)rewriter.getFloatAttr(elementType, 1.0)
+                          : (Attribute)rewriter.getIntegerAttr(elementType, 1);
+      result = create.onnx.constant(DenseElementsAttr::get(resultType, one));
+    } else {
+      // calculate pow(input,exponent) with "exponentiation by squaring" method
+      while (true) {
+        if (exponent & 1)
+          result = result ? create.onnx.mul(resultType, result, input) : input;
+        exponent >>= 1;
+        if (exponent == 0)
+          break;
+        input = create.onnx.mul(resultType, input, input);
+      }
+      assert(result && "should have a result here");
+    }
+
+    rewriter.replaceOp(op, {result});
+    return success();
+  };
+
+private:
+  // Check if a Pow can be simply rewritten as a sequence of multiply ops.
+  bool CanExpandPowOpToMul(ONNXPowOp op, int64_t &powVal) const {
+    return (hasIntegerPowerExponent(&op, powVal) && powVal >= 0 &&
+            powVal <= maxPower);
+  }
+  // Data.
+  int64_t maxPower;
+};
+
+// Rewrite a pattern like the following:
+//
+// %shape = onnx.Concat(%dim1, %dim2)
+// %data = onnx.Expand(%input, %shape)
+// %u = "onnx.Unsqueeze"(%data, %axes)
+//
+// into
+//
+// %new_shape = onnx.Concat(%dim1, %dim2, 1)
+// %u = onnx.Expand(%input, %new_shape)
+class ReplaceUnsqueezeOfExpandRewritePattern
+    : public OpRewritePattern<ONNXUnsqueezeOp> {
+public:
+  using OpRewritePattern<ONNXUnsqueezeOp>::OpRewritePattern;
+
+  ReplaceUnsqueezeOfExpandRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXUnsqueezeOp unsqueezeOp, PatternRewriter &rewriter) const override {
+    Operation *op = unsqueezeOp.getOperation();
+    Location loc = unsqueezeOp.getLoc();
+    Value data = unsqueezeOp.getData();
+    Value axes = unsqueezeOp.getAxes();
+
+    // Match
+    // 1. data is from ExpandOp, axes is from ConstantOp.
+    if (!definedBy<ONNXExpandOp>(data) || !definedBy<ONNXConstantOp>(axes))
+      return failure();
+    auto expandOp = cast<ONNXExpandOp>(data.getDefiningOp());
+    // 2. ExpandOp's input is a scalar tensor so that it's safe to use a new
+    // shape that do not violate the broadcasting rule..
+    if (!isScalarTensor(expandOp.getInput()))
+      return failure();
+    // 3. ExpandOp's shape is defined by dimensions.
+    if (!areDims(expandOp.getShape()))
+      return failure();
+
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Get the old shape.
+    SmallVector<Value, 4> oldDims;
+    getDims(expandOp.getShape(), oldDims);
+    int64_t oldRank = oldDims.size();
+    // Get unsqueeze axes.
+    ElementsAttr axesAttrs = getElementAttributeFromONNXValue(axes);
+    SmallVector<int64_t> axesI64(axesAttrs.getValues<int64_t>());
+    for (unsigned int i = 0; i < axesI64.size(); ++i)
+      if (axesI64[i] < 0)
+        axesI64[i] += oldRank;
+
+    // Construct a new shape.
+    SmallVector<Value, 4> newDims;
+    int64_t newRank = oldRank + axesI64.size();
+    Value one = create.onnx.constantInt64(ArrayRef<int64_t>({1}));
+    for (int64_t i = 0, j = 0; i < newRank || j < oldRank; ++i)
+      if (std::find(axesI64.begin(), axesI64.end(), i) != axesI64.end())
+        // found i in unsqueeze axes.
+        newDims.emplace_back(one);
+      else
+        // original axes.
+        newDims.emplace_back(oldDims[j++]);
+    Value newShape = create.onnx.concat(
+        RankedTensorType::get({newRank}, rewriter.getI64Type()), newDims, 0);
+
+    Value res = create.onnx.expand(
+        op->getResult(0).getType(), expandOp.getInput(), newShape);
+    rewriter.replaceOp(op, {res});
+    return success();
+  };
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -576,13 +1015,22 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseGemmFollowedByAddition>(context);
   results.insert<FuseAddConvPattern>(context);
   results.insert<FuseAddConvNullBiasPattern>(context);
+  results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
+  results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
+}
+
+/// on the ONNXAndOp.
+void ONNXAndOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXAndOp>>(context);
 }
 
 /// on the ONNXCastOp.
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
-  result.insert<FuseCastCastPattern>(context);
+  // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
+  // result.insert<FuseCastCastPattern>(context);
 }
 
 /// on the ONNXConstantOp.
@@ -602,6 +1050,13 @@ void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
   results.insert<RemoveDepthToSpaceSpaceToDepthPattern>(context);
 }
 
+/// on the ONNXDivOp.
+void ONNXDivOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
+  result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
+}
+
 /// on the ONNXDropoutOp.
 void ONNXDropoutOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
@@ -612,6 +1067,12 @@ void ONNXDropoutOp::getCanonicalizationPatterns(
 void ONNXDimOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<DimOpToConstantPattern>(context);
+}
+
+/// on the ONNXEqualOp.
+void ONNXEqualOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXEqualOp>>(context);
 }
 
 /// on the ONNXGlobalAveragePoolOp.
@@ -626,10 +1087,17 @@ void ONNXGlobalMaxPoolOp::getCanonicalizationPatterns(
   results.insert<GlobalMaxPoolPattern>(context);
 }
 
+/// on the ONNXGreaterOp.
+void ONNXGreaterOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXGreaterOp>>(context);
+}
+
 /// on the ONNXGRUOp.
 void ONNXGRUOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXGRUOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXGRUOp>>(context);
 }
 
 /// on the ONNXIdentityOp.
@@ -648,6 +1116,7 @@ void ONNXLayoutTransformOp::getCanonicalizationPatterns(
 void ONNXLessOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<LessOpSameCastPattern>(context);
+  results.insert<BinaryOpBroadcastAxisPattern<ONNXLessOp>>(context);
 }
 
 /// on the ONNXLoopOp.
@@ -660,6 +1129,7 @@ void ONNXLoopOp::getCanonicalizationPatterns(
 void ONNXLSTMOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXLSTMOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXLSTMOp>>(context);
 }
 
 /// on the ONNXMulOp.
@@ -667,26 +1137,56 @@ void ONNXMulOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NormalizeMulPattern>(context);
   results.insert<FuseMulConvNullBiasPattern>(context);
+  results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
+  results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
+}
+
+/// on the ONNXOrOp.
+void ONNXOrOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXOrOp>>(context);
 }
 
 /// on the ONNXReshapeOp.
 void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseReshapePattern>(context);
-  result.insert<RemoveIdentityReshapePattern>(context);
+  result.insert<RemoveIdentityReshapePattern1>(context);
+  result.insert<RemoveIdentityReshapePattern2>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
+}
+
+/// on the ONNXResizeOp.
+void ONNXResizeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<EmptyTensorInputsResizePattern>(context);
 }
 
 /// on the ONNXRNNOp.
 void ONNXRNNOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<RNNOpRewriteLayoutPattern<ONNXRNNOp>>(context);
+  results.insert<RNNOpRewriteSeqLenPattern<ONNXRNNOp>>(context);
 }
 
 /// on the ONNXShapeOp.
 void ONNXShapeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ShapeToConstantPattern>(context);
+}
+
+/// on the ONNXSubOp.
+void ONNXSubOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
+  result.insert<PropagateScalarConstantExpandPattern<ONNXSubOp>>(context);
+}
+
+/// on ONNXShapeTransformOp
+void ONNXShapeTransformOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ShapeTransformComposePattern>(context);
+  results.insert<ShapeTransformIdentityPattern>(context);
 }
 
 /// on the ONNXSizeOp.
@@ -766,10 +1266,24 @@ void ONNXUnsqueezeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeSqueezePattern>(context);
   result.insert<RemoveUnsqueezeCastSqueezePattern>(context);
+  result.insert<ReplaceUnsqueezeOfExpandRewritePattern>(context);
 }
 
 void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<RemoveUnsqueezeV11SqueezeV11Pattern>(context);
   result.insert<RemoveUnsqueezeV11CastSqueezeV11Pattern>(context);
+}
+
+void ONNXPowOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  // Is 64 necessary? Maybe too high?
+  result.insert<PowToMulRewritePattern>(context, 64);
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
+}
+
+/// on the ONNXXorOp.
+void ONNXXorOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<BinaryOpBroadcastAxisPattern<ONNXXorOp>>(context);
 }

@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -93,11 +94,11 @@ public:
 
     // All users except zlow.unstick must be affine.load, so that zlow.unstick
     // will be dangling and can be totally removed at the end of this pass.
-    SmallVector<AffineLoadOp, 4> affineLoads;
+    SmallVector<affine::AffineLoadOp, 4> affineLoads;
     for (Operation *user : cpuMemRef.getUsers()) {
       if (user == op)
         continue;
-      if (auto affineLoad = llvm::dyn_cast<AffineLoadOp>(user))
+      if (auto affineLoad = llvm::dyn_cast<affine::AffineLoadOp>(user))
         affineLoads.emplace_back(affineLoad);
       else
         return failure();
@@ -107,7 +108,7 @@ public:
 
     // 2. Rewrite
     MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
-    for (AffineLoadOp loadOp : affineLoads) {
+    for (affine::AffineLoadOp loadOp : affineLoads) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointAfter(loadOp);
       ValueRange indices = loadOp.getIndices();
@@ -156,11 +157,11 @@ public:
 
     // All users except zlow.stick must be affine.load, so that zlow.stick
     // will be dangling and can be totally removed at the end of this pass.
-    SmallVector<AffineStoreOp, 4> affineStores;
+    SmallVector<affine::AffineStoreOp, 4> affineStores;
     for (Operation *user : cpuMemRef.getUsers()) {
       if (user == op)
         continue;
-      if (auto affineStore = llvm::dyn_cast<AffineStoreOp>(user))
+      if (auto affineStore = llvm::dyn_cast<affine::AffineStoreOp>(user))
         affineStores.emplace_back(affineStore);
       else
         return failure();
@@ -175,7 +176,7 @@ public:
 
     // Replace AffineStoreOp.
     MultiDialectBuilder<AffineBuilder> create(rewriter, loc);
-    for (AffineStoreOp storeOp : affineStores) {
+    for (affine::AffineStoreOp storeOp : affineStores) {
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointAfter(storeOp);
       ValueRange indices = storeOp.getIndices();

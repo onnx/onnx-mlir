@@ -86,8 +86,8 @@ LogicalResult ONNXAveragePoolOpShapeHelper::computeShape() {
   ONNXAveragePoolOp poolOp = llvm::cast<ONNXAveragePoolOp>(op);
   return customComputeShape(operandAdaptor.getX(), /*W*/ nullptr,
       poolOp.getKernelShape(), poolOp.getAutoPad(), poolOp.getPads(),
-      poolOp.getStrides(),
-      /*dilation*/ std::nullopt, /*hasFilter*/ false, poolOp.getCeilMode());
+      poolOp.getStrides(), poolOp.getDilations(), /*hasFilter*/ false,
+      poolOp.getCeilMode());
 }
 
 } // namespace onnx_mlir
@@ -117,6 +117,8 @@ LogicalResult ONNXAveragePoolOp::verify() {
     return failure();
   if (failed(verifyStrides<ONNXAveragePoolOp>(this, spatialRank)))
     return failure();
+  if (failed(verifyDilations<ONNXAveragePoolOp>(this, spatialRank)))
+    return failure();
   if (failed(verifyPadding<ONNXAveragePoolOp>(this, spatialRank)))
     return failure();
   return success();
@@ -139,6 +141,9 @@ LogicalResult ONNXAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalAveragePoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
@@ -150,6 +155,9 @@ LogicalResult ONNXGlobalAveragePoolOp::inferShapes(
 
 LogicalResult ONNXGlobalLpPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalLpPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
@@ -161,6 +169,9 @@ LogicalResult ONNXGlobalLpPoolOp::inferShapes(
 
 LogicalResult ONNXGlobalMaxPoolOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getX()))
+    return success();
+
   Type elementType = getX().getType().cast<ShapedType>().getElementType();
   ONNXGlobalMaxPoolOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

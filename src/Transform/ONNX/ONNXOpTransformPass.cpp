@@ -13,9 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/OperationSupport.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
-#include "llvm/Support/raw_sha1_ostream.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Pass/Passes.hpp"
@@ -46,64 +46,59 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
       "onnx-op-transform-simd-data-layout",
       llvm::cl::desc("Enable SIMD data layout opt in op transform passes."),
       llvm::cl::init(false)};
+  Option<bool> enableConvOptPass{*this, "enable-conv-opt-pass",
+      llvm::cl::desc("Enable the ConvOptPass. Default is true."),
+      llvm::cl::init(true)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
   ONNXOpTransformPass(int threshold, bool report, bool targetCPU,
-      bool enableSimdDataLayoutOpt) {
+      bool enableSimdDataLayoutOpt, bool enableConvOptPass) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
     this->onnxOpTransformTargetCPU = targetCPU;
     this->onnxOpTransformEnableSimdDataLayout = enableSimdDataLayoutOpt;
+    this->enableConvOptPass = enableConvOptPass;
   }
 
   void runOnOperation() final;
-
-private:
-  uint64_t createTagForIR(mlir::ModuleOp module) {
-    // NOTE: This is slow for real models because they contain large
-    // constant tensors that are expensive to print. A workaround is to
-    // elide them from printing with --mlir-elide-elementsattrs-if-larger=1
-    //
-    // TODO: Hash without printing to speed this up, e.g. along the lines of
-    // how blocks are hashed in mlir/lib/Transforms/Utils/RegionUtils.cpp
-    llvm::raw_sha1_ostream sha1_ostream;
-    module->print(sha1_ostream, mlir::OpPrintingFlags());
-    std::array<uint8_t, 20> sha1 = sha1_ostream.sha1();
-    return *reinterpret_cast<uint64_t *>(sha1.data());
-  }
 };
 
 void ONNXOpTransformPass::runOnOperation() {
   auto module = getOperation();
 
-  uint64_t currentTag = createTagForIR(module);
-  uint64_t previousTag;
+  assert(onnxOpTransformThreshold > 0);
   int n = onnxOpTransformThreshold;
+  OperationFingerPrint before(module);
   do {
-    previousTag = currentTag;
     OpPassManager dynamicPM("builtin.module");
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createDecomposeONNXToONNXPass());
-    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
-    dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+    dynamicPM.addNestedPass<func::FuncOp>(
+        onnx_mlir::createShapeInferencePass());
     // Convolution Optimization currently only for CPU.
-    if (onnxOpTransformTargetCPU) {
+    if (onnxOpTransformTargetCPU && enableConvOptPass) {
       dynamicPM.addNestedPass<func::FuncOp>(
           onnx_mlir::createConvOptONNXToONNXPass(
               onnxOpTransformEnableSimdDataLayout));
-      dynamicPM.addPass(onnx_mlir::createShapeInferencePass());
+      dynamicPM.addNestedPass<func::FuncOp>(
+          onnx_mlir::createShapeInferencePass());
     }
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createConstPropONNXToONNXPass());
     if (failed(runPipeline(dynamicPM, module)))
       return signalPassFailure();
-    currentTag = createTagForIR(module);
-  } while (currentTag != previousTag && --n > 0);
-  if (currentTag != previousTag) {
+    OperationFingerPrint after(module);
+    if (after == before)
+      break;
+    before = after;
+  } while (--n > 0);
+  if (n == 0) {
     module->emitWarning()
         << "ONNXOpTransform did not converge after " << onnxOpTransformThreshold
         << "iterations. "
@@ -111,8 +106,7 @@ void ONNXOpTransformPass::runOnOperation() {
   }
   if (onnxOpTransformReport) {
     llvm::outs() << "ONNXOpTransform iterated " << onnxOpTransformThreshold - n
-                 << " times, converged "
-                 << ((currentTag == previousTag) ? "true" : "false") << "\n";
+                 << " times, converged " << (n > 0 ? "true" : "false") << "\n";
   }
 }
 
@@ -125,8 +119,9 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
   return std::make_unique<ONNXOpTransformPass>();
 }
 
-std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(
-    int threshold, bool report, bool targetCPU, bool enableSimdDataLayoutOpt) {
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(int threshold,
+    bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
+    bool enableConvOptPass) {
   return std::make_unique<ONNXOpTransformPass>(
-      threshold, report, targetCPU, enableSimdDataLayoutOpt);
+      threshold, report, targetCPU, enableSimdDataLayoutOpt, enableConvOptPass);
 }

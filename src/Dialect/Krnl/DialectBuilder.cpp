@@ -4,7 +4,7 @@
 
 //====-------------- DialectBuilder.cpp - Krnl Dialect Builder ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -126,6 +126,10 @@ ValueRange KrnlBuilder::getInductionVarValue(ValueRange loops) const {
       .getResults();
 }
 
+void KrnlBuilder::parallel(Value loop) const {
+  b().template create<KrnlParallelOp>(loc(), loop);
+}
+
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
     function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
@@ -221,8 +225,8 @@ KrnlGetRefOp KrnlBuilder::getRef(
 }
 
 Value KrnlBuilder::constant(MemRefType type, StringRef name,
-    Optional<Attribute> value, Optional<IntegerAttr> offset,
-    Optional<IntegerAttr> alignment) const {
+    std::optional<Attribute> value, std::optional<IntegerAttr> offset,
+    std::optional<IntegerAttr> alignment) const {
   static int32_t constantID = 0;
   return b().create<KrnlGlobalOp>(loc(), type,
       b().getI64ArrayAttr(type.getShape()),

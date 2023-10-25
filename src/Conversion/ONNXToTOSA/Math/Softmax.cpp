@@ -42,11 +42,11 @@ Value computeReduceSum<ONNXSoftmaxV11Op>(PatternRewriter &rewriter,
       rsumType.getElementType());
   // Create first reduce with input from function operands
   Value reducedSum = tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter,
-      op->getLoc(), outputType, op1ExpIn, rewriter.getI64IntegerAttr(axis));
+      op->getLoc(), outputType, op1ExpIn, rewriter.getI32IntegerAttr(axis));
   // Loop over all following dimensions with last reduce as input
   for (int i = axis + 1; i < inputRank; i++) {
     reducedSum = tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter,
-        op->getLoc(), outputType, reducedSum, rewriter.getI64IntegerAttr(i));
+        op->getLoc(), outputType, reducedSum, rewriter.getI32IntegerAttr(i));
   }
   return reducedSum;
 }
@@ -56,7 +56,7 @@ template <>
 Value computeReduceSum<ONNXSoftmaxOp>(PatternRewriter &rewriter, Operation *op,
     RankedTensorType rsumType, const Value &op1ExpIn, int axis) {
   return tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter, op->getLoc(),
-      rsumType, op1ExpIn, rewriter.getI64IntegerAttr(axis));
+      rsumType, op1ExpIn, rewriter.getI32IntegerAttr(axis));
 }
 
 template <typename SoftmaxOp>
@@ -68,6 +68,8 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op->getLoc();
+    TosaBuilder tosaBuilder(rewriter, loc);
+
     Value input = adaptor.getInput();
     // softmax = exp(logits) / reduce_sum(exp(logits), -1)
     auto outputType =
@@ -98,20 +100,20 @@ public:
     // op2 = reduce_sum(op1, -1)
     // op3 = reciprocal(op2)
     // op4 = mul(op1, op3)
-    auto op1ExpIn = tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
+    Value op1ExpIn = tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
         rewriter, loc, outputType, input);
     RankedTensorType rsumType = RankedTensorType::get(
         llvm::SmallVector<int64_t, 4>(inputRank, ShapedType::kDynamic),
         outputType.getElementType());
 
-    Value op2ReducesumOp1 = computeReduceSum<SoftmaxOp>(
-        rewriter, op, rsumType, op1ExpIn.getResult(), axis);
+    Value op2ReducesumOp1 =
+        computeReduceSum<SoftmaxOp>(rewriter, op, rsumType, op1ExpIn, axis);
 
-    auto op3ReciprocalOp2 = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
+    Value op3ReciprocalOp2 = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
         rewriter, loc, op2ReducesumOp1.getType(), op2ReducesumOp1);
 
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::MulOp>(rewriter, op, outputType,
-        op1ExpIn.getResult(), op3ReciprocalOp2.getResult(), 0);
+    Value mulOp = tosaBuilder.mul(op1ExpIn, op3ReciprocalOp2);
+    rewriter.replaceOp(op, {mulOp});
 
     return success();
   }

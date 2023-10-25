@@ -15,9 +15,17 @@
 #include "src/Version/Version.hpp"
 
 #include "VCSVersion.inc"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 
 namespace onnx_mlir {
+
+std::string getVendorName() {
+#if defined(ONNX_MLIR_VENDOR)
+  return ONNX_MLIR_VENDOR;
+#else
+  return "ONNX-MLIR";
+#endif
+}
 
 std::string getOnnxMlirRepositoryPath() {
 #if defined(ONNX_MLIR_REPOSITORY)

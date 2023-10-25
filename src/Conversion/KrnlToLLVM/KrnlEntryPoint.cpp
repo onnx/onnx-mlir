@@ -4,7 +4,7 @@
 
 //===------ KrnlEntryPoint.cpp - Lower KrnlEntryPointOp -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,8 +19,8 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/JSON.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "src/Conversion/KrnlToLLVM/ConvertKrnlToLLVM.hpp"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
@@ -47,34 +47,46 @@ public:
   SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps;
   SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps;
+  std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes;
+  std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes;
   bool verifyInputTensors;
 
-  KrnlEntryPointOpLowering(TypeConverter typeConverter, MLIRContext *ctx,
+  KrnlEntryPointOpLowering(LLVMTypeConverter &typeConverter, MLIRContext *ctx,
       ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
       SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
       SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors)
+      SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+      std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
+      std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
+      bool verifyInputTensors)
       : OpRewritePattern<KrnlEntryPointOp>(ctx),
         outputOMTensorOwnerships(outputOMTensorOwnerships),
         singleEntryPoint(singleEntryPoint), entryGlobalOps(entryGlobalOps),
         inSigGlobalOps(inSigGlobalOps), outSigGlobalOps(outSigGlobalOps),
-        verifyInputTensors(verifyInputTensors) {}
+        inputMemRefTypes(inputMemRefTypes),
+        outputMemRefTypes(outputMemRefTypes),
+        verifyInputTensors(verifyInputTensors), typeConverter(typeConverter) {}
 
   LogicalResult matchAndRewrite(
       KrnlEntryPointOp op, PatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
-
-    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
-    auto module = op->getParentOfType<ModuleOp>();
-    auto *context = module.getContext();
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    MLIRContext *context = module.getContext();
     const RuntimeAPIRegistry &apiRegistry =
-        RuntimeAPIRegistry(module, rewriter);
+        RuntimeAPIRegistry(module, rewriter, typeConverter);
+
+    // Common information.
+    StringAttr sigAttr =
+        op->getAttrOfType<StringAttr>(KrnlEntryPointOp::getSignatureAttrName());
     auto numOutputs = op->getAttrOfType<IntegerAttr>(
                             KrnlEntryPointOp::getNumOutputsAttrName())
                           .getInt();
 
-    auto opaquePtrTy = LLVM::LLVMPointerType::get(IntegerType::get(context, 8));
-    auto int64Ty = IntegerType::get(context, 64);
+    // Common types.
+    Type int8Ty = IntegerType::get(context, 8);
+    Type opaquePtrTy = getPointerType(context, int8Ty);
+    Type int64Ty = IntegerType::get(context, 64);
+    Type omTensorPtrAddrTy = getPointerType(context, opaquePtrTy);
 
     // Rewrite Krnl Entry Point Operation to an LLVM function with a dynamic
     // signature. The signature is dynamic because it remains the same no matter
@@ -99,18 +111,40 @@ public:
     // signature-related functions later.
     recordEntryPointSignatures(module, dynEntryPointName, op, entryGlobalOps,
         inSigGlobalOps, outSigGlobalOps);
+    // Record the postfixed entry point name if available.
+    if (singleEntryPoint) {
+      std::string dynEntryPointPostfixName =
+          LLVMBuilder::SymbolPostfix(module, dynEntryPointName);
+      if (dynEntryPointPostfixName != dynEntryPointName)
+        recordEntryPointSignatures(module, dynEntryPointPostfixName, op,
+            entryGlobalOps, inSigGlobalOps, outSigGlobalOps);
+    }
+
+    // If `useOpaquePointers=true` in LowerToLLVMOptions, all memref arguments
+    // are converted to opaque types, e.g. `!llvm.ptr`, so we lost the
+    // struct information of memref arguments, e.g. element type. To set data
+    // type for OMTensor correctly, we have to obtain element types from
+    // original MemRefTypes.
+    SmallVector<MemRefType, 4> origInputMemRefTypes =
+        inputMemRefTypes[staticEntryPointFuncName.str()];
+    SmallVector<MemRefType, 4> origOutputMemRefTypes =
+        outputMemRefTypes[staticEntryPointFuncName.str()];
 
     // Start lowering the op.
+    MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     rewriter.eraseOp(op);
     auto dynEntryPointFuncTy =
         LLVM::LLVMFunctionType::get(opaquePtrTy, {opaquePtrTy}, false);
-    LLVM::LLVMFuncOp dynamicEntryPointFunc =
-        create.llvm.func(dynEntryPointName, dynEntryPointFuncTy);
+    LLVM::LLVMFuncOp dynamicEntryPointFunc;
+    dynamicEntryPointFunc = create.llvm.func(dynEntryPointName,
+        dynEntryPointFuncTy, /*createUniqueFunc=*/singleEntryPoint);
     auto &entryPointEntryBlock =
         createEntryBlock(dynEntryPointFuncTy, dynamicEntryPointFunc, loc);
     rewriter.setInsertionPointToStart(&entryPointEntryBlock);
+    // User's OMTensor inputs.
+    auto omTensorInputs = entryPointEntryBlock.getArgument(0);
 
-    // Emit code to initialize accelerators by calling OMInitCompatibleAccelX
+    // 1. Emit code to initialize accelerators by calling OMInitCompatibleAccelX
     // where X is the accelerator name.
     // OMInitCompatibleAccelX's signature is `i64 (i64)`.
     if (Attribute maccelAttr =
@@ -143,79 +177,94 @@ public:
             }, /*then=*/
             [&](LLVMBuilder &createLLVM) {
               // return NULL.
-              createLLVM._return(createLLVM.nullI8Ptr());
+              createLLVM._return(createLLVM.null(getI8PointerType(context)));
             });
       }
     }
 
-    // Based on the static entry point type signature, unpack dynamic memory
-    // refs to corresponding static memory refs.
-    auto wrappedStaticEntryPointFuncName =
-        "_mlir_ciface_" + staticEntryPointFuncName.lower();
-    auto *staticEntryPointFunc =
-        module.lookupSymbol(wrappedStaticEntryPointFuncName);
-    assert(staticEntryPointFunc &&
-           isa<LLVM::LLVMFuncOp>(staticEntryPointFunc) &&
-           "entry point func must exist and be an llvm func op");
-    auto staticEntryPointTy = dyn_cast<LLVM::LLVMFuncOp>(staticEntryPointFunc)
-                                  .getFunctionType()
-                                  .dyn_cast<LLVM::LLVMFunctionType>();
-
-    // Retrieve dynamic mem refs from wrapped input, and convert every one of
-    // them to static mem refs.
-    SmallVector<Value, 4> staticInputs;
-    auto wrappedInput = entryPointEntryBlock.getArgument(0);
-
-    // Emit code to verify every tensor in the wrapped input, e.g. verifying
+    // 2. Emit code to verify every tensor in the wrapped input, e.g. verifying
     // shape and data type.
     if (verifyInputTensors) {
-      StringAttr sigAttr = op->getAttrOfType<StringAttr>(
-          KrnlEntryPointOp::getSignatureAttrName());
       llvm::StringRef inSigJSON;
       std::tie(inSigJSON, std::ignore) = sigAttr.getValue().split('@');
       emitVerificationCodeForInputTensors(
-          module, rewriter, loc, apiRegistry, wrappedInput, inSigJSON);
+          module, rewriter, loc, apiRegistry, omTensorInputs, inSigJSON);
     }
 
+    // 3. Emit code to prepare MemRefs from OMTensor inputs and call
+    // `_mlir_ciface` prefixed function of the entry point.
+
+    // Based on the static entry point type signature, unpack dynamic memory
+    // refs to corresponding static memory refs.
+    // Note that, in the static entry point type signature, output type is a
+    // struct but input types are unpacked into a single list of scalar types.
+    auto *staticEntryPointFunc =
+        module.lookupSymbol(staticEntryPointFuncName.lower());
+    auto staticEntryPointFuncTy = cast<LLVM::LLVMFuncOp>(staticEntryPointFunc)
+                                      .getFunctionType()
+                                      .cast<LLVM::LLVMFunctionType>();
+    LLVM_DEBUG(llvm::dbgs() << "Static entry point function type: "
+                            << staticEntryPointFuncTy << "\n");
+    // Static entry point is wrapped with prefix `_mlir_ciface` automatically by
+    // MLIR when being converted to LLVM, where memref arguments are converted
+    // to pointer-to-struct.
+    auto wrappedStaticEntryPointFuncName =
+        "_mlir_ciface_" + staticEntryPointFuncName.lower();
+    auto *wrappedStaticEntryPointFunc =
+        module.lookupSymbol(wrappedStaticEntryPointFuncName);
+    assert(wrappedStaticEntryPointFunc &&
+           isa<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc) &&
+           "entry point func must exist and be an llvm func op");
+    auto wrappedStaticEntryPointOp =
+        cast<LLVM::LLVMFuncOp>(wrappedStaticEntryPointFunc);
+    auto wrappedStaticEntryPointTy = wrappedStaticEntryPointOp.getFunctionType()
+                                         .cast<LLVM::LLVMFunctionType>();
+
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
+        RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
     Value one = create.llvm.constant(int64Ty, (int64_t)1);
 
-    // Create a memref type for the return argument of the iface call
-    Type memRefOutPtrTy = staticEntryPointTy.getParamType(0);
+    // Prepare MemRefs as inputs for the wrapped static entry point function.
+    // MemRefs are filled with information from user' OMTensor inputs.
+    SmallVector<Value, 4> staticInputs;
+
+    // Create a memref type for the return argument of the iface call.
+    // The struct information of outputs will be obtained from the static
+    // entry point instead of the wrapped static entry point.
+    Type memRefOutTy = staticEntryPointFuncTy.getReturnTypes()[0];
+    Type memRefOutPtrTy = getPointerType(context, memRefOutTy);
     Value ptrToOutMemRef =
-        create.llvm._alloca(memRefOutPtrTy, one, /*alignment=*/0);
+        create.llvm._alloca(memRefOutPtrTy, memRefOutTy, one, /*alignment=*/0);
     staticInputs.emplace_back(ptrToOutMemRef);
 
-    // Start with param 1 because 0 is the return value
-    for (size_t i = 1; i < staticEntryPointTy.getNumParams(); i++) {
+    // Start with param 1 because 0 is the return value.
+    for (size_t i = 1; i < wrappedStaticEntryPointTy.getNumParams(); i++) {
       // Call API function to retrieve the i-th dynamic memref.
-      Value idxVal = create.llvm.constant(int64Ty, (int64_t)(i - 1));
-
-      Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      Value omTensorPtrAddr =
-          create.llvm.getElemPtr(omTensorPtrAddrTy, omTensorPtrArr, {idxVal});
-      Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
+      Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
+          opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{(int32_t)i - 1});
+      Value omTensorPtr = create.llvm.load(opaquePtrTy, omTensorPtrAddr);
 
       // Create a (static) memref type corresponding to the i-th memref input to
       // the inference function on stack, and load it to memRef.
-      Type memRefPtrTy = staticEntryPointTy.getParamType(i);
-
+      // Original input is shifted by 1 in the iface func.
+      Type memRefInTy = typeConverter.convertType(origInputMemRefTypes[i - 1]);
+      Type memRefInPtrTy = getPointerType(context, memRefInTy);
       Value ptrToMemRef =
-          create.llvm._alloca(memRefPtrTy, one, /*alignment=*/0);
+          create.llvm._alloca(memRefInPtrTy, memRefInTy, one, /*alignment=*/0);
 
       // Fill in the memref underlying ptrToMemRef with information extracted
       // from omTensorPtr.
-      fillPtrToMemRefWithOMTensor(
-          omTensorPtr, ptrToMemRef, rewriter, loc, apiRegistry, module);
+      fillPtrToMemRefWithOMTensor(omTensorPtr, ptrToMemRef, memRefInTy,
+          rewriter, loc, apiRegistry, module);
 
       // ptrToMemRef will be an input to main computation graph function.
       staticInputs.emplace_back(ptrToMemRef);
     }
 
-    // Call static entry point with the memref ptrs created, and get output.
+    // Call the wrapped static entry point with the memref ptrs created, and get
+    // output.
     create.llvm.call({}, wrappedStaticEntryPointFuncName, staticInputs);
-    Value outMemRefs = create.llvm.load(ptrToOutMemRef);
+    Value outMemRefs = create.llvm.load(memRefOutTy, ptrToOutMemRef);
     auto outMemRefsType = outMemRefs.getType().dyn_cast<LLVM::LLVMStructType>();
 
     std::vector<mlir::Value> outMemRefList;
@@ -236,21 +285,13 @@ public:
 
     Value numOutput =
         create.llvm.constant(int64Ty, (int64_t)outMemRefList.size());
-
-    auto mallocSym = getOrInsertMalloc(rewriter, module);
-    // TODO(tjingrant): get pointer size from data layout.
-    size_t kPtrSize = 8;
-    Value outputOmtPtrsArraySizeInByte = create.llvm.constant(
-        int64Ty, (int64_t)(outMemRefList.size() * kPtrSize));
-    Value outOmtPtrsArr = create.llvm.call(
-        LLVM::LLVMPointerType::get(IntegerType::get(module.getContext(), 8)),
-        mallocSym, ArrayRef<Value>(outputOmtPtrsArraySizeInByte));
-    outOmtPtrsArr = create.llvm.bitcastI8PtrPtr(outOmtPtrsArr);
+    // Assume that OMTensor pointer size is 8
+    Value outOmtPtrsArr = create.llvm._alloca(
+        omTensorPtrAddrTy, opaquePtrTy, numOutput, /*alignment=*/0);
 
     for (unsigned int i = 0; i < outMemRefList.size(); i++) {
       // Get the i-th memref returned, convert to a dynamic memref and store it
       // in the wrappedOutput.
-
       Value memRef = outMemRefList.at(i);
       auto outMemRefTy = memRef.getType().dyn_cast<LLVM::LLVMStructType>();
       int64_t outMemRefRank = krnl::getRankFromMemRefType(outMemRefTy);
@@ -263,24 +304,21 @@ public:
       bool outOwning = outputOMTensorOwnerships[i];
       LLVM_DEBUG(llvm::dbgs() << "Output OMTensor " << i
                               << " with owning = " << outOwning << "\n");
-      krnl::fillOMTensorWithMemRef(
-          memRef, outOMTensor, outOwning, rewriter, loc, apiRegistry, module);
+      krnl::fillOMTensorWithMemRef(memRef,
+          origOutputMemRefTypes[i].getElementType(), outOMTensor, outOwning,
+          rewriter, loc, apiRegistry, module);
 
-      Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
-
-      Type omTensorPtrAddrTy = LLVM::LLVMPointerType::get(opaquePtrTy);
-      Value omTensorPtrAddr =
-          create.llvm.getElemPtr(omTensorPtrAddrTy, outOmtPtrsArr, {idxVal});
-
+      Value omTensorPtrAddr = create.llvm.getElemPtr(omTensorPtrAddrTy,
+          opaquePtrTy, outOmtPtrsArr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
       create.llvm.store(outOMTensor, omTensorPtrAddr);
     }
 
-    // Create wrapped output.
-    Value wrappedOutput = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput, one});
+    // Create OMTensor outputs.
+    Value omTensorOutputs = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
+        RuntimeAPI::API::CREATE_OMTENSOR_LIST, {outOmtPtrsArr, numOutput});
 
     // Return wrapped output.
-    create.llvm._return(wrappedOutput);
+    create.llvm._return(omTensorOutputs);
     return success();
   }
 
@@ -303,12 +341,10 @@ private:
   }
 
   void fillPtrToMemRefWithOMTensor(Value &rtMemRef, Value &ptrToMemRef,
-      PatternRewriter &rewriter, const Location &loc,
+      Type memRefTy, PatternRewriter &rewriter, const Location &loc,
       const RuntimeAPIRegistry &apiRegistry, ModuleOp &module) const {
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
-    auto *context = module.getContext();
-    auto memRefPtrTy = ptrToMemRef.getType().dyn_cast<LLVM::LLVMPointerType>();
-    auto memRefTy = memRefPtrTy.getElementType();
+    MLIRContext *context = module.getContext();
     auto int64Ty = IntegerType::get(context, 64);
 
     Value memRef = rewriter.create<LLVM::UndefOp>(loc, memRefTy);
@@ -334,34 +370,22 @@ private:
         RuntimeAPI::API::GET_DATA_STRIDES, {rtMemRef});
 
     for (decltype(rank) i = 0; i < rank; i++) {
-      Value dimIdx = create.llvm.constant(int64Ty, (int64_t)i);
       // Insert size of the dimension.
-      Value dimSizePtr = create.llvm.getElemPtr(
-          LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx});
-      Value dimSize = create.llvm.load(dimSizePtr);
+      Value dimSizePtr =
+          create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
+              sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+      Value dimSize = create.llvm.load(int64Ty, dimSizePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimSize, {3, i});
 
       // Insert stride of the dimension.
-      auto dimStridePtr = create.llvm.getElemPtr(
-          LLVM::LLVMPointerType::get(int64Ty), stridesArrayPtr, {dimIdx});
-      auto dimStride = create.llvm.load(dimStridePtr);
+      auto dimStridePtr =
+          create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
+              stridesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+      auto dimStride = create.llvm.load(int64Ty, dimStridePtr);
       memRef = create.llvm.insertValue(memRefTy, memRef, dimStride, {4, i});
     }
 
     create.llvm.store(memRef, ptrToMemRef);
-  }
-
-  FlatSymbolRefAttr getOrInsertMalloc(
-      PatternRewriter &rewriter, ModuleOp module) const {
-    MultiDialectBuilder<LLVMBuilder> create(rewriter, module.getLoc());
-    // Insert the malloc/aligned_alloc declaration if it is not already present.
-    LLVMTypeConverter converter(rewriter.getContext());
-    SmallVector<Type, 2> callArgTypes = {converter.getIndexType()};
-    // aligned_alloc(size_t alignment, size_t size)
-    Type voidPtrType = LLVM::LLVMPointerType::get(
-        IntegerType::get(&converter.getContext(), 8));
-    return create.llvm.getOrInsertSymbolRef(
-        module, StringRef("malloc"), voidPtrType, callArgTypes);
   }
 
   FlatSymbolRefAttr getOrInsertOMInitAccel(
@@ -387,6 +411,7 @@ private:
   void equalOrFailed(ModuleOp &module, PatternRewriter &rewriter, Location loc,
       Value lhs, Value rhs, std::string errorMsg = "",
       bool appendRHS = true) const {
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
     create.llvm.ifThenElse(/*cond=*/
         [&](LLVMBuilder &createLLVM) {
@@ -403,17 +428,18 @@ private:
           // Set errno.
           krnl::emitErrNo(module, rewriter, loc, EINVAL);
           // Return NULL.
-          create.llvm._return(create.llvm.nullI8Ptr());
+          create.llvm._return(create.llvm.null(getI8PointerType(context)));
         });
   }
 
   void emitVerificationCodeForInputTensors(ModuleOp &module,
       PatternRewriter &rewriter, Location loc,
-      const RuntimeAPIRegistry &apiRegistry, Value wrappedInput,
+      const RuntimeAPIRegistry &apiRegistry, Value omTensorInputs,
       StringRef inSigJSON) const {
+    MLIRContext *context = rewriter.getContext();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
     Type int64Ty = rewriter.getI64Type();
-    Type opaquePtrTy = LLVM::LLVMPointerType::get(rewriter.getI8Type());
+    Type opaquePtrTy = getPointerType(context, rewriter.getI8Type());
 
     auto JSONInput = llvm::json::parse(inSigJSON.data());
     assert(JSONInput && "failed to parse json");
@@ -425,19 +451,19 @@ private:
     equalOrFailed(module, rewriter, loc,
         create.llvm.constant(int64Ty, (int64_t)inputNum),
         RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {wrappedInput}),
+            RuntimeAPI::API::GET_OMTENSOR_LIST_SIZE, {omTensorInputs}),
         "Wrong number of input tensors: expect " + std::to_string(inputNum) +
             ", but got ");
 
     // Get a pointer to the list of input omTensors.
     Value omTensorPtrArr = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
-        RuntimeAPI::API::GET_OMT_ARRAY, {wrappedInput});
-    for (int i = 0; i < inputNum; ++i) {
+        RuntimeAPI::API::GET_OMT_ARRAY, {omTensorInputs});
+    for (int64_t i = 0; i < inputNum; ++i) {
       // Call API function to retrieve the i-th omTensor.
-      Value idxVal = create.llvm.constant(int64Ty, (int64_t)i);
-      Value omTensorPtrAddr = create.llvm.getElemPtr(
-          LLVM::LLVMPointerType::get(opaquePtrTy), omTensorPtrArr, {idxVal});
-      Value omTensorPtr = create.llvm.load(omTensorPtrAddr);
+      Value omTensorPtrAddr =
+          create.llvm.getElemPtr(getPointerType(context, opaquePtrTy),
+              opaquePtrTy, omTensorPtrArr, ArrayRef<LLVM::GEPArg>{(int32_t)i});
+      Value omTensorPtr = create.llvm.load(opaquePtrTy, omTensorPtrAddr);
 
       // Verify data type.
       auto JSONItem = (*JSONArray)[i].getAsObject();
@@ -471,9 +497,9 @@ private:
           RuntimeAPI::API::GET_DATA_SHAPE, {omTensorPtr});
       for (int d = 0; d < rank; ++d) {
         // Get actual dimension size.
-        Value dimIdx = create.llvm.constant(int64Ty, (int64_t)d);
-        Value actualDim = create.llvm.load(create.llvm.getElemPtr(
-            LLVM::LLVMPointerType::get(int64Ty), sizesArrayPtr, {dimIdx}));
+        Value actualDim = create.llvm.load(int64Ty,
+            create.llvm.getElemPtr(getPointerType(context, int64Ty), int64Ty,
+                sizesArrayPtr, ArrayRef<LLVM::GEPArg>{(int32_t)d}));
         // Get reference dimension size.
         auto JSONDimValue = (*JSONDimArray)[d].getAsInteger();
         assert(JSONDimValue && "failed to get value");
@@ -501,7 +527,8 @@ private:
                 // Set errno.
                 krnl::emitErrNo(module, rewriter, loc, EINVAL);
                 // Return NULL.
-                create.llvm._return(create.llvm.nullI8Ptr());
+                create.llvm._return(
+                    create.llvm.null(getI8PointerType(context)));
               });
         } else {
           Value referenceDim = create.llvm.constant(int64Ty, (int64_t)dim);
@@ -584,17 +611,26 @@ private:
     LLVM::GlobalOp outSigGlobalOp = emitGlobalOp(outSigVarName, outSignature);
     outSigGlobalOps.emplace_back(outSigGlobalOp);
   }
+
+protected:
+  LLVMTypeConverter &typeConverter;
 };
 
-void populateLoweringKrnlEntryPointOpPattern(TypeConverter &typeConverter,
+void populateLoweringKrnlEntryPointOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx,
     ArrayRef<bool> outputOMTensorOwnerships, bool singleEntryPoint,
     SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps,
     SmallVectorImpl<LLVM::GlobalOp> &inSigGlobalOps,
-    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps, bool verifyInputTensors) {
+    SmallVectorImpl<LLVM::GlobalOp> &outSigGlobalOps,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &inputMemRefTypes,
+    std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
+        &outputMemRefTypes,
+    bool verifyInputTensors) {
   patterns.insert<KrnlEntryPointOpLowering>(typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
-      inSigGlobalOps, outSigGlobalOps, verifyInputTensors);
+      inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
+      verifyInputTensors);
 }
 
 } // namespace krnl

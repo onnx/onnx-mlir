@@ -12,7 +12,7 @@
 // When you perform a change to the KRNL dialect, please follow the steps below
 // to update the Krnl dialect documentation.
 //
-// 1) cd onnx-mlir/build 
+// 1) cd onnx-mlir/build
 // 2) make onnx-mlir-docs
 // 3) the newly build krnl.md file resides in the docs/Dialects directory.
 //===----------------------------------------------------------------------===//
@@ -29,9 +29,10 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
-  let useDefaultTypePrinterParser = 1;  
+  let usePropertiesForAttributes = 0;
+  let useDefaultTypePrinterParser = 1;
   let dependentDialects = [
-    "AffineDialect",
+    "affine::AffineDialect",
     "arith::ArithDialect",
     "func::FuncDialect",
     "linalg::LinalgDialect",
@@ -47,38 +48,58 @@ def StringType : Type<CPred<"$_self.isa<krnl::StringType>()">, "string type">;
 // Require regions to have krnl.terminate terminator operation.
 def ImplicitKrnlTerminator : SingleBlockImplicitTerminator<"KrnlTerminatorOp">;
 
-def KrnlCallOp : Op<Krnl_Dialect, "call", 
+def KrnlCallOp : Op<Krnl_Dialect, "call",
     [DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
   > {
   let summary = "call operation";
   let description = [{
-    The call operation provides a generic way to call an external function
-    at Krnl level.  The `funcName` determines which function to call.
-    The `result` is the Value to store the function return. Currently only
-    one output is supported. The `result` has to be resulted memref.
-    Since resolution of the output MemRef involves shape inference on ONNX Op,
-    resolution should be done at lowering ONNX Op, not within krnl.Call.
-    Another reason is that Krnl.call need to be defined with AllocationOp
-    interface if `result` is allocated inside this Op.
-    The parameters can be of any type: MemRef, NoneType or any llvm type.
-    Different types of parameters will be converted, if needed, when KrnlCallOp
-    is lowered. Attributes will be converted to parameters too (To be Added).
-    The function signature will be determined with the types of parameters.
-    An LLVM::CallOp to either a runtime library or a llvm intrinsic function
-    will be generated.
-    The krnl.call op will be lowered to llvm at krnl-to-llvm conversion.
+    The call operation provides a generic way to replace an ONNX Op with a call
+    to an external function at Krnl level. 
+    `funcName` attributes determines which function to call. 
+    `parameters` is the inputs to Krnl.Call. It includes the outputs and inputs 
+    of the ONNX Op. The outputs and inputs are already lowered to MemRefs.
+    The external function is assumed NOT to allocate or free any memory.
+    'numOfOutput` attribute to tell how manu outputs Memref in parameters.
+    mlir::OpTrait::AttrSizedOperandSegments is not used to put outputs and
+    inputs into separate variadic parameters because I am thinking of mixing
+    the inputs and outpus as required by external library.
+
+    The attributes of the ONNX Op will be copied to KrnlCallOp under the control
+    of the user.
+    In Krnl To llvm lowering, the parameters and attributes will be lowered to
+    parameters of the llvm function call.
+  
+    Several builder is defined to help translating an ONNX Op to Krnl.Call.
+    User can provides the allocated MemRefs for outputs and the inputs
+    separately. The inputs are usually the operands of the ONNX Op.
+    The attributes of ONNX Op can be copied or not copied based on a bool
+    parameter in the builder. Builder also provide a mechanism for user
+    to selectively copy some attributes.
+
+    The krnl.call op will be lowered to llvm at krnl-to-llvm conversion in which
+    OMTensor is used as a container for MemRef arguments. Other representation
+    of parameters, such as data pointer only, will be supported in future.
   }];
 
-  let arguments = (ins StrAttr:$funcName, AnyType:$result, Variadic<AnyType>:$parameters);
+  let arguments = (ins StrAttr:$funcName,
+      // Should mlir::OpTrait::AttrSizedOperandSegments be used?
+      // The case for krnl.Call is simple.
+      DefaultValuedAttr<SI64Attr, "1">:$numOfOutput,
+      Variadic<AnyType>:$parameters);
 
-  // builders to build KrnlCallOp from op and operands, helping conversion from onnx to krnl.
-  // The name of function can be determined by the op name and elemnt type of the return,
-  // or given to builder if the simple rule does not work
-  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is true
-  let builders = [OpBuilder<(ins "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
-      OpBuilder<(ins "std::string":$funcNameStr, "mlir::Value":$result, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
+  // builders to build KrnlCallOp from op and operands, helping conversion from
+  // onnx to krnl.
+  // The name of function can be determined by the op name and elemnt type of
+  // the return, or given to builder if the simple rule does not work.
+  // Attributes of the op will be propagated to KrnlCallOp if the copyAttrs is
+  // true. Or the attribute names can be specified.
+  let builders = [
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
+    OpBuilder<(ins "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "std::vector<std::string>":$attributeNames)>,
+      OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
- 
+
 def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   let summary = "define_loops operation";
   let description = [{
@@ -155,7 +176,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
-      CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs, 
+      CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs,
       CArg<"ValueRange">:$iterArgs,
       CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
   ];
@@ -190,11 +211,11 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
 // invisible to the bufferization analysis. When onnx-mlir invokes
 // bufferization::Deallocation pass to insert memref::dealloc, the element
 // may be freed. Therefore, element need to be copied when inserted into
-// a sequence. 'copy' here means to allocate a new memref and copy the content 
+// a sequence. 'copy' here means to allocate a new memref and copy the content
 // of the memref. The copy is a costly op to maintain the SSA requirement.
 // To reduce the overhead of copy, elements are not copied when
 // a new sequence is created from an exist sequence. However, when an element
-// is extracted from a sequence (krnl.seqextract), the element will be 
+// is extracted from a sequence (krnl.seqextract), the element will be
 // copied and return. This copy can be further avoided if the extraction is
 // the last reference (by extract or erase from any sequence) of this element.
 // ToDo: handle an element in multiple sequences with copy
@@ -207,7 +228,7 @@ def KrnlSeqAllocOp : Op<Krnl_Dialect, "seqalloc", [MemRefsNormalizable,
   let description = [{
     This op allocates a memref for a new sequence according to the input Type and length.
     The output is tagged with Allocate side effect, and a deallocation is defined for
-    sequence. This deallocation will free all the elements in the sequence as well as 
+    sequence. This deallocation will free all the elements in the sequence as well as
     the sequence itself.
   }];
   let arguments = (ins Variadic<Index>:$length);
@@ -233,13 +254,13 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
     The position value is guaranteed to be positive. Negative position allowed
     by ONNX Op definition should be handled before lowered to KrnlSeqExtract.
 
-    Attribute 'copy' provides an optimization for copying. 
-    When the attribute 'copy' is 1 (default value): the extracted element is copied and then return. 
+    Attribute 'copy' provides an optimization for copying.
+    When the attribute 'copy' is 1 (default value): the extracted element is copied and then return.
     When the attribute 'copy' is 0: the extracted element is directly returned
     without copy.
 
     The returned element is marked as allocated by this Op with the bufferation
-    interface so that deallocation can be generated correctly through the 
+    interface so that deallocation can be generated correctly through the
     Bufferization::Deallocation pass.
   }];
   let arguments = (ins AnyMemRef:$seq,
@@ -253,7 +274,7 @@ def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
   let summary = "Krnl store into a seq";
   let description = [{
     This op is similar to KrnSeqInsertOp but assumes that the input seq has
-    the space for the new element and 
+    the space for the new element and
     only need to copy the element and store it into the sequence.
     There is no return of a new seq, different from KrnlSeqInsertOp.
     This Op is introduced to accumulate a dynamic tensor in a LoopOp with
@@ -280,7 +301,7 @@ def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
     AffineScope]> {
   let summary = "Affine boundary for krnl loops";
   let description = [{
-    This Op has a region with AffineScope trait and is used to limit the 
+    This Op has a region with AffineScope trait and is used to limit the
     scope of `affine.for`. The loop inside `krnl.region` can be affined if
     its boundary is defined at the level of `krnl.region`. The `krnl.region` does
     not guarantee or require the loops inside it to be affine.
@@ -289,7 +310,7 @@ def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
     In MLIR, FuncOp has the AffineScope trait.
     The `krnl.region` will be removed after affine.for is lowered.
     ToFix: current `krnl.region` does not have input and output. You cannot
-    create a new memref inside the region and use it outside of the region. 
+    create a new memref inside the region and use it outside of the region.
   }];
 
   let regions = (region SizedRegion<1>:$bodyRegion);
@@ -297,7 +318,7 @@ def KrnlRegionOp : Op<Krnl_Dialect, "region", [NoTerminator, SingleBlock,
   let skipDefaultBuilders = 1;
   let builders = [
     // Main builder.
-    OpBuilder<(ins 
+    OpBuilder<(ins
       CArg<"function_ref<void(OpBuilder &, Location)>", "nullptr">:$bodyBuilderFn)>,
   ];
 }
@@ -337,7 +358,7 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let description = [{
     Operation for holding global data values. A global constant can have a
     meaningful name recorded as its `name` attribute. Its content is stored
-    in the `value` dense/opaque element attribute.
+    in the `value` dense element attribute.
   }];
 
   let arguments = (ins AnyAttr:$shape,
@@ -480,6 +501,25 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
   }];
 }
 
+def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
+  let summary = "Krnl parallel operation";
+  let description = [{
+    Parallelize the specified loops. krnl.parallel should be placed as the last
+    operator before krnl.iterate. Since we do not want to parallelize the loop
+    until we interpret krnl.block, krnl.permute and krnl.unroll.
+    ```
+    krnl.parallel %i
+    ```
+  }];
+
+  let arguments = (ins AnyType:$loop);
+
+  let assemblyFormat = [{
+      $loop attr-dict `:` type($loop)
+  }];
+}
+
+
 def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
   let summary = "Krnl dimensions operation.";
   let description = [{
@@ -522,6 +562,16 @@ def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
 
   let arguments = (ins AnyFloat:$in);
   let results = (outs AnyFloat:$out);
+}
+
+def KrnlIsInfOp : Op<Krnl_Dialect, "isinf"> {
+  let summary = "Krnl isinf scalar operation";
+  let description = [{
+    Krnl isinf scalar operation.
+  }];
+
+  let arguments = (ins AnyFloat:$in);
+  let results = (outs I1:$out);
 }
 
 def KrnlIsNaNOp : Op<Krnl_Dialect, "isnan"> {
@@ -775,7 +825,7 @@ def KrnlSpecializedKernel : Op<Krnl_Dialect, "specialized_kernel",
 
 // =============================================================================
 
-def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments, 
+def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        DeclareOpInterfaceMethods<SpecializedKernelOpInterface>, MemRefsNormalizable]> {
   let summary = "Matmul operation for a single pannel.";
   let description = [{
@@ -791,7 +841,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
 
     All indices passed to this operation are the global indices in the original
     computation, so as to better know if we have boundary conditions.
-    
+
     ORIGINAL ARRAY: denoted as AA, BB, CC with sizes AA: `*xIxK`; BB: `*xKxJ`; CC: `*xI*J`).
 
     BUFFER ARRAYS: denoted as A, B, and C. Note that this operation does
@@ -940,7 +990,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
        The vector length must be a compile time constant.
   }];
 
-  let arguments = (ins 
+  let arguments = (ins
     // Buffer/memory used and indices that correspoond to the beginning
     // of each buffer/memory.
     Arg<AnyMemRef, "Mult A [NxK]", [MemRead]>:$A,
@@ -950,7 +1000,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     Arg<AnyMemRef, "Add into C [NxM]", [MemRead, MemWrite]>:$C,
     Variadic<Index>: $cGlobalIndexMemStart,
     // Loops involved, and indices pointing to the start of the compute
-    // subtile. 
+    // subtile.
     Variadic<AnyType> : $loops,
     Index: $iGlobalIndexComputeStart,
     Index: $jGlobalIndexComputeStart,
@@ -1009,7 +1059,7 @@ def KrnlMatMulOp : Op<Krnl_Dialect, "matmul", [AttrSizedOperandSegments,
     `(` $loops `)` `,`
     `(` $iGlobalIndexComputeStart `,` $jGlobalIndexComputeStart `,`
         $kGlobalIndexComputeStart `)` `,`
-    `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)` 
+    `(` $iGlobalUB `,` $jGlobalUB `,` $kGlobalUB `)`
     attr-dict `:` type($A) `,` type($B)`,` type($C) `,` `(` type($loops) `)`
   }];
 }
@@ -1038,7 +1088,7 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     optional tileSize attribute. This attributes has the same rank as
     the buffer size, and each dimension must be smaller or equal to
     the actual buffer size.
-    
+
     If there is not enough data in the source memory to fill the buffer,
     because the operation reaches the upper bounds of the source memory,
     several actions may happen.
@@ -1063,7 +1113,7 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     memrefs.
   }];
 
-  let arguments = (ins 
+  let arguments = (ins
     Arg<AnyMemRef, "buffer", [MemWrite]>:$buffer, // Buffer.
     Arg<AnyMemRef, "memory", [MemRead]>:$source, // Source, possibly tranposed.
     Variadic<Index>:$starts, // Rank of source, possibly transposed.
@@ -1072,12 +1122,12 @@ def KrnlCopyToBufferOp : Op<Krnl_Dialect, "copy_to_tile_buffer", [
     OptionalAttr<I64ArrayAttr>:$padToNext, // Rank of bufffer.
     DefaultValuedAttr<BoolAttr, "false">:$transpose); // Transposed or not.
 
-  let builders = [ 
-    OpBuilder<(ins "Value": $buffer, "Value": $source, 
-      "ValueRange": $starts, "Value": $padValue, 
+  let builders = [
+    OpBuilder<(ins "Value": $buffer, "Value": $source,
+      "ValueRange": $starts, "Value": $padValue,
       "ArrayRef<int64_t>": $tileSize, "ArrayRef<int64_t>": $padToNext,
       "bool": $transpose)>,
-    OpBuilder<(ins "Value": $buffer, "Value": $source, 
+    OpBuilder<(ins "Value": $buffer, "Value": $source,
       "ValueRange": $starts, "Value": $padValue,
       "bool": $transpose)>
   ];
@@ -1098,7 +1148,7 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     Starts indicate where the buffer data starts to go into the destination
     memory. Start values must be at multiples of buffer size in all dimensions.
     The buffer rank and dimensions are compile time constants.
-    
+
     If the buffer was oversized with respect of the actual data contained
     in the tile, the actual tile size can be given using the tileSize
     optional attribute. This attributes has the same rank as the buffer size,
@@ -1110,8 +1160,8 @@ def KrnlCopyFromBufferOp : Op<Krnl_Dialect, "copy_from_tile_buffer",
     Variadic<Index>:$starts, // Rank of destination.
     OptionalAttr<I64ArrayAttr>:$tileSize); // Rank of buffer.
 
-  let builders = [ 
-    OpBuilder<(ins "Value": $buffer, "Value": $dest, 
+  let builders = [
+    OpBuilder<(ins "Value": $buffer, "Value": $dest,
       "ValueRange": $starts, "ArrayRef<int64_t>": $tileSize)>,
     OpBuilder<(ins "Value": $buffer, "Value": $dest, "ValueRange": $starts)>
   ];
@@ -1147,8 +1197,8 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
     Krnl operation that sets a buffer to a given value.
     In case that the buffer is a MemRef with affine_map, `delayed` indicates
     whether we set values along original or extended iteration space.
-    
-    For example, given 
+
+    For example, given
     - an affine_map `#tile = affine_map < (i)->(i floordiv 4, i mod 4) >`, and
     - a buffer of type `memref<5xf32, #tile>`
 
@@ -1167,7 +1217,7 @@ def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
   }];
 
   let arguments = (ins AnyMemRef:$dest, AnyType: $value,
-    DefaultValuedAttr<BoolAttr, "false">:$delayed); 
+    DefaultValuedAttr<BoolAttr, "false">:$delayed);
 
   let assemblyFormat = [{ $dest `,` $value attr-dict `:` type($dest) }];
 }
@@ -1210,7 +1260,7 @@ def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
     [Pure, MemRefsNormalizable]> {
   let summary = "Retrieve an index into a perfect hash table described by G and V.";
   let description = [{
-    This operation can be used to generate a call to a runtime function which, 
+    This operation can be used to generate a call to a runtime function which,
     given two arrays of int32_t values (G and V), which are used to represent a perfect
     hash table for a dictionary, returns the index corresponding to the input value.
     The index returned is valid only if 'input' is in the dictionary described by G and V.
@@ -1235,15 +1285,15 @@ def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> 
   }];
 
   let arguments = (ins StrAttr:$msg, AnyMemRef:$input);
-} 
+}
 
 def KrnlPrintOp : Op<Krnl_Dialect, "print", [MemRefsNormalizable]> {
   let summary = "Print a value.";
   let description = [{
-    This operation can be used to print the input value. The user needs to provide a 
-    format string (à la printf) to specify how to print the input value. 
+    This operation can be used to print the input value. The user needs to provide a
+    format string (à la printf) to specify how to print the input value.
     If the input value is not specified the operator will print the format string.
   }];
 
   let arguments = (ins StrAttr:$format, Optional<AnyType>:$input);
-} 
+}

@@ -23,17 +23,17 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
+struct ONNXSpaceToDepthOpLowering
+    : public OpConversionPattern<ONNXSpaceToDepthOp> {
   ONNXSpaceToDepthOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXSpaceToDepthOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSpaceToDepthOp spaceToDepthOp,
+      ONNXSpaceToDepthOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    auto spaceToDepthOp = dyn_cast_or_null<ONNXSpaceToDepthOp>(op);
-    assert(spaceToDepthOp && "Expecting op to have type ONNXSpaceToDepthOp");
-    ONNXSpaceToDepthOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Location loc = spaceToDepthOp.getLoc();
+    Operation *op = spaceToDepthOp.getOperation();
+    Location loc = ONNXLoc<ONNXSpaceToDepthOp>(op);
+    ValueRange operands = adaptor.getOperands();
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, OnnxToKrnlBuilder,
         MathBuilder>
@@ -43,8 +43,8 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
     ONNXSpaceToDepthOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    Value input = operandAdaptor.getInput();
-    int64_t bs = operandAdaptor.getBlocksize();
+    Value input = adaptor.getInput();
+    int64_t bs = adaptor.getBlocksize();
 
     // Compute the new dimensions.
     assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
@@ -77,6 +77,7 @@ struct ONNXSpaceToDepthOpLowering : public ConversionPattern {
     LLVM_DEBUG(llvm::dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
 
     rewriter.replaceOp(op, reshapeRes2);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

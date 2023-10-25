@@ -25,6 +25,7 @@ include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -266,6 +267,9 @@ class insertZerosForNonPaddedDims<int extensionLength>:
   NativeCodeCall<"insertZerosForNonPaddedDims($_builder, $0,"
                                               # extensionLength # ")">;
 
+// Create a unit constant that will be used as none input.
+def CreateUnitConstant : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc)">;
+
 // Create a StringAttr from a string.
 class StringAttrOfValue<string val>:
   NativeCodeCall<"$_builder.getStringAttr(\"" # val # "\")">;
@@ -312,6 +316,7 @@ def ConvOpPaddingPattern: Pattern<
      (ONNXPadOp $x,
         (ONNXConstantOpFromDenseAttr (insertZerosForNonPaddedDims<2> $nnpapads)),
         (ONNXConstantOpFromDenseAttr (FloatAttrOfValue<0> $res)),
+        (CreateUnitConstant),
         (StringAttrOfValue<"constant">),
         (returnType (NativeCodeCall<"CreatePaddedXType($0, $1)"> $x, $nnpapads))),
 

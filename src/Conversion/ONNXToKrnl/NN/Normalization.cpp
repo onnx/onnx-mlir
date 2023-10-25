@@ -4,7 +4,7 @@
 
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,27 +13,36 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+
+#define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
+//===----------------------------------------------------------------------===//
+// Batch Norm
+//===----------------------------------------------------------------------===//
+
 struct ONNXBatchNormalizationInferenceModeOpLowering
-    : public ConversionPattern {
+    : public OpConversionPattern<ONNXBatchNormalizationInferenceModeOp> {
   ONNXBatchNormalizationInferenceModeOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXBatchNormalizationInferenceModeOp::getOperationName(), 1,
-            ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(
+      ONNXBatchNormalizationInferenceModeOp batchnormOp,
+      ONNXBatchNormalizationInferenceModeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // batchnorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXBatchNormalizationInferenceModeOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = batchnormOp.getOperation();
+    Location loc = ONNXLoc<ONNXBatchNormalizationInferenceModeOp>(op);
 
-    MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+    MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
+        rewriter, loc);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -41,24 +50,16 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    Value epsilon = create.math.constant(memRefType.getElementType(),
-        cast<ONNXBatchNormalizationInferenceModeOp>(op)
-            .getEpsilon()
-            .convertToDouble());
-    Value operand = operandAdaptor.getX();
-    Value scale = operandAdaptor.getScale();
-    Value bias = operandAdaptor.getB();
-    Value mean = operandAdaptor.getMean();
-    Value variance = operandAdaptor.getVar();
+    Value epsilon = create.math.constant(
+        memRefType.getElementType(), adaptor.getEpsilon().convertToDouble());
+    Value operand = adaptor.getX();
+    Value scale = adaptor.getScale();
+    Value bias = adaptor.getB();
+    Value mean = adaptor.getMean();
+    Value variance = adaptor.getVar();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-
-    Value alloc =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {operand});
+    Value alloc = create.mem.alignedAlloc(operand, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
@@ -138,22 +139,29 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     rewriter.replaceOp(op, alloc);
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
 
-struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
+//===----------------------------------------------------------------------===//
+// Instance Normalization
+//===----------------------------------------------------------------------===//
+
+struct ONNXInstanceNormalizationOpLowering
+    : public OpConversionPattern<ONNXInstanceNormalizationOp> {
   ONNXInstanceNormalizationOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXInstanceNormalizationOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceOp,
+      ONNXInstanceNormalizationOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // instance_normalization{epsilon}(x, scale, bias) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    ONNXInstanceNormalizationOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
+    Operation *op = instanceOp.getOperation();
+    Location loc = ONNXLoc<ONNXInstanceNormalizationOp>(op);
+
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>
         create(rewriter, loc);
@@ -164,20 +172,14 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     Type elementType = memRefType.getElementType();
-    Value epsilon = create.math.constant(elementType,
-        cast<ONNXInstanceNormalizationOp>(op).getEpsilon().convertToDouble());
-
-    Value inputMemRef = operandAdaptor.getInput();
-    Value scaleMemRef = operandAdaptor.getScale();
-    Value biasMemRef = operandAdaptor.getB();
+    Value epsilon = create.math.constant(
+        elementType, adaptor.getEpsilon().convertToDouble());
+    Value inputMemRef = adaptor.getInput();
+    Value scaleMemRef = adaptor.getScale();
+    Value biasMemRef = adaptor.getB();
 
     // Insert an allocation and deallocation for the result of this operation.
-    bool insertDealloc = checkInsertDealloc(op);
-    Value resMemRef =
-        (hasAllConstantDimensions(memRefType))
-            ? insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc)
-            : insertAllocAndDealloc(
-                  memRefType, loc, rewriter, insertDealloc, {inputMemRef});
+    Value resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn
     // Shapes of scale, bias must be C.
@@ -290,15 +292,108 @@ struct ONNXInstanceNormalizationOpLowering : public ConversionPattern {
         }); // For all batches, channels.
 
     rewriter.replaceOp(op, resMemRef);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Layer Normalization
+//===----------------------------------------------------------------------===//
+
+using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+    MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder>;
+
+// Generate the original ONNX operations. This is the unoptimized path.
+// TODO: conversions of types are not handled.
+LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ONNXLayerNormalizationOp lnOp) {
+  MDBuilder create(rewriter, loc);
+  Value X = lnOp.getX(); // Original value, not translated.
+  TensorType XType = X.getType().cast<TensorType>();
+  Type elementType = XType.getElementType();
+  int64_t XRank = XType.getRank();
+  int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+  // Get epsilon
+  FloatAttr epsilonAttr = lnOp.getEpsilonAttr();
+  DenseElementsAttr epsilonDenseAttr =
+      onnx_mlir::createDenseElementsAttrFromFloatAttr(
+          rewriter, elementType, epsilonAttr);
+  Value epsilon = create.onnx.constant(epsilonDenseAttr);
+
+  // Create reduction axes array.
+  llvm::SmallVector<int64_t, 4> axesIntArray, reductionShape;
+  for (int64_t r = 0; r < axis; ++r)
+    reductionShape.emplace_back(XType.getShape()[r]);
+  for (int64_t r = axis; r < XRank; ++r) {
+    reductionShape.emplace_back(1);
+    axesIntArray.emplace_back(r);
+  }
+  Value axes =
+      create.onnx.constant(create.getBuilder().getI64TensorAttr(axesIntArray));
+  TensorType reductionType = RankedTensorType::get(reductionShape, elementType);
+  // Reduction of input
+  Value meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+  Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
+  Value XPow2 = create.onnx.mul(X, X);
+  Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
+  Value var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+  Value varWithEpsilon = create.onnx.add(var, epsilon);
+  Value stdDev = create.onnx.sqrt(varWithEpsilon);
+  Value invStdDev = create.onnx.reciprocal(stdDev);
+  Value d = create.onnx.sub(X, meanOfX);
+  Value normalized = create.onnx.mul(d, invStdDev);
+  Value Y = create.onnx.mul(normalized, lnOp.getScale());
+  if (!isNoneValue(lnOp.getB()))
+    Y = create.onnx.add(Y, lnOp.getB());
+  llvm::SmallVector<Value, 3> outputs;
+  outputs.emplace_back(Y);
+  Value noneValue;
+  if (isNoneValue(lnOp.getMean()))
+    outputs.emplace_back(noneValue);
+  else
+    outputs.emplace_back(meanOfX);
+  if (isNoneValue(lnOp.getInvStdDev()))
+    outputs.emplace_back(noneValue);
+  else
+    outputs.emplace_back(invStdDev);
+  rewriter.replaceOp(lnOp, outputs);
+  return success();
+}
+
+struct ONNXLayerNormalizationOpLowering
+    : public OpConversionPattern<ONNXLayerNormalizationOp> {
+  ONNXLayerNormalizationOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {}
+
+  bool enableSIMD;
+
+  LogicalResult matchAndRewrite(ONNXLayerNormalizationOp lnOp,
+      ONNXLayerNormalizationOpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const final {
+    // Get generic info.
+    Operation *op = lnOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<ONNXLayerNormalizationOp>(op);
+    // Create builder and shape helper
+    MDBuilder create(rewriter, loc);
+    ONNXLayerNormalizationOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    return generateONNXLayerNormalizationOpONNXCode(rewriter, loc, lnOp);
+  }
+};
+
 void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
   patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
+  patterns.insert<ONNXLayerNormalizationOpLowering>(
+      typeConverter, ctx, enableSIMD);
 }
 
 } // namespace onnx_mlir

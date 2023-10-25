@@ -4,7 +4,7 @@
 
 //===-------------------- Scan.cpp - Lowering Scan Op ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -21,16 +21,15 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXScanOpLowering : public ConversionPattern {
+struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
   explicit ONNXScanOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXScanOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXScanOp scanOp, ONNXScanOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    Operation *op = scanOp.getOperation();
     Location loc = ONNXLoc<ONNXScanOp>(op);
-    auto scanOp = dyn_cast<ONNXScanOp>(op);
-    ONNXScanOpAdaptor scanOpAdapter(operands, op->getAttrDictionary());
+    ValueRange operands = adaptor.getOperands();
 
     auto &scanBody = scanOp.getBody();
     auto bodyArgs = scanBody.getArguments();
@@ -40,17 +39,16 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // - scan output (all intermediate values returned from body func
     // concatenated together).
     SmallVector<Value, 4> outputs;
-    allocateMemoryForVFinal(
-        loc, rewriter, typeConverter, op, scanOpAdapter, outputs);
+    allocateMemoryForVFinal(loc, rewriter, typeConverter, op, adaptor, outputs);
     allocateMemoryForScanOutput(
-        loc, rewriter, typeConverter, op, scanOpAdapter, outputs);
+        loc, rewriter, typeConverter, op, adaptor, outputs);
 
     // Copy content of vInit to vFinal, which is used to host intermediate
     // values produced by scan body function invocation in a scope accessible
     // by all scan iterations.
     int64_t numInputs = scanOp.getNumScanInputs();
-    auto v_initials =
-        llvm::make_range(operands.begin(), operands.end() - numInputs);
+    auto v_initials = llvm::make_range(
+        operands.begin(), operands.begin() + (operands.size() - numInputs));
     for (const auto &vInitAndFinal : llvm::zip(v_initials, outputs))
       emitCopy(rewriter, loc, std::get<0>(vInitAndFinal),
           std::get<1>(vInitAndFinal));
@@ -83,9 +81,9 @@ struct ONNXScanOpLowering : public ConversionPattern {
       SmallVector<Value, 4> localVars;
 
       auto opScanInputRange = llvm::make_range(
-          operands.end() - scanOp.getNumScanInputs(), operands.end());
+          operands.begin() + (operands.size() - numInputs), operands.end());
       auto bodyScanInputRange = llvm::make_range(
-          bodyArgs.end() - scanOp.getNumScanInputs(), bodyArgs.end());
+          bodyArgs.begin() + (bodyArgs.size() - numInputs), bodyArgs.end());
       for (const auto &opAndBodyScanInput :
           llvm::zip(opScanInputRange, bodyScanInputRange)) {
         auto opScanInput = std::get<0>(opAndBodyScanInput);
@@ -196,12 +194,13 @@ struct ONNXScanOpLowering : public ConversionPattern {
     }
 
     rewriter.replaceOp(op, outputs);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
   static void allocateMemoryForVFinal(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
-      Operation *op, ONNXScanOpAdaptor scanOpAdapter,
+      ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
+      Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &ioPair :
@@ -218,20 +217,15 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use
       // their initial value tensors as reference when allocating memory.
-      Value alloc;
-      bool shouldDealloc = checkInsertDealloc(op);
-      if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
-      else
-        alloc = insertAllocAndDealloc(
-            memRefType, loc, rewriter, shouldDealloc, vInit);
+      MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+      Value alloc = create.mem.alignedAlloc(vInit, memRefType);
       outputs.emplace_back(alloc);
     }
   }
 
   static void allocateMemoryForScanOutput(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
-      Operation *op, ONNXScanOpAdaptor scanOpAdapter,
+      ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
+      Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
@@ -247,12 +241,12 @@ struct ONNXScanOpLowering : public ConversionPattern {
       // The leading dimension is simply the number of iterations executed,
       // which is easier to obtain.
       Value alloc;
-      bool shouldDealloc = checkInsertDealloc(op);
-
+      MemRefBuilder createMemRef(rewriter, loc);
       if (hasAllConstantDimensions(memRefType))
-        alloc = insertAllocAndDealloc(memRefType, loc, rewriter, shouldDealloc);
+        alloc = createMemRef.alignedAlloc(memRefType);
       else {
         MemRefBuilder createMemRef(rewriter, loc);
+        OnnxBuilder onnxBuilder(rewriter, loc);
         auto rankedScanOutTy = memRefType;
         SmallVector<mlir::Value, 4> allocParams;
         for (int i = 0; i < rankedScanOutTy.getRank(); i++) {
@@ -262,7 +256,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
               // scan operation scan output to have the leading dimension
               // extent equal to the max trip count, due to the possibility of
               // early termination.
-              auto dim = createMemRef.dim(scanOp.scan_inputs().front(), 0);
+              Value val = onnxBuilder.toMemref(scanOp.scan_inputs().front());
+              auto dim = createMemRef.dim(val, 0);
               allocParams.emplace_back(dim);
             } else {
               // TODO(tjingrant): we can support dynamic dimensions for scan
@@ -280,7 +275,7 @@ struct ONNXScanOpLowering : public ConversionPattern {
   }
 
   static mlir::Value allocateMemoryForBodyScanInput(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       mlir::Type bodyScanInputTy) {
     // Convert type to MemRefType.
     Type convertedType = typeConverter->convertType(bodyScanInputTy);
@@ -299,8 +294,8 @@ struct ONNXScanOpLowering : public ConversionPattern {
     // TODO(tjingrant): figure out why insertDealloc=1 doesn't work. Our
     // current mechanism for pulling the dealloc to the end of function
     // doesn't work alongside subgraph inlining.
-    alloc =
-        insertAllocAndDealloc(memRefType, loc, rewriter, /*insertDealloc=*/0);
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    alloc = create.mem.alignedAlloc(memRefType);
     return alloc;
   }
 

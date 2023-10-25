@@ -4,7 +4,7 @@
 
 //===----------------- GRU.cpp - Lowering GRU Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -54,7 +54,7 @@ struct GruBiasPack {
 
 template <>
 bool hasAllNoneOutput<ONNXGRUOp>(ONNXGRUOp *op) {
-  return (isFromNone(op->getY()) && isFromNone(op->getYH()));
+  return (isNoneValue(op->getY()) && isNoneValue(op->getYH()));
 }
 
 template <>
@@ -282,7 +282,7 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
   // Split B.
-  if (!isFromNone(B)) {
+  if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
     Type elementType = B.getType().cast<ShapedType>().getElementType();
     int64_t hiddenSize = bShape[1] / 6;
@@ -340,7 +340,7 @@ std::tuple<GruBiasPack, GruBiasPack> getBiasPack<ONNXGRUOp, GruBiasPack>(
 template <>
 GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
     ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, ONNXGRUOp *op,
+    const TypeConverter *typeConverter, ONNXGRUOp *op,
     typename ONNXGRUOp::Adaptor operandAdaptor) {
   GruState state;
 
@@ -349,15 +349,15 @@ GruState allocAndInitializeStates<ONNXGRUOp, GruState>(
 
   // Insert allocation and deallocation for the results of this operation.
   // Y :: [seq_length, num_directions, batch_size, hidden_size]
-  state.allH = allocAllHidden(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getY(), checkInsertDealloc(op->getOperation(), 0));
+  state.allH =
+      allocAllHidden(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getY());
   // Y_h :: [num_directions, batch_size, hidden_size]
-  state.ht = allocHiddenOrCell(rewriter, loc, typeConverter,
-      operandAdaptor.getX(), operandAdaptor.getW(), operandAdaptor.getR(),
-      op->getYH(), checkInsertDealloc(op->getOperation(), 1));
+  state.ht =
+      allocHiddenOrCell(rewriter, loc, typeConverter, operandAdaptor.getX(),
+          operandAdaptor.getW(), operandAdaptor.getR(), op->getYH());
 
-  // Insert allocation and deallocation the intermedidate Ht for the forward and
+  // Insert allocation and deallocation the intermediate Ht for the forward and
   // reverse directions.
   // Ht :: [batch_size, hidden_size]
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
@@ -389,7 +389,8 @@ template <>
 void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, GruState state,
     GruActivationPack activationPack, GruWeightPack weightPack,
-    GruBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
+    GruBiasPack biasPack, Value sequenceIV, Value directionIV,
+    Value sequenceLens, Value initialH, bool isForward) {
   // Equations (Default: f=Sigmoid, g=Tanh):"
   // zt = f(Xt*(Wz^T) + Ht-1*(Rz^T) + Wbz + Rbz)"
   // rt = f(Xt*(Wr^T) + Ht-1*(Rr^T) + Wbr + Rbr)"
@@ -498,8 +499,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          createKrnl.store(nextHt, Ht, indices);
-          if (!isFromNone(state.allH))
+          // Handle sequence_lens
+          nextHt = handleSequenceLens(createKrnl, createMath, sequenceLens,
+              initialH, nextHt, sequenceIV, directionIV, bs, hs, Ht);
+
+          if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
@@ -517,8 +521,8 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
         create.onnx.toMemref(create.onnx.matmul(matrixType, Ht, weightPack.Rr));
     Value rt, rtHt;
     if (hasAllConstantDimensions(matrixType)) {
-      rt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
-      rtHt = insertAllocAndDealloc(matrixType, loc, rewriter, false);
+      rt = create.mem.alignedAlloc(matrixType);
+      rtHt = create.mem.alignedAlloc(matrixType);
     } else {
       // matrixType's shape is of [BatchSize, HiddenSize].
       // HiddenSize is always static. Thus, only BatchSize is dynamic.
@@ -602,8 +606,11 @@ void calculateState<GruState, GruActivationPack, GruWeightPack, GruBiasPack>(
           Value nextHt = createMath.add(ztht, ztHt);
 
           // Store the intermediate Ht.
-          createKrnl.store(nextHt, Ht, indices);
-          if (!isFromNone(state.allH))
+          // Handle sequence_lens
+          nextHt = handleSequenceLens(createKrnl, createMath, sequenceLens,
+              initialH, nextHt, sequenceIV, directionIV, bs, hs, Ht);
+
+          if (!isNoneValue(state.allH))
             createKrnl.store(
                 nextHt, state.allH, {sequenceIV, directionIV, bs, hs});
         });
@@ -616,9 +623,9 @@ void stateToOutput<ONNXGRUOp, GruState>(ConversionPatternRewriter &rewriter,
   auto direction = op->getDirection();
   Value noneValue;
   // First output: all sequences.
-  outputs.emplace_back((isFromNone(op->getY()) ? noneValue : state.allH));
+  outputs.emplace_back((isNoneValue(op->getY()) ? noneValue : state.allH));
   // Second output: hidden.
-  if (isFromNone(op->getYH()))
+  if (isNoneValue(op->getYH()))
     outputs.emplace_back(noneValue);
   else {
     stateToOutputForHiddenOrCell(

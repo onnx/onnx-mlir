@@ -4,7 +4,7 @@
 
 //===--------------------- Dim.cpp - Lowering Dim Op ----------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,20 +18,20 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXDimOpLowering : public ConversionPattern {
+struct ONNXDimOpLowering : public OpConversionPattern<ONNXDimOp> {
   ONNXDimOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXDimOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXDimOp dimOp, ONNXDimOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Get basic info.
-    Location loc = op->getLoc();
-    auto dimOp = llvm::dyn_cast<ONNXDimOp>(op);
-    ONNXDimOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getData();
-    int64_t axis = dimOp.getAxis();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    Operation *op = dimOp.getOperation();
+    Location loc = ONNXLoc<ONNXDimOp>(op);
+    Value data = adaptor.getData();
+    int64_t axis = adaptor.getAxis();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
     IndexExprScope scope(&rewriter, loc);
 
@@ -44,8 +44,7 @@ struct ONNXDimOpLowering : public ConversionPattern {
 
     // Output is 1D memref of one element.
     SmallVector<IndexExpr, 1> outputDims(1, LiteralIndexExpr(1));
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, outputDims);
+    Value alloc = create.mem.alignedAlloc(outputMemRefType, outputDims);
 
     // Write the dimension at axis to the output.
     Value dimValue = create.krnlIE.getShapeAsDim(data, axis).getValue();
@@ -54,6 +53,7 @@ struct ONNXDimOpLowering : public ConversionPattern {
     create.krnl.store(dimValue, alloc, {index});
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

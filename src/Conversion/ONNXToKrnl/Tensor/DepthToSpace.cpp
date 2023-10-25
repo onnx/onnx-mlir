@@ -23,18 +23,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
+struct ONNXDepthToSpaceOpLowering
+    : public OpConversionPattern<ONNXDepthToSpaceOp> {
   ONNXDepthToSpaceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXDepthToSpaceOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXDepthToSpaceOp depthToSpaceOp,
+      ONNXDepthToSpaceOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    auto spaceToDepthOp = llvm::cast<ONNXDepthToSpaceOp>(op);
-    // assert(spaceToDepthOp && "Expecting op to have type ONNXDepthToSpaceOp");
-    ONNXDepthToSpaceOpAdaptor operandAdaptor(operands);
-    Value input = operandAdaptor.getInput();
-    Location loc = op->getLoc();
+    Operation *op = depthToSpaceOp.getOperation();
+    Location loc = ONNXLoc<ONNXDepthToSpaceOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value input = adaptor.getInput();
+
     MultiDialectBuilder<IndexExprBuilderForKrnl, OnnxToKrnlBuilder> create(
         rewriter, loc);
 
@@ -42,8 +43,8 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
     ONNXDepthToSpaceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    int64_t bs = spaceToDepthOp.getBlocksize();
-    StringRef mode = spaceToDepthOp.getMode();
+    int64_t bs = depthToSpaceOp.getBlocksize();
+    StringRef mode = depthToSpaceOp.getMode();
     assert(create.krnlIE.getShapedTypeRank(input) == 4 &&
            "Input tensor should have rank equal to 4");
 
@@ -91,7 +92,7 @@ struct ONNXDepthToSpaceOpLowering : public ConversionPattern {
     LLVM_DEBUG(llvm::dbgs() << "reshapeRes2: " << reshapeRes2 << "\n");
 
     rewriter.replaceOp(op, reshapeRes2);
-
+    // Simd: reported by the other ops.
     return success();
   }
 };

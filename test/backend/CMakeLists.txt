@@ -11,11 +11,6 @@ file(GENERATE
   )
 
 file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/inference_backend.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/inference_backend.py
-  )
-
-file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/signature_backend.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/signature_backend.py
   )
@@ -23,6 +18,16 @@ file(GENERATE
 file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/input_verification_backend.py
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/input_verification_backend.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/inference_backend.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/inference_backend.py
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/onnxmlir_node_tests.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlir_node_tests.py
   )
 
 file(GENERATE
@@ -45,7 +50,7 @@ file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
   )
-  
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/test_config_compilerlib.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/test_config_compilerlib.py.cfg
@@ -76,30 +81,29 @@ execute_process(
 if (${PYTEST_XDIST_FOUND} EQUAL 0)
   message(STATUS "Parallel backend tests   : ON")
   set(BACKEND_TEST_COMMAND "${Python3_EXECUTABLE}" "-m" "pytest")
-  set(BACKEND_TEST_ARGS "--forked" "-n" "$$\{NPROC:-auto\}" "-q" "--silent")
+  set(BACKEND_TEST_ARGS "-n" "$$\{NPROC:-auto\}" "-q" "--silent")
 else()
   message(STATUS "Parallel backend tests   : OFF (install pytest-xdist to enable)")
   set(BACKEND_TEST_COMMAND ${Python3_EXECUTABLE})
   set(BACKEND_TEST_ARGS "")
 endif()
 
-include(setup_model_download.cmake)
-
-# ${ONNX_HOME} is the directory where onnx downloads real model files.
-# Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
-# C/C++ and JNI tests run in parallel so they must use a different
-# ONNX_HOME to avoid conflicts.
+# ONNX repo now includes the "light" models for the backend test so
+# models are no longer downloaded separately. The light models are
+# installed along with the ONNX code. ONNX test runner will load
+# the light models from the installation and generate input/output
+# files in directories controlled by ONNX_HOME and ONNX_MODELS.
 #
-# We now have our own model download targets and different backend tests
-# share the pre-downloaded model files. So we no longer need a different
-# ONNX_HOME for C/C++ and JNI tests.
+# Our test.py writes out the light models out to files, just like
+# the node models, so they can be compiled by onnx-mlir.
 #
-# We can either set ONNX_HOME=${FILE_GENERATE_DIR} or we can set
-# ONNX_MODELS=${FILE_GENERATE_DIR}/models (more flexible since we can
-# change the "models" subdirectory to anything we like)
+# Since multiple check-onnx-??? targets are running concurrently
+# and they may be compiling the same models, each target needs its
+# own directory to hold the models and input/output files to avoid
+# stepping on each other's toes.
 add_custom_target(check-onnx-backend
   COMMAND
-    ONNX_MODELS=${FILE_GENERATE_DIR}/models
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend
     ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -108,7 +112,7 @@ add_custom_target(check-onnx-backend
 
 add_custom_target(check-onnx-backend-dynamic
   COMMAND
-    ONNX_MODELS=${FILE_GENERATE_DIR}/models
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic
     TEST_DYNAMIC=true
     ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
@@ -118,13 +122,45 @@ add_custom_target(check-onnx-backend-dynamic
 
 add_custom_target(check-onnx-backend-constant
   COMMAND
-    ONNX_MODELS=${FILE_GENERATE_DIR}/models
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant
     TEST_CONSTANT=true
     ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
   )
+
+add_custom_target(check-onnx-backend-node
+  COMMAND
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-node
+    TEST_TYPE=node
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
+add_custom_target(check-onnx-backend-model
+  COMMAND
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-model
+    TEST_TYPE=model
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+
+IF (NOT WIN32)
+add_custom_target(check-onnx-backend-constants-to-file
+  COMMAND
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constants-to-file
+    TEST_CONSTANTS_TO_FILE=true
+    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+  DEPENDS
+    ${FILE_GENERATE_DIR}/test.py
+    ${FILE_GENERATE_DIR}/test_config.py
+  )
+ENDIF()
 
 add_custom_target(check-onnx-backend-signature
   COMMAND
@@ -171,6 +207,7 @@ add_custom_target(clean-onnx-backend
     ${CMAKE_COMMAND} -E remove
     ${CMAKE_CURRENT_BINARY_DIR}/*.onnx
     ${CMAKE_CURRENT_BINARY_DIR}/*.so
+    ${CMAKE_CURRENT_BINARY_DIR}/*.constants.bin
   )
 
 add_dependencies(check-onnx-backend onnx-mlir)
@@ -179,6 +216,14 @@ add_dependencies(check-onnx-backend-dynamic onnx-mlir)
 add_dependencies(check-onnx-backend-dynamic PyRuntime)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
 add_dependencies(check-onnx-backend-constant PyRuntime)
+IF (NOT WIN32)
+add_dependencies(check-onnx-backend-constants-to-file onnx-mlir)
+add_dependencies(check-onnx-backend-constants-to-file PyRuntime)
+ENDIF()
+add_dependencies(check-onnx-backend-node onnx-mlir)
+add_dependencies(check-onnx-backend-node PyRuntime)
+add_dependencies(check-onnx-backend-model onnx-mlir)
+add_dependencies(check-onnx-backend-model PyRuntime)
 add_dependencies(check-onnx-backend-signature onnx-mlir)
 add_dependencies(check-onnx-backend-signature PyRuntime)
 add_dependencies(check-onnx-backend-input-verification onnx-mlir)
@@ -186,13 +231,12 @@ add_dependencies(check-onnx-backend-input-verification PyRuntime)
 add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
 add_dependencies(check-onnx-backend-compilerlib PyRuntime)
 
-setup_model_download(check-onnx-backend "")
-setup_model_download(check-onnx-backend-dynamic --dynamic)
-setup_model_download(check-onnx-backend-constant --constant)
-
 add_dependencies(check-onnx-backend-numerical check-onnx-backend)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-constant)
+IF (NOT WIN32)
+add_dependencies(check-onnx-backend-numerical check-onnx-backend-constants-to-file)
+ENDIF()
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-signature)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-input-verification)
 
@@ -201,7 +245,7 @@ if (ONNX_MLIR_ENABLE_JNI)
   message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
   add_custom_target(check-onnx-backend-jni
     COMMAND
-      ONNX_MODELS=${FILE_GENERATE_DIR}/models
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-jni
       TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
@@ -211,7 +255,7 @@ if (ONNX_MLIR_ENABLE_JNI)
 
   add_custom_target(check-onnx-backend-dynamic-jni
     COMMAND
-      ONNX_MODELS=${FILE_GENERATE_DIR}/models
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-jni
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
@@ -221,8 +265,28 @@ if (ONNX_MLIR_ENABLE_JNI)
 
   add_custom_target(check-onnx-backend-constant-jni
     COMMAND
-      ONNX_MODELS=${FILE_GENERATE_DIR}/models
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant-jni
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
+      ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    DEPENDS
+      ${FILE_GENERATE_DIR}/test.py
+      ${FILE_GENERATE_DIR}/test_config.py
+    )
+
+  add_custom_target(check-onnx-backend-node-jni
+    COMMAND
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-node-jni
+      TEST_TYPE=node TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
+      ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    DEPENDS
+      ${FILE_GENERATE_DIR}/test.py
+      ${FILE_GENERATE_DIR}/test_config.py
+    )
+
+  add_custom_target(check-onnx-backend-model-jni
+    COMMAND
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-model-jni
+      TEST_TYPE=model TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
       ${FILE_GENERATE_DIR}/test.py
@@ -241,10 +305,14 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(check-onnx-backend-constant-jni PyRuntime)
   add_dependencies(check-onnx-backend-constant-jni javaruntime)
   add_dependencies(check-onnx-backend-constant-jni jniruntime)
-
-  setup_model_download(check-onnx-backend-jni "")
-  setup_model_download(check-onnx-backend-dynamic-jni --dynamic)
-  setup_model_download(check-onnx-backend-constant-jni --constant)
+  add_dependencies(check-onnx-backend-node-jni onnx-mlir)
+  add_dependencies(check-onnx-backend-node-jni PyRuntime)
+  add_dependencies(check-onnx-backend-node-jni javaruntime)
+  add_dependencies(check-onnx-backend-node-jni jniruntime)
+  add_dependencies(check-onnx-backend-model-jni onnx-mlir)
+  add_dependencies(check-onnx-backend-model-jni PyRuntime)
+  add_dependencies(check-onnx-backend-model-jni javaruntime)
+  add_dependencies(check-onnx-backend-model-jni jniruntime)
 
   add_dependencies(check-onnx-backend-numerical check-onnx-backend-jni)
   add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic-jni)

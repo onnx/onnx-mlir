@@ -13,8 +13,11 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 using namespace mlir;
 
@@ -73,7 +76,9 @@ ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank) {
   else if (rank == 2)
     return ZTensorEncodingAttr::DataLayout::_2D;
   else if (rank == 3)
-    return ZTensorEncodingAttr::DataLayout::_3D;
+    // Use 3DS instead of 3D since important ops like LSTM/MatMul/Softmax use
+    // 3DS, which reduces the number of layout transformations.
+    return ZTensorEncodingAttr::DataLayout::_3DS;
   else if (rank == 4)
     return ZTensorEncodingAttr::DataLayout::_4D;
   else
@@ -171,26 +176,266 @@ Value getMinusBcastConst(
   ShapedType xType = X.getType().cast<ShapedType>();
   assert(xType.hasStaticShape() && "expected static shape");
   float val = floatAttr.getValueAsDouble() * -1.0;
-  DenseElementsAttr denseAttr = DenseElementsAttr::get(X.getType(), val);
+  DenseElementsAttr denseAttr =
+      DenseElementsAttr::get(X.getType().cast<ShapedType>(), val);
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   return create.onnx.constant(denseAttr);
 }
 
-bool oneIsOfNHWCLayout(Type t1, Type t2) {
+Value getConstantOfType(
+    OpBuilder &builder, Location loc, Type type, float val) {
+  ShapedType shapedType = type.cast<ShapedType>();
+  assert(shapedType.hasStaticShape() && "expected static shape");
+  Type elementType = shapedType.getElementType();
+  DenseElementsAttr denseAttr;
+  if (elementType.isa<IntegerType>())
+    denseAttr = DenseElementsAttr::get(shapedType, (int64_t)val);
+  else if (elementType.isa<FloatType>())
+    denseAttr = DenseElementsAttr::get(shapedType, val);
+  else
+    llvm_unreachable("Unsupport type");
+  MultiDialectBuilder<OnnxBuilder> create(builder, loc);
+  return create.onnx.constant(denseAttr);
+}
+
+bool oneIsOfLayout(Type t1, Type t2,
+    onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout layout) {
   if (auto rtp1 = llvm::dyn_cast<RankedTensorType>(t1)) {
-    if (onnx_mlir::zhigh::getZTensorLayout(rtp1) ==
-        onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC)
+    if (onnx_mlir::zhigh::getZTensorLayout(rtp1) == layout)
       return true;
-    // t1 is not of NHWC, check t2.
+    // t1 is not of `layout`, check t2.
     if (auto rtp2 = llvm::dyn_cast<RankedTensorType>(t2)) {
-      return (onnx_mlir::zhigh::getZTensorLayout(rtp2) ==
-              onnx_mlir::zhigh::ZTensorEncodingAttr::DataLayout::NHWC);
+      return (onnx_mlir::zhigh::getZTensorLayout(rtp2) == layout);
     }
     // t2 is unranked.
   }
   // t1 is unranked.
-  // Unranked type is potentially of NHWC.
+  // Unranked type is potentially of `layout`.
   return true;
+}
+
+/// Check if ONNXReshapeOp is reshaping 2D to 4D by tiling each input dimension.
+bool isTiling2DTo4D(Value val) {
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 2D to 4D.
+  if (!(inputShape.size() == 2 && outputShape.size() == 4))
+    return false;
+
+  // Tiling over each input dimension.
+  return ((inputShape[0] == outputShape[0] * outputShape[1]) &&
+          (inputShape[1] == outputShape[2] * outputShape[3]));
+}
+
+/// Check if ONNXReshapeOp is reshaping 3D to 4D by tiling the first input
+/// dimension.
+bool isTiling3DTo4D(Value val) {
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 3D to 4D.
+  if (!(inputShape.size() == 3 && outputShape.size() == 4))
+    return false;
+
+  // Tiling over each input dimension.
+  return ((inputShape[0] == outputShape[0] * outputShape[1]) &&
+          (inputShape[1] == outputShape[2]) &&
+          (inputShape[2] == outputShape[3]));
+}
+
+/// Check if a 4D tensor is collapsed into 2D by merging the each two
+/// dimensions.
+bool isCollapsing4DTo2D(Value val) {
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 4D to 2D.
+  if (!(inputShape.size() == 4 && outputShape.size() == 2))
+    return false;
+
+  // Collapsing by merging the first two dimensions.
+  return ((inputShape[0] * inputShape[1] == outputShape[0]) &&
+          (inputShape[2] * inputShape[3] == outputShape[1]));
+}
+
+/// Check if a 4D tensor is collapsed into 3D by merging the first two
+/// dimensions.
+bool isCollapsing4DTo3D(Value val) {
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  if (!reshapeOp)
+    return false;
+
+  Value input = reshapeOp.getData();
+  Value output = reshapeOp.getReshaped();
+  Type inputType = input.getType();
+  Type outputType = output.getType();
+
+  if (!isRankedShapedType(inputType))
+    return false;
+  if (!isRankedShapedType(outputType))
+    return false;
+
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  // Not reshape from 4D to 3D.
+  if (!(inputShape.size() == 4 && outputShape.size() == 3))
+    return false;
+
+  // Collapsing by merging the first two dimensions.
+  return ((inputShape[0] * inputShape[1] == outputShape[0]) &&
+          (inputShape[2] == outputShape[1]) &&
+          (inputShape[3] == outputShape[2]));
+}
+
+AffineMapAttr getTiling2DTo4DMap(OpBuilder &b, Value val) {
+  assert(isTiling2DTo4D(val) &&
+         "ONNXReshapeOp is not suitable for getting a tiling affine map");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  Value output = reshapeOp.getReshaped();
+  Type outputType = output.getType();
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  AffineExpr tileConst1 = getAffineConstantExpr(outputShape[1], b.getContext());
+  AffineExpr tileConst3 = getAffineConstantExpr(outputShape[3], b.getContext());
+
+  AffineExpr d0 = b.getAffineDimExpr(0);
+  AffineExpr d1 = b.getAffineDimExpr(1);
+
+  AffineExpr o0 = d0.floorDiv(tileConst1);
+  AffineExpr o1 = d0 % tileConst1;
+  AffineExpr o2 = d1.floorDiv(tileConst3);
+  AffineExpr o3 = d1 % tileConst3;
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/2, /*symbols=*/0, {o0, o1, o2, o3}, b.getContext());
+  return AffineMapAttr::get(map);
+}
+
+AffineMapAttr getTiling3DTo4DMap(OpBuilder &b, Value val) {
+  assert(isTiling3DTo4D(val) &&
+         "ONNXReshapeOp is not suitable for getting a tiling affine map");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  Value output = reshapeOp.getReshaped();
+  Type outputType = output.getType();
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+
+  AffineExpr tileConst1 = getAffineConstantExpr(outputShape[1], b.getContext());
+
+  AffineExpr d0 = b.getAffineDimExpr(0);
+  AffineExpr d1 = b.getAffineDimExpr(1);
+  AffineExpr d2 = b.getAffineDimExpr(2);
+
+  AffineExpr o0 = d0.floorDiv(tileConst1);
+  AffineExpr o1 = d0 % tileConst1;
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/3, /*symbols=*/0, {o0, o1, d1, d2}, b.getContext());
+  return AffineMapAttr::get(map);
+}
+
+AffineMapAttr getCollapsing4DTo2DMap(OpBuilder &b, Value val) {
+  assert(isCollapsing4DTo2D(val) &&
+         "ONNXReshapeOp is not suitable for getting a collapsing affine map");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  Value input = reshapeOp.getData();
+  Type inputType = input.getType();
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+
+  AffineExpr dimConst1 = getAffineConstantExpr(inputShape[1], b.getContext());
+  AffineExpr dimConst3 = getAffineConstantExpr(inputShape[3], b.getContext());
+
+  AffineExpr d0 = b.getAffineDimExpr(0);
+  AffineExpr d1 = b.getAffineDimExpr(1);
+  AffineExpr d2 = b.getAffineDimExpr(2);
+  AffineExpr d3 = b.getAffineDimExpr(3);
+
+  AffineExpr o0 = d0 * dimConst1 + d1;
+  AffineExpr o1 = d2 * dimConst3 + d3;
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/4, /*symbols=*/0, {o0, o1}, b.getContext());
+  return AffineMapAttr::get(map);
+}
+
+AffineMapAttr getCollapsing4DTo3DMap(OpBuilder &b, Value val) {
+  assert(isCollapsing4DTo3D(val) &&
+         "ONNXReshapeOp is not suitable for getting a collapsing affine map");
+
+  auto reshapeOp = dyn_cast<ONNXReshapeOp>(val.getDefiningOp());
+  Value input = reshapeOp.getData();
+  Type inputType = input.getType();
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+
+  AffineExpr dimConst1 = getAffineConstantExpr(inputShape[1], b.getContext());
+
+  AffineExpr d0 = b.getAffineDimExpr(0);
+  AffineExpr d1 = b.getAffineDimExpr(1);
+  AffineExpr d2 = b.getAffineDimExpr(2);
+  AffineExpr d3 = b.getAffineDimExpr(3);
+
+  AffineExpr o0 = d0 * dimConst1 + d1;
+
+  AffineMap map = AffineMap::get(
+      /*dims=*/4, /*symbols=*/0, {o0, d2, d3}, b.getContext());
+  return AffineMapAttr::get(map);
+}
+
+AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
+  SmallVector<unsigned, 4> perm;
+  for (uint64_t i = 0; i < ArrayAttrSize(permAttr); ++i) {
+    unsigned axis = ArrayAttrIntVal(permAttr, i);
+    perm.emplace_back(axis);
+  }
+  AffineMap map =
+      AffineMap::getPermutationMap(llvm::ArrayRef(perm), b.getContext());
+  return AffineMapAttr::get(map);
 }
 
 } // namespace zhigh

@@ -28,6 +28,14 @@ APFloat WideNum::toAPFloat(BType tag) const {
     return float_16(dbl).toAPFloat();
   case BType::BFLOAT16:
     return bfloat_16(dbl).toAPFloat();
+  case BType::FLOAT8E4M3FN:
+    return float_8e4m3fn(dbl).toAPFloat();
+  case BType::FLOAT8E4M3FNUZ:
+    return float_8e4m3fnuz(dbl).toAPFloat();
+  case BType::FLOAT8E5M2:
+    return float_8e5m2(dbl).toAPFloat();
+  case BType::FLOAT8E5M2FNUZ:
+    return float_8e5m2fnuz(dbl).toAPFloat();
   default:
     llvm_unreachable("BType must be a float");
   }
@@ -44,18 +52,16 @@ APInt WideNum::toAPInt(BType tag) const {
 }
 
 /*static*/
-WideNum WideNum::fromAPFloat(BType tag, APFloat x) {
-  assert(isFloatBType(tag) && "BType must be an integer");
+WideNum WideNum::fromAPFloat(APFloat x) {
   return WideNum(x.convertToDouble()); // .dbl
 }
 
 /*static*/
-WideNum WideNum::fromAPInt(BType tag, APInt x) {
-  if (isSignedIntBType(tag))
+WideNum WideNum::fromAPInt(APInt x, bool isSigned) {
+  if (isSigned)
     return WideNum(x.getSExtValue()); // .i64
-  if (isUnsignedIntBType(tag))
+  else
     return WideNum(x.getZExtValue()); // .u64
-  llvm_unreachable("BType must be an integer");
 }
 
 } // namespace onnx_mlir

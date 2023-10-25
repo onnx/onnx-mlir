@@ -107,7 +107,7 @@ LogicalResult ZHighStickOpShapeHelper::computeShape() {
 LogicalResult ZHighStickOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
   Value input = getIn();
-  if (!hasRankedType(input))
+  if (isa<NoneType>(input.getType()) || !hasRankedType(input))
     return success();
 
   auto inputType = input.getType().cast<RankedTensorType>();
@@ -133,9 +133,12 @@ LogicalResult ZHighStickOp::inferShapes(
 void ZHighStickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<NoneTypeStickRemovalPattern>(context);
-  results.insert<ReplaceONNXLeakyReluPattern>(context);
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
+  results.insert<ReplaceONNXLeakyReluPattern>(context);
+  results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
+  results.insert<ReshapeTransposeReshape2DTo3DSPattern>(context);
+  results.insert<ReshapeTransposeReshape3DSTo2DPattern>(context);
 }
 
 } // namespace zhigh

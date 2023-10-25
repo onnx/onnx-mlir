@@ -4,7 +4,7 @@
 
 //===-------- ReverseSequence.cpp - Lowering ReverseSequence Op-----------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,19 +19,22 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXReverseSequenceOpLowering : public ConversionPattern {
+struct ONNXReverseSequenceOpLowering
+    : public OpConversionPattern<ONNXReverseSequenceOp> {
   ONNXReverseSequenceOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXReverseSequenceOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXReverseSequenceOp reverseSequenceOp,
+      ONNXReverseSequenceOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXReverseSequenceOpAdaptor operandAdaptor(operands);
-    ONNXReverseSequenceOp reverseSequenceOp =
-        llvm::cast<ONNXReverseSequenceOp>(op);
-    Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder>
+    Operation *op = reverseSequenceOp.getOperation();
+    Location loc = ONNXLoc<ONNXReverseSequenceOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder>
         create(rewriter, loc);
+
     // Get shape.
     ONNXReverseSequenceOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
@@ -43,8 +46,8 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Save axis and rank info.
     int64_t batchAxis = reverseSequenceOp.getBatchAxis();
@@ -58,7 +61,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
 
       for (vector of dim I on the shape of output tensor) {
         vector of dim Iinput = I;
-        Iinput[time_axis()]  = I[time_axis()] < seqence_lens[I[batch_axis()]]?
+        Iinput[time_axis()]  = I[time_axis()] < sequence_lens[I[batch_axis()]]?
               sequence_lens[I[batch_axis()]]-I[time_axis()]-1:I[time_axis()];
         output[I] = input[Iinput]
       }
@@ -82,7 +85,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
       }
 
       This transformation should improve performance on this loop nest itself,
-      but may hinder loop fusion with other loop nestes.
+      but may hinder loop fusion with other loop nests.
       Also further loop fission or loop interchanging can be applied here.
       I chose the simple loop structure
       and believe optimization should be left to compiler, at least for
@@ -104,7 +107,7 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
           SmallVector<IndexExpr, 4> inputAccessFct;
           getIndexExprList<DimIndexExpr>(loopInd, inputAccessFct);
           Value lensVal = createKrnl.loadIE(
-              operandAdaptor.getSequenceLens(), inputAccessFct[batchAxis]);
+              adaptor.getSequenceLens(), inputAccessFct[batchAxis]);
           IndexExpr lens = NonAffineIndexExpr(lensVal);
           IndexExpr timeDim = inputAccessFct[timeAxis];
           IndexExpr cond = timeDim < lens;
@@ -112,13 +115,14 @@ struct ONNXReverseSequenceOpLowering : public ConversionPattern {
               IndexExpr::select(cond, lens - timeDim - oneIE, timeDim);
           inputAccessFct[timeAxis] = inputIndex;
           Value inputVal =
-              createKrnl.loadIE(operandAdaptor.getInput(), inputAccessFct);
+              createKrnl.loadIE(adaptor.getInput(), inputAccessFct);
 
           // Save data into output
           createKrnl.storeIE(inputVal, alloc, outputAccessFct);
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

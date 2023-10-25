@@ -5,7 +5,7 @@ ENV HOME=/workdir
 # 1) Install packages.
 ENV PATH=$PATH:/workdir/bin
 RUN apt-get update
-RUN apt-get install -y python-numpy
+RUN apt-get install -y python3-numpy
 RUN apt-get install -y python3-pip
 RUN python -m pip install --upgrade pip
 RUN apt-get install -y gdb
@@ -19,13 +19,13 @@ RUN apt-get install -y libeigen3-dev
 RUN apt-get install -y clang-format
 RUN python -m pip install wheel
 RUN python -m pip install numpy
-RUN python -m pip install torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+RUN python -m pip install torch==2.0.0+cpu torchvision==0.15.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
 RUN git clone https://github.com/onnx/tutorials.git
 # Install clang
 RUN apt-get install -y lsb-release wget software-properties-common
 RUN bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
 # For development
-RUN apt-get install ssh-client
+RUN apt-get install -y ssh-client
 
 # 3) When using vscode, copy your .vscode in the Dockerfile dir and
 #    uncomment the two lines below.
@@ -39,11 +39,8 @@ RUN apt-get install ssh-client
 
 # 5) Fix git by reattaching head and making git see other branches than main.
 WORKDIR /workdir/onnx-mlir
-RUN git remote rename origin upstream
-RUN git checkout main
-RUN git fetch --unshallow
 # Add optional personal fork and disable pushing to upstream (best practice).
-# RUN git remote add origin https://github.com/<user>/onnx-mlir.git
+# RUN git remote add origin https://github.com/<<user>>/onnx-mlir.git
 # RUN git remote set-url --push upstream no_push
 
 # 6) Set the PATH environment vars for make/debug mode. Replace Debug

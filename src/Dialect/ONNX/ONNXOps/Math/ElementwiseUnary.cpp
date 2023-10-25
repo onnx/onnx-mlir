@@ -32,6 +32,8 @@ namespace onnx_mlir {
 /// Handle shape inference for unary element-wise operators.
 LogicalResult inferShapeForUnaryOps(Operation *op) {
   Value input = op->getOperand(0);
+  if (!hasShapeAndRank(input))
+    return success();
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
   return inferShapeForUnaryOps(
       op, inputType.getElementType(), inputType.getEncoding());
@@ -41,6 +43,8 @@ LogicalResult inferShapeForUnaryOps(Operation *op) {
 /// type.
 LogicalResult inferShapeForUnaryOps(Operation *op, Type elementType) {
   Value input = op->getOperand(0);
+  if (!hasShapeAndRank(input))
+    return success();
   RankedTensorType inputType = input.getType().dyn_cast<RankedTensorType>();
   return inferShapeForUnaryOps(op, elementType, inputType.getEncoding());
 }
@@ -135,6 +139,10 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 // Cast
 //===----------------------------------------------------------------------===//
 
+std::vector<Type> ONNXCastOp::resultTypeInference() {
+  return {UnrankedTensorType::get(getTo())};
+}
+
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))
@@ -154,7 +162,7 @@ LogicalResult ONNXCastLikeOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
+  Type elementType = getElementType(getTargetType().getType());
   ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -173,6 +181,15 @@ LogicalResult ONNXCeilOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXCeluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// Clip
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXClipOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
 }
@@ -265,6 +282,34 @@ LogicalResult ONNXHardSwishOp::inferShapes(
 LogicalResult ONNXInstanceNormalizationOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// IsInf
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsInfOp::verify() {
+  ONNXIsInfOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.getX()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  int64_t detectPosAttribute = getDetectPositive();
+  int64_t detectNegAttribute = getDetectNegative();
+
+  // One of the values for detectPosAttribute and detectNegAttribute must be 1.
+  // If not, then this will result in an error.
+  if (detectPosAttribute == 0 && detectNegAttribute == 0)
+    return emitOpError(
+        "This variation is currently unsupported. One or both of the "
+        "attributes must be a value of 1 to ensure mapping to infinity.");
+
+  return success();
+}
+
+LogicalResult ONNXIsInfOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
 }
 
 //===----------------------------------------------------------------------===//

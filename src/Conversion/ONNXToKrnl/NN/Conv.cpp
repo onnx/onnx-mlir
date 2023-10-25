@@ -4,7 +4,7 @@
 
 //===--------------- Conv.cpp - Lowering Convolution Op -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-//#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
@@ -20,11 +19,10 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXConvOpLowering : public ConversionPattern {
+struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
   ONNXConvOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXConvOp::getOperationName(), 1, ctx),
+      : OpConversionPattern(typeConverter, ctx),
         enableParallel(enableParallel) {}
   bool enableParallel;
 
@@ -228,37 +226,35 @@ struct ONNXConvOpLowering : public ConversionPattern {
     }
   }
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXConvOp convOp, ONNXConvOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
-    ONNXConvOpAdaptor operandAdaptor(operands);
-    ONNXConvOp convOp = llvm::dyn_cast<ONNXConvOp>(op);
+    Operation *op = convOp.getOperation();
+    Location loc = ONNXLoc<ONNXConvOp>(op);
+    ValueRange operands = adaptor.getOperands();
 
     // Get shape.
-    IndexExprBuilderForKrnl createIE(rewriter, loc);
-    ONNXConvOpShapeHelper shapeHelper(op, operands, &createIE);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
+
+    ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
-
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, memRefType, loc, shapeHelper.getOutputDims());
-
-    convUnoptimized(
-        rewriter, convOp, operandAdaptor, shapeHelper, memRefType, alloc);
+    // Insert allocation for the result of this operation.
+    Value alloc = allocForONNXOp<ONNXConvOp>(
+        convOp, rewriter, typeConverter, shapeHelper)[0];
+    MemRefType memRefType = alloc.getType().cast<MemRefType>();
+    convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
 
 void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    std::string opsForCall) {
+  patterns.insert<ONNXConvOpToCall>(typeConverter, ctx, opsForCall);
   patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
 }
 

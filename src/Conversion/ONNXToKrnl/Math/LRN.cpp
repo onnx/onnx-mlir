@@ -4,7 +4,7 @@
 
 //===-------------------- LRN.cpp - Lowering LRN Op -----------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,19 +19,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXLRNOpLowering : public ConversionPattern {
+struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
   ONNXLRNOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXLRNOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
   using LocalMultiDialectBuilder = MultiDialectBuilder<KrnlBuilder,
       IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXLRNOp lrnOp, ONNXLRNOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXLRNOpAdaptor operandAdaptor(operands);
-    ONNXLRNOp lrnOp = llvm::cast<ONNXLRNOp>(op);
-    Location loc = op->getLoc();
+    Operation *op = lrnOp.getOperation();
+    Location loc = ONNXLoc<ONNXLRNOp>(op);
+    ValueRange operands = adaptor.getOperands();
     LocalMultiDialectBuilder create(rewriter, loc);
 
     // Get shape.
@@ -48,19 +47,19 @@ struct ONNXLRNOpLowering : public ConversionPattern {
     Type elementType = outputMemRefType.getElementType();
     int64_t outputRank = outputMemRefShape.size();
 
-    Value input = operandAdaptor.getX();
-    float biasLit = lrnOp.getBias().convertToFloat();
-    float alphaLit = lrnOp.getAlpha().convertToFloat();
-    float betaLit = lrnOp.getBeta().convertToFloat();
-    int sizeLit = lrnOp.getSize();
+    Value input = adaptor.getX();
+    float biasLit = adaptor.getBias().convertToFloat();
+    float alphaLit = adaptor.getAlpha().convertToFloat();
+    float betaLit = adaptor.getBeta().convertToFloat();
+    int sizeLit = adaptor.getSize();
     auto f32Type = FloatType::getF32(rewriter.getContext());
     Value biasValue = create.math.constant(f32Type, biasLit);
     Value alphaDivSizeValue =
         create.math.constant(f32Type, alphaLit / (float)sizeLit);
     Value betaValue = create.math.constant(f32Type, betaLit);
 
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     ValueRange outputLoopDef = create.krnl.defineLoops(outputRank);
     SmallVector<IndexExpr, 4> lbs(outputRank, LiteralIndexExpr(0));
@@ -144,6 +143,7 @@ struct ONNXLRNOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

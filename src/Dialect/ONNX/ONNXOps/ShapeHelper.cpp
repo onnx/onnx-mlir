@@ -4,7 +4,7 @@
 
 //===----------------ONNXShapeHelper.cpp - help for shapes----------------=== //
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,10 +13,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "llvm/ADT/BitVector.h"
+#include "llvm/Support/Debug.h"
+
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
@@ -26,6 +29,39 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// Support functions
+//===----------------------------------------------------------------------===//
+
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is true.
+// Return false when not in range; set axis to positive value when in range.
+bool isAxisInRange(int64_t &axis, int64_t rank, bool includeRank) {
+  int64_t ub = includeRank ? rank + 1 : rank;
+  if (axis < -rank || axis >= ub)
+    return false;
+  if (axis < 0)
+    axis += rank;
+  return true;
+}
+
+bool isAxisInRange(int64_t &axis, Value val, bool includeRank) {
+  ShapedType shapedType = val.getType().cast<ShapedType>();
+  assert(shapedType && "expected a shaped type to determine the rank for axis");
+  return isAxisInRange(axis, shapedType.getRank(), includeRank);
+}
+
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is
+// true.  Assert when not in range. Return positive axis.
+int64_t getAxisInRange(int64_t axis, int64_t rank, bool includeRank) {
+  assert(isAxisInRange(axis, rank, includeRank) && "expected axis in range");
+  return axis;
+}
+
+int64_t getAxisInRange(int64_t axis, Value val, bool includeRank) {
+  assert(isAxisInRange(axis, val, includeRank) && "expected axis in range");
+  return axis;
+}
 
 //===----------------------------------------------------------------------===//
 // ONNX Op Shape Helper
@@ -51,11 +87,20 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 
   // Try to update inferredDim if existingDim is static.
   for (unsigned i = 0; i < existingDims.size(); ++i) {
-    // existingDim is dynamic, nothing to do.
+    // Safety checks for old convention of using -1 for dynamic.
+    assert(existingDims[i] != -1 && "dynamic use kDynamic now");
+    if (inferredDims[i].isLiteral()) {
+      // Index expressions should not use the ShapedType::kDynamic ever to
+      // signal dynamic shape. Questionmarks are used for that.
+      assert(inferredDims[i].getLiteral() != -1 && "dynamic use questionmark");
+      assert(inferredDims[i].getLiteral() != ShapedType::kDynamic &&
+             "dynamic use questionmark");
+    }
+    // ExistingDim is dynamic, nothing to learn from.
     if (existingDims[i] == ShapedType::kDynamic)
       continue;
 
-    // inferredDim is unknown at shape inference: update it.
+    // InferredDim is unknown at shape inference: update it.
     if (inferredDims[i].isQuestionmark()) {
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
       continue;
@@ -66,8 +111,8 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
       continue;
     }
     // inferredDim is different from existingDim. Believe in existingDim.
-    if (inferredDims[i].isLiteral() &&
-        (existingDims[i] != inferredDims[i].getLiteral())) {
+    assert(inferredDims[i].isLiteral() && "isLiteral failed");
+    if (existingDims[i] != inferredDims[i].getLiteral()) {
       // Warning for users.
       llvm::outs() << "Warning: [Shape inference, dim " << i
                    << "] the inferred dim (" << inferredDims[i].getLiteral()
@@ -83,7 +128,7 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
 //===----------------------------------------------------------------------===//
 
 ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
-    ArrayRef<Value> inputOperands, IndexExprBuilder *inputIeBuilder,
+    ValueRange inputOperands, IndexExprBuilder *inputIeBuilder,
     IndexExprScope *inputScope)
     : op(inputOp), operands(inputOperands), createIE(inputIeBuilder),
       scope(inputScope), privateOutputsDims(), ownScope(inputScope == nullptr),
@@ -105,7 +150,7 @@ ONNXOpShapeHelper::ONNXOpShapeHelper(Operation *inputOp,
     // could not find one at this time.
     privateOperandsCache = llvm::SmallVector<Value, 4>(
         op->getOperands().begin(), op->getOperands().end());
-    operands = ArrayRef<Value>(privateOperandsCache);
+    operands = ValueRange(privateOperandsCache);
   }
 }
 
@@ -143,8 +188,8 @@ LogicalResult ONNXOpShapeHelper::setOutputDimsFromOperand(
 
 LogicalResult ONNXOpShapeHelper::setOutputDimsFromLiterals(
     SmallVector<int64_t, 4> shape, int n, bool refineShape) {
-  // Output has the shape given by the vector of integer numbers. Number -1 is
-  // transformed into a questionmark.
+  // Output has the shape given by the vector of integer numbers. Number
+  // ShapedType::kDynamic is transformed into a questionmark.
   DimsExpr outputDims;
   getIndexExprListFromShape(shape, outputDims);
   setOutputDims(outputDims, n, refineShape);
@@ -170,6 +215,8 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
   // Invoke virtual compute shape.
   if (failed(computeShape()))
     return op->emitError("Failed to scan parameters successfully");
+  assert((elementType.isa<VectorType>() || !elementType.isa<ShapedType>()) &&
+         "element type cannot be a shaped type other than vector type");
   uint64_t resNum = op->getNumResults();
   for (uint64_t i = 0; i < resNum; ++i) {
     // If we have an optional type, leave it as is.
@@ -187,7 +234,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
 
 // Use a distinct type for each of the output.
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
-    TypeRange elementTypeRange, mlir::ArrayRef<mlir::Attribute> encodingList) {
+    TypeRange elementTypeRange, ArrayRef<Attribute> encodingList) {
   uint64_t resNum = op->getNumResults();
   assert((elementTypeRange.size() == resNum) &&
          "Incorrect number of elementTypes");
@@ -213,12 +260,19 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
   return success();
 }
 
+void ONNXOpShapeHelper::setOperands(ValueRange inputs) {
+  // Note: do not use operands until it is re-assigned
+  privateOperandsCache =
+      llvm::SmallVector<Value, 4>(inputs.begin(), inputs.end());
+  operands = ValueRange(privateOperandsCache);
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Broadcast Op Shape Helper
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
-    ArrayRef<Value> initialOperands, DimsExpr *additionalOperand) {
+    ValueRange initialOperands, DimsExpr *additionalOperand) {
   // if additionalOperand is not used, we expect a zero-sized vector.
   // A temporary IndexExpr vector for the output.
   DimsExpr dimsExpr;
@@ -277,8 +331,9 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
       IndexExpr nextDimExpr = inputsDims[i][j];
       // Case: 1 - *.
       if (currentDimExpr.isLiteralAndIdenticalTo(1)) {
-        if (!hasUniBroadcasting && !hasNoBroadcasting)
+        if (!hasUniBroadcasting) {
           dimsExpr[j] = nextDimExpr;
+        }
         continue;
       }
       // Case: LiteralNot1 - *.
@@ -286,10 +341,10 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
         // LiteralNot1 - LiteralNot1 => keep unchanged with verifying.
         if (nextDimExpr.isLiteralAndDifferentThan(1) &&
             !currentDimExpr.isLiteralAndIdenticalTo(nextDimExpr))
-          return op->emitError("Incompatible broadcast matching " +
-                               std::to_string(currentDimExpr.getLiteral()) +
-                               " with " +
-                               std::to_string(currentDimExpr.getLiteral()));
+          return op->emitOpError("Incompatible broadcast matching " +
+                                 std::to_string(currentDimExpr.getLiteral()) +
+                                 " with " +
+                                 std::to_string(nextDimExpr.getLiteral()));
         // Case: LiteralNot1 - (QuestionMark or 1) => Keep unchanged without
         // verifying.
         continue;
@@ -317,41 +372,394 @@ LogicalResult ONNXBroadcastOpShapeHelper::customComputeShape(
   return success();
 }
 
-LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
-    uint64_t operandIndex, const SmallVectorImpl<IndexExpr> &outputAccessExprs,
-    SmallVectorImpl<IndexExpr> &operandAccessExprs) {
-  if (hasNoBroadcasting || (hasUniBroadcasting && operandIndex == 0)) {
-    for (IndexExpr ie : outputAccessExprs)
-      operandAccessExprs.emplace_back(ie);
-    return success();
-  }
-
-  uint64_t operandRank = operand.getType().cast<ShapedType>().getRank();
-  for (uint64_t i = 0; i < operandRank; ++i) {
-    // Shape helper may pretend 1s, thus adjust dimension index accordingly.
-    uint64_t dimIndex = outputRank - operandRank + i;
-    SymbolIndexExpr dim(inputsDims[operandIndex][dimIndex]);
-
-    // Compute access index based on broadcasting rules.
-    // If all other operand dims are 1, just use the output access index.
-    // Otherwise, emit a select op.
-    bool allOtherInputDimsAreOne = true;
-    for (uint64_t i = 0; i < inputsDims.size(); ++i) {
-      if (i == operandIndex)
-        continue;
-      IndexExpr dim = inputsDims[i][dimIndex];
-      if (!dim.isLiteralAndIdenticalTo(1)) {
-        allOtherInputDimsAreOne = false;
+// Attempt to rule out broadcasting at compile time, using dim analysis when
+// available (i.e. nonnull). Must be called after computeShape.
+//
+// Note that broadcasting handles tensors of different ranks by prepending `1x`
+// to the shorter input shapes. When inputs `1x1x5xf32` and `5xf32` are analyzed
+// for broadcasting patterns, the shorter `5xf32` is first expanded to
+// `1x1x5xf32` before being compared to the other inputs. Comparing `1x1x5xf32`
+// with `1x1x5xf32` determines that there is no broadcast; thus this call will
+// return false in such situation. This make practical senses too as no values
+// of either input will be used more than once with the value of the other
+// input.
+//
+bool ONNXBroadcastOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
+  // First use static analysis to rule out broadcast. If we cannot rule out
+  // broadcasting for any reasons, hasNoBroadcast is set to false.
+  bool hasNoBroadcast = true;
+  for (uint64_t r = 0; r < outputRank && hasNoBroadcast; ++r) {
+    bool hasOne, hasOtherThanOne;
+    hasOne = hasOtherThanOne = false;
+    for (DimsExpr dims : inputsDims) {
+      if (!dims[r].isLiteral()) {
+        // Has dynamic values.. possible broadcast, assume the worst.
+        hasNoBroadcast = false;
         break;
       }
+      int64_t lit = dims[r].getLiteral();
+      if (lit == 1)
+        hasOne = true;
+      else
+        hasOtherThanOne = true;
     }
-    if (allOtherInputDimsAreOne) {
-      operandAccessExprs.emplace_back(outputAccessExprs[dimIndex]);
+    if (hasOne && hasOtherThanOne)
+      // Has a known broadcast situation. No need for further analysis,
+      // broadcasting has been detected.
+      return false;
+  }
+
+  // Using the most conservative analysis, we did not detect any broadcasting,
+  // we are good.
+  if (hasNoBroadcast)
+    return true;
+
+  // We have dynamic dimensions that prevented us to rule out broadcasting, try
+  // the more expensive dimAnalysis approach now, if available.
+  if (!dimAnalysis)
+    return false;
+  // In some cases, we can have more inputDims than operands (custom broadcast
+  // operators, e.g. ONNXExtendOp). Dismiss such cases as we need here the
+  // values of each of the inputs.
+  int64_t inputNum = operands.size();
+  if ((int64_t)inputsDims.size() != inputNum)
+    return false;
+  // Check if we can prove that each operand has the same shape.
+  for (int i = 1; i < inputNum; ++i)
+    if (!dimAnalysis->sameShape(operands[0], operands[i]))
+      return false;
+  // All have the same shape.
+  return true;
+}
+
+// Checks if the input operands need rank broadcasting.
+bool ONNXBroadcastOpShapeHelper::hasRankBroadcast() {
+  ValueRange operands = this->operands;
+  for (Value operand : operands) {
+    auto operandType = operand.getType().cast<ShapedType>();
+    if (outputRank != (uint64_t)operandType.getRank())
+      return true;
+  }
+  return false;
+}
+
+bool ONNXBroadcastOpShapeHelper::hasManageableBroadcastForInnerDims(
+    int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
+    IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
+  int64_t dimNum = inputsDims.size();
+  bool canUseDimAnalysis = dimAnalysis && (int64_t)operands.size() == dimNum;
+  LLVM_DEBUG(llvm::dbgs() << "has manageable broadcast with"
+                          << (canUseDimAnalysis ? "" : "out")
+                          << " dim analysis\n");
+  // Keep track of cumulative inner dim sizes.
+  collapsedLiteralSize = 1;
+  collapsedDynamicSize = LiteralIndexExpr(1);
+  // Keep track of ones, scalar, and broadcast per input.
+  llvm::SmallBitVector isOne(dimNum, true);
+  llvm::SmallBitVector isScalar(dimNum, true);
+  llvm::SmallBitVector hasBroadcast(dimNum, false);
+
+  // Walk through the rank from innermost to outermost, using neg values.
+  int64_t outputRankInt = outputRank;
+  collapsedInnermostLoops = 0;
+  for (int64_t r = -1; r >= -outputRankInt; --r) {
+    // Analyze if we have manageable broadcast at rank r.
+    int64_t rr =
+        r + outputRankInt; // Use for inputDims, they are padded to outputRank.
+    LLVM_DEBUG(llvm::dbgs() << "iter r " << r << ", rr " << rr << "\n");
+
+    // 1) Iterate through all the inputs and survey which inputs have 1s at
+    // rank r and which inputs continue to be fully scalar. If we detect an
+    // input that was broadcasted and that just stopped being a scalar, then
+    // this is a broadcast that cannot be managed.
+    int64_t nonScalarID = -1; // Id of one non-scalar; -1 if none.
+    int64_t numOfOnes = 0;
+    for (int64_t d = 0; d < dimNum; ++d) {
+      // Test if this input d has a 1 at position rr.
+      isOne[d] = inputsDims[d][rr].isLiteralAndIdenticalTo(1);
+      if (isOne[d]) {
+        numOfOnes++;
+      } else {
+        LLVM_DEBUG({
+          if (isScalar[d])
+            llvm::dbgs() << "  lost scalar: " << d << "\n";
+        });
+        isScalar[d] = false;
+        nonScalarID = d; // Keep the id of one non-scalar input.
+      }
+      // Test if we lost a scalar that was being broadcasted.
+      if (!isScalar[d] && hasBroadcast[d]) {
+        // We lost a scalar that was being broadcasted. We cannot let that
+        // happen, thus we stop with the previous iteration of r.
+        // Case 4x1 and 4x3: first was broadcast at r==-1, not scalar at
+        // r==-2.
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  lost scalar with broadcast: " << d << "; abort\n");
+        return collapsedInnermostLoops > 0;
+      }
+    }
+
+    // 2) When we only have 1s, there is no broadcast in this iteration r, and
+    // we don't have to update the sizes as this r dim's contribution is *1,
+    // just skip. Catches 1x3 and 1x1: first was broadcast at r==-1, no
+    // broadcast at r==-2 as they are all 1s.
+    //
+    // In addition, we don't update collapsedInnermostLoops to this iter, as
+    // we don't want to collapse leading dims that have only ones.
+    // Case: 1x1x4x8 and 1x1x4x8. We can collapse r==-1 and r==-2, but there is
+    // no need to collapse the 1 dimensions... it brings no advantages. So by
+    // skipping the updating of collapsedInnermostLoops here, we will omit
+    // these leading ones.
+    if (numOfOnes == dimNum) {
+      LLVM_DEBUG(llvm::dbgs() << "  all ones, done\n");
+      continue;
+    }
+
+    // 3) If we have 2 or more non scalars, test that they are compatible.
+    int64_t nonScalarNum = dimNum - numOfOnes;
+    assert(nonScalarNum > 0 && "eliminated the all one scenario");
+    assert(nonScalarID != -1 && "eliminated the all one scenario");
+    if (nonScalarNum >= 2) {
+      LLVM_DEBUG(llvm::dbgs() << "  check non-scalar compatibility\n");
+      // For all non scalars...
+      for (int64_t d = 0; d < dimNum; ++d) {
+        // Consider only dims d that are not scalar, and skip d == nonScalarID.
+        if (isOne[d] || d == nonScalarID)
+          continue;
+        // Compare nonScalarID with d
+        if (inputsDims[nonScalarID][rr].isLiteral() &&
+            inputsDims[d][rr].isLiteral()) {
+          // Both literal, do a literal check.
+          if (inputsDims[nonScalarID][rr].getLiteral() ==
+              inputsDims[d][rr].getLiteral()) {
+            // Same literal dims, nonScalarID and d are compatible.
+            // Continue to the next non-scalar.
+            LLVM_DEBUG(llvm::dbgs() << "    literal compatibility "
+                                    << nonScalarID << " & " << d << "\n");
+            continue;
+          }
+          // Different literal dims, nonScalarID and d are NOT compatible.
+          // Abort at this rank r; thus stops at previous iteration of r.
+          LLVM_DEBUG(llvm::dbgs() << "    literal incompatibility "
+                                  << nonScalarID << " & " << d << "; abort\n");
+          return collapsedInnermostLoops > 0;
+        }
+        // We could not determine compatibility with literals, try deducing info
+        // with dim analysis, if available.
+        if (canUseDimAnalysis &&
+            /* Use negative index convention here as operands may have fewer
+               than outputRank dimensions */
+            dimAnalysis->sameDim(operands[nonScalarID], r, operands[d], r)) {
+          // Analysis demonstrated them to be the same, we are fine.
+          // Continue to the next non-scalar input.
+          LLVM_DEBUG(llvm::dbgs() << "    dyn compatibility " << nonScalarID
+                                  << " & " << d << "\n");
+          continue;
+        }
+        // Analysis could not prove operands's r dims to be identical.
+        // Abort at this rank r; thus stops at previous iteration of r.
+        LLVM_DEBUG(llvm::dbgs() << "    dyn incompatibility " << nonScalarID
+                                << " & " << d << "; abort\n");
+        return collapsedInnermostLoops > 0;
+      } // End for all non-scalars,
+    }   // End testing non-scalar compatibility.
+
+    // 4) Since we have at least one non-scalar,
+    //   4.1) all the scalar inputs are now marked as having a broadcast.
+    //   4.2) any inputs with a one that is not a scalar has a new broadcast,
+    //        which is not allowed as only scalars can be broadcast to be
+    //        manageable.
+    for (int64_t d = 0; d < dimNum; ++d) {
+      if (isScalar[d]) {
+        // Case 1x1 and 2x1; the first is broadcast at r==-2 since it is a
+        // scalar and there is one or more non-scalars.
+        LLVM_DEBUG(llvm::dbgs() << "  broadcast for " << d << "\n");
+        hasBroadcast[d] = true;
+      } else if (isOne[d]) { // Is one but is not a scalar.
+        // Case 1x4x1, 2x4x1, and 1x1x1: no broadcast at r==-1, broadcast at
+        // r==-2 for last entry, no broadcast for the others. At r==-3,
+        // continued broadcast for last entry, but first entry has new broadcast
+        // to size 2 (i.e. isOne[0] is true, and isScalar[0] is false). We
+        // cannot manage this. Abort at this rank r; thus stops at previous
+        // iteration of r.
+        LLVM_DEBUG(llvm::dbgs() << "  one and no scalar" << d << "; abort\n");
+        return collapsedInnermostLoops > 0;
+      }
+    }
+
+    // 5) This dim is fine for manageable broadcasting. Account for the
+    // cumulative size of the inner dimensions.
+    // If all scalar, then dim is 1, and there is nothing to do. Otherwise
+    // accumulate in literal or dynamic sizes.
+    if (inputsDims[nonScalarID][rr].isLiteral()) {
+      collapsedLiteralSize *= inputsDims[nonScalarID][rr].getLiteral();
     } else {
+      collapsedDynamicSize = collapsedDynamicSize * inputsDims[nonScalarID][rr];
+    }
+    collapsedInnermostLoops = -r;
+    LLVM_DEBUG(llvm::dbgs()
+               << "  SUCCESS at collapsing " << collapsedInnermostLoops
+               << " inner loops with cumulative static size of "
+               << collapsedLiteralSize << "\n\n");
+  } // For rank r.
+
+  // Came up to here, we are able to collapse them all.
+  return collapsedInnermostLoops > 0;
+}
+
+LogicalResult ONNXBroadcastOpShapeHelper::getAccessExprs(Value operand,
+    int64_t operandIndex, const SmallVectorImpl<IndexExpr> &loopAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool flattenedInnerDims,
+    bool hasNoBroadcast) {
+  // Get info.
+  int64_t loopDepth = loopAccessExprs.size();
+  int64_t inputSize = inputsDims.size();
+  int64_t operandRank = operand.getType().cast<ShapedType>().getRank();
+  // Flattened? no more than one loop per dim in output (aka output rank).
+  // Not flattened? one loop per dim in output (aka output rank).
+  if (flattenedInnerDims)
+    assert(loopDepth <= (int64_t)outputRank &&
+           "with flattening, expect no more than one loop iter variable per "
+           "output rank");
+  else
+    assert(loopDepth == (int64_t)outputRank &&
+           "without flattening, expect one loop iter variable per output rank");
+
+  // Emtpy the access expr, just in case.
+  operandAccessExprs.clear();
+  // There is this case where we have no broadcast per se, but we have
+  // mixtures of 1xTYPE vs TYPE scalars. Handle this case properly here.
+  if (operandRank == 0)
+    return success();
+
+  // The hasNoBroadcast pattern can be established by shape inference using
+  // DimAnalysis. If that is available, and broadcasting was ruled out, then
+  // more efficient code can be generated.
+  bool noBroadcasting =
+      hasNoBroadcast || (hasUniBroadcasting && operandIndex == 0);
+
+  for (int64_t r = 0; r < operandRank; ++r) {
+    // Shape helper may pretend 1s, thus adjust dimension index accordingly.
+    // Take loopDepth instead of outputRank as loopDepth reflect the
+    // (possible) flattening of the loops.
+    int64_t dimIndex = loopDepth - operandRank + r;
+    SymbolIndexExpr operandDim(inputsDims[operandIndex][dimIndex]);
+
+    bool useLoopIndexNoMatterWhat = false;
+    if (noBroadcasting) {
+      // Broadcasting is already ruled out, no need for further analysis
+    } else {
+      // If it turns out that all of the other input operands (and for this
+      // dim index) have values 1, then we know we can use the loop variable
+      // index without worry as either (1) it also has a dim of 1 (and thus
+      // the loop variable index is 0) or (2) it has a dim of X (compile or
+      // runtime) and this will be a broadcasted dimensions (and thus the loop
+      // variable index can also safely be used).
+      //
+      // For example we have 5x?x3xf32 and 5x1x3xf32. We don't know at compile
+      // time if the `?` will be 1 or (assuming without loss of generality) 10.
+      // Normal code is to generate for `?` for that access dimension:
+      //   select(dim==1 ? 0 : loop-var)
+      // so that if this access needs to be broadcasted, we will only access the
+      // `0` value of this broadcasted value; and if it is not broadcasted, we
+      // will access each `loop-var` value for this access.
+      //
+      // But since all of the other dimensions are '1', they cannot generate
+      // a broadcasting situation. Thus, for this access function, we can
+      // generate the access `loop-var` regardless of whether the `?` will
+      // evaluate to 1 or 10 at runtime. It will be correct no matter which
+      // situation we will be in.
+      bool allOtherInputDimsAreOne = true;
+      for (int64_t i = 0; i < inputSize; ++i) {
+        if (i == operandIndex)
+          continue;
+        IndexExpr otherInputDim = inputsDims[i][dimIndex];
+        if (!otherInputDim.isLiteralAndIdenticalTo(1)) {
+          allOtherInputDimsAreOne = false;
+          break;
+        }
+      }
+      useLoopIndexNoMatterWhat = allOtherInputDimsAreOne;
+    }
+
+    // Compute access index based on broadcasting rules.
+    if (operandDim.isLiteralAndIdenticalTo(1)) {
+      // Dim of size 1: access is always 0.
+      operandAccessExprs.emplace_back(LiteralIndexExpr(0));
+    } else if (noBroadcasting || useLoopIndexNoMatterWhat) {
+      // No broadcasting or we can use the loop index no matter what -> just use
+      // the index.
+      //
+      // useLoopIndexNoMatterWhat -> use loop index without worries.
+      // Our dim may be [*, dim, *] where all the others are [*, 1, *];
+      // Regardless of the value of dim (constant, `?`) we can use the loop
+      // index variable without reservation as if dim is 1, then its 0 by def,
+      // and if dim>1, then its 0...dim-1 without issue.
+      operandAccessExprs.emplace_back(loopAccessExprs[dimIndex]);
+    } else if (flattenedInnerDims && r == operandRank - 1) {
+      // Flattened dims: we only have manageable broadcast; either scalar
+      // (access is 0) or non-broadcast (access is loop index).
+      assert(!operandDim.isLiteralAndIdenticalTo(1) && "treated before");
+      operandAccessExprs.emplace_back(loopAccessExprs[dimIndex]);
+    } else {
+      // If dim is a compile time constant, then the test below will resolve
+      // at compile time. If dim is dynamic (i.e. only known at runtime), then
+      // we will issue code for the compare and select and the right value
+      // will be used at runtime.
       operandAccessExprs.emplace_back(
-          IndexExpr::select(dim > 1, outputAccessExprs[dimIndex], 0));
+          IndexExpr::select(operandDim > 1, loopAccessExprs[dimIndex], 0));
     }
   }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Unary Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXUnaryOpShapeHelper::computeShape() {
+  // Set the variables that belong to superclass ONNXBroadcastOpShapeHelper
+  // (inputsDims, outputRank) to valid values. The hasUniBroadcast flag is
+  // already set to default false in the constructor.
+  outputRank = createIE->getShapedTypeRank(operands[0]);
+  DimsExpr dims;
+  createIE->getShapeAsDims(operands[0], dims);
+  inputsDims.emplace_back(dims);
+  return setOutputDimsFromOperand(operands[0]);
+}
+
+bool ONNXUnaryOpShapeHelper::hasNoBroadcast(DimAnalysis *dimAnalysis) {
+  // Unary op have no broadcast.
+  return true;
+}
+
+bool ONNXUnaryOpShapeHelper::hasManageableBroadcastForInnerDims(
+    int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
+    IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis) {
+  // Unary op have no broadcast; simply states that all dims can be collapsed.
+  DimsExpr output = getOutputDims();
+  int64_t outputRank = output.size();
+  // Keep track of cumulative inner dim sizes.
+  collapsedLiteralSize = 1;
+  collapsedDynamicSize = LiteralIndexExpr(1);
+  for (int64_t r = 0; r < outputRank; ++r) {
+    if (output[r].isLiteral())
+      collapsedLiteralSize *= output[r].getLiteral();
+    else
+      collapsedDynamicSize = collapsedDynamicSize * output[r];
+  }
+  // every input dim can be collapsed.
+  collapsedInnermostLoops = outputRank;
+  return true;
+}
+
+LogicalResult ONNXUnaryOpShapeHelper::getAccessExprs(Value operand,
+    int64_t operandIndex, const SmallVectorImpl<IndexExpr> &loopAccessExprs,
+    SmallVectorImpl<IndexExpr> &operandAccessExprs, bool flattenedInnerDims,
+    bool hasNoBroadcast) {
+  operandAccessExprs.clear();
+  for (IndexExpr l : loopAccessExprs)
+    operandAccessExprs.emplace_back(l);
   return success();
 }
 
@@ -390,8 +798,8 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
     IndexExprScope scope(nullptr, val.getLoc());
     DimsExpr inferredDims;
     for (int64_t d : shape) {
-      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of
-      // an `onnx.Reshape` op?
+      // TODO: "-1" may be used if "shape" is coming from e.g. the parameters
+      // of an `onnx.Reshape` op?
       if (ShapedType::isDynamic(d) || d == -1)
         inferredDims.emplace_back(QuestionmarkIndexExpr(/*isFloat*/ false));
       else
@@ -442,6 +850,53 @@ void resetTypesShapeToQuestionmarks(Operation *op) {
   int numRes = op->getNumResults();
   for (int i = 0; i < numRes; ++i)
     resetTypeShapeToQuestionmarks(op->getResult(i));
+}
+
+//===----------------------------------------------------------------------===//
+// ONNX Custom Op Shape Helper
+//===----------------------------------------------------------------------===//
+
+ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
+    ValueRange operands, IndexExprBuilder *ieBuilder, IndexExprScope *scope,
+    bool hasUniBroadcasting)
+    : ONNXUnaryOpShapeHelper(op, operands, ieBuilder, scope) {
+  ONNXCustomOp customOp = cast<ONNXCustomOp>(op);
+  if (!customOp.getShapeInferPattern().has_value()) {
+    pattern = 0;
+    return;
+  }
+
+  if (customOp.getShapeInferPattern() == "SameAs") {
+    pattern = 1;
+  } else if (customOp.getShapeInferPattern() == "MDBroadcast") {
+    pattern = 2;
+  } else {
+    // ToFix: move the check into verifier
+    llvm_unreachable("The specified shape_infer_pattern is not supported"
+                     "Error encountered in shape inference.");
+  }
+
+  std::optional<ArrayAttr> inputIndexAttrs = customOp.getInputsForInfer();
+  ValueRange inputs =
+      operands.empty() ? ValueRange(customOp.getInputs()) : operands;
+  if (!inputIndexAttrs.has_value()) {
+    return;
+  }
+
+  std::vector<mlir::Value> operandsVector;
+  for (auto indexAttr : inputIndexAttrs.value()) {
+    operandsVector.push_back(inputs[indexAttr.cast<IntegerAttr>().getInt()]);
+  }
+  setOperands(ValueRange(operandsVector));
+}
+
+LogicalResult ONNXCustomOpShapeHelper::computeShape() {
+  if (pattern == 1) {
+    return ONNXUnaryOpShapeHelper::computeShape();
+  } else if (pattern == 2) {
+    return ONNXBroadcastOpShapeHelper::computeShape();
+  }
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

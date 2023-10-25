@@ -19,14 +19,16 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
+struct ONNXSequenceEmptyOpLowering
+    : public OpConversionPattern<ONNXSequenceEmptyOp> {
   ONNXSequenceEmptyOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXSequenceEmptyOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXSequenceEmptyOp seqOp,
+      ONNXSequenceEmptyOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Location loc = op->getLoc();
+    Operation *op = seqOp.getOperation();
+    Location loc = ONNXLoc<ONNXSequenceEmptyOp>(op);
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -38,6 +40,7 @@ struct ONNXSequenceEmptyOpLowering : public ConversionPattern {
         rewriter.create<KrnlSeqAllocOp>(loc, outputMemRefType, ValueRange());
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

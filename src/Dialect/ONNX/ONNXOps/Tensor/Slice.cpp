@@ -34,7 +34,7 @@ LogicalResult ONNXSliceOpShapeHelper::computeShape() {
   // Get each of the axes, and save the literal values in axesIntLit.
   SmallVector<int64_t, 4> axesIntLit;
   Value axes = operandAdaptor.getAxes();
-  if (isFromNone(axes)) {
+  if (isNoneValue(axes)) {
     // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
     for (uint64_t i = 0; i < dataRank; ++i)
       axesIntLit.emplace_back(i);
@@ -155,38 +155,42 @@ LogicalResult ONNXSliceOp::inferShapes(
   if (!hasShapeAndRank(getData()))
     return success();
 
-  const auto startsType =
-      this->getOperand(1).getType().dyn_cast<RankedTensorType>();
+  Value axes = getAxes();
+  Value steps = getSteps();
+
+  // Cannot infer shape if axes is not a constant. It can be a constant after
+  // several rounds of shape-inference and constant propagation.
+  if (!isNoneValue(axes) && !getONNXConstantOp(axes))
+    return success();
+
+  const auto startsType = dyn_cast<RankedTensorType>(getStarts().getType());
   assert(startsType != nullptr && "starts type is not a RankedTensorType");
   auto startsDim = startsType.getShape()[0];
   {
     OpBuilder builder(this->getContext());
+    OnnxBuilder createONNX(builder, this->getLoc());
     const Type elementType = builder.getIntegerType(64);
     const auto tensorType = RankedTensorType::get({startsDim}, elementType);
 
     // If axes is not specified, default to [0, ..., ndim-1]
-    if (isFromNone(this->getOperand(3))) {
+    if (isNoneValue(axes)) {
       SmallVector<int64_t, 1> vals = {};
       for (size_t s = 0; s < (size_t)startsDim; ++s)
         vals.emplace_back(s);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<ONNXConstantOp>(
-          this->getLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = constantOp.getOutput();
+      Value constantResult = createONNX.constant(constantDenseAttribute);
       this->setOperand(3, constantResult);
     }
 
     // If steps is not specified, default to [1, ..., 1]
-    if (this->getOperand(4).getType().isa<NoneType>()) {
+    if (isNoneValue(steps)) {
       SmallVector<int64_t, 1> vals(startsDim, 1);
       auto constantDenseAttribute =
           DenseElementsAttr::get(tensorType, llvm::ArrayRef(vals));
       builder.setInsertionPoint(*this);
-      auto constantOp = builder.create<ONNXConstantOp>(
-          this->getLoc(), Attribute(), constantDenseAttribute);
-      Value constantResult = constantOp.getOutput();
+      Value constantResult = createONNX.constant(constantDenseAttribute);
       this->setOperand(4, constantResult);
     }
   }

@@ -65,8 +65,9 @@ struct ONNXOpShapeHelper {
    During lowering, we typically use and Index Expr Builder that generates code
    for values unknown at compile time. Example of such subclasses are
    IndexExprBuilderForKrnl (generates Krnl ops, in
-   src/Dialect/Krnl/DialectBuilder.hpp, ) or IndexExprBuilderForMhlo (generates
-   Shape/MHLO ops, in src/Conversion/ONNXToMhlo/DialectBuilder.hpp).
+   src/Dialect/Krnl/DialectBuilder.hpp, ) or IndexExprBuilderForStableHhlo
+   (generates Shape/StableHlo ops, in
+   src/Conversion/ONNXToStableHlo/DialectBuilder.hpp).
 
    @param scope Index expression scope to be used. If none is provided, a new
    scope is created and stored internally. This scope will then be destructed
@@ -79,15 +80,24 @@ struct ONNXOpShapeHelper {
    directly enclosing scope vanishes).
    */
 
-  ONNXOpShapeHelper(mlir::Operation *op,    /* Op to be analyzed. */
-      mlir::ArrayRef<mlir::Value> operands, /* If empty, use operands from op.*/
+  ONNXOpShapeHelper(mlir::Operation *op, /* Op to be analyzed. */
+      mlir::ValueRange operands,         /* If empty, use operands from op.*/
       IndexExprBuilder *ieBuilder, /* Use IndexExprBuilderForAnalysis if null.*/
       IndexExprScope *scope);      /* Install local scope if null. */
   virtual ~ONNXOpShapeHelper();
 
+  // Return true if implemented.
+  virtual bool isImplemented() { return true; }
+
   // Every leaf class is expected to create a computeShape with the following
   // signature. This method is responsible to compute at a minimum the output
   // dims.
+  // Unimplemented operations return success, as these operations may be
+  // transformed later in a sequence of operations with implemented shape
+  // inference. To ensure an implementation, check the `isImplemented` function.
+  // This is used, for example, in dynamic analysis, where unimplemented shape
+  // inferences are simply ignored (and conservatively assume no knowledge about
+  // that operation's transfer function).
   virtual mlir::LogicalResult computeShape() = 0;
 
   // Compute shape and assert on failure.
@@ -105,8 +115,17 @@ struct ONNXOpShapeHelper {
       mlir::ArrayRef<mlir::Attribute> encodingList = {});
 
   // Get output dims for the N-th output dimension as Index Expressions.
-  // Scalar may have a DimsExpr that is empty.
-  DimsExpr &getOutputDims(int n = 0) { return privateOutputsDims[n]; }
+  // Scalar may have a DimsExpr that is empty. Requires an implementation.
+  DimsExpr &getOutputDims(int n = 0) {
+    if (!isImplemented()) {
+      llvm::errs() << "Implementation of shape helper for op " << op->getName()
+                   << "is not currently available; please open an issue on "
+                   << "\"https://github.com/onnx/onnx-mlir/\" and/or consider "
+                   << "contributing code if this op is required.\n";
+      llvm_unreachable("missing implementation for shape inference");
+    }
+    return privateOutputsDims[n];
+  }
   // Set output dims, merging the dims associated with the current type with
   // inferred dims provided here, as appropriate.
   void setOutputDims(
@@ -119,24 +138,28 @@ struct ONNXOpShapeHelper {
   IndexExprScope *getScope() { return scope; }
   mlir::Operation *getOp() { return op; }
 
+  // Set the operands with a vector of Value
+  void setOperands(mlir::ValueRange);
+
 protected:
   // Helper for ops for which the output (n'th) is the same as the type of a
   // given input operand's type.
   mlir::LogicalResult setOutputDimsFromOperand(
       mlir::Value operand, int n = 0, bool refineShape = true);
-  // Helper for ops for which the output (n'th) is a constant shape. Value -1
-  // indicates runtime dim.
+  // Helper for ops for which the output (n'th) is a constant shape. Value
+  // ShapedType::kDynamic indicates runtime dim.
   mlir::LogicalResult setOutputDimsFromLiterals(
       llvm::SmallVector<int64_t, 4> shape, int n = 0, bool refineShape = true);
   // Helper for ops for which the output (n'th) is defined by the shape of
-  // another type. Type must have constant shape (all values>=0).
+  // another type. Type must have constant shape (all values !=
+  // ShapedType::kDynamic).
   mlir::LogicalResult setOutputDimsFromTypeWithConstantShape(
       mlir::Type type, int n = 0, bool refineShape = true);
 
   // Data that must be present for every ShapeHelper operation. Op and scope
   // are initialized in the constructor.
   mlir::Operation *op;
-  mlir::ArrayRef<mlir::Value> operands;
+  mlir::ValueRange operands;
   IndexExprBuilder *createIE;
   IndexExprScope *scope;
 

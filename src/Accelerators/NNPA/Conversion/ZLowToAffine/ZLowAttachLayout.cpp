@@ -44,8 +44,8 @@ public:
     Value inputMemref = adaptor.getInput();
     MemRefType outputType = detachOp.getOutput().getType().cast<MemRefType>();
 
-    MultiDialectBuilder<AffineBuilder, IndexExprBuilderForZLow> create(
-        rewriter, loc);
+    MultiDialectBuilder<AffineBuilder, MemRefBuilder, IndexExprBuilderForZLow>
+        create(rewriter, loc);
     IndexExprScope indexScope(create.affine);
 
     SmallVector<IndexExpr, 4> ubs;
@@ -53,8 +53,7 @@ public:
     int rank = ubs.size();
 
     // Allocate the output buffer.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, detachOp.getOperation(), outputType, loc, ubs);
+    Value alloc = create.mem.alignedAlloc(outputType, ubs);
 
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<int64_t, 4> steps(rank, 1);

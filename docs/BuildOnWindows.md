@@ -40,7 +40,7 @@ Before running CMake for onnx-mlir, ensure that the bin directory to this protob
 set PATH=%root_dir%\protobuf_install\bin;%PATH%
 ```
 
-If you wish to be able to run all the ONNX-MLIR tests, you will also need to install the matchin version of protobuf through pip:
+If you wish to be able to run all the ONNX-MLIR tests, you will also need to install the matching version of protobuf through pip. Note that this is included in the requirements.txt file at the root of onnx-mlir, so if you plan on using it, you won't need to explicitly install protobuf.
 ```shell
 python3 -m pip install protobuf==3.20.3
 ```
@@ -52,7 +52,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout ba8b8a73fcb6b830e63cd8e20c6e13b2a14d69bf && cd ..
+cd llvm-project && git checkout d13da154a7c7eff77df8686b2de1cfdfa7cc7029 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -68,7 +68,8 @@ call cmake %root_dir%\llvm-project\llvm -G "Ninja" ^
    -DLLVM_ENABLE_ASSERTIONS=ON ^
    -DLLVM_ENABLE_RTTI=ON ^
    -DLLVM_ENABLE_ZLIB=OFF ^
-   -DLLVM_INSTALL_UTILS=ON
+   -DLLVM_INSTALL_UTILS=ON ^
+   -DLLVM_ENABLE_LIBEDIT=OFF
 
 call cmake --build . --config Release
 call cmake --build . --config Release --target install

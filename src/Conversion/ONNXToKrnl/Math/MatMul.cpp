@@ -4,7 +4,7 @@
 
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,18 +28,26 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXMatMulOpLowering : public ConversionPattern {
-  ONNXMatMulOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXMatMulOp::getOperationName(), 1, ctx),
-        enableTiling(enableTiling) {}
+struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
+  ONNXMatMulOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD,
+      bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
+        enableTiling(enableTiling), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
+  DimAnalysis *dimAnalysis;
   bool enableTiling;
+  bool enableSIMD;
+  bool enableParallel;
+
   // Handle the generic cases, including when there are broadcasts.
-  void replaceGenericMatmul(ONNXMatMulOp &matMulOp,
-      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value fZero,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+  void replaceGenericMatmul(Operation *op, ONNXMatMulOpAdaptor &operandAdaptor,
+      Type elementType, ONNXMatMulOpShapeHelper &shapeHelper, Value alloc,
+      Value fZero, ConversionPatternRewriter &rewriter, Location loc,
+      bool enableParallel) const {
+
+    onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+        "no simd for generic algo");
 
     // Define loops and bounds.
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder> create(rewriter, loc);
@@ -47,7 +55,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     int totLoopNum = outerLoopNum + 1; // Add reduction inner loop.
     ValueRange loopDef = create.krnl.defineLoops(totLoopNum);
     SmallVector<IndexExpr, 4> loopLbs(totLoopNum, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> loopUbs; // All getOutputDimss, plus reduction.
+    SmallVector<IndexExpr, 4> loopUbs; // All getOutputDims, plus reduction.
     SmallVector<Value, 4> outerLoops;  // All but the last loop def.
     for (int i = 0; i < outerLoopNum; ++i) {
       loopUbs.emplace_back(shapeHelper.getOutputDims()[i]);
@@ -61,6 +69,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     // Single scalar, no need for default alignment.
     Value reductionVal =
         create.mem.alignedAlloca(MemRefType::get({}, elementType));
+    if (enableParallel) {
+      create.krnl.parallel(outerLoops[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+    }
 
     // Non-reduction loop iterations: output-rank.
     create.krnl.iterateIE(loopDef, outerLoops, loopLbs, loopUbs,
@@ -118,14 +130,18 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
   }
 
-  void computeTileSizeForMatMatProduct(DimIndexExpr dimI, DimIndexExpr dimJ,
-      DimIndexExpr dimK, int64_t &iRegTile, int64_t &jRegTile,
-      int64_t &kRegTile, bool &simdize) const {
+  void computeTileSizeForMatMatProduct(Operation *op, DimIndexExpr dimI,
+      DimIndexExpr dimJ, DimIndexExpr dimK, int64_t &iRegTile,
+      int64_t &jRegTile, int64_t &kRegTile, bool &simdize) const {
 
     // Default values
     iRegTile = 4;
-    jRegTile = 8;
-    kRegTile = 8; // SIMD dim.
+    jRegTile = 8; // SIMD dim.
+    kRegTile = 8;
+
+    if (!simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+          "no simd because disabled for mat * mat");
 
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
@@ -160,6 +176,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
       // jRegTile, disable simdization.
       if (constJ < jRegTile) {
         simdize = false;
+        onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+            /*trip count*/ 0, "no simd in mat * mat because j-dim too small");
         LLVM_DEBUG({
           llvm::dbgs() << "MatMul: Disable simdization because trip " << constJ
                        << " is smaller than reg tile " << jRegTile << "\n";
@@ -176,15 +194,24 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         });
       }
     }
+
+    if (simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ jRegTile,
+          /*trip count*/ jRegTile, "simd for mat * mat along j dim");
     LLVM_DEBUG({
       llvm::dbgs() << "MatMul mat: Tiling I " << iRegTile << ", J " << jRegTile
                    << ", K " << kRegTile << ", simd " << simdize << "\n";
     });
   }
 
-  void computeTileSizeForMatVectProduct(int64_t mVL, DimIndexExpr dimI,
-      DimIndexExpr dimJ, DimIndexExpr dimK, int64_t &iRegTile,
-      int64_t &jRegTile, int64_t &kRegTile, bool &simdize) const {
+  void computeTileSizeForMatVectProduct(Operation *op, int64_t mVL,
+      DimIndexExpr dimI, DimIndexExpr dimJ, DimIndexExpr dimK,
+      int64_t &iRegTile, int64_t &jRegTile, int64_t &kRegTile,
+      bool &simdize) const {
+
+    if (!simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0, /*trip count*/ 0,
+          "no simd because disabled for mat * vec");
 
     // Default values.
     // Right can only tile i and k by (possibly distinct) multiple of mVL.
@@ -206,6 +233,8 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
         LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
         simdize = false;
         kRegTile = 1;
+        onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+            /*trip count*/ 0, "no simd in mat * vec as k-dim too small");
       }
     }
     if (dimI.isLiteral()) {
@@ -217,9 +246,16 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
           LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
           simdize = false;
           iRegTile = 1;
+          onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
+              /*trip count*/ 0, "no simd in mat * vec because i-dim too small");
         }
       }
     }
+
+    if (simdize)
+      onnxToKrnlSimdReport(op, /*successful*/ true, /*vl*/ kRegTile,
+          /*trip count*/ kRegTile,
+          "simd for mat * vec along k dim (shuffle on i dim)");
     LLVM_DEBUG({
       llvm::dbgs() << "MatMul vec: Tiling I " << iRegTile << ", J " << jRegTile
                    << ", K " << kRegTile << ", simd " << simdize << "\n";
@@ -229,10 +265,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // Handle the cases with 2x2 matrices both for A, B, and C without
   // broadcast. Implementation here uses the efficient 1d tiling plus kernel
   // substitution.
-  void replace2x2Matmul2d(ONNXMatMulOp &matMulOp,
-      ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
-      ONNXMatMulOpShapeHelper &shapeHelper, Value alloc, Value zeroVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+  void replace2x2Matmul2d(Operation *op, ONNXMatMulOpAdaptor &operandAdaptor,
+      Type elementType, ONNXMatMulOpShapeHelper &shapeHelper, Value alloc,
+      Value zeroVal, ConversionPatternRewriter &rewriter, Location loc,
+      bool enableParallel) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
     MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder, VectorBuilder>
@@ -244,7 +280,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
-    bool simdize = true;
+    bool simdize = enableSIMD;
 
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
@@ -254,10 +290,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     if (isMatVectorProduct) {
       int64_t mVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
-          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     }
 
     // I, J, K loop.
@@ -271,13 +307,17 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     ValueRange kRegBlock = create.krnl.block(kk, kRegTile);
     Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
     create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
+    if (enableParallel) {
+      create.krnl.parallel(ii1);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+    }
     create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
         {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
           Value i1(indices[0]), j1(indices[1]), k1(indices[2]);
           createKrnl.matmul(A, {zero, zero}, B, {zero, zero}, C, {zero, zero},
               {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
               {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
-              /*unroll*/ true, /*overcompute*/ false);
+              /*unroll*/ true, /*overCompute*/ false);
         });
   }
 
@@ -288,11 +328,12 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // broadcasting ranks. In such case, sameStaticBroadcast is true, and the
   // value of broadcastingB does not matter as they treated as both
   // broadcasting.
-  void replace2x2Matmul2dBroadcasting(ONNXMatMulOp &matMulOp,
+  void replace2x2Matmul2dBroadcasting(Operation *op,
       ONNXMatMulOpAdaptor &operandAdaptor, Type elementType,
       ONNXMatMulOpShapeHelper &shapeHelper, bool broadcastingB,
       bool sameStaticBroadcast, Value alloc, Value zeroVal,
-      ConversionPatternRewriter &rewriter, Location loc) const {
+      ConversionPatternRewriter &rewriter, Location loc,
+      bool enableParallel) const {
     // Prepare: loop bounds and zero
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()), C(alloc);
     int64_t ARank = shapeHelper.aDims.size();
@@ -314,7 +355,7 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Initialize alloc/C to zero.
     create.krnl.memset(alloc, zeroVal);
-    bool simdize = true;
+    bool simdize = enableSIMD;
 
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
@@ -324,10 +365,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     if (isMatVectorProduct) {
       int64_t mVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
-          dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     }
 
     // Broadcast loops
@@ -336,6 +377,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
     SmallVector<Value, 4> broadcastUB;
     for (int64_t i = 0; i < broadcastRank; ++i)
       broadcastUB.emplace_back(create.mem.dim(C, i));
+    if (enableParallel) {
+      create.krnl.parallel(broadcastLoop[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+    }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
           MultiDialectBuilder<KrnlBuilder> create(createKrnl);
@@ -367,19 +412,19 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
                       broadcastGlobalStart, C, broadcastGlobalStart,
                       {ii2, jj2, kk2}, {i1, j1, k1}, {I, J, K},
                       {iRegTile, jRegTile, kRegTile}, {}, {}, {}, simdize,
-                      /*unroll*/ true, /*overcompute*/ false);
+                      /*unroll*/ true, /*overCompute*/ false);
                 } else if (broadcastingB) {
                   // B & C start at broadcastGlobalStart, A starts at {0,0}.
                   createKrnl.matmul(A, {zero, zero}, B, broadcastGlobalStart, C,
                       broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
                       {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-                      simdize, /*unroll*/ true, /*overcompute*/ false);
+                      simdize, /*unroll*/ true, /*overCompute*/ false);
                 } else {
                   // A & C start at broadcastGlobalStart, B starts at {0,0}.
                   createKrnl.matmul(A, broadcastGlobalStart, B, {zero, zero}, C,
                       broadcastGlobalStart, {ii2, jj2, kk2}, {i1, j1, k1},
                       {I, J, K}, {iRegTile, jRegTile, kRegTile}, {}, {}, {},
-                      simdize, /*unroll*/ true, /*overcompute*/ false);
+                      simdize, /*unroll*/ true, /*overCompute*/ false);
                 }
               });
         });
@@ -389,14 +434,14 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
   // broadcast, broadcast of A to rank 2 B,  broadcast of B to rank 2 A, or
   // static, identical shaped broadcasting size A & B.
   // Implementation here uses the efficient 2d tiling plus kernel substitution.
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXMatMulOp matMulOp,
+      ONNXMatMulOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    // Get shape.
-    ONNXMatMulOpAdaptor operandAdaptor(operands);
-    ONNXMatMulOp matMulOp = llvm::cast<ONNXMatMulOp>(op);
+    Operation *op = matMulOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
-    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder> create(
-        rewriter, loc);
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -410,55 +455,58 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Get the constants: zero.
     Value zero = create.math.constant(elementType, 0);
 
-    Value A(operandAdaptor.getA()), B(operandAdaptor.getB());
+    Value A(adaptor.getA()), B(adaptor.getB());
     int aRank = A.getType().cast<MemRefType>().getShape().size();
     int bRank = B.getType().cast<MemRefType>().getShape().size();
     int cRank = alloc.getType().cast<MemRefType>().getShape().size();
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");
-      replace2x2Matmul2d(matMulOp, operandAdaptor, elementType, shapeHelper,
-          alloc, zero, rewriter, loc);
+      replace2x2Matmul2d(op, adaptor, elementType, shapeHelper, alloc, zero,
+          rewriter, loc, enableParallel);
     } else if (enableTiling && aRank == 2 && bRank > 2) {
       // Broadcasting B.
       assert(cRank == bRank && "expected IxK * *xKxJ = *xIxJ result");
-      replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
-          shapeHelper, /*broadcasting B*/ true,
-          /*same static broadcast*/ false, alloc, zero, rewriter, loc);
+      replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,
+          /*broadcasting B*/ true,
+          /*same static broadcast*/ false, alloc, zero, rewriter, loc,
+          enableParallel);
     } else if (enableTiling && aRank > 2 && bRank == 2) {
       // Broadcasting A.
       assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
-      replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
-          shapeHelper, /*broadcasting B*/ false,
-          /*same static broadcast*/ false, alloc, zero, rewriter, loc);
+      replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,
+          /*broadcasting B*/ false,
+          /*same static broadcast*/ false, alloc, zero, rewriter, loc,
+          enableParallel);
     } else {
-      // Test if have A and B have identical static broadcast shapes.
-      bool sameStaticBroadcast = (enableTiling && aRank > 2 && aRank == bRank);
-      if (sameStaticBroadcast) {
-        auto aShape = A.getType().cast<MemRefType>().getShape();
-        auto bShape = B.getType().cast<MemRefType>().getShape();
+      // Test if have A and B have identical batch size.
+      bool sameBatchSize = (enableTiling && aRank > 2 && aRank == bRank);
+      if (sameBatchSize) {
         for (int i = 0; i < aRank - 2; ++i)
-          if (aShape[i] <= 0 || aShape[i] != bShape[i]) {
-            sameStaticBroadcast = false;
+          // Note that using A and B from the operation instead of adaptor.
+          // It's because DimAnalysis has been done on operations.
+          if (!dimAnalysis->sameDim(matMulOp.getA(), i, matMulOp.getB(), i)) {
+            sameBatchSize = false;
             break;
           }
       }
       // While there is technically no broadcasting there, we can use nearly the
       // same logic as in replace2x2Matmul2dBroadcasting. So reuse that code.
-      if (sameStaticBroadcast) {
+      if (sameBatchSize) {
         assert(cRank == aRank && "expected IxK * *xKxJ = *xIxJ result");
-        replace2x2Matmul2dBroadcasting(matMulOp, operandAdaptor, elementType,
-            shapeHelper, /*broadcasting B*/ true,
-            /*same static broadcast*/ true, alloc, zero, rewriter, loc);
+        replace2x2Matmul2dBroadcasting(op, adaptor, elementType, shapeHelper,
+            /*broadcasting B*/ true,
+            /*same static broadcast*/ true, alloc, zero, rewriter, loc,
+            enableParallel);
       } else {
-        replaceGenericMatmul(matMulOp, operandAdaptor, elementType, shapeHelper,
-            alloc, zero, rewriter, loc);
+        replaceGenericMatmul(op, adaptor, elementType, shapeHelper, alloc, zero,
+            rewriter, loc, enableParallel);
       }
     }
     // Done.
@@ -468,8 +516,10 @@ struct ONNXMatMulOpLowering : public ConversionPattern {
 }; // namespace onnx_mlir
 
 void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling) {
-  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, enableTiling);
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableTiling, bool enableSIMD, bool enableParallel) {
+  patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, dimAnalysis,
+      enableTiling, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

@@ -21,7 +21,11 @@
 namespace onnx_mlir {
 
 // Union of 64-bit integers and double precision floating point numbers.
-// It is tagless and should always be used in a conjunction with a BType.
+//
+// It is tagless and should always be used in a conjunction with a BType,
+// or a type t with implied BType btypeOfMlirType(t)
+// or a shaped type s with implied BType btypeOfMlirType(s.getElementType()).
+//
 // The btype tags which field of the union is populated:
 // dbl if isFloat(btype), i64 or u64 if isSigned/UnsignedInt(btype).
 //
@@ -37,13 +41,22 @@ union WideNum {
   int64_t i64;  // Signed ints up to bitwidth 64.
   uint64_t u64; // Unsigned ints up to bitwidth 64, including bool.
 
+  // Converts dbl to an APFloat with the floating point semantics
+  // corresponding to tag.
+  // Precondition: tag must be a floating point type.
   llvm::APFloat toAPFloat(BType tag) const;
 
-  static WideNum fromAPFloat(BType tag, llvm::APFloat x);
+  // Returns WideNum with dbl set to the value of x.
+  static WideNum fromAPFloat(llvm::APFloat x);
 
+  // Converts i64 or u64, corresponding to the sign of tag, to an APInt with
+  // bitwidth and sign corresponding to tag.
+  // Precondition: tag must be a (signed or unsigned) integer type.
   llvm::APInt toAPInt(BType tag) const;
 
-  static WideNum fromAPInt(BType tag, llvm::APInt x);
+  // Returns WideNum with i64 or u64, corresponding to isSigned, set to the
+  // value of x.
+  static WideNum fromAPInt(llvm::APInt x, bool isSigned);
 
   template <typename T>
   constexpr T to(BType tag) const {
@@ -63,6 +76,10 @@ union WideNum {
     case BType::FLOAT:
     case BType::FLOAT16:
     case BType::BFLOAT16:
+    case BType::FLOAT8E4M3FN:
+    case BType::FLOAT8E4M3FNUZ:
+    case BType::FLOAT8E5M2:
+    case BType::FLOAT8E5M2FNUZ:
       return static_cast<T>(dbl);
     default:
       llvm_unreachable("to unsupported btype");
@@ -87,6 +104,10 @@ union WideNum {
     case BType::FLOAT:
     case BType::FLOAT16:
     case BType::BFLOAT16:
+    case BType::FLOAT8E4M3FN:
+    case BType::FLOAT8E4M3FNUZ:
+    case BType::FLOAT8E5M2:
+    case BType::FLOAT8E5M2FNUZ:
       return WideNum(static_cast<double>(x)); // .dbl
     default:
       llvm_unreachable("from unsupported btype");
@@ -171,8 +192,8 @@ std::function<WideNum(WideNum)> widenumWrapped(std::function<Res(Arg)> lambda);
 //
 //   WideNum multiplyBy(int factor, WideNum n, Type type) {
 //     return wideZeroDispatch(type, [factor, n](auto wideZero) {
-//       using TAG = toBType(decltype(wideZero));
-//       return widen<TAG>(factor * narrow<TAG>(n));
+//       constexpr BType TAG = toBType<decltype(wideZero)>;
+//       return WideNum::widen<TAG>(factor * n.narrow<TAG>());
 //     });
 //   }
 //

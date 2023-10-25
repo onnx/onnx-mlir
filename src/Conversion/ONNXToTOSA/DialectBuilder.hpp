@@ -9,7 +9,7 @@
 // =============================================================================
 //
 // This file contains the dialect build for the TOSA dialect. Uses the same
-// implementation as ONNXToMhlo with minor differences.
+// implementation as ONNXToStableHlo with minor differences.
 //
 //===----------------------------------------------------------------------===//
 
@@ -37,7 +37,16 @@ struct TosaBuilder : DialectBuilder {
   TosaBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~TosaBuilder() {}
 
+  template <typename T>
+  mlir::Value binaryOp(mlir::Value &lhs, mlir::Value &rhs);
+  mlir::Value mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift = 0);
+  mlir::Value intdiv(mlir::Value &lhs, mlir::Value &rhs);
+
   mlir::Value transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm);
+  mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
+      llvm::ArrayRef<int64_t> start);
+  mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
+  mlir::Value reciprocal(mlir::Value &input);
 
   mlir::Value getConst(
       llvm::ArrayRef<int64_t> vec, llvm::ArrayRef<int64_t> shape);
@@ -50,6 +59,9 @@ struct TosaBuilder : DialectBuilder {
   // have size 1 (differs from tensorflow impl.)
   mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
 
+  // Adds reshape ops to expand the rank to the max rank of the values.
+  llvm::SmallVector<mlir::Value, 4> equalizeRanks(mlir::ValueRange valueRange);
+
 protected:
   template <typename T>
   bool testNumberOfElementsMatch(
@@ -60,6 +72,9 @@ protected:
   template <typename T>
   mlir::Value createConst(
       llvm::ArrayRef<T> vec, llvm::ArrayRef<int64_t> shape, mlir::Type &type);
+
+  mlir::Value expandRank(mlir::Value input, int64_t rank);
+  bool needsRankBroadcast(mlir::ValueRange valueRange);
 
   // Private getters of builder (concise version).
   mlir::PatternRewriter &rewriter() const {

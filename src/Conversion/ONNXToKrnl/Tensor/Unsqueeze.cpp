@@ -19,16 +19,16 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-template <typename OP_TYPE>
-LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
-    ArrayRef<Value> operands, ConversionPatternRewriter &rewriter,
-    TypeConverter *typeConverter) {
-  typename OP_TYPE::Adaptor operandAdaptor(operands);
-  // Op unsqueezeOp = dyn_cast_or_null<Op>(op);
+template <typename OP_TYPE, typename OP_ADAPTOR>
+LogicalResult ONNXUnsqueezeOpLoweringCommon(OP_TYPE unsqueezeOp,
+    OP_ADAPTOR adaptor, ConversionPatternRewriter &rewriter,
+    const TypeConverter *typeConverter) {
+  Operation *op = unsqueezeOp.getOperation();
+  Location loc = ONNXLoc<OP_TYPE>(op);
+  ValueRange operands = adaptor.getOperands();
 
-  Location loc = op->getLoc();
   IndexExprBuilderForKrnl createIE(rewriter, loc);
-  Value data = operandAdaptor.getData();
+  Value data = adaptor.getData();
 
   // Convert the output type to MemRefType.
   Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -44,30 +44,33 @@ LogicalResult ONNXUnsqueezeOpLoweringCommon(Operation *op,
   Value newView = emitMemRefReinterpretCastOp(
       rewriter, loc, data, shapeHelper.getOutputDims(), convertedType);
   rewriter.replaceOp(op, newView);
+  onnxToKrnlSimdReport(op);
   return success();
 }
 
-struct ONNXUnsqueezeOpLowering : public ConversionPattern {
+struct ONNXUnsqueezeOpLowering : public OpConversionPattern<ONNXUnsqueezeOp> {
   ONNXUnsqueezeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXUnsqueezeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXUnsqueezeOp unsqueezeOp,
+      ONNXUnsqueezeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeOp>(
-        op, operands, rewriter, typeConverter);
+    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeOp,
+        ONNXUnsqueezeOpAdaptor>(unsqueezeOp, adaptor, rewriter, typeConverter);
   }
 };
 
-struct ONNXUnsqueezeV11OpLowering : public ConversionPattern {
+struct ONNXUnsqueezeV11OpLowering
+    : public OpConversionPattern<ONNXUnsqueezeV11Op> {
   ONNXUnsqueezeV11OpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(typeConverter,
-            mlir::ONNXUnsqueezeV11Op::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXUnsqueezeV11Op unsqueezeOp,
+      ONNXUnsqueezeV11OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeV11Op>(
-        op, operands, rewriter, typeConverter);
+    return ONNXUnsqueezeOpLoweringCommon<ONNXUnsqueezeV11Op,
+        ONNXUnsqueezeV11OpAdaptor>(
+        unsqueezeOp, adaptor, rewriter, typeConverter);
   }
 };
 

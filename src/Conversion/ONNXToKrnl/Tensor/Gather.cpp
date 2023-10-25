@@ -4,7 +4,7 @@
 
 //===---------------- Gather.cpp - Lowering Gather Op ---------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,18 +19,19 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXGatherOpLowering : public ConversionPattern {
+struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
   ONNXGatherOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXGatherOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXGatherOp gatherOp,
+      ONNXGatherOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    ONNXGatherOpAdaptor operandAdaptor(operands);
-    ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
-    Location loc = op->getLoc();
-    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
-        rewriter, loc);
+    Operation *op = gatherOp.getOperation();
+    Location loc = ONNXLoc<ONNXGatherOp>(op);
+    ValueRange operands = adaptor.getOperands();
+
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder>
+        create(rewriter, loc);
 
     // Get shape.
     ONNXGatherOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -43,13 +44,13 @@ struct ONNXGatherOpLowering : public ConversionPattern {
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
 
     // Insert an allocation and deallocation for the output of this operation.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, op, outputMemRefType, loc, shapeHelper.getOutputDims());
+    Value alloc =
+        create.mem.alignedAlloc(outputMemRefType, shapeHelper.getOutputDims());
 
     // Operands and attributes.
-    Value data = operandAdaptor.getData();
-    Value indices = operandAdaptor.getIndices();
-    int64_t axisLit = gatherOp.getAxis();
+    Value data = adaptor.getData();
+    Value indices = adaptor.getIndices();
+    int64_t axisLit = adaptor.getAxis();
     int64_t dataRank = data.getType().cast<MemRefType>().getRank();
     int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
 
@@ -118,6 +119,7 @@ struct ONNXGatherOpLowering : public ConversionPattern {
           createKrnl.storeIE(dataVal, alloc, outputAccessFct);
         });
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

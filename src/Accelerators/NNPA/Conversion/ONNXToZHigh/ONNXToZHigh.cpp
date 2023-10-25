@@ -13,13 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Transform/ONNX/ONNXDimAnalysis.hpp"
 
 using namespace mlir;
 
@@ -94,43 +96,47 @@ Value getLSTMGRUZDNNWeightFromONNXWeight(
 Value getLSTMGRUGetY(
     Location loc, PatternRewriter &rewriter, Value val, Value resY) {
   Value noneValue;
-  if (isFromNone(resY)) {
+  if (isNoneValue(resY)) {
     return noneValue;
   }
   return val;
 }
 
+Value getLSTMGRUGetYWithSequenceLens(Location loc, PatternRewriter &rewriter,
+    Value val, Value resY, Value sequenceLens, Value initialH) {
+
+  Value noneValue;
+  if (isNoneValue(resY)) {
+    return noneValue;
+  }
+
+  if (isNoneValue(sequenceLens))
+    return getLSTMGRUGetY(loc, rewriter, val, resY);
+
+  std::vector<Value> inputs = {val, sequenceLens, initialH};
+  return rewriter.create<zhigh::ZHighFixGRUYOp>(loc, resY.getType(), inputs);
+}
+
 Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
     Value resY, Value resYh, Value X, StringAttr direction) {
   Value noneValue;
-  if (isFromNone(resYh) || isFromNone(val))
+  if (isNoneValue(resYh) || isNoneValue(val))
     return noneValue;
 
   ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
-  Value minusOne =
-      rewriter
-          .create<ONNXConstantOp>(loc, nullptr, rewriter.getI64TensorAttr({-1}))
-          .getResult();
-  Value zero =
-      rewriter
-          .create<ONNXConstantOp>(loc, nullptr, rewriter.getI64TensorAttr({0}))
-          .getResult();
-  Value one =
-      rewriter
-          .create<ONNXConstantOp>(loc, nullptr, rewriter.getI64TensorAttr({1}))
-          .getResult();
+  Value minusOne = create.onnx.constantInt64({-1});
+  Value zero = create.onnx.constantInt64({0});
+  Value one = create.onnx.constantInt64({1});
   // Use INT_MAX to get timestep dimension because timestep is the end of a
   // dimension. INT_MAX is recommended in ONNX.Slice to slice to the end of a
   // dimension with unknown size.
-  Value intMax = rewriter
-                     .create<ONNXConstantOp>(
-                         loc, nullptr, rewriter.getI64TensorAttr({INT_MAX}))
-                     .getResult();
+  Value intMax = create.onnx.constantInt64({INT_MAX});
   StringRef directionStr = direction.getValue();
   ArrayRef<int64_t> resYhShape =
       resYh.getType().cast<RankedTensorType>().getShape();
-  int64_t T = isFromNone(resY) ? 1 : shapeX[0];
+  int64_t T = isNoneValue(resY) ? 1 : shapeX[0];
   int64_t D = resYhShape[0];
   int64_t B = resYhShape[1];
   int64_t H = resYhShape[2];
@@ -170,10 +176,24 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
   return ret;
 }
 
+Value getLSTMGRUGetYhWithSequenceLens(Location loc, PatternRewriter &rewriter,
+    Value val, Value resY, Value resYh, Value X, StringAttr direction,
+    Value sequenceLens) {
+  Value noneValue;
+  if (isNoneValue(resYh) || isNoneValue(val))
+    return noneValue;
+
+  if (isNoneValue(sequenceLens))
+    return getLSTMGRUGetYh(loc, rewriter, val, resY, resYh, X, direction);
+
+  std::vector<Value> inputs = {val, sequenceLens};
+  return rewriter.create<zhigh::ZHighFixGRUYhOp>(loc, resYh.getType(), inputs);
+}
+
 Value getLSTMGRUGetYc(
     Location loc, PatternRewriter &rewriter, Value val, Value resYc) {
   Value noneValue;
-  if (isFromNone(resYc))
+  if (isNoneValue(resYc))
     return noneValue;
 
   zhigh::ZHighUnstickOp unstickOp =
@@ -267,20 +287,48 @@ struct ONNXToZHighLoweringPass
   ONNXToZHighLoweringPass() = default;
   ONNXToZHighLoweringPass(const ONNXToZHighLoweringPass &pass)
       : PassWrapper<ONNXToZHighLoweringPass, OperationPass<ModuleOp>>() {}
-  ONNXToZHighLoweringPass(mlir::ArrayRef<std::string> execNodesOnCpu) {
-    this->execNodesOnCpu = execNodesOnCpu;
-  }
   void runOnOperation() final;
-
-public:
-  ListOption<std::string> execNodesOnCpu{*this, "execNodesOnCpu",
-      llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
-                     "specified nodes are forced to run on the CPU instead of "
-                     "using the zDNN. The node name is an optional attribute "
-                     "in onnx graph, which is `onnx_node_name` in ONNX IR"),
-      llvm::cl::ZeroOrMore};
 };
 } // end anonymous namespace.
+
+void getONNXToZHighOneOpPatterns(RewritePatternSet &patterns) {
+  MLIRContext *context = patterns.getContext();
+  populateWithGenerated(patterns);
+  patterns.insert<ONNXSumOpPatternEnhancedRecursion>(context);
+}
+
+void getONNXToZHighOneOpDynamicallyLegal(
+    ConversionTarget *target, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXAddOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSubOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMulOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXDivOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSumOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMinOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMaxOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXReluOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXTanhOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSigmoidOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXLogOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXExpOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXMatMulOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXGemmOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXLSTMOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXGRUOp>(target, dimAnalysis);
+  addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis);
+}
+
+void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
+  MLIRContext *context = patterns.getContext();
+  patterns.insert<replaceONNXMatMulAddPattern1>(context);
+  patterns.insert<replaceONNXMatMulAddPattern2>(context);
+  patterns.insert<replaceONNXReluConvPattern>(context);
+  patterns.insert<replaceONNXLogSoftmaxPattern>(context);
+}
 
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
@@ -299,6 +347,10 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
       func::FuncDialect, arith::ArithDialect>();
 
+  // NOTE: if we change the order of calling combinedPatterns and single op
+  // patterns, make sure to change the order in DevicePlacement.cpp also to make
+  // them synced.
+
   // Combined ONNX ops to ZHigh lowering.
   // There are some combinations of ONNX ops that can be lowering into a single
   // ZHigh op, e.g. ONNXMatMul and ONNXAdd can be lowered to ZHighMatmul.
@@ -306,18 +358,14 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // a single ONNX Op, because the single op lowering might have conditions that
   // prohibit the combined ops lowering happened.
   RewritePatternSet combinedPatterns(&getContext());
-  combinedPatterns.insert<replaceONNXMatMulAddPattern1>(&getContext());
-  combinedPatterns.insert<replaceONNXMatMulAddPattern2>(&getContext());
-  combinedPatterns.insert<replaceONNXReluConvPattern>(&getContext());
-  combinedPatterns.insert<replaceONNXLogSoftmaxPattern>(&getContext());
+  onnx_mlir::getONNXToZHighMultipleOpPatterns(combinedPatterns);
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  populateWithGenerated(patterns);
-  patterns.insert<ONNXSumOpPatternEnhancedRecursion>(&getContext());
+  onnx_mlir::getONNXToZHighOneOpPatterns(patterns);
 
   // This is to make sure we don't want to alloc any MemRef at this high-level
   // representation.
@@ -327,32 +375,7 @@ void ONNXToZHighLoweringPass::runOnOperation() {
   // ONNX ops to ZHigh dialect under specific conditions.
   // When adding a new op, need to implement a method, i.e. isSuitableForZDNN,
   // for the op in ONNXLegalityCheck.cpp.
-  addDynamicallyLegalOpFor<ONNXAddOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSubOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMulOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXDivOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSumOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMinOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReluOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXTanhOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSigmoidOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLogOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXExpOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXSoftmaxOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMaxPoolSingleOutOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXAveragePoolOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXMatMulOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGemmOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXReduceMeanOp>(
-      &target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXLSTMOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXGRUOp>(&target, &dimAnalysis, execNodesOnCpu);
-  addDynamicallyLegalOpFor<ONNXConvOp>(&target, &dimAnalysis, execNodesOnCpu);
+  getONNXToZHighOneOpDynamicallyLegal(&target, &dimAnalysis);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -363,11 +386,6 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> createONNXToZHighPass() {
   return std::make_unique<ONNXToZHighLoweringPass>();
-}
-
-std::unique_ptr<Pass> createONNXToZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu) {
-  return std::make_unique<ONNXToZHighLoweringPass>(execNodesOnCpu);
 }
 
 } // namespace onnx_mlir

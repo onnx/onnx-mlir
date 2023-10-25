@@ -66,7 +66,7 @@ void ConvertZLowToAffinePass::runOnOperation() {
   onnx_mlir::krnl::AffineTypeConverter typeConverter;
 
   ConversionTarget target(*ctx);
-  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
+  target.addLegalDialect<mlir::affine::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect, onnx_mlir::zlow::ZLowDialect,
       mlir::KrnlDialect>();

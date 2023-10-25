@@ -12,20 +12,24 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Builder/FrontendDialectHelper.hpp"
+
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SwapByteOrder.h"
 
-#include "src/Builder/FrontendDialectHelper.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Support/FloatingPoint16.hpp"
+#include "src/Support/Arrays.hpp"
+#include "src/Support/SmallFP.hpp"
 
-// TODO: put everything in namespace onnx_mlir, and be using namespace mlir
+using namespace mlir;
+
+namespace onnx_mlir {
 
 namespace {
 
@@ -57,7 +61,7 @@ std::unique_ptr<llvm::MemoryBuffer> readExternalData_LE(
     }
   }
   assert(!location.empty() && "missing external data location");
-  llvm::SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
+  SmallVector<char> path(externalDataDir.begin(), externalDataDir.end());
   llvm::sys::path::append(path, location);
   auto bufferOrError = llvm::MemoryBuffer::getFileSlice(
       path, length, offset, /*IsVolatile=*/false);
@@ -75,7 +79,8 @@ struct TransformValueToONNXData {
   static const google::protobuf::RepeatedField<int32_t> &data(
       const onnx::TensorProto &tp) {
     // int32_data is used for:
-    // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16
+    // int32, uint8, int8, uint16, int16, bool, float_16, bfloat_16,
+    // float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz
     return tp.int32_data();
   }
 };
@@ -121,12 +126,12 @@ struct TransformValueToONNXData<uint64_t> {
 };
 
 template <typename T, typename Range, typename Transformation>
-mlir::ElementsAttr createElmAttrFromArray(mlir::RankedTensorType tensorType,
+ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
     const Range &array, const Transformation &transformation) {
-  mlir::MLIRContext *ctx = tensorType.getContext();
-  assert(tensorType.getElementType() == onnx_mlir::toMlirType<T>(ctx));
-  return onnx_mlir::OnnxElementsAttrBuilder(ctx).fromArray<T>(
-      tensorType, [array, &transformation](llvm::MutableArrayRef<T> copy) {
+  MLIRContext *ctx = tensorType.getContext();
+  assert(tensorType.getElementType() == toMlirType<T>(ctx));
+  return OnnxElementsAttrBuilder(ctx).fromArray<T>(
+      tensorType, [array, &transformation](MutableArrayRef<T> copy) {
         std::transform(array.begin(), array.end(), copy.data(), transformation);
       });
 }
@@ -143,33 +148,36 @@ constexpr bool shouldSwapLEBytes =
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
-  if constexpr (onnx_mlir::isFP16Type<T>)
-    return T::bitcastFromU16(llvm::sys::getSwappedBytes(x.bitcastToU16()));
+  if constexpr (isSmallFPType<T>)
+    return T::bitcastFromUInt(llvm::sys::getSwappedBytes(x.bitcastToUInt()));
   else
     return llvm::sys::getSwappedBytes(x);
 }
 
 template <typename T>
-mlir::ElementsAttr createElementsAttrFromMemoryBuffer_LE(
-    mlir::RankedTensorType tensorType,
-    std::unique_ptr<llvm::MemoryBuffer> membuf) {
-  mlir::MLIRContext *ctx = tensorType.getContext();
-  assert(tensorType.getElementType() == onnx_mlir::toMlirType<T>(ctx));
-  if (shouldSwapLEBytes<T>) {
-    llvm::ArrayRef<T> array = onnx_mlir::asArrayRef<T>(membuf->getBuffer());
+ElementsAttr createElementsAttrFromMemoryBuffer_LE(
+    RankedTensorType tensorType, std::unique_ptr<llvm::MemoryBuffer> membuf) {
+  MLIRContext *ctx = tensorType.getContext();
+  assert(tensorType.getElementType() == toMlirType<T>(ctx));
+  if constexpr (shouldSwapLEBytes<T>) {
+    ArrayRef<T> array = asArrayRef<T>(membuf->getBuffer());
     return createElmAttrFromArray<T>(tensorType, array, swappedBytes<T>);
   } else {
-    return onnx_mlir::OnnxElementsAttrBuilder(ctx).fromMemoryBuffer(
+    return OnnxElementsAttrBuilder(ctx).fromMemoryBuffer(
         tensorType, std::move(membuf));
   }
 }
 
 template <typename T>
-mlir::ElementsAttr createElmAttrFromRawBytes_LE(
-    mlir::RankedTensorType tensorType, llvm::ArrayRef<char> bytes) {
-  llvm::ArrayRef<T> array = onnx_mlir::castArrayRef<T>(bytes);
-  return createElmAttrFromArray<T>(tensorType, array,
-      [](T x) { return shouldSwapLEBytes<T> ? swappedBytes<T>(x) : x; });
+ElementsAttr createElmAttrFromRawBytes_LE(
+    RankedTensorType tensorType, ArrayRef<char> bytes) {
+  ArrayRef<T> array = castArrayRef<T>(bytes);
+  return createElmAttrFromArray<T>(tensorType, array, [](T x) {
+    if constexpr (shouldSwapLEBytes<T>)
+      return swappedBytes<T>(x);
+    else
+      return x;
+  });
 }
 
 // Converts to the cpp type 'To' that correspond's to the tensor element type
@@ -179,14 +187,14 @@ mlir::ElementsAttr createElmAttrFromRawBytes_LE(
 // which must be bit-wise converted from uint16_t.
 template <typename To, typename From>
 To deserializeDatum(const From &from) {
-  if constexpr (onnx_mlir::isFP16Type<To>)
-    return To::bitcastFromU16(from);
+  if constexpr (isSmallFPType<To>)
+    return To::bitcastFromUInt(from);
   else
     return from;
 }
 
 template <typename T, typename U>
-mlir::ElementsAttr createElmAttrFromProtoData(mlir::RankedTensorType tensorType,
+ElementsAttr createElmAttrFromProtoData(RankedTensorType tensorType,
     const google::protobuf::RepeatedField<U> &data) {
   // "Deserialize" the data to the correct bitwidth.
   return createElmAttrFromArray<T>(tensorType, data, deserializeDatum<T, U>);
@@ -194,7 +202,7 @@ mlir::ElementsAttr createElmAttrFromProtoData(mlir::RankedTensorType tensorType,
 
 // Returns ElementsAttr with tp's data.
 template <typename T>
-mlir::ElementsAttr createElmAttr(mlir::RankedTensorType tensorType,
+ElementsAttr createElmAttr(RankedTensorType tensorType,
     const onnx::TensorProto &tp, const std::string &externalDataDir) {
   if (tp.has_data_location() &&
       tp.data_location() == onnx::TensorProto::EXTERNAL) {
@@ -203,15 +211,15 @@ mlir::ElementsAttr createElmAttr(mlir::RankedTensorType tensorType,
   }
   if (tp.has_raw_data()) {
     return createElmAttrFromRawBytes_LE<T>(
-        tensorType, onnx_mlir::asArrayRef(tp.raw_data()));
+        tensorType, asArrayRef(tp.raw_data()));
   }
   // Not raw, no need to take care of endianness.
   const auto &data = TransformValueToONNXData<T>::data(tp);
   return createElmAttrFromProtoData<T>(tensorType, data);
 }
 
-mlir::ElementsAttr createStringElmAttr(
-    mlir::RankedTensorType tensorType, const onnx::TensorProto &tp) {
+ElementsAttr createStringElmAttr(
+    RankedTensorType tensorType, const onnx::TensorProto &tp) {
   // The string type is different from other data types in that it cannot be
   // raw or external data, it cannot be represented as a DisposableElementsAttr,
   // and it needs to be converted to StringRef (or StringAttr) to construct a
@@ -221,41 +229,24 @@ mlir::ElementsAttr createStringElmAttr(
          "string TensorProto cannot be external data");
   assert(!tp.has_raw_data() && "string TensorProto cannot be raw data");
   auto data = tp.string_data();
-  llvm::SmallVector<llvm::StringRef> copy(data.begin(), data.end());
-  return mlir::DenseElementsAttr::get(tensorType, llvm::ArrayRef(copy));
+  SmallVector<StringRef> copy(data.begin(), data.end());
+  return DenseElementsAttr::get(tensorType, ArrayRef(copy));
 }
 
 } // namespace
 
-namespace onnx_mlir {
-
-mlir::Value EmitInitializerForInputTensor(mlir::Location loc,
-    mlir::OpBuilder &builder, const std::string &externalDataDir,
-    const onnx::TensorProto &initializer) {
-  // Return none if the initializer is an empty tensor, e.g tensor<0xf32>.
-  llvm::ArrayRef<int64_t> tensorDims(
-      initializer.dims().data(), initializer.dims().size());
-  if (tensorDims.size() == 1 && tensorDims[0] == 0)
-    return builder.create<mlir::ONNXNoneOp>(
-        loc, builder.getNoneType(), builder.getUnitAttr());
-
-  mlir::ElementsAttr elmAttr =
-      onnxTensorProtoToElmAttr(builder, externalDataDir, initializer);
-  return builder.create<mlir::ONNXConstantOp>(loc, nullptr, elmAttr);
-}
-
-mlir::ElementsAttr onnxTensorProtoToElmAttr(mlir::OpBuilder &builder,
+ElementsAttr onnxTensorProtoToElmAttr(MLIRContext *ctx,
     const std::string &externalDataDir, const onnx::TensorProto &tp) {
   // Tensor dimensions.
-  llvm::ArrayRef<int64_t> tensorDims(tp.dims().data(), tp.dims().size());
+  ArrayRef<int64_t> tensorDims(tp.dims().data(), tp.dims().size());
   if (tp.data_type() == onnx::TensorProto::STRING) {
-    mlir::Type elmType = mlir::ONNXStringType::get(builder.getContext());
-    auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+    Type elmType = ONNXStringType::get(ctx);
+    auto tensorType = RankedTensorType::get(tensorDims, elmType);
     return createStringElmAttr(tensorType, tp);
   }
   BType btype = btypeOfOnnxDataType(tp.data_type());
-  mlir::Type elmType = mlirTypeOfBType(btype, builder.getContext());
-  auto tensorType = mlir::RankedTensorType::get(tensorDims, elmType);
+  Type elmType = mlirTypeOfBType(btype, ctx);
+  auto tensorType = RankedTensorType::get(tensorDims, elmType);
   return dispatchByBType(btype, [&](auto btype) {
     using cpptype = CppType<btype>;
     return createElmAttr<cpptype>(tensorType, tp, externalDataDir);

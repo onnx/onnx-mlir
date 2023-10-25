@@ -58,13 +58,23 @@ zdnn_data_layouts convertLayoutAttrToZDNNDataLayout(
     else if (rank == 2)
       zDNNDataLayout = ZDNN_2D; // ZDNN_2D
     else if (rank == 3)
-      zDNNDataLayout = ZDNN_3D; // ZDNN_3D
+      // Use 3DS instead of 3D since important ops like LSTM/MatMul/Softmax use
+      // 3DS, which reduces the number of layout transformations.
+      zDNNDataLayout = ZDNN_3DS; // ZDNN_3DS
     else if (rank == 4)
       zDNNDataLayout = ZDNN_4D; // ZDNN_4D
     else
       llvm_unreachable("Unsupported data layout");
   }
   return zDNNDataLayout;
+}
+
+bool is2DLayout(StringAttr layout) {
+  return (layout && layout.getValue().equals_insensitive(LAYOUT_2D));
+}
+
+bool is3DSLayout(StringAttr layout) {
+  return (layout && layout.getValue().equals_insensitive(LAYOUT_3DS));
 }
 
 bool is4DLayout(StringAttr layout) {

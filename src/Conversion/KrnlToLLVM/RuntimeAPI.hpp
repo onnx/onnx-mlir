@@ -36,6 +36,7 @@ public:
   enum class API {
     CREATE_OMTENSOR_LIST,
     CREATE_OMTENSOR,
+    DESTROY_OMTENSOR,
     GET_DATA,
     SET_DATA,
     GET_DATA_RANK,
@@ -46,6 +47,8 @@ public:
     GET_OMT_ARRAY,
     PRINT_OMTENSOR,
     GET_OMTENSOR_LIST_SIZE,
+    MMAP_BINARY_FILE,
+    GET_EXTERNAL_CONSTANT_ADDR,
   };
 
   // Call the runtime API identified by \p apiId, return the SSA value
@@ -81,7 +84,8 @@ class RuntimeAPIRegistry final {
 public:
   using ApiRegistry = std::map<RuntimeAPI::API, RuntimeAPI>;
 
-  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder);
+  RuntimeAPIRegistry(mlir::ModuleOp &module, mlir::OpBuilder &builder,
+      const mlir::LLVMTypeConverter &typeConverter);
   ~RuntimeAPIRegistry();
 
   static const RuntimeAPIRegistry build(

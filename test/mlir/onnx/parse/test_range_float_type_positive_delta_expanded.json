@@ -260,19 +260,19 @@
 // CHECK-LABEL:  func.func @main_graph
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<f32>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<f32>) -> tensor<2xf32> {{.*}} {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sub"([[PARAM_1_]], [[PARAM_0_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {to = f32} : (tensor<f32>) -> tensor<f32>
-// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_2_]]) {to = f32} : (tensor<f32>) -> tensor<f32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_2_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Div"([[VAR_1_]], [[VAR_2_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Ceil"([[VAR_3_]]) : (tensor<f32>) -> tensor<f32>
 // CHECK:           [[VAR_5_:%.+]] = "onnx.Relu"([[VAR_4_]]) : (tensor<f32>) -> tensor<f32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Cast"([[VAR_5_]]) {to = i64} : (tensor<f32>) -> tensor<i64>
-// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Cast"([[VAR_5_]]) {to = i1} : (tensor<f32>) -> tensor<i1>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Cast"([[VAR_5_]]) {saturate = 1 : si64, to = i64} : (tensor<f32>) -> tensor<i64>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Cast"([[VAR_5_]]) {saturate = 1 : si64, to = i1} : (tensor<f32>) -> tensor<i1>
 // CHECK:           [[VAR_8_:%.+]]:2 = "onnx.Loop"([[VAR_6_]], [[VAR_7_]], [[PARAM_0_]]) ({
 // CHECK:           ^bb0([[PARAM_3_:%.+]]: tensor<i64>, [[PARAM_4_:%.+]]: tensor<i1>, [[PARAM_5_:%.+]]: tensor<*xf32>):
 // CHECK-DAG:         [[VAR_9_:%.+]] = "onnx.Identity"([[PARAM_4_]]) : (tensor<i1>) -> tensor<i1>
 // CHECK-DAG:         [[VAR_10_:%.+]] = "onnx.Add"([[PARAM_5_]], [[PARAM_2_]]) : (tensor<*xf32>, tensor<f32>) -> tensor<*xf32>
 // CHECK-DAG:         [[VAR_11_:%.+]] = "onnx.Identity"([[PARAM_5_]]) : (tensor<*xf32>) -> tensor<*xf32>
-// CHECK:             onnx.Return [[VAR_9_]], [[VAR_10_]], [[VAR_11_]] : tensor<i1>, tensor<*xf32>, tensor<*xf32>
-// CHECK:           }) {{.*}} : (tensor<i64>, tensor<i1>, tensor<f32>) -> (tensor<i1>, tensor<2xf32>)
-// CHECK:           return [[VAR_8_]]#1 : tensor<2xf32>
+// CHECK:             onnx.Yield [[VAR_9_]], [[VAR_10_]], [[VAR_11_]] : tensor<i1>, tensor<*xf32>, tensor<*xf32>
+// CHECK:           }) {{.*}} : (tensor<i64>, tensor<i1>, tensor<f32>) -> (tensor<*xf32>, tensor<2xf32>)
+// CHECK:           onnx.Return [[VAR_8_]]#1 : tensor<2xf32>
 // CHECK:         }

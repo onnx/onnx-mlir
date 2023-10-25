@@ -14,17 +14,17 @@
 // array should be broadcast to populate the tensor. In the extreme, the
 // linear array can be a "splat" singleton broadcast to every tensor element.
 //
-// getStridesPosition(indices, strides) maps tensor indices to the position
-// in the linear array by computing the dot product of indices and strides.
+// getStridesPosition(index, strides) maps a multidimensional tensor index to
+// the linear array position given by the dot product of index and strides.
 //
 // A linear array and strides can represent a tensor with a given shape if
 // getStridesPosition() maps the tensor indices onto the array positions,
-// which happens when the last tensor indices map to the last array position:
+// which happens when the last tensor index map to the last array position:
 //
-//   getStridesPosition([shape[0]-1,...,shape[rank-1]-1], strides)
+//   getStridesPosition({[shape[0]-1,...,shape[rank-1]-1]}, strides)
 //   == array.size() - 1
 //
-// when shape is non-empty.
+// provided shape is non-empty.
 //
 // Given a strided tensor (represented by a linear array and strides) it can
 // always be transposed by just transposing the strides and can always be
@@ -36,21 +36,23 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
-#include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
+#include "src/Support/Arrays.hpp"
 
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-
-#include <array>
 
 namespace onnx_mlir {
 
 // Returns the position in the linear array described by the strides
-// which correpond to the given indices.
-size_t getStridesPosition(
-    llvm::ArrayRef<int64_t> indices, llvm::ArrayRef<int64_t> strides);
+// which correpond to the given index.
+//
+// Note that the uint64_t type and the name 'index' for the multidimensional
+// index, as well as the name 'flattenedIndex' in unflattenIndex() below, are
+// borrowed from the mlir::ElementsAttr attribute interface methods.
+uint64_t getStridesPosition(
+    llvm::ArrayRef<uint64_t> index, llvm::ArrayRef<int64_t> strides);
 
 // The data is splat (singleton) if strides are all zero.
 inline bool areStridesSplat(llvm::ArrayRef<int64_t> strides) {
@@ -69,7 +71,7 @@ llvm::SmallVector<int64_t, 4> getSplatStrides(llvm::ArrayRef<int64_t> shape);
 
 // Returns the strides that can map the underlying data to reshapedShape
 // equivalently to restriding it, if such strides exist, otherwise returns None.
-llvm::Optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
+std::optional<llvm::SmallVector<int64_t, 4>> reshapeStrides(
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     llvm::ArrayRef<int64_t> reshapedShape);
 
@@ -88,8 +90,8 @@ llvm::SmallVector<int64_t, 4> untransposeDims(
     llvm::ArrayRef<int64_t> dims, llvm::ArrayRef<uint64_t> perm);
 
 // NOTE: this function is expensive, try to avoid calling it
-llvm::SmallVector<int64_t, 4> unflattenIndex(
-    llvm::ArrayRef<int64_t> shape, int64_t flatIndex);
+llvm::SmallVector<uint64_t, 4> unflattenIndex(
+    llvm::ArrayRef<int64_t> shape, uint64_t flattenedIndex);
 
 // Unpacks src into row-major order in dstData.
 void restrideArray(unsigned elementBytewidth, llvm::ArrayRef<int64_t> shape,
@@ -106,30 +108,5 @@ void restrideArray(llvm::ArrayRef<int64_t> shape,
   return restrideArray(sizeof(T), shape, srcStrides, castArrayRef<char>(src),
       castMutableArrayRef<char>(dst));
 }
-
-// A linear array together with strides.
-// Derives behavior including iterators from ArrayRef<T>.
-// Tensor indices can be mapped to array positions with getStridesPosition().
-template <typename T>
-struct StridedArrayRef : public llvm::ArrayRef<T> {
-  using Base = llvm::ArrayRef<T>;
-
-  llvm::ArrayRef<int64_t> strides;
-  StridedArrayRef(llvm::ArrayRef<T> array, llvm::ArrayRef<int64_t> strides)
-      : Base(array), strides(strides) {}
-};
-
-template <typename Iterator, typename... Args,
-    typename Action = llvm::function_ref<void(Iterator, const Args *...)>>
-Iterator traverseStrides(llvm::ArrayRef<int64_t> shape, Iterator begin,
-    StridedArrayRef<Args>... src, Action &&act);
-
-template <typename Res, typename... Args,
-    typename Action = llvm::function_ref<Res(Args...)>>
-void mapStrides(llvm::ArrayRef<int64_t> shape, llvm::MutableArrayRef<Res> dst,
-    StridedArrayRef<Args>... src, Action &&act);
-
-// Include template implementations.
-#include "Strides.hpp.inc"
 
 } // namespace onnx_mlir

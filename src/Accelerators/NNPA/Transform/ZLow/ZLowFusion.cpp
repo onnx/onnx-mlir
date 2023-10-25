@@ -54,7 +54,8 @@ public:
       return failure();
 
     // 2. Rewrite
-    MultiDialectBuilder<IndexExprBuilderForZLow> create(rewriter, loc);
+    MultiDialectBuilder<MemRefBuilder, IndexExprBuilderForZLow> create(
+        rewriter, loc);
     IndexExprScope indexScope(create.zlowIE);
 
     Value zMemRef = convertOp.getInput();
@@ -62,8 +63,8 @@ public:
     create.zlowIE.getShapeAsDims(zMemRef, ubs);
 
     // Allocate the output buffer.
-    Value alloc = insertAllocAndDeallocSimple(
-        rewriter, nullptr, output.getType().cast<MemRefType>(), loc, ubs);
+    Value alloc =
+        create.mem.alignedAlloc(output.getType().cast<MemRefType>(), ubs);
 
     // Emit zlow.unstick.
     rewriter.create<ZLowUnstickOp>(loc, convertOp.getInput(), alloc, layout);
@@ -103,15 +104,16 @@ public:
     Value convertedOutput = convertOp.getOutput();
 
     // 2. Rewrite
-    MultiDialectBuilder<IndexExprBuilderForZLow> create(rewriter, loc);
+    MultiDialectBuilder<MemRefBuilder, IndexExprBuilderForZLow> create(
+        rewriter, loc);
     IndexExprScope indexScope(create.zlowIE);
 
     SmallVector<IndexExpr, 4> ubs;
     create.zlowIE.getShapeAsDims(input, ubs);
 
     // Allocate the output buffer.
-    Value alloc = insertAllocAndDeallocSimple(rewriter, nullptr,
-        convertedOutput.getType().cast<MemRefType>(), loc, ubs, (int64_t)4096);
+    Value alloc = create.mem.alignedAlloc(
+        convertedOutput.getType().cast<MemRefType>(), ubs, 4096);
 
     // Emit zlow.unstick.
     rewriter.create<ZLowStickOp>(loc, input, alloc, layout);

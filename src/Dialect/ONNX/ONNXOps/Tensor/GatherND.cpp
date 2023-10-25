@@ -4,7 +4,7 @@
 
 //===------------------ GatherND.cpp - ONNX Operations --------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -179,8 +179,8 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   ArrayRef<int64_t> indicesShape =
       getIndices().getType().cast<ShapedType>().getShape();
   int64_t indicesRank = indicesShape.size();
-  if (indicesShape[indicesRank - 1] < 0)
-    return success(); // cannot infer the oputput shape yet.
+  if (indicesShape[indicesRank - 1] == ShapedType::kDynamic)
+    return success(); // cannot infer the output shape yet.
 
   Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});

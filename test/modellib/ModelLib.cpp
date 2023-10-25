@@ -4,7 +4,7 @@
 
 //===========-- ModelLib.cpp - Helper function for building models -==========//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -29,7 +29,7 @@ ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
       exec(nullptr) {
-  registerDialects(ctx);
+  loadDialects(ctx);
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
@@ -46,7 +46,8 @@ bool ModelLibBuilder::compileAndLoad() {
     return false;
   std::string libFilename =
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
-  exec = new ExecutionSession(libFilename);
+  std::string modelTag = getCompilerOption(OptionKind::ModelTag);
+  exec = new ExecutionSession(libFilename, modelTag);
   return exec != nullptr;
 }
 
@@ -208,7 +209,7 @@ void ModelLibBuilder::printIndices(
 void ModelLibBuilder::printTensor(
     const OMTensor *t, std::vector<int64_t> &indices, bool isLast) const {
   int64_t rank = omTensorGetRank(t);
-  int64_t *shape = omTensorGetShape(t);
+  const int64_t *shape = omTensorGetShape(t);
   int64_t currSize = indices.size();
   // Utility to print tabs.
   auto printTab = [](int currSize) {
@@ -253,7 +254,7 @@ void ModelLibBuilder::printTensor(
 void ModelLibBuilder::printTensor(
     const std::string varName, const OMTensor *t, bool asNumpy) const {
   int64_t rank = omTensorGetRank(t);
-  int64_t *shape = omTensorGetShape(t);
+  const int64_t *shape = omTensorGetShape(t);
   std::vector<int64_t> shapeVect(shape, shape + rank);
   // Print message as comment and add rank and shape.
   printf("# ");

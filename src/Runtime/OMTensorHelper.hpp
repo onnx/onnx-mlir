@@ -16,7 +16,15 @@
 
 #pragma once
 
-/* Helper function to compute cartisian product */
+#include <functional>
+#include <iostream>
+#include <numeric>
+#include <string>
+#include <vector>
+
+struct OMTensor;
+
+/* Helper function to compute cartesian product */
 static inline std::vector<std::vector<int64_t>> CartProduct(
     const std::vector<std::vector<int64_t>> &v) {
   std::vector<std::vector<int64_t>> s = {{}};
@@ -28,7 +36,7 @@ static inline std::vector<std::vector<int64_t>> CartProduct(
         r.back().push_back(y);
       }
     }
-    s = move(r);
+    s = std::move(r);
   }
   return s;
 }
@@ -45,7 +53,7 @@ static inline std::vector<int64_t> computeStridesFromShape(
   sizesVec.push_back(1);
 
   std::vector<int64_t> dimStrides(rank);
-  partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
+  std::partial_sum(sizesVec.rbegin(), sizesVec.rend(), dimStrides.rbegin(),
       std::multiplies<>());
   return dimStrides;
 }

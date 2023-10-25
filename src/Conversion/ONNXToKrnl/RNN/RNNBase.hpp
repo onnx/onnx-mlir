@@ -4,7 +4,7 @@
 
 //===--------------- RNNBase.hpp - Lowering RNN Ops -----------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,8 +27,8 @@ namespace onnx_mlir {
 
 struct RNNActivation {
   llvm::StringRef name;
-  llvm::Optional<mlir::FloatAttr> alpha;
-  llvm::Optional<mlir::FloatAttr> beta;
+  std::optional<mlir::FloatAttr> alpha;
+  std::optional<mlir::FloatAttr> beta;
 };
 
 /// Get a dimension of the tensor's shape.
@@ -36,15 +36,13 @@ int64_t dimAt(mlir::Value val, int index);
 
 /// Insert Allocate and Deallocate for the all hidden output.
 mlir::Value allocAllHidden(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
-    mlir::Value W, mlir::Value R, mlir::Value output,
-    bool insertDealloc = false);
+    mlir::Location loc, const mlir::TypeConverter *typeConverter, mlir::Value X,
+    mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Insert Allocate and Deallocate for the hidden or cell output.
 mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::TypeConverter *typeConverter, mlir::Value X,
-    mlir::Value W, mlir::Value R, mlir::Value output,
-    bool insertDealloc = false);
+    mlir::Location loc, const mlir::TypeConverter *typeConverter, mlir::Value X,
+    mlir::Value W, mlir::Value R, mlir::Value output);
 
 /// Initialize the hidden and cell states.
 void initializeHiddenAndCell(mlir::ConversionPatternRewriter &rewriter,
@@ -76,6 +74,15 @@ mlir::Value applyActivation(mlir::OpBuilder &rewriter, mlir::Location loc,
 /// Get a slice of X at a specific timestep.
 mlir::Value emitXSliceAt(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value X, mlir::Value timestep);
+
+// Change the nextHt and Ht value if sequenceLens is defined.
+// When a sample reachs the limit of its sequence len, nextHt will be padded
+// with 0 (or initialH), and Ht will keep the last value at the sequence end
+// so that the final value Ht is the last value at their sequence len.
+mlir::Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
+    mlir::Value sequenceLens, mlir::Value initialH, mlir::Value nextHt,
+    mlir::Value sequenceIV, mlir::Value directionIV, mlir::Value bs,
+    mlir::Value hs, mlir::Value Ht);
 
 // Override the following methods when lowering an RNN operation:
 // - hasAllNoneOutput
@@ -111,14 +118,15 @@ std::tuple<B, B> getBiasPack(
 // Allocate memory for RNN states and initialize them.
 template <typename RNNOp, typename S>
 S allocAndInitializeStates(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::TypeConverter *typeConverter, RNNOp *op,
+    mlir::Location loc, const mlir::TypeConverter *typeConverter, RNNOp *op,
     typename RNNOp::Adaptor operandAdaptor);
 
 // Calculate new states from the current input and states.
 template <typename S, typename A, typename W, typename B>
 void calculateState(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value Xt, S state, A activationSet, W weight,
-    B bias, mlir::Value sequenceIV, mlir::Value directionIV, bool isForward);
+    B bias, mlir::Value sequenceIV, mlir::Value directionIV,
+    mlir::Value sequenceLens, mlir::Value initialH, bool isForward);
 
 // Write states to the RNN's outputs.
 template <typename RNNOp, typename S>
@@ -127,19 +135,19 @@ void stateToOutput(mlir::ConversionPatternRewriter &rewriter,
 
 // A common template for lowering an RNN operation.
 template <typename RNNOp, typename S, typename A, typename W, typename B>
-struct ONNXRNNOpLowering : public mlir::ConversionPattern {
+struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
+  using OpAdaptor = typename RNNOp::Adaptor;
+
   ONNXRNNOpLowering(mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx)
-      : mlir::ConversionPattern(
-            typeConverter, RNNOp::getOperationName(), 1, ctx) {}
+      : mlir::OpConversionPattern<RNNOp>(typeConverter, ctx) {}
 
-  mlir::LogicalResult matchAndRewrite(mlir::Operation *op,
-      llvm::ArrayRef<mlir::Value> operands,
+  mlir::LogicalResult matchAndRewrite(RNNOp rnnOp, OpAdaptor adaptor,
       mlir::ConversionPatternRewriter &rewriter) const final {
-    mlir::Location loc = op->getLoc();
-
-    RNNOp rnnOp = llvm::dyn_cast<RNNOp>(op);
-    typename RNNOp::Adaptor operandAdaptor(operands);
-    mlir::Value X = operandAdaptor.getX();
+    mlir::Operation *op = rnnOp.getOperation();
+    mlir::Location loc = ONNXLoc<RNNOp>(op);
+    mlir::Value X = adaptor.getX();
+    mlir::Value sequenceLens = adaptor.getSequenceLens();
+    mlir::Value initialH = adaptor.getInitialH();
 
     if (hasAllNoneOutput<RNNOp>(&rnnOp)) {
       rewriter.eraseOp(op);
@@ -148,7 +156,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
 
     // Initialize output states.
     S state = allocAndInitializeStates<RNNOp, S>(
-        rewriter, loc, typeConverter, &rnnOp, operandAdaptor);
+        rewriter, loc, this->typeConverter, &rnnOp, adaptor);
 
     // Activation functions.
     A activationForward, activationReverse;
@@ -192,7 +200,7 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
             // Emit calculation for one RNN step.
             calculateState<S, A, W, B>(rewriter, loc, Xt, state,
                 activationForward, weightForward, biasForward, sequenceIV,
-                directionIV,
+                directionIV, sequenceLens, initialH,
                 /*isForward=*/true);
           });
     }
@@ -223,14 +231,14 @@ struct ONNXRNNOpLowering : public mlir::ConversionPattern {
                     : create.mem.dim(X, 0);
 
             mlir::Value reverseSequenceIV =
-                rewriter.create<mlir::AffineApplyOp>(loc, reverseIVMap,
+                rewriter.create<mlir::affine::AffineApplyOp>(loc, reverseIVMap,
                     std::vector<mlir::Value>{loopInd[0], sequenceSize});
             // Get a slice of X at the current timestep.
             mlir::Value Xt = emitXSliceAt(rewriter, loc, X, reverseSequenceIV);
             // Emit calculation for one RNN step.
             calculateState<S, A, W, B>(rewriter, loc, Xt, state,
                 activationReverse, weightReverse, biasReverse,
-                reverseSequenceIV, directionIV,
+                reverseSequenceIV, directionIV, sequenceLens, initialH,
                 /*isForward=*/false);
           });
     }

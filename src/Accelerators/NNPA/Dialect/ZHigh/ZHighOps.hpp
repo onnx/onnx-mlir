@@ -22,6 +22,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 

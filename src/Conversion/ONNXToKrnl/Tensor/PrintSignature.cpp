@@ -20,28 +20,45 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXPrintSignatureLowering : public ConversionPattern {
+struct ONNXPrintSignatureLowering
+    : public OpConversionPattern<ONNXPrintSignatureOp> {
   ONNXPrintSignatureLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, ONNXPrintSignatureOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXPrintSignatureOp printSignatureOp,
+      ONNXPrintSignatureOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
+    Operation *op = printSignatureOp.getOperation();
+    Location loc = ONNXLoc<ONNXPrintSignatureOp>(op);
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
-    ONNXPrintSignatureOp printSignatureOp =
-        llvm::dyn_cast<ONNXPrintSignatureOp>(op);
-    ONNXPrintSignatureOpAdaptor operandAdaptor(operands);
 
+    // First message.
     std::string opName(printSignatureOp.getOpName().data());
-    create.krnl.printf(opName);
-    std::string msg = "%t ";
-    for (Value oper : operandAdaptor.getInput())
+    std::string msg =
+        "%i==SIG-REPORT==, " + opName + ", sig"; // meaningless secondary key.
+    // Discover the values to print, setting aside the last one.
+    llvm::SmallVector<Value, 4> printVal;
+    for (Value oper : adaptor.getInput())
       if (!oper.getType().isa<NoneType>())
-        create.krnl.printTensor(msg, oper);
-    Value noneValue;
-    rewriter.replaceOpWithNewOp<KrnlPrintOp>(op, "\n", noneValue);
+        printVal.emplace_back(oper);
+    int64_t printNum = printVal.size();
+    if (printNum == 0) {
+      // Print tensor without any valid tensor.
+      Value noneVal = nullptr;
+      rewriter.replaceOpWithNewOp<KrnlPrintOp>(
+          op, msg + "(no tensors)\n%e", noneVal);
+      return success();
+    }
+    Value lastVal = printVal.pop_back_val();
+    // Print all but the last one.
+    for (Value oper : printVal) {
+      create.krnl.printTensor(msg + ", %t%e", oper);
+      msg = "%i";
+    }
+    // Print the last one with replace with new op.
+    rewriter.replaceOpWithNewOp<KrnlPrintTensorOp>(
+        op, msg + ", %t\n%e", lastVal);
     return success();
   }
 };

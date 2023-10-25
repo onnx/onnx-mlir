@@ -13,12 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
-namespace py = pybind11;
-
 #include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
@@ -29,209 +23,68 @@ SUPPRESS_WARNINGS_POP
 
 namespace onnx_mlir {
 
+// =============================================================================
+// Constructor
+
 PyOMCompileExecutionSession::PyOMCompileExecutionSession(
-    std::string inputFileName, std::string sharedLibPath, std::string flags,
-    bool defaultEntryPoint)
-    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {
+    std::string inputFileName, std::string flags, bool defaultEntryPoint,
+    bool reuseCompiledModel)
+    : onnx_mlir::PyExecutionSessionBase() /* constructor without Init */ {
+  // First compile the onnx file.
   this->inputFileName = inputFileName;
-  if (this->inputFileName.empty()) {
-    errorMessage = "No OMCompileExecuteSession was created with the input file "
-                   "name specified.";
+  if (this->inputFileName.empty())
+    throw std::runtime_error(reportLibraryOpeningError(inputFileName));
+
+  char *outputName = nullptr;
+  char *errorMsg = nullptr;
+  if (reuseCompiledModel) {
+    // see if there is a model to reuse.
+    outputName = omCompileOutputFileName(inputFileName.c_str(), flags.c_str());
+    FILE *file = fopen(outputName, "r");
+    if (file)
+      // File exists, we are ok.
+      fclose(file);
+    else
+      // File does not exist, cannot reuse compilation.
+      reuseCompiledModel = false;
   }
-  const char *outputName, *errorMsg;
-  int64_t rc;
-  rc = omCompileFromFile(
-      inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
-  if (rc == 0) {
-    // Compilation success: save output file name.
-    this->sharedLibPath = std::string(outputName);
-    // Empty error.
-    errorMessage = std::string();
-  } else {
-    // Compilation failure: save error message.
-    errorMessage = std::string(errorMsg);
-    // Empty output file name.
-    this->sharedLibPath = std::string();
+  if (!reuseCompiledModel) {
+    int64_t rc;
+    rc = omCompileFromFile(
+        inputFileName.c_str(), flags.c_str(), &outputName, &errorMsg);
+    if (rc != 0) {
+      // Compilation failure: save error message.
+      errorMessage = std::string(errorMsg);
+      // Empty output file name.
+      this->outputFileName = std::string();
+      free(outputName);
+      free(errorMsg);
+      throw std::runtime_error(reportCompilerError(errorMessage));
+    }
   }
+  // Compilation success: save output file name.
+  this->outputFileName = std::string(outputName);
+  errorMessage = std::string();
+  // Get the model tag from the compile flags.
+  char *modelTag = omCompileModelTag(flags.c_str());
+  // Now that we have a .so, initialize execution session.
+  Init(this->outputFileName, modelTag, defaultEntryPoint);
+  free(outputName);
+  free(modelTag);
+  free(errorMsg);
 }
 
-int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return this->rc; }
+// =============================================================================
+// Custom getters
+
+int64_t PyOMCompileExecutionSession::pyGetCompiledResult() { return rc; }
 
 std::string PyOMCompileExecutionSession::pyGetCompiledFileName() {
-  return this->sharedLibPath;
+  return outputFileName;
 }
 
 std::string PyOMCompileExecutionSession::pyGetErrorMessage() {
-  return this->errorMessage;
-}
-
-std::vector<py::array> PyOMCompileExecutionSession::pyRun(
-    const std::vector<py::array> &inputsPyArray) {
-  assert(_entryPointFunc && "Entry point not loaded.");
-
-  std::vector<OMTensor *> omts;
-  for (auto inputPyArray : inputsPyArray) {
-    assert(inputPyArray.flags() && py::array::c_style &&
-           "Expect contiguous python array.");
-
-    void *dataPtr;
-    int64_t ownData = 0;
-    if (inputPyArray.writeable()) {
-      dataPtr = inputPyArray.mutable_data();
-    } else {
-      // If data is not writable, copy them to a writable buffer.
-      auto *copiedData = (float *)malloc(inputPyArray.nbytes());
-      memcpy(copiedData, inputPyArray.data(), inputPyArray.nbytes());
-      dataPtr = copiedData;
-      // We want OMTensor to free up the memory space upon destruction.
-      ownData = 1;
-    }
-
-    // Borrowed from:
-    // https://github.com/pybind/pybind11/issues/563#issuecomment-267835542
-    OM_DATA_TYPE dtype;
-    if (py::isinstance<py::array_t<float>>(inputPyArray))
-      dtype = ONNX_TYPE_FLOAT;
-    else if (py::isinstance<py::array_t<std::uint8_t>>(inputPyArray))
-      dtype = ONNX_TYPE_UINT8;
-    else if (py::isinstance<py::array_t<std::int8_t>>(inputPyArray))
-      dtype = ONNX_TYPE_INT8;
-    else if (py::isinstance<py::array_t<std::uint16_t>>(inputPyArray))
-      dtype = ONNX_TYPE_UINT16;
-    else if (py::isinstance<py::array_t<std::int16_t>>(inputPyArray))
-      dtype = ONNX_TYPE_INT16;
-    else if (py::isinstance<py::array_t<std::int32_t>>(inputPyArray))
-      dtype = ONNX_TYPE_INT32;
-    else if (py::isinstance<py::array_t<std::int64_t>>(inputPyArray))
-      dtype = ONNX_TYPE_INT64;
-    // string type missing
-    else if (py::isinstance<py::array_t<bool>>(inputPyArray))
-      dtype = ONNX_TYPE_BOOL;
-    // Missing fp16 support.
-    else if (py::isinstance<py::array_t<double>>(inputPyArray))
-      dtype = ONNX_TYPE_DOUBLE;
-    else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))
-      dtype = ONNX_TYPE_UINT32;
-    else if (py::isinstance<py::array_t<std::uint64_t>>(inputPyArray))
-      dtype = ONNX_TYPE_UINT64;
-    else if (py::isinstance<py::array_t<std::complex<float>>>(inputPyArray))
-      dtype = ONNX_TYPE_COMPLEX64;
-    else if (py::isinstance<py::array_t<std::complex<double>>>(inputPyArray))
-      dtype = ONNX_TYPE_COMPLEX128;
-    // Missing bfloat16 support
-    else {
-      std::cerr << "Numpy type not supported: " << inputPyArray.dtype()
-                << ".\n";
-      exit(1);
-    }
-
-    auto *inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-        (int64_t *)(const_cast<ssize_t *>(inputPyArray.shape())),
-        (int64_t)inputPyArray.ndim(), dtype, ownData);
-    omTensorSetStridesWithPyArrayStrides(inputOMTensor,
-        (int64_t *)const_cast<ssize_t *>(inputPyArray.strides()));
-
-    omts.emplace_back(inputOMTensor);
-  }
-
-  auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
-  auto *wrappedOutput = _entryPointFunc(wrappedInput);
-  if (!wrappedOutput)
-    throw std::runtime_error(reportErrnoError());
-  std::vector<py::array> outputPyArrays;
-  for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
-    auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
-    auto shape = std::vector<int64_t>(
-        omTensorGetShape(omt), omTensorGetShape(omt) + omTensorGetRank(omt));
-
-    // https://numpy.org/devdocs/user/basics.types.html
-    py::dtype dtype;
-    switch (omTensorGetDataType(omt)) {
-    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT:
-      dtype = py::dtype("float32");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT8:
-      dtype = py::dtype("uint8");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT8:
-      dtype = py::dtype("int8");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT16:
-      dtype = py::dtype("uint16");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT16:
-      dtype = py::dtype("int16");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT32:
-      dtype = py::dtype("int32");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::INT64:
-      dtype = py::dtype("int64");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::STRING:
-      dtype = py::dtype("str");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::BOOL:
-      dtype = py::dtype("bool_");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::FLOAT16:
-      dtype = py::dtype("float32");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::DOUBLE:
-      dtype = py::dtype("float64");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT32:
-      dtype = py::dtype("uint32");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::UINT64:
-      dtype = py::dtype("uint64");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX64:
-      dtype = py::dtype("csingle");
-      break;
-    case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX128:
-      dtype = py::dtype("cdouble");
-      break;
-    default:
-      std::cerr << "Unsupported ONNX type in OMTensor: "
-                << omTensorGetDataType(omt) << ".\n";
-      exit(1);
-    }
-
-    outputPyArrays.emplace_back(
-        py::array(dtype, shape, omTensorGetDataPtr(omt)));
-  }
-  omTensorListDestroy(wrappedOutput);
-  omTensorListDestroy(wrappedInput);
-
-  return outputPyArrays;
-}
-
-void PyOMCompileExecutionSession::pySetEntryPoint(std::string entryPointName) {
-  setEntryPoint(entryPointName);
-}
-
-std::vector<std::string> PyOMCompileExecutionSession::pyQueryEntryPoints() {
-  assert(_queryEntryPointsFunc && "Query entry point not loaded.");
-  const char **entryPointArr = _queryEntryPointsFunc(NULL);
-
-  std::vector<std::string> outputPyArrays;
-  int i = 0;
-  while (entryPointArr[i] != NULL) {
-    outputPyArrays.emplace_back(entryPointArr[i]);
-    i++;
-  }
-  return outputPyArrays;
-}
-
-std::string PyOMCompileExecutionSession::pyInputSignature() {
-  assert(_inputSignatureFunc && "Input signature entry point not loaded.");
-  return inputSignature();
-}
-
-std::string PyOMCompileExecutionSession::pyOutputSignature() {
-  assert(_outputSignatureFunc && "Output signature entry point not loaded.");
-  return outputSignature();
+  return errorMessage;
 }
 
 } // namespace onnx_mlir

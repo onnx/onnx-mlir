@@ -17,7 +17,9 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
+
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 namespace onnx_mlir {
 namespace krnl {
@@ -29,15 +31,15 @@ int64_t getRankFromMemRefType(mlir::LLVM::LLVMStructType memRefTy);
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
 /// Create an OMTensor from a memref.
-void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Value &outOMTensor,
-    int64_t outOwning, mlir::PatternRewriter &rewriter,
-    const mlir::Location &loc, const RuntimeAPIRegistry &apiRegistry,
-    mlir::ModuleOp &module);
+void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Type elemTy,
+    mlir::Value &outOMTensor, int64_t outOwning,
+    mlir::PatternRewriter &rewriter, const mlir::Location &loc,
+    const RuntimeAPIRegistry &apiRegistry, mlir::ModuleOp &module);
 
 /// Return the GlobalOp for the given string, creating one if not found.
 mlir::LLVM::GlobalOp getOrCreateGlobalString(llvm::StringRef str,
     mlir::Location loc, mlir::OpBuilder &builder, mlir::ModuleOp module,
-    mlir::LLVMTypeConverter *typeConverter);
+    const mlir::LLVMTypeConverter *typeConverter);
 
 /// Return a pointer to the first character in a global string.
 mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
@@ -47,7 +49,7 @@ mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
 /// to set the alignment based on the module datalayout (if it exists).
 void setAlignment(mlir::LLVM::GlobalOp &global, mlir::IntegerAttr alignmentAttr,
     mlir::ModuleOp module, mlir::OpBuilder &builder,
-    mlir::LLVMTypeConverter &typeConverter);
+    const mlir::LLVMTypeConverter &typeConverter);
 
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
@@ -65,6 +67,26 @@ std::string e2a_s(std::string e_s);
 /// Generate LLVM code to set errno to the given value.
 void emitErrNo(mlir::ModuleOp module, mlir::OpBuilder &builder,
     mlir::Location loc, int err);
+
+/// Creates an LLVM pointer type with the given element type and address space.
+/// This function is meant to be used in code supporting both typed and opaque
+/// pointers, as it will create an opaque pointer with the given address space
+/// if opaque pointers are enabled in the lowering options. This function is
+/// obtained from LLVMTypeConverter. Put it here so that there is no need to
+/// construct an LLVMTypeConverter.
+mlir::LLVM::LLVMPointerType getPointerType(mlir::MLIRContext *context,
+    mlir::Type elementType, unsigned addressSpace = 0);
+
+mlir::LLVM::LLVMPointerType getI8PointerType(
+    mlir::MLIRContext *context, unsigned addressSpace = 0);
+
+/// Get the entry point function that locate first among other entry points in
+/// the same block.
+mlir::Operation *getFirstEntryOpInBlock(mlir::ModuleOp &module,
+    const llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps);
+
+/// Get rawData from a DenseElementsAttr or a DenseResourceElementsAttr.
+llvm::ArrayRef<char> getRawData(mlir::KrnlGlobalOp &op);
 
 } // namespace krnl
 } // namespace onnx_mlir

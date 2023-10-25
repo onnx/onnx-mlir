@@ -5,7 +5,7 @@
 //==== ONNXToTosaLegalizeUtils.hpp - ONNX dialects to TOSA lowering Utils-===//
 //
 // Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -34,6 +34,12 @@ namespace tosa {
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding = {});
 
+// Returns the value TOSA ConstOp
+template <typename T>
+T getValueFromTosaConst(mlir::Value &val) {
+  return val.getDefiningOp<mlir::tosa::ConstOp>().getValue().cast<T>();
+}
+
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
@@ -49,8 +55,8 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   llvm::SmallVector<mlir::ShapedTypeComponents> returnedShapes;
   if (shapeInterface
           .inferReturnTypeComponents(op.getContext(), op.getLoc(),
-              op->getOperands(), op->getAttrDictionary(), op->getRegions(),
-              returnedShapes)
+              op->getOperands(), op->getAttrDictionary(),
+              op->getPropertiesStorage(), op->getRegions(), returnedShapes)
           .failed())
     return op;
 
@@ -72,6 +78,15 @@ void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());
 }
+
+/// Create a padding tosa::ConstOp from ONNX to Tosa format.
+/// The two formats are:
+/// ONNX : [b1, b2, b3, b4, e1, e2, e3, e4]
+/// TOSA :[[b1, e1], [b2, e2], [b3, e3], [b4, e4]]
+mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
+    llvm::ArrayRef<int64_t> onnxPads, mlir::Location loc,
+    const std::initializer_list<int64_t> &initialVals = {},
+    const std::initializer_list<int64_t> &lastVals = {});
 
 } // namespace tosa
 } // namespace onnx_mlir

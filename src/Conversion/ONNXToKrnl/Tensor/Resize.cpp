@@ -4,7 +4,7 @@
 
 //===---------------- Resize.cpp - Lowering Resize Op ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,20 +19,18 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-struct ONNXResizeOpLowering : public ConversionPattern {
+struct ONNXResizeOpLowering : public OpConversionPattern<ONNXResizeOp> {
   ONNXResizeOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : ConversionPattern(
-            typeConverter, mlir::ONNXResizeOp::getOperationName(), 1, ctx) {}
+      : OpConversionPattern(typeConverter, ctx) {}
 
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+  LogicalResult matchAndRewrite(ONNXResizeOp resizeOp,
+      ONNXResizeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Gather info.
-    Location loc = op->getLoc();
-    Value alloc;
-    bool insertDealloc = checkInsertDealloc(op);
-    ONNXResizeOp resizeOp = llvm::cast<ONNXResizeOp>(op);
-    ONNXResizeOpAdaptor operandAdaptor(operands);
-    Value data = operandAdaptor.getX();
+    Operation *op = resizeOp.getOperation();
+    Location loc = ONNXLoc<ONNXResizeOp>(op);
+    ValueRange operands = adaptor.getOperands();
+    Value data = adaptor.getX();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
@@ -41,11 +39,39 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     MemRefType memRefType = convertedType.cast<MemRefType>();
     int64_t rank = memRefType.getShape().size();
 
-    // Check implementation constraints
-    if (resizeOp.getMode() == "nearest" &&
-        (resizeOp.getCoordinateTransformationMode() != "asymmetric" &&
-            resizeOp.getCoordinateTransformationMode() != "half_pixel"))
-      return emitError(loc, "not implemented yet");
+    // Check limitation imposed by implementation
+    // Resize Op is either lowered to loop nests or a function call.
+    // In either case, only the default value for some of the attributes are
+    // allowed.
+    // In the library for Resize, src/Runtime/OMResize.inc, it seems that
+    // it is easy to support some other values, but not tested.
+    if (resizeOp.getAntialias() != 0 ||
+        resizeOp.getCubicCoeffA().convertToDouble() != -0.75 ||
+        resizeOp.getExcludeOutside() != 0 ||
+        resizeOp.getExtrapolationValue().convertToDouble() != 0. ||
+        resizeOp.getExcludeOutside() != 0 ||
+        resizeOp.getKeepAspectRatioPolicy() != "stretch") {
+      return emitError(
+          loc, "attribute value not supported by current implementation#1");
+    }
+
+    // When getMode() is "nearest", Resize is lowered to loops.
+    // getCoordinateTransformationMode() can be "asymmetric" or "half_pixel"
+    if (resizeOp.getMode() == "nearest") {
+      if (resizeOp.getCoordinateTransformationMode() != "asymmetric" &&
+          resizeOp.getCoordinateTransformationMode() != "half_pixel") {
+        return emitError(
+            loc, "attribute value not supported by current implementation#2");
+      }
+    } else {
+      // Resize is lowered to a library call.
+      // The library assumes that getCoordinateTransformationMode()
+      // is "half_pixel"
+      if (resizeOp.getCoordinateTransformationMode() != "half_pixel") {
+        return emitError(
+            loc, "attribute value not supported by current implementation#3");
+      }
+    }
 
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
         MemRefBuilder>
@@ -54,14 +80,10 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Shape helper: compute output dims and scales.
     ONNXResizeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
-    if (hasAllConstantDimensions(memRefType)) {
-      alloc = insertAllocAndDealloc(memRefType, loc, rewriter, insertDealloc);
-    } else {
-      alloc = insertAllocAndDeallocSimple(rewriter, op, memRefType, loc,
-          shapeHelper.getOutputDims(), insertDealloc);
-    }
+    Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
 
-    // Call external function when the mode is not "nearest"
+    // Call external function when the mode is NOT "nearest"
     // Create KrnlCallOp and replace the du chain
     // One of inputs, getScales() and size(), has to be None.
     // For now, None input is picked out by KrnlCall builder,
@@ -70,15 +92,20 @@ struct ONNXResizeOpLowering : public ConversionPattern {
     // Currently, it is assumed that all the optional attributes have
     // the default value and does appear in the Attribute dictionary.
     // ToFix: Handle attributes for general case
+    // A list of attribute names for krnl.call is provided to determine which
+    // attributes are passed to the call and in which order
+    // The unspecified the attributes are assumed to have the default value.
     if (resizeOp.getMode() != "nearest") {
-      if (!isFromNone(resizeOp.getScales())) {
+      std::vector<std::string> attributeNames = {"mode", "nearest_mode"};
+      if (!isNoneValue(resizeOp.getScales())) {
         rewriter.create<KrnlCallOp>(
-            loc, "Resize_Scales", alloc, op, operands, true);
+            loc, "Resize_Scales", alloc, op, operands, attributeNames);
       } else {
         rewriter.create<KrnlCallOp>(
-            loc, "Resize_Size", alloc, op, operands, true);
+            loc, "Resize_Size", alloc, op, operands, attributeNames);
       }
       rewriter.replaceOp(op, alloc);
+      onnxToKrnlSimdReport(op);
       return success();
     }
     // It is much more efficient to generate codes directly if possible
@@ -170,6 +197,7 @@ struct ONNXResizeOpLowering : public ConversionPattern {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
