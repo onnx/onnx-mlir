@@ -420,8 +420,14 @@ static int genModelObject(
 static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
     std::string jniSharedLibPath, std::string jniObjPath) {
   Command ar(/*exePath=*/getToolPath("ar", true));
+#ifdef _WIN32  
+  int rc = ar.appendStr("/extract:jnidummy.c.obj")
+               //.appendStr(llvm::sys::path::filename(jniObjPath).str())
+			   .appendStr(jniSharedLibPath)
+               .exec(llvm::sys::path::parent_path(jniObjPath).str());
+#else
   int rc = ar.appendStr("x")
-               // old version of ar does not support --output so comment out
+  // old version of ar does not support --output so comment out
                // for now and use the optional wdir for exec() to get around
                // the problem.
                //.appendStr("--output")
@@ -429,6 +435,8 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
                .appendStr(jniSharedLibPath)
                .appendStr(llvm::sys::path::filename(jniObjPath).str())
                .exec(llvm::sys::path::parent_path(jniObjPath).str());
+#endif
+               
   return rc != 0 ? CompilerFailureInGenJniObj : CompilerSuccess;
 }
 
@@ -548,11 +556,17 @@ static int compileModuleToJniJar(
   StringRef outputDir = llvm::sys::path::parent_path(outputNameNoExt);
   if (outputDir.empty())
     outputDir = StringRef(".");
-
+#ifdef _WIN32
+  std::string jniSharedLibPath = getLibraryPath() + "/jniruntime.lib";
+#else
   std::string jniSharedLibPath = getLibraryPath() + "/libjniruntime.a";
-
+#endif
   llvm::SmallString<8> jniObjDir(outputDir);
+#ifdef _WIN32
+  llvm::sys::path::append(jniObjDir, "jnidummy.c.obj");
+#else
   llvm::sys::path::append(jniObjDir, "jnidummy.c.o");
+#endif  
   std::string jniObjPath = llvm::StringRef(jniObjDir).str();
 
   rc = genJniObject(module, jniSharedLibPath, jniObjPath);
@@ -565,7 +579,7 @@ static int compileModuleToJniJar(
   llvm::sys::path::append(jniLibDir, "libmodel");
   std::string jniLibBase = llvm::StringRef(jniLibDir).str();
 
-#if defined(__APPLE__) && defined(__clang__)
+#if (defined(__APPLE__) && defined(__clang__)) || defined(_WIN32)
 #define NOEXECSTACK                                                            \
   {}
 #else
