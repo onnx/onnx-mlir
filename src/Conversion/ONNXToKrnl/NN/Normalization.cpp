@@ -573,7 +573,7 @@ struct ONNXLayerNormalizationOpLowering
         });
 
     // Sum across, compute mean, var, standard deviation and its inverse.
-    Value mean[B], invStdDev[B];
+    llvm::SmallVector<Value, 4> mean(B), invStdDev(B);
     Value redDimFloat = create.math.cast(elementType, redDim.getValue());
     Value oneFloat = create.math.constant(elementType, 1.0);
     inlineFor(create, B, [&](int64_t d, Value o) {
