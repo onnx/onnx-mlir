@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
@@ -48,7 +49,7 @@ bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
 
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
-/// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
+/// we check F16 and F32 here only. zAIU only supports rank in range of [0, 4].
 bool isValidElementTypeAndRank(Value val, bool donotCheckRank) {
   if (val.getType().isa<NoneType>())
     return true;
@@ -64,7 +65,7 @@ bool isValidElementTypeAndRank(Value val, bool donotCheckRank) {
       if (!valueType.hasRank())
         return false;
       int64_t rank = valueType.getRank();
-      return ((rank > 0) && (rank <= 4));
+      return ((rank >= 0) && (rank <= 4));
     }
   }
   return false;
@@ -318,14 +319,17 @@ bool isSuitableForZDNN<ONNXMulOp>(
 template <>
 bool isSuitableForZDNN<ONNXDivOp>(
     ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+  Value A = op.getA();
+  Value B = op.getB();
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
     return false;
-  if (!isValidElementTypeAndRank(op.getA()))
+  if (!isValidElementTypeAndRank(A))
     return false;
-  if (!isValidElementTypeAndRank(op.getB()))
+  if (!isValidElementTypeAndRank(B))
     return false;
-  return dimAnalysis->sameShape(op.getA(), op.getB());
+  return isConstantOfSplatF32Value(A) || isConstantOfSplatF32Value(B) ||
+         dimAnalysis->sameShape(A, B);
 }
 
 /// Check legality for ONNXSum.

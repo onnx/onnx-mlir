@@ -66,6 +66,9 @@ class getNthVariadicResults<int n, string x> : NativeCodeCall<x # ".getResults()
 def GetShape :
 	NativeCodeCall<"$0.getType().cast<ShapedType>().getShape()">;
 
+def GetDynShape:
+        NativeCodeCall<"getDynShape($_loc, $_builder, $0)">;
+
 def GetRank :
 	NativeCodeCall<"$0.getType().cast<RankedTensorType>().getRank()">;
 
@@ -96,6 +99,14 @@ class EmitOp3<string s> :
 
 class EmitOp4<string s> :
         NativeCodeCall<"$_builder.create<" # s # ">($_loc, $0, $1, $2, $3)">;
+
+def IsConstantOfSplatF32Value : Constraint<
+  CPred<"isConstantOfSplatF32Value($0)">,
+  "The value is a constant tensor of a single f32 value"
+>;
+
+def GetSplatF32AttrFromConstant :
+        NativeCodeCall<"getSplatF32AttrFromConstant($0)">;
 
 //===----------------------------------------------------------------------===//
 // ONNXReluOp %X = ZHighUnstickOp (ZHighReluOp (ZHighStickOp %X))
@@ -201,7 +212,23 @@ def replaceONNXDivPattern : Pat<
   (ONNXDivOp $x, $y),
   (ZHighUnstickOp (ZHighDivOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
                               (ZHighStickOp $y, (NoneLayoutAttr)),
-                              (returnType $s_x)))
+                              (returnType $s_x))),
+  [], [],
+  (addBenefit 0)
+>;
+
+def replaceONNXDivBroadcastPattern : Pat<
+  (ONNXDivOp $x, $y),
+  (ZHighUnstickOp
+    (ZHighDivOp
+      (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
+      (ZHighStickifiedConstantOfShapeOp
+        (GetDynShape $x),
+        (GetSplatF32AttrFromConstant $y),
+        (NoneLayoutAttr)),
+      (returnType $s_x))),
+  [(IsConstantOfSplatF32Value $y)], [],
+  (addBenefit 1)
 >;
 
 //===----------------------------------------------------------------------===//
