@@ -331,11 +331,6 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
 }
 
 void ONNXToZHighLoweringPass::runOnOperation() {
-  // Print a warning if mcpu is not set or < z16.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    llvm::outs() << "Warning: No NNPA code is generated because --mcpu is not "
-                    "set or < z16.\n";
-
   ModuleOp module = getOperation();
 
   // Run the unknown dimension analysis to help check equality of unknown
