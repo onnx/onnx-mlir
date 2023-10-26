@@ -22,6 +22,8 @@ ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MCPU
 
+# Install package to view/edit files
+RUN apt-get update
 RUN apt-get install -y vim
 
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
