@@ -34,9 +34,9 @@
 #include <malloc.h>
 #endif
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <errno.h>
 
 #include "onnx-mlir/Runtime/OMTensor.h"
 
@@ -44,11 +44,23 @@
 #include "src/Runtime/OMTensorHelper.hpp"
 #endif
 
+#include "src/Support/SmallFPConversion.h"
+
 #if defined(__APPLE__)
 // __errno_location() is called from krnl::emitErrNo() to set errno in
 // generated llvm IR, but it somehow doesn't come out of the box on MacOS.
-int * __attribute__((__weak__)) __errno_location(void) { return &errno; }
+int *__attribute__((__weak__)) __errno_location(void) { return &errno; }
 #endif
+
+// On some platforms LLVM generates f16 conversion code that calls some
+// of these C runtime functions.
+// TODO: Figure out if we could get these with llvm/compiler-rt in a
+//       systematic way.
+float __extendhfsf2(uint16_t a) { return om_f16_to_f32(a); }
+float __gnu_h2f_ieee(uint16_t a) { return om_f16_to_f32(a); }
+uint16_t __gnu_f2h_ieee(float a) { return om_f32_to_f16(a); }
+uint16_t __truncsfhf2(float a) { return om_f32_to_f16(a); }
+uint16_t __truncdfhf2(double a) { return om_f32_to_f16(a); }
 
 struct OMTensor {
 #ifdef __cplusplus
@@ -127,59 +139,6 @@ static inline int64_t getNumElems(const int64_t *shape, int64_t rank) {
   for (int64_t i = 0; i < rank; i++)
     numElem *= shape[i];
   return numElem;
-}
-
-/* Helper function to get the ONNX data type C name string */
-static inline const char *getDataTypeName(OM_DATA_TYPE dataType) {
-  return OM_DATA_TYPE_NAME[dataType];
-}
-
-/* Helper function to print an element of a tensor */
-static inline void printElement(
-    void *dataPtr, int64_t elemOffset, OM_DATA_TYPE dataType) {
-  assert(dataPtr && "Expecting a valid data pointer");
-  assert(elemOffset >= 0 && "Expecting a valid element offset");
-
-  switch (dataType) {
-  case ONNX_TYPE_BOOL:
-    printf("%d", ((bool *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_UINT8:
-    printf("%hhu", ((uint8_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_INT8:
-    printf("%hhd", ((int8_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_UINT16:
-    printf("%hu", ((uint16_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_INT16:
-    printf("%hd", ((int16_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_UINT32:
-    printf("%u", ((uint32_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_INT32:
-    printf("%d", ((int32_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_UINT64:
-    printf("%llu", (unsigned long long)((uint64_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_INT64:
-    printf("%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_FLOAT:
-    printf("%f", ((float *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_DOUBLE:
-    printf("%f", ((double *)dataPtr)[elemOffset]);
-    break;
-  case ONNX_TYPE_STRING:
-    printf("%s", ((const char **)dataPtr)[elemOffset]);
-    break;
-  default:
-    assert(false && "unexpected data type");
-  }
 }
 
 /* Helper function to compute the inner product of 2 arrays (of equal size) */
@@ -330,7 +289,9 @@ void omTensorSetDataPtr(
 }
 
 /* OMTensor data shape getter */
-const int64_t *omTensorGetShape(const OMTensor *tensor) { return tensor->_shape; }
+const int64_t *omTensorGetShape(const OMTensor *tensor) {
+  return tensor->_shape;
+}
 
 /* OMTensor data shape setter */
 void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
@@ -339,7 +300,9 @@ void omTensorSetShape(OMTensor *tensor, const int64_t *shape) {
 }
 
 /* OMTensor data strides getter */
-const int64_t *omTensorGetStrides(const OMTensor *tensor) { return tensor->_strides; }
+const int64_t *omTensorGetStrides(const OMTensor *tensor) {
+  return tensor->_strides;
+}
 
 /* OMTensor data strides setter */
 void omTensorSetStrides(OMTensor *tensor, const int64_t *strides) {
@@ -417,128 +380,232 @@ void *omTensorGetAllocatedPtr(const OMTensor *tensor) {
   return tensor->_allocatedPtr;
 }
 
-void omTensorPrint(const char *msg, const OMTensor *tensor) {
-  assert(tensor && "attempt to print a null OMTensor");
+//===----------------------------------------------------------------------===//
+/* omTensorPrint helper */
 
+/* Helper function to get the ONNX data type C name string */
+static inline const char *getDataTypeName(OM_DATA_TYPE dataType) {
+  return OM_DATA_TYPE_NAME[dataType];
+}
+
+/* Helper function to print type as 8x16x1xfloat */
+static void printType(FILE *fout, const OMTensor *tensor) {
+  const OM_DATA_TYPE dataType = omTensorGetDataType(tensor);
+  const int64_t rank = omTensorGetRank(tensor);
+  const int64_t *shape = omTensorGetShape(tensor);
+  for (int64_t i = 0; i < rank; i++)
+    fprintf(fout, "%lldx", (long long)shape[i]);
+  fprintf(fout, "%s", getDataTypeName(dataType));
+}
+
+/* Helper function to print a detailed signature of a vector */
+static void printSignature(FILE *fout, const OMTensor *tensor) {
   const OM_DATA_TYPE dataType = omTensorGetDataType(tensor);
   const int64_t rank = omTensorGetRank(tensor);
   const int64_t *shape = omTensorGetShape(tensor);
   const int64_t *strides = omTensorGetStrides(tensor);
-  void *dataPtr = omTensorGetDataPtr(tensor);
 
-  // Process format if any (default is signature and data).
-  bool signatureInfo = false;
-  bool typeInfo = false;
-  bool dataInfo = false;
-  bool hadFormat = false;
-  while (strlen(msg) >= 2 && msg[0] == '%') {
-    if (msg[1] == 's') // S for signature.
-      hadFormat = signatureInfo = true;
-    else if (msg[1] == 't') // T for type only
-      hadFormat = typeInfo = true;
-    else if (msg[1] == 'd')
-      hadFormat = dataInfo = true;
-    else
-      printf("warning: unknown format `%c`\n", msg[1]);
-    // Skip the format when printing message.
-    msg += 2;
+  fprintf(fout, "\trank = %lld\n", (long long)rank);
+  fprintf(fout, "\tdataType = %s\n", getDataTypeName(dataType));
+  fprintf(fout, "\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
+  fprintf(fout, "\tshape: ");
+  for (int64_t i = 0; i < rank; i++)
+    fprintf(fout, "[%lld]", (long long)shape[i]);
+  fprintf(fout, "\n");
+  fprintf(fout, "\tstrides: ");
+  for (int64_t i = 0; i < rank; i++)
+    fprintf(fout, "[%lld]", (long long)strides[i]);
+  fprintf(fout, "\n");
+
+  fprintf(fout, "\ttype: ");
+  printType(fout, tensor);
+  fprintf(fout, "\n");
+}
+
+/* Helper function to print an element of a tensor */
+static void printElement(
+    FILE *fout, void *dataPtr, int64_t elemOffset, OM_DATA_TYPE dataType) {
+  assert(dataPtr && "Expecting a valid data pointer");
+  assert(elemOffset >= 0 && "Expecting a valid element offset");
+
+  switch (dataType) {
+  case ONNX_TYPE_BOOL:
+    fprintf(fout, "%d", ((bool *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT8:
+    fprintf(fout, "%hhu", ((uint8_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT8:
+    fprintf(fout, "%hhd", ((int8_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT16:
+    fprintf(fout, "%hu", ((uint16_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT16:
+    fprintf(fout, "%hd", ((int16_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT32:
+    fprintf(fout, "%u", ((uint32_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT32:
+    fprintf(fout, "%d", ((int32_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_UINT64:
+    fprintf(
+        fout, "%llu", (unsigned long long)((uint64_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_INT64:
+    fprintf(fout, "%lld", (long long)((int64_t *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_FLOAT16:
+    fprintf(fout, "%f", om_f16_to_f32(((uint16_t *)dataPtr)[elemOffset]));
+    break;
+  case ONNX_TYPE_FLOAT:
+    fprintf(fout, "%f", ((float *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_DOUBLE:
+    fprintf(fout, "%f", ((double *)dataPtr)[elemOffset]);
+    break;
+  case ONNX_TYPE_STRING:
+    fprintf(fout, "%s", ((const char **)dataPtr)[elemOffset]);
+    break;
+  default:
+    assert(false && "unexpected data type");
   }
-  if (!hadFormat)
-    signatureInfo = dataInfo = true;
+}
 
-  // Print message.
-  if (msg)
-    printf("%s", msg);
+/* Helper function to print the data of a tensor type */
+static void printData(FILE *fout, const OMTensor *tensor) {
 
-  if (signatureInfo) {
-    // Print detailed info.
-    printf("\trank = %lld\n", (long long)rank);
-    printf("\tdataType = %s\n", getDataTypeName(dataType));
-    printf("\tnumElems = %lld\n", (long long)omTensorGetNumElems(tensor));
-    printf("\tshape: ");
-    for (int64_t i = 0; i < rank; i++)
-      printf("[%lld]", (long long)shape[i]);
-    printf("\n");
-    printf("\tstrides: ");
-    for (int64_t i = 0; i < rank; i++)
-      printf("[%lld]", (long long)strides[i]);
-    printf("\n");
-  }
-  if (typeInfo) {
-    // Print compact type like in MLIR, e.g. 32x16xf32.
-    if (signatureInfo)
-      printf("\ttype: ");
-    for (int64_t i = 0; i < rank; i++)
-      printf("%lldx", (long long)shape[i]);
-    printf("%s", getDataTypeName(dataType));
-    if (signatureInfo)
-      printf("\n");
-  }
-
+/* Helper macros to print data for 1-4D tensors  */
 #define LOOP_1(INDEX, IV, UB)                                                  \
-  printf("[");                                                                 \
+  fprintf(fout, "[");                                                          \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
-      printf(", ");                                                            \
+      fprintf(fout, ", ");                                                     \
     indexes[INDEX] = IV;                                                       \
     int64_t elemOffset = computeElemOffset(tensor->_strides, indexes, rank);   \
-    printElement(dataPtr, elemOffset, dataType);                               \
+    printElement(fout, dataPtr, elemOffset, dataType);                         \
   }                                                                            \
-  printf("]");
+  fprintf(fout, "]");
 
 #define LOOP_2(INDEX, IV, UB, ...)                                             \
-  printf("[");                                                                 \
+  fprintf(fout, "[");                                                          \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
-      printf(", ");                                                            \
+      fprintf(fout, ", ");                                                     \
     indexes[INDEX] = IV;                                                       \
     LOOP_1(INDEX + 1, __VA_ARGS__)                                             \
   }                                                                            \
-  printf("]");
+  fprintf(fout, "]");
 
 #define LOOP_3(INDEX, IV, UB, ...)                                             \
-  printf("[");                                                                 \
+  fprintf(fout, "[");                                                          \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
-      printf(", ");                                                            \
+      fprintf(fout, ", ");                                                     \
     indexes[INDEX] = IV;                                                       \
     LOOP_2(INDEX + 1, __VA_ARGS__)                                             \
   }                                                                            \
-  printf("]");
+  fprintf(fout, "]");
 
 #define LOOP_4(INDEX, IV, UB, ...)                                             \
-  printf("[");                                                                 \
+  fprintf(fout, "[");                                                          \
   for (int64_t IV = 0; IV < UB; ++IV) {                                        \
     if (IV)                                                                    \
-      printf(", ");                                                            \
+      fprintf(fout, ", ");                                                     \
     indexes[INDEX] = IV;                                                       \
     LOOP_3(INDEX + 1, __VA_ARGS__)                                             \
   }                                                                            \
-  printf("]");
+  fprintf(fout, "]");
 
-  if (dataInfo) {
-    printf("\tdata: (");
-    switch (rank) {
-    case 1: {
-      int64_t indexes[1];
-      LOOP_1(0, i, shape[0])
-    } break;
-    case 2: {
-      int64_t indexes[2];
-      LOOP_2(0, i, shape[0], j, shape[1])
-    } break;
-    case 3: {
-      int64_t indexes[3];
-      LOOP_3(0, i, shape[0], j, shape[1], k, shape[2])
-    } break;
-    case 4: {
-      int64_t indexes[4];
-      LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
-    } break;
-    default:
-      assert(false && "not implemented");
+  const OM_DATA_TYPE dataType = omTensorGetDataType(tensor);
+  const int64_t rank = omTensorGetRank(tensor);
+  const int64_t *shape = omTensorGetShape(tensor);
+  void *dataPtr = omTensorGetDataPtr(tensor);
+
+  fprintf(fout, "\tdata: (");
+  switch (rank) {
+  case 0:
+    printElement(fout, dataPtr, 0, dataType);
+    break;
+  case 1: {
+    int64_t indexes[1];
+    LOOP_1(0, i, shape[0])
+  } break;
+  case 2: {
+    int64_t indexes[2];
+    LOOP_2(0, i, shape[0], j, shape[1])
+  } break;
+  case 3: {
+    int64_t indexes[3];
+    LOOP_3(0, i, shape[0], j, shape[1], k, shape[2])
+  } break;
+  case 4: {
+    int64_t indexes[4];
+    LOOP_4(0, i, shape[0], j, shape[1], k, shape[2], l, shape[3])
+  } break;
+  default:
+    assert(false && "not implemented");
+  }
+  fprintf(fout, ")\n");
+}
+
+/* Defined in OMInstrument.inc, return stdout or the FILE handle to where
+ * instrumentation should be printed. */
+FILE *getInstrumentFile();
+
+/* Print a string and possibly some info about a tensor. With `%d`, we print the
+tensor data; with `s`, we print an extended signature; with `t`, we print the
+type of the tensor (e.g. 32 x 16 x float)
+
+There are two other unpublished modifiers if the message starts with `%i`, this
+signal an instrumentation message that may be redirected to the file name given
+by ONNX_MLIR_INSTRUMENT_FILE. Additionally, there is a `%e` modifier that
+signals the end of the message string. This is unfortunately needed because of
+current issues with the termination of strings.
+*/
+void omTensorPrint(const char *msg, const OMTensor *tensor) {
+  /* Process the message string. */
+  int64_t len = strlen(msg);
+  FILE *fout = stdout;
+  /* Check if this is an instrumentation print, in which case we use the
+   * instrument file instead of stdout. */
+  if (len >= 2 && msg[0] == '%' && msg[1] == 'i') {
+    fout = getInstrumentFile();
+    /* Skip format. */
+    msg += 2;
+    len -= 2;
+  }
+  while (len > 0) {
+    if (msg[0] == '%') {
+      if (len < 2) {
+        fprintf(fout, "omTensorPrint: orphan `%%`, skip.\n");
+        return;
+      }
+      if (msg[1] == 'd') { /* Letter `d` for data. */
+        assert(tensor && "attempt to print a null OMTensor");
+        printData(fout, tensor);
+      } else if (msg[1] == 's') { /* Letter `s` for signature. */
+        assert(tensor && "attempt to print a null OMTensor");
+        printSignature(fout, tensor);
+      } else if (msg[1] == 't') { /* Letter `t` for type only. */
+        assert(tensor && "attempt to print a null OMTensor");
+        printType(fout, tensor);
+      } else if (msg[1] == 'e') { /* Letter `e` for end. */
+        return;
+      } else {
+        fprintf(fout, "omTensorPrint: unknown format `%c`, skip.\n", msg[1]);
+      }
+      /* Skip the format when printing message. */
+      msg += 2;
+      len -= 2;
+      continue;
     }
-    printf(")\n");
+    /* No format, just print letter. */
+    fprintf(fout, "%c", msg[0]);
+    msg++;
+    len--;
   }
 }
 

@@ -114,6 +114,11 @@ Value OnnxBuilder::div(Value A, Value B) const {
   return createOpAndInferShapes<ONNXDivOp>(toTensor(A), toTensor(B));
 }
 
+Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
+  return createOpAndInferShapes<ONNXExpandOp>(
+      outputType, toTensor(input), toTensor(shape));
+}
+
 Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   // Gemm only supports rank 2.
   bool canUseGemm = useGemm && A.getType().isa<ShapedType>() &&
@@ -191,6 +196,14 @@ Value OnnxBuilder::reduceMax(Type outputType, Value data, Value axes,
       toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
 }
 
+Value OnnxBuilder::reduceMean(Type outputType, Value data, Value axes,
+    bool keepDims, bool noop_with_empty_axes) const {
+  int64_t i_keepDims = keepDims; // 0 if false, 1 if true
+  int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
+  return createTypedOpAndInferShapes<ONNXReduceMeanOp>(toTensor(outputType),
+      toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
 Value OnnxBuilder::reduceMin(Type outputType, Value data, Value axes,
     bool keepDims, bool noop_with_empty_axes) const {
   int64_t i_keepDims = keepDims; // 0 if false, 1 if true
@@ -205,6 +218,12 @@ Value OnnxBuilder::reduceSum(Type outputType, Value data, Value axes,
   int64_t i_noop_with_empty_axes = noop_with_empty_axes; // ditto
   return createTypedOpAndInferShapes<ONNXReduceSumOp>(toTensor(outputType),
       toTensor(data), toTensor(axes), i_keepDims, i_noop_with_empty_axes);
+}
+
+Value OnnxBuilder::reciprocal(Value input) const {
+  Type outputType = input.getType(); // input == output type.
+  return createTypedOpAndInferShapes<ONNXReciprocalOp>(
+      toTensor(outputType), toTensor(input));
 }
 
 Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
@@ -254,6 +273,10 @@ Value OnnxBuilder::slice(Type outputType, Value input, int64_t start,
   Value endVal = constant(b().getI64TensorAttr(ArrayRef<int64_t>({end})));
   Value stepVal = constant(b().getI64TensorAttr(ArrayRef<int64_t>({step})));
   return slice(outputType, input, startVal, endVal, /*axis*/ zeroVal, stepVal);
+}
+
+Value OnnxBuilder::sqrt(Value input) const {
+  return createOpAndInferShapes<ONNXSqrtOp>(toTensor(input));
 }
 
 ValueRange OnnxBuilder::split(
@@ -433,8 +456,17 @@ ElementsAttr IndexExprBuilderForAnalysis::getConst(Value value) {
   return getElementAttributeFromONNXValue(value);
 }
 
-// For analysis, we never create values, so return null.
+// Return null if the value at index i is not a constant.
 Value IndexExprBuilderForAnalysis::getVal(Value intArrayVal, uint64_t i) {
+  // Value, e.g. `tensor<3xi64>`, may come from `onnx.Concat` of constant and
+  // runtime values. Thus, we potentially get a constant value at index i.
+  if (areDimsFromConcat(intArrayVal)) {
+    SmallVector<Value, 4> dims;
+    getDims(intArrayVal, dims);
+    if (isDenseONNXConstant(dims[i]))
+      return dims[i];
+  }
+  // Otherwise, for analysis, never create values, so return null.
   return nullptr;
 }
 

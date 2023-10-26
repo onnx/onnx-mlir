@@ -333,7 +333,7 @@ struct ZHighLayoutPropagationPass
   }
 
   void runOnOperation() override {
-    auto function = getOperation();
+    Operation *function = getOperation();
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
 

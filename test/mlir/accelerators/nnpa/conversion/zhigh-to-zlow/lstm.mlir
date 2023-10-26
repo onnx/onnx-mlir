@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @lstm_return_single_step(%input : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
 
@@ -222,10 +222,10 @@ func.func @lstm_bidir_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.layout<{dat
 // CHECK-DAG: [[MAP_5_:#.+]] = affine_map<()[s0] -> ((s0 + 31) floordiv 32)>
 // CHECK-LABEL:  func.func @lstm_bidir_unknown_dims
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x?x7xf16, [[MAP_0_]]>, [[PARAM_1_:%.+]]: memref<2x?x9xf16, [[MAP_0_]]>, [[PARAM_2_:%.+]]: memref<2x?x9xf16, [[MAP_0_]]>, [[PARAM_3_:%.+]]: memref<2x7x36xf16, [[MAP_1_]]>, [[PARAM_4_:%.+]]: memref<2x36xf16, [[MAP_2_]]>, [[PARAM_5_:%.+]]: memref<2x9x36xf16, [[MAP_1_]]>, [[PARAM_6_:%.+]]: memref<2x36xf16, [[MAP_2_]]>) -> (memref<?x2x?x9xf16, [[MAP_3_]]>, memref<1x2x?x9xf16, [[MAP_3_]]>) {
+// CHECK-DAG:       [[VAR_c8192_:%.+]] = arith.constant 8192 : index
 // CHECK-DAG:       [[VAR_c9_i64_:%.+]] = arith.constant 9 : i64
 // CHECK-DAG:       [[VAR_c7_i64_:%.+]] = arith.constant 7 : i64
 // CHECK-DAG:       [[VAR_c2_i64_:%.+]] = arith.constant 2 : i64
-// CHECK-DAG:       [[VAR_c4096_:%.+]] = arith.constant 4096 : index
 // CHECK-DAG:       [[VAR_c3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[VAR_c4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[VAR_c2_:%.+]] = arith.constant 2 : index
@@ -251,9 +251,8 @@ func.func @lstm_bidir_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.layout<{dat
 // CHECK-DAG:       [[VAR_2_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_dim_3_]]{{.}}
 // CHECK-DAG:       [[VAR_3_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_dim_4_]]{{.}}
 // CHECK:           [[VAR_4_:%.+]] = arith.muli [[VAR_2_]], [[VAR_3_]] : index
-// CHECK:           [[VAR_5_:%.+]] = arith.muli [[VAR_4_]], [[VAR_c4096_]] : index
-// CHECK:           [[VAR_6_:%.+]] = arith.muli [[VAR_5_]], [[VAR_c2_]] : index
-// CHECK:           [[RES_3_:%.+]] = memref.alloc([[VAR_6_]]) {{.*}}: memref<?xi8>
+// CHECK:           [[VAR_5_:%.+]] = arith.muli [[VAR_4_]], [[VAR_c8192_]] : index
+// CHECK:           [[RES_3_:%.+]] = memref.alloc([[VAR_5_]]) {{.*}}: memref<?xi8>
 // CHECK:           "zlow.lstm"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]], [[PARAM_5_]], [[PARAM_6_]], [[RES_3_]], [[RES_2_]], [[RES_]], [[RES_]]_1) {direction = "bidirectional", prev_layer = "none", return_all_steps = -1 : si64} : (memref<?x?x7xf16, [[MAP_0_]]>, memref<2x?x9xf16, [[MAP_0_]]>, memref<2x?x9xf16, [[MAP_0_]]>, memref<2x7x36xf16, [[MAP_1_]]>, memref<2x36xf16, [[MAP_2_]]>, memref<2x9x36xf16, [[MAP_1_]]>, memref<2x36xf16, [[MAP_2_]]>, memref<?xi8>, memref<5xi64>, memref<?x2x?x9xf16, [[MAP_3_]]>, memref<1x2x?x9xf16, [[MAP_3_]]>) -> ()
 // CHECK:           return [[RES_]], [[RES_]]_1 : memref<?x2x?x9xf16, [[MAP_3_]]>, memref<1x2x?x9xf16, [[MAP_3_]]>
 // CHECK:         }

@@ -43,48 +43,32 @@ template <typename T>
 std::optional<mlir::Value> convertReduceOpCommon(
     mlir::PatternRewriter &rewriter, mlir::Operation *op,
     mlir::RankedTensorType outputType, mlir::Value inputValue,
-    mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {
-  TosaBuilder tosaBuilder(rewriter, op->getLoc());
-  mlir::RankedTensorType inputType =
-      inputValue.getType().dyn_cast<mlir::RankedTensorType>();
-  if (!inputType)
-    return std::nullopt;
+    mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType);
 
-  llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
-  llvm::ArrayRef<int64_t> outputShape = outputType.getShape();
-  auto inputRank = inputShape.size();
+// This calculates the values that need to be added to the padding in order to
+// simulate the ceil mode
+template <typename ShapeHelperType>
+llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
+    ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    int64_t ceilMode);
 
-  if (axesElems.getNumElements() == 0) {
-    // No axes means return the original tensor.
-    auto identityOp = onnx_mlir::tosa::CreateOpAndInfer<mlir::tosa::IdentityOp>(
-        rewriter, op->getLoc(), outputType, inputValue);
-    return identityOp.getResult();
-  }
-  // Reduce along each axis
-  llvm::SmallVector<int64_t> shapeVec(inputShape.begin(), inputShape.end());
-  mlir::Value newValue = inputValue;
-  for (int i = 0; i < axesElems.getNumElements(); i++) {
-    int64_t axisVal = axesElems.getValues<mlir::IntegerAttr>()[i].getInt();
-    if (axisVal < 0)
-      axisVal += inputRank;
-    auto axisAttr = rewriter.getI64IntegerAttr(axisVal);
+// Create an ArrayAttr of pad from \p shapeHelper using \p padIndexOrder.
+// Values are calculated considering \p ceilMode.
+template <typename ShapeHelperType>
+mlir::ArrayAttr createOrderedPadAttrForWindowBasedOps(
+    mlir::PatternRewriter &rewriter, const llvm::ArrayRef<int64_t> inputShape,
+    ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
+    const int64_t ceilMode, const llvm::ArrayRef<int64_t> padIndexOrder);
 
-    shapeVec[axisVal] = 1;
-    mlir::RankedTensorType reduceType =
-        mlir::RankedTensorType::get(shapeVec, reduceElementType);
+inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter,
+    mlir::Value input, mlir::TypeAttr &accType);
 
-    auto reduceOp = CreateOpAndInfer<T>(
-        rewriter, op->getLoc(), reduceType, newValue, axisAttr);
+// Lower MaxPool and AveragePool to TOSA ops.
+template <typename ONNXPoolOp, typename TOSAPoolOp>
+mlir::FailureOr<mlir::Value> convertPoolOp(
+    mlir::PatternRewriter &rewriter, mlir::Operation *op);
 
-    newValue = reduceOp.getResult();
-  }
-
-  // Optionally squeeze out the reduced axes.
-  if (!keepDims) {
-    newValue = tosaBuilder.reshape(newValue, outputShape);
-  }
-  return newValue;
-}
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp.inc"
 
 } // namespace tosa
 
@@ -129,6 +113,8 @@ void populateLoweringONNXConvOpToTOSAPattern(mlir::ConversionTarget &,
 void populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
     mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &,
     mlir::MLIRContext *);
+void populateLoweringONNXAveragePoolOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // `Tensor` directory methods:
 void populateLoweringONNXConstOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);

@@ -42,6 +42,19 @@ namespace onnx_mlir {
 // Support functions.
 //===----------------------------------------------------------------------===//
 
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is
+// true.  Assert when not in range. Return positive axis.
+int64_t getAxisInRange(int64_t axis, int64_t rank, bool includeRank = false);
+int64_t getAxisInRange(int64_t axis, mlir::Value val, bool includeRank = false);
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is true.
+// Return false when not in range; set axis to positive value when in range.
+bool isAxisInRange(int64_t &axis, int64_t rank, bool includeRank = false);
+bool isAxisInRange(int64_t &axis, mlir::Value val, bool includeRank = false);
+
+//===----------------------------------------------------------------------===//
+// Support functions.
+//===----------------------------------------------------------------------===//
+
 // Update a tensor type by using the given shape, elementType and encoding.
 // TODO: when all ops are migrated to the new scheme, make this function private
 // to ONNXOpShapeHelper.
@@ -221,8 +234,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   // A vector of input shapes where dimensions are padded with 1 if necessary,
   // so that all inputs have the same rank. Instantiated during ComputeShape.
   llvm::SmallVector<DimsExpr, 4> inputsDims;
-  // A vector of IndexExprs representing the output shape (same rank as
-  // outputDims). Instantiated  during computeShape.
+  // Rank of the output shape.
   uint64_t outputRank;
 
 protected:
@@ -276,6 +288,17 @@ struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   mlir::LogicalResult computeShape() final {
     return ONNXBroadcastOpShapeHelper::computeShape();
   }
+};
+
+// Helper for ONNXLayerNormalizationOp (B and Scales broadcast to input X)
+struct ONNXLayerNormalizationOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXLayerNormalizationOpShapeHelper(mlir::Operation *op,
+      mlir::ValueRange operands, IndexExprBuilder *ieBuilder = nullptr,
+      IndexExprScope *scope = nullptr)
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
+            /*hasUniBroadcasting*/ true) {}
+  virtual ~ONNXLayerNormalizationOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
 };
 
 //===----------------------------------------------------------------------===//
@@ -649,6 +672,22 @@ using ONNXSqueezeV11OpShapeHelper = ONNXCommonSqueezeOpShapeHelper<mlir::ONNXSqu
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// Unique ops
+//===----------------------------------------------------------------------===//
+
+// Different versions of split op use common code, so specialize with
+// templated code.
+struct ONNXUniqueOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXUniqueOpShapeHelper(mlir::Operation *op,
+      mlir::ArrayRef<mlir::Value> operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXUniqueOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  // Additional data for UniqueOp:
+};
+
+//===----------------------------------------------------------------------===//
 // Unsqueeze ops
 //===----------------------------------------------------------------------===//
 
@@ -880,4 +919,5 @@ void SaveOnnxAttrInOp(mlir::Operation *op,
   OP_TYPE specificOp = llvm::cast<OP_TYPE>(op);
   setAttr(specificOp, newAttr);
 }
+
 } // namespace onnx_mlir

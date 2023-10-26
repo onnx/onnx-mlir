@@ -68,21 +68,31 @@ static bool areOverlapping(
 static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
     const uint64_t dimIndex, DimAnalysis::DimSetT &sameDims) {
   auto tensorType = cast<ShapedType>(tensor.getType());
+  uint64_t axis = dimIndex;
 
   bool okToInsert = false;
   if (tensor.isa<BlockArgument>()) {
     okToInsert = true;
   } else {
     Operation *op = tensor.getDefiningOp();
-    if (isa<ONNXConstantOp, ONNXCastOp, ONNXDimOp>(op) ||
-        tensorType.isDynamicDim(dimIndex))
+    // A constant of -1 to define a dynamic value, e.g. -1 in Reshape means a
+    // dynamic dimension computed from the other dimensions. It's a contant, no
+    // need to insert it.
+    if (isa<ONNXConstantOp>(op))
+      okToInsert = false;
+    else if (auto dimOp = dyn_cast<ONNXDimOp>(op)) {
+      // The correct axis is from ONNXDimOp.
+      axis = dimOp.getAxis();
+      okToInsert = true;
+    } else if (isa<ONNXCastOp>(op) || (axis < (uint64_t)tensorType.getRank() &&
+                                          tensorType.isDynamicDim(axis)))
       okToInsert = true;
   }
 
   if (!okToInsert)
     return std::nullopt;
 
-  DimAnalysis::DimT dim(tensor, dimIndex);
+  DimAnalysis::DimT dim(tensor, axis);
   sameDims.insert(dim);
   return dim;
 }
@@ -122,9 +132,224 @@ static void findAndAddSameDim(const QuestionmarkIndexExpr &qmOuputIE,
   }
 }
 
-/// Given a dynamic dimension, find the same dynamic dimensions in the inputs.
-/// This function uses ShapeHelper to explore the same dynamic dimensions.
-/// Use this function for operations that use adaptor to compute shape.
+/// Given a dynamic dimension of a tensor, find the same dynamic dimensions in
+/// the input tensors of the consuming operator.
+///
+/// For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0] = N.
+static void exploreSameDimsFromConsumingOperators(
+    const DimAnalysis::DimT &dim, DimAnalysis::DimSetT &sameDims) {
+  LLVM_DEBUG(llvm::dbgs() << "Explore using consuming operators\n");
+  for (Operation *op : dim.first.getUsers()) {
+    LLVM_DEBUG({
+      llvm::dbgs() << " - exploring ";
+      op->dump();
+    });
+    if (auto concatOp = dyn_cast<ONNXConcatOp>(op)) {
+      // Dimensions on the same axis (except the concatenating axis) are the
+      // same across all inputs.
+      int64_t axis = concatOp.getAxis();
+      ValueRange operands = concatOp.getOperands();
+      if (llvm::any_of(operands, [](Value v) { return !hasShapeAndRank(v); }))
+        continue;
+      uint64_t rank = getRank(operands[0].getType());
+      if (axis < 0)
+        axis += rank;
+      // Find the axis of the working dimension.
+      int64_t dimAxis = -1;
+      for (uint64_t i = 0; i < operands.size(); ++i) {
+        for (uint64_t r = 0; r < rank; ++r) {
+          DimAnalysis::DimT NinA(operands[i], r);
+          if (NinA == dim) {
+            dimAxis = r;
+            break;
+          }
+        }
+      }
+      if (dimAxis == -1 || dimAxis == axis)
+        continue;
+      for (uint64_t i = 0; i < operands.size(); ++i) {
+        if (operands[i] == dim.first)
+          continue;
+        if (auto d = insertDimWhenUseful(operands[i], dimAxis, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Concat] Added a new dim(" << d.value().first
+                     << ", " << d.value().second << ")\n");
+      }
+      continue;
+    }
+    if (auto gemmOp = dyn_cast<ONNXGemmOp>(op)) {
+      Value A = gemmOp.getA();
+      Value B = gemmOp.getB();
+      if (!hasShapeAndRank(A) || !hasShapeAndRank(B))
+        continue;
+      bool transA = (gemmOp.getTransA() != 0);
+      bool transB = (gemmOp.getTransB() != 0);
+      DimAnalysis::DimT NinA(A, transA ? 0 : 1);
+      DimAnalysis::DimT NinB(B, transB ? 1 : 0);
+      if (NinA == dim) {
+        if (auto d = insertDimWhenUseful(NinB.first, NinB.second, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Gemm] Added a new dim(" << d.value().first << ", "
+                     << d.value().second << ")\n");
+      } else if (NinB == dim) {
+        if (auto d = insertDimWhenUseful(NinA.first, NinA.second, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - [Gemm] Added a new dim(" << d.value().first << ", "
+                     << d.value().second << ")\n");
+      }
+      continue;
+    }
+    if (auto gruOp = dyn_cast<ONNXGRUOp>(op)) {
+      int64_t layout = gruOp.getLayout();
+      // In LSTM, sequence_lens and batch_size are potentially dynamic.
+      // Only batch_size is used in multiple inputs, so we'll check batch_size.
+      // X: [seq_length, batch_size, input_size]
+      Value X = gruOp.getX();
+      // seqLen: [batch_size]
+      Value seqLen = gruOp.getSequenceLens();
+      // initialH: [num_directions, batch_size, hidden_size]
+      Value initialH = gruOp.getInitialH();
+
+      // Collect batch_size dimensions from each input.
+      SmallVector<DimAnalysis::DimT, 4> batchDims;
+      if (hasShapeAndRank(X)) {
+        DimAnalysis::DimT d(X, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(seqLen) && hasShapeAndRank(seqLen)) {
+        DimAnalysis::DimT d(seqLen, 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(initialH) && hasShapeAndRank(initialH)) {
+        DimAnalysis::DimT d(initialH, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+
+      // Found same dims if the working dim is in the batch dim set.
+      if (llvm::any_of(
+              batchDims, [&dim](DimAnalysis::DimT d) { return d == dim; })) {
+        for (auto bd : batchDims) {
+          if (auto d = insertDimWhenUseful(bd.first, bd.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [GRU] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        }
+      }
+      continue;
+    }
+    if (auto lstmOp = dyn_cast<ONNXLSTMOp>(op)) {
+      int64_t layout = lstmOp.getLayout();
+      // In LSTM, sequence_lens and batch_size are potentially dynamic.
+      // Only batch_size is used in multiple inputs, so we'll check batch_size.
+      // X: [seq_length, batch_size, input_size]
+      Value X = lstmOp.getX();
+      // seqLen: [batch_size]
+      Value seqLen = lstmOp.getSequenceLens();
+      // initialH: [num_directions, batch_size, hidden_size]
+      Value initialH = lstmOp.getInitialH();
+      // initialC: [num_directions, batch_size, hidden_size]
+      Value initialC = lstmOp.getInitialC();
+
+      // Collect batch_size dimensions from each input.
+      SmallVector<DimAnalysis::DimT, 4> batchDims;
+      if (hasShapeAndRank(X)) {
+        DimAnalysis::DimT d(X, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(seqLen) && hasShapeAndRank(seqLen)) {
+        DimAnalysis::DimT d(seqLen, 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(initialH) && hasShapeAndRank(initialH)) {
+        DimAnalysis::DimT d(initialH, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(initialC) && hasShapeAndRank(initialC)) {
+        DimAnalysis::DimT d(initialC, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+
+      // Found same dims if the working dim is in the batch dim set.
+      if (llvm::any_of(
+              batchDims, [&dim](DimAnalysis::DimT d) { return d == dim; })) {
+        for (auto bd : batchDims) {
+          if (auto d = insertDimWhenUseful(bd.first, bd.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [LSTM] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        }
+      }
+      continue;
+    }
+    if (isa<ONNXMatMulOp, ONNXMatMulIntegerOp>(op)) {
+      Value A = op->getOperands()[0];
+      Value B = op->getOperands()[1];
+      if (!hasShapeAndRank(A) || !hasShapeAndRank(B))
+        continue;
+      uint64_t aRank = getRank(A.getType());
+      uint64_t bRank = getRank(B.getType());
+      if (aRank >= 2 && bRank >= 2) {
+        DimAnalysis::DimT NinA(A, aRank - 1);
+        DimAnalysis::DimT NinB(B, bRank - 2);
+        if (NinA == dim) {
+          if (auto d = insertDimWhenUseful(NinB.first, NinB.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [MatMul] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        } else if (NinB == dim) {
+          if (auto d = insertDimWhenUseful(NinA.first, NinA.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [MatMul] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        }
+      }
+      continue;
+    }
+    if (auto rnnOp = dyn_cast<ONNXRNNOp>(op)) {
+      int64_t layout = rnnOp.getLayout();
+      // In LSTM, sequence_lens and batch_size are potentially dynamic.
+      // Only batch_size is used in multiple inputs, so we'll check batch_size.
+      // X: [seq_length, batch_size, input_size]
+      Value X = rnnOp.getX();
+      // seqLen: [batch_size]
+      Value seqLen = rnnOp.getSequenceLens();
+      // initialH: [num_directions, batch_size, hidden_size]
+      Value initialH = rnnOp.getInitialH();
+
+      // Collect batch_size dimensions from each input.
+      SmallVector<DimAnalysis::DimT, 4> batchDims;
+      if (hasShapeAndRank(X)) {
+        DimAnalysis::DimT d(X, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(seqLen) && hasShapeAndRank(seqLen)) {
+        DimAnalysis::DimT d(seqLen, 0);
+        batchDims.emplace_back(d);
+      }
+      if (!isNoneValue(initialH) && hasShapeAndRank(initialH)) {
+        DimAnalysis::DimT d(initialH, (layout == 0) ? 1 : 0);
+        batchDims.emplace_back(d);
+      }
+
+      // Found same dims if the working dim is in the batch dim set.
+      if (llvm::any_of(
+              batchDims, [&dim](DimAnalysis::DimT d) { return d == dim; })) {
+        for (auto bd : batchDims) {
+          if (auto d = insertDimWhenUseful(bd.first, bd.second, sameDims))
+            LLVM_DEBUG(llvm::dbgs()
+                       << "  - [RNN] Added a new dim(" << d.value().first
+                       << ", " << d.value().second << ")\n");
+        }
+      }
+      continue;
+    }
+  }
+}
+
+/// Given an output dynamic dimension, find the same dynamic dimensions in the
+/// inputs. This function uses ShapeHelper to explore the same dynamic
+/// dimensions. Use this function for operations that use adaptor to compute
+/// shape.
 static bool exploreSameDimsUsingShapeHelper(const DimAnalysis::DimT &dim,
     mlir::Operation *op, DimAnalysis::DimSetT &sameDims) {
   LLVM_DEBUG(llvm::dbgs() << "Explore using shape helper\n");
@@ -278,6 +503,10 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
 
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
+    if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
+      for (Value arg : funcOp.getArguments())
+        build(arg);
+    }
     for (Value output : op->getResults())
       build(output);
   });
@@ -492,16 +721,25 @@ void DimAnalysis::visitDim(
   Value tensor = dim.first;
   uint64_t dimIndex = dim.second;
 
-  // Tensor is a block argument. Nothing to do further.
+  LLVM_DEBUG(
+      llvm::dbgs() << "\nVisiting dim(" << tensor << ", " << dimIndex << ")\n");
+
+  // When the current tensor is consumed by an operator, find the relation
+  // between dimensions of the input operands.
+  //
+  // For example, in MatMul(A, B) : MxN * NxP, dimA[1] = dimB[0].
+  exploreSameDimsFromConsumingOperators(dim, sameDims);
+
+  // The remaining code will find where a dimension comes from, depending on
+  // operation semantics, by *exploring the defining operator*. We utilize the
+  // operation's shape helper for this purpose as much as possible.
+
+  // Tensor is a block argument. There is no defining operator to explore.
   if (tensor.isa<BlockArgument>())
     return;
 
-  // Find where a dimension comes from, depending on operation semantics.
-  // We utilize the operation's shape helper for this purpose as much as
-  // possible.
+  // Get the defining operator.
   Operation *op = tensor.getDefiningOp();
-  LLVM_DEBUG(
-      llvm::dbgs() << "\nVisiting dim(" << tensor << ", " << dimIndex << ")\n");
 
   // Tensor is from a constant. Nothing to do further.
   if (isa<ONNXConstantOp>(op))
@@ -647,19 +885,20 @@ void DimAnalysis::visitDim(
     int64_t dataRank = dataType.getRank();
     int64_t outputRank = outputType.getRank();
     if ((dataRank == 2) && (outputRank == 2)) {
-      // Find if the output dim is from an input dim.
+      // Find if the other output dim is from an input dim.
       int64_t iDim = -1;
       for (int64_t i = 0; i < dataRank; ++i) {
-        if (sameDynDim(data, i, output, 1 - dimIndex)) {
+        if (sameDim(data, i, output, 1 - dimIndex)) {
           iDim = i;
-          // The other output dim must be the same as the other input dim.
-          if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
-            LLVM_DEBUG(llvm::dbgs()
-                       << "  - Case 2: Added a new dim(" << d.value().first
-                       << ", " << d.value().second << ")\n");
+          break;
         }
-        break;
       }
+      if (iDim != -1)
+        // The current output dim must be the same as the other input dim.
+        if (auto d = insertDimWhenUseful(data, 1 - iDim, sameDims))
+          LLVM_DEBUG(llvm::dbgs()
+                     << "  - Case 2: Added a new dim(" << d.value().first
+                     << ", " << d.value().second << ")\n");
     }
   }
 }

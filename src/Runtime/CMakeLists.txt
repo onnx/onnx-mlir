@@ -19,7 +19,9 @@ add_onnx_mlir_library(cruntime STATIC
   OMSort.c
   OMTensor.c
   OMTensorList.c
+  OMUnique.c
   OnnxDataType.c
+  ${ONNX_MLIR_SRC_ROOT}/src/Support/SmallFPConversion.c
 
   DEPENDS
   AcceleratorsInc
@@ -44,7 +46,9 @@ add_onnx_mlir_library(OMTensorUtils
   OMSort.cpp
   OMTensor.cpp
   OMTensorList.cpp
+  OMUnique.cpp
   OnnxDataType.cpp
+  ${ONNX_MLIR_SRC_ROOT}/src/Support/SmallFPConversion.c
 
   DEPENDS 
   AcceleratorsInc
@@ -81,6 +85,7 @@ add_onnx_mlir_library(OMPyExecutionSessionBase
 
   LINK_LIBS PUBLIC
   OMExecutionSession
+  OMMlirUtilities
   pybind11::embed
   pybind11::python_link_helper
   )

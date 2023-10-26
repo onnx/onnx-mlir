@@ -11,6 +11,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 
 #include "mlir/Dialect/Traits.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposablePool.hpp"
@@ -19,6 +20,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <algorithm>
 #include <numeric>
 
 using namespace mlir;
@@ -539,13 +541,98 @@ ElementsAttr ElementsAttrBuilder::slice(ElementsAttr elms,
   });
 }
 
+namespace {
+ElementsAttr splat(ShapedType type, WideNum num) {
+  Type elemType = type.getElementType();
+  BType btype = btypeOfMlirType(elemType);
+  if (isFloatBType(btype))
+    return DenseElementsAttr::get(type, num.toAPFloat(btype));
+  if (isIntBType(btype))
+    return DenseElementsAttr::get(type, num.toAPInt(btype));
+  llvm_unreachable("unsupported element type");
+}
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::pad(
+    ElementsAttr elms, ArrayRef<int64_t> pads, WideNum padValue) {
+  ArrayRef<int64_t> inputShape = elms.getShapedType().getShape();
+  size_t rank = inputShape.size();
+  if (rank == 0)
+    return elms;
+  ArrayRef<int64_t> leftPads = pads.take_front(rank);
+  ArrayRef<int64_t> rightPads = pads.take_back(rank);
+  SmallVector<int64_t> outShape(inputShape);
+  for (size_t axis = 0; axis < rank; ++axis)
+    outShape[axis] += leftPads[axis] + rightPads[axis];
+  ShapedType outType = elms.getShapedType().clone(outShape);
+  if (elms.empty())
+    return splat(outType, padValue);
+  return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
+    // The following unrolls the recurse(dst.begin(), elms.getValues())
+    // recursive algorithm described by the pseudo code:
+    //
+    //   def recurse(DstIter &out, SrcIter &inp, int axis = 0):
+    //     auto subSize = numElements(outShape.drop_front(axis + 1))
+    //     out = std::fill_n(out, leftPads[axis] * subSize)
+    //     if axis == rank - 1:
+    //       nunCols = inputShape.back()
+    //       out = std::copy(inp, inp += numCols, out)
+    //     else:
+    //       for i in range(inputShape[axis]):
+    //         recurse(out, inp, axis + 1)
+    //     out = std::fill_n(out, rightPads[axis] * subSize)
+
+    SmallVector<int64_t> betweenRowsPads(rank, 0);
+    int64_t beginPad = 0, endPad = 0;
+    int64_t multiplier = 1;
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      beginPad += leftPads[axis] * multiplier;
+      endPad += rightPads[axis] * multiplier;
+      betweenRowsPads[axis] = beginPad + endPad;
+      multiplier *= outShape[axis];
+    }
+
+    auto out = dst.begin();
+    out = std::fill_n(out, beginPad, padValue);
+
+    SmallVector<int64_t> strides;
+    ArrayBuffer<WideNum> src = getWideNumsAndStrides(elms, strides);
+    StridesRange<1> range(inputShape, {strides});
+    auto it = range.begin(), end = range.end();
+    assert(it != end && "elms must be non-empty");
+    assert(!inputShape.empty() && "elms must have rank > 0");
+    const int numCols = inputShape.back();
+    for (;;) {
+      // Copy next row from elms to dst.
+      for (int64_t col = 0; col < numCols; ++col, ++out, ++it) {
+        *out = src.get()[it->at(0)];
+      }
+
+      if (it == end)
+        break;
+
+      assert(it->index.back() == 0 && "it is at the start of a row");
+      int lastZero = rank - 1;
+      while (lastZero > 0 && it->index[lastZero - 1] == 0)
+        --lastZero;
+      out = std::fill_n(out, betweenRowsPads[lastZero], padValue);
+    }
+
+    out = std::fill_n(out, endPad, padValue);
+    assert(out == dst.end());
+  });
+}
+
 ElementsAttr ElementsAttrBuilder::gather(
     ElementsAttr input, ElementsAttr indices, unsigned axis) {
   ShapedType inputType = input.getShapedType();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   assert(axis < inputShape.size() && "gather axis out of range");
   auto postAxisShape = inputShape.drop_front(axis + 1);
-  ArrayRef<int64_t> indicesShape = indices.getShapedType().getShape();
+  ShapedType indicesType = indices.getShapedType();
+  assert(indicesType.getElementType().isSignlessInteger() &&
+         "gather indices must be i32 or i64");
+  ArrayRef<int64_t> indicesShape = indicesType.getShape();
   SmallVector<int64_t> outShape(inputShape.take_front(axis));
   outShape.append(indicesShape.begin(), indicesShape.end());
   outShape.append(postAxisShape.begin(), postAxisShape.end());
@@ -553,13 +640,18 @@ ElementsAttr ElementsAttrBuilder::gather(
   return fromWideNums(outType, [&](MutableArrayRef<WideNum> dst) {
     size_t postAxisNumElements = ShapedType::getNumElements(postAxisShape);
     ArrayBuffer<WideNum> src = getElementsWideNums(input);
-    ArrayBuffer<int64_t> indicesArray = getElementsArray<int64_t>(indices);
+    // Convert indices of any signed int element type to int64 by
+    // first promoting to WideNum and then casting to int64.
+    // In practice we support both int32 and int64 in this way.
+    ArrayBuffer<WideNum> indicesWideNums = getElementsWideNums(indices);
+    ArrayRef<int64_t> indicesArray =
+        castArrayRef<int64_t, WideNum>(indicesWideNums.get());
     size_t axisInputSize = inputShape[axis];
     size_t inputBlockLen = axisInputSize * postAxisNumElements;
-    size_t outBlockLen = indicesArray.get().size() * postAxisNumElements;
+    size_t outBlockLen = indicesArray.size() * postAxisNumElements;
     size_t start = 0;
     WideNum *out = dst.begin();
-    for (int64_t idx : indicesArray.get()) {
+    for (int64_t idx : indicesArray) {
       int64_t adjustedIdx = idx < 0 ? idx + axisInputSize : idx;
       const WideNum *in = src.get().begin() + adjustedIdx * postAxisNumElements;
       for (size_t offset = start; offset < dst.size(); offset += outBlockLen) {

@@ -123,7 +123,7 @@ LogicalResult ONNXBitwiseAndOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// BitwiseAndOp
+// BitwiseOrOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBitwiseOrOp::verify() {
@@ -136,7 +136,7 @@ LogicalResult ONNXBitwiseOrOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// BitwiseAndOp
+// BitwiseXorOp
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXBitwiseXorOp::verify() {

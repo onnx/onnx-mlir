@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --simplify-shape-related-ops-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt  --simplify-shape-related-ops-onnx %s -split-input-file | FileCheck %s
 
 func.func @test_shape_to_dim(%arg0: tensor<?x256xi64>) -> (tensor<2xi64>) {
   %0 = "onnx.Shape"(%arg0) : (tensor<?x256xi64>) -> tensor<2xi64>

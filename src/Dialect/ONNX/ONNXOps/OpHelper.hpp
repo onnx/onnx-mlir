@@ -47,6 +47,18 @@
 
 namespace onnx_mlir {
 
+/// This function returns a location with the corresponding ONNX operator name
+/// inside. This is useful when tracing what expanded MLIR instructions
+/// correspond to what ONNX operator.
+///
+///
+template <typename OP_TYPE>
+mlir::Location ONNXLoc(mlir::Operation *op) {
+  return mlir::NameLoc::get(
+      mlir::StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
+      op->getLoc());
+}
+
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
@@ -231,6 +243,11 @@ mlir::Type convertONNXTypeToMLIRType(
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
 
+/// Check if a value is a scalar tensor.
+bool isScalarTensor(mlir::Value v);
+
+bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
+
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
@@ -239,8 +256,8 @@ int64_t mlirTypeToOnnxType(mlir::Type elemType);
 template <typename OP>
 bool definedBy(mlir::Value v);
 
-/// Check if a value is to store dimensions, meaning it is defined by
-/// Dim/Constant/Cast/Concat.
+/// Check if a value is to store dimensions, meaning it is a tensor of one
+/// element or concatenation of one-element tensors.
 bool areDims(mlir::Value val);
 
 /// Check if a value is defined by Concat to store dimensions.
@@ -248,5 +265,12 @@ bool areDimsFromConcat(mlir::Value val);
 
 /// Get all dimensions that are stored by the value.
 void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
+
+//===----------------------------------------------------------------------===//
+// Support for location.
+//===----------------------------------------------------------------------===//
+
+std::string getNodeNameInPresenceOfOpt(
+    mlir::Operation *op, bool useFileLine = true);
 
 } // namespace onnx_mlir

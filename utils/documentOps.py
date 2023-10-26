@@ -1,10 +1,10 @@
-#!/usr/local/bin/python3
+#!/usr/bin/python3
 
 # SPDX-License-Identifier: Apache-2.0
 
 ##################### documentOps.py ########################################
 #
-# Copyright 2022 The IBM Research Authors.
+# Copyright 2022, 2023 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -17,6 +17,12 @@
 # Script currently invoked by the `onnx_mlir_supported_ops` make target.
 #
 ################################################################################
+
+################################################################################
+# Default min/max opset supported (when not explicitly specified).
+# Default values are used when no explicit ==MIN==/==MAX== values are used.
+min_opset_default = 6
+max_opset_default = "*"
 
 import sys
 import getopt
@@ -35,59 +41,79 @@ import subprocess
 #   where <op> is the ONNX op name
 #   where <text> is optional text, currently unused
 #
-# ==LIM== <text> 
+# ==LIM== <text>
 #   where <text> qualifies the current restrictions to the implementation.
 #
 # ==TODO== <text>
-#   where <text> add "private" info about what needs to be fixed. 
+#   where <text> add "private" info about what needs to be fixed.
 #
+# ==MIN== <num>
+#   where <num> is the minimum release version supported.
+#
+# ==UNSUPPORTED== <num>
+#   where <num> is the unsupported release version of the operator.
 #
 ################################################################################
-# Usage.
 
-def print_usage():
-    print('\nGenerate MD document tables for the supported ops using the labeling left in files.')
+
+################################################################################
+# Usage.
+def print_usage(msg=""):
+    if msg:
+        print("Error:", msg, "\n")
+    print(
+        "\nGenerate MD document tables for the supported ops using the labeling left in files."
+    )
     print("For labeling format, consult the python script directly.")
-    print('documentOps [-a <arch>] [-dnu] -i <file> [-p <path>')
+    print("documentOps [-a <arch>] [-dnu] -i <file> [-p <path>")
     print('  -a, --arch <arch>: report on "==ARCH== <arch>".')
-    print('  -d, --debug: include debug.')
-    print('  -i, --input <file name>: input file.')
-    print('  -n, --notes: include notes/TODOs.')
-    print('  -p, --path <util path>: path to onnx-mlir util directory.')
-    print('  -u, --unsupported: list unsupported ops.')
+    print("  -d, --debug: include debug.")
+    print("  -i, --input <file name>: input file.")
+    print("  -n, --notes: include notes/TODOs.")
+    print("  -p, --path <util path>: path to onnx-mlir util directory.")
+    print("  -u, --unsupported: list unsupported ops.")
     sys.exit()
+
 
 ################################################################################
 # Handling of info: global dictionaries.
 
-hightest_opset = 1   # Highest opset is.
-opset_dict = {}        # <op> -> <text> in "==OP== <op> <text>".
-limit_dict = {}        # <op> -> <text> in "==LIM== <text>".
-todo_dict = {}         # <op> -> <text> in "==TODO== <text>".
-list_op_version = {}   # List of operation versions from gen_onnx_mlir;
-                       # <op> -> [supported versions]
-additional_top_paragraph = "" # <text> in "==ADDITIONAL_TOP_PARAGRAPH <text>"
+hightest_opset = None  # Highest opset found in the description.
+opset_dict = {}  # <op> -> <text> in "==OP== <op> <text>".
+limit_dict = {}  # <op> -> <text> in "==LIM== <text>".
+min_dict = {}  # <op> -> <num> in "==MIN== <num>".
+max_dict = {}  # <op> -> <num> in "==MAX== <num>".
+todo_dict = {}  # <op> -> <text> in "==TODO== <text>".
+list_op_version = {}  # List of operation versions from gen_onnx_mlir;
+# <op> -> [supported versions]
+additional_top_paragraph = ""  # <text> in "==ADDITIONAL_TOP_PARAGRAPH <text>"
 
 ################################################################################
 # Parse input file. Add only info if it is the proper target arch. Other entries
-# and non-relevant data is simply ignored. At this time, does not support 
+# and non-relevant data is simply ignored. At this time, does not support
 # multiple entries of any kind. Everything is case sensitive.
 
+
 def dotted_sentence(str):
-    if re.match(r'.*\.\s*$', str) is None:
+    if re.match(r".*\.\s*$", str) is None:
         return str + "."
     return str
 
+
 def parse_file(file_name):
-    global hightest_opset, additional_top_paragraph
-    file = open(file_name, 'r')
+    global additional_top_paragraph
+    try:
+        file = open(file_name, "r")
+    except OSError:
+        print_usage("Could not open file `" + file_name + "`")
+
     op = ""
     arch = ""
     for line in file:
         l = line.rstrip()
         # Scan arch.
-        p = re.search(r'==ARCH==\s+(\w+)', l)
-        if p is not None: 
+        p = re.search(r"==ARCH==\s+(\w+)", l)
+        if p is not None:
             arch = p[1]
             if debug:
                 print("process arch", arch)
@@ -95,28 +121,29 @@ def parse_file(file_name):
         if arch != target_arch:
             continue
         # Additional top paragraph
-        p = re.search(r'==ADDITIONAL_PARAGRAPH==\s+(.*)\s*$', l)
+        p = re.search(r"==ADDITIONAL_PARAGRAPH==\s+(.*)\s*$", l)
         if p is not None:
             additional_top_paragraph = dotted_sentence(p[1])
             if debug:
                 print("process paragraph", additional_top_paragraph)
             continue
         # Scan op.
-        p = re.search(r'==OP==\s+(\w+)', l)
-        if p is not None: 
+        p = re.search(r"==OP==\s+(\w+)", l)
+        if p is not None:
             op = p[1]
             assert op not in opset_dict, "Redefinition of op " + op
-            assert op in list_op_version, "Define an op " + op + " that is not listed in the ops we currently handle."
+            assert op in list_op_version, (
+                "Define an op "
+                + op
+                + " that is not listed in the ops we currently handle."
+            )
             versions = list_op_version[op]
-            opset_dict[op] = ', '.join(map(lambda x: str(x), versions))
-            m = max(versions)
-            if m > hightest_opset:
-                hightest_opset = m
+            opset_dict[op] = versions
             if debug:
                 print("got supported op", op, "at level", list_op_version[op])
             continue
         # Limits.
-        p = re.search(r'==LIM==\s+(.*)\s*$', l)
+        p = re.search(r"==LIM==\s+(.*)\s*$", l)
         if p is not None:
             assert op is not None, "Limit without op."
             assert op not in limit_dict, "Redefinition of limit for op " + op
@@ -124,7 +151,7 @@ def parse_file(file_name):
             if debug:
                 print("Got limit for op", op, ":", limit_dict[op])
             continue
-        p = re.search(r'==TODO==\s+(.*)\s*$', l)
+        p = re.search(r"==TODO==\s+(.*)\s*$", l)
         if p is not None:
             assert op is not None, "Todo without op."
             assert op not in todo_dict, "Redefinition of todo for op " + op
@@ -132,9 +159,41 @@ def parse_file(file_name):
             if debug:
                 print("got todo for op", op, ":", todo_dict[op])
             continue
+        # Min release supported.
+        p = re.search(r"==MIN==\s+(\d+)\s*$", l)
+        if p is not None:
+            assert op is not None, "Min without op."
+            assert op not in min_dict, "Redefinition of min for op " + op
+            op_min = max(int(p[1]), min_opset_default)
+            min_dict[op] = op_min
+            # By default, assume we support the latest op version. (overridden by UNSUPPORTED)
+            max_dict[op] = max_opset_default
+            if debug:
+                print("Got min for op", op, ":", min_dict[op])
+            continue
+        # Max release supported.
+        p = re.search(r"==UNSUPPORTED==\s+(.*)\s*$", l)
+        if p is not None:
+            assert op is not None, "Unsupported without op."
+            assert op in min_dict and min_dict[op], (
+                "Unsupported without min for op " + op
+            )
+            assert max_dict[op] == max_opset_default, (
+                "Redefinition of Unsupported for op " + op
+            )
+            assert (
+                int(p[1]) > min_dict[op]
+            ), f"Unsupported version {p[1]} should be greater than min {min_dict[op]} for op {op}"
+            # Show the last compatible Opset for the version of the Op
+            max_dict[op] = int(p[1]) - 1
+            if debug:
+                print("Got unsupported for op", op, ":", max_dict[op])
+            continue
+
 
 ################################################################################
 # Print info.
+
 
 def print_row(array):
     str = "| "
@@ -142,30 +201,45 @@ def print_row(array):
         str += a + " |"
     print(str)
 
+
 def print_md():
     # Header.
     print("<!--- Automatically generated, do not edit. -->")
-    print("<!--- To update, run `make onnx_mlir_supported_ops` -->")
+    print("<!--- To update, run `make onnx_mlir_supported_ops_" + target_arch + "' -->")
     # Title
     print("\n# Supported ONNX Operation for Target *" + target_arch + "*.\n")
     # Top paragraph.
-    print("Onnx-mlir currently supports ONNX operations targeting up to " +
-        "opset " + str(hightest_opset) + ". Limitations are listed when applicable.\n")
-    print("* Operations are defined by the [ONNX Standard]" +
-        "(https://github.com/onnx/onnx/blob/main/docs/Operators.md).")
-    print("* Opset indicates, for each operation, the ONNX opset that " +
-        "(1) last modified that operation and " +
-        "(2) is supported by the current version of onnx-mlir. " +
-        "For example, \"Add\" was modified in Opset 14 and carries on unmodified " +
-        "to Opset 16. If onnx-mlir supports Opset 14, we thus list \"14\" as the Opset " +
-        "associated with the \"Add\" operation.")
+    print(
+        "Onnx-mlir currently supports ONNX operations targeting up to "
+        + "opset "
+        + str(hightest_opset)
+        + ". Limitations are listed when applicable."
+        + " This documentation highlights the minimum and maximum opset versions that"
+        + " are fully supported by onnx-mlir and not the version changes."
+        + "\n"
+    )
+    print(
+        "* Operations are defined by the [ONNX Standard]"
+        + "(https://github.com/onnx/onnx/blob/main/docs/Operators.md)."
+    )
+    print(
+        "* **Supported Opsets** indicates the lowest and highest opset a model"
+        + " may have for onnx-mlir to support compiling a model with the operator. "
+    )
+    print(
+        "   * A * indicates onnx-mlir is compatible with the latest"
+        + " version of that operator available as of opset "
+        + str(hightest_opset)
+        + "."
+    )
+
     print("\n")
     # Additional top paragraph.
     if additional_top_paragraph:
         print(additional_top_paragraph)
         print("\n")
     # Table.
-    header = ["Op", "Up to Opset", "Limitations"]
+    header = ["Op", "Supported Opsets (inclusive)", "Limitations"]
     separator = ["---", "---", "---"]
     if emit_notes:
         header.append("Notes")
@@ -173,17 +247,15 @@ def print_md():
     print_row(header)
     print_row(separator)
     for op in sorted(list_op_version.keys()):
-        supported_op = op in opset_dict;
+        supported_op = op in min_dict
         if supported_op:
-            info = ["**"+op+"**", opset_dict[op]]
+            info = ["**" + op + "**", f"{min_dict[op]} - {max_dict[op]}"]
         else:
             if not emit_unsupported:
                 continue
-            info = ["**"+op+"**", ""]
+            info = ["**" + op + "**", "none", ""]
         if op in limit_dict:
             info.append(limit_dict[op])
-        elif not supported_op:
-            info.append("unsupported")
         else:
             info.append("")
         if emit_notes:
@@ -193,10 +265,10 @@ def print_md():
                 info.append("")
         print_row(info)
 
-        
+
 def main(argv):
     global debug, target_arch, emit_notes, emit_unsupported, input_command, additional_top_paragraph
-    global list_op_version
+    global list_op_version, hightest_opset
     debug = 0
     target_arch = "cpu"
     emit_notes = 0
@@ -207,27 +279,30 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(
-            argv, "a:dhi:np:u", ["arch=", "debug", "help", "input=", "notes", "path=", "unsupported"])
+            argv,
+            "a:dhi:np:u",
+            ["arch=", "debug", "help", "input=", "notes", "path=", "unsupported"],
+        )
     except getopt.GetoptError:
         print_usage()
     for opt, arg in opts:
         if opt in ("-a", "--arch"):
             target_arch = arg
             input_command += " --arch " + arg
-        elif opt in ('-d', "--debug"):
+        elif opt in ("-d", "--debug"):
             debug = 1
-        elif opt in ('-h', "--help"):
+        elif opt in ("-h", "--help"):
             print_usage()
-        elif opt in ('-i', "--input"):
+        elif opt in ("-i", "--input"):
             file_name = arg
             input_command += " --input " + file_name
-        elif opt in ('-n', "--notes"):
+        elif opt in ("-n", "--notes"):
             emit_notes = True
             input_command += " --notes"
-        elif opt in ('-p', "--path"):
+        elif opt in ("-p", "--path"):
             util_path = arg
             input_command += " --path " + util_path
-        elif opt in ('-u',  "--unsupported"):
+        elif opt in ("-u", "--unsupported"):
             emit_unsupported = True
             input_command += " --unsupported"
 
@@ -236,17 +311,22 @@ def main(argv):
         print_usage()
 
     # Load gen_onnx_mlir operation version.
-    proc = subprocess.Popen(['python3', util_path + '/gen_onnx_mlir.py', '--list-operation-version'], stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        ["python3", util_path + "/gen_onnx_mlir.py", "--list-operation-version"],
+        stdout=subprocess.PIPE,
+    )
     str = ""
-    for line in  proc.stdout:
+    for line in proc.stdout:
         str += line.decode("utf-8").rstrip()
     list_op_version = eval(str)
+    hightest_opset = max([max(i) for i in list_op_version.values()])
     if debug:
         print("List op version is: ", list_op_version)
 
     # Parse and print md table.
     parse_file(file_name)
     print_md()
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

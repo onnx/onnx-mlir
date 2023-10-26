@@ -14,7 +14,9 @@
 
 #include <regex>
 #include <set>
+#include <string>
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -24,7 +26,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -68,12 +69,13 @@ public:
   InstrumentPass() = default;
   InstrumentPass(const InstrumentPass &pass)
       : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(StringRef ops, unsigned actions) {
-    this->instrumentOps = ops.str();
-    this->instrumentBefore = actions & (1 << onnx_mlir::InstrumentBeforeOp);
-    this->instrumentAfter = actions & (1 << onnx_mlir::InstrumentAfterOp);
-    this->reportTime = actions & (1 << onnx_mlir::InstrumentReportTime);
-    this->reportMemory = actions & (1 << onnx_mlir::InstrumentReportMemory);
+  InstrumentPass(const std::string &ops, unsigned actions) {
+    this->instrumentOps = ops;
+    unsigned long long tag = actions;
+    this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+    this->instrumentAfter = IS_INSTRUMENT_AFTER_OP(tag);
+    this->reportTime = IS_INSTRUMENT_REPORT_TIME(tag);
+    this->reportMemory = IS_INSTRUMENT_REPORT_MEMORY(tag);
   }
 
 private:
@@ -99,49 +101,82 @@ public:
 
   // merge all action options into a bitset
   // used to create tags for instrumentation ops
-  int actions() const {
-    int tag = 0;
+  uint64_t actions() const {
+    int64_t tag;
+
+    INIT_INSTRUMENT(tag);
     if (instrumentBefore)
-      tag |= 1 << onnx_mlir::InstrumentBeforeOp;
+      SET_INSTRUMENT_BEFORE_OP(tag);
     if (instrumentAfter)
-      tag |= 1 << onnx_mlir::InstrumentAfterOp;
+      SET_INSTRUMENT_AFTER_OP(tag);
     if (reportTime)
-      tag |= 1 << onnx_mlir::InstrumentReportTime;
+      SET_INSTRUMENT_REPORT_TIME(tag);
     if (reportMemory)
-      tag |= 1 << onnx_mlir::InstrumentReportMemory;
+      SET_INSTRUMENT_REPORT_MEMORY(tag);
     return tag;
   }
 
-  int beforeTag() const {
-    return actions() & (~(1 << onnx_mlir::InstrumentAfterOp));
+  uint64_t beforeTag() const {
+    int64_t tag = actions();
+    CLEAR_INSTRUMENT_AFTER_OP(tag);
+    return tag;
   }
-  int afterTag() const {
-    return actions() & (~(1 << onnx_mlir::InstrumentBeforeOp));
+
+  uint64_t afterTag() const {
+    int64_t tag = actions();
+    CLEAR_INSTRUMENT_BEFORE_OP(tag);
+    return tag;
   }
 
   void runOnOperation() override {
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
     init(instrumentOps);
+    bool hasInitializedRuntime = false;
 
     // Iterate on the operations nested in this function
-    getOperation().walk([&](mlir::Operation *op) {
+    getOperation().walk([&](mlir::Operation *op) -> WalkResult {
+      // Do not profile operations that return a None value (e.g. onnx.NoValue).
+      // Somehow such none-returned operations cause messy output, For example,
+      // with --profile-ir=ZHigh for the mnist-12 model, it mixed version error
+      // with profiling info.
+      // ```
+      // #  0) before zlow.stickModel is running on hardware that is not
+      // compatible with the zDNN library that this model was compiled for
+      // (version num %llu.%llu.%llu). Please check that the model is running on
+      // hardware with an integrated accelerator for AI (z16 +) that supports
+      // the required zDNN library version.
+      // ```
+      if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
+        return WalkResult::advance();
       std::string opName = op->getName().getStringRef().str();
       for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
         std::regex re(*itr);
         if (std::regex_match(opName, re)) {
           Location loc = op->getLoc();
           OpBuilder opBuilder(op);
-          if (instrumentBefore)
-            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, beforeTag());
+          if (instrumentBefore) {
+            uint64_t tag = beforeTag();
+            if (!hasInitializedRuntime) {
+              SET_INSTRUMENT_INIT(tag);
+              hasInitializedRuntime = true;
+            }
+            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          }
 
           // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
           if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
             opBuilder.setInsertionPointAfter(op);
-            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, afterTag());
+            uint64_t tag = afterTag();
+            if (!hasInitializedRuntime) {
+              SET_INSTRUMENT_INIT(tag);
+              hasInitializedRuntime = true;
+            }
+            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
           }
         }
       }
+      return WalkResult::advance();
     });
   }
 };
@@ -155,6 +190,6 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass() {
 }
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentPass(
-    StringRef ops, unsigned actions) {
+    const std::string &ops, unsigned actions) {
   return std::make_unique<InstrumentPass>(ops, actions);
 }

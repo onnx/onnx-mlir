@@ -29,6 +29,7 @@ include "src/Interface/SpecializedKernelOpInterface.td"
 def Krnl_Dialect : Dialect {
   let name = "krnl";
   let cppNamespace = "::mlir";
+  let usePropertiesForAttributes = 0;
   let useDefaultTypePrinterParser = 1;
   let dependentDialects = [
     "affine::AffineDialect",
@@ -499,6 +500,25 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
       $loop attr-dict `:` type($loop)
   }];
 }
+
+def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
+  let summary = "Krnl parallel operation";
+  let description = [{
+    Parallelize the specified loops. krnl.parallel should be placed as the last
+    operator before krnl.iterate. Since we do not want to parallelize the loop
+    until we interpret krnl.block, krnl.permute and krnl.unroll.
+    ```
+    krnl.parallel %i
+    ```
+  }];
+
+  let arguments = (ins AnyType:$loop);
+
+  let assemblyFormat = [{
+      $loop attr-dict `:` type($loop)
+  }];
+}
+
 
 def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
   let summary = "Krnl dimensions operation.";

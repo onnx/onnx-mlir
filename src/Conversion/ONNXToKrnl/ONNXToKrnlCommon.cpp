@@ -23,6 +23,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -236,6 +238,28 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
   return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
              : create.math.constant(type, shape[axis]);
+}
+
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(Operation *op, std::string opsForCall) {
+  // Special cases for none or all
+  if (opsForCall == "")
+    return false;
+  if (opsForCall == "*")
+    return true;
+  // Get the name for op and remove the leading "onnx."
+  std::string opName = op->getName().stripDialect().str();
+  // To handle the case that onnx ops may have common part in name, a space
+  // is added as delimiter to search
+  std::string str = opsForCall + " ";
+  std::string sub = opName + " ";
+  int index = str.find(sub);
+  if (index == -1) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 namespace {
@@ -655,6 +679,43 @@ bool hasNonIdentityLayout(ValueRange operands) {
     if (hasNonIdentityLayout(val))
       return true;
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
+    int64_t loopLevel, int64_t parallelLoopTripCount,
+    const std::string &comment) {
+  assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
+  StringAttr opName = op->getName().getIdentifier();
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+  // Print report on this op.
+  printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
+      (long long int)loopLevel, (long long int)parallelLoopTripCount);
+}
+
+void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
+    int64_t vectorLength, int64_t simdLoopTripCount,
+    const std::string &comment) {
+  assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
+  StringAttr opName = op->getName().getIdentifier();
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+  // Handling message.
+  std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
+  if (message.empty())
+    message = comment;
+  if (message.empty() && vectorLength == 0 && simdLoopTripCount == 0)
+    // No comments, all values indicate no simd
+    message = "unsupported";
+  // Print report on this op.
+  printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
+      (long long int)vectorLength, (long long int)simdLoopTripCount);
 }
 
 } // namespace onnx_mlir

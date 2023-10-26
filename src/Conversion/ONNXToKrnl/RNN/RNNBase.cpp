@@ -27,7 +27,8 @@ int64_t dimAt(Value val, int index) {
 /// Insert Allocate and Deallocate for the all hidden output.
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+    const TypeConverter *typeConverter, Value X, Value W, Value R,
+    Value output) {
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
 
@@ -154,7 +155,8 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Insert Allocate and Deallocate for the hidden or cell output.
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+    const TypeConverter *typeConverter, Value X, Value W, Value R,
+    Value output) {
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
   IndexExprScope scope(create.krnlIE);
@@ -332,6 +334,35 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
       });
 
   return sliceX;
+}
+
+// Change the nextHt and Ht value if sequenceLens is defined.
+// When a sample reachs the limit of its sequence len, nextHt will be padded
+// with 0 (or initialH), and Ht will keep the last value at the sequence end
+// so that the final value Ht is the last value at their sequence len.
+Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
+    Value sequenceLens, Value initialH, Value nextHt, Value sequenceIV,
+    Value directionIV, Value bs, Value hs, Value Ht) {
+  if (!isNoneValue(sequenceLens)) {
+    Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+    Value initial;
+    if (isNoneValue(initialH)) {
+      initial = createMath.constant(nextHt.getType(), 0.);
+    } else {
+      initial = createKrnl.load(initialH, {directionIV, bs, hs});
+    }
+    Value cond = createMath.sge(
+        createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+    nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
+
+    // Last HT should be the last in sequenceLens or the current result
+    Value lastHt =
+        createMath.select(cond, createKrnl.load(Ht, {bs, hs}), nextHt);
+    createKrnl.store(lastHt, Ht, {bs, hs});
+  } else {
+    createKrnl.store(nextHt, Ht, {bs, hs});
+  }
+  return nextHt;
 }
 
 } // namespace onnx_mlir

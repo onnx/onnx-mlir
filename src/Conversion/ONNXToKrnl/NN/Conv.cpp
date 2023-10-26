@@ -239,25 +239,22 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     ONNXConvOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    // Convert the output type to MemRefType.
-    Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
-           "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
-
-    // Insert an allocation and deallocation for the result of this operation.
-    Value alloc =
-        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims());
-
+    // Insert allocation for the result of this operation.
+    Value alloc = allocForONNXOp<ONNXConvOp>(
+        convOp, rewriter, typeConverter, shapeHelper)[0];
+    MemRefType memRefType = alloc.getType().cast<MemRefType>();
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
 
 void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
+    std::string opsForCall) {
+  patterns.insert<ONNXConvOpToCall>(typeConverter, ctx, opsForCall);
   patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
 }
 

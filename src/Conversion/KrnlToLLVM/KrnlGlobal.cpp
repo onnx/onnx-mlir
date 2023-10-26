@@ -265,7 +265,7 @@ private:
   MemRefDescriptor createMemRefDescriptor(Value address, MemRefType memRefType,
       Location loc, OpBuilder &builder) const {
     Type elementType = memRefType.getElementType();
-    LLVMTypeConverter &typeConverter = *getTypeConverter();
+    const LLVMTypeConverter &typeConverter = *getTypeConverter();
     Type llvmElemType = typeConverter.convertType(elementType);
     MLIRContext *context = builder.getContext();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);

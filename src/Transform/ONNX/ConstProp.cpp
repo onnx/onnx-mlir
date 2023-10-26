@@ -4,7 +4,7 @@
 
 //===----------- ONNXConstProp.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Transform/ONNX/ConstProp.hpp"
+#include "src/Pass/Passes.hpp"
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -20,6 +23,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -27,13 +32,12 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
-#include "src/Pass/Passes.hpp"
-#include "src/Support/Common.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
 #include <numeric>
-#include <unordered_map>
+
+#define DEBUG_TYPE "constprop-onnx"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -57,38 +61,50 @@ namespace {
 // ConstProp.td for example.
 //
 
-// Collects stats on the amount of constant propagation.
-// The onnx-mlir binary dumps the stats if run with --onnx-const-prop-report.
-struct ConstPropCounters {
-  size_t invocations = 0;
-  size_t input_elms = 0;
-
-  static void count(const std::string &name, ValueRange operands) {
-    auto &counters = map[name];
-    counters.invocations += 1;
-    for (auto oprnd : operands)
-      if (!isa<NoneType>(oprnd.getType()))
-        counters.input_elms +=
-            getNumberOfElements(oprnd.getType().cast<ShapedType>());
-  }
-
-  static void dump(llvm::raw_ostream &os) {
-    size_t total_invocations = 0, total_input_elms = 0;
-    for (auto &entry : map)
-      total_invocations += entry.second.invocations,
-          total_input_elms += entry.second.input_elms;
-    os << "constprop report (cumulative), entries: " << map.size()
-       << ", total invocations:" << total_invocations
-       << ", total input elements:" << total_input_elms << "\n";
-    for (auto &entry : map)
-      os << "  " << entry.first << " invocations:" << entry.second.invocations
-         << " input elements:" << entry.second.input_elms << "\n";
-  }
-
-  static std::unordered_map<std::string, ConstPropCounters> map;
+// Populated by configureConstPropONNXToONNXPass().
+struct ConstPropONNXToONNXPassConfiguration {
+  static int expansionBound;
+  static StringSet<> disabledPatterns;
+  static bool constantPropIsDisabled;
 };
 
-std::unordered_map<std::string, ConstPropCounters> ConstPropCounters::map;
+int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
+StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
+bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
+
+// Precondition: result has ranked tensor type with static shape and int or
+// float element type.
+bool satisfiesExpansionBound(Value result) {
+  if (ConstPropONNXToONNXPassConfiguration::expansionBound < 0) {
+    return true; // -1 == no bound
+  }
+  auto resultType = cast<RankedTensorType>(result.getType());
+  assert(resultType.hasStaticShape() && "expansion bound needs static shape");
+  int64_t sum = 0;
+  for (auto operand : result.getDefiningOp()->getOperands()) {
+    if (auto type = dyn_cast<RankedTensorType>(operand.getType()))
+      if (type.hasStaticShape())
+        sum += getSizeInBytes(type);
+  }
+  return sum * ConstPropONNXToONNXPassConfiguration::expansionBound >=
+         getSizeInBytes(resultType);
+}
+
+// We want to disable Constant Propagation when a user
+// manually specifies the "disable-constant-prop" flag.
+bool isConstantPropagationDisabled() {
+  bool disable = (/*disableConstantProp*/ ConstPropONNXToONNXPassConfiguration::
+          constantPropIsDisabled);
+  return disable;
+}
+
+bool isNotDisabled(StringRef name) {
+  bool ok =
+      !ConstPropONNXToONNXPassConfiguration::disabledPatterns.contains(name);
+  LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE " isNotDisabled " << name << " " << ok
+                          << "\n");
+  return ok;
+}
 
 ElementsAttr getConstValueElements(Value constValue) {
   ONNXConstantOp constOp = cast<ONNXConstantOp>(constValue.getDefiningOp());
@@ -117,17 +133,36 @@ Value ConstZeroTensor(
           type, rewriter.getZeroAttr(type.getElementType())));
 }
 
+WideNum asWideNum(double n, Type elemType) {
+  return wideZeroDispatch(elemType, [n](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    constexpr BType TAG = toBType<cpptype>;
+    return WideNum::widen<TAG>(static_cast<cpptype>(n));
+  });
+}
+
 /// Checks whether a constant tensor's elements are all equal to a given scalar.
 bool isConstOf(Value constValue, double n) {
   ElementsAttr constElements = getConstValueElements(constValue);
   Type elemType = constElements.getElementType();
   assert(!elemType.isInteger(1) && "booleans are not supported");
-  WideNum w = wideZeroDispatchNonBool(elemType, [n](auto wideZero) {
-    using cpptype = decltype(wideZero);
-    constexpr BType TAG = toBType<cpptype>;
-    return WideNum::widen<TAG>(static_cast<cpptype>(n));
-  });
+  WideNum w = asWideNum(n, elemType);
   return ElementsAttrBuilder::allEqual(constElements, w);
+}
+
+// Extracts number from a scalar constant value.
+WideNum getScalarNum(Value constValue) {
+  ElementsAttr elements = getConstValueElements(constValue);
+  Type elementType = elements.getElementType();
+  if (isa<FloatType>(elementType)) {
+    APFloat f = *elements.value_begin<APFloat>();
+    return WideNum::fromAPFloat(f);
+  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
+    APInt i = *elements.value_begin<APInt>();
+    return WideNum::fromAPInt(i, !itype.isUnsigned());
+  } else {
+    llvm_unreachable("Only integer and float types are supported");
+  }
 }
 
 ElementsAttr ConstPropReshapeImpl(PatternRewriter &rewriter,
@@ -210,6 +245,11 @@ struct ElementWiseBinaryOpImpl<ONNXSumOp, T, EnableNotBool<T>> {
   static T eval(T lhs, T rhs) { return lhs + rhs; }
 };
 
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXPowOp, T, EnableNotBool<T>> {
+  static T eval(T lhs, T rhs) { return std::pow(lhs, rhs); }
+};
+
 template <typename ElementwiseBinaryOp>
 constexpr auto elementwiseBinaryOpCombiner(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseBinaryOpImpl,
@@ -229,7 +269,6 @@ constexpr auto subCombiner(Type elemType) {
 template <typename ElementwiseBinaryOp>
 Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
     Value replacingValue, Value lhsValue, Value rhsValue) {
-  ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
   auto replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttr lhs = getConstValueElements(lhsValue);
@@ -249,7 +288,6 @@ template <typename ElementwiseBinaryOp>
 Value ConstPropVariadicElementwiseBinary(
     PatternRewriter &rewriter, Value replacingValue, ValueRange inputList) {
   assert(inputList.size() > 0 && "The variadic input is empty");
-  ConstPropCounters::count("VariadicElementwiseBinary", inputList);
   auto replacingType = replacingValue.getType().cast<ShapedType>();
 
   Value lhsValue = inputList[0];
@@ -305,7 +343,6 @@ auto elementwiseUnaryOpFunction(Type elemType) {
 template <typename ElementwiseUnaryOp>
 Value ConstPropElementwiseUnary(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ConstPropCounters::count("ElementwiseUnary", {constValue});
   Type replacingElemType =
       replacingValue.getType().cast<ShapedType>().getElementType();
 
@@ -329,7 +366,6 @@ Value ConstPropElementwiseUnary(
 
 Value ConstPropWhere(PatternRewriter &rewriter, Value replacingValue,
     Value condValue, Value lhsValue, Value rhsValue) {
-  ConstPropCounters::count("Where", {condValue, lhsValue, rhsValue});
   auto replacingType = replacingValue.getType().cast<ShapedType>();
 
   ElementsAttr cond = getConstValueElements(condValue);
@@ -387,7 +423,6 @@ std::function<WideNum(WideNum)> divideBy(Type type, int64_t denominator) {
 template <typename ReduceOp, typename AxesRange = std::initializer_list<APInt>>
 Value ConstPropReduceAxesRange(PatternRewriter &rewriter, Value replacingValue,
     Value dataValue, AxesRange axesRange) {
-  ConstPropCounters::count("Reduce", {dataValue});
   Operation *op = replacingValue.getDefiningOp();
 
   // Find absoluteAxes, converting any negative axes to non-negative.
@@ -476,7 +511,6 @@ Value ConstPropReduce(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropMatMul(PatternRewriter &rewriter, Value replacingValue,
     Value lhsMatrixValue, Value rhsMatrixValue) {
-  ConstPropCounters::count("MatMul", {lhsMatrixValue, rhsMatrixValue});
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr lhs = getConstValueElements(lhsMatrixValue);
   ElementsAttr rhs = getConstValueElements(rhsMatrixValue);
@@ -594,8 +628,6 @@ ElementsAttr getMatMulIntegerMatrixElements(
 Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
     Value lhsMatrixValue, Value rhsMatrixValue, Value lhsZeroPointValue,
     Value rhsZeroPointValue) {
-  ConstPropCounters::count("MatMulInteger",
-      {lhsMatrixValue, rhsMatrixValue, lhsZeroPointValue, rhsZeroPointValue});
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr lhs = getMatMulIntegerMatrixElements(elementsBuilder,
       lhsMatrixValue, lhsZeroPointValue, reshapeMatMulIntegerLhsZero);
@@ -607,8 +639,6 @@ Value ConstPropMatMulInteger(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
     Value lhsMatrixValue, Value rhsMatrixValue, Value biasMatrixValue) {
-  ConstPropCounters::count(
-      "MatMul", {lhsMatrixValue, rhsMatrixValue, biasMatrixValue});
   ONNXGemmOp gemmOp = cast<ONNXGemmOp>(replacingValue.getDefiningOp());
   float alpha = gemmOp.getAlpha().convertToFloat();
   float beta = gemmOp.getBeta().convertToFloat();
@@ -661,7 +691,6 @@ Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropTranspose(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ConstPropCounters::count("Transpose", {constValue});
   // TODO: figure out if default may be omitted and what to do in that case
   ArrayAttr permAttr =
       replacingValue.getDefiningOp()->getAttr("perm").cast<ArrayAttr>();
@@ -683,7 +712,6 @@ Value ConstPropTranspose(
 
 Value ConstPropUnsqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
-  ConstPropCounters::count("Unsqueeze", {input});
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
@@ -696,7 +724,6 @@ Value ConstPropUnsqueeze(
 
 Value ConstPropSqueeze(
     PatternRewriter &rewriter, Value replacingValue, Value input) {
-  ConstPropCounters::count("Squeeze", {input});
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, input, reshapedShape);
@@ -704,128 +731,19 @@ Value ConstPropSqueeze(
 }
 
 //===----------------------------------------------------------------------===//
-// Code to perform constant propagation for split.
-//===----------------------------------------------------------------------===//
-
-template <typename Op>
-LogicalResult ConstPropSplitPatternCommon(
-    Op splitOp, PatternRewriter &rewriter, std::optional<ArrayAttr> splitAttr) {
-  // Basic info.
-  unsigned numResults = splitOp.getNumResults();
-  Value input = splitOp.getInput();
-  if (!isDenseONNXConstant(input))
-    return failure();
-  ConstPropCounters::count("Split", {input});
-  ShapedType inputType = input.getType().cast<ShapedType>();
-  ArrayRef<int64_t> inputShape = inputType.getShape();
-
-  uint64_t splitAxis = splitOp.getAxis();
-  int64_t splitAxisSize = inputShape[splitAxis];
-  std::vector<int64_t> splitSizes(numResults, splitAxisSize / numResults);
-  if (splitAttr.has_value()) {
-    for (unsigned int i = 0; i < numResults; ++i)
-      splitSizes[i] = ArrayAttrIntVal(splitAttr, i);
-    // TODO: Figure out why std::reduce() doesn't work on Linux s390x. Until
-    //       then we're using std::accumulate() instead.
-    assert(splitAxisSize ==
-               std::accumulate(splitSizes.begin(), splitSizes.end(), 0) &&
-           "split values must sum to axis size");
-  } else {
-    // If split attribute is not specified, split size is equally divided.
-    // TODO: Follow the onnx spec which is more relaxed (albeit incomplete).
-    assert(splitAxisSize % numResults == 0 &&
-           "The dimension at the split axis is expected to be divisible by "
-           "the number of results");
-  }
-
-  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  ElementsAttr inputElements = getConstValueElements(input);
-  std::vector<ElementsAttr> resElements =
-      elementsBuilder.split(inputElements, splitAxis, splitSizes);
-  std::vector<Value> resValues;
-  resValues.reserve(numResults);
-  for (unsigned int i = 0; i < numResults; ++i) {
-    Value replacingValue = splitOp.getResult(i);
-    ElementsAttr splitElements = resElements[i];
-    resValues.push_back(
-        createReplacingConstantOp(rewriter, replacingValue, splitElements));
-  }
-  rewriter.replaceOp(splitOp, resValues);
-  return success();
-}
-
-class ConstPropSplitPattern : public OpRewritePattern<ONNXSplitOp> {
-public:
-  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
-    std::optional<ArrayAttr> optionalAttr;
-
-    auto split = splitOp.getSplit();
-    if (auto splitConstOp = getONNXConstantOp(split)) {
-      // Checking value of split parameter.
-      optionalAttr.emplace(createArrayAttrFromConstantOp(splitConstOp));
-    } else if (!split.getType().isa<NoneType>()) {
-      llvm_unreachable("dynamic split not yet supported");
-    }
-
-    return ConstPropSplitPatternCommon(splitOp, rewriter, optionalAttr);
-  }
-};
-
-class ConstPropSplitV11Pattern : public OpRewritePattern<ONNXSplitV11Op> {
-public:
-  using OpRewritePattern<ONNXSplitV11Op>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXSplitV11Op splitOp, PatternRewriter &rewriter) const override {
-    return ConstPropSplitPatternCommon(splitOp, rewriter, splitOp.getSplit());
-  }
-};
-
-//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ScatterND.
 //===----------------------------------------------------------------------===//
 
-class ConstPropScatterNDPattern : public OpRewritePattern<ONNXScatterNDOp> {
-public:
-  using OpRewritePattern<ONNXScatterNDOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXScatterNDOp scatterNdOp, PatternRewriter &rewriter) const override {
-    // Match
-    if (!scatterNdOp.getResult().getType().isa<RankedTensorType>())
-      return failure();
-
-    if (!isDenseONNXConstant(scatterNdOp.getData()))
-      return failure();
-
-    if (!isDenseONNXConstant(scatterNdOp.getIndices()))
-      return failure();
-
-    if (!isDenseONNXConstant(scatterNdOp.getUpdates()))
-      return failure();
-
-    ConstPropCounters::count(
-        "Scatter", {scatterNdOp.getData(), scatterNdOp.getIndices(),
-                       scatterNdOp.getUpdates()});
-
-    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    ElementsAttr dataElements = getConstValueElements(scatterNdOp.getData());
-    ElementsAttr indicesElements =
-        getConstValueElements(scatterNdOp.getIndices());
-    ElementsAttr updatesElements =
-        getConstValueElements(scatterNdOp.getUpdates());
-    ElementsAttr scatteredElements = elementsBuilder.scatterND(
-        dataElements, indicesElements, updatesElements);
-    Value constOpResult = createReplacingConstantOp(
-        rewriter, scatterNdOp.getData(), scatteredElements);
-
-    rewriter.replaceOp(scatterNdOp, constOpResult);
-    return success();
-  }
-};
+Value ConstPropScatterND(PatternRewriter &rewriter, Value replacingValue,
+    Value data, Value indices, Value updates) {
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr dataElements = getConstValueElements(data);
+  ElementsAttr indicesElements = getConstValueElements(indices);
+  ElementsAttr updatesElements = getConstValueElements(updates);
+  ElementsAttr scatteredElements =
+      elementsBuilder.scatterND(dataElements, indicesElements, updatesElements);
+  return createReplacingConstantOp(rewriter, replacingValue, scatteredElements);
+}
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for CastOp.
@@ -833,7 +751,6 @@ public:
 
 Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
     Value constValue, IntegerAttr saturate, TypeAttr to) {
-  ConstPropCounters::count("Cast", {constValue});
   Type toType = to.getValue();
   assert(toType == getElementType(replacingValue.getType()) &&
          "result element type mismatch");
@@ -882,7 +799,6 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropSlice(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ConstPropCounters::count("Slice", {constValue});
   Operation *op = replacingValue.getDefiningOp();
 
   // Get shape, starts, steps via ShapeHelper.
@@ -902,12 +818,35 @@ Value ConstPropSlice(
 }
 
 //===----------------------------------------------------------------------===//
+// Code to perform constant propagation for PadOp.
+//===----------------------------------------------------------------------===//
+
+Value ConstPropPad(PatternRewriter &rewriter, Value replacingValue, Value data,
+    Value padValue) {
+  Operation *op = replacingValue.getDefiningOp();
+
+  // Get pads via ShapeHelper.
+  ONNXPadOpShapeHelper shapeHelper(op, {});
+  auto outcome = shapeHelper.computeShape();
+  assert(succeeded(outcome) && "Failed to scan pad op parameters");
+  SmallVector<int64_t> shape, pads;
+  IndexExpr::getLiteral(shapeHelper.pads, pads);
+
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr dataElements = getConstValueElements(data);
+  WideNum padNum = isa<NoneType>(padValue.getType())
+                       ? asWideNum(0, dataElements.getElementType())
+                       : getScalarNum(padValue);
+  ElementsAttr paddedElements = elementsBuilder.pad(dataElements, pads, padNum);
+  return createReplacingConstantOp(rewriter, replacingValue, paddedElements);
+}
+
+//===----------------------------------------------------------------------===//
 // Code to perform constant propagation for ConcatOp.
 //===----------------------------------------------------------------------===//
 
 Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
     ValueRange operands, IntegerAttr axisAttr) {
-  ConstPropCounters::count("Concat", operands);
   ShapedType outputType = replacingValue.getType().cast<ShapedType>();
   int64_t axis = axisAttr.getValue().getSExtValue();
   if (axis < 0)
@@ -930,7 +869,6 @@ Value ConstPropConcat(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropExpand(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ConstPropCounters::count("Expand", {constValue});
   ArrayRef<int64_t> expandedShape = getShape(replacingValue.getType());
 
   ElementsAttr constElements = getConstValueElements(constValue);
@@ -946,7 +884,6 @@ Value ConstPropExpand(
 
 Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
     Value inputValue, Value indicesValue) {
-  ConstPropCounters::count("Gather", {inputValue, indicesValue});
   Operation *op = replacingValue.getDefiningOp();
   ONNXGatherOp gatherOp = cast<ONNXGatherOp>(op);
   int64_t axis = gatherOp.getAxis();
@@ -967,7 +904,6 @@ Value ConstPropGather(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropReshape(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ConstPropCounters::count("Reshape", {constValue});
   ArrayRef<int64_t> reshapedShape = getShape(replacingValue.getType());
   ElementsAttr reshapedElements =
       ConstPropReshapeImpl(rewriter, replacingValue, constValue, reshapedShape);
@@ -980,7 +916,6 @@ Value ConstPropReshape(
 
 Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
     Value shape, Attribute value) {
-  ConstPropCounters::count("ConstantOfShape", {shape});
   ElementsAttr shapeElements = getConstValueElements(shape);
   llvm::SmallVector<int64_t, 4> shapeVector(shapeElements.getValues<int64_t>());
 
@@ -999,23 +934,8 @@ Value ConstPropConstantOfShape(PatternRewriter &rewriter, Value replacingValue,
 // Code to perform constant propagation for Range.
 //===----------------------------------------------------------------------===//
 
-WideNum getScalarNum(Value constValue) {
-  ElementsAttr elements = getConstValueElements(constValue);
-  Type elementType = elements.getElementType();
-  if (isa<FloatType>(elementType)) {
-    APFloat f = *elements.value_begin<APFloat>();
-    return WideNum::fromAPFloat(f);
-  } else if (auto itype = dyn_cast<IntegerType>(elementType)) {
-    APInt i = *elements.value_begin<APInt>();
-    return WideNum::fromAPInt(i, !itype.isUnsigned());
-  } else {
-    llvm_unreachable("Only integer and float types are supported");
-  }
-}
-
 Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
     Value start, Value limit, Value delta) {
-  ConstPropCounters::count("Range", {start});
   ShapedType replacingType = replacingValue.getType().cast<ShapedType>();
 
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
@@ -1030,7 +950,6 @@ Value ConstPropRange(PatternRewriter &rewriter, Value replacingValue,
 
 Value ConstPropNonZero(
     PatternRewriter &rewriter, Value replacingValue, Value constValue) {
-  ConstPropCounters::count("NonZero", {constValue});
   ElementsAttr constElements = getConstValueElements(constValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr nonZeroElements = elementsBuilder.nonZero(constElements);
@@ -1042,6 +961,108 @@ Value ConstPropNonZero(
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ONNX/ONNXConstProp.inc"
+
+//===----------------------------------------------------------------------===//
+// Code to perform constant propagation for split.
+// Not done with tablegen which doesn't support variadic results.
+//===----------------------------------------------------------------------===//
+
+std::vector<Value> ConstPropSplit(PatternRewriter &rewriter,
+    ResultRange replacingValues, Value input, Value split, int64_t axis) {
+  unsigned numResults = replacingValues.size();
+  ShapedType inputType = input.getType().cast<ShapedType>();
+  ArrayRef<int64_t> inputShape = inputType.getShape();
+
+  int64_t splitAxisSize = inputShape[axis];
+  SmallVector<int64_t> splitSizes(numResults, splitAxisSize / numResults);
+  if (isa<NoneType>(split.getType())) {
+    // If split attribute is not specified, split size is equally divided.
+    // TODO: Follow the onnx spec which is more relaxed (albeit incomplete).
+    assert(splitAxisSize % numResults == 0 &&
+           "The dimension at the split axis is expected to be divisible by "
+           "the number of results");
+  } else {
+    ElementsAttr splitElements = getConstValueElements(split);
+    assert(splitElements.size() == numResults &&
+           "split length should match the number of results");
+    auto splitValues = splitElements.getValues<int64_t>();
+    splitSizes.assign(splitValues.begin(), splitValues.end());
+    // TODO: Figure out why std::reduce() doesn't work on Linux s390x. Until
+    //       then we're using std::accumulate() instead.
+    assert(splitAxisSize ==
+               std::accumulate(splitSizes.begin(), splitSizes.end(), 0) &&
+           "split values must sum to axis size");
+  }
+
+  OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+  ElementsAttr inputElements = getConstValueElements(input);
+  std::vector<ElementsAttr> resElements =
+      elementsBuilder.split(inputElements, axis, splitSizes);
+  std::vector<Value> resValues;
+  resValues.reserve(numResults);
+  for (unsigned int i = 0; i < numResults; ++i) {
+    ElementsAttr splitElements = resElements[i];
+    resValues.push_back(
+        createReplacingConstantOp(rewriter, replacingValues[i], splitElements));
+  }
+  return resValues;
+}
+
+class SplitOfConst : public OpRewritePattern<ONNXSplitOp> {
+public:
+  using OpRewritePattern<ONNXSplitOp>::OpRewritePattern;
+
+  LogicalResult match(ONNXSplitOp splitOp) const override {
+    if (!isDenseONNXConstant(splitOp.getInput()))
+      return failure();
+    Value split = splitOp.getSplit();
+    if (!(isa<NoneType>(split.getType()) || isDenseONNXConstant(split)))
+      return failure();
+    return success();
+  }
+
+  void rewrite(ONNXSplitOp splitOp, PatternRewriter &rewriter) const override {
+    rewriter.replaceOp(splitOp,
+        ConstPropSplit(rewriter, splitOp.getResults(), splitOp.getInput(),
+            splitOp.getSplit(), splitOp.getAxis()));
+  }
+};
+
+class IfOfConst : public OpRewritePattern<ONNXIfOp> {
+public:
+  using OpRewritePattern<ONNXIfOp>::OpRewritePattern;
+
+  LogicalResult match(ONNXIfOp ifOp) const override {
+    if (!isDenseONNXConstant(ifOp.getCond()))
+      return failure();
+    return success();
+  }
+
+  void rewrite(ONNXIfOp ifOp, PatternRewriter &rewriter) const override {
+    Value cond = ifOp.getCond();
+    ElementsAttr condElements = getConstValueElements(cond);
+    auto splitValues = condElements.getValues<bool>();
+    Region *region;
+    if (splitValues[0] == 0) {
+      region = &ifOp.getElseBranch();
+    } else {
+      region = &ifOp.getThenBranch();
+    }
+
+    assert(
+        region->hasOneBlock() && "Then/Else region should have only one block");
+
+    Operation *yieldOp = region->front().getTerminator();
+    ValueRange yields = yieldOp->getOperands();
+    SmallVector<Value, 4> outputs(yields.begin(), yields.end());
+    Block *newBlock =
+        rewriter.splitBlock(&region->front(), region->front().begin());
+
+    rewriter.eraseOp(yieldOp);
+    rewriter.inlineBlockBefore(newBlock, ifOp);
+    rewriter.replaceOp(ifOp, outputs);
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // Code to manage the pass.
@@ -1057,36 +1078,42 @@ struct ConstPropONNXToONNXPass
     return "ConstProp ONNX operations into composition of "
            "other ONNX operations.";
   }
-
-  ConstPropONNXToONNXPass(bool report) : report(report) {}
-
   void runOnOperation() final;
-
-private:
-  bool report;
 };
-} // end anonymous namespace.
 
 void ConstPropONNXToONNXPass::runOnOperation() {
   auto function = getOperation();
   MLIRContext *context = &getContext();
 
   RewritePatternSet patterns(context);
-  populateWithGenerated(patterns);
-  patterns.insert<ConstPropSplitPattern>(&getContext());
-  patterns.insert<ConstPropSplitV11Pattern>(&getContext());
-  patterns.insert<ConstPropScatterNDPattern>(&getContext());
+  getConstPropONNXToONNXPatterns(patterns);
   if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
+}
 
-  if (report)
-    ConstPropCounters::dump(llvm::outs());
+} // end anonymous namespace.
+
+void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
+  if (isConstantPropagationDisabled())
+    return;
+  populateWithGenerated(patterns);
+  if (isNotDisabled("SplitOfConst"))
+    patterns.insert<SplitOfConst>(patterns.getContext());
+  patterns.insert<IfOfConst>(patterns.getContext());
+}
+
+void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
+    ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled) {
+  ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
+  ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
+      disabledPatterns.begin(), disabledPatterns.end());
+  ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled =
+      constantPropIsDisabled;
 }
 
 /*!
  * Create a ConstPropONNX pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass(
-    bool report) {
-  return std::make_unique<ConstPropONNXToONNXPass>(report);
+std::unique_ptr<mlir::Pass> onnx_mlir::createConstPropONNXToONNXPass() {
+  return std::make_unique<ConstPropONNXToONNXPass>();
 }
