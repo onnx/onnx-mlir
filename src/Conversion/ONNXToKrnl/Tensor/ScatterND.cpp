@@ -97,7 +97,8 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
               IndexExpr index = NonAffineIndexExpr(indexVal);
               outputAccessFct.emplace_back(index);
             } else {
-              IndexExpr index = SymbolIndexExpr(loopInd[i]);
+              IndexExpr index = SymbolIndexExpr(
+                  loopInd[std::min<unsigned>(i, loopInd.size() - 1)]);
               outputAccessFct.emplace_back(index);
             }
           }
