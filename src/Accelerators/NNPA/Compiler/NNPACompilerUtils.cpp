@@ -103,13 +103,6 @@ void addONNXToZHighPasses(
   if (nnpaEnableZHighToOnnx)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
 
-  // Constant propagation at ZHighIR: constant stickify.
-  // Only support BE machines.
-  bool isBE = llvm::support::endian::system_endianness() ==
-              llvm::support::endianness::big;
-  if (isBE)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighConstPropagationPass());
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
   if (enableONNXHybridPass) {
@@ -121,6 +114,19 @@ void addONNXToZHighPasses(
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
+  pm.addPass(createScrubDisposablePass());
+
+  // Constant propagation at ZHighIR: constant stickify.
+  // Only support BE machines.
+  bool isBE = llvm::support::endian::system_endianness() ==
+              llvm::support::endianness::big;
+  if (isBE)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighConstPropagationPass());
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 
