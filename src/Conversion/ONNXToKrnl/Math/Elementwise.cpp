@@ -1656,12 +1656,10 @@ bool enqueueFusibleOp(Operation *useOp, Operation *defOp,
     SmallVector<EmitScalarFunc, 2> &fuseEmitFunctions,
     DimAnalysis *dimAnalysis) {
   if (enqueueFusibleOpImpl<T>(
-          useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis)) {
+          useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis))
     return true;
-  } else {
-    return enqueueFusibleOp<Ts...>(
-        useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis);
-  }
+  return enqueueFusibleOp<Ts...>(
+      useOp, defOp, fusibleOps, fuseEmitFunctions, dimAnalysis);
 }
 
 template <>
@@ -1761,7 +1759,7 @@ bool OpFusionHelper::areInputsValidForFusion(
     return false;
   }
 
-  // Check the inputs in the defOp
+  // Check the inputs in the useOp
   for (size_t i = 0; i < useOp->getOperands().size(); i++) {
     // Only input from block argument and constant is allowed,
     // if the input does not come from the defining Op
