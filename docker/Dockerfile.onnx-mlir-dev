@@ -22,6 +22,8 @@ ARG ACCEL=NNPA
 ARG TEST_NOFLOAT16
 ARG TEST_MCPU
 
+RUN apt-get install -y vim
+
 RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && ONNX_MLIR_ROOT=${WORK_DIR}/onnx-mlir \
 # Build onnx-mlir and run tests
