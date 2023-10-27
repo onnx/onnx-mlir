@@ -400,20 +400,25 @@ struct ONNXLayerNormalizationOpLowering
    * as the X's dim. In this case the flattened outermost iteration goes over
    * X1 x X2 x X3 iterations, but we can only go over O2 x O3 iterations for
    * this operand. Thus the index i in 0... X1 x X2 x X3 must be reduced to i
-   * % X2 * X3. We can reduce Fully Specified as an Easy hybrid where the Mod
-   * Factor is 1.
+   * % X2 * X3.
    *
    * Any other cases are not broadcast compatible with the current code
    * generation scheme.
    */
 
-  enum BroadcastKind { Unsupported, FullyScalar, FullySIMD, EasyHybrid };
+  enum BroadcastKind {
+    Unsupported,
+    FullyScalar,
+    FullySIMD,
+    FullySpecified,
+    EasyHybrid
+  };
 
   BroadcastKind isBroadcastCompatible(
       ONNXLayerNormalizationOpShapeHelper &shapeHelper, Value X, Value operand,
       int64_t operandIndex, int64_t axis, int64_t XRank,
       IndexExpr &modFactor) const {
-    DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex][i];
+    DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex];
     int64_t operandRank = operand.getType().cast<MemRefType>().getRank();
     modFactor = LiteralIndexExpr(1);
 
@@ -430,7 +435,7 @@ struct ONNXLayerNormalizationOpLowering
 
     // First look for the fully scalar approach. If we have a scalar, broadcast
     // is always ok.
-    if (operandRank <= 1) {
+    if (operandRank == 0) {
       LLVM_DEBUG(
           llvm::dbgs() << "  operands: operandRank 1, scalar, simd ok\n");
       return BroadcastKind::FullyScalar;
@@ -440,7 +445,7 @@ struct ONNXLayerNormalizationOpLowering
     // the same rank as X).
     bool allOnes = true;
     for (int64_t i = 0; i < XRank; ++i) {
-      if (!operandDims.isLiteralAndIdenticalTo(1)) {
+      if (!operandDims[i].isLiteralAndIdenticalTo(1)) {
         allOnes = false;
         break;
       }
@@ -479,7 +484,7 @@ struct ONNXLayerNormalizationOpLowering
     bool leadingOnes = true;
     int64_t broadcastIndex = XRank - numIdenticalFromInnermost;
     for (int64_t i = 0; i < broadcastIndex; i++) {
-      if (!operandDims.isLiteralAndIdenticalTo(1)) {
+      if (!operandDims[i].isLiteralAndIdenticalTo(1)) {
         leadingOnes = false;
         break;
       }
@@ -489,9 +494,13 @@ struct ONNXLayerNormalizationOpLowering
           llvm::dbgs() << "  operands: broadcast in upper dims, no simd\n");
       return BroadcastKind::Unsupported;
     }
-    // Now that this work, compute the mod factor.
-    for (int_64_t i = broadcastIndex; i < axis; ++i) {
-      modFactor = modFactor * operandDims;
+    if (broadcastIndex == 0) {
+      LLVM_DEBUG(llvm::dbgs() << "  operands: fully specified simd model\n");
+      return BroadcastKind::FullySpecified;
+    }
+    // Now we have an easy hybrid: compute the mod factor.
+    for (int64_t i = broadcastIndex; i < axis; ++i) {
+      modFactor = modFactor * operandDims[i];
     }
     LLVM_DEBUG(llvm::dbgs() << "  operands: hybrid simd model\n");
     return BroadcastKind::EasyHybrid;
@@ -628,22 +637,23 @@ struct ONNXLayerNormalizationOpLowering
 
   // Limitation: see restrictions on SIMD in isSimdizable.
 
-  Value getScalarWithBroadcast(MDBuilder &create, Type vecType, Value memRef,
-      Value zero, Value i, Value j, BroadcastKind broadcastKind,
-      IndexExpr modFactor) {
+  Value getScalarWithBroadcast(MDBuilder &create, VectorType vecType,
+      Value memRef, Value zero, Value i, Value j, BroadcastKind broadcastKind,
+      IndexExpr modFactor) const {
     switch (broadcastKind) {
     case BroadcastKind::FullyScalar: {
       Value scalar = create.krnl.load(memRef, {zero});
       return create.vec.splat(vecType, scalar);
     }
-    case BroadcastKind::FullyScalar: {
+    case BroadcastKind::FullySIMD: {
       return create.vec.load(vecType, memRef, {j});
     }
+    case BroadcastKind::FullySpecified: {
+      return create.vec.load(vecType, memRef, {i, j});
+    }
     case BroadcastKind::EasyHybrid: {
-      Value ii = i;
-      if (!modFactor.isLiteralAndIdenticalTo(1))
-        ii = create.math.rem(i, modFactor.getValue());
-      return create.vec.load(vecType, memRef, {ii, j});
+      Value iii = create.math.rem(i, modFactor.getValue());
+      return create.vec.load(vecType, memRef, {iii, j});
     }
     default:
       llvm_unreachable("unsupported");
@@ -732,12 +742,12 @@ struct ONNXLayerNormalizationOpLowering
             Value normalizedX = create.math.mul(XMinusMean, invStdDevSplat);
             // Process with multiplying by scale (scalar or 1D vector).
             Value scale = getScalarWithBroadcast(create, vecType, scaleMemRef,
-                zero, i, j, scaleBroadcastKind, scaleModFactor);
+                zero, ii, j, scaleBroadcastKind, scaleModFactor);
             Value Y = create.math.mul(normalizedX, scale);
             // Process with adding bias (scalar or 1D vector), if provided.
             if (biasMemRef && !isNoneValue(biasMemRef)) {
               Value bias = getScalarWithBroadcast(create, vecType, biasMemRef,
-                  zero, i, j, biasBroadcastKind, biasModFactor);
+                  zero, ii, j, biasBroadcastKind, biasModFactor);
               Y = create.math.add(Y, bias);
             }
             create.vec.store(Y, YMemRef, {ii, j});
@@ -770,6 +780,7 @@ struct ONNXLayerNormalizationOpLowering
     Type elementType = XMemRefType.getElementType();
     int64_t XRank = XMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+    int64_t innermostLoopCollapse = XRank - axis;
     // Get epsilon as a scalar.
     Value epsilon =
         create.math.constant(elementType, lnOp.getEpsilon().convertToDouble());
@@ -786,8 +797,13 @@ struct ONNXLayerNormalizationOpLowering
     DimsExpr scaleDims;
     for (int64_t i = XRank - scaleRank; i < XRank; ++i)
       scaleDims.emplace_back(shapeHelper.inputsDims[1][i]);
-    scaleFlatMemRef = create.mem.reshapeToFlatInnermost(
-        adaptor.getScale(), scaleDims, flatDims, scaleRank);
+    if (scaleBroadcastKind == BroadcastKind::EasyHybrid ||
+        scaleBroadcastKind == BroadcastKind::FullySpecified)
+      scaleFlatMemRef = create.mem.reshapeToFlat2D(
+          adaptor.getScale(), scaleDims, flatDims, -innermostLoopCollapse);
+    else
+      scaleFlatMemRef = create.mem.reshapeToFlatInnermost(
+          adaptor.getScale(), scaleDims, flatDims, scaleRank);
 
     // Fully latten bias input, if present.
     if (!isNoneValue(lnOp.getB())) {
@@ -795,8 +811,13 @@ struct ONNXLayerNormalizationOpLowering
       DimsExpr biasDims;
       for (int64_t i = XRank - biasRank; i < XRank; ++i)
         biasDims.emplace_back(shapeHelper.inputsDims[2][i]);
-      biasFlatMemRef = create.mem.reshapeToFlatInnermost(
-          adaptor.getB(), biasDims, flatDims, biasRank);
+      if (biasBroadcastKind == BroadcastKind::EasyHybrid ||
+          biasBroadcastKind == BroadcastKind::FullySpecified)
+        biasFlatMemRef = create.mem.reshapeToFlat2D(
+            adaptor.getB(), biasDims, flatDims, -innermostLoopCollapse);
+      else
+        biasFlatMemRef = create.mem.reshapeToFlatInnermost(
+            adaptor.getB(), biasDims, flatDims, biasRank);
     }
     // Convert outputs, alloc data, and flatten them too.
     Value YMemRef, meanMemRef, invStdDevMemRef;
@@ -840,7 +861,7 @@ struct ONNXLayerNormalizationOpLowering
                     [&](SCFBuilder &scf, Value blockLocalInd) {
                       MDBuilder create(scf);
                       generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
-                          scaleFlatMemRef, BFlatMemRef, YFlatMemRef,
+                          scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                           meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
                           tmpRedMemRef2, XFlatDims[1], blockLocalInd, epsilon,
                           1, VL, scaleBroadcastKind, biasBroadcastKind,
@@ -851,11 +872,11 @@ struct ONNXLayerNormalizationOpLowering
                 MDBuilder create(scf);
                 // create.krnl.printf("full tile\n");
                 generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
-                    scaleFlatMemRef, BFlatMemRef, YFlatMemRef, meanFlatMemRef,
-                    invStdDevFlatMemRef, tmpRedMemRef, tmpRedMemRef2,
-                    XFlatDims[1], blockedLoopIndices[0], epsilon, B, VL,
-                    scaleBroadcastKind, biasBroadcastKind, scaleModFactor,
-                    biasModFactor);
+                    scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
+                    meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
+                    tmpRedMemRef2, XFlatDims[1], blockedLoopIndices[0], epsilon,
+                    B, VL, scaleBroadcastKind, biasBroadcastKind,
+                    scaleModFactor, biasModFactor);
               });
         }); /* blocked loop */
     // We don't seem to need to reshape fhe flattened memref, just pass the
