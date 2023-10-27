@@ -866,6 +866,7 @@ struct ONNXLayerNormalizationOpLowering
   }
 };
 
+// clang-format off
 /*
  *  Explanation on the SIMD code.
 
@@ -888,11 +889,8 @@ struct ONNXLayerNormalizationOpLowering
   This second method is faster as we can compute both E[x] and E[x^2] at the
   same time.
 
-
  * Python code that explains how the code was derived.
-*/
-// clang-format off
-/*
+
 def layer_norm_simd2_v3(x, a, scale, b):
     (b1, b2) = (2, 4)
     t_rank = len(x.shape)
