@@ -763,6 +763,9 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
     castElements =
         elementsBuilder.castToFPElementType(constElements, ftype, doSaturate);
   } else if (auto itype = dyn_cast<IntegerType>(toType)) {
+    // ONNX spec says to truncate floats towards zero and not round.
+    //
+    // TODO: Add configuration to support rounding.
     bool round = false;
     castElements =
         elementsBuilder.castToIntElementType(constElements, itype, round);
