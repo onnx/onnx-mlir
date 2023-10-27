@@ -434,8 +434,8 @@ ElementsAttr ElementsAttrBuilder::castToFPElementType(
       // onnx spec here: https://onnx.ai/onnx/technical/float8.html
       // and here: https://github.com/onnx/onnx/blob/main/docs/Operators.md#Cast
       // which, in the case of E4M3FNUZ and E5M2FNUZ, requires infinite values
-      // to saturate to NaN, whereas we saturate them to lowest/highest with
-      // clipping. Our clipping implementation matchrd the reference
+      // to saturate to NaN, whereas we saturate them to smallest/largest with
+      // clipping. Our clipping implementation matches the reference
       // implementation in onnx/reference/ops/op_cast.py.
       // See https://github.com/onnx/onnx-mlir/issues/2369
       //

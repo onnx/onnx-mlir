@@ -124,7 +124,7 @@ public:
 
   // Returns an ElementsAttr with the elements cast to the given intElementType.
   //
-  // If round==true and newElementType is an integer type then numbers are
+  // If round==true and elms has floating point numbers type then they are
   // rounded to nearest integer, ties to even, otherwise they are truncated
   // towards zero.
   //
