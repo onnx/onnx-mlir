@@ -279,7 +279,7 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
 ElementsAttr ElementsAttrBuilder::castElementType(
     ElementsAttr elms, Type newElementType) {
   if (auto ftype = dyn_cast<FloatType>(newElementType)) {
-    // TODO: Consider setting saturate==true when ftype has no infinity:
+    // TODO: Consider saturating when ftype has no infinity:
     //       saturate=APFloat::getInf(ftype.getFloatSemantics()).isNaN()
     return castToFPElementType(elms, ftype);
   }
@@ -401,7 +401,7 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
     if (newElementType.isUnsigned() != oldElementType.isUnsignedInteger()) {
       // DisposableElementsAttr requires transformation between integers with
       // different signs.
-      // TODO: Consider supporting omitting this no-op transformation.
+      // TODO: Consider relaxing the requirement and omit this transformation.
       transformer = newElementType.isUnsigned()
                         ? functionTransformer(wideCast<uint64_t, int64_t>)
                         : functionTransformer(wideCast<int64_t, uint64_t>);
