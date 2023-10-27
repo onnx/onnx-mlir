@@ -1090,6 +1090,7 @@ void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
 void onnx_mlir::configureConstPropONNXToONNXPass(bool roundFPToInt,
     int expansionBound, ArrayRef<std::string> disabledPatterns,
     bool constantPropIsDisabled) {
+  ConstPropONNXToONNXPassConfiguration::roundFPToInt = roundFPToInt;
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
   ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
       disabledPatterns.begin(), disabledPatterns.end());
