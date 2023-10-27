@@ -316,29 +316,30 @@ TO convertIntFromDouble(double from) {
   if (TRUNCATE)
     return static_cast<TO>(from);
 
-  // lrint recommendation: https://stackoverflow.com/a/47347224
+  // llrint recommendation: https://stackoverflow.com/a/47347224
   // rounds to nearest, ties to even, in the default rounding mode
-  using lrintType = decltype(lrint(from));
+  using llrintType = decltype(llrint(from));
   if constexpr (std::is_same_v<TO, uint64_t>) {
-    static_assert(sizeof(lrintType) >= sizeof(TO), "insufficient lrint range");
-    // lrintType is int64_t which doesn't cover the numeric range of uint64_t
+    static_assert(
+        sizeof(llrintType) >= sizeof(TO), "insufficient llrint range");
+    // llrintType is int64_t which doesn't cover the numeric range of uint64_t
     // so we work around this by breaking the range into 2 as follows:
     uint64_t mid = uint64_t(1) << 63; // middle of uint64_t numeric range
     if (from < mid) {
-      // from is inside lrint's numerical range [-2^63, 2^63)
-      return lrint(from);
+      // from is inside llrint's numerical range [-2^63, 2^63)
+      return llrint(from);
     } else {
-      // subtract and add to translate into and out of lrint's numeric range
-      return mid + lrint(from - mid);
+      // subtract and add to translate into and out of llrint's numeric range
+      return mid + llrint(from - mid);
     }
   } else {
-    // lrintType covers the numeric range of To, namely lrintType is int64_t
+    // llrintType covers the numeric range of To, namely llrintType is int64_t
     // and To is int64_t or a narrower signed or unsigned type
-    static_assert(sizeof(lrintType) > sizeof(TO) ||
-                      (sizeof(lrintType) == sizeof(TO) &&
+    static_assert(sizeof(llrintType) > sizeof(TO) ||
+                      (sizeof(llrintType) == sizeof(TO) &&
                           std::numeric_limits<TO>::is_signed),
-        "insufficient lrint range");
-    return lrint(from);
+        "insufficient llrint range");
+    return llrint(from);
   }
 }
 
