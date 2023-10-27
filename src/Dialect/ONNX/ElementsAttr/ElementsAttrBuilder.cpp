@@ -353,6 +353,12 @@ WideNum isWideNonZero(WideNum n) {
   return WideNum::widen<BType::BOOL>(n.narrow<toBType<FROM>>() != 0);
 }
 
+template <typename TO, typename FROM>
+WideNum wideCast(WideNum n) {
+  return WideNum::widen<toBType<TO>>(
+      static_cast<TO>(n.narrow<toBType<FROM>>()));
+};
+
 template <typename FROM>
 double wideToDouble(WideNum n) {
   return static_cast<double>(n.narrow<toBType<FROM>>());
@@ -391,10 +397,19 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
     //
     // TODO: Add configuration options to support other behaviors.
     //       See https://github.com/onnx/onnx-mlir/issues/2209
-    ElementsProperties props = getElementsProperties(elms);
-    ShapedType newType = elms.getShapedType().clone(newElementType);
-    return create(newType, props.bufferBType, props.strides, props.buffer,
-        props.transformer);
+    if (newElementType.isUnsigned() != oldElementType.isUnsignedInteger()) {
+      // DisposableElementsAttr requires transformation between integers with
+      // different signs.
+      // TODO: Consider supporting omitting this no-op transformation.
+      transformer = newElementType.isUnsigned()
+                        ? functionTransformer(wideCast<uint64_t, int64_t>)
+                        : functionTransformer(wideCast<int64_t, uint64_t>);
+    } else {
+      ElementsProperties props = getElementsProperties(elms);
+      ShapedType newType = elms.getShapedType().clone(newElementType);
+      return create(newType, props.bufferBType, props.strides, props.buffer,
+          props.transformer);
+    }
   } else {
     llvm_unreachable("unsupported element type");
   }
