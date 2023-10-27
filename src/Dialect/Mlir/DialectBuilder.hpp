@@ -294,15 +294,33 @@ struct MemRefBuilder final : DialectBuilder {
   mlir::memref::DeallocOp dealloc(mlir::Value val) const;
 
   // Reshapes.
-  mlir::memref::ReshapeOp reshape(mlir::MemRefType destType,
-      mlir::Value valToReshape, mlir::Value destShapeStoredInMem) const;
-  // Flatten dimsToFlatten innermost dimensions, -1 means all.
-  mlir::Value reshapeToFlat(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &nDims,
+  mlir::memref::ReshapeOp reshape(mlir::MemRefType outputType,
+      mlir::Value valToReshape, mlir::Value outputShapeStoredInMem) const;
+  // Reshape to dimensions passed by destDims. Will create data-structure to
+  // hold the dims, save into it, and the perform the actual reshape.
+  mlir::memref::ReshapeOp reshape(llvm::SmallVectorImpl<IndexExpr> &outputDims,
+      mlir::Value valToReshape) const;
+  // Flatten innermost dimensions of a MemRef. User provide the value to reshape
+  // (valToReshape), its dims (dims), and the number of innermost loops to
+  // collapse (dimsToFlatten). The function computes the new flattened
+  // dimensions (flattenDims) and return the flattened value. Values of
+  // dimsToFlatten are in the [1, rank of input] range. Legal only on types
+  // with identity layouts.
+  mlir::Value reshapeToFlatInnermost(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &dims,
       llvm::SmallVectorImpl<IndexExpr> &flattenDims,
-      int64_t dimsToFlatten = -1) const;
+      int64_t dimsToFlatten) const;
+  // Flatten to a 2D MemRef, with outer dim including outermost dim to axis -1,
+  // and inner dim including the remaining innermost dims. Values of axis are
+  // in the [1, rank of input) range. Legal only on types with identity layouts.
+  mlir::Value reshapeToFlat2D(mlir::Value valToReshape,
+      llvm::SmallVectorImpl<IndexExpr> &dims,
+      llvm::SmallVectorImpl<IndexExpr> &flattenDims, int64_t axis) const;
+  // Perform the reverse operation; given a flattened value, unflatten it by
+  // giving the function its original unflattened dimensions (outputDims) and
+  // type (outputType). Legal only on types with identity layouts.
   mlir::memref::ReshapeOp reshapeFromFlat(mlir::Value valToReshape,
-      llvm::SmallVectorImpl<IndexExpr> &nDims,
+      llvm::SmallVectorImpl<IndexExpr> &outputDims,
       mlir::MemRefType outputType) const;
 
   // Casts.
@@ -437,13 +455,13 @@ struct VectorBuilder final : DialectBuilder {
   // possible, return the largest SIMD unroll factor (starting at maxSimdUnroll)
   // that divide the cumulative static size of the memref being collapsed for
   // SIMD.
-  // estimatedSimdLoopTripCount: provide an estimation of the SIMD loop trip
+  // simdLoopStaticTripCount: provide an estimation of the SIMD loop trip
   // count. If runtime, return -1; if cannot simdize, return 0; if compile time
   // (or a multiple of a compile time value): return that literal.
   int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
       int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
-      int64_t &estimatedSimdLoopTripCount) const;
+      int64_t &simdLoopStaticTripCount) const;
 
 private:
   bool isPowerOf2(uint64_t num) const;

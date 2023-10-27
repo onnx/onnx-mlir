@@ -1449,7 +1449,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     }
     DimsExpr operDims, flattenOperDims;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
-    Value flatOper = create.mem.reshapeToFlat(
+    Value flatOper = create.mem.reshapeToFlatInnermost(
         oper, operDims, flattenOperDims, collapsedInnermostLoops);
     flatOperands.emplace_back(flatOper);
   }
@@ -1460,7 +1460,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
       llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
   int64_t flattenedDim = rank - 1;
   SmallVector<IndexExpr, 4> flattenedOutputDims;
-  Value flatAlloc = create.mem.reshapeToFlat(
+  Value flatAlloc = create.mem.reshapeToFlatInnermost(
       alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
   // Create loop iteration (flattened to output dim - inner dim + 1) with inner
   // one and blocked by mVL.
