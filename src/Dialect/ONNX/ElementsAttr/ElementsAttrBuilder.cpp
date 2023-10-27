@@ -442,7 +442,8 @@ ElementsAttr ElementsAttrBuilder::castToFPElementType(
       transformer = functionTransformer([max](WideNum n) {
         double d = wideToDouble<cpptype>(n);
         return WideNum::widen<BType::DOUBLE>(
-            d <= -max ? -max : (d < max ? d : max));
+            // Order of operations is important to ensure NaN stays NaN:
+            d <= -max ? -max : (d >= max ? max : d));
       });
     } else if constexpr (std::is_integral_v<cpptype>) {
       transformer = functionTransformer([](WideNum n) {
