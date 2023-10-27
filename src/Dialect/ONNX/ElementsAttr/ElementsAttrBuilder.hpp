@@ -116,7 +116,8 @@ public:
   mlir::ElementsAttr where(mlir::ElementsAttr cond, mlir::ElementsAttr lhs,
       mlir::ElementsAttr rhs, mlir::ShapedType combinedType);
 
-  // Returns an ElementsAttr with the elements cast to the given newElementType.
+  // Returns an ElementsAttr with the elements cast to the given newElementType
+  // with default choices for rounding (true) and saturation (false).
   //
   // Reuses elms' underlying data without a data copy.
   mlir::ElementsAttr castElementType(
