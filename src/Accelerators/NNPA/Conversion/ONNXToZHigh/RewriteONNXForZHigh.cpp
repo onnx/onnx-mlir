@@ -555,6 +555,7 @@ public:
       }
       for (Value b : subBs) {
         // Call dummy function to prevent deallocation of a and b.
+        // TODO: Insert deallocate op in zlow-rewrite pass instead of this
         SmallVector<Value, 2> parameters = {
             create.onnx.toMemref(a), create.onnx.toMemref(b)};
         rewriter.create<KrnlCallOp>(
