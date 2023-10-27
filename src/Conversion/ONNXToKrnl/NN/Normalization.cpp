@@ -375,36 +375,105 @@ LogicalResult generateONNXLayerNormalizationOpONNXCode(
 
 struct ONNXLayerNormalizationOpLowering
     : public OpConversionPattern<ONNXLayerNormalizationOp> {
-  ONNXLayerNormalizationOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
-      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {}
+  ONNXLayerNormalizationOpLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD)
+      : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
+        enableSIMD(enableSIMD) {}
 
+  DimAnalysis *dimAnalysis;
   bool enableSIMD;
 
   bool isBroadcastCompatible(ONNXLayerNormalizationOpShapeHelper &shapeHelper,
-      Value operand, int64_t operandIndex, int64_t axis,
+      Value X, Value operand, int64_t operandIndex, int64_t axis,
       int64_t innermostLoopCollapse, int64_t XRank) const {
     int64_t rank = operand.getType().cast<MemRefType>().getRank();
     // If we have a scalar, broadcast is always ok.
-    if (rank <= 1) {
+    if (rank <= 1)
       return true;
+
+    // Analyze the lower dimensions (dim 1 in flatten representation).
+    // First, check if operand is a scalar in the lower dims.
+    bool lowerScalar = true;
+    IndexExpr one = LiteralIndexExpr(1);
+    for (int64_t i = axis; i < XRank; ++i) {
+      // Use shapeHelper.inputsDims as they have the broadcast dims explicitly
+      // filled in (guaranteed to have the same rank as X).
+      if (!shapeHelper.inputsDims[operandIndex][i].isLiteralAndIdenticalTo(
+              one)) {
+        lowerScalar = false;
+        break;
+      }
     }
-    // When ranks are different, then unsuitable broadcast will happen.
-    if (rank != innermostLoopCollapse) {
-      LLVM_DEBUG(llvm::dbgs() << "  operand: bad broadcast, fail SIMD\n");
+    // Second, check if operand has same dims as X in the lower dims.
+    bool lowerRuleOutBroadcast = (rank >= innermostLoopCollapse);
+    if (lowerRuleOutBroadcast) {
+      // Operand has rank large enough to have dims for all lower dims.
+      for (int64_t i = 0; i < innermostLoopCollapse; ++i) {
+        if (!dimAnalysis->sameDim(
+                x, axis + i, operand, rank - innermostLoopCollapse + i)) {
+          lowerRuleOutBroadcast = false;
+          break;
+        }
+      }
+    }
+    if (!lowerScalar && !lowerRuleOutBroadcast) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  operand: no SIMD because not a scalar, and cannot "
+                    "rule out broadcasting in SIMD iterations\n");
       return false;
     }
-    // Check that the dimensions are ok.
+
+    // Now look at the upper dimensions.
+    bool upperScalar = true;
+    for (int64_t i = 0; i < axis; ++i) {
+      if (!shapeHelper.inputsDims[operandIndex][i].isLiteralAndIdenticalTo(
+              one)) {
+        upperScalar = false;
+        break;
+      }
+    }
+    if (upperScalar) {
+      LLVM_DEBUG(llvm::dbgs() << "  operand: fully scalar, ok for SIMD\n");
+      return true;
+    }
+
+    // 
+
+    // Do we have a scalar in the innermost collapsed loop?
+    bool allOneDims = true;
+    IndexExpr one = LiteralIndexExpr(1);
+    for (int64_t i = axis; i < XRank; ++i) {
+      if (!shapeHelper.inputsDims[operandIndex][i].isLiteralAndIdenticalTo(
+              one)) {
+        allOneDims = false;
+        break;
+      }
+    }
+    if (allOneDims) {
+      // Now check the top dimensions.
+      return true;
+    }
+
+    // We have partial broadcast in the innermost collapsed loop, we don't
+    // support that pattern at this time.
+    if (rank < innermostLoopCollapse) {
+      LLVM_DEBUG(llvm::dbgs() << "  operand: fail SIMD because of partial "
+                                 "broadcast in SIMD iterations\n");
+      return false;
+    }
+
+    // Else: make sure there is no broadcast in the innermost collapsed loop,
+    // i.e. all dimensions are equal.
     for (int64_t i = axis; i < XRank; ++i) {
       // Should use Dim Analysis, constant dims for now.
       if (!shapeHelper.inputsDims[operandIndex][i].isLiteralAndIdenticalTo(
               shapeHelper.getOutputDims(0)[i])) {
-        LLVM_DEBUG(
-            llvm::dbgs() << "  operand: dynamic or different dim, fail SIMD\n");
+        LLVM_DEBUG(llvm::dbgs() << "  operand: fail SIMD because of different "
+                                   "dims in SIMD iterations\n");
         return false;
       }
     }
-    // All good.
+    // Dimensions are identical, we are good.
     return true;
   }
 
@@ -432,19 +501,19 @@ struct ONNXLayerNormalizationOpLowering
 
     // Implementation relies into splitting the input X into a 2D vector, with
     // outer dim is batches, and inner dims is where the mean/stddev is
-    // performed. This approach could be extended with some work to handle cases
-    // where there is no batches at all (so everything is part of mean/std dev
-    // computation); this is not supported at this time. Most cases seen are
-    // just the last dim for mean/std dev.
+    // performed. This approach could be extended with some work to handle
+    // cases where there is no batches at all (so everything is part of
+    // mean/std dev computation); this is not supported at this time. Most
+    // cases seen are just the last dim for mean/std dev.
     if (axis == 0) {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
           "no simd because cannot handle case with axis=0");
       return false;
     }
 
-    // Do not want to disable SIMD for lack of sum across support at this stage.
-    // Type elementType = XMemRefType.getElementType();
-    // if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
+    // Do not want to disable SIMD for lack of sum across support at this
+    // stage. Type elementType = XMemRefType.getElementType(); if
+    // (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
     //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
     //   return false;
     // }
@@ -461,8 +530,8 @@ struct ONNXLayerNormalizationOpLowering
       return false;
     }
 
-    // Now if we have SIMD, check scale and Bias have compatible broadcast with
-    // X/Y.
+    // Now if we have SIMD, check scale and Bias have compatible broadcast
+    // with X/Y.
     if (!isBroadcastCompatible(shapeHelper, adaptor.getScale(),
             /*scale index*/ 1, axis, innermostLoopCollapse, XRank)) {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
@@ -526,9 +595,9 @@ struct ONNXLayerNormalizationOpLowering
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
   }
 
-  // Limitation: scale and bias are either a scalar (to be splatted) or has the
-  // same size as the flattened inner dim of X. That info is known at compile
-  // time.
+  // Limitation: scale and bias are either a scalar (to be splatted) or has
+  // the same size as the flattened inner dim of X. That info is known at
+  // compile time.
   void generateIterWithSIMD(ConversionPatternRewriter &rewriter,
       MDBuilder &create, ONNXLayerNormalizationOp lnOp,
       /* flat inputs */ Value XMemRef, Value scaleMemRef, Value BMemRef,
@@ -755,12 +824,13 @@ struct ONNXLayerNormalizationOpLowering
 };
 
 void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableSIMD) {
   patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
   patterns.insert<ONNXLayerNormalizationOpLowering>(
-      typeConverter, ctx, enableSIMD);
+      typeConverter, ctx, dimAnalysis, enableSIMD);
 }
 
 } // namespace onnx_mlir
