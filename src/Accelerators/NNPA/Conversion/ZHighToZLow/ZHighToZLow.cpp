@@ -24,6 +24,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/Stickify/Convert.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 
@@ -1498,6 +1499,50 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Lower ZHigh StickifiedConstantOfShape to ZLow
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowStickifiedConstantOfShapeOpLowering
+    : public ConversionPattern {
+  ZHighToZLowStickifiedConstantOfShapeOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+
+    auto stickOp = cast<ZHighStickifiedConstantOfShapeOp>(op);
+    FloatAttr value = stickOp.getValueAttr();
+
+    // Convert the scalar value to dlfloat16.
+    float valueF32 = (float)value.getValueAsDouble();
+    uint16_t valueDLF16; // Use uint16_t as container.
+    fp32_to_dlf16(&valueF32, &valueDLF16, 1);
+
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, KrnlBuilder>
+        create(rewriter, loc);
+    ZHighStickifiedConstantOfShapeOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Allocate a buffer for the result MemRef.
+    Value res = insertAllocAndDeallocZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+    Value initValue = create.math.constant(rewriter.getF16Type(), valueDLF16);
+    create.krnl.memset(res, initValue, /*delayed=*/true);
+
+    rewriter.replaceOp(op, res);
+    return success();
+  }
+};
+
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
   // Stickify and unstickify operations.
@@ -1505,6 +1550,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
+      typeConverter, ctx);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
   // Binary operations
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighAddOp>>(typeConverter, ctx);
