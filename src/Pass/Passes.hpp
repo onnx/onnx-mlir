@@ -85,9 +85,9 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled);
 
-#ifdef ONNX_MLIR_ENABLE_MHLO
-/// Add pass for lowering to Mhlo IR.
-std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
+/// Add pass for lowering to StableHlo IR.
+std::unique_ptr<mlir::Pass> createLowerToStableHloPass();
 #endif
 
 /// Pass for lowering krnl.dim operations to standard dialect.
