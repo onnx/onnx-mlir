@@ -763,7 +763,10 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
     castElements =
         elementsBuilder.castToFPElementType(constElements, ftype, doSaturate);
   } else if (auto itype = dyn_cast<IntegerType>(toType)) {
-    // ONNX spec says to truncate floats towards zero and not round.
+    // The onnx Cast spec doesn’t say whether cast from floating point to
+    // integer type should truncate or round but past discussions (onnx issues
+    // #2285, #3776, #5004) point to truncation like numpy.
+    // See https://github.com/onnx/onnx-mlir/issues/2209
     //
     // TODO: Add configuration to support rounding.
     bool round = false;
