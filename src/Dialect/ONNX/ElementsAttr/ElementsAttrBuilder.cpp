@@ -368,10 +368,7 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
 
   Transformer transformer;
   if (newElementType.isInteger(1)) {
-    // We assume cast to bool intends to truncate the numeric range to [0, 1].
-    // We assume that casts to other integer types don't intend to truncate the
-    // numeric range and we delay any truncation until the data is read and
-    // allow the untruncated numbers as inputs to any further transformations.
+    // Bool: +/-zero cast to 0, everything else including NaN cast to 1.
     transformer = wideZeroDispatchNonBool(oldElementType, [&](auto wideZero) {
       using cpptype = decltype(wideZero);
       return functionTransformer(isWideNonZero<cpptype>);
@@ -388,6 +385,12 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
                 : functionTransformer(convertIntFromFP<TRUNCATE, int64_t>);
     }
   } else if (isa<IntegerType>(oldElementType)) {
+    // We assume that casts to other integer types don't intend to truncate the
+    // numeric range and we delay any truncation until the data is read and
+    // allow the untruncated numbers as inputs to any further transformations.
+    //
+    // TODO: Add configuration options to support other behaviors.
+    //       See https://github.com/onnx/onnx-mlir/issues/2209
     ElementsProperties props = getElementsProperties(elms);
     ShapedType newType = elms.getShapedType().clone(newElementType);
     return create(newType, props.bufferBType, props.strides, props.buffer,
@@ -411,6 +414,16 @@ ElementsAttr ElementsAttrBuilder::castToFPElementType(
       // Smallest is -max for all ONNX fp types.
       const double max = APFloat::getLargest(newElementType.getFloatSemantics())
                              .convertToDouble();
+      // Note that we saturate by clipping which isn't 100% faithful to the
+      // onnx spec here: https://onnx.ai/onnx/technical/float8.html
+      // and here: https://github.com/onnx/onnx/blob/main/docs/Operators.md#Cast
+      // which, in the case of E4M3FNUZ and E5M2FNUZ, requires infinite values
+      // to saturate to NaN, whereas we saturate them to lowest/highest with
+      // clipping. Our clipping implementation matchrd the reference
+      // implementation in onnx/reference/ops/op_cast.py.
+      // See https://github.com/onnx/onnx-mlir/issues/2369
+      //
+      // TODO: Change implementation to match the spec, or change the spec.
       transformer = functionTransformer([max](WideNum n) {
         double d = wideToDouble<cpptype>(n);
         return WideNum::widen<BType::DOUBLE>(
