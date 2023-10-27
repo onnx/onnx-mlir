@@ -608,9 +608,9 @@ ElementsAttr getMatMulIntegerMatrixElements(
     ElementsAttrBuilder &elementsBuilder, Value matrixValue,
     Value zeroPointValue,
     function_ref<ElementsAttr(ArrayRef<int64_t>, ElementsAttr)> reshapeZero) {
-  Type I32 = IntegerType::get(matrixValue.getContext(), 32);
+  auto I32 = IntegerType::get(matrixValue.getContext(), 32);
   ElementsAttr matrix8 = getConstValueElements(matrixValue);
-  ElementsAttr matrix32 = elementsBuilder.castElementType(matrix8, I32);
+  ElementsAttr matrix32 = elementsBuilder.castToIntElementType(matrix8, I32);
   if (isNoneValue(zeroPointValue)) {
     return matrix32;
   } else {
@@ -618,7 +618,7 @@ ElementsAttr getMatMulIntegerMatrixElements(
     ElementsAttr reshapedZeroPoint8 =
         reshapeZero(matrix8.getShapedType().getShape(), zeroPoint8);
     ElementsAttr reshapedZeroPoint32 =
-        elementsBuilder.castElementType(reshapedZeroPoint8, I32);
+        elementsBuilder.castToIntElementType(reshapedZeroPoint8, I32);
     return elementsBuilder.combine(matrix32, reshapedZeroPoint32,
         matrix32.getShapedType(),
         subCombiner(I32)); // elementwiseBinaryOpCombiner<ONNXSubOp>(I32));
@@ -646,7 +646,7 @@ Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
   constexpr std::array<uint64_t, 2> TRANSPOSE = {1, 0};
   ArrayRef<uint64_t> permLhs = gemmOp.getTransA() == 0 ? IDENTITY : TRANSPOSE;
   ArrayRef<uint64_t> permRhs = gemmOp.getTransB() == 0 ? IDENTITY : TRANSPOSE;
-  Type F64 = rewriter.getF64Type();
+  FloatType F64 = rewriter.getF64Type();
   ShapedType resType = cast<ShapedType>(replacingValue.getType());
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
   ElementsAttr lhs = getConstValueElements(lhsMatrixValue);
@@ -655,7 +655,7 @@ Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
       elementsBuilder.matMul(elementsBuilder.transpose(lhs, permLhs),
           elementsBuilder.transpose(rhs, permRhs));
   if (alpha != 1.0) {
-    res = elementsBuilder.castElementType(res, F64);
+    res = elementsBuilder.castToFPElementType(res, F64);
     res = elementsBuilder.transform(res, F64, [alpha](WideNum n) {
       return WideNum::widen<BType::DOUBLE>(alpha * n.narrow<BType::DOUBLE>());
     });
@@ -664,7 +664,7 @@ Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
   if (hasBias) {
     ElementsAttr bias = getConstValueElements(biasMatrixValue);
     if (beta != 1.0) {
-      bias = elementsBuilder.castElementType(bias, F64);
+      bias = elementsBuilder.castToFPElementType(bias, F64);
       bias = elementsBuilder.transform(bias, F64, [beta](WideNum n) {
         return WideNum::widen<BType::DOUBLE>(beta * n.narrow<BType::DOUBLE>());
       });
@@ -672,8 +672,8 @@ Value ConstPropGemm(PatternRewriter &rewriter, Value replacingValue,
     // If one of res or bias has been cast to F64 then also cast the other.
     if (res.getElementType() != bias.getElementType()) {
       // One cast is unnecessary but ok: cast to the same type is free.
-      res = elementsBuilder.castElementType(res, F64);
-      bias = elementsBuilder.castElementType(bias, F64);
+      res = elementsBuilder.castToFPElementType(res, F64);
+      bias = elementsBuilder.castToFPElementType(bias, F64);
     }
     // elemType will be F64 if alpha != 1.0 or beta != 1.0.
     Type elemType = res.getElementType();
@@ -757,39 +757,18 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
 
   ElementsAttr constElements = getConstValueElements(constValue);
   OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-  ElementsAttr castElements =
-      elementsBuilder.castElementType(constElements, toType);
-
-  // 'saturate' is ignored unless toType is a 8 bits float type.
-  if (saturate.getSInt() != 0 && isa<FloatType>(toType) &&
-      toType.getIntOrFloatBitWidth() == 8) {
-    float max =
-        dispatchByBType(btypeOfMlirType(toType), [&](auto btype) -> float {
-          using cpptype = CppType<btype>;
-          if constexpr (isSmallFPType<cpptype>) {
-            return cpptype::max;
-          } else {
-            llvm_unreachable("unsupported 8 bits floating point type");
-          }
-        });
-    // Clipping after cast relies on that cast is lazy and represents
-    // elements as doubles until they are materialized, so it's not too
-    // late to clip them here.
-    // TODO: Clean up the contracts to make it clearer what's going on.
-    //
-    // Note that we saturate by clipping which isn't 100% faithful to the
-    // onnx spec here: https://onnx.ai/onnx/technical/float8.html
-    // and here: https://github.com/onnx/onnx/blob/main/docs/Operators.md#Cast
-    // which, in the case of E4M3FNUZ and E5M2FNUZ, requires infinite values
-    // to saturate to NaN, whereas we saturate them to lowest/highest with
-    // clipping. Our clipping implementation matchint the reference
-    // implementation in onnx/reference/ops/op_cast.py.
-    // TODO: Change our implementation to match the spec, or change the spec.
-    WideNum lowest = WideNum::widen<BType::FLOAT>(-max);
-    WideNum highest = WideNum::widen<BType::FLOAT>(max);
-    castElements = elementsBuilder.clip(castElements, lowest, highest);
+  ElementsAttr castElements;
+  if (auto ftype = dyn_cast<FloatType>(toType)) {
+    bool doSaturate = saturate.getSInt() != 0 && ftype.getWidth() == 8;
+    castElements =
+        elementsBuilder.castToFPElementType(constElements, ftype, doSaturate);
+  } else if (auto itype = dyn_cast<IntegerType>(toType)) {
+    bool round = false;
+    castElements =
+        elementsBuilder.castToIntElementType(constElements, itype, round);
+  } else {
+    llvm_unreachable("cast to unsupported type");
   }
-
   return createReplacingConstantOp(rewriter, replacingValue, castElements);
 }
 
