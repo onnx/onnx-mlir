@@ -890,8 +890,10 @@ struct ONNXLayerNormalizationOpLowering
 
 
  * Python code that explains how the code was derived.
-
-  def layer_norm_simd2_v3(x, a, scale, b):
+*/
+// clang-format off
+/*
+def layer_norm_simd2_v3(x, a, scale, b):
     (b1, b2) = (2, 4)
     t_rank = len(x.shape)
     assert t_rank==2, "work for rank 2 only"
@@ -901,50 +903,43 @@ struct ONNXLayerNormalizationOpLowering
     y = np.zeros((a1, s2))
     for i1 in range(0, a1, b1):
         # iterate over blocks of b1 values
-
+        
         # MEAN(x), MEAN(x2)
         # iterate over a_block, s_block: parallel add
         r = np.zeros((b1, b2))
         r_square = np.zeros((b1, b2))
-        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2,
+        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2, 
             xx = x[i1:i1+b1, i2:i2+b2]
             xxx = np.multiply(xx, xx)
             r = np.add(r, xx)
             r_square = np.add(r_square, xxx)
-
+            
         # simd reduction; res B1 x 1
         # 2 B1 div
-        mean_b = np.sum(r, axis=1, keepdims=True) # SIMD reduction to (B1x1)
-          # values. mean_b = np.divide(mean_b, s2) # (B2x1) values... so scalar
-          # is ok. mean_square_b = np.sum(r_square, axis=1, keepdims=True)
-          # Same.
-        mean_square_b = np.divide(mean_square_b, s2)
+        mean_b = np.sum(r, axis=1, keepdims=True) # SIMD reduction to (B1x1) values.
+        mean_b = np.divide(mean_b, s2) # (B2x1) values... so scalar is ok. 
+        mean_square_b = np.sum(r_square, axis=1, keepdims=True) # Same.
+        mean_square_b = np.divide(mean_square_b, s2) 
 
-        #print('i1', i1, "mean", mean_b)
-
-        # var = mean_square - mean**2; all compute here are on (B1x1): B1 mul,
-        # B1 add mean2_b = np.multiply(mean_b, mean_b) # B1 values, ok to do
-        # scalar var_b = np.subtract(mean_square_b, mean2_b)
-
+        # var = mean_square - mean**2; all compute here are on (B1x1): B1 mul, B1 add
+        mean2_b = np.multiply(mean_b, mean_b) # B1 values, ok to do scalar
+        var_b = np.subtract(mean_square_b, mean2_b)
+        
         # ADD eps, sqrt, inverse
         # computations on B1x1, scalar ok: B1 add, B1 sqrt, B1 div
         var_eps_b = np.add(var_b, 1e-05)
         std_dev_b = np.sqrt(var_eps_b)
         inv_std_dev_b = np.divide(1.0, std_dev_b)
-        #print('i1', i1, "inv std dev", inv_std_dev_b)
 
-        # tot ops up to here (on B1x1): div: 3*B1, sqrt: B1, mul B1, add/sub 2
-        # B1, sqrt B1: tot 8 B1
+        # tot ops up to here (on B1x1): div: 3*B1, sqrt: B1, mul B1, add/sub 2 B1, sqrt B1: tot 8 B1
 
         # SIMD on entire S2 size
-        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2,
+        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2, 
             x_b = x[i1:i1+b1, i2:i2+b2]
             d_b = np.subtract(x_b, mean_b) # broadcast of mean_b of 1 -> s2
-            normalized_b = np.multiply(d_b, inv_std_dev_b)  # broadcast of
-               # mean_b of 1 -> s2 normalized_scaled_b =
-               # np.multiply(normalized_b, scale) # # assume here scale is
-               # scalar y_b = np.add(normalized_scaled_b, b) # assume here b is
-               # scalar
+            normalized_b = np.multiply(d_b, inv_std_dev_b)  # broadcast of mean_b of 1 -> s2
+            normalized_scaled_b = np.multiply(normalized_b, scale) # assume here scale is scalar
+            y_b = np.add(normalized_scaled_b, b) # assume here b is scalar
 
             # save values
             #mean[i1:i1+b1, i2:i2+b2] = mean_b
@@ -954,8 +949,8 @@ struct ONNXLayerNormalizationOpLowering
         inv_std_dev[i1:i1+b1, :] = inv_std_dev_b
 
     return (y, mean, inv_std_dev)
-
 */
+// clang-format on
 
 void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
