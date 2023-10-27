@@ -855,11 +855,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   }
 
   // Request C wrapper emission via attribute.
-  //  for (auto func : module.getOps<func::FuncOp>()) {
-  // TODO: Temporaly comment out to avoid link error
-  //    func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
-  //        UnitAttr::get(&getContext()));
-  //  }
+  for (auto func : module.getOps<func::FuncOp>()) {
+    // Skip function declaration.
+    if (!func.getBody().empty())
+      func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+          UnitAttr::get(&getContext()));
+  }
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);
