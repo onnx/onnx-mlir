@@ -276,80 +276,173 @@ ElementsAttr ElementsAttrBuilder::where(ElementsAttr cond, ElementsAttr lhs,
   });
 }
 
-namespace {
-using ElementsTransformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
-
-ElementsTransformer composeTransforms(
-    ElementsTransformer first, ElementsTransformer second) {
-  if (first == nullptr)
-    return second;
-  else
-    return [fst = std::move(first), snd = std::move(second)](
-               MutableArrayRef<WideNum> dst) {
-      fst(dst);
-      snd(dst);
-    };
-}
-
-template <typename SrcT, typename DstT>
-struct Caster {
-  static inline constexpr DstT eval(SrcT src) { return static_cast<DstT>(src); }
-};
-
-template <typename SrcT, typename DstT>
-using WideCaster = WideNumWrappedFunction<Caster<SrcT, DstT>>;
-
-auto wideCaster(BType src, BType dst) -> WideNum (*)(WideNum) {
-  constexpr BType DBL = BType::DOUBLE, I64 = BType::INT64, U64 = BType::UINT64;
-  // clang-format off
-  if (src == DBL && dst == I64) return WideCaster<double, int64_t>::eval;
-  if (src == DBL && dst == U64) return WideCaster<double, uint64_t>::eval;
-  if (src == I64 && dst == DBL) return WideCaster<int64_t, double>::eval;
-  if (src == I64 && dst == U64) return WideCaster<int64_t, uint64_t>::eval;
-  if (src == U64 && dst == DBL) return WideCaster<uint64_t, double>::eval;
-  if (src == U64 && dst == I64) return WideCaster<uint64_t, int64_t>::eval;
-  // clang-format on
-  llvm_unreachable("wideCaster must be called with 2 different wide types");
-}
-} // namespace
-
 ElementsAttr ElementsAttrBuilder::castElementType(
     ElementsAttr elms, Type newElementType) {
+  if (auto ftype = dyn_cast<FloatType>(newElementType)) {
+    // TODO: Consider setting saturate==true when ftype has no infinity:
+    //       saturate=APFloat::getInf(ftype.getFloatSemantics()).isNaN()
+    return castToFPElementType(elms, ftype);
+  }
+  if (auto itype = dyn_cast<IntegerType>(newElementType)) {
+    return castToIntElementType(elms, itype);
+  }
+  llvm_unreachable("unsupported newElementType");
+}
+
+namespace {
+
+// Rounds (ties to even) and saturates (out of range numbers become MIN or MAX).
+// Returns zero if from is NaN, like llvm::APFloat::convertToInteger().
+// From must be a floating point type (double, float, float_16, float_8e5m2).
+// To must be an integer type with size <= size(long), i.e., bitwidth <= 64.
+//
+// TODO: make it configurable with command line flags whether to
+//       (1) truncate towards zero (in accordance with ONNX spec) or round,
+//       (2) convert NaN to number farthest from zero (like X86 SSE) or zero
+//
+// TODO: optimize w/X86 SSE instructions https://stackoverflow.com/a/47347224
+//
+template <bool TRUNCATE, typename TO>
+TO convertIntFromDouble(double from) {
+  if (std::isnan(from))
+    return 0;
+  if (from < static_cast<double>(std::numeric_limits<TO>::min()))
+    return std::numeric_limits<TO>::min();
+  // static_cast<double>(max())) can round to a larger number
+  // so return max() if from is greater or equal, not just if greater
+  if (from >= static_cast<double>(std::numeric_limits<TO>::max()))
+    return std::numeric_limits<TO>::max();
+
+  if (TRUNCATE)
+    return static_cast<TO>(from);
+
+  // lrint recommendation: https://stackoverflow.com/a/47347224
+  // rounds to nearest, ties to even, in the default rounding mode
+  using lrintType = decltype(lrint(from));
+  if constexpr (std::is_same_v<TO, uint64_t>) {
+    static_assert(sizeof(lrintType) >= sizeof(TO), "insufficient lrint range");
+    // lrintType is int64_t which doesn't cover the numeric range of uint64_t
+    // so we work around this by breaking the range into 2 as follows:
+    uint64_t mid = uint64_t(1) << 63; // middle of uint64_t numeric range
+    if (from < mid) {
+      // from is inside lrint's numerical range [-2^63, 2^63)
+      return lrint(from);
+    } else {
+      // subtract and add to translate into and out of lrint's numeric range
+      return mid + lrint(from - mid);
+    }
+  } else {
+    // lrintType covers the numeric range of To, namely lrintType is int64_t
+    // and To is int64_t or a narrower signed or unsigned type
+    static_assert(sizeof(lrintType) > sizeof(TO) ||
+                      (sizeof(lrintType) == sizeof(TO) &&
+                          std::numeric_limits<TO>::is_signed),
+        "insufficient lrint range");
+    return lrint(from);
+  }
+}
+
+template <bool TRUNCATE, typename TO>
+WideNum convertIntFromFP(WideNum from) {
+  return WideNum::widen<toBType<TO>>(
+      convertIntFromDouble<TRUNCATE, TO>(from.narrow<BType::DOUBLE>()));
+}
+
+template <typename FROM>
+WideNum isWideNonZero(WideNum n) {
+  return WideNum::widen<BType::BOOL>(n.narrow<toBType<FROM>>() != 0);
+}
+
+template <typename FROM>
+double wideToDouble(WideNum n) {
+  return static_cast<double>(n.narrow<toBType<FROM>>());
+};
+
+} // namespace
+
+ElementsAttr ElementsAttrBuilder::castToIntElementType(
+    ElementsAttr elms, IntegerType newElementType, bool round) {
   Type oldElementType = elms.getElementType();
   if (newElementType == oldElementType)
     return elms;
 
-  ElementsProperties props = getElementsProperties(elms);
+  Transformer transformer;
+  if (newElementType.isInteger(1)) {
+    // We assume cast to bool intends to truncate the numeric range to [0, 1].
+    // We assume that casts to other integer types don't intend to truncate the
+    // numeric range and we delay any truncation until the data is read and
+    // allow the untruncated numbers as inputs to any further transformations.
+    transformer = wideZeroDispatchNonBool(oldElementType, [&](auto wideZero) {
+      using cpptype = decltype(wideZero);
+      return functionTransformer(isWideNonZero<cpptype>);
+    });
+  } else if (isa<FloatType>(oldElementType)) {
+    constexpr bool ROUND = false, TRUNCATE = true;
+    if (newElementType.isUnsigned()) {
+      transformer =
+          round ? functionTransformer(convertIntFromFP<ROUND, uint64_t>)
+                : functionTransformer(convertIntFromFP<TRUNCATE, uint64_t>);
+    } else {
+      transformer =
+          round ? functionTransformer(convertIntFromFP<ROUND, int64_t>)
+                : functionTransformer(convertIntFromFP<TRUNCATE, int64_t>);
+    }
+  } else if (isa<IntegerType>(oldElementType)) {
+    ElementsProperties props = getElementsProperties(elms);
+    ShapedType newType = elms.getShapedType().clone(newElementType);
+    return create(newType, props.bufferBType, props.strides, props.buffer,
+        props.transformer);
+  } else {
+    llvm_unreachable("unsupported element type");
+  }
+  return doTransform(elms, newElementType, transformer);
+}
 
-  ShapedType newType = elms.getShapedType().clone(newElementType);
-  BType newBType = btypeOfMlirType(newElementType);
-  BType oldBType = btypeOfMlirType(oldElementType);
-  BType newWideType = wideBTypeOfBType(newBType);
-  BType oldWideType = wideBTypeOfBType(oldBType);
+ElementsAttr ElementsAttrBuilder::castToFPElementType(
+    ElementsAttr elms, FloatType newElementType, bool saturate) {
+  Type oldElementType = elms.getElementType();
+  if (newElementType == oldElementType)
+    return elms;
 
-  auto transformer =
-      oldWideType == newWideType
-          ? props.transformer
-          : composeTransforms(props.transformer,
-                functionTransformer(wideCaster(oldWideType, newWideType)));
-  return create(newType, props.bufferBType, props.strides, props.buffer,
-      std::move(transformer));
+  return wideZeroDispatchNonBool(oldElementType, [&](auto wideZero) {
+    using cpptype = decltype(wideZero);
+    Transformer transformer;
+    if (saturate) {
+      // Smallest is -max for all ONNX fp types.
+      const double max = APFloat::getLargest(newElementType.getFloatSemantics())
+                             .convertToDouble();
+      transformer = functionTransformer([max](WideNum n) {
+        double d = wideToDouble<cpptype>(n);
+        return WideNum::widen<BType::DOUBLE>(
+            d <= -max ? -max : (d < max ? d : max));
+      });
+    } else if constexpr (std::is_integral_v<cpptype>) {
+      transformer = functionTransformer([](WideNum n) {
+        return WideNum::widen<BType::DOUBLE>(wideToDouble<cpptype>(n));
+      });
+    } else {
+      ElementsProperties props = getElementsProperties(elms);
+      ShapedType newType = elms.getShapedType().clone(newElementType);
+      return create(newType, props.bufferBType, props.strides, props.buffer,
+          props.transformer);
+    }
+    return doTransform(elms, newElementType, transformer);
+  });
 }
 
 ElementsAttr ElementsAttrBuilder::clip(
     ElementsAttr elms, WideNum min, WideNum max) {
   return wideZeroDispatchNonBool(elms.getElementType(), [&](auto wideZero) {
     using cpptype = decltype(wideZero);
-    return doTransform(
-        elms, elms.getElementType(), functionTransformer([min, max](WideNum n) {
-          constexpr BType TAG = toBType<cpptype>;
-          cpptype x = n.narrow<TAG>();
-          if (x < min.narrow<TAG>())
-            return min;
-          if (x > max.narrow<TAG>())
-            return max;
-          return n;
-        }));
+    return transform(elms, elms.getElementType(), [min, max](WideNum n) {
+      constexpr BType TAG = toBType<cpptype>;
+      cpptype x = n.narrow<TAG>();
+      if (x < min.narrow<TAG>())
+        return min;
+      if (x > max.narrow<TAG>())
+        return max;
+      return n;
+    });
   });
 }
 
@@ -982,6 +1075,22 @@ ArrayBuffer<WideNum> ElementsAttrBuilder::getWideNumsAndExpandedStrides(
     return getElementsWideNums(elms);
   };
 }
+
+namespace {
+using ElementsTransformer = std::function<void(llvm::MutableArrayRef<WideNum>)>;
+
+ElementsTransformer composeTransforms(
+    ElementsTransformer first, ElementsTransformer second) {
+  if (first == nullptr)
+    return second;
+  else
+    return [fst = std::move(first), snd = std::move(second)](
+               MutableArrayRef<WideNum> dst) {
+      fst(dst);
+      snd(dst);
+    };
+}
+} // namespace
 
 ElementsAttr ElementsAttrBuilder::doTransform(
     ElementsAttr elms, Type transformedElementType, Transformer transformer) {
