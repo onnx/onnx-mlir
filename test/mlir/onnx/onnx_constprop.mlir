@@ -1253,6 +1253,21 @@ func.func @test_mul_folding(%arg0: tensor<1x1x28x28xf32>) -> tensor<*xf32> {
 
 // -----
 
+func.func @test_cast_i32_i1_i32() -> tensor<4xi32> {
+  %0 = onnx.Constant dense<[-1, 0, 1, 2]> : tensor<4xi32>
+  %1 = "onnx.Cast"(%0) {to = i1} : (tensor<4xi32>) -> tensor<4xi1>
+  %2 = "onnx.Cast"(%1) {to = i32} : (tensor<4xi1>) -> tensor<4xi32>
+  "onnx.Return"(%2) : (tensor<4xi32>) -> ()
+
+  // CHECK-LABEL:  func @test_cast_i32_i1_i32
+  // CHECK-SAME:   () -> tensor<4xi32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[1, 0, 1, 1]> : tensor<4xi32>
+  // CHECK:           onnx.Return [[VAR_0_]] : tensor<4xi32>
+  // CHECK:         }
+}
+
+// -----
+
 func.func @test_cast_i32_i64() -> tensor<3x2xi64> {
   %0 = onnx.Constant dense<[[2, 3], [4, 5], [6, 7]]> : tensor<3x2xi32>
   %1 = "onnx.Cast"(%0) {to = i64} : (tensor<3x2xi32>) -> tensor<3x2xi64>
