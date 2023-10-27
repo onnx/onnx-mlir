@@ -63,11 +63,13 @@ namespace {
 
 // Populated by configureConstPropONNXToONNXPass().
 struct ConstPropONNXToONNXPassConfiguration {
+  static bool roundFPToInt;
   static int expansionBound;
   static StringSet<> disabledPatterns;
   static bool constantPropIsDisabled;
 };
 
+bool ConstPropONNXToONNXPassConfiguration::roundFPToInt = false;
 int ConstPropONNXToONNXPassConfiguration::expansionBound = -1; // -1 == no bound
 StringSet<> ConstPropONNXToONNXPassConfiguration::disabledPatterns = {};
 bool ConstPropONNXToONNXPassConfiguration::constantPropIsDisabled = false;
@@ -763,13 +765,11 @@ Value ConstPropCast(PatternRewriter &rewriter, Value replacingValue,
     castElements =
         elementsBuilder.castToFPElementType(constElements, ftype, doSaturate);
   } else if (auto itype = dyn_cast<IntegerType>(toType)) {
-    // The onnx Cast spec doesn’t say whether cast from floating point to
-    // integer type should truncate or round but past discussions (onnx issues
-    // #2285, #3776, #5004) point to truncation like numpy.
-    // See https://github.com/onnx/onnx-mlir/issues/2209
-    //
-    // TODO: Add configuration to support rounding.
-    bool round = false;
+    // The onnx.Cast spec doesn’t say whether cast from floating point to
+    // integer type should truncate towards zero or round but past discussions
+    // (onnx issues #2285, #3776, #5004) point to truncation like numpy.
+    // But round to nearest, ties to even, is preferable for numerics.
+    bool round = ConstPropONNXToONNXPassConfiguration::roundFPToInt;
     castElements =
         elementsBuilder.castToIntElementType(constElements, itype, round);
   } else {
@@ -1087,8 +1087,9 @@ void onnx_mlir::getConstPropONNXToONNXPatterns(RewritePatternSet &patterns) {
   patterns.insert<IfOfConst>(patterns.getContext());
 }
 
-void onnx_mlir::configureConstPropONNXToONNXPass(int expansionBound,
-    ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled) {
+void onnx_mlir::configureConstPropONNXToONNXPass(bool roundFPToInt,
+    int expansionBound, ArrayRef<std::string> disabledPatterns,
+    bool constantPropIsDisabled) {
   ConstPropONNXToONNXPassConfiguration::expansionBound = expansionBound;
   ConstPropONNXToONNXPassConfiguration::disabledPatterns.insert(
       disabledPatterns.begin(), disabledPatterns.end());
