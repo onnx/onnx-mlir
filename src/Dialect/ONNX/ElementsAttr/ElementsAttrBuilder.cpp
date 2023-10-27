@@ -296,9 +296,9 @@ namespace {
 // From must be a floating point type (double, float, float_16, float_8e5m2).
 // To must be an integer type with size <= size(long), i.e., bitwidth <= 64.
 //
-// TODO: make it configurable with command line flags whether to
-//       (1) truncate towards zero (in accordance with ONNX spec) or round,
-//       (2) convert NaN to number farthest from zero (like X86 SSE) or zero
+// TODO: consider making it configurable whether to convert NaN to
+//       number farthest from zero (like X86 SSE)
+//       or just highest bit set (like CUDA) or zero
 //
 // TODO: optimize w/X86 SSE instructions https://stackoverflow.com/a/47347224
 //
