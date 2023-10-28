@@ -1310,15 +1310,17 @@ func.func @test_cast_i32_f32() -> tensor<3x2xf32> {
 
 // -----
 
-func.func @test_cast_f32_i32() -> tensor<3x2xi32> {
-  %0 = onnx.Constant dense<[[2.3, 3.6], [4.5, 5.5], [6.0, 7.0]]> : tensor<3x2xf32>
-  %1 = "onnx.Cast"(%0) {to = i32} : (tensor<3x2xf32>) -> tensor<3x2xi32>
-  "onnx.Return"(%1) : (tensor<3x2xi32>) -> ()
+func.func @test_cast_f32_i32() -> tensor<8xi32> {
+  // COM: 0x7F800000/0xFF800000 are +/-INF
+  // COM: 0x7F800001/0xFFFFFFFF are smallest positive NaN/largest negative NaN
+  %0 = onnx.Constant dense<[2.3, 3.6, -1.0e10, 1.0e10, 0x7F800000, 0xFF800000, 0x7F800001, 0xFFFFFFFF]> : tensor<8xf32>
+  %1 = "onnx.Cast"(%0) {to = i32} : (tensor<8xf32>) -> tensor<8xi32>
+  "onnx.Return"(%1) : (tensor<8xi32>) -> ()
 
   // CHECK-LABEL:  func @test_cast_f32_i32
-  // CHECK-SAME:   () -> tensor<3x2xi32> {
-  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[2, 3], [4, 5], [6, 7]{{.}}> : tensor<3x2xi32>
-  // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x2xi32>
+  // CHECK-SAME:   () -> tensor<8xi32> {
+  // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[2, 3, -2147483648, 2147483647, 2147483647, -2147483648, 0, 0]> : tensor<8xi32>
+  // CHECK:           onnx.Return [[VAR_0_]] : tensor<8xi32>
   // CHECK:         }
 }
 
