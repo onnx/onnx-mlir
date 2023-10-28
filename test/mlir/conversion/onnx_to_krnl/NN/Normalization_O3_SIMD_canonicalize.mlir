@@ -39,6 +39,7 @@ func.func @layernorm_4D_with_scale_bias_no_SIMD(%arg0: tensor<2x64x31x3xf32>, %a
 // CHECK:           [[LOOP_2_:%.+]]:4 = krnl.define_loops 4
 // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2, [[LOOP_2_]]#3) with ([[LOOP_2_]]#0 -> [[I_8_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_9_:%.+]] = 0 to 64, [[LOOP_2_]]#2 -> [[I_10_:%.+]] = 0 to 1, [[LOOP_2_]]#3 -> [[I_11_:%.+]] = 0 to 1){
 }
+
 // -----
 
 // arg1 is defined for every outer loop, arg2 is defined for 64 of the 128 outer loops.
