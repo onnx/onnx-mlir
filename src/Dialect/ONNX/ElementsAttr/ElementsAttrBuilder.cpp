@@ -329,12 +329,12 @@ TO convertIntFromDouble(double from) {
       // from is inside llrint's numerical range [-2^63, 2^63)
       return llrint(from);
     } else {
-      // subtract and add to translate into and out of llrint's numeric range
+      // subtract and add to translate into and llrint's numeric range and back
       return mid + llrint(from - mid);
     }
   } else {
-    // llrintType covers the numeric range of To, namely llrintType is int64_t
-    // and To is int64_t or a narrower signed or unsigned type
+    // llrintType covers the numeric range of TO, namely llrintType is int64_t
+    // and TO is int64_t or a narrower signed or unsigned type
     static_assert(sizeof(llrintType) > sizeof(TO) ||
                       (sizeof(llrintType) == sizeof(TO) &&
                           std::numeric_limits<TO>::is_signed),
