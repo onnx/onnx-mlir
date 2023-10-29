@@ -303,15 +303,15 @@ namespace {
 // TODO: optimize w/X86 SSE instructions https://stackoverflow.com/a/47347224
 //
 template <bool TRUNCATE, typename TO>
-TO convertIntFromDouble(double from) {
+TO convertIntFromDouble(double from, TO min, TO max) {
   if (std::isnan(from))
     return 0;
-  if (from < static_cast<double>(std::numeric_limits<TO>::min()))
-    return std::numeric_limits<TO>::min();
-  // static_cast<double>(max())) can round to a larger number
-  // so return max() if from is greater or equal, not just if greater
-  if (from >= static_cast<double>(std::numeric_limits<TO>::max()))
-    return std::numeric_limits<TO>::max();
+  if (from < static_cast<double>(min))
+    return min;
+  // static_cast<double>(max)) can round to a larger number
+  // so return max if from is greater or equal, not just if greater
+  if (from >= max)
+    return max;
 
   if (TRUNCATE)
     return static_cast<TO>(from);
@@ -344,9 +344,12 @@ TO convertIntFromDouble(double from) {
 }
 
 template <bool TRUNCATE, typename TO>
-WideNum convertIntFromFP(WideNum from) {
-  return WideNum::widen<toBType<TO>>(
-      convertIntFromDouble<TRUNCATE, TO>(from.narrow<BType::DOUBLE>()));
+auto convertIntFromFP(TO min, TO max) {
+  return [min, max](WideNum n) -> WideNum {
+    double from = n.narrow<BType::DOUBLE>();
+    TO to = convertIntFromDouble<TRUNCATE, TO>(from, min, max);
+    return WideNum::widen<toBType<TO>>(to);
+  };
 }
 
 template <typename FROM>
@@ -382,14 +385,21 @@ ElementsAttr ElementsAttrBuilder::castToIntElementType(
     });
   } else if (isa<FloatType>(oldElementType)) {
     constexpr bool ROUND = false, TRUNCATE = true;
+    unsigned width = newElementType.getWidth();
     if (newElementType.isUnsigned()) {
-      transformer =
-          round ? functionTransformer(convertIntFromFP<ROUND, uint64_t>)
-                : functionTransformer(convertIntFromFP<TRUNCATE, uint64_t>);
+      uint64_t min = 0;
+      uint64_t max = std::numeric_limits<uint64_t>::max() >> (64 - width);
+      transformer = round ? functionTransformer(
+                                convertIntFromFP<ROUND, uint64_t>(min, max))
+                          : functionTransformer(
+                                convertIntFromFP<TRUNCATE, uint64_t>(min, max));
     } else {
-      transformer =
-          round ? functionTransformer(convertIntFromFP<ROUND, int64_t>)
-                : functionTransformer(convertIntFromFP<TRUNCATE, int64_t>);
+      int64_t min = std::numeric_limits<int64_t>::min() >> (64 - width);
+      int64_t max = std::numeric_limits<int64_t>::max() >> (64 - width);
+      transformer = round ? functionTransformer(
+                                convertIntFromFP<ROUND, int64_t>(min, max))
+                          : functionTransformer(
+                                convertIntFromFP<TRUNCATE, int64_t>(min, max));
     }
   } else if (isa<IntegerType>(oldElementType)) {
     // We assume that casts to other integer types don't intend to truncate the
