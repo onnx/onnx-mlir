@@ -73,7 +73,6 @@ bool MatMul2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
 }
 
 bool MatMul2DLibBuilder::prepareInputs() {
-  // TODO : Temporary change for debugging
   return MatMul2DLibBuilder::prepareInputs(
       -omDefaultRangeBound, omDefaultRangeBound);
 }
