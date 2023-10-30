@@ -1,4 +1,4 @@
-// RUN: ccfd=$(dirname %s)/ccfd.onnx && wget https://github.com/IBM/ai-on-z-fraud-detection/raw/main/onnx%20models/ccf_lstm_static_tf2onnx_OS_new.onnx -O ${ccfd} && onnx-mlir --mcpu=z16 --maccel=NNPA --EmitMLIR --printIR -tag="test" ${ccfd} | FileCheck %s && rm -rf ${ccfd}
+// RUN: ccfd=$(dirname %s)/ccfd.onnx && curl -L https://github.com/IBM/ai-on-z-fraud-detection/raw/main/onnx%20models/ccf_lstm_static_tf2onnx_OS_new.onnx -o ${ccfd} && onnx-mlir --mcpu=z16 --maccel=NNPA --EmitMLIR --printIR -tag="test" ${ccfd} | FileCheck %s && rm -rf ${ccfd}
 
 // COM: This test is to check regression on the IBM CCFD model.
 // COM: We expect that there is only one zlow.stick for the input and one zlow.unstick for the output.
