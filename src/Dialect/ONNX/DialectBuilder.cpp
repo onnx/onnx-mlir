@@ -28,6 +28,11 @@ namespace onnx_mlir {
 
 //====-------------------------- ONNX Builder ---------------------------===//
 
+IntegerAttr OnnxBuilder::getSignedInt64Attr(int64_t n) const {
+  return IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
+      APInt(64, n, /*isSigned=*/true));
+}
+
 // =============================================================================
 // Basic operations
 // =============================================================================
@@ -70,9 +75,7 @@ Value OnnxBuilder::clip(
 
 Value OnnxBuilder::concat(
     Type outputType, ValueRange inputs, int64_t axis) const {
-  IntegerAttr concatAxisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, axis, /*isSigned=*/true));
+  IntegerAttr concatAxisAttr = getSignedInt64Attr(axis);
   return createTypedOpAndInferShapes<ONNXConcatOp>(
       toTensor(outputType), inputs, concatAxisAttr);
 }
@@ -90,19 +93,13 @@ Value OnnxBuilder::constantInt64(const ArrayRef<int64_t> intVals) const {
 
 Value OnnxBuilder::dim(Value input, int axis) const {
   Type resultType = RankedTensorType::get({1}, b().getI64Type());
-  IntegerAttr axisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, axis, /*isSigned=*/true));
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
   return createTypedOpAndInferShapes<ONNXDimOp>(resultType, input, axisAttr);
 }
 
 void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
-  IntegerAttr axisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, axis, /*isSigned=*/true));
-  IntegerAttr groupIDAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, groupID, /*isSigned=*/true));
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
+  IntegerAttr groupIDAttr = getSignedInt64Attr(groupID);
   // No shape needed for this one I believe.
   b().create<ONNXDimGroupOp>(loc(), input, axisAttr, groupIDAttr);
 }
@@ -122,12 +119,8 @@ Value OnnxBuilder::expand(Type outputType, Value input, Value shape) const {
 // ONNXLayerNormalizationOp, version with one output only (Y).
 Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
     Value bias, int64_t axis, FloatAttr epsilon) const {
-  IntegerAttr axisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, axis, /*isSigned=*/true));
-  IntegerAttr stashTypeAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, 1, /*isSigned=*/true));
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
+  IntegerAttr stashTypeAttr = getSignedInt64Attr(1);
   Value noneVal = none();
   Type noneType = noneVal.getType();
   ONNXLayerNormalizationOp layerNormOp =
@@ -151,12 +144,8 @@ Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   if (canUseGemm)
     return createOpAndInferShapes<ONNXGemmOp>(Y, aValue, bValue, none(),
         /*alpha=*/b().getF32FloatAttr(1.0), /*beta=*/b().getF32FloatAttr(1.0),
-        /*transA=*/
-        IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-            APInt(64, 0, /*isSigned=*/true)),
-        /*transB=*/
-        IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-            APInt(64, 0, /*isSigned=*/true)));
+        /*transA=*/getSignedInt64Attr(0),
+        /*transB=*/getSignedInt64Attr(0));
   return createOpAndInferShapes<ONNXMatMulOp>(toTensor(Y), aValue, bValue);
 }
 
@@ -252,12 +241,8 @@ Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
 
 Value OnnxBuilder::reverseSequence(Type outputType, Value input,
     Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const {
-  IntegerAttr batchAxisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, batchAxis, /*isSigned=*/true));
-  IntegerAttr timeAxisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, timeAxis, /*isSigned=*/true));
+  IntegerAttr batchAxisAttr = getSignedInt64Attr(batchAxis);
+  IntegerAttr timeAxisAttr = getSignedInt64Attr(timeAxis);
   return createTypedOpAndInferShapes<ONNXReverseSequenceOp>(
       toTensor(outputType), toTensor(input), toTensor(sequenceLens),
       batchAxisAttr, timeAxisAttr);
@@ -274,6 +259,20 @@ Value OnnxBuilder::round(Value input, bool scalarType) const {
 Value OnnxBuilder::shape(Type outputType, Value input) const {
   return createTypedOpAndInferShapes<ONNXShapeOp>(
       toTensor(outputType), toTensor(input));
+}
+
+Value OnnxBuilder::shape(Type outputType, Value input, int64_t start) const {
+  IntegerAttr startAttr = getSignedInt64Attr(start);
+  return createTypedOpAndInferShapes<ONNXShapeOp>(
+      toTensor(outputType), toTensor(input), nullptr, startAttr);
+}
+
+Value OnnxBuilder::shape(
+    Type outputType, Value input, int64_t start, int64_t end) const {
+  IntegerAttr startAttr = getSignedInt64Attr(start);
+  IntegerAttr endAttr = getSignedInt64Attr(end);
+  return createTypedOpAndInferShapes<ONNXShapeOp>(
+      toTensor(outputType), toTensor(input), endAttr, startAttr);
 }
 
 Value OnnxBuilder::slice(Type outputType, Value input, Value starts, Value ends,
@@ -300,9 +299,7 @@ Value OnnxBuilder::sqrt(Value input) const {
 
 ValueRange OnnxBuilder::split(
     TypeRange outputTypes, Value input, Value split, int64_t axis) const {
-  IntegerAttr axisAttr =
-      IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-          APInt(64, axis, /*isSigned=*/true));
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
   return createOpAndInferShapes<ONNXSplitOp>(toTensors(outputTypes),
       toTensor(input), toTensor(split), axisAttr, IntegerAttr())
       .getResults();

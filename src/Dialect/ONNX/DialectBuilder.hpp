@@ -77,7 +77,8 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXLayerNormalizationOp, version with one output only (Y).
   mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
-      mlir::Value scale, mlir::Value bias, int64_t axis, mlir::FloatAttr epsilon) const;
+      mlir::Value scale, mlir::Value bias, int64_t axis,
+      mlir::FloatAttr epsilon) const;
 
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
@@ -142,8 +143,13 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXRoundOp
   mlir::Value round(mlir::Value input, bool scalarType = false) const;
 
-  // ONNXShapeOp
+  // ONNXShapeOp (start is inclusive, default 0; end is exclusive, default
+  // nullptr means all)
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
+  mlir::Value shape(
+      mlir::Type outputType, mlir::Value input, int64_t start) const;
+  mlir::Value shape(mlir::Type outputType, mlir::Value input, int64_t start,
+      int64_t end) const;
 
   // ONNXSliceOp
   mlir::Value slice(mlir::Type outputType, mlir::Value input,
@@ -189,6 +195,9 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXWhereOp
   mlir::Value where(mlir::Type outputType, mlir::Value condition, mlir::Value X,
       mlir::Value Y) const;
+
+private:
+  mlir::IntegerAttr getSignedInt64Attr(int64_t n) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.
