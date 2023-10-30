@@ -824,9 +824,10 @@ struct GroupNormIntoLayerNormPattern
         rewriter, groupNormOp.getLoc());
     int64_t axis = 2;
     int64_t numInNorm = layerNormRank - axis;
-    // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm 1s.
+    // Unsqueeze scale/bias from [NG] to [NG x 1 x 1 x ... x 1] with numInNorm
+    // 1s.
     llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
-    biasScaleShape.emplace_back(C);
+    biasScaleShape.emplace_back(numGroups);
     for (int64_t i = 1; i <= numInNorm; ++i) {
       biasScaleShape.emplace_back(1);
       axesList.emplace_back(i);
@@ -918,6 +919,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
+  target.addIllegalOp<ONNXGroupNormalizationOp>();
   target.addIllegalOp<ONNXInstanceNormalizationOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();
@@ -1005,6 +1007,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
+  patterns.insert<GroupNormIntoLayerNormPattern>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }
