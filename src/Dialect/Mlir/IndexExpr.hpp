@@ -572,7 +572,7 @@ public:
   IndexExpr convertToFloat() const; // Int input only.
   IndexExpr convertToIndex() const; // Float input only.
 
-  // Debug (enable running with --debug-only=index_expr, for example).
+  // Debug (enable running with --debug-only=index-expr, for example).
   void debugPrint(const std::string &msg) const;
   static void debugPrint(
       const std::string &msg, const llvm::SmallVectorImpl<IndexExpr> &list);
