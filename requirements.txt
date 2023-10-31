@@ -2,6 +2,6 @@ lit~=15.0
 # numpy 1.24 deprecates np.object, np.bool, np.float, np.complex, np.str,
 # and np.int which are used heavily in onnx-mlir.
 numpy~=1.22.2, <=1.23.5
-protobuf~=21.12
+protobuf~=4.24.4
 pytest~=7.2
 pytest-xdist~=3.0
