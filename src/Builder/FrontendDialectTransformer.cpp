@@ -1486,12 +1486,12 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     if (ret != CompilerSuccess)
       return ret;
 
-    auto status = google::protobuf::util::JsonStringToMessage(json, &model);
-    if (!status.ok()) {
-      *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +
-                      " with error '" + status.ToString() + "'";
-      return InvalidOnnxFormat;
-    }
+    // auto status = google::protobuf::util::JsonStringToMessage(json, &model);
+    // if (!status.ok()) {
+    //   *errorMessage = "Json Model Parsing Failed on " + model_fname.str() +
+    //                   " with error '" + status.ToString() + "'";
+    //   return InvalidOnnxFormat;
+    // }
   } else {
     bool parse_success;
     if (model_fname.str() == "-")
