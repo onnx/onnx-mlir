@@ -79,6 +79,7 @@ void addONNXToZHighPasses(
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   // There are more opportunities for const propagation once all zhigh ops were
   // generated.
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
   pm.addPass(mlir::createCanonicalizerPass());
   // Layout propagation at ZHighIR.
