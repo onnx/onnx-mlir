@@ -15,6 +15,7 @@ import onnx
 import argparse
 from onnx import version_converter, helper
 
+print("your onnx package version is " + str(onnx.__version__))
 parser = argparse.ArgumentParser()
 parser.add_argument("model", help="onnx model")
 parser.add_argument("--save", help="save the converted model", action="store_true")
