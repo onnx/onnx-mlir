@@ -1893,7 +1893,21 @@ Value OpFusionHelper::emitFuseOps(
     defOpResult =
         emitScalar(rewriter, loc, useOp, currentElementType, inputValues);
     defOp = useOp;
-    alloc = defOp->getResult(0);
+
+    // Explanation:
+    // The variable, alloc, is used to initialize ONNXBroadcastOpShapeHelper.
+    // The output of defOp should have the same shape as the alloc, which is
+    // one of the prerequisits for fusion.
+    // However, they may have different element type for some ops, such as
+    // comparison and cast.
+    // The issue is that ONNXBroadcastOpShapeHelper.computeShape() may use
+    // this parameter to generate some code (memref.dim) that is not really
+    // needed here. Due to this live user, the original op can not be erased.
+    // This error occurs when there are more than one op with dynamic dim
+    // to be fused.
+    // Luckily, the ShapeHelper does not check the element type.
+    // Therefore, alloc is used for all the fused op.
+    // alloc = defOp->getResult(0);
   }
   return defOpResult;
 }
