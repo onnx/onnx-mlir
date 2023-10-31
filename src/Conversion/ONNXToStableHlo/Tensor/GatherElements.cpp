@@ -78,7 +78,7 @@ struct ONNXGatherElementsOpLoweringToStableHlo : public ConversionPattern {
     // start indices
     Value toConcatIndexShape;
     SmallVector<Value> toConcatIndexShapeValueVec;
-    for (size_t i = 0; i < rank; i++) {
+    for (int64_t i = 0; i < rank; i++) {
       toConcatIndexShapeValueVec.push_back(
           rewriter.create<shape::GetExtentOp>(loc, indicesShape, i));
     }
@@ -115,15 +115,16 @@ struct ONNXGatherElementsOpLoweringToStableHlo : public ConversionPattern {
       collapsedDims.push_back(i);
       startIndexMap.push_back(i);
     }
-    auto dimsAttr = stablehlo::GatherDimensionNumbersAttr::get(rewriter.getContext(),
-        /*offsetDims=*/{},
-        /*collapsedSliceDims=*/collapsedDims,
-        /*startIndexMap=*/startIndexMap,
-        /*indexVecDim=*/rank);
+    auto dimsAttr =
+        stablehlo::GatherDimensionNumbersAttr::get(rewriter.getContext(),
+            /*offsetDims=*/{},
+            /*collapsedSliceDims=*/collapsedDims,
+            /*startIndexMap=*/startIndexMap,
+            /*indexVecDim=*/rank);
     SmallVector<int64_t> sliceSizes(inputType.getRank(), 1);
 
-    Value gatherValue = rewriter.create<stablehlo::GatherOp>(loc, outputType, data,
-        gatherIndicies, dimsAttr, rewriter.getI64TensorAttr(sliceSizes));
+    Value gatherValue = rewriter.create<stablehlo::GatherOp>(loc, outputType,
+        data, gatherIndicies, dimsAttr, rewriter.getI64TensorAttr(sliceSizes));
     rewriter.replaceOp(op, gatherValue);
     return success();
   }

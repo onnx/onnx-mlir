@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp"
+#include "src/Conversion/ONNXToStableHlo/ONNXToStableHloCommon.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -47,12 +47,12 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
     Type outputType = *op->result_type_begin();
     if (!constantValue || isNoneValue(constantValue)) {
       // Pad with zeros by default
-      constantValue = rewriter.create<Stablehlo::ConstantOp>(
+      constantValue = rewriter.create<stablehlo::ConstantOp>(
           loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
                    rewriter.getZeroAttr(elemType)));
     } else {
       // constantValue might be 1D tensor, reshape it to scalar
-      constantValue = rewriter.create<Stablehlo::ReshapeOp>(
+      constantValue = rewriter.create<stablehlo::ReshapeOp>(
           loc, RankedTensorType::get({}, elemType), constantValue);
     }
     SmallVector<int64_t> edgePaddingLowVec(rank, 0);
