@@ -15,7 +15,7 @@ Build protobuf as a static library.
 
 [same-as-file]: <> (utils/install-protobuf.cmd)
 ```shell
-REM Check out protobuf v21.12
+REM Check out protobuf v3.20.3
 set protobuf_version=3.20.3
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
