@@ -345,7 +345,8 @@ mlir::LogicalResult generateONNXLayerNormalizationOpONNXCode(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::ONNXLayerNormalizationOp lnOp);
 void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 

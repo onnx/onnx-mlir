@@ -375,11 +375,12 @@ LogicalResult generateONNXLayerNormalizationOpONNXCode(
 
 struct ONNXLayerNormalizationOpLowering
     : public OpConversionPattern<ONNXLayerNormalizationOp> {
-  ONNXLayerNormalizationOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD)
-      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD) {}
+  ONNXLayerNormalizationOpLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableSIMD, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
 
-  bool enableSIMD;
+  bool enableSIMD, enableParallel;
 
   bool isBroadcastCompatible(ONNXLayerNormalizationOpShapeHelper &shapeHelper,
       Value operand, int64_t operandIndex, int64_t axis,
@@ -702,16 +703,20 @@ struct ONNXLayerNormalizationOpLowering
           invStdDevFlatMemRef);
     // Alloc mem for reductions (should be private if parallel)
     MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
-    Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
-    Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
     IndexExpr zero = LiteralIndexExpr(0);
     ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
-    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDefs[0]}, {zero},
+    Value blockedLoopDef = blockedLoopDefs[0];
+    if (enableParallel) {
+      create.krnl.parallel(blockedLoopDef);
+    }
+    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef}, {zero},
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
+          Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
+          Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
           IndexExpr blockedUB =
               SymbolIndexExpr(XFlatDims[0].getValue()); // hi alex, take value?
@@ -839,12 +844,13 @@ def layer_norm_simd2_v3(x, a, scale, b):
 // clang-format on
 
 void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD) {
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
+    bool enableParallel) {
   patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
   patterns.insert<ONNXLayerNormalizationOpLowering>(
-      typeConverter, ctx, enableSIMD);
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

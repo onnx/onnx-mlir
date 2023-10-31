@@ -436,7 +436,8 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
 // Return 0 on success, error code on failure.
 static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
-    std::vector<std::string> libs, std::vector<std::string> libDirs) {
+    std::vector<std::string> libs, std::vector<std::string> libDirs,
+    std::vector<std::string> dynLibDirs) {
 
 #ifdef _WIN32
   std::vector<std::string> outputOpt = {"/Fe:" + sharedLibNameWithExt};
@@ -447,11 +448,16 @@ static int genSharedLib(std::string sharedLibNameWithExt,
   llvm::for_each(libs, [](std::string &lib) { lib = lib + ".lib"; });
   llvm::for_each(libDirs,
       [](std::string &libDir) { libDir = "/libpath:\"" + libDir + "\""; });
+  // TO DO: add handling of dyn lib dirs.
+  assert(dynLibDirs.size() == 0 &&
+         "cannot handle dynamic library dir at this time");
 #else
   std::vector<std::string> outputOpt = {"-o", sharedLibNameWithExt};
   std::vector<std::string> sharedLibOpts = {"-shared", "-fPIC"};
   llvm::for_each(libs, [](std::string &lib) { lib = "-l" + lib; });
   llvm::for_each(libDirs, [](std::string &libDir) { libDir = "-L" + libDir; });
+  llvm::for_each(dynLibDirs,
+      [](std::string &dynLibDir) { dynLibDir = "-Wl,-rpath," + dynLibDir; });
 #ifdef __s390x__
   llvm::SmallString<64> lds;
   if (modelSize == ModelSize::large) {
@@ -477,6 +483,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
                .appendList(outputOpt)
                .appendList(sharedLibOpts)
                .appendList(libDirs)
+               .appendList(dynLibDirs)
                .appendList(libs)
                .exec();
   return rc != 0 ? CompilerFailureInObjToLib : CompilerSuccess;
@@ -532,7 +539,8 @@ static int compileModuleToSharedLibrary(
   libNameWithExt = getTargetFilename(outputNameNoExt, EmitLib);
   return genSharedLib(libNameWithExt, {}, {modelObjNameWithExt},
       getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS));
+      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS),
+      getCompilerConfig(CCM_SHARED_DYN_LIB_PATH_DEPS));
 }
 
 // Return 0 on success, error code on failure
@@ -575,7 +583,8 @@ static int compileModuleToJniJar(
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
       {modelObjNameWithExt, jniObjPath}, getCompilerConfig(CCM_SHARED_LIB_DEPS),
-      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS));
+      getCompilerConfig(CCM_SHARED_LIB_PATH_DEPS),
+      getCompilerConfig(CCM_SHARED_DYN_LIB_PATH_DEPS));
   if (rc != CompilerSuccess)
     return rc;
   llvm::FileRemover modelSharedLibRemover(
