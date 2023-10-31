@@ -44,6 +44,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
        cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
              -DCMAKE_BUILD_TYPE=Release \
              -DCMAKE_INSTALL_MESSAGE=NEVER \
+             -DONNX_ML=1 \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
     && make -j${NPROC} \
     && make -j${NPROC} LIT_OPTS=-v check-onnx-lit \
