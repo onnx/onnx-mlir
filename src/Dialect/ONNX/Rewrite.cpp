@@ -1067,6 +1067,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
+  results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
 }
 
 /// on the ONNXAndOp.
@@ -1190,6 +1191,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<FuseMulConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
+  results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
 }
 
 /// on the ONNXOrOp.
@@ -1231,6 +1233,7 @@ void ONNXSubOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXSubOp>>(context);
+  result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXSubOp>>(context);
 }
 
 /// on ONNXShapeTransformOp
