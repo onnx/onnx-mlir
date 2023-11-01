@@ -88,8 +88,8 @@ mlir::Value emitONNXTransposeWithType(mlir::Location loc,
     mlir::PatternRewriter &rewriter, mlir::Type transposedType, mlir::Value x,
     mlir::ArrayRef<int64_t> perms);
 
-/// Split a tensor along an axis in which each chunk has a size of
-/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chucnk can be smaller.
+/// Split a tensor along an axis by chunkSize. The last chunk becomes smaller
+/// than it. The default chunkSize is NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
 mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
     mlir::Value X, int64_t axis,

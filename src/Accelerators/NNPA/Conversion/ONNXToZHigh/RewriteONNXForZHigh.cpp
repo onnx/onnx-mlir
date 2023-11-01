@@ -467,6 +467,35 @@ public:
   }
 };
 
+/// This pattern is to split a MatMul op into smaller ones to run it in
+/// parallel using mutiple threads.
+/// Given (N x K) * (K * M), the pattern considers dimensions M to
+/// split if M is greater than threshold specified by option. The default value
+/// is ? (TODO: Create the option)
+/// For example, given A(N x K) * B(K x M), we will split A and B as follows.
+// clang-format off
+///
+///                K                    MDIS        MDIS    M - 2 * MDIS
+///       <---------------->        <----------><----------><----->
+///       +----------------+       +-----------+-----------+-----+
+///     ^ |                |     ^ |           |           |     |
+///     | |                |     | |           |           |     |
+///   N | |       A        |   K | |  B1       |  B2       |  B3 |
+///     | |                |     | |           |           |     |
+///     v |                |     v |           |           |     |
+///       +----------------+       +-----------+-----------+-----+
+///
+/// Then,
+/// - Run (A * B1) by the first thread, (A * B2) by the second thread,
+///   and (A * B3) by the third thread.
+/// - Then, concat the results to get (A * B).
+///
+// clang-format on
+///
+/// Tensors are splitted into chunks of the equal size of MDIS, except the last
+/// chunk.
+/// Currently splitting A is not supported. The code is partially included, but
+/// not well tested.
 class ParallelMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
 public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
@@ -475,8 +504,8 @@ public:
       ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
     Location loc = matmulOp.getLoc();
     Operation *op = matmulOp.getOperation();
-    Value A = matmulOp.getA(); // NxK
-    Value B = matmulOp.getB(); // KxM
+    Value A = matmulOp.getA(); // N x K
+    Value B = matmulOp.getB(); // K x M
 
     Type aType = A.getType();
     Type bType = B.getType();
@@ -503,10 +532,11 @@ public:
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ValueRange subAs(A), subBs(B);
-    if (nExceeded) {
-      // Split A along the dimension N.
-      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
-    }
+    // Splitting A  is not supported now.
+    //    if (nExceeded) {
+    //      // Split A along the dimension N.
+    //      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
+    //    }
     if (mExceeded) {
       // Split B along the dimension M.
       subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
@@ -537,6 +567,7 @@ public:
           executeBuilder.create<async::YieldOp>(
               executeLoc, ValueRange{smMemref});
         };
+        // Dummy op to get result type
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
         Value smDummyMemref = create.onnx.toMemref(smDummy);
         auto execute = rewriter.create<async::ExecuteOp>(loc,
@@ -554,8 +585,9 @@ public:
         waitOps.emplace_back(asyncAwaitOutTensor);
       }
       for (Value b : subBs) {
-        // Call dummy function to prevent deallocation of a and b.
-        // TODO: Insert deallocate op in zlow-rewrite pass instead of this
+        // Call dummy function to prevent deallocation of input(a and b).
+        // TODO: Insert deallocate op in zlow-rewrite pass instead of using
+        // this.
         SmallVector<Value, 2> parameters = {
             create.onnx.toMemref(a), create.onnx.toMemref(b)};
         rewriter.create<KrnlCallOp>(
@@ -572,9 +604,10 @@ public:
       resSubAs.emplace_back(res);
     }
     Value res = resSubAs[0];
+    // Not supported: Concat sub results along dimension N of A.
     if (resSubAs.size() > 1)
-      // Concat sub results along dimension N of A.
-      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
+      return failure();
+    // res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
 
     rewriter.replaceOp(op, res);
     return success();
@@ -598,19 +631,20 @@ public:
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
 
-    int mDimsizeThres = getenv("MINDIMSIZETHRES")
-                            ? atoi(getenv("MINDIMSIZETHRES"))
-                            : NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
-    bool largeDimSize = M >= mDimsizeThres;
-    if (!largeDimSize)
+    int mDimsizeThres =
+        getenv("MINDIMSIZETHRES") ? atoi(getenv("MINDIMSIZETHRES")) : 32;
+    bool smallDimSize = M < mDimsizeThres;
+    if (smallDimSize)
       return false;
 
     // Expect N or M exceeds NNPA limitation.
-    nExceeded = N > chunkSize;
+    // nExceeded = N > chunkSize;
     mExceeded = M > chunkSize;
-    if (!(nExceeded || mExceeded))
+    // if (!(nExceeded || mExceeded))
+    if (!mExceeded)
       return false;
 
+    // Expect matmulOp has not split yet.
     if (auto executeOp =
             llvm::dyn_cast<async::ExecuteOp>(matmulOp->getParentOp()))
       return false;
@@ -619,8 +653,6 @@ public:
   }
 
   static int getChunkSize(int dimM) {
-    //    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) :
-    //    -65536; chunkSize = (chunkSize > 0) ? chunkSize : 65536;
     int numDevices = getenv("NUMDEVICES") ? atoi(getenv("NUMDEVICES")) : 1;
     int chunkSize =
         (dimM + numDevices - 1) / numDevices; // Round-up of dimM / numDevices

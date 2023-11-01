@@ -344,6 +344,8 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
+  // Async Dialect and UnrealizedConversionCastOp are introduced when
+  // parallelize matmul ops in rewriting for zhigh.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
       func::FuncDialect, arith::ArithDialect, mlir::async::AsyncDialect>();
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();

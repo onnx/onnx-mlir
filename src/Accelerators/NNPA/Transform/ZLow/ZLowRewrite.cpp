@@ -30,9 +30,6 @@
 
 #include <map>
 
-#include <llvm/Support/Debug.h>
-#define DEBUG_TYPE "foo"
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -635,7 +632,48 @@ private:
   }
 };
 
-class MoveAllocOpOutsideOfAsyncExecPattern
+/// This pattern rewrites alloc and dealloc ops used in the region of async
+/// execute op. The inputs for the async execute op need to be deallocated after
+/// completing the threads. The results need to be allocated outside of the
+/// region (in main thread) and deallocated after used.
+///
+/// Example (ZLowIR):
+/// - Inputs(%arg0, %alloc) are allocated before async.execute. They need to be
+/// deallocated after async.await.
+/// - Result(%alloc_8) is allocated in async.execute. It is used in krnl.iterate
+/// for Concat. It needs to be deallocated after the krnl.iterate.
+///
+/// This pattern moves %alloc_8 before async.execute and inserts dealloc op to
+/// deallocate inputs and results.
+// clang-format off
+/// ```mlir
+///    %alloc = memref.alloc() {alignment = 16 : i64} : memref<512x512xf32>
+///        :
+///    %token, %bodyResults = async.execute -> !async.value<memref<512x512xf32>> {
+///      %alloc_4 = memref.alloc() {...
+///      "zlow.stick"(%arg0, %alloc_4) {...
+///      %alloc_5 = memref.alloc() {...
+///      "zlow.stick"(%alloc, %alloc_5) {...
+///      %alloc_6 = memref.alloc() {...
+///       :
+///      "zlow.matmul"(%alloc_4, %alloc_5, ..., %alloc_6) {...
+///      %alloc_8 = memref.alloc() {...
+///      "zlow.unstick"(%alloc_6, %alloc_8) {...
+///      async.yield %alloc_8 : memref<512x512xf32>
+///    }
+///      :
+///    %2 = async.await %bodyResults : !async.value<memref<512x512xf32>>
+///      :
+///    %4:2 = krnl.define_loops 2
+///    krnl.iterate(%4#0, %4#1) with (...   ){
+///      %6:2 = krnl.get_induction_var_value(%4#0, %4#1) : (...
+///      %7 = krnl.load %2[%6#0, %6#1] : memref<512x512xf32>
+///      krnl.store %7, %alloc_3[%6#0, %6#1] : memref<512x1024xf32>
+///    }
+/// ```
+// clang-format on
+
+class InsertDeallocForAsyncExecRegionPattern
     : public OpRewritePattern<async::ExecuteOp> {
 public:
   using OpRewritePattern<async::ExecuteOp>::OpRewritePattern;
@@ -652,7 +690,7 @@ public:
     // async.yeild.
     async::YieldOp yieldOp =
         cast<async::YieldOp>(executeOp.getBody()->getTerminator());
-    // TODO: support multiple operands
+    // Currently support single operand.
     if (yieldOp.getOperands().size() > 1)
       return failure();
     Value yieldOperand = yieldOp.getOperands()[0];
@@ -669,7 +707,7 @@ public:
     }
 
     // Get users of async.await
-    // TODO: Support multiple body results.
+    // Currently support single body result.
     if (executeOp.getBodyResults().size() > 1)
       return failure();
     Value executeOpResult = executeOp.getBodyResults()[0];
@@ -677,7 +715,6 @@ public:
     for (Operation *user : executeOpResult.getUsers()) {
       if (auto awaitOp = llvm::dyn_cast<async::AwaitOp>(user)) {
         Value awaitOpOut = awaitOp.getResult();
-        LLVM_DEBUG(llvm::dbgs() << "awaitOpOut: " << awaitOpOut << " \n");
         for (Operation *awaitUser : awaitOpOut.getUsers())
           awaitOutUsers.push_back(awaitUser);
       }
@@ -721,7 +758,7 @@ public:
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
     patterns.insert<UnstickLoadStoreStickRemovalPattern>(
         &getContext(), removableStickOps);
-    patterns.insert<MoveAllocOpOutsideOfAsyncExecPattern>(&getContext());
+    patterns.insert<InsertDeallocForAsyncExecRegionPattern>(&getContext());
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();

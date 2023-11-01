@@ -36,8 +36,8 @@ Value emitONNXTransposeWithType(Location loc, PatternRewriter &rewriter,
   return result;
 }
 
-/// Split a tensor along an axis in which each chunk has a size of
-/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chunk can be smaller.
+/// Split a tensor along an axis by chunkSize. The last chunk becomes smaller
+/// than it. The default chunkSize is NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
 ValueRange splitAlongAxis(MultiDialectBuilder<OnnxBuilder> &create, Value X,
     int64_t axis, int64_t chunkSize) {
   Type xType = X.getType();
