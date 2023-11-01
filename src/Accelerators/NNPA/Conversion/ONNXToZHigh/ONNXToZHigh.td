@@ -147,20 +147,6 @@ def replaceONNXAddPattern : Pat<
 )
 >;
 
-def replaceONNXAddBroadcastPattern : Pat<
-  (ONNXAddOp (either $x, $y)),
-  (ZHighUnstickOp
-    (ZHighAddOp
-      (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
-      (ZHighStickifiedConstantOfShapeOp
-        (GetDynShape $x),
-        (GetScalarF32AttrFromConstant $y),
-        (NoneLayoutAttr)),
-      (returnType $s_x))),
-  [(IsF32ScalarConstantTensor $y)], [],
-  (addBenefit 1)
->;
-
 //===----------------------------------------------------------------------===//
 //
 // ONNXSumOp %X = ZHighUnstickOp (ZHighAddOp (ZHighStickOp %X_0),
@@ -207,20 +193,6 @@ def replaceONNXSubPattern : Pat<
                               (returnType $s_x)))
 >;
 
-def replaceONNXSubBroadcastPattern : Pat<
-  (ONNXSubOp (either $x, $y)),
-  (ZHighUnstickOp
-    (ZHighSubOp
-      (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
-      (ZHighStickifiedConstantOfShapeOp
-        (GetDynShape $x),
-        (GetScalarF32AttrFromConstant $y),
-        (NoneLayoutAttr)),
-      (returnType $s_x))),
-  [(IsF32ScalarConstantTensor $y)], [],
-  (addBenefit 1)
->;
-
 //===----------------------------------------------------------------------===//
 // ONNXMulOp %X = ZHighUnstickOp (ZHighMulOp (ZHighStickOp %X),
 // (ZHighStickOp %Y))
@@ -230,20 +202,6 @@ def replaceONNXMulPattern : Pat<
   (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
                               (ZHighStickOp $y, (NoneLayoutAttr)),
                               (returnType $s_x)))
->;
-
-def replaceONNXMulBroadcastPattern : Pat<
-  (ONNXMulOp (either $x, $y)),
-  (ZHighUnstickOp
-    (ZHighMulOp
-      (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
-      (ZHighStickifiedConstantOfShapeOp
-        (GetDynShape $x),
-        (GetScalarF32AttrFromConstant $y),
-        (NoneLayoutAttr)),
-      (returnType $s_x))),
-  [(IsF32ScalarConstantTensor $y)], [],
-  (addBenefit 1)
 >;
 
 //===----------------------------------------------------------------------===//
