@@ -57,17 +57,31 @@ struct ONNXGatherElementsOpLoweringToStableHlo : public ConversionPattern {
     Value zero = getShapedZero(loc, rewriter, indices);
     Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
     Value indicesShape = rewriter.create<shape::ShapeOfOp>(loc, indices);
-    Value axisDimSize =
-        rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
-    axisDimSize =
-        rewriter.create<arith::IndexCastOp>(loc, indexElemType, axisDimSize);
-    axisDimSize = rewriter.create<tensor::FromElementsOp>(loc, axisDimSize);
-    axisDimSize = rewriter.create<stablehlo::ReshapeOp>(loc,
-        RankedTensorType::get(SmallVector<int64_t>{}, indexElemType),
-        axisDimSize);
-    Value broadcastedAxisDimSize =
-        rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
-            axisDimSize, indicesShape, rewriter.getI64TensorAttr({}));
+    Value broadcastedAxisDimSize, axisDimSize;
+    if (inputType.hasStaticShape()) {
+      axisDimSize = rewriter.create<stablehlo::ConstantOp>(
+          loc, rewriter.getIntegerAttr(
+                   indexElemType, inputType.getDimSize(axisLit)));
+    } else {
+      axisDimSize =
+          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+      axisDimSize =
+          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+      axisDimSize =
+          rewriter.create<arith::IndexCastOp>(loc, indexElemType, axisDimSize);
+      axisDimSize = rewriter.create<tensor::FromElementsOp>(loc, axisDimSize);
+      axisDimSize = rewriter.create<stablehlo::ReshapeOp>(loc,
+          RankedTensorType::get(SmallVector<int64_t>{}, indexElemType),
+          axisDimSize);
+    }
+    if (indicesType.hasStaticShape()) {
+      broadcastedAxisDimSize = rewriter.create<stablehlo::BroadcastInDimOp>(
+          loc, indicesType, axisDimSize, rewriter.getI64TensorAttr({}));
+    } else {
+      broadcastedAxisDimSize =
+          rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
+              axisDimSize, indicesShape, rewriter.getI64TensorAttr({}));
+    }
     Value isNegative = rewriter.create<stablehlo::CompareOp>(
         loc, indices, zero, stablehlo::ComparisonDirection::LT);
     Value positiveIndices = rewriter.create<stablehlo::AddOp>(

@@ -52,8 +52,10 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
                    rewriter.getZeroAttr(elemType)));
     } else {
       // constantValue might be 1D tensor, reshape it to scalar
-      constantValue = rewriter.create<stablehlo::ReshapeOp>(
-          loc, RankedTensorType::get({}, elemType), constantValue);
+      ShapedType constantType = constantValue.getType().cast<ShapedType>();
+      if (constantType.getRank() != 0)
+        constantValue = rewriter.create<stablehlo::ReshapeOp>(
+            loc, RankedTensorType::get({}, elemType), constantValue);
     }
     SmallVector<int64_t> edgePaddingLowVec(rank, 0);
     SmallVector<int64_t> edgePaddingHighVec(rank, 0);
@@ -91,7 +93,7 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
 
 } // namespace
 
-void populateLoweringONNXPadOpToStablehloPattern(
+void populateLoweringONNXPadOpToStableHloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXPadOpLoweringToStablehlo>(ctx);
 }
