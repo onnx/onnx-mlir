@@ -1055,6 +1055,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
+  result.insert<SwapReshapeDivPattern>(context);
 }
 
 /// on the ONNXDropoutOp.

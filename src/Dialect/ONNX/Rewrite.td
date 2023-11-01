@@ -618,6 +618,15 @@ def SwapReshapeMatMulPattern: Pattern<
  ]
 >;
 
+def SwapReshapeDivPattern: Pattern<
+ // If the input of Reshape is suitable for the next Div, use the input directly
+ // for Div. In other words, swapping Reshape and Div.
+ // This rule will put reshape ops together, then the reshape fusion rule can be applied.
+ (ONNXDivOp:$res2 (ONNXReshapeOp:$res1 $A, $shape, $az), $B),
+ [(ONNXReshapeOp (ONNXDivOp $A, $B, (returnType $A)), $shape, $az)],
+ [(HasRankOf<0> $B)]
+>;
+
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXSqueezeOp
 //===----------------------------------------------------------------------===//
