@@ -345,6 +345,56 @@ public:
   }
 };
 
+template <typename OP_TYPE>
+class PropagateReshapeThroughBinaryOpPattern
+    : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    // Variables for capturing values and attributes used while creating ops
+    Operation *op = binaryOp.getOperation();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Type outputType = binaryOp.getResult().getType();
+
+    Value reshapeInput;
+    Value reshapeShape;
+    IntegerAttr reshapeAZ;
+
+    // Match
+    // LHS is produced by a Reshape.
+    Operation *reshapeGenericOp = lhs.getDefiningOp();
+    if (!reshapeGenericOp)
+      return failure();
+    auto reshapeOp = dyn_cast<ONNXReshapeOp>(reshapeGenericOp);
+    if (!reshapeOp)
+      return failure();
+    // RHS is a scalar.
+    if (!((rhs.getType().isa<ShapedType>() &&
+            rhs.getType().cast<ShapedType>().hasRank() &&
+            rhs.getType().cast<ShapedType>().getRank() == 0))) {
+      return failure();
+    }
+
+    // Rewrite
+    auto loc = rewriter.getFusedLoc({op->getLoc(), reshapeGenericOp->getLoc()});
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    reshapeInput = reshapeOp.getData();
+    reshapeShape = reshapeOp.getShape();
+    reshapeAZ = reshapeOp.getAllowzeroAttr();
+    Value x = rewriter.create<OP_TYPE>(loc, reshapeInput, rhs);
+    Value res = create.onnx.reshape(outputType, x, reshapeShape, reshapeAZ);
+
+    rewriter.replaceOp(op, res);
+    return success();
+  };
+};
+
 // =============================================================================
 // Rewrite pattern for Resize (not handled in Rewrite.td).
 // =============================================================================
@@ -1055,7 +1105,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
-  result.insert<SwapReshapeDivPattern>(context);
+  result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
 }
 
 /// on the ONNXDropoutOp.
