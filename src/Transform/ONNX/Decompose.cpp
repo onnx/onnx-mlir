@@ -756,7 +756,7 @@ struct InstanceNormIntoLayerNormPattern
       PatternRewriter &rewriter) const final {
     // Match.
     Value input = instanceNormOp.getInput();
-    if (!input.getType().isa<ShapedType>())
+    if (!onnx_mlir::isRankedShapedType(input.getType()))
       return failure();
 
     // Get info.
@@ -767,12 +767,14 @@ struct InstanceNormIntoLayerNormPattern
     auto inputShape = inputType.getShape();
     int64_t C = inputShape[1];
     int64_t inputRank = inputType.getRank();
-    assert(inputRank > 2 && "expected instance norm with input ranks > 2");
+    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
+    assert(inputRank > nonSpacialRank &&
+           "expected instance norm with input ranks > 2");
 
     // Rewrite.
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, instanceNormOp.getLoc());
-    int64_t axis = 2;
+    int64_t axis = nonSpacialRank;
     int64_t numInNorm = inputRank - axis;
     // Unsqueeze scale/bias from [C] to [C x 1 x 1 x ... x 1] with numInNorm 1s.
     llvm::SmallVector<int64_t, 4> axesList, biasScaleShape;
@@ -803,7 +805,7 @@ struct GroupNormIntoLayerNormPattern
       PatternRewriter &rewriter) const final {
     // Match.
     Value input = groupNormOp.getX();
-    if (!input.getType().isa<ShapedType>())
+    if (!onnx_mlir::isRankedShapedType(input.getType()))
       return failure();
 
     // Get info.
@@ -814,15 +816,17 @@ struct GroupNormIntoLayerNormPattern
     auto inputShapeVal = inputType.getShape();
     int64_t C = inputShapeVal[1];
     int64_t inputRank = inputType.getRank();
-    assert(inputRank > 2 && "expected instance norm with input ranks > 2");
-    int64_t spacialRank = inputRank - 2;
+    int64_t nonSpacialRank = 2; //  Batch N and Channel C: 2 dimensions.
+    assert(inputRank > nonSpacialRank &&
+           "expected instance norm with input ranks > 2");
+    int64_t spacialRank = inputRank - nonSpacialRank;
     int64_t layerNormRank = inputRank + 1; // +1 as C is split to NG and C/NG
     int64_t numGroups = groupNormOp.getNumGroups();
 
     // Rewrite.
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(
         rewriter, groupNormOp.getLoc());
-    int64_t axis = 2;
+    int64_t axis = nonSpacialRank;
     int64_t numInNorm = layerNormRank - axis;
     // Unsqueeze scale/bias from [NG] to [NG x 1 x 1 x ... x 1] with numInNorm
     // 1s.
@@ -845,7 +849,7 @@ struct GroupNormIntoLayerNormPattern
     Type spacialShapeType =
         RankedTensorType::get({spacialRank}, rewriter.getI64Type());
     Value spacialShape =
-        create.onnx.shape(spacialShapeType, input, /*start*/ 2);
+        create.onnx.shape(spacialShapeType, input, /*start*/ nonSpacialRank);
     Type layerNormShapeType =
         RankedTensorType::get({layerNormRank}, rewriter.getI64Type());
     Value layerNormShape = create.onnx.concat(
@@ -858,9 +862,9 @@ struct GroupNormIntoLayerNormPattern
       assert(C % numGroups == 0 && "expected numGroups to divide C");
       layerNormShapeVal.emplace_back(C / numGroups);
     } else
-      layerNormShapeVal.emplace_back(-1);
+      layerNormShapeVal.emplace_back(ShapedType::kDynamic);
     for (int64_t i = 0; i < spacialRank; ++i)
-      layerNormShapeVal.emplace_back(inputShapeVal[2 + i]);
+      layerNormShapeVal.emplace_back(inputShapeVal[nonSpacialRank + i]);
     RankedTensorType layerNormInputType =
         RankedTensorType::get(layerNormShapeVal, elementType);
     Value layerNormInput =
