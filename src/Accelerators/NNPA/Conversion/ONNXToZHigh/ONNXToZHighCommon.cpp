@@ -68,18 +68,15 @@ ValueRange splitAlongAxis(
   return splits;
 }
 
-bool isConstantOfSplatF32Value(mlir::Value v) {
-  if (!hasShapeAndRank(v))
+bool isF32ScalarConstantTensor(mlir::Value v) {
+  if (!isScalarConstantTensor(v))
     return false;
-
   auto t = dyn_cast<ShapedType>(v.getType());
-  int64_t r = t.getRank();
-  return isDenseONNXConstant(v) && t.getElementType().isF32() &&
-         ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
+  return t.getElementType().isF32();
 }
 
-FloatAttr getSplatF32AttrFromConstant(Value v) {
-  if (!isConstantOfSplatF32Value(v))
+FloatAttr getScalarF32AttrFromConstant(Value v) {
+  if (!isF32ScalarConstantTensor(v))
     return nullptr;
   DenseElementsAttr constElements = ElementsAttrBuilder::toDenseElementsAttr(
       getElementAttributeFromONNXValue(v));

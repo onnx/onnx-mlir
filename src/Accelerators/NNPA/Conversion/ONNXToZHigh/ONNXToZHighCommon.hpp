@@ -93,10 +93,10 @@ mlir::ValueRange splitAlongAxis(
     mlir::Value X, int64_t axis);
 
 // Check if a value is a constant tensor of a single f32 value or not.
-bool isConstantOfSplatF32Value(mlir::Value v);
+bool isF32ScalarConstantTensor(mlir::Value v);
 
 // Get FloatAttr from a constant tensor of a single f32 value.
-mlir::FloatAttr getSplatF32AttrFromConstant(mlir::Value v);
+mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
 
 // Emit ONNX Concat to store the shape of the input x.
 mlir::Value getDynShape(

@@ -324,11 +324,11 @@ bool isSuitableForZDNN<ONNXDivOp>(
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
     return false;
-  if (!isConstantOfSplatF32Value(A) && !isValidElementTypeAndRank(A))
+  if (!isF32ScalarConstantTensor(A) && !isValidElementTypeAndRank(A))
     return false;
-  if (!isConstantOfSplatF32Value(B) && !isValidElementTypeAndRank(B))
+  if (!isF32ScalarConstantTensor(B) && !isValidElementTypeAndRank(B))
     return false;
-  return isConstantOfSplatF32Value(A) || isConstantOfSplatF32Value(B) ||
+  return isF32ScalarConstantTensor(A) || isF32ScalarConstantTensor(B) ||
          dimAnalysis->sameShape(A, B);
 }
 

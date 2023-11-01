@@ -100,13 +100,13 @@ class EmitOp3<string s> :
 class EmitOp4<string s> :
         NativeCodeCall<"$_builder.create<" # s # ">($_loc, $0, $1, $2, $3)">;
 
-def IsConstantOfSplatF32Value : Constraint<
-  CPred<"isConstantOfSplatF32Value($0)">,
+def IsF32ScalarConstantTensor: Constraint<
+  CPred<"isF32ScalarConstantTensor($0)">,
   "The value is a constant tensor of a single f32 value"
 >;
 
-def GetSplatF32AttrFromConstant :
-        NativeCodeCall<"getSplatF32AttrFromConstant($0)">;
+def GetScalarF32AttrFromConstant :
+        NativeCodeCall<"getScalarF32AttrFromConstant($0)">;
 
 //===----------------------------------------------------------------------===//
 // ONNXReluOp %X = ZHighUnstickOp (ZHighReluOp (ZHighStickOp %X))
@@ -218,16 +218,16 @@ def replaceONNXDivPattern : Pat<
 >;
 
 def replaceONNXDivBroadcastPattern : Pat<
-  (ONNXDivOp $x, $y),
+  (ONNXDivOp (either $x, $y)),
   (ZHighUnstickOp
     (ZHighDivOp
       (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
       (ZHighStickifiedConstantOfShapeOp
         (GetDynShape $x),
-        (GetSplatF32AttrFromConstant $y),
+        (GetScalarF32AttrFromConstant $y),
         (NoneLayoutAttr)),
       (returnType $s_x))),
-  [(IsConstantOfSplatF32Value $y)], [],
+  [(IsF32ScalarConstantTensor $y)], [],
   (addBenefit 1)
 >;
 
