@@ -29,8 +29,7 @@ namespace onnx_mlir {
 //====-------------------------- ONNX Builder ---------------------------===//
 
 IntegerAttr OnnxBuilder::getSignedInt64Attr(int64_t n) const {
-  return IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true),
-      APInt(64, n, /*isSigned=*/true));
+  return IntegerAttr::get(b().getIntegerType(64, /*isSigned=*/true), n);
 }
 
 // =============================================================================
