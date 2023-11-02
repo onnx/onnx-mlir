@@ -21,6 +21,7 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
+    && python3 -m pip install --upgrade setuptools==68.2.2 \
     && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install --user -e .
 
 ARG NPROC=4
