@@ -993,6 +993,115 @@ public:
   };
 };
 
+/// The pattern is to relace two consecutive ReshapeOp with a single ReshapeOp.
+/// It's not successful for arbirary ReshapeOp, so let's consider necessary
+/// condition for the replacement.
+///
+/// We would like to replace:
+/// ```
+// %0 = onnx.Reshape(%X, %shape1) {allowzero}
+// %1 = onnx.Reshape(%0, %shape2) {allowzero}
+// ```
+// with
+// ```
+// %0 = onnx.Reshape(%X, %new_shape) {allowzero}
+// ```
+// where `%new_shape` is computed from `%shape1` and `%shape2` if possible.
+//
+// We only support `allowzero=0` in this pattern.
+//
+// # Shape conditions
+//
+// According to ONNX specification for Reshape
+// (https://onnx.ai/onnx/operators/onnx__Reshape.html#):
+// - At most one dimension of the new shape can be -1. In this case, the value
+// is inferred from the size of the tensor and the remaining dimensions
+// - Dimension could also be 0. In this case,
+//   - if allowzero = 0, the actual dimension value is unchanged;
+//   - if allowzero = 1, the dimension will be set explicitly to zero.
+// - If allowzero = 1, it is invalid for the specified shape to contain both a
+// zero value and -1
+//
+// # Combining rules
+//
+// In this pattern, we use the following terms for values in a shape tensor:
+// 0, -1, and L (a literal).
+//
+// These are the rules to combine two values:
+//  (1st)  : (2nd)  => (result)
+//   0     : 0      => 0
+//   0     : L      => L
+//   0     : -1     => -1
+//  -1     : 0      => -1
+//  -1     : -1     => -1
+//  -1     : L      => L
+//   L     : 0      => L
+//   L     : -1     => -1
+//   L     : L      => L
+//
+// To produce a new shape, we combine each value one by one from left to right.
+//
+// Example (allowzero = 0):
+// Ex1. 1st: [0, -1, 0, 5], 2nd: [0, -1, 0] => [0, -1, 0]
+// Ex2. 1st: [0, -1, 0, 5], 2nd: [5, -1, 0] => [5, -1, 0]
+// Ex3. 1st: [0, -1, 0, 5], 2nd: [-1, 0, 0] => [-1, -1, 0]
+// Ex4. 1st: [0, -1, 0, 5], 2nd: [0, 0, 5] => [0, -1, 5]
+// Ex5. 1st: [0, -1, 5, 0], 2nd: [-1, 5, 0] => [-1, 5, 5]
+//
+// After combining two shapes, we check if the result shape is valid or not
+// according to the shape conditions. If it is invalid, the two ReshapeOps are
+// not combined. For example, the output shape in Ex3 is invalid because of two
+// -1s.
+//
+class FuseTwoReshapesPattern : public OpRewritePattern<ONNXReshapeOp> {
+public:
+  using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
+
+  FuseTwoReshapesPattern(MLIRContext *context) : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp secondReshapeOp, PatternRewriter &rewriter) const override {
+    // Second Reshape.
+    Operation *op = secondReshapeOp.getOperation();
+    Location loc = secondReshapeOp.getLoc();
+    Value secondData = secondReshapeOp.getData();
+    Value secondShape = secondReshapeOp.getShape();
+    int64_t secondAllowZero = secondReshapeOp.getAllowzero();
+    if (secondAllowZero != 0)
+      return failure();
+
+    // First Reshape.
+    if (!definedBy<ONNXReshapeOp>(secondData))
+      return failure();
+    auto firstReshapeOp = cast<ONNXReshapeOp>(secondData.getDefiningOp());
+    Value firstShape = firstReshapeOp.getShape();
+    int64_t firstAllowZero = firstReshapeOp.getAllowzero();
+    if (firstAllowZero != 0)
+      return failure();
+
+    // Try to compute a new shape tensor.
+    SmallVector<int64_t, 4> firstValues, secondValues;
+    if (!getValuesFromShape(firstShape, firstValues) ||
+        !getValuesFromShape(secondShape, secondValues))
+      return failure();
+    // Rewrite
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    return success();
+  };
+
+private:
+  bool isZero(Value v) const { return false; }
+  bool isMinusOne(Value v) const { return false; }
+  bool isLiteral(Value v) const { return false; }
+
+  // Get invididual values from a shape tensor. Return true if succeeded.
+  // Otherwise, return false.
+  bool getValuesFromShape(Value shape, SmallVectorImpl<int64_t> &values) const {
+    return false;
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
