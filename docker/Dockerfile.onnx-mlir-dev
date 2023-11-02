@@ -15,7 +15,7 @@ COPY . onnx-mlir
 
 # Setup onnx
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-    && cd ${ONNX_ROOT} && python3 -m pip install .
+    && cd ${ONNX_ROOT} && python3 -m build pip install -e .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
