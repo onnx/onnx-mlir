@@ -1509,34 +1509,73 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
             ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {}
+  using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder,
+      KrnlBuilder, MemRefBuilder>;
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+    MDBuilder create(rewriter, loc);
 
     auto stickOp = cast<ZHighStickifiedConstantOfShapeOp>(op);
     FloatAttr value = stickOp.getValueAttr();
+    Type i16Ty = rewriter.getI16Type();
+    Type i64Ty = rewriter.getI64Type();
+    Type f16Ty = rewriter.getF16Type();
 
     // Convert the scalar value to dlfloat16.
+    // Use uint16_t as container.
     float valueF32 = (float)value.getValueAsDouble();
-    uint16_t valueDLF16; // Use uint16_t as container.
+    uint16_t valueDLF16;
     fp32_to_dlf16(&valueF32, &valueDLF16, 1);
-
-    MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, KrnlBuilder>
-        create(rewriter, loc);
-    ZHighStickifiedConstantOfShapeOpShapeHelper shapeHelper(
-        op, operands, &create.krnlIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
+    // Compute the output shape.
+    ZHighStickifiedConstantOfShapeOpShapeHelper shapeHelper(
+        op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
     // Allocate a buffer for the result MemRef.
     Value res = insertAllocAndDeallocZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
-    Value initValue = create.math.constant(rewriter.getF16Type(), valueDLF16);
-    create.krnl.memset(res, initValue, /*delayed=*/true);
+
+    // Create a f16 scalar memref to store dlfloat16.
+    // Do not cast value from i16 to f16 but do copy data. Otherwise, the result
+    // is wrong.
+    // Scalar memref of i16.
+    Value valueI16 = create.math.constant(i16Ty, valueDLF16);
+    Value memrefI16 = create.mem.alignedAlloc(MemRefType::get({}, i16Ty));
+    create.krnl.store(valueI16, memrefI16);
+    // Scalar memref of f16.
+    Value memrefF16 = create.mem.alignedAlloc(MemRefType::get({}, f16Ty));
+    create.krnl.memcpy(memrefF16, memrefI16, create.math.constant(i64Ty, 1));
+
+    // Now, broadcast the scalar value to the output tensor.
+    // It's neat if we can do the two following statements.
+    // ```C
+    // Value valueF16 = create.krnl.load(memrefF16);
+    // create.krnl.memset(res, valueF16, /*delayed=*/false);
+    // ```
+    // But, LLVM will think the load value is real a f16 value, and try to read
+    // it to do some optimization, but it fails because s390x does not support
+    // f16. Even though LLVM can read the f16 value, the result might be wrong
+    // since it is dfloat16.
+    //
+    // The following manual loop does a trick that puts `create.krnl.load`
+    // inside the loop, and LLVM does not seem to read the f16 value.
+    uint64_t rank = res.getType().cast<MemRefType>().getRank();
+    ValueRange loopDef = create.krnl.defineLoops(rank);
+    SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+    SmallVector<IndexExpr, 4> ubs = shapeHelper.getOutputDims();
+    create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
+        [&](KrnlBuilder &createKrnl, ValueRange indices) {
+          // Keep this load inside the loop to tweak LLVM.
+          Value valueF16 = createKrnl.load(memrefF16);
+          createKrnl.store(valueF16, res, indices);
+        });
 
     rewriter.replaceOp(op, res);
     return success();

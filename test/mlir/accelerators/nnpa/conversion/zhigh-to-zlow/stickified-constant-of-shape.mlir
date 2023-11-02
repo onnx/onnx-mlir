@@ -12,13 +12,25 @@ func.func @test_stickified_constant_of_shape(%arg0: tensor<?x10xf32>) -> tensor<
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0) -> (d0 + 1)>
 // CHECK-LABEL:  func.func @test_stickified_constant_of_shape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x10xf32>) -> memref<?x10xf16, #map> {
-// CHECK-DAG:       [[CST_1_dot_740800_:%.+]] = arith.constant 1.740800e+04 : f16
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_17408_:%.+]] = arith.constant 17408 : i16
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
-// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<2xi64>
-// CHECK:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]]{{.}}[[CST_0_]]{{.}} : memref<2xi64>
-// CHECK:           [[VAR_5_:%.+]] = arith.index_cast [[LOAD_RES_1_MEM_]] : i64 to index
-// CHECK:           [[RES_2_:%.+]] = memref.alloc([[VAR_5_]]) {{.*}}: memref<?x10xf16, #map>
-// CHECK:           krnl.memset [[RES_2_]], [[CST_1_dot_740800_]] {delayed = true} : memref<?x10xf16, #map>
-// CHECK:           return [[RES_2_]] : memref<?x10xf16, #map>
+
+// CHECK-DAG:       {{.*}} = memref.alloc() {{.*}}: memref<1xi64>
+// CHECK-DAG:       {{.*}} = memref.alloc() {{.*}}: memref<2xi64>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc({{.*}}) {{.*}}: memref<?x10xf16, #map>
+
+// CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() : memref<i16>
+// CHECK:           krnl.store [[CST_17408_]], [[RES_2_]][] : memref<i16>
+// CHECK:           [[RES_3_:%.+]] = memref.alloc() : memref<f16>
+// CHECK:           "krnl.memcpy"([[RES_3_]], [[RES_2_]], [[CST_1_]], [[CST_0_]], [[CST_0_]]) : (memref<f16>, memref<i16>, i64, index, index) -> ()
+
+// CHECK:           [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to {{.*}}, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 10){
+// CHECK-DAG:         [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_3_]][] : memref<f16>
+// CHECK:             krnl.store [[LOAD_RES_MEM_1_]], [[RES_1_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1] : memref<?x10xf16, #map>
+// CHECK:           }
+// CHECK:           return [[RES_1_]] : memref<?x10xf16, #map>
 // CHECK:         }
 }
