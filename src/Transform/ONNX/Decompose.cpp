@@ -38,6 +38,9 @@
 
 #define DEBUG_TYPE "decompose"
 
+// Comment to enable recomposition of layer norms.
+// #define SKIP_RECOMPOSE_LAYER_NORM 1
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -799,6 +802,66 @@ bool operandOfOpDefinedBy(Operation *op, Value &matchOperand0,
   return false;
 }
 
+struct RecomposeLayerNormFromAddPattern : public OpRewritePattern<ONNXAddOp> {
+  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = addOp.getLoc();
+    // Match
+    Value x, scale, bias;
+    FloatAttr epsilon;
+    int64_t axis;
+    if (!matchLayerNormPattern(addOp, x, scale, bias, axis, epsilon))
+      return failure();
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Type xType = x.getType();
+    Value res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    rewriter.replaceOp(addOp, res);
+    return success();
+  }
+
+  static bool matchLayerNormPattern(ONNXAddOp layerNormOp, Value &x,
+      Value &scale, Value &bias, int64_t &axis, FloatAttr &epsilonAttr) {
+    Value y;
+    Operation *yLayerNormOp, *ywbLayerNormOp;
+    ywbLayerNormOp = layerNormOp;
+    // %noBias = "onnx.NoValue"()
+    // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
+    //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
+    // %yWithBias = "onnx.Add"(%y, %bias)
+    if (!operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+            ywbLayerNormOp, y, bias, yLayerNormOp, 0) &&
+        !operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+            ywbLayerNormOp, bias, y, yLayerNormOp, 1))
+      return reportFailure("missing y, layer norm op");
+    // Study layer norm op; make sure its used only one and that bias is not
+    // used.
+    if (!yLayerNormOp->hasOneUse())
+      return reportFailure("y/layer norm has too many uses");
+    auto lnOp = cast<ONNXLayerNormalizationOp>(yLayerNormOp);
+    if (!onnx_mlir::isNoneValue(lnOp.getB()))
+      return reportFailure("layer norm already has a bias");
+    // We are fine.
+    x = lnOp.getX();
+    scale = lnOp.getScale();
+    epsilonAttr = lnOp.getEpsilonAttr();
+    axis = lnOp.getAxis();
+    fprintf(stderr, "HI ALEX, GOT THE PATTERN with bias\n\n\n");
+    return true;
+  }
+
+private:
+  static bool reportFailure(std::string msg) {
+    // Can disable line below if not needed.
+    LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
+    return false;
+  }
+};
+
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -806,31 +869,34 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
     using namespace onnx_mlir;
     Location loc = mulOp.getLoc();
-
     // Match
-    Value x, scale, epsilon;
+    Value x, scale;
+    FloatAttr epsilon;
     int64_t axis;
-    if (!matchLayerNormPattern(mulOp, x, scale, epsilon, axis))
+    if (!matchLayerNormPattern(mulOp, x, scale, axis, epsilon))
       return failure();
 
     // Replace
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-
-    // rewriter.replaceOp(mulOp, res);
-    // return success();
-    return failure();
+    Type xType = x.getType();
+    Value noneVal = create.onnx.none();
+    Value res = create.onnx.layerNorm(xType, x, scale, noneVal, axis, epsilon);
+    rewriter.replaceOp(mulOp, res);
+    return success();
   }
 
-  static bool matchLayerNormPattern(ONNXMulOp layerNormalOp, Value &x,
-      Value &scale, Value &epsilon, int64_t &axis) {
+  static bool matchLayerNormPattern(ONNXMulOp LayerNormOp, Value &x,
+      Value &scale, int64_t &axis, FloatAttr &epsilonAttr) {
+    fprintf(stderr, "\nhi alex, test explicit layer norm\n");
+    LayerNormOp.dump();
     // Values that will be gathered and only kept locally.
-    Value norm, stdDev, varEps, var, dd, d, mean;
+    Value norm, stdDev, varEps, var, epsilon, dd, d, mean;
     // Replicate of values, check that they are identical to originals.
     Value d1, d2;
     // Operations that will be gathered and kept locally.
     Operation *nsMulOp, *ddMulOp, *nDivOp, *sdSqrtOp, *veAddOp, *vReduceOp,
         *mReduceOp, *dSubOp;
-    nsMulOp = layerNormalOp.getOperation();
+    nsMulOp = LayerNormOp.getOperation();
     // %norm = "onnx.Div"(%d, %stdDev)
     // %normScaled = "onnx.Mul"(%norm, %scale)
     if (!operandOfOpDefinedBy<ONNXDivOp>(nsMulOp, norm, scale, nDivOp, 0) &&
@@ -868,7 +934,11 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             dSubOp, x, mean, mReduceOp, 1))
       return reportFailure("missing mean, reduce mean op");
-
+    // Verify that the mReduceOp uses x as well.
+    auto lnOp = cast<ONNXReduceMeanV13Op>(mReduceOp);
+    Value x2 = lnOp.getData();
+    if (x != x2)
+      return reportFailure("input x to mean/ReduceMean and sub are different");
     // Check the number of uses, for now only the 1 uses.
     if (!mReduceOp->hasOneUse())
       return reportFailure("mean reduce has too many uses");
@@ -889,6 +959,11 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // Now check values epsilon.
     if (!onnx_mlir::isScalarTensor(epsilon))
       return reportFailure("epsilon is expected to be scalar");
+    ONNXConstantOp epsilonOp =
+        dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
+    if (!epsilonOp)
+      return reportFailure("epsilon needs to be a constant");
+    epsilonAttr = epsilonOp.getValueFloatAttr();
     // Check axes.
     if (!onnx_mlir::hasShapeAndRank(x))
       return reportFailure("need rank and shape for input x");
@@ -904,8 +979,11 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     axis = meanAxis;
 
     // All good.
-    fprintf(stderr, "HI ALEX, GOT THE PATTERN with axis %d\n\n\n", (int)axis);
-    return false;
+    fprintf(stderr, "HI ALEX, GOT THE PATTERN with axis %d and input x\n",
+        (int)axis);
+    x.dump();
+    fprintf(stderr, "\n\n");
+    return true;
   }
 
 private:
@@ -1031,16 +1109,24 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         op, alpha, rankA, rankB);
   });
 
+#ifndef SKIP_RECOMPOSE_LAYER_NORM
   // Recompose LayerNorm, starting from scale/mul op
   target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
-    Value x, scale, epsilon;
+    Value x, scale;
+    FloatAttr epsilon;
     int64_t axis;
-    // hi alex, put it into class
-    fprintf(stderr, "\nhi alex, test explicit layer norm\n");
-    op.dump();
     return !RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
-        op, x, scale, epsilon, axis);
+        op, x, scale, axis, epsilon);
   });
+  // Recompose LayerNorm, starting from bias/add op
+  target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
+    Value x, scale, bias;
+    FloatAttr epsilon;
+    int64_t axis;
+    return !RecomposeLayerNormFromAddPattern::matchLayerNormPattern(
+        op, x, scale, bias, axis, epsilon);
+  });
+#endif
 
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
@@ -1082,6 +1168,10 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
+#ifndef SKIP_RECOMPOSE_LAYER_NORM
+  patterns.insert<RecomposeLayerNormFromMulPattern>(context);
+  patterns.insert<RecomposeLayerNormFromAddPattern>(context);
+#endif
 
   // TODO: consider whether to include SoftmaxPattern here
 }
