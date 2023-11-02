@@ -27,6 +27,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -34,6 +35,8 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
+
+#define DEBUG_TYPE "decompose"
 
 using namespace mlir;
 
@@ -747,6 +750,202 @@ public:
   }
 };
 
+// Support for recognizing patterns. Detects if the operation "op" has an input
+// operand number "matchThisOperandIndex" that is defined by an operation of
+// type "OP". If that is the case, "matchOperand" will be set to that operand,
+// and "matchOp" will be set to that op. For unary operations; write matches
+// only on success.
+//
+// This call is formatted so that it mimic the operations that we are trying to
+// match. For example:
+//
+// %norm = "onnx.Div"(%d, %stdDev)
+// %normScaled = "onnx.Mul"(%norm, %scale)
+//
+// We can have a match like this (version below is for binary op):
+//
+//  if (!operandOfOpDefinedBy<ONNXDivOp>(mulOp, norm, scale, divOp, 0))
+//
+// Namely, test if the mul op has input operands 0 that is defined by a divide
+// op. If it does, then set norm, scale, and divOp to their appropriate values.
+
+template <typename OP>
+bool operandOfOpDefinedBy(Operation *op, Value &matchOperand,
+    Operation *&matchOp, int64_t matchThisOperandIndex = 0) {
+  assert(matchThisOperandIndex >= 0 &&
+         matchThisOperandIndex < op->getNumOperands() &&
+         "bad match operand index");
+  Value operand = op->getOperand(matchThisOperandIndex);
+  // operand.dump();
+  //  Check for a match with definition of operand.
+  if (!operand.isa<BlockArgument>() && isa<OP>(operand.getDefiningOp())) {
+    matchOperand = operand;
+    matchOp = operand.getDefiningOp();
+    return true;
+  }
+  return false;
+}
+
+// Similar as above, for binary operation; write matches only on success.
+template <typename OP>
+bool operandOfOpDefinedBy(Operation *op, Value &matchOperand0,
+    Value &matchOperand1, Operation *&matchOp, int64_t matchThisOperandIndex) {
+  Value dummy;
+  if (operandOfOpDefinedBy<OP>(op, dummy, matchOp, matchThisOperandIndex)) {
+    matchOperand0 = op->getOperand(0);
+    matchOperand1 = op->getOperand(1);
+    return true;
+  }
+  return false;
+}
+
+struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
+  using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXMulOp mulOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = mulOp.getLoc();
+
+    // Match
+    Value x, scale, epsilon;
+    int64_t axis;
+    if (!matchLayerNormPattern(mulOp, x, scale, epsilon, axis))
+      return failure();
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    // rewriter.replaceOp(mulOp, res);
+    // return success();
+    return failure();
+  }
+
+  static bool matchLayerNormPattern(ONNXMulOp layerNormalOp, Value &x,
+      Value &scale, Value &epsilon, int64_t &axis) {
+    // Values that will be gathered and only kept locally.
+    Value norm, stdDev, varEps, var, dd, d, mean;
+    // Replicate of values, check that they are identical to originals.
+    Value d1, d2;
+    // Operations that will be gathered and kept locally.
+    Operation *nsMulOp, *ddMulOp, *nDivOp, *sdSqrtOp, *veAddOp, *vReduceOp,
+        *mReduceOp, *dSubOp;
+    nsMulOp = layerNormalOp.getOperation();
+    // %norm = "onnx.Div"(%d, %stdDev)
+    // %normScaled = "onnx.Mul"(%norm, %scale)
+    if (!operandOfOpDefinedBy<ONNXDivOp>(nsMulOp, norm, scale, nDivOp, 0) &&
+        !operandOfOpDefinedBy<ONNXDivOp>(nsMulOp, scale, norm, nDivOp, 1))
+      return reportFailure("missing norm, div op");
+    // %stdDev = "onnx.Sqrt"(%varEps)
+    // %norm = "onnx.Div"(%d, %stdDev)
+    if (!operandOfOpDefinedBy<ONNXSqrtOp>(nDivOp, d, stdDev, sdSqrtOp, 1))
+      return reportFailure("missing std dev, sqrt op");
+    // %varEps = "onnx.Add"(%var, %eps)
+    // %stdDev = "onnx.Sqrt"(%varEps)
+    if (!operandOfOpDefinedBy<ONNXAddOp>(sdSqrtOp, varEps, veAddOp))
+      return reportFailure("missing var + eps, add op");
+    // %var = "onnx.ReduceMeanV13"(%dd)
+    // %varEps = "onnx.Add"(%var, %eps)
+    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+            veAddOp, var, epsilon, vReduceOp, 0) &&
+        !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+            veAddOp, epsilon, var, vReduceOp, 1))
+      return reportFailure("missing var, reduce mean op");
+    // %dd = "onnx.Mul"(%d, %d)
+    // %var = "onnx.ReduceMeanV13"(%dd)
+    if (!operandOfOpDefinedBy<ONNXMulOp>(vReduceOp, dd, ddMulOp))
+      return reportFailure("missing DD, mul op");
+    // %d = "onnx.Sub"(%X, %mean)
+    // %dd = "onnx.Mul"(%d, %d)
+    if (!operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 0))
+      return reportFailure("missing D, sub op");
+    if (!operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 1))
+      return reportFailure("missing D, sub op");
+    if (d != d1 || d != d2)
+      return reportFailure("Various versions of d do not match");
+    // %mean = "onnx.ReduceMeanV13"(%x)
+    // %d = "onnx.Sub"(%X, %mean)
+    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+            dSubOp, x, mean, mReduceOp, 1))
+      return reportFailure("missing mean, reduce mean op");
+
+    // Check the number of uses, for now only the 1 uses.
+    if (!mReduceOp->hasOneUse())
+      return reportFailure("mean reduce has too many uses");
+    // d = sub has 3 uses from 2 distinct ops, ignore test for now.
+    if (!ddMulOp->hasOneUse())
+      return reportFailure("dd/mul has too many uses");
+    if (!vReduceOp->hasOneUse())
+      return reportFailure("var reduce has too many uses");
+    if (!veAddOp->hasOneUse())
+      return reportFailure("var eps add has too many uses");
+    if (!sdSqrtOp->hasOneUse())
+      return reportFailure("std dev sqrt has too many uses");
+    if (!nDivOp->hasOneUse())
+      return reportFailure("norm div has too many uses");
+    if (!nsMulOp->hasOneUse())
+      return reportFailure("norm scale mul has too many uses");
+
+    // Now check values epsilon.
+    if (!onnx_mlir::isScalarTensor(epsilon))
+      return reportFailure("epsilon is expected to be scalar");
+    // Check axes.
+    if (!onnx_mlir::hasShapeAndRank(x))
+      return reportFailure("need rank and shape for input x");
+    int64_t xRank = x.getType().cast<ShapedType>().getRank();
+    int64_t meanAxis, varAxis;
+    if (!suitableAxis(mReduceOp, xRank, meanAxis))
+      return reportFailure("unsuitable mean reduce axes");
+    if (!suitableAxis(vReduceOp, xRank, varAxis))
+      return reportFailure("unsuitable var reduce axes");
+    if (meanAxis != varAxis)
+      return reportFailure("mean and var axes must be the same");
+    // Axis is fine
+    axis = meanAxis;
+
+    // All good.
+    fprintf(stderr, "HI ALEX, GOT THE PATTERN with axis %d\n\n\n", (int)axis);
+    return false;
+  }
+
+private:
+  static bool suitableAxis(Operation *op, int64_t xRank, int64_t &axis) {
+    ONNXReduceMeanV13Op reduceOp = cast<ONNXReduceMeanV13Op>(op);
+    if (reduceOp.getKeepdims() != 1)
+      return reportFailure("need keepdims = 1");
+    ArrayAttr axesAttr = reduceOp.getAxesAttr();
+    int64_t axesSize = axesAttr.size();
+    // Record axes value in bit vector.
+    llvm::SmallBitVector reduceAxes(xRank, false);
+    for (int64_t i = 0; i < axesSize; ++i) {
+      int64_t a = onnx_mlir::getAxisInRange(
+          onnx_mlir::ArrayAttrIntVal(axesAttr, i), xRank);
+      reduceAxes[a] = true;
+    }
+    // Check that we have a "false"* "true"+ pattern.
+    bool foundFirstAxis = false;
+    for (int64_t i = 0; i < xRank; ++i) {
+      if (!foundFirstAxis) {
+        if (reduceAxes[i]) {
+          foundFirstAxis = true;
+          axis = i;
+        }
+      } else if (!reduceAxes[i]) {
+        // Once we found an axis, we must reduce all subsequent dimensions.
+        return false;
+      }
+    }
+    // Ensure we had at least one reduction.
+    return foundFirstAxis;
+  }
+
+  static bool reportFailure(std::string msg) {
+    // Can disable line below if not needed.
+    LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
+    return false;
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -832,11 +1031,22 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         op, alpha, rankA, rankB);
   });
 
+  // Recompose LayerNorm, starting from scale/mul op
+  target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
+    Value x, scale, epsilon;
+    int64_t axis;
+    // hi alex, put it into class
+    fprintf(stderr, "\nhi alex, test explicit layer norm\n");
+    op.dump();
+    return !RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
+        op, x, scale, epsilon, axis);
+  });
+
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   // ONNXtoStableHlo pass has own rewriting for ConvTranspose Op using
-  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose is
-  // disabled when the target is stablehlo.
+  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
+  // is disabled when the target is stablehlo.
   if (this->target != "stablehlo") {
 #endif
     target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
