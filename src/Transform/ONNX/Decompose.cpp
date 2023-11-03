@@ -835,7 +835,6 @@ void DecomposeONNXToONNXPass::runOnOperation() {
         op, alpha, rankA, rankB);
   });
 
-
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   // ONNXtoStableHlo pass has own rewriting for ConvTranspose Op using
