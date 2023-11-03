@@ -117,16 +117,16 @@ struct RecomposeLayerNormFromAddPattern : public OpRewritePattern<ONNXAddOp> {
   static bool matchLayerNormPattern(ONNXAddOp layerNormOp, Value &x,
       Value &scale, Value &bias, int64_t &axis, FloatAttr &epsilonAttr) {
     Value y;
-    Operation *yLayerNormOp, *ywbLayerNormOp;
-    ywbLayerNormOp = layerNormOp;
+    Operation *yLayerNormOp, *ybAddOp;
+    ybAddOp = layerNormOp;
     // %noBias = "onnx.NoValue"()
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
-    // %yWithBias = "onnx.Add"(%y, %bias)
+    // %yBias = "onnx.Add"(%y, %bias)
     if (!operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-            ywbLayerNormOp, y, bias, yLayerNormOp, 0) &&
+            ybAddOp, y, bias, yLayerNormOp, 0) &&
         !operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-            ywbLayerNormOp, bias, y, yLayerNormOp, 1))
+            ybAddOp, bias, y, yLayerNormOp, 1))
       return reportFailure("missing y, layer norm op");
     // Study layer norm op; make sure its used only one and that bias is not
     // used.
