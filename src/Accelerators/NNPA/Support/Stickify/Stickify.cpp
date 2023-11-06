@@ -22,8 +22,8 @@
 #include <string.h>
 
 #include "src/Accelerators/NNPA/Support/NNPALimit.h"
-#include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Convert.hpp"
-#include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Stickify.hpp"
+#include "src/Accelerators/NNPA/Support/Stickify/Convert.hpp"
+#include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 
 #ifdef __MVS__
 #pragma export(zdnn_get_library_version_str)
