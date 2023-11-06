@@ -202,6 +202,10 @@ bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v);
+
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
 bool hasShapeAndRank(mlir::Operation *op);

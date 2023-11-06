@@ -5,6 +5,7 @@ add_onnx_mlir_library(OMZHighToZLow
   MLIRMemRefTransforms
   OMLayoutHelper
   OMONNXToKrnl
+  OMStickify
   OMZHighOps
   OMZLowOps
 

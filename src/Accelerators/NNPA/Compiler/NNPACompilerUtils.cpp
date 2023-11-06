@@ -130,6 +130,9 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
+
   // Insert an instrumentation after lowering onnx to zhigh to get profiling
   // for onnx and zhigh ops.
   // Keep this pass at the end of this function.

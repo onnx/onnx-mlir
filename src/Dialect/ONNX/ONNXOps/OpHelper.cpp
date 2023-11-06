@@ -375,6 +375,18 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   return true;
 }
 
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v) {
+  if (!hasShapeAndRank(v))
+    return false;
+
+  auto t = dyn_cast<ShapedType>(v.getType());
+  int64_t r = t.getRank();
+  return isDenseONNXConstant(v) &&
+         ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
+}
+
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();

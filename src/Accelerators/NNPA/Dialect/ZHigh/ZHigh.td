@@ -799,7 +799,7 @@ def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [Pure,
 def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let summary = "ZHigh Stickified Constant operation";
   let description = [{
-    This operator produces a constant tensor to store stickified data."
+    This operator produces a constant tensor to store stickified data.
     Stickified data is opaque and must be 4K-aligned. One who produces
     the stickified data must make sure its size in bytes consistent with
     the output tensor's size.
@@ -807,6 +807,33 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
+}
+
+def ZHighStickifiedConstantOfShapeOp:ZHigh_Op<"StickifiedConstantOfShape", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Stickified Constant operation for a dynamic shape";
+  let description = [{
+    This operator produces a constant tensor to store stickified data.
+    The stickified data is defined by a f32 scalar value, a dynamic shape 
+    and a layout. Stickified data is 4K-aligned.
+  }];
+  let arguments = (ins TensorOf<[I64]>:$shape,
+                       F32Attr:$value,
+                       OptionalAttr<StrAttr>:$layout);
+  let results = (outs AnyZTensor:$output);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$shape, "::mlir::FloatAttr":$value,
+               "::mlir::StringAttr":$layout)>
+  ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighStickifiedConstantOfShapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighStickifiedConstantOfShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighFixGRUYOp:ZHigh_Op<"FixGRUY", [Pure, SameOperandsAndResultLayout,
