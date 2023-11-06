@@ -80,7 +80,7 @@ public:
 
     // Only support static 1D MemRefs with integer type.
     if ((memRefType.getRank() != 1) || memRefType.isDynamicDim(0) ||
-        (!elementType.isa<IntegerType>()))
+        (!elementType.isInteger(64)))
       return failure();
 
     // The number of elements in the returned MemRef.

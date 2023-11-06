@@ -248,6 +248,12 @@ Value OnnxBuilder::reshape(Type outputType, Value input, Value shape) const {
       toTensor(outputType), toTensor(input), toTensor(shape));
 }
 
+Value OnnxBuilder::reshape(Type outputType, Value input, Value shape,
+    mlir::IntegerAttr allowZero) const {
+  return createTypedOpAndInferShapes<ONNXReshapeOp>(
+      toTensor(outputType), toTensor(input), toTensor(shape), allowZero);
+}
+
 Value OnnxBuilder::reverseSequence(Type outputType, Value input,
     Value sequenceLens, int64_t batchAxis, int64_t timeAxis) const {
   IntegerAttr batchAxisAttr =
