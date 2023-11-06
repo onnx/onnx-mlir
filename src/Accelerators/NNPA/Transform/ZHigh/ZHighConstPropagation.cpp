@@ -23,7 +23,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Accelerators/NNPA/Transform/ZHigh/Stickify/Stickify.hpp"
+#include "src/Accelerators/NNPA/Support/Stickify/Stickify.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
