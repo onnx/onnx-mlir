@@ -6,7 +6,7 @@
 ```
 python >= 3.8
 gcc >= 6.4
-protobuf >= 21.12
+protobuf >= 3.20.3
 cmake >= 3.13.4
 make >= 4.2.1 or ninja >= 1.10.2
 java >= 1.11 (optional)
