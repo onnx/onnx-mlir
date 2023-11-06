@@ -52,7 +52,7 @@ namespace onnx_mlir {
 /// correspond to what ONNX operator.
 ///
 template <typename OP_TYPE>
-mlir::Location ONNXLoc(mlir::Operation *op); 
+mlir::Location ONNXLoc(mlir::Operation *op);
 
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
@@ -254,13 +254,13 @@ bool definedBy(mlir::Value v);
 // defining op. Otherwise, don't change the match values.
 // See operandOfOpDefinedBy comments in its implementation for suggested usages.
 template <typename OP>
-bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand,
-    mlir::Operation *&matchOp, int64_t matchThisOperandIndex = 0);
+bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
+    mlir::Value &matchOperand, int64_t matchThisOperandIndex = 0);
 
 // Same as above for binary operations, setting matchOperand0 and matchOperand1.
 template <typename OP>
-bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand0,
-    mlir::Value &matchOperand1, mlir::Operation *&matchOp,
+bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
+    mlir::Value &matchOperand0, mlir::Value &matchOperand1,
     int64_t matchThisOperandIndex);
 
 /// Check if a value is to store dimensions, meaning it is a tensor of one

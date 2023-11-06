@@ -75,9 +75,9 @@ struct RecomposeLayerNormFromAddPattern : public OpRewritePattern<ONNXAddOp> {
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
     // %yBias = "onnx.Add"(%y, %bias)
     if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-            ybAddOp, y, bias, yLayerNormOp, 0) &&
+            yLayerNormOp, ybAddOp, y, bias, 0) &&
         !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-            ybAddOp, bias, y, yLayerNormOp, 1))
+            yLayerNormOp, ybAddOp, bias, y, 1))
       return reportFailure("missing y, layer norm op");
     // Study layer norm op; make sure its used only one and that bias is not
     // used.
@@ -139,42 +139,42 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // %norm = "onnx.Div"(%d, %stdDev)
     // %normScaled = "onnx.Mul"(%norm, %scale)
     if (!onnx_mlir::operandOfOpDefinedBy<ONNXDivOp>(
-            nsMulOp, norm, scale, nDivOp, 0) &&
+            nDivOp, nsMulOp, norm, scale, 0) &&
         !onnx_mlir::operandOfOpDefinedBy<ONNXDivOp>(
-            nsMulOp, scale, norm, nDivOp, 1))
+            nDivOp, nsMulOp, scale, norm, 1))
       return reportFailure("missing norm, div op");
     // %stdDev = "onnx.Sqrt"(%varEps)
     // %norm = "onnx.Div"(%d, %stdDev)
     if (!onnx_mlir::operandOfOpDefinedBy<ONNXSqrtOp>(
-            nDivOp, d, stdDev, sdSqrtOp, 1))
+            sdSqrtOp, nDivOp, d, stdDev, 1))
       return reportFailure("missing std dev, sqrt op");
     // %varEps = "onnx.Add"(%var, %eps)
     // %stdDev = "onnx.Sqrt"(%varEps)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXAddOp>(sdSqrtOp, varEps, veAddOp))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXAddOp>(veAddOp, sdSqrtOp, varEps))
       return reportFailure("missing var + eps, add op");
     // %var = "onnx.ReduceMeanV13"(%dd)
     // %varEps = "onnx.Add"(%var, %eps)
     if (!onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-            veAddOp, var, epsilon, vReduceOp, 0) &&
+            vReduceOp, veAddOp, var, epsilon, 0) &&
         !onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-            veAddOp, epsilon, var, vReduceOp, 1))
+            vReduceOp, veAddOp, epsilon, var, 1))
       return reportFailure("missing var, reduce mean op");
     // %dd = "onnx.Mul"(%d, %d)
     // %var = "onnx.ReduceMeanV13"(%dd)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXMulOp>(vReduceOp, dd, ddMulOp))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXMulOp>(ddMulOp, vReduceOp, dd))
       return reportFailure("missing DD, mul op");
     // %d = "onnx.Sub"(%X, %mean)
     // %dd = "onnx.Mul"(%d, %d)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 0))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 0))
       return reportFailure("missing D, sub op");
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 1))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 1))
       return reportFailure("missing D, sub op");
     if (d != d1 || d != d2)
       return reportFailure("Various versions of d do not match");
     // %mean = "onnx.ReduceMeanV13"(%x)
     // %d = "onnx.Sub"(%X, %mean)
     if (!onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-            dSubOp, x, mean, mReduceOp, 1))
+            mReduceOp, dSubOp, x, mean, 1))
       return reportFailure("missing mean, reduce mean op");
     // Verify that the mReduceOp uses x as well.
     auto lnOp = cast<ONNXReduceMeanV13Op>(mReduceOp);

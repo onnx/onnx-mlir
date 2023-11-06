@@ -49,14 +49,14 @@ bool definedBy(mlir::Value v) {
 //
 // We can have a match like this (version below is for binary op):
 //
-//  if (!operandOfOpDefinedBy<ONNXDivOp>(mulOp, norm, scale, divOp, 0))
+//  if (!operandOfOpDefinedBy<ONNXDivOp>(divOp, mulOp, norm, scale, 0))
 //
 // Namely, test if the mul op has input operands 0 that is defined by a divide
 // op. If it does, then set norm, scale, and divOp to their appropriate values.
 
 template <typename OP>
-bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand,
-    mlir::Operation *&matchOp, int64_t matchThisOperandIndex) {
+bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
+    mlir::Value &matchOperand, int64_t matchThisOperandIndex) {
   using namespace mlir;
   assert(matchThisOperandIndex >= 0 &&
          matchThisOperandIndex < op->getNumOperands() &&
@@ -74,12 +74,12 @@ bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand,
 
 // Similar as above, for binary operation; write matches only on success.
 template <typename OP>
-bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand0,
-    mlir::Value &matchOperand1, mlir::Operation *&matchOp,
+bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
+    mlir::Value &matchOperand0, mlir::Value &matchOperand1,
     int64_t matchThisOperandIndex) {
   using namespace mlir;
   Value dummy;
-  if (operandOfOpDefinedBy<OP>(op, dummy, matchOp, matchThisOperandIndex)) {
+  if (operandOfOpDefinedBy<OP>(matchOp, op, dummy, matchThisOperandIndex)) {
     matchOperand0 = op->getOperand(0);
     matchOperand1 = op->getOperand(1);
     return true;
