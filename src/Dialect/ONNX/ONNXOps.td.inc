@@ -3585,9 +3585,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
         Let `d[i]` indicate the i-th dimension of `X`.
         If `X`'s shape is `[d[0], ..., d[axis-1], d[axis], ..., d[rank-1]]`,
         the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
-        `Y` and `X` have the same shape. This operator supports unidirectional broadcasting
-        (tensors `Scale` and `B` should be unidirectional broadcastable to tensor `X`);
-        for more details please check [the doc](Broadcasting.md).
+        `Y` and `X` have the same shape.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
     AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Scale,
