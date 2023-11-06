@@ -713,8 +713,7 @@ struct ONNXLayerNormalizationOpLowering
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
-          IndexExpr blockedUB =
-              SymbolIndexExpr(XFlatDims[0].getValue());
+          IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0].getValue());
           IndexExpr isFull = create.krnlIE.isTileFull(
               blockedCurrIndex, LiteralIndexExpr(B), blockedUB);
           Value zero = create.math.constantIndex(0);
