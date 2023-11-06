@@ -1613,7 +1613,8 @@ public:
   // procedureResult is the scalar value from producer
   // alloc is used to get the tensor for the producer, which is required by
   // by the shape helper.
-  Value emitFuseOps(Value producerResult, Value alloc, ValueRange loopInd = {});
+  Value emitFuseOps(
+      Value producerResult, const Value alloc, ValueRange loopInd = {});
 
   void replaceOrEraseONNXOps(Value alloc);
 
@@ -1839,7 +1840,7 @@ MemRefType OpFusionHelper::getOutputType(MemRefType outputType) {
 
 // Emit fusion Ops
 Value OpFusionHelper::emitFuseOps(
-    Value defOpResult, Value alloc, ValueRange loopInd) {
+    Value defOpResult, const Value alloc, ValueRange loopInd) {
   if (isFusibleListEmpty())
     return defOpResult;
 
@@ -1862,8 +1863,23 @@ Value OpFusionHelper::emitFuseOps(
       if (oper.getDefiningOp() != defOp)
         useOperands.emplace_back(rewriter.getRemappedValue(oper));
       else
-        // load will not needed because of useOpResult.
-        // This value is only needed by shape helper.
+        // Due to the op fusion, we will not generate a tensor for the current
+        // oper, but only the scalar result from defOp.
+        // This scalar value cannot be used to initialize ShapeHelper.
+        // Instead, alloc is used because it has the same shape as the oper.
+        // This is one of the prerequisits for fusion.
+        // However, they may have different element type for some ops, such as
+        // comparison and cast.
+        // ONNXBroadcastOpShapeHelper cares only the shape of the operands,
+        // not the element type.
+        // In a previous implementation, the original output of defOp is used
+        // with 'alloc = defOp->getResult(0)' at the end of the loop.
+        // But ONNXBroadcastOpShapeHelper.computeShape() unexpectedly used
+        // this parameter to generate some code (memref.dim) that is not really
+        // needed. Due to this live user, the original op can not be erased.
+        // This error occurred when there were more than one op with dynamic dim
+        // to be fused in the previous implementation.
+        // Therefore, alloc is used for all the fused op.
         useOperands.emplace_back(alloc);
     }
     // Use shape helper to generate load index
@@ -1893,7 +1909,6 @@ Value OpFusionHelper::emitFuseOps(
     defOpResult =
         emitScalar(rewriter, loc, useOp, currentElementType, inputValues);
     defOp = useOp;
-    alloc = defOp->getResult(0);
   }
   return defOpResult;
 }

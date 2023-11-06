@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
@@ -318,14 +319,17 @@ bool isSuitableForZDNN<ONNXMulOp>(
 template <>
 bool isSuitableForZDNN<ONNXDivOp>(
     ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+  Value A = op.getA();
+  Value B = op.getB();
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
     return false;
-  if (!isValidElementTypeAndRank(op.getA()))
+  if (!isF32ScalarConstantTensor(A) && !isValidElementTypeAndRank(A))
     return false;
-  if (!isValidElementTypeAndRank(op.getB()))
+  if (!isF32ScalarConstantTensor(B) && !isValidElementTypeAndRank(B))
     return false;
-  return dimAnalysis->sameShape(op.getA(), op.getB());
+  return isF32ScalarConstantTensor(A) || isF32ScalarConstantTensor(B) ||
+         dimAnalysis->sameShape(A, B);
 }
 
 /// Check legality for ONNXSum.
