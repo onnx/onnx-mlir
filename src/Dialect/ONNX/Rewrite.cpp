@@ -374,11 +374,8 @@ public:
     if (!reshapeOp)
       return failure();
     // RHS is a scalar.
-    if (!((rhs.getType().isa<ShapedType>() &&
-            rhs.getType().cast<ShapedType>().hasRank() &&
-            rhs.getType().cast<ShapedType>().getRank() == 0))) {
+    if (!isScalarTensor(rhs))
       return failure();
-    }
 
     // Rewrite
     auto loc = rewriter.getFusedLoc({op->getLoc(), reshapeGenericOp->getLoc()});

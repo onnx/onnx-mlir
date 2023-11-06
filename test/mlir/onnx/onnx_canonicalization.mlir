@@ -238,6 +238,20 @@ func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: t
 
 // -----
 
+func.func @test_reshape_propagate_through_elementwise_ops(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<1xf32>) -> tensor<150x20xf32> {
+  %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
+  %1 = "onnx.Mul"(%0, %arg1) : (tensor<150x20xf32>, tensor<1xf32>) -> tensor<150x20xf32>
+  onnx.Return %1 : tensor<150x20xf32>
+  // CHECK-LABEL: test_reshape_propagate_through_elementwise_ops
+  // CHECK-NEXT: [[CST:%.+]] = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  // CHECK-NEXT: [[MUL:%.+]] = "onnx.Mul"(%arg0, %arg1) : (tensor<3x5x10x20xf32>, tensor<1xf32>) -> tensor<3x5x10x20xf32>
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.Reshape"([[MUL]], [[CST]]) {allowzero = 0 : si64} : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<150x20xf32>
+}
+
+// -----
+
 // Check EmptyTensorInputsResizePattern. Example from yolov4 model after --decompose-onnx.
 func.func @test_resize_empty_tensor_inputs(%8: tensor<0xf32>, %714: tensor<*xf32>, %719: tensor<*xi64>) -> tensor<*xf32> {
   %720 = "onnx.Resize"(%714, %8, %8, %719) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
