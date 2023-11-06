@@ -43,66 +43,6 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 // #include "src/Transform/ONNX/ONNXRecompose.inc"
 
-struct RecomposeLayerNormFromAddPattern : public OpRewritePattern<ONNXAddOp> {
-  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXAddOp addOp, PatternRewriter &rewriter) const final {
-    using namespace onnx_mlir;
-    Location loc = addOp.getLoc();
-    // Match
-    Value x, scale, bias;
-    FloatAttr epsilon;
-    int64_t axis;
-    if (!matchLayerNormPattern(addOp, x, scale, bias, axis, epsilon))
-      return failure();
-
-    // Replace
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    Type xType = x.getType();
-    Value res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
-    rewriter.replaceOp(addOp, res);
-    return success();
-  }
-
-  static bool matchLayerNormPattern(ONNXAddOp layerNormOp, Value &x,
-      Value &scale, Value &bias, int64_t &axis, FloatAttr &epsilonAttr) {
-    Value y;
-    Operation *yLayerNormOp, *ybAddOp;
-    ybAddOp = layerNormOp;
-    // %noBias = "onnx.NoValue"()
-    // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
-    //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
-    // %yBias = "onnx.Add"(%y, %bias)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-            yLayerNormOp, ybAddOp, y, bias, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
-            yLayerNormOp, ybAddOp, bias, y, 1))
-      return reportFailure("missing y, layer norm op");
-    // Study layer norm op; make sure its used only one and that bias is not
-    // used.
-    if (!yLayerNormOp->hasOneUse())
-      return reportFailure("y/layer norm has too many uses");
-    auto lnOp = cast<ONNXLayerNormalizationOp>(yLayerNormOp);
-    if (!onnx_mlir::isNoneValue(lnOp.getB()))
-      return reportFailure("layer norm already has a bias");
-    // We are fine.
-    x = lnOp.getX();
-    scale = lnOp.getScale();
-    epsilonAttr = lnOp.getEpsilonAttr();
-    axis = lnOp.getAxis();
-    LLVM_DEBUG(llvm::dbgs() << "LayerNorm from add, axis : " << axis << "\n");
-    return true;
-  }
-
-private:
-  static bool reportFailure(std::string msg) {
-    // Can disable line below if not needed.
-    LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
-    return false;
-  }
-};
-
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
 
@@ -298,7 +238,6 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   // These ops will be Recomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
 
-#ifndef SKIP_RECOMPOSE_LAYER_NORM
   // Recompose LayerNorm, starting from scale/mul op
   target.addDynamicallyLegalOp<ONNXMulOp>([](ONNXMulOp op) {
     Value x, scale;
@@ -307,15 +246,6 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     return !RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
         op, x, scale, axis, epsilon);
   });
-  // Recompose LayerNorm, starting from bias/add op
-  target.addDynamicallyLegalOp<ONNXAddOp>([](ONNXAddOp op) {
-    Value x, scale, bias;
-    FloatAttr epsilon;
-    int64_t axis;
-    return !RecomposeLayerNormFromAddPattern::matchLayerNormPattern(
-        op, x, scale, bias, axis, epsilon);
-  });
-#endif
 
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
@@ -329,12 +259,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-#ifndef SKIP_RECOMPOSE_LAYER_NORM
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
-  patterns.insert<RecomposeLayerNormFromAddPattern>(context);
-#endif
-
-  // TODO: consider whether to include SoftmaxPattern here
 }
 
 /*!

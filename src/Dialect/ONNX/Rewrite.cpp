@@ -22,12 +22,15 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
+
+#define DEBUG_TYPE "rewrite"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -994,6 +997,64 @@ public:
 };
 
 // =============================================================================
+// Rewrite pattern LayerNormalization
+// =============================================================================
+
+struct PropagateBiasIntoLayerNormRewritePattern
+    : public OpRewritePattern<ONNXAddOp> {
+  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
+
+  PropagateBiasIntoLayerNormRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Value y, bias;
+    Operation *yLayerNormOp;
+    Operation *ywbAddOp = addOp.getOperation();
+    Location loc = addOp.getLoc();
+    // Match
+    // %noBias = "onnx.NoValue"()
+    // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
+    //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
+    // %yBias = "onnx.Add"(%y, %bias)
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+            yLayerNormOp, ywbAddOp, y, bias, 0) &&
+        !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+            yLayerNormOp, ywbAddOp, bias, y, 1))
+      return reportFailure("missing y, layer norm op");
+    // Study layer norm op; make sure its used only one and that bias is not
+    // used.
+    if (!yLayerNormOp->hasOneUse())
+      return reportFailure("y/layer norm has too many uses");
+    auto lnOp = cast<ONNXLayerNormalizationOp>(yLayerNormOp);
+    if (!onnx_mlir::isNoneValue(lnOp.getB()))
+      return reportFailure("layer norm already has a bias");
+    // We are fine.
+    Value x = lnOp.getX();
+    Value scale = lnOp.getScale();
+    FloatAttr epsilon = lnOp.getEpsilonAttr();
+    int64_t axis = lnOp.getAxis();
+    LLVM_DEBUG(llvm::dbgs() << "LayerNorm from add, axis : " << axis << "\n");
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Type xType = x.getType();
+    Value res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    rewriter.replaceOp(addOp, res);
+    return success();
+  }
+
+private:
+  LogicalResult reportFailure(std::string msg) const {
+    // Can disable line below if not needed.
+    LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
+    return failure();
+  }
+};
+
+// =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
 /// Please keep in alphabetical order.
@@ -1017,6 +1078,7 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
+  results.insert<PropagateBiasIntoLayerNormRewritePattern>(context);
 }
 
 /// on the ONNXAndOp.

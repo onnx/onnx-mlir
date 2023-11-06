@@ -422,21 +422,6 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
 
-#if 0
-/// Check the defining operation of a value.
-template <typename OP>
-bool definedBy(Value v) {
-  return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
-}
-
-/// Template instantiation for definedBy.
-template bool definedBy<ONNXCastOp>(Value v);
-template bool definedBy<ONNXConcatOp>(Value v);
-template bool definedBy<ONNXConstantOp>(Value v);
-template bool definedBy<ONNXDimOp>(Value v);
-template bool definedBy<ONNXExpandOp>(Value v);
-#endif
-
 /// Check if a value is to store dimensions, meaning it is a tensor of one
 /// element or concatenation of one-element tensors.
 bool areDims(Value val) {
