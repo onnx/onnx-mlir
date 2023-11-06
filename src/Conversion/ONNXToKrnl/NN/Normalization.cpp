@@ -718,8 +718,7 @@ struct ONNXLayerNormalizationOpLowering
           Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
           Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
-          IndexExpr blockedUB =
-              SymbolIndexExpr(XFlatDims[0].getValue()); // hi alex, take value?
+          IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0].getValue());
           IndexExpr isFull = create.krnlIE.isTileFull(
               blockedCurrIndex, LiteralIndexExpr(B), blockedUB);
           Value zero = create.math.constantIndex(0);

@@ -75,6 +75,11 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value expand(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
 
+  // ONNXLayerNormalizationOp, version with one output only (Y).
+  mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
+      mlir::Value scale, mlir::Value bias, int64_t axis,
+      mlir::FloatAttr epsilon) const;
+
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;

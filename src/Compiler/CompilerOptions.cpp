@@ -64,6 +64,7 @@ int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
+bool disableRecomposeOption;                           // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -193,6 +194,11 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::desc("Specify ONNX functions to decompose"),
         llvm::cl::location(functionsToDecompose),
         llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
+    llvm::cl::desc("Disable recomposition of ONNX operations."),
+    llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
