@@ -51,13 +51,8 @@ namespace onnx_mlir {
 /// inside. This is useful when tracing what expanded MLIR instructions
 /// correspond to what ONNX operator.
 ///
-///
 template <typename OP_TYPE>
-mlir::Location ONNXLoc(mlir::Operation *op) {
-  return mlir::NameLoc::get(
-      mlir::StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
-      op->getLoc());
-}
+mlir::Location ONNXLoc(mlir::Operation *op); 
 
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
@@ -183,9 +178,7 @@ mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 // difference whether it's a constant (the result of ONNXNoneOp) or the
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
-inline bool isNoneValue(mlir::Value value) {
-  return llvm::isa<mlir::NoneType>(value.getType());
-}
+inline bool isNoneValue(mlir::Value value);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -256,6 +249,20 @@ bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 template <typename OP>
 bool definedBy(mlir::Value v);
 
+// Check if the operation defining `op->operand[matchThisOperandIndex]` matches
+// `OP`. If it does, set matchOperand to that operand, and matchOp to that
+// defining op. Otherwise, don't change the match values.
+// See operandOfOpDefinedBy comments in its implementation for suggested usages.
+template <typename OP>
+bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand,
+    mlir::Operation *&matchOp, int64_t matchThisOperandIndex = 0);
+
+// Same as above for binary operations, setting matchOperand0 and matchOperand1.
+template <typename OP>
+bool operandOfOpDefinedBy(mlir::Operation *op, mlir::Value &matchOperand0,
+    mlir::Value &matchOperand1, mlir::Operation *&matchOp,
+    int64_t matchThisOperandIndex);
+
 /// Check if a value is to store dimensions, meaning it is a tensor of one
 /// element or concatenation of one-element tensors.
 bool areDims(mlir::Value val);
@@ -272,5 +279,7 @@ void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
 
 std::string getNodeNameInPresenceOfOpt(
     mlir::Operation *op, bool useFileLine = true);
+
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp.inc"
 
 } // namespace onnx_mlir

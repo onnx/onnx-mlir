@@ -43,55 +43,6 @@ namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
 // #include "src/Transform/ONNX/ONNXRecompose.inc"
 
-// Support for recognizing patterns. Detects if the operation "op" has an input
-// operand number "matchThisOperandIndex" that is defined by an operation of
-// type "OP". If that is the case, "matchOperand" will be set to that operand,
-// and "matchOp" will be set to that op. For unary operations; write matches
-// only on success.
-//
-// This call is formatted so that it mimic the operations that we are trying to
-// match. For example:
-//
-// %norm = "onnx.Div"(%d, %stdDev)
-// %normScaled = "onnx.Mul"(%norm, %scale)
-//
-// We can have a match like this (version below is for binary op):
-//
-//  if (!operandOfOpDefinedBy<ONNXDivOp>(mulOp, norm, scale, divOp, 0))
-//
-// Namely, test if the mul op has input operands 0 that is defined by a divide
-// op. If it does, then set norm, scale, and divOp to their appropriate values.
-
-template <typename OP>
-bool operandOfOpDefinedBy(Operation *op, Value &matchOperand,
-    Operation *&matchOp, int64_t matchThisOperandIndex = 0) {
-  assert(matchThisOperandIndex >= 0 &&
-         matchThisOperandIndex < op->getNumOperands() &&
-         "bad match operand index");
-  Value operand = op->getOperand(matchThisOperandIndex);
-  // operand.dump();
-  //  Check for a match with definition of operand.
-  if (!operand.isa<BlockArgument>() && isa<OP>(operand.getDefiningOp())) {
-    matchOperand = operand;
-    matchOp = operand.getDefiningOp();
-    return true;
-  }
-  return false;
-}
-
-// Similar as above, for binary operation; write matches only on success.
-template <typename OP>
-bool operandOfOpDefinedBy(Operation *op, Value &matchOperand0,
-    Value &matchOperand1, Operation *&matchOp, int64_t matchThisOperandIndex) {
-  Value dummy;
-  if (operandOfOpDefinedBy<OP>(op, dummy, matchOp, matchThisOperandIndex)) {
-    matchOperand0 = op->getOperand(0);
-    matchOperand1 = op->getOperand(1);
-    return true;
-  }
-  return false;
-}
-
 struct RecomposeLayerNormFromAddPattern : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
 
@@ -123,9 +74,9 @@ struct RecomposeLayerNormFromAddPattern : public OpRewritePattern<ONNXAddOp> {
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
     // %yBias = "onnx.Add"(%y, %bias)
-    if (!operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
             ybAddOp, y, bias, yLayerNormOp, 0) &&
-        !operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+        !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
             ybAddOp, bias, y, yLayerNormOp, 1))
       return reportFailure("missing y, layer norm op");
     // Study layer norm op; make sure its used only one and that bias is not
@@ -187,39 +138,42 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     nsMulOp = LayerNormOp.getOperation();
     // %norm = "onnx.Div"(%d, %stdDev)
     // %normScaled = "onnx.Mul"(%norm, %scale)
-    if (!operandOfOpDefinedBy<ONNXDivOp>(nsMulOp, norm, scale, nDivOp, 0) &&
-        !operandOfOpDefinedBy<ONNXDivOp>(nsMulOp, scale, norm, nDivOp, 1))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXDivOp>(
+            nsMulOp, norm, scale, nDivOp, 0) &&
+        !onnx_mlir::operandOfOpDefinedBy<ONNXDivOp>(
+            nsMulOp, scale, norm, nDivOp, 1))
       return reportFailure("missing norm, div op");
     // %stdDev = "onnx.Sqrt"(%varEps)
     // %norm = "onnx.Div"(%d, %stdDev)
-    if (!operandOfOpDefinedBy<ONNXSqrtOp>(nDivOp, d, stdDev, sdSqrtOp, 1))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSqrtOp>(
+            nDivOp, d, stdDev, sdSqrtOp, 1))
       return reportFailure("missing std dev, sqrt op");
     // %varEps = "onnx.Add"(%var, %eps)
     // %stdDev = "onnx.Sqrt"(%varEps)
-    if (!operandOfOpDefinedBy<ONNXAddOp>(sdSqrtOp, varEps, veAddOp))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXAddOp>(sdSqrtOp, varEps, veAddOp))
       return reportFailure("missing var + eps, add op");
     // %var = "onnx.ReduceMeanV13"(%dd)
     // %varEps = "onnx.Add"(%var, %eps)
-    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             veAddOp, var, epsilon, vReduceOp, 0) &&
-        !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+        !onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             veAddOp, epsilon, var, vReduceOp, 1))
       return reportFailure("missing var, reduce mean op");
     // %dd = "onnx.Mul"(%d, %d)
     // %var = "onnx.ReduceMeanV13"(%dd)
-    if (!operandOfOpDefinedBy<ONNXMulOp>(vReduceOp, dd, ddMulOp))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXMulOp>(vReduceOp, dd, ddMulOp))
       return reportFailure("missing DD, mul op");
     // %d = "onnx.Sub"(%X, %mean)
     // %dd = "onnx.Mul"(%d, %d)
-    if (!operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 0))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 0))
       return reportFailure("missing D, sub op");
-    if (!operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 1))
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(ddMulOp, d1, d2, dSubOp, 1))
       return reportFailure("missing D, sub op");
     if (d != d1 || d != d2)
       return reportFailure("Various versions of d do not match");
     // %mean = "onnx.ReduceMeanV13"(%x)
     // %d = "onnx.Sub"(%X, %mean)
-    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             dSubOp, x, mean, mReduceOp, 1))
       return reportFailure("missing mean, reduce mean op");
     // Verify that the mReduceOp uses x as well.
