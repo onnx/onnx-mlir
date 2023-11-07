@@ -1043,7 +1043,7 @@ public:
   };
 };
 
-/// The pattern is to relace two consecutive ReshapeOp with a single ReshapeOp.
+/// The pattern is to replace two consecutive ReshapeOp with a single ReshapeOp.
 /// It's not successful for arbirary ReshapeOp, so let's consider necessary
 /// condition for the replacement.
 ///
@@ -1058,7 +1058,7 @@ public:
 // ```
 // where `%new_shape` is computed from `%shape1` and `%shape2` if possible.
 //
-// We only support `allowzero=0` in this pattern.
+// We only consider `allowzero=0` in this pattern.
 //
 // # Shape conditions
 //
@@ -1221,12 +1221,14 @@ private:
       return (dims[0] == 0);
     return false;
   }
+
   bool isMinusOne(Value v) const {
     SmallVector<int64_t> dims;
     if (getI64ValuesFromSmallONNXConstantOp(v, dims))
       return (dims[0] == -1);
     return false;
   }
+
   bool isLiteral(Value v) const {
     SmallVector<int64_t> dims;
     if (getI64ValuesFromSmallONNXConstantOp(v, dims))
