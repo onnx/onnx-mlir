@@ -1044,7 +1044,7 @@ public:
 };
 
 /// The pattern is to replace two consecutive ReshapeOp with a single ReshapeOp.
-/// It's not successful for arbirary ReshapeOp, so let's consider necessary
+/// It's not successful for arbitrary ReshapeOp, so let's consider necessary
 /// condition for the replacement.
 ///
 /// We would like to replace:
