@@ -1120,7 +1120,7 @@ public:
     int64_t secondAllowZero = secondReshapeOp.getAllowzero();
     if (secondAllowZero != 0)
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Does not support AllowZero != 1";
+        diag << "Does not support AllowZero != 0";
       });
 
     // First Reshape.
@@ -1134,7 +1134,7 @@ public:
     int64_t firstAllowZero = firstReshapeOp.getAllowzero();
     if (firstAllowZero != 0)
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Does not support AllowZero != 1";
+        diag << "Does not support AllowZero != 0";
       });
 
     Location loc = rewriter.getFusedLoc(
