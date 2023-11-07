@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --buffer-deallocation  %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --buffer-deallocation-pipeline  %s -split-input-file | FileCheck %s
 
 // -----
 

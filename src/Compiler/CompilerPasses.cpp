@@ -22,6 +22,7 @@
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
+#include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
@@ -225,8 +226,9 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  pm.addNestedPass<func::FuncOp>(
-      mlir::bufferization::createBufferDeallocationPass());
+  bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+  mlir::bufferization::buildBufferDeallocationPipeline(
+      pm, bufferDeallocOptions);
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this
