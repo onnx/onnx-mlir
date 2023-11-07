@@ -74,7 +74,7 @@ llvm::cl::opt<bool> nnpaParallel{"nnpa-parallel",
                    "Currently only MatMul ops are supported."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<int> nnpaParallelNdevOps{"nnpa-parallel-number-of-devices",
+llvm::cl::opt<int> nnpaParallelNdev{"nnpa-parallel-number-of-devices",
     llvm::cl::desc(
         "The number of devices used for parallelization. (default = 2)"),
     llvm::cl::init(2), llvm::cl::cat(OnnxMlirOptions)};

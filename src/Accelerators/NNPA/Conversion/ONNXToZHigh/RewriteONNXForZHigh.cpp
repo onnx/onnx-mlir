@@ -885,9 +885,9 @@ struct RewriteONNXForZHighPass
   void runOnOperation() final;
 
 private:
-  bool nnpaParallel = false;
-  int nnpaParallelNdev = 0;
-  int nnpaParallelMinimumDimThreshold = 0;
+  bool nnpaParallel;
+  int nnpaParallelNdev;
+  int nnpaParallelMinimumDimThreshold;
 };
 
 void RewriteONNXForZHighPass::runOnOperation() {

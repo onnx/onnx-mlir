@@ -22,11 +22,11 @@ namespace onnx_mlir {
 // Exports RewriteONNXForZHigh patterns.
 void getRewriteONNXForZHighPatterns(mlir::RewritePatternSet &patterns,
     DimAnalysis *dimAnalysis, bool nnpaParallel = false,
-    int nnpaParallelNdev = 0, int nnpaParallelMinimumDimThreshold = 0);
+    int nnpaParallelNdev = 1, int nnpaParallelMinimumDimThreshold = 0);
 
 // Exports RewriteONNXForZHigh dynamically legal checks.
 void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
-    const DimAnalysis *dimAnalysis, int nnpaParallelNdev = 0,
+    const DimAnalysis *dimAnalysis, int nnpaParallelNdev = 1,
     int nnpaParallelMinimumDimThreshold = 0);
 
 } // namespace onnx_mlir
