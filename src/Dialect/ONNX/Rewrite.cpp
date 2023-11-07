@@ -1178,7 +1178,7 @@ public:
         fusedD = isZero(d2) ? d1 : d2;
       } else {
         // 2nd shape has more dims than the 1st shape. Get dims from the 2nd
-        // shape.
+        // shape as they are.
         fusedD = secondDims[i];
       }
       fusedDims.emplace_back(fusedD);
@@ -1192,7 +1192,7 @@ public:
       });
     }
 
-    // Rewrite
+    // Rewrite phase.
     // Emit the fused shape using ONNXConstantOp or ONNXConcatOp.
     Value fusedShape;
     if (llvm::all_of(
@@ -1206,6 +1206,7 @@ public:
           createONNX.concat(RankedTensorType::get({s2}, rewriter.getI64Type()),
               fusedDims, /*axis=*/0);
     }
+    // Emit a new Reshape.
     Value res = createONNX.reshape(secondReshapeOp.getResult().getType(),
         firstData, fusedShape, secondReshapeOp.getAllowzeroAttr());
 
@@ -1241,11 +1242,13 @@ private:
   // Otherwise, return false.
   bool getValuesFromShape(OnnxBuilder &createONNX, Value shape,
       SmallVectorImpl<Value> &values) const {
+    // Shape is defined by a Concat.
     if (areDimsFromConcat(shape)) {
       getDims(shape, values);
       return true;
     }
 
+    // Shape is defined by a Constant.
     SmallVector<int64_t> dims;
     if (getI64ValuesFromSmallONNXConstantOp(shape, dims)) {
       for (int64_t d : dims) {
