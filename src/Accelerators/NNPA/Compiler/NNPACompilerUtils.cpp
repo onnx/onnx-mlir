@@ -49,7 +49,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
     // Gather generated during RewriteONNXForZHigh will become constants.
-    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass());
+    pm.addPass(onnx_mlir::createRewriteONNXForZHighPass(
+        nnpaParallel, nnpaParallelNdev, nnpaParallelMinimumDimThreshold));
     // Simplify shape-related ops, including ShapeOp-to-DimOp replacement,
     // constant propagation, shape inference and canonicalize.
     pm.addPass(onnx_mlir::createSimplifyShapeRelatedOpsPass());

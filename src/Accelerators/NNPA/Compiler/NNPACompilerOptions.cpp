@@ -68,4 +68,23 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
             "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
+llvm::cl::opt<bool> nnpaParallel{"nnpa-parallel",
+    llvm::cl::desc("Enable parallelization (default=false)\n"
+                   "Set to 'true' if you want to enable parallelization. "
+                   "Currently only MatMul ops are supported."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<int> nnpaParallelNdevOps{"nnpa-parallel-number-of-devices",
+    llvm::cl::desc(
+        "The number of devices used for parallelization. (default = 2)"),
+    llvm::cl::init(2), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<int> nnpaParallelMinimumDimThreshold{
+    "nnpa-parallel-minimum-dim-threshold",
+    llvm::cl::desc("Threshold to enable parallelization for MatMul ops. Given "
+                   "A(N x K) * B(K x M), currently M is split for the "
+                   "parallelization. The MatMul ops whose M is greater than or "
+                   "equal to this threshold are parallelized. (default = 32)"),
+    llvm::cl::init(32), llvm::cl::cat(OnnxMlirOptions)};
+
 } // namespace onnx_mlir

@@ -32,50 +32,55 @@ const std::string NNPA_DEVICE = "nnpa";
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
-    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *)> checkLegalityFn =
-        nullptr) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, checkLegalityFn](
-                                             OP_TYPE op) {
-    mlir::Operation *genericOp = op.getOperation();
-    mlir::StringAttr device =
-        genericOp->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
-    assert((!device ||
-               (device &&
-                   (device.getValue().equals_insensitive("") ||
-                       device.getValue().equals_insensitive(CPU_DEVICE) ||
-                       device.getValue().equals_insensitive(NNPA_DEVICE)))) &&
-           "Invalid device name");
+    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *, int, int)>
+        checkLegalityFn = nullptr,
+    int nnpaParallelNdev = 0, int nnpaParallelMinimumDimThreshold = 0) {
+  target->addDynamicallyLegalOp<OP_TYPE>(
+      [dimAnalysis, checkLegalityFn, nnpaParallelNdev,
+          nnpaParallelMinimumDimThreshold](OP_TYPE op) {
+        mlir::Operation *genericOp = op.getOperation();
+        mlir::StringAttr device =
+            genericOp->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
+        assert(
+            (!device ||
+                (device &&
+                    (device.getValue().equals_insensitive("") ||
+                        device.getValue().equals_insensitive(CPU_DEVICE) ||
+                        device.getValue().equals_insensitive(NNPA_DEVICE)))) &&
+            "Invalid device name");
 
-    // If device is CPU, force to run the op on CPU.
-    if (device && device.getValue().equals_insensitive(CPU_DEVICE))
-      return true;
+        // If device is CPU, force to run the op on CPU.
+        if (device && device.getValue().equals_insensitive(CPU_DEVICE))
+          return true;
 
-    // If not CPU, check if the op is legal for NNPA.
-    bool isLegalForNNPA = false;
-    if (checkLegalityFn)
-      isLegalForNNPA = !checkLegalityFn(op, dimAnalysis);
-    else {
-      // Check zDNN limitations for each input tensors.
-      // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
-      bool exceedLimit =
-          llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
-            if (auto valueType =
-                    operand.getType().dyn_cast<mlir::ShapedType>()) {
-              // Check if static dimension size exceeds zDNN limitations
-              llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
-              if (llvm::any_of(valueShape, [](int64_t dim) {
-                    return (!mlir::ShapedType::isDynamic(dim)) &&
-                           (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-                  }))
-                return true;
-            }
-            return false;
-          });
-      isLegalForNNPA =
-          !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
-    }
-    return !isLegalForNNPA;
-  });
+        // If not CPU, check if the op is legal for NNPA.
+        bool isLegalForNNPA = false;
+        if (checkLegalityFn)
+          isLegalForNNPA = !checkLegalityFn(op, dimAnalysis, nnpaParallelNdev,
+              nnpaParallelMinimumDimThreshold);
+        else {
+          // Check zDNN limitations for each input tensors.
+          // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another
+          // limitation
+          bool exceedLimit =
+              llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
+                if (auto valueType =
+                        operand.getType().dyn_cast<mlir::ShapedType>()) {
+                  // Check if static dimension size exceeds zDNN limitations
+                  llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
+                  if (llvm::any_of(valueShape, [](int64_t dim) {
+                        return (!mlir::ShapedType::isDynamic(dim)) &&
+                               (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
+                      }))
+                    return true;
+                }
+                return false;
+              });
+          isLegalForNNPA =
+              !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
+        }
+        return !isLegalForNNPA;
+      });
 }
 
 /// Get transposed tensor by using a permutation array.

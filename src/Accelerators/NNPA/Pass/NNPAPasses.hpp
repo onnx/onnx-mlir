@@ -29,11 +29,11 @@ std::unique_ptr<mlir::Pass> createDevicePlacementPass(
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
-std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
-std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
+std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(bool nnpaParallel,
+    int nnpaParallelNdev, int nnpaParallelMinimumDimThreshold);
 
 /// Add pass for re-construct ONNX ops from ZHigh ops.
 std::unique_ptr<mlir::Pass> createZHighToONNXPass();
