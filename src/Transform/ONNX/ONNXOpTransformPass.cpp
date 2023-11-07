@@ -49,18 +49,23 @@ struct ONNXOpTransformPass : public mlir::PassWrapper<ONNXOpTransformPass,
   Option<bool> enableConvOptPass{*this, "enable-conv-opt-pass",
       llvm::cl::desc("Enable the ConvOptPass. Default is true."),
       llvm::cl::init(true)};
+  Option<bool> enableRecomposeOptPass{*this, "enable-recompose-opt-pass",
+      llvm::cl::desc("Enable the RecomposeOptPass. Default is true."),
+      llvm::cl::init(true)};
 
   ONNXOpTransformPass() = default;
   ONNXOpTransformPass(const ONNXOpTransformPass &pass)
       : mlir::PassWrapper<ONNXOpTransformPass,
             OperationPass<mlir::ModuleOp>>() {}
   ONNXOpTransformPass(int threshold, bool report, bool targetCPU,
-      bool enableSimdDataLayoutOpt, bool enableConvOptPass) {
+      bool enableSimdDataLayoutOpt, bool enableConvOptPass,
+      bool enableRecomposeOptPass) {
     this->onnxOpTransformThreshold = threshold;
     this->onnxOpTransformReport = report;
     this->onnxOpTransformTargetCPU = targetCPU;
     this->onnxOpTransformEnableSimdDataLayout = enableSimdDataLayoutOpt;
     this->enableConvOptPass = enableConvOptPass;
+    this->enableRecomposeOptPass = enableRecomposeOptPass;
   }
 
   void runOnOperation() final;
@@ -76,6 +81,9 @@ void ONNXOpTransformPass::runOnOperation() {
     OpPassManager dynamicPM("builtin.module");
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createDecomposeONNXToONNXPass());
+    if (enableRecomposeOptPass)
+      dynamicPM.addNestedPass<func::FuncOp>(
+          onnx_mlir::createRecomposeONNXToONNXPass());
     dynamicPM.addNestedPass<func::FuncOp>(
         onnx_mlir::createShapeInferencePass());
     dynamicPM.addPass(mlir::createCanonicalizerPass());
@@ -121,7 +129,7 @@ std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass() {
 
 std::unique_ptr<mlir::Pass> onnx_mlir::createONNXOpTransformPass(int threshold,
     bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
-    bool enableConvOptPass) {
-  return std::make_unique<ONNXOpTransformPass>(
-      threshold, report, targetCPU, enableSimdDataLayoutOpt, enableConvOptPass);
+    bool enableConvOptPass, bool enableRecomposeOptPass) {
+  return std::make_unique<ONNXOpTransformPass>(threshold, report, targetCPU,
+      enableSimdDataLayoutOpt, enableConvOptPass, enableRecomposeOptPass);
 }
