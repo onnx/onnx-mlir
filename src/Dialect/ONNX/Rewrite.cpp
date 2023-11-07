@@ -1082,12 +1082,14 @@ public:
 //   0     : 0      => 0
 //   0     : L      => L
 //   0     : -1     => -1
+//
 //  -1     : 0      => -1
-//  -1     : -1     => -1
 //  -1     : L      => L
+//  -1     : -1     => -1
+//
 //   L     : 0      => L
-//   L     : -1     => -1
 //   L     : L      => L
+//   L     : -1     => -1
 //
 // To produce a new shape, we combine each value one by one from left to right.
 //
@@ -1113,41 +1115,146 @@ public:
       ONNXReshapeOp secondReshapeOp, PatternRewriter &rewriter) const override {
     // Second Reshape.
     Operation *op = secondReshapeOp.getOperation();
-    Location loc = secondReshapeOp.getLoc();
     Value secondData = secondReshapeOp.getData();
     Value secondShape = secondReshapeOp.getShape();
     int64_t secondAllowZero = secondReshapeOp.getAllowzero();
     if (secondAllowZero != 0)
-      return failure();
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Does not support AllowZero != 1";
+      });
 
     // First Reshape.
     if (!definedBy<ONNXReshapeOp>(secondData))
-      return failure();
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "The input data is not defined by a Reshape";
+      });
     auto firstReshapeOp = cast<ONNXReshapeOp>(secondData.getDefiningOp());
+    Value firstData = firstReshapeOp.getData();
     Value firstShape = firstReshapeOp.getShape();
     int64_t firstAllowZero = firstReshapeOp.getAllowzero();
     if (firstAllowZero != 0)
-      return failure();
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Does not support AllowZero != 1";
+      });
 
-    // Try to compute a new shape tensor.
-    SmallVector<int64_t, 4> firstValues, secondValues;
-    if (!getValuesFromShape(firstShape, firstValues) ||
-        !getValuesFromShape(secondShape, secondValues))
-      return failure();
+    Location loc = rewriter.getFusedLoc(
+        {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
+    OnnxBuilder createONNX(rewriter, loc);
+
+    // Try to compute a new shape tensor by fusing the two old shapes.
+    SmallVector<Value, 4> firstDims, secondDims, fusedDims;
+    if (!getValuesFromShape(createONNX, firstShape, firstDims) ||
+        !getValuesFromShape(createONNX, secondShape, secondDims)) {
+      // Not rewrite if we can not read dimension values (0, -1, L) from a shape
+      // tensor.
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Cannot read invididual dimensions";
+      });
+    }
+
+    // Iterate over the second shape that is similar to the output shape.
+    int64_t s1 = firstDims.size();
+    int64_t s2 = secondDims.size();
+    uint64_t minusOnes = 0;
+    for (int64_t i = 0; i < s2; ++i) {
+      Value fusedD;
+      if (i < s1) {
+        // Fuse two dimensions.
+        // These are the rules to combine two values:
+        //  (1st)  : (2nd)  => (result)
+        //   0     : 0      => 0
+        //   0     : L      => L
+        //   0     : -1     => -1
+        //
+        //  -1     : 0      => -1
+        //  -1     : L      => L
+        //  -1     : -1     => -1
+        //
+        //   L     : 0      => L
+        //   L     : L      => L
+        //   L     : -1     => -1
+        Value d1 = firstDims[i];
+        Value d2 = secondDims[i];
+        fusedD = isZero(d2) ? d1 : d2;
+      } else {
+        // 2nd shape has more dims than the 1st shape. Get dims from the 2nd
+        // shape.
+        fusedD = secondDims[i];
+      }
+      fusedDims.emplace_back(fusedD);
+      if (isMinusOne(fusedD))
+        minusOnes++;
+    }
+    if (minusOnes > 1) {
+      // The fused shape is invalid because it has two -1s.
+      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
+        diag << "Failed to compute a fused shape";
+      });
+    }
+
     // Rewrite
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    // Emit the fused shape using ONNXConstantOp or ONNXConcatOp.
+    Value fusedShape;
+    if (llvm::all_of(
+            fusedDims, [](Value v) { return isScalarConstantTensor(v); })) {
+      SmallVector<int64_t> dims;
+      for (int64_t i = 0; i < s2; ++i)
+        getI64ValuesFromSmallONNXConstantOp(fusedDims[i], dims);
+      fusedShape = createONNX.constantInt64(ArrayRef<int64_t>(dims));
+    } else {
+      fusedShape =
+          createONNX.concat(RankedTensorType::get({s2}, rewriter.getI64Type()),
+              fusedDims, /*axis=*/0);
+    }
+    Value res = createONNX.reshape(secondReshapeOp.getResult().getType(),
+        firstData, fusedShape, secondReshapeOp.getAllowzeroAttr());
 
+    rewriter.replaceOp(op, res);
     return success();
   };
 
 private:
-  bool isZero(Value v) const { return false; }
-  bool isMinusOne(Value v) const { return false; }
-  bool isLiteral(Value v) const { return false; }
+  bool isZero(Value v) const {
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromSmallONNXConstantOp(v, dims))
+      return (dims[0] == 0);
+    return false;
+  }
+  bool isMinusOne(Value v) const {
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromSmallONNXConstantOp(v, dims))
+      return (dims[0] == -1);
+    return false;
+  }
+  bool isLiteral(Value v) const {
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromSmallONNXConstantOp(v, dims))
+      return (dims[0] > 0);
+    if (definedBy<ONNXDimOp>(v)) {
+      // Runtime dimension of a value is always literal.
+      return true;
+    }
+    return false;
+  }
 
   // Get invididual values from a shape tensor. Return true if succeeded.
   // Otherwise, return false.
-  bool getValuesFromShape(Value shape, SmallVectorImpl<int64_t> &values) const {
+  bool getValuesFromShape(OnnxBuilder &createONNX, Value shape,
+      SmallVectorImpl<Value> &values) const {
+    if (areDimsFromConcat(shape)) {
+      getDims(shape, values);
+      return true;
+    }
+
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromSmallONNXConstantOp(shape, dims)) {
+      for (int64_t d : dims) {
+        Value dim = createONNX.constantInt64({d});
+        values.emplace_back(dim);
+      }
+      return true;
+    }
+
     return false;
   }
 };
@@ -1371,7 +1478,7 @@ void ONNXOrOp::getCanonicalizationPatterns(
 /// on the ONNXReshapeOp.
 void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
-  result.insert<FuseReshapePattern>(context);
+  result.insert<FuseTwoReshapesPattern>(context);
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
   result.insert<SwapReshapeMatMulPattern>(context);

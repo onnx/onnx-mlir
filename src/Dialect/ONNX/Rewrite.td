@@ -576,12 +576,6 @@ def SwapTransposeConcatPattern: Pat<
 // Canonicalization for ONNXReshapeOp
 //===----------------------------------------------------------------------===//
 
-def FuseReshapePattern:  Pat<
-  // Reshape of a reshape.
-  (ONNXReshapeOp (ONNXReshapeOp $v, $s1, $az1), $s2, $az2),
-  // Remove the first reshape op.
-  (ONNXReshapeOp $v, $s2, $az2)>;
-
 def RemoveIdentityReshapePattern1:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
   (ONNXReshapeOp $val, $shape, $az),

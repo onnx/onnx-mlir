@@ -317,6 +317,24 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
+bool getI64ValuesFromSmallONNXConstantOp(
+    mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes) {
+  ElementsAttr elemsAttr = getElementAttributeFromONNXValue(val);
+  if (!elemsAttr)
+    return false;
+  if (!getElementType(elemsAttr.getType()).isInteger(64))
+    return false;
+
+  DenseElementsAttr denseAttr =
+      ElementsAttrBuilder::toDenseElementsAttr(elemsAttr);
+  auto valueIt = denseAttr.getValues<IntegerAttr>().begin();
+  for (unsigned int i = 0; i < denseAttr.getNumElements(); ++i) {
+    int64_t d = (*valueIt++).cast<IntegerAttr>().getInt();
+    iRes.emplace_back(d);
+  }
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
