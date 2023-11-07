@@ -65,8 +65,6 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     IndexExpr outerUb1 = shapeHelper.getOutputDims()[1];
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
-    // Create temp, single scalar, no need for default alignment.
-    Value red = create.mem.alloca(MemRefType::get({}, elementType));
     // Outer loops.
     // FIXME refactor
     if (enableParallel) {
@@ -75,7 +73,10 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     }
     create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
+          MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+              createKrnl);
+          // Create temp, single scalar, no need for default alignment.
+          Value red = create.mem.alloca(MemRefType::get({}, elementType));
           // Set to zero.
           create.krnl.store(zeroVal, red);
           // Inner loop.
