@@ -13,7 +13,7 @@ WORKDIR ${WORK_DIR}
 # Copy onnx-mlir from the pull request
 COPY . onnx-mlir
 
-# Setup onnx and remove the pre-installed protobuf version
+# Setup onnx
 # Onnx commit 9fdb3bbd7b8c99b7b6e356069193ba7150405fce switched from
 # hardcoded lib to CMAKE_INSTALL_LIBDIR. On RHEL ubi8 (and variants)
 # it fails to find protobuf because CMAKE_INSTALL_LIBDIR resolves to
