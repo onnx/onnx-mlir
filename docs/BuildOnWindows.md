@@ -42,7 +42,7 @@ set PATH=%root_dir%\protobuf_install\bin;%PATH%
 
 If you wish to be able to run all the ONNX-MLIR tests, you will also need to install the matching version of protobuf through pip. Note that this is included in the requirements.txt file at the root of onnx-mlir, so if you plan on using it, you won't need to explicitly install protobuf.
 ```shell
-python3 -m pip install protobuf==4.21.12
+python3 -m pip install protobuf==3.20.3
 ```
 
 #### MLIR
