@@ -671,7 +671,7 @@ def main():
         # Use the generated shared library to create an execution session.
         print("Loading the compiled model ...")
         start = time.perf_counter()
-        sess = OMExecutionSession(shared_lib_path, tag="None")
+        sess = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 
