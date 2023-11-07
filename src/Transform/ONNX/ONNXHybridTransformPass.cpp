@@ -25,6 +25,7 @@
 #include "src/Transform/ONNX/ConstProp.hpp"
 #include "src/Transform/ONNX/ConvOpt.hpp"
 #include "src/Transform/ONNX/Decompose.hpp"
+#include "src/Transform/ONNX/Recompose.hpp"
 #include "src/Transform/ONNX/ShapeInference.hpp"
 
 #include <iterator>
@@ -74,6 +75,10 @@ struct ONNXHybridTransformPass
       llvm::cl::desc("Enable decomposition in hybrid transform"),
       llvm::cl::init(true)};
 
+  Option<bool> recomposition{*this, "recomposition",
+      llvm::cl::desc("Enable recomposition in hybrid transform"),
+      llvm::cl::init(true)};
+
   Option<int> maxNumRewritesOffset{*this, "max-num-rewrites-offset",
       llvm::cl::desc("Rewrites limit: -1 means no limit, otherwise "
                      "added to func #ops * max-num-rewrites-multiplier"),
@@ -84,7 +89,9 @@ struct ONNXHybridTransformPass
 
   FrozenRewritePatternSet patterns;
 
-  ONNXHybridTransformPass() = default;
+  ONNXHybridTransformPass(bool enableRecomposition) {
+    this->recomposition = enableRecomposition;
+  }
 
   ONNXHybridTransformPass(const ONNXHybridTransformPass &pass)
       : patterns(pass.patterns) {
@@ -114,6 +121,10 @@ struct ONNXHybridTransformPass
 
     if (decomposition) {
       getDecomposeONNXToONNXPatterns(cumulativePatterns);
+    }
+
+    if (recomposition) {
+      getRecomposeONNXToONNXPatterns(cumulativePatterns);
     }
 
     patterns = FrozenRewritePatternSet(std::move(cumulativePatterns));
@@ -148,6 +159,7 @@ struct ONNXHybridTransformPass
 
 } // namespace
 
-std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass() {
-  return std::make_unique<ONNXHybridTransformPass>();
+std::unique_ptr<mlir::Pass> onnx_mlir::createONNXHybridTransformPass(
+    bool enableRecomposition) {
+  return std::make_unique<ONNXHybridTransformPass>(enableRecomposition);
 }

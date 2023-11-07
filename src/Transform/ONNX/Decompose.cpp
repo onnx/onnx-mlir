@@ -27,6 +27,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -34,6 +35,8 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
 #include "src/Transform/ONNX/DecomposeEinsum.hpp"
+
+#define DEBUG_TYPE "decompose"
 
 using namespace mlir;
 
@@ -835,8 +838,8 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   // ONNXtoStableHlo pass has own rewriting for ConvTranspose Op using
-  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose is
-  // disabled when the target is stablehlo.
+  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
+  // is disabled when the target is stablehlo.
   if (this->target != "stablehlo") {
 #endif
     target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
@@ -872,7 +875,6 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(context);
-
   // TODO: consider whether to include SoftmaxPattern here
 }
 
