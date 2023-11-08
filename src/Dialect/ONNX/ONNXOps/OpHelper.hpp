@@ -174,6 +174,12 @@ mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 
+// Obtain an array of int64_t values stored in ONNXConstantOp and append it to
+// the given SmallVector iRes.
+// Return true if successfully obtaining the array. Otherwise, false.
+bool getI64ValuesFromONNXConstantOp(
+    mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes);
+
 // Test if the value is none. Since none is a unit value it never makes a
 // difference whether it's a constant (the result of ONNXNoneOp) or the
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
