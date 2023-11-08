@@ -68,4 +68,35 @@ ValueRange splitAlongAxis(MultiDialectBuilder<OnnxBuilder> &create, Value X,
   return splits;
 }
 
+bool isF32ScalarConstantTensor(mlir::Value v) {
+  if (!isScalarConstantTensor(v))
+    return false;
+  auto t = dyn_cast<ShapedType>(v.getType());
+  return t.getElementType().isF32();
+}
+
+FloatAttr getScalarF32AttrFromConstant(Value v) {
+  if (!isF32ScalarConstantTensor(v))
+    return nullptr;
+  DenseElementsAttr constElements = ElementsAttrBuilder::toDenseElementsAttr(
+      getElementAttributeFromONNXValue(v));
+  return constElements.getSplatValue<FloatAttr>();
+}
+
+Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
+  if (!hasShapeAndRank(x))
+    llvm_unreachable("The input must have shape and rank");
+
+  OnnxBuilder create(rewriter, loc);
+  auto t = dyn_cast<ShapedType>(x.getType());
+  int64_t r = t.getRank();
+  SmallVector<Value> dims;
+  for (int64_t i = 0; i < r; ++i) {
+    Value d = create.dim(x, i);
+    dims.emplace_back(d);
+  }
+  return create.concat(
+      RankedTensorType::get({r}, rewriter.getI64Type()), dims, 0);
+}
+
 } // namespace onnx_mlir

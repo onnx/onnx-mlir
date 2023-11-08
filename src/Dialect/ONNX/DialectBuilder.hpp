@@ -75,6 +75,11 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value expand(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
 
+  // ONNXLayerNormalizationOp, version with one output only (Y).
+  mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
+      mlir::Value scale, mlir::Value bias, int64_t axis,
+      mlir::FloatAttr epsilon) const;
+
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
       mlir::Type Y, mlir::Value A, mlir::Value B, bool useGemm = false) const;
@@ -121,6 +126,8 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+  mlir::Value reshape(mlir::Type outputType, mlir::Value input,
+      mlir::Value shape, mlir::IntegerAttr allowZero) const;
   // Reshape input val to a N-dimensional shape; when collapseMostSignificant is
   // true, we collapse the most significant dimensions (and preserve the N-1
   // least significant dims); otherwise we collapse the least significant
