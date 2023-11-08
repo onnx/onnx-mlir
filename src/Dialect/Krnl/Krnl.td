@@ -21,6 +21,7 @@ include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
 include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.td"
 include "mlir/Interfaces/CastInterfaces.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
@@ -285,7 +286,7 @@ def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
                        Index:$index);
 }
 
-def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
+def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator]> {
   let summary = "Krnl terminator operation";
   let description = [{
     Krnl terminator is a special terminator operation for blocks inside krnl
