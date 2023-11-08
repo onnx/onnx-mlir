@@ -1119,23 +1119,18 @@ public:
     Value secondShape = secondReshapeOp.getShape();
     int64_t secondAllowZero = secondReshapeOp.getAllowzero();
     if (secondAllowZero != 0)
-      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Does not support AllowZero != 0";
-      });
+      return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
 
     // First Reshape.
     if (!definedBy<ONNXReshapeOp>(secondData))
-      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "The input data is not defined by a Reshape";
-      });
-    auto firstReshapeOp = cast<ONNXReshapeOp>(secondData.getDefiningOp());
+      return rewriter.notifyMatchFailure(
+          op, "The input data is not defined by a Reshape");
+    auto firstReshapeOp = secondData.getDefiningOp<ONNXReshapeOp>();
     Value firstData = firstReshapeOp.getData();
     Value firstShape = firstReshapeOp.getShape();
     int64_t firstAllowZero = firstReshapeOp.getAllowzero();
     if (firstAllowZero != 0)
-      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Does not support AllowZero != 0";
-      });
+      return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
 
     Location loc = rewriter.getFusedLoc(
         {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
@@ -1147,9 +1142,8 @@ public:
         !getValuesFromShape(createONNX, secondShape, secondDims)) {
       // Not rewrite if we can not read dimension values (0, -1, L) from a shape
       // tensor.
-      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Cannot read invididual dimensions";
-      });
+      return rewriter.notifyMatchFailure(
+          op, "Cannot read invididual dimensions");
     }
 
     // Iterate over the second shape that is similar to the output shape.
@@ -1187,9 +1181,7 @@ public:
     }
     if (minusOnes > 1) {
       // The fused shape is invalid because it has two -1s.
-      return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Failed to compute a fused shape";
-      });
+      return rewriter.notifyMatchFailure(op, "Failed to compute a fused shape");
     }
 
     // Rewrite phase.
@@ -1199,7 +1191,7 @@ public:
             fusedDims, [](Value v) { return isScalarConstantTensor(v); })) {
       SmallVector<int64_t> dims;
       for (int64_t i = 0; i < s2; ++i)
-        getI64ValuesFromSmallONNXConstantOp(fusedDims[i], dims);
+        getI64ValuesFromONNXConstantOp(fusedDims[i], dims);
       fusedShape = createONNX.constantInt64(ArrayRef<int64_t>(dims));
     } else {
       fusedShape =
@@ -1217,21 +1209,21 @@ public:
 private:
   bool isZero(Value v) const {
     SmallVector<int64_t> dims;
-    if (getI64ValuesFromSmallONNXConstantOp(v, dims))
+    if (getI64ValuesFromONNXConstantOp(v, dims))
       return (dims[0] == 0);
     return false;
   }
 
   bool isMinusOne(Value v) const {
     SmallVector<int64_t> dims;
-    if (getI64ValuesFromSmallONNXConstantOp(v, dims))
+    if (getI64ValuesFromONNXConstantOp(v, dims))
       return (dims[0] == -1);
     return false;
   }
 
   bool isLiteral(Value v) const {
     SmallVector<int64_t> dims;
-    if (getI64ValuesFromSmallONNXConstantOp(v, dims))
+    if (getI64ValuesFromONNXConstantOp(v, dims))
       return (dims[0] > 0);
     if (definedBy<ONNXDimOp>(v)) {
       // Runtime dimension of a value is always literal.
@@ -1252,7 +1244,7 @@ private:
 
     // Shape is defined by a Constant.
     SmallVector<int64_t> dims;
-    if (getI64ValuesFromSmallONNXConstantOp(shape, dims)) {
+    if (getI64ValuesFromONNXConstantOp(shape, dims)) {
       for (int64_t d : dims) {
         Value dim = createONNX.constantInt64({d});
         values.emplace_back(dim);
@@ -1484,6 +1476,7 @@ void ONNXOrOp::getCanonicalizationPatterns(
 void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<FuseTwoReshapesPattern>(context);
+  result.insert<FuseTwoReshapesAllowZeroPattern>(context);
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
