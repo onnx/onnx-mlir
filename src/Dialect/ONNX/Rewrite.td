@@ -254,6 +254,11 @@ def GetComposedMap : NativeCodeCall<
  "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
 >;
 
+class IntegerAttrIsOf<int s> : Constraint<
+  CPred<"$0.getValue().getSExtValue() == " # s>,
+  "IntegerAttr is of the given value"
+  >;
+
 //===----------------------------------------------------------------------===//
 // Pattern-Match and Rewrite
 //===----------------------------------------------------------------------===//
@@ -576,11 +581,12 @@ def SwapTransposeConcatPattern: Pat<
 // Canonicalization for ONNXReshapeOp
 //===----------------------------------------------------------------------===//
 
-def FuseReshapePattern:  Pat<
+def FuseTwoReshapesAllowZeroPattern:  Pat<
   // Reshape of a reshape.
   (ONNXReshapeOp (ONNXReshapeOp $v, $s1, $az1), $s2, $az2),
   // Remove the first reshape op.
-  (ONNXReshapeOp $v, $s2, $az2)>;
+  (ONNXReshapeOp $v, $s2, $az2),
+  [(IntegerAttrIsOf<1> $az2)]>;
 
 def RemoveIdentityReshapePattern1:  Pat<
   // Remove an identity pattern. Input tensor already has the specified shape.
