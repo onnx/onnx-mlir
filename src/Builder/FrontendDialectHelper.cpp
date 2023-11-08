@@ -142,9 +142,8 @@ ElementsAttr createElmAttrFromArray(RankedTensorType tensorType,
 // and llvm::sys::getSwappedBytes(bool) also happens to be broken.
 template <typename T>
 constexpr bool shouldSwapLEBytes =
-    sizeof(T) > 1 &&
-    llvm::endianness::native != llvm::support::endianness::little;
-
+    sizeof(T) > 1 && llvm::endianness::native
+                         != llvm::support::endianness::little;
 // Extension of llvm::sys::getSwappedBytes to also handle float_16, bfloat_16.
 template <typename T>
 T swappedBytes(T x) {
