@@ -34,7 +34,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
     llvm::function_ref<bool(OP_TYPE, const DimAnalysis *, int, int)>
         checkLegalityFn = nullptr,
-    int nnpaParallelNdev = 0, int nnpaParallelMinimumDimThreshold = 0) {
+    int nnpaParallelNdev = 1, int nnpaParallelMinimumDimThreshold = 0) {
   target->addDynamicallyLegalOp<OP_TYPE>(
       [dimAnalysis, checkLegalityFn, nnpaParallelNdev,
           nnpaParallelMinimumDimThreshold](OP_TYPE op) {

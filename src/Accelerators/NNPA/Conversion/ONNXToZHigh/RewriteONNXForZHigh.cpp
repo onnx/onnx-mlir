@@ -23,6 +23,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <llvm/Support/Debug.h>
+
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
@@ -38,6 +40,8 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
+
+#define DEBUG_TYPE "rewrite-onnx-for-zhigh"
 
 using namespace mlir;
 
@@ -885,9 +889,9 @@ struct RewriteONNXForZHighPass
   void runOnOperation() final;
 
 private:
-  bool nnpaParallel;
-  int nnpaParallelNdev;
-  int nnpaParallelMinimumDimThreshold;
+  bool nnpaParallel = false;
+  int nnpaParallelNdev = 1;
+  int nnpaParallelMinimumDimThreshold = 0;
 };
 
 void RewriteONNXForZHighPass::runOnOperation() {
