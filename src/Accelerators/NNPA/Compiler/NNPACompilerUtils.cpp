@@ -102,6 +102,23 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   if (nnpaEnableZHighToOnnx)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
 
+  // One more call to ONNX shape inference/canonicalization/... to update shape
+  // if possible.
+  if (enableONNXHybridPass) {
+    // For starters only illustrating the new hybrid pass by replacing 3 passes
+    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+  } else {
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  }
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
+  pm.addPass(createScrubDisposablePass());
+
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
   bool isBE = llvm::support::endian::system_endianness() ==
@@ -109,19 +126,12 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   if (isBE)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
-  // One more call to ONNX shape inference/canonicalization/... to update shape
-  // if possible.
-  if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3 passes
-    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
-  } else {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
+
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling
   // for onnx and zhigh ops.

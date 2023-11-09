@@ -1126,77 +1126,109 @@ memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
 //===----------------------------------------------------------------------===//
 // Reshape.
 
-memref::ReshapeOp MemRefBuilder::reshape(
-    MemRefType destType, Value valToReshape, Value destShapeStoredInMem) const {
+memref::ReshapeOp MemRefBuilder::reshape(MemRefType destType,
+    Value valToReshape, Value outputShapeStoredInMem) const {
   return b().create<memref::ReshapeOp>(
-      loc(), destType, valToReshape, destShapeStoredInMem);
+      loc(), destType, valToReshape, outputShapeStoredInMem);
+}
+
+memref::ReshapeOp MemRefBuilder::reshape(
+    llvm::SmallVectorImpl<IndexExpr> &destDims, Value valToReshape) const {
+  // Compute Shape.
+  llvm::SmallVector<int64_t, 4> outputShape;
+  IndexExpr::getShape(destDims, outputShape);
+  // Allocate data structure for dimensions.
+  // Question: is there a more optimized sequence if destDims is entirely
+  // literal.
+  Type indexType = b().getIndexType();
+  int64_t outputRank = destDims.size();
+  Value outputShapeInMem =
+      alignedAlloc(MemRefType::get({outputRank}, indexType));
+  // Store shape into data structure.
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  for (int64_t d = 0; d < outputRank; ++d) {
+    Value dd = create.math.constantIndex(d);
+    create.affine.store(destDims[d].getValue(), outputShapeInMem, {dd});
+  }
+  // Create output type.
+  Type elementType = valToReshape.getType().cast<MemRefType>().getElementType();
+  MemRefType destType = MemRefType::get(outputShape, elementType);
+  // Perform actual reshape operation
+  return reshape(destType, valToReshape, outputShapeInMem);
 }
 
 // Flatten the innermost dimsToFlatten of the value valToReshape. Return in
-// flattenSize the cumulative size of the flattened dimensions. If flattenSize
-// is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
-// Output rank is Rank(input) - dimsToFlatten + 1.
-Value MemRefBuilder::reshapeToFlat(Value valToReshape,
+// flattenSize the cumulative size of the flattened dimensions. Expect to
+// flatten at least 1 dim (which is a noop). Output rank is Rank(input) -
+// dimsToFlatten + 1.
+Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
     llvm::SmallVectorImpl<IndexExpr> &dims,
     llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
     int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
-  int64_t inputRank = inputType.getRank();
-  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
-  Type elementType = inputType.getElementType();
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
-  // Set/check dimsToFlatten.
-  if (dimsToFlatten == -1)
-    dimsToFlatten = inputRank;
+  int64_t inputRank = inputType.getRank();
+  // Verify dims has the right number of elements.
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
   assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
-         "out of range dimsToFlatten");
+         "dimsToFlatten is out of range");
   if (dimsToFlatten == 1) {
     // Flattening of the last dim is really no flattening at all. Return
     // original value before doing the actual reshaping, which is unnecessary.
     flattenedDims = dims;
     return valToReshape;
   }
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of flattened elements.
-  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
-  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d)
-    numOfFlattenedElements = numOfFlattenedElements * dims[d];
-  // Shape for reshaping from N-D to M-D saved into memory.
-  int64_t outputRank = (inputRank - dimsToFlatten) + 1;
-  Type indexType = b().getIndexType();
-  Value outputShapeInMem =
-      alignedAlloc(MemRefType::get({outputRank}, indexType));
-  llvm::SmallVector<int64_t, 4> outputShape;
-  // Compute shape and store it in memory.
+  // Compute the dimensions of the flattened array.
+  int64_t axis = inputRank - dimsToFlatten;
   flattenedDims.clear();
-  for (int64_t d = 0; d < outputRank; ++d) {
-    Value dd = create.math.constantIndex(d);
-    IndexExpr shapeIE =
-        (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
-    flattenedDims.emplace_back(shapeIE);
-    create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
-    outputShape.emplace_back(shapeIE.getShape());
+  // Up to axis, flatten dims == input dims.
+  for (int64_t d = 0; d < axis; ++d)
+    flattenedDims.emplace_back(dims[d]);
+  // Last flatten dim is the product of remaining input dims.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = axis; d < inputRank; ++d)
+    numOfFlattenedElements = numOfFlattenedElements * dims[d];
+  flattenedDims.emplace_back(numOfFlattenedElements);
+  // Reshape.
+  return reshape(flattenedDims, valToReshape);
+}
+
+Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<IndexExpr> &flattenedDims, int64_t axis) const {
+  // Parse input.
+  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
+  assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
+  int64_t inputRank = inputType.getRank();
+  // Verify dims has the right number of elements.
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  assert(axis > 0 && axis < inputRank && "axis is out of range");
+  if (inputRank == 2) {
+    // Input is already 2D, nothing to do.
+    flattenedDims = dims;
+    return valToReshape;
   }
-  // Reshape the input N-D MemRef into a M-D MemRef.
-  MemRefType outputType = MemRefType::get(outputShape, elementType);
-  return reshape(outputType, valToReshape, outputShapeInMem);
+  // Compute the dimensions of the flattened array.
+  flattenedDims.clear();
+  // First output dim: product of input dims until axis (exclusively).
+  IndexExpr numElement1stDim = LiteralIndexExpr(1);
+  for (int64_t d = 0; d < axis; ++d)
+    numElement1stDim = numElement1stDim * dims[d];
+  flattenedDims.emplace_back(numElement1stDim);
+  // Second output dim: product of input dims after axis (inclusively).
+  IndexExpr numElement2ndDim = LiteralIndexExpr(1);
+  for (int64_t d = axis; d < inputRank; ++d)
+    numElement2ndDim = numElement2ndDim * dims[d];
+  flattenedDims.emplace_back(numElement2ndDim);
+  // Reshape.
+  return reshape(flattenedDims, valToReshape);
 }
 
 memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, MemRefType outputType) const {
+    llvm::SmallVectorImpl<IndexExpr> &outputDims, MemRefType outputType) const {
   assert(!hasNonIdentityLayout(outputType) && "MemRef is not normalized");
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  Type indexType = b().getIndexType();
-  int64_t rank = outputType.getRank();
-  // Shape for reshaping from N1D to N-D saved into memory.
-  Value shapeND = alignedAlloc(MemRefType::get({rank}, indexType));
-  for (int64_t i = 0; i < rank; ++i) {
-    Value index = create.math.constantIndex(i);
-    create.affine.store(dims[i].getValue(), shapeND, {index});
-  }
-  // Reshape the 1-D MemRef into a N-D MemRef.
-  return reshape(outputType, valToReshape, shapeND);
+  return reshape(outputDims, valToReshape);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1640,10 +1672,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
     int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
-    int64_t &estimatedSimdLoopTripCount) const {
+    int64_t &simdLoopStaticTripCount) const {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
   assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
-  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
+  simdLoopStaticTripCount = 0; // Initially assume no SIMD.
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
@@ -1662,7 +1694,7 @@ int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
     return 0;
   }
   // Unless otherwise disabled, here is the estimated trip count.
-  estimatedSimdLoopTripCount = staticSize > 1 ? staticSize : -1;
+  simdLoopStaticTripCount = staticSize > 1 ? staticSize : -1;
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     return maxSimdUnroll * VL;

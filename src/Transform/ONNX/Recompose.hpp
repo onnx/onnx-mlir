@@ -2,17 +2,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
+//===----------- ONNXRecompose.hpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a set of rewriters to decompose an ONNX operation into
+// This file implements a set of rewriters to recompose an ONNX operation into
 // composition of other ONNX operations.
 //
 // This pass is applied before any other pass so that there is no need to
-// implement shape inference for the decomposed operation. Hence, it is expected
+// implement shape inference for the recomposed operation. Hence, it is expected
 // that there is no knowledge about tensor shape at this point.
 //
 //===----------------------------------------------------------------------===//
@@ -23,8 +23,8 @@
 
 namespace onnx_mlir {
 
-// Exports the DecomposeONNXToONNXPass patterns. They are all plain rewrite
+// Exports the RecomposeONNXToONNXPass patterns. They are all plain rewrite
 // patterns that can be used with any PatternRewriter, not conversion patterns.
-void getDecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
+void getRecomposeONNXToONNXPatterns(mlir::RewritePatternSet &patterns);
 
 } // namespace onnx_mlir

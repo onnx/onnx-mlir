@@ -74,6 +74,7 @@ extern std::string mtriple;                                   // common for both
 extern std::string mcpu;                                      // common for both
 extern std::string march;                                     // common for both
 extern InstrumentStages instrumentStage;                      // common for both
+extern bool onnxConstPropRoundFPToInt;                        // common for both
 extern int onnxConstPropExpansionBound;                       // common for both
 extern std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 extern bool enableONNXHybridPass;                             // common for both
@@ -105,6 +106,7 @@ extern int onnxOpTransformThreshold;                          // onnx-mlir only
 extern bool onnxOpTransformReport;                            // onnx-mlir only
 extern bool enableParallel;                                   // onnx-mlir only
 extern bool disableSimdOption;                                // onnx-mlir only
+extern bool disableRecomposeOption;                           // onnx-mlir only
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only
