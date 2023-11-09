@@ -25,4 +25,7 @@ preprocessorErrorDirective:/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h
 #            <location file="/workdir/onnx-mlir/build/_deps/abseil-src/absl/base/policy_checks.h" line="99" column="0"/>
 #        </error>
 #    </errors>
+preprocessorErrorDirective:/workdir/onnx-mlir/build/_deps/protobuf-src/src/google/protobuf/port_def.inc:682
+preprocessorErrorDirective:/workdir/onnx-mlir/build/_deps/abseil-src/absl/base/policy_checks.h:99
+
 
