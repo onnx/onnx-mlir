@@ -105,11 +105,18 @@ SmallVector<int64_t, 2> getParallelOpt(std::string nnpaParallelOpt) {
     size_t pos = nnpaParallelOpt.find(':');
     std::string nDevString = nnpaParallelOpt.substr(0, pos);
     std::string thresholdString = nnpaParallelOpt.substr(pos + 1);
-    opts.emplace_back(std::stoi(nDevString));
-    opts.emplace_back(std::stoi(thresholdString));
+    if (nDevString.empty())
+      opts.emplace_back(1);
+    else
+      opts.emplace_back(std::stoi(nDevString));
+    if (thresholdString.empty())
+      opts.emplace_back(32);
+    else
+      opts.emplace_back(std::stoi(thresholdString));
   } else {
+    // Default
     opts.emplace_back(1);
-    opts.emplace_back(0);
+    opts.emplace_back(32);
   }
   return opts;
 }
