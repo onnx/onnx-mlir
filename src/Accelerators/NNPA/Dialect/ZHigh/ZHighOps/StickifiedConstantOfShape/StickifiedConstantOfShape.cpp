@@ -27,7 +27,7 @@ void ZHighStickifiedConstantOfShapeOp::build(OpBuilder &builder,
     OperationState &state, Value shape, FloatAttr value, StringAttr layout) {
   Type resType = builder.getNoneType();
   ShapedType shapeType = shape.getType().cast<ShapedType>();
-  Type elementType = builder.getF32Type();
+  Type elementType = builder.getF16Type();
 
   if (shapeType.hasRank()) {
     int64_t rank = shapeType.getShape()[0];
