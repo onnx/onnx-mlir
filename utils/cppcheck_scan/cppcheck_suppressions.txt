@@ -10,8 +10,19 @@ preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-d
 preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-ml.pb.h:12
 preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-operators-ml.pb.h:12
 
-# Cppcheck scan doesn't detect the macro accurately causing preprocessor issues.
+# c scan doesn't detect the macro accurately causing preprocessor issues.
 #        <error id="preprocessorErrorDirective" severity="error" msg="#error &quot;The standard header &lt;cstdint&gt; is not C++11 compliant. Must #define &quot;\" verbose="        &quot;__STDC_CONSTANT_MACROS before #including llvm-c/DataTypes.h&quot;">
 #            <location file="/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h" line="38" column="0"/>
 #        </error>
 preprocessorErrorDirective:/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h:38
+
+# Newer versions of Protobuf (v22.0 and up) require abseil
+#    <errors>
+#        <error id="preprocessorErrorDirective" severity="error" msg="#error &quot;endian detection failed for current compiler&quot;" verbose="#error &quot;endian detection failed for current compiler&quot;">
+#            <location file="/workdir/onnx-mlir/build/_deps/protobuf-src/src/google/protobuf/port_def.inc" line="682" column="0"/>
+#        </error>
+#        <error id="preprocessorErrorDirective" severity="error" msg="#error &quot;Abseil assumes CHAR_BIT == 8.&quot;" verbose="#error &quot;Abseil assumes CHAR_BIT == 8.&quot;">
+#            <location file="/workdir/onnx-mlir/build/_deps/abseil-src/absl/base/policy_checks.h" line="99" column="0"/>
+#        </error>
+#    </errors>
+
