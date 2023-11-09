@@ -1025,9 +1025,8 @@ std::string getToolPath(
   return toolPathMap.at(tool);
 }
 
-std::string getToolLibraryPath(
-    const std::string &tool, bool flag /*false by default*/) {
-  std::string toolPath = getToolPath(tool, flag);
+std::string getLLVMLibraryPath() {
+  std::string toolPath = getToolPath("llc");
   // Strip "tool-name".
   llvm::StringRef toolPathRef(toolPath);
   llvm::SmallVector<char> path(toolPathRef.begin(), toolPathRef.end());
@@ -1090,7 +1089,7 @@ void initCompilerConfig() {
     if (enableParallel) {
       // Add the static and dynamic path to OMP lib, which resides with the llvm
       // tools. Thus fetch library path associated with "llc".
-      std::string libPath = getToolLibraryPath("llc");
+      std::string libPath = getLLVMLibraryPath();
       addCompilerConfig(CCM_SHARED_LIB_DEPS, std::vector<std::string>{"omp"});
       addCompilerConfig(
           CCM_SHARED_LIB_PATH_DEPS, std::vector<std::string>{libPath});

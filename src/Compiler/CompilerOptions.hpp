@@ -194,8 +194,8 @@ void delCompilerConfig(std::string k, std::vector<std::string> v);
 std::optional<std::string> getEnvVar(std::string name);
 std::string getExecPath();
 std::string getLibraryPath();
+std::string getLLVMLibraryPath();
 std::string getToolPath(const std::string &tool, bool flag = false);
-std::string getToolLibraryPath(const std::string &tool, bool flag = false);
 
 void removeUnrelatedOptions(
     const std::vector<llvm::cl::OptionCategory *> Categories);

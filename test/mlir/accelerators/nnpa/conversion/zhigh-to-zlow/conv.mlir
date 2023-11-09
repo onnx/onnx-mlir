@@ -1,8 +1,8 @@
 // RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @conv_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<1xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
-  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<1xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+func.func @conv_valid_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16> {
+  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16>
+  return %0 : tensor<*xf16>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2, d3) -> (d3 floordiv 64, d0, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
@@ -36,9 +36,9 @@ func.func @conv_valid_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.layout<{dataLa
 
 // -----
 
-func.func @conv_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<1xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
-  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<1xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+func.func @conv_same_padding(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16> {
+  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<1xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16>
+  return %0 : tensor<*xf16>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2, d3) -> (d3 floordiv 64, d0, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
@@ -71,9 +71,9 @@ func.func @conv_same_padding(%arg0: tensor<1x32x32x3xf32, #zhigh.layout<{dataLay
 
 // -----
 
-func.func @conv_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x?x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<?xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
-  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x?x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<?xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+func.func @conv_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x?x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<?xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16> {
+  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x?x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<?xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16>
+  return %0 : tensor<*xf16>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2, d3) -> (d3 floordiv 64, d0, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
@@ -118,9 +118,9 @@ func.func @conv_valid_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.lay
 
 // -----
 
-func.func @conv_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x?x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<?xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32> {
-  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x?x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<?xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+func.func @conv_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x?x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, %arg2: tensor<?xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16> {
+  %0 = "zhigh.Conv2D"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x?x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<?xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<*xf16>
+  return %0 : tensor<*xf16>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2, d3) -> (d3 floordiv 64, d0, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
@@ -161,10 +161,10 @@ func.func @conv_same_padding_unknown_dims(%arg0: tensor<1x?x?x?xf32, #zhigh.layo
 
 // -----
 
-func.func @conv_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>) -> tensor<*xf32> {
+func.func @conv_same_padding_no_bias_unknown_dims(%arg0: tensor<1x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, %arg1: tensor<2x2x3x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>) -> tensor<*xf16> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 = "zhigh.Conv2D"(%arg0, %arg1, %cst) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf32, #zhigh.layout<{dataLayout = "HWCK"}>>, none) -> tensor<*xf32>
-  return %0 : tensor<*xf32>
+  %0 = "zhigh.Conv2D"(%arg0, %arg1, %cst) {kernel_shape = [2, 2], padding_type = "SAME_PADDING", strides = [1, 1], act_func = "ACT_NONE"} : (tensor<1x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x1xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, none) -> tensor<*xf16>
+  return %0 : tensor<*xf16>
 
 // CHECK-DAG: #map = affine_map<(d0, d1, d2, d3) -> (d0, d3 floordiv 64, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
 // CHECK-DAG: #map1 = affine_map<(d0, d1, d2, d3) -> (d3 floordiv 64, d0, d1, d2 floordiv 32, d2 mod 32, d3 mod 64)>
