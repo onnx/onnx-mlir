@@ -217,8 +217,8 @@ def replaceONNXDivPattern : Pat<
   (addBenefit 0)
 >;
 
-def replaceONNXDivBroadcastPattern : Pat<
-  (ONNXDivOp (either $x, $y)),
+def replaceONNXDivBroadcastPattern1 : Pat<
+  (ONNXDivOp $x, $y),
   (ZHighUnstickOp
     (ZHighDivOp
       (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
@@ -228,6 +228,20 @@ def replaceONNXDivBroadcastPattern : Pat<
         (NoneLayoutAttr)),
       (returnType $s_x))),
   [(IsF32ScalarConstantTensor $y)], [],
+  (addBenefit 1)
+>;
+
+def replaceONNXDivBroadcastPattern2 : Pat<
+  (ONNXDivOp $x, $y),
+  (ZHighUnstickOp
+    (ZHighDivOp
+      (ZHighStickifiedConstantOfShapeOp
+        (GetDynShape $y),
+        (GetScalarF32AttrFromConstant $x),
+        (NoneLayoutAttr)),
+      (ZHighStickOp:$s_y $y, (NoneLayoutAttr)),
+      (returnType $s_y))),
+  [(IsF32ScalarConstantTensor $x)], [],
   (addBenefit 1)
 >;
 
