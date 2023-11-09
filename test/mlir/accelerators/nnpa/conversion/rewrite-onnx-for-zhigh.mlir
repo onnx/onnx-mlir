@@ -16,11 +16,11 @@ func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf3
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Mul"([[PARAM_3_]], [[VAR_5_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Sub"([[PARAM_2_]], [[VAR_6_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<2x3x4x5xf32>) -> tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "zhigh.Stick"([[VAR_5_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "zhigh.Stick"([[VAR_7_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>
-// CHECK:           [[VAR_12_:%.+]] = "zhigh.BatchNorm"([[VAR_9_]], [[VAR_10_]], [[VAR_11_]]) : (tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>, tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-// CHECK:           [[VAR_13_:%.+]] = "zhigh.Unstick"([[VAR_12_]]) : (tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<2x3x4x5xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<2x3x4x5xf32>) -> tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "zhigh.Stick"([[VAR_5_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "zhigh.Stick"([[VAR_7_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>
+// CHECK:           [[VAR_12_:%.+]] = "zhigh.BatchNorm"([[VAR_9_]], [[VAR_10_]], [[VAR_11_]]) : (tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>, tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_13_:%.+]] = "zhigh.Unstick"([[VAR_12_]]) : (tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<2x3x4x5xf32>
 // CHECK:           return [[VAR_13_]] : tensor<2x3x4x5xf32>
 // CHECK:         }
 }

@@ -724,7 +724,7 @@ def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [Pure,
   let builders = [
     OpBuilder<(ins "::mlir::Value":$f_gate, "::mlir::Value":$i_gate,
                    "::mlir::Value":$c_gate, "::mlir::Value":$o_gate), [{
-      Type elementType = f_gate.getType().cast<ShapedType>().getElementType();
+      Type elementType = $_builder.getF16Type();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, f_gate, i_gate, c_gate, o_gate);
     }]>
@@ -755,7 +755,7 @@ def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [Pure,
   let results = (outs ZTensor_ZRH:$out);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$z_gate, "::mlir::Value":$r_gate, "::mlir::Value":$h_gate), [{
-      Type elementType = z_gate.getType().cast<ShapedType>().getElementType();
+      Type elementType = $_builder.getF16Type();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, z_gate, r_gate, h_gate);
     }]>
