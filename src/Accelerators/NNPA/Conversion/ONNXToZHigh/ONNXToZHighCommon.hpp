@@ -29,14 +29,18 @@ const std::string DEVICE_ATTRIBUTE = "device";
 const std::string CPU_DEVICE = "cpu";
 const std::string NNPA_DEVICE = "nnpa";
 
+mlir::SmallVector<int64_t, 2> getParallelOpt(std::string nnpaParallelOpt);
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
-    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *, int, int)>
+    llvm::function_ref<bool(
+        OP_TYPE, const DimAnalysis *, std::string, int, int)>
         checkLegalityFn = nullptr,
-    int nnpaParallelNdev = 1, int nnpaParallelMinimumDimThreshold = 0) {
+    std::string nnpaParallelOpt = "", int nnpaParallelNdev = 1,
+    int nnpaParallelMinimumDimThreshold = 0) {
   target->addDynamicallyLegalOp<OP_TYPE>(
-      [dimAnalysis, checkLegalityFn, nnpaParallelNdev,
+      [dimAnalysis, checkLegalityFn, nnpaParallelOpt, nnpaParallelNdev,
           nnpaParallelMinimumDimThreshold](OP_TYPE op) {
         mlir::Operation *genericOp = op.getOperation();
         mlir::StringAttr device =
@@ -55,10 +59,15 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
 
         // If not CPU, check if the op is legal for NNPA.
         bool isLegalForNNPA = false;
-        if (checkLegalityFn)
-          isLegalForNNPA = !checkLegalityFn(op, dimAnalysis, nnpaParallelNdev,
-              nnpaParallelMinimumDimThreshold);
-        else {
+        if (checkLegalityFn) {
+          mlir::SmallVector<int64_t, 2> parallelOpts =
+              getParallelOpt(nnpaParallelOpt);
+          isLegalForNNPA = !checkLegalityFn(op, dimAnalysis, nnpaParallelOpt,
+              parallelOpts[0], parallelOpts[1]);
+          //          isLegalForNNPA = !checkLegalityFn(op, dimAnalysis,
+          //          nnpaParallelNdev,
+          //              nnpaParallelMinimumDimThreshold);
+        } else {
           // Check zDNN limitations for each input tensors.
           // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another
           // limitation

@@ -68,6 +68,12 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
             "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
+llvm::cl::opt<std::string> nnpaParallelOpt{"nnpa-parallel-options",
+    llvm::cl::desc("Enable parallelization (default=false)\n"
+                   "Set to 'true' if you want to enable parallelization. "
+                   "Currently only MatMul ops are supported."),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
+
 llvm::cl::opt<bool> nnpaParallel{"nnpa-parallel",
     llvm::cl::desc("Enable parallelization (default=false)\n"
                    "Set to 'true' if you want to enable parallelization. "

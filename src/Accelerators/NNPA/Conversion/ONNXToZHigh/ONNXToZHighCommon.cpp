@@ -99,4 +99,19 @@ Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
       RankedTensorType::get({r}, rewriter.getI64Type()), dims, 0);
 }
 
+SmallVector<int64_t, 2> getParallelOpt(std::string nnpaParallelOpt) {
+  SmallVector<int64_t, 2> opts;
+  if (!nnpaParallelOpt.empty()) {
+    size_t pos = nnpaParallelOpt.find(':');
+    std::string nDevString = nnpaParallelOpt.substr(0, pos);
+    std::string thresholdString = nnpaParallelOpt.substr(pos + 1);
+    opts.emplace_back(std::stoi(nDevString));
+    opts.emplace_back(std::stoi(thresholdString));
+  } else {
+    opts.emplace_back(1);
+    opts.emplace_back(0);
+  }
+  return opts;
+}
+
 } // namespace onnx_mlir

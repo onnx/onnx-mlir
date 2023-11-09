@@ -505,13 +505,14 @@ class ParallelMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
 public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
 
+  std::string nnpaParallelOpt;
   int nnpaParallelNdev;
   int nnpaParallelMinimumDimThreshold;
 
-  ParallelMatMulPattern(MLIRContext *context, int nnpaParallelNdev,
-      int nnpaParallelMinimumDimThreshold)
+  ParallelMatMulPattern(MLIRContext *context, std::string nnpaParallelOpt,
+      int nnpaParallelNdev, int nnpaParallelMinimumDimThreshold)
       : OpRewritePattern<ONNXMatMulOp>(context, 1001),
-        nnpaParallelNdev(nnpaParallelNdev),
+        nnpaParallelOpt(nnpaParallelOpt), nnpaParallelNdev(nnpaParallelNdev),
         nnpaParallelMinimumDimThreshold(nnpaParallelMinimumDimThreshold) {}
 
   LogicalResult matchAndRewrite(
@@ -534,11 +535,17 @@ public:
 
     ArrayRef<int64_t> bShape = getShape(bType);
     int64_t M = bShape[bRank - 1];
-    int chunkSize = getChunkSize(M, nnpaParallelNdev);
+    SmallVector<int64_t, 2> parallelOpts = getParallelOpt(nnpaParallelOpt);
+    LLVM_DEBUG(llvm::dbgs() << "nDev " << parallelOpts[0] << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "threshold " << parallelOpts[1] << "\n");
+    // int chunkSize = getChunkSize(M, nnpaParallelNdev);
+    int chunkSize = getChunkSize(M, /* nDev */ parallelOpts[0]);
     bool nExceeded = false;
     bool mExceeded = false;
+    //    if (!canBeRewritten(matmulOp, nExceeded, mExceeded, chunkSize,
+    //            nnpaParallelMinimumDimThreshold))
     if (!canBeRewritten(matmulOp, nExceeded, mExceeded, chunkSize,
-            nnpaParallelMinimumDimThreshold))
+            /* threshold*/ parallelOpts[1]))
       return failure();
 
     // Expect 2D or 3D input.
@@ -682,13 +689,13 @@ public:
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
 void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
-    DimAnalysis *dimAnalysis, bool nnpaParallel, int nnpaParallelNdev,
-    int nnpaParallelMinimumDimThreshold) {
+    DimAnalysis *dimAnalysis, std::string nnpaParallelOpt, bool nnpaParallel,
+    int nnpaParallelNdev, int nnpaParallelMinimumDimThreshold) {
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
-  if (nnpaParallel)
+  if (!nnpaParallelOpt.empty())
     patterns.insert<ParallelMatMulPattern>(patterns.getContext(),
-        nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
+        nnpaParallelOpt, nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
       patterns.getContext(), dimAnalysis);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
@@ -696,8 +703,8 @@ void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
 }
 
 void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
-    const DimAnalysis *dimAnalysis, int nnpaParallelNdev,
-    int nnpaParallelMinimumDimThreshold) {
+    const DimAnalysis *dimAnalysis, std::string nnpaParallelOpt,
+    int nnpaParallelNdev, int nnpaParallelMinimumDimThreshold) {
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
@@ -711,7 +718,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
   // This is preferred for NNPA because NNPA BinaryOp does not support
   // broadcasting.
   addDynamicallyLegalOpFor<ONNXAddOp>(target, dimAnalysis,
-      [](ONNXAddOp op, const DimAnalysis *dimAnalysis, int ndev, int thres) {
+      [](ONNXAddOp op, const DimAnalysis *dimAnalysis, std::string opt,
+          int ndev, int thres) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -726,7 +734,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
                      op, dimAnalysis));
       });
   addDynamicallyLegalOpFor<ONNXDivOp>(target, dimAnalysis,
-      [](ONNXDivOp op, const DimAnalysis *dimAnalysis, int ndev, int thres) {
+      [](ONNXDivOp op, const DimAnalysis *dimAnalysis, std::string opt,
+          int ndev, int thres) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -739,7 +748,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
                      isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
       });
   addDynamicallyLegalOpFor<ONNXMulOp>(target, dimAnalysis,
-      [](ONNXMulOp op, const DimAnalysis *dimAnalysis, int ndev, int thres) {
+      [](ONNXMulOp op, const DimAnalysis *dimAnalysis, std::string opt,
+          int ndev, int thres) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -752,7 +762,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
                      isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
       });
   addDynamicallyLegalOpFor<ONNXSubOp>(target, dimAnalysis,
-      [](ONNXSubOp op, const DimAnalysis *dimAnalysis, int ndev, int thres) {
+      [](ONNXSubOp op, const DimAnalysis *dimAnalysis, std::string opt,
+          int ndev, int thres) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -777,7 +788,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
   // one where N-D will become 3-D or to split MatMul into smaller MatMuls.
   addDynamicallyLegalOpFor<ONNXMatMulOp>(
       target, dimAnalysis,
-      [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis, int nnpaParallelNdev,
+      [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt, int nnpaParallelNdev,
           int nnpaParallelMinimumDimThreshold) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
@@ -805,10 +817,17 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
         bool nExceeded, mExceeded;
 
         int64_t M = bShape[bRank - 1];
-        int chunkSize =
-            ParallelMatMulPattern::getChunkSize(M, nnpaParallelNdev);
-        if (ParallelMatMulPattern::canBeRewritten(op, nExceeded, mExceeded,
-                chunkSize, nnpaParallelMinimumDimThreshold))
+        SmallVector<int64_t, 2> parallelOpts = getParallelOpt(nnpaParallelOpt);
+        LLVM_DEBUG(llvm::dbgs() << "2 nDev " << parallelOpts[0] << "\n");
+        LLVM_DEBUG(llvm::dbgs() << "2 threshold " << parallelOpts[1] << "\n");
+        //        int chunkSize =
+        //            ParallelMatMulPattern::getChunkSize(M, nnpaParallelNdev);
+        int chunkSize = ParallelMatMulPattern::getChunkSize(M, parallelOpts[0]);
+        //        if (ParallelMatMulPattern::canBeRewritten(op, nExceeded,
+        //        mExceeded,
+        //                chunkSize, nnpaParallelMinimumDimThreshold))
+        if (ParallelMatMulPattern::canBeRewritten(
+                op, nExceeded, mExceeded, chunkSize, parallelOpts[1]))
           return false;
 
         if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded))
@@ -835,15 +854,15 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
         // Make other cases legal.
         return true;
       },
-      nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
+      nnpaParallelOpt, nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
 
   // Illegalize SoftmaxOp if
   // - the NNPA level is not compatible, or
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
-      [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis, int ndev,
-          int thres) {
+      [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis, std::string opt,
+          int ndev, int thres) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -863,7 +882,8 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
       });
 
   addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis,
-      [](ONNXConvOp op, const DimAnalysis *dimAnalysis, int ndev, int thres) {
+      [](ONNXConvOp op, const DimAnalysis *dimAnalysis, std::string opt,
+          int ndev, int thres) {
         return isSuitableForZDNN<ONNXConvOp>(op) ||
                !canInferencePadsForNNPAConv(op);
       });
@@ -879,8 +899,9 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
-  RewriteONNXForZHighPass(const bool nnpaParallel, int nnpaParallelNdev,
-      int nnpaParallelMinimumDimThreshold) {
+  RewriteONNXForZHighPass(std::string nnpaParallelOpt, const bool nnpaParallel,
+      int nnpaParallelNdev, int nnpaParallelMinimumDimThreshold) {
+    this->nnpaParallelOpt = nnpaParallelOpt;
     this->nnpaParallel = nnpaParallel;
     this->nnpaParallelNdev = nnpaParallelNdev;
     this->nnpaParallelMinimumDimThreshold = nnpaParallelMinimumDimThreshold;
@@ -889,6 +910,7 @@ struct RewriteONNXForZHighPass
   void runOnOperation() final;
 
 private:
+  std::string nnpaParallelOpt = "";
   bool nnpaParallel = false;
   int nnpaParallelNdev = 1;
   int nnpaParallelMinimumDimThreshold = 0;
@@ -913,13 +935,14 @@ void RewriteONNXForZHighPass::runOnOperation() {
       math::MathDialect>();
   target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
 
-  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(
-      &target, &dimAnalysis, nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
+  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis,
+      nnpaParallelOpt, nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
   onnx_mlir::getRewriteONNXForZHighPatterns(patterns, &dimAnalysis,
-      nnpaParallel, nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
+      nnpaParallelOpt, nnpaParallel, nnpaParallelNdev,
+      nnpaParallelMinimumDimThreshold);
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
@@ -932,9 +955,10 @@ std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
   return std::make_unique<RewriteONNXForZHighPass>();
 }
 
-std::unique_ptr<Pass> createRewriteONNXForZHighPass(const bool nnpaParallel,
-    int nnpaParallelNdev, int nnpaParallelMinimumDimThreshold) {
-  return std::make_unique<RewriteONNXForZHighPass>(
+std::unique_ptr<Pass> createRewriteONNXForZHighPass(std::string nnpaParallelOpt,
+    const bool nnpaParallel, int nnpaParallelNdev,
+    int nnpaParallelMinimumDimThreshold) {
+  return std::make_unique<RewriteONNXForZHighPass>(nnpaParallelOpt,
       nnpaParallel, nnpaParallelNdev, nnpaParallelMinimumDimThreshold);
 }
 
