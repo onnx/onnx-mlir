@@ -63,9 +63,9 @@ bool isAxisInRange(int64_t &axis, mlir::Value val, bool includeRank = false);
 // shape: shape of the ranked tensor type of val.
 // elementType: When nullptr, pick the elementary type from val.
 // encoding: When nullptr, pick the encoding from val if defined.
-void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
-    bool refineShape = true);
+void updateType(mlir::Operation *op, mlir::Value val,
+    llvm::ArrayRef<int64_t> shape, mlir::Type elementType = nullptr,
+    mlir::Attribute encoding = nullptr, bool refineShape = true);
 
 // When we perform shape inference, we always assume that the type's shape in
 // onnx is correct. There are rare instance where we transform an existing op
