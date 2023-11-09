@@ -491,9 +491,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
 
-    ZHighStickOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
-    Value input = operandAdaptor.getIn();
-    StringAttr layout = operandAdaptor.getLayoutAttr();
+    ZHighStickOpAdaptor operandAdaptor(operands);
+    StringAttr layout = cast<ZHighStickOp>(op).getLayoutAttr();
 
     IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
     ZHighStickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
@@ -503,31 +502,18 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
-    // tung: remove this old code
-    if (0) {
-      // Allocate a buffer for the result MemRef.
-      Value alloc = insertAllocForZMemRef(
-          zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+    // Allocate a buffer for the result MemRef.
+    Value alloc = insertAllocForZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
-      // Set pre-transformed layout: if NHWC, we can directly stickify from
-      // NCHW.
-      if (isNHWCLayout(layout))
-        layout = getNCHWLayoutAttr(rewriter);
+    // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
+    if (isNHWCLayout(layout))
+      layout = getNCHWLayoutAttr(rewriter);
 
-      // Emit a ZLow operation.
-      rewriter.create<ZLowStickOp>(loc, input, alloc, layout);
-      rewriter.replaceOp(op, alloc);
-      return success();
-    }
+    // Emit a ZLow operation.
+    rewriter.create<ZLowStickOp>(loc, operandAdaptor.getIn(), alloc, layout);
 
-    MemRefType resultType = zMemRefType.value;
-    AffineMapAttr layoutAffineMapAttr =
-        AffineMapAttr::get(resultType.getLayout().getAffineMap());
-    Value attachLayout = rewriter.create<ZLowAttachLayoutOp>(
-        loc, input, layoutAffineMapAttr, layout);
-    Value stick = rewriter.create<ZLowConvertDLF16Op>(
-        loc, attachLayout, rewriter.getStringAttr("from_f32"));
-    rewriter.replaceOp(op, stick);
+    rewriter.replaceOp(op, alloc);
     return success();
   }
 };
@@ -625,7 +611,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     // that input is the converted type, i.e. MemRefType. Get directly from
     // Operation instead where the type is TensorType that has the layout
     // encoding attribute.
-    StringAttr layoutName =
+    StringAttr layout =
         getZTensorLayoutAttr(rewriter, op->getOperand(0).getType());
 
     IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
@@ -636,25 +622,17 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     ZMemRefType zMemRefType =
         convertZTensorToMemRefType(*op->result_type_begin());
 
-    if (0) {
-      // Allocate a buffer for the result MemRef.
-      Value alloc = insertAllocForZMemRef(
-          zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
+    // Allocate a buffer for the result MemRef.
+    Value alloc = insertAllocForZMemRef(
+        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
-      // Set layout: if NHWC, we can directly unstickify to NCHW.
-      if (isNHWCLayout(layoutName))
-        layoutName = getNCHWLayoutAttr(rewriter);
+    // Set layout: if NHWC, we can directly unstickify to NCHW.
+    if (isNHWCLayout(layout))
+      layout = getNCHWLayoutAttr(rewriter);
 
-      // Emit a ZLow operation.
-      rewriter.create<ZLowUnstickOp>(loc, input, alloc, layoutName);
-      rewriter.replaceOp(op, alloc);
-      return success();
-    }
-
-    Value toF32 = rewriter.create<ZLowConvertDLF16Op>(
-        loc, input, rewriter.getStringAttr("to_f32"));
-    Value unstick = rewriter.create<ZLowDetachLayoutOp>(loc, toF32, layoutName);
-    rewriter.replaceOp(op, unstick);
+    // Emit a ZLow operation.
+    rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
+    rewriter.replaceOp(op, alloc);
     return success();
   }
 };

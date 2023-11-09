@@ -93,13 +93,13 @@ class DataLayoutOfPred<string layout> : And<[
 
 // So far ZTensor supports only F32 for pre-stickified data.
 class ZTensorOf<string layout, list<int> ranks> :
-    Type<And<[TensorOf<[F32]>.predicate, HasAnyRankOfPred<ranks>,
+    Type<And<[TensorOf<[F16]>.predicate, HasAnyRankOfPred<ranks>,
               DataLayoutOfPred<layout>]>,
          !interleave(!foreach(rank, ranks, rank # "D"), "/") # " " #
-         TensorOf<[F32]>.summary # " with layout " # layout,
+         TensorOf<[F16]>.summary # " with layout " # layout,
          "::mlir::TensorType">;
 
-def UnrankedZTensor : UnrankedTensorOf<[F32]>;
+def UnrankedZTensor : UnrankedTensorOf<[F16]>;
 
 def ZTensor_1D: AnyTypeOf<[UnrankedZTensor, ZTensorOf<"_1D", [1]>]>;
 def ZTensor_2D: AnyTypeOf<[UnrankedZTensor, ZTensorOf<"_2D", [2]>]>;
@@ -185,6 +185,52 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [Pure,
     onnx_mlir::ONNXOpShapeHelper * ZHighUnstickOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnstickOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighF32ToDLF16Op:ZHigh_Op<"F32ToDLF16", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh F32ToDLF16 operation";
+  let description = [{
+    ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
+  }];
+  let arguments = (ins TensorOf<[F32]>: $In);
+  let results = (outs TensorOf<[F16]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In)>,
+  ];
+  let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighF32ToDLF16Op::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighDLF16ToF32Op:ZHigh_Op<"DLF16ToF32", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh DLF16ToF32 operation";
+  let description = [{
+    ZHigh operation to convert a tensor of dlfloat16 to a tensor of f32.
+  }];
+  let arguments = (ins TensorOf<[F16]>: $In);
+  let results = (outs TensorOf<[F32]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In)>,
+  ];
+  let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighDLF16ToF32Op::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
