@@ -96,7 +96,8 @@ public:
   Option<int64_t> groupedConvThreshold{*this, "grouped-conv-threshold",
       llvm::cl::desc("The threshold used to decompose grouped convolution "
                      "into a concatenation of tosa.conv2d operations"),
-      llvm::cl::ZeroOrMore};
+      llvm::cl::ZeroOrMore,
+      llvm::cl::init(std::numeric_limits<int64_t>::max())};
 };
 
 void FrontendToTosaLoweringPass::runOnOperation() {
