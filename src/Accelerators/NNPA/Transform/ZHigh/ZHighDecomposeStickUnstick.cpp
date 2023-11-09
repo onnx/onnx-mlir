@@ -36,11 +36,10 @@ namespace {
 
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Transform/ZHigh/ONNXZHighDecomposeStickUnstick.inc"
-}
+} // namespace
 
 namespace onnx_mlir {
 namespace zhigh {
-
 
 //===----------------------------------------------------------------------===//
 // ZHigh layout propagation Pass

@@ -21,11 +21,11 @@ func.func @test_stick() -> () {
   return
 
   // CHECK-LABEL: test_stick
-  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
-  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr<f16>, ptr<f16>, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
 
-  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f16>, ptr<f16>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr<f16> to !llvm.ptr<i8>
+  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr to !llvm.ptr
 
   // CHECK: [[PRE_TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr
   // CHECK: [[DATA_LAYOUT:%.+]] = llvm.mlir.constant(1 : i64) : i64
@@ -75,11 +75,11 @@ func.func @test_unstick() -> () {
   return
 
   // CHECK-LABEL: test_unstick
-  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr<f16>, ptr<f16>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<2 x i64>, array<2 x i64>)>
+  // CHECK: [[STICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[UNSTICKIFIED_MEMREF:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
 
-  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr<f16>, ptr<f16>, i64, array<4 x i64>, array<4 x i64>)>
-  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr<f16> to !llvm.ptr<i8>
+  // CHECK: [[ALIGNED_BUFFER:%.+]] = llvm.extractvalue [[STICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
+  // CHECK: [[ALIGNED_BUFFER_I8PTR:%.+]] = llvm.bitcast [[ALIGNED_BUFFER]] : !llvm.ptr to !llvm.ptr
 
   // CHECK: [[PRE_TRANSFORMED_DESC:%.+]] = llvm.alloca {{.*}} x !llvm.struct<(i32, i32, i32, i32, i32, i32, i32)> : (i64) -> !llvm.ptr
   // CHECK: [[DATA_LAYOUT:%.+]] = llvm.mlir.constant(1 : i64) : i64
