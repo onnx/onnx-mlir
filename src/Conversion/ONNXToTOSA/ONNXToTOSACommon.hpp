@@ -336,7 +336,8 @@ void populateLoweringONNXSoftmaxOpToTOSAPattern(mlir::ConversionTarget &,
 void populateLoweringONNXReduceMeanOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConvOpToTOSAPattern(mlir::ConversionTarget &,
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
+    int64_t);
 void populateLoweringONNXReduceMeanOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // `NN` directory methods:

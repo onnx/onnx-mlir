@@ -80,8 +80,9 @@ Value createConvInGroups(PatternRewriter &rewriter, Operation *op,
 
 class ONNXConvOpLoweringToTOSA : public ConversionPattern {
 public:
-  ONNXConvOpLoweringToTOSA(MLIRContext *ctx)
-      : ConversionPattern(ONNXConvOp::getOperationName(), 1, ctx) {}
+  ONNXConvOpLoweringToTOSA(MLIRContext *ctx, int64_t groupedConvThreshold)
+      : ConversionPattern(ONNXConvOp::getOperationName(), 1, ctx),
+        groupedConvThreshold(groupedConvThreshold) {}
 
   using OpAdaptor = typename ONNXConvOp::Adaptor;
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -162,9 +163,16 @@ public:
           convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
           newPads, strides, dilations);
     } else {
-      conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
-          weightShape, newInput, newWeight, bias, group, newPads, strides,
-          dilations);
+      // Decompose group convolution into a concatenation of tosa.conv2d ops can
+      // be costly, so only allow it when the number of groups is less than
+      // configurable threshold.
+      if (group <= groupedConvThreshold)
+        conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
+            weightShape, newInput, newWeight, bias, group, newPads, strides,
+            dilations);
+      else
+        return rewriter.notifyMatchFailure(
+            op, "grouped ConvTranspose not supported");
     }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
@@ -173,13 +181,17 @@ public:
     rewriter.replaceOp(convOp, {newOutput});
     return success();
   }
+
+private:
+  int64_t groupedConvThreshold;
 };
+
 } // namespace
 
 void populateLoweringONNXConvOpToTOSAPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
-  patterns.insert<ONNXConvOpLoweringToTOSA>(ctx);
+    RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
+    int64_t groupedConvThreshold) {
+  patterns.insert<ONNXConvOpLoweringToTOSA>(ctx, groupedConvThreshold);
 }
 
 } // namespace onnx_mlir

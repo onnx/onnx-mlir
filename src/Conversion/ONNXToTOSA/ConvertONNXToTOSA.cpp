@@ -23,8 +23,8 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void populateONNXToTOSAConversionPattern(ConversionTarget &target,
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
+    RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
+    int64_t groupedConvThreshold) {
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
@@ -33,7 +33,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   populateLoweringONNXGemmOpToTOSAPattern(target, patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-  populateLoweringONNXConvOpToTOSAPattern(target, patterns, typeConverter, ctx);
+  populateLoweringONNXConvOpToTOSAPattern(
+      target, patterns, typeConverter, ctx, groupedConvThreshold);
   populateLoweringONNXReduceMeanOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   // Tensor
@@ -90,6 +91,12 @@ struct FrontendToTosaLoweringPass
     registry.insert<mlir::tosa::TosaDialect>();
   }
   void runOnOperation() final;
+
+public:
+  Option<int64_t> groupedConvThreshold{*this, "grouped-conv-threshold",
+      llvm::cl::desc("The threshold used to decompose grouped convolution "
+                     "into a concatenation of tosa.conv2d operations"),
+      llvm::cl::ZeroOrMore};
 };
 
 void FrontendToTosaLoweringPass::runOnOperation() {
@@ -119,7 +126,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
       mlir::arith::ArithDialect>();
 
   // Define patterns
-  populateONNXToTOSAConversionPattern(target, patterns, typeConverter, context);
+  populateONNXToTOSAConversionPattern(
+      target, patterns, typeConverter, context, groupedConvThreshold);
 
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
