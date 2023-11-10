@@ -30,7 +30,7 @@ preprocess (input_batch) => (output_tensor)
    output_tensor = ConcatFromSequence <axis = 0, new_axis = 1> (tmp_seq)
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<?x?x3xui8>>) -> tensor<?x3x224x224xf32> attributes {input_names = ["images"], output_names = ["preproc_data"]} {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<?x?x3xui8>>) -> tensor<?x3x224x224xf32> attributes {input_dim_params = {{.*}}, input_names = ["images"], output_dim_params = {{.*}}, output_names = ["preproc_data"]} {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceMap"([[PARAM_0_]]) ({
 // CHECK:           ^bb0([[ARG_1_:%.+]]: tensor<?x?x3xui8>):
 // CHECK-DAG:         [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<2xi64>
@@ -48,7 +48,7 @@ preprocess (input_batch) => (output_tensor)
 // CHECK:             [[VAR_12_:%.+]] = "onnx.Div"([[VAR_11_]], [[VAR_9_]]) : (tensor<224x224x3xf32>, tensor<3xf32>) -> tensor<224x224x3xf32>
 // CHECK:             [[VAR_13_:%.+]] = "onnx.Transpose"([[VAR_12_]]) {perm = [2, 0, 1]} : (tensor<224x224x3xf32>) -> tensor<3x224x224xf32>
 // CHECK:             onnx.Yield [[VAR_13_]] : tensor<3x224x224xf32>
-// CHECK:           }) {input_names = ["sample_in"], output_names = ["sample_out"]} : (!onnx.Seq<tensor<?x?x3xui8>>) -> !onnx.Seq<tensor<3x224x224xf32>>
+// CHECK:           }) {input_dim_params = {{.*}}, input_names = ["sample_in"], output_dim_params = {{.*}}, output_names = ["sample_out"]} : (!onnx.Seq<tensor<?x?x3xui8>>) -> !onnx.Seq<tensor<3x224x224xf32>>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.ConcatFromSequence"([[VAR_0_]]) {axis = 0 : si64, new_axis = 1 : si64} : (!onnx.Seq<tensor<3x224x224xf32>>) -> tensor<?x3x224x224xf32>
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?x3x224x224xf32>
 // CHECK:         }
