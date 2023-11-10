@@ -77,7 +77,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           && git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
           && cd protobuf && ./autogen.sh \
           && ./configure --enable-static=no \
-          && cmake ../cmake  -DCMAKE_INSTALL_LIBDIR=lib64 \
+          && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib64" \
           && make -j${NPROC} install && ldconfig \
           && cd python && python3 setup.py install --cpp_implementation \
           && cd ../.. && rm -rf protobuf; \
