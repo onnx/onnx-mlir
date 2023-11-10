@@ -68,52 +68,115 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
 
   static bool matchLayerNormPattern(ONNXMulOp LayerNormOp, Value &x,
       Value &scale, int64_t &axis, FloatAttr &epsilonAttr) {
+    using namespace onnx_mlir;
+    Location loc = LayerNormOp.getLoc();
+
     // Values that will be gathered and only kept locally.
-    Value norm, stdDev, varEps, var, epsilon, dd, d, mean;
+    Value norm, invStdDev, stdDev, varEps, var, epsilon, dd, d, mean;
     // Replicate of values, check that they are identical to originals.
     Value d1, d2;
     // Operations that will be gathered and kept locally.
-    Operation *nsMulOp, *ddMulOp, *nDivOp, *sdSqrtOp, *veAddOp, *vReduceOp,
-        *mReduceOp, *dSubOp;
+    Operation *nsMulOp, *ddMulOp, *nDivOp, *nMulOp, *isdRecipOp, *sdSqrtOp,
+        *veAddOp, *vReduceOp, *mReduceOp, *dSubOp;
     nsMulOp = LayerNormOp.getOperation();
-    // %norm = "onnx.Div"(%d, %stdDev)
-    // %normScaled = "onnx.Mul"(%norm, %scale)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXDivOp>(
-            nDivOp, nsMulOp, norm, scale, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<ONNXDivOp>(
-            nDivOp, nsMulOp, scale, norm, 1))
-      return reportFailure("missing norm, div op");
-    // %stdDev = "onnx.Sqrt"(%varEps)
-    // %norm = "onnx.Div"(%d, %stdDev)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSqrtOp>(
-            sdSqrtOp, nDivOp, d, stdDev, 1))
-      return reportFailure("missing std dev, sqrt op");
+    // after this group, we have defined norm, scale, d, and sdSqrtOp.
+    nDivOp = nMulOp = isdRecipOp = nullptr;
+    if (operandOfOpDefinedBy<ONNXDivOp>(nDivOp, nsMulOp, norm, scale, 0) ||
+        operandOfOpDefinedBy<ONNXDivOp>(nDivOp, nsMulOp, scale, norm, 1)) {
+      // Matched norm = d / stdDev.
+      // %norm = "onnx.Div"(%d, %stdDev)
+      // %normScaled = "onnx.Mul"(%norm, %scale)
+
+      // Now search for the sqrt.
+      // %stdDev = "onnx.Sqrt"(%varEps)
+      // %norm = "onnx.Div"(%d, %stdDev)
+      if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, nDivOp, d, stdDev, 1))
+        return reportFailure("missing std dev (via div), sqrt op");
+
+    } else if (operandOfOpDefinedBy<ONNXMulOp>(
+                   nMulOp, nsMulOp, norm, scale, 0) ||
+               operandOfOpDefinedBy<ONNXMulOp>(
+                   nMulOp, nsMulOp, scale, norm, 1)) {
+      // Matched norm = d * (invStdDev).
+      // %Norm = "onnx.Mul"(%d, %InvStdDev)
+      // %NormScaled = "onnx.Mul"(%Norm, %scale)
+
+      if (operandOfOpDefinedBy<ONNXReciprocalOp>(
+              isdRecipOp, nMulOp, invStdDev, d, 0) ||
+          operandOfOpDefinedBy<ONNXReciprocalOp>(
+              isdRecipOp, nMulOp, d, invStdDev, 1)) {
+        // Now matched the reciprocal.
+        // %InvStdDev = "onnx.Reciprocal"(%StdDev)
+        // %Norm = "onnx.Mul"(%d, %InvStdDev)
+
+        // Now search for the sqrt.
+        // %StdDev = "onnx.Sqrt"(%varEps)
+        // %InvStdDev = "onnx.Reciprocal"(%StdDev)
+        if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, isdRecipOp, stdDev)) {
+          return reportFailure("missing std dev (via reciprocal), sqrt op");
+        }
+      } else if (operandOfOpDefinedBy<ONNXDivOp>(
+                     isdRecipOp, nMulOp, invStdDev, d, 0) ||
+                 operandOfOpDefinedBy<ONNXDivOp>(
+                     isdRecipOp, nMulOp, d, invStdDev, 1)) {
+        // Now matched the div(1/stddev).
+        // %InvStdDev = "onnx.Div"(%one, %StdDev)
+        // %Norm = "onnx.Mul"(%d, %InvStdDev)
+
+        // Now search for the sqrt.
+        // %StdDev = "onnx.Sqrt"(%varEps)
+        // %InvStdDev = "onnx.Reciprocal"(%StdDev)
+        Value one;
+        if (operandOfOpDefinedBy<ONNXSqrtOp>(
+                sdSqrtOp, isdRecipOp, one, stdDev, 1)) {
+          // Has a match, check that the value one is a scalar/tensor of size
+          // one with value 1.
+          IndexExprScope scope(nullptr, loc);
+          IndexExprBuilderForAnalysis createIE(loc);
+          if (createIE.hasShapeAndRank(one) &&
+              createIE.getArraySize(one, /*static only*/ true) == 1) {
+            IndexExpr floatVal = createIE.getFloatAsNonAffine(one);
+            if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != 1.0))
+              return reportFailure("missing std dev (via 1/x), not div of 1.0");
+          } else {
+            return reportFailure(
+                "missing std dev (via 1/x), not div of scalar");
+          }
+        } else {
+          return reportFailure("missing std dev (via 1/x), sqrt op");
+        }
+      } else {
+        return reportFailure("missing inv std dev, reciprocal op");
+      }
+    } else {
+      return reportFailure("missing norm, div or reciprocal op");
+    }
     // %varEps = "onnx.Add"(%var, %eps)
     // %stdDev = "onnx.Sqrt"(%varEps)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXAddOp>(veAddOp, sdSqrtOp, varEps))
+    if (!operandOfOpDefinedBy<ONNXAddOp>(veAddOp, sdSqrtOp, varEps))
       return reportFailure("missing var + eps, add op");
     // %var = "onnx.ReduceMeanV13"(%dd)
     // %varEps = "onnx.Add"(%var, %eps)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             vReduceOp, veAddOp, var, epsilon, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+        !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             vReduceOp, veAddOp, epsilon, var, 1))
       return reportFailure("missing var, reduce mean op");
     // %dd = "onnx.Mul"(%d, %d)
     // %var = "onnx.ReduceMeanV13"(%dd)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXMulOp>(ddMulOp, vReduceOp, dd))
+    if (!operandOfOpDefinedBy<ONNXMulOp>(ddMulOp, vReduceOp, dd))
       return reportFailure("missing DD, mul op");
     // %d = "onnx.Sub"(%X, %mean)
     // %dd = "onnx.Mul"(%d, %d)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 0))
+    if (!operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 0))
       return reportFailure("missing D, sub op");
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 1))
+    if (!operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 1))
       return reportFailure("missing D, sub op");
     if (d != d1 || d != d2)
       return reportFailure("Various versions of d do not match");
     // %mean = "onnx.ReduceMeanV13"(%x)
     // %d = "onnx.Sub"(%X, %mean)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             mReduceOp, dSubOp, x, mean, 1))
       return reportFailure("missing mean, reduce mean op");
     // Verify that the mReduceOp uses x as well.
@@ -133,13 +196,18 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return reportFailure("var eps add has too many uses");
     if (!sdSqrtOp->hasOneUse())
       return reportFailure("std dev sqrt has too many uses");
-    if (!nDivOp->hasOneUse())
+    // Gate the next 3 ops by being nonnull, as there are multiple paths.
+    if (nDivOp && !nDivOp->hasOneUse())
       return reportFailure("norm div has too many uses");
+    if (nMulOp && !nMulOp->hasOneUse())
+      return reportFailure("norm mul has too many uses");
+    if (isdRecipOp && !isdRecipOp->hasOneUse())
+      return reportFailure("norm recip has too many uses");
     if (!nsMulOp->hasOneUse())
       return reportFailure("norm scale mul has too many uses");
 
     // Now check values epsilon.
-    if (!onnx_mlir::isScalarTensor(epsilon))
+    if (!isScalarTensor(epsilon))
       return reportFailure("epsilon is expected to be scalar");
     ONNXConstantOp epsilonOp =
         dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
@@ -147,7 +215,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       return reportFailure("epsilon needs to be a constant");
     epsilonAttr = epsilonOp.getValueFloatAttr();
     // Check axes.
-    if (!onnx_mlir::hasShapeAndRank(x))
+    if (!hasShapeAndRank(x))
       return reportFailure("need rank and shape for input x");
     int64_t xRank = x.getType().cast<ShapedType>().getRank();
     int64_t meanAxis, varAxis;
