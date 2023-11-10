@@ -51,10 +51,11 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel \
               python39 python39-devel python39-numpy python39-pip \
-              python39-setuptools python39-wheel tzdata-java zlib-devel && \
-          # Use newer version of setuptools  
-          python3 -m pip install --upgrade pip && \
-          pip3 install --upgrade setuptools && \
+              tzdata-java zlib-devel && \
+          # Use newer version of pip, wheel and setuptools
+          python3 -m pip install --upgrade --user  pip && \
+          python3 -m pip install --upgrade --user wheel &&  \
+          python3 -m pip install --upgrade --user setuptools &&  \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
                Cython pytest==6.2.5 pytest-forked==1.4.0 \
