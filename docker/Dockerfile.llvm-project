@@ -38,7 +38,14 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           python3 -m pip install --upgrade pip && \
           pip3 install --upgrade setuptools && \
           rm -rf /var/lib/apt/lists/* && \
-          ln -sf /usr/bin/pytest-3 /usr/bin/pytest; \
+          ln -sf /usr/bin/pytest-3 /usr/bin/pytest \
+          # Install protobuf
+          git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
+          && cd protobuf && ./autogen.sh \
+          && ./configure --enable-static=no \
+          && make -j${NPROC} install && ldconfig \
+          && cd python && python3 setup.py install --cpp_implementation \
+          && cd ../.. && rm -rf protobuf; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           ([ -x /usr/bin/microdnf ] && microdnf install -y yum) && \
@@ -51,10 +58,9 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel \
               python39 python39-devel python39-numpy python39-pip \
-              tzdata-java zlib-devel && \
+              python39-setuptools python39-wheel tzdata-java zlib-devel && \
           # Use newer version of pip, wheel and setuptools
           python3 -m pip install --upgrade --user  pip && \
-          python3 -m pip install --upgrade --user wheel &&  \
           python3 -m pip install --upgrade --user setuptools &&  \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
@@ -66,19 +72,26 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           cd ninja && mkdir -p build && cd build && \
           cmake .. && \
           make -j${NPROC} install && \
-          cd ${WORK_DIR} && rm -rf ninja; \
+          cd ${WORK_DIR} && rm -rf ninja \
+          # Install protobuf
+          git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
+          && cd protobuf && ./autogen.sh \
+          && ./configure --enable-static=no \
+          && cmake ../cmake  -DCMAKE_INSTALL_LIBDIR=lib64 \
+          && make -j${NPROC} install && ldconfig \
+          && cd python && python3 setup.py install --cpp_implementation \
+          && cd ../.. && rm -rf protobuf; \
        fi \
     && ln -sf /usr/bin/python3 /usr/bin/python
 
 # Install protobuf
-ARG PROTOBUF_VERSION=3.20.3
-RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git \
-    && cd protobuf && ./autogen.sh \
-    && ./configure --enable-static=no \
-    && make -j${NPROC} install && ldconfig \
-    && cd python && python3 setup.py install --cpp_implementation \
-    && cd ../.. && rm -rf protobuf
-
+# ARG PROTOBUF_VERSION=3.20.3
+# RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git \
+#     && cd protobuf && ./autogen.sh \
+#     && ./configure --enable-static=no \
+#     && make -j${NPROC} install && ldconfig \
+#     && cd python && python3 setup.py install --cpp_implementation \
+#     && cd ../.. && rm -rf protobuf
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
 RUN JSONITER_URL=https://repo1.maven.org/maven2/com/jsoniter/jsoniter/${JSONITER_VERSION} \
