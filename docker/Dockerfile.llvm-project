@@ -40,7 +40,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           rm -rf /var/lib/apt/lists/* && \
           ln -sf /usr/bin/pytest-3 /usr/bin/pytest \
           # Install protobuf
-          git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
+          && git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
           && cd protobuf && ./autogen.sh \
           && ./configure --enable-static=no \
           && make -j${NPROC} install && ldconfig \
@@ -74,7 +74,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           make -j${NPROC} install && \
           cd ${WORK_DIR} && rm -rf ninja \
           # Install protobuf
-          git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
+          && git clone -b v3.20.3 --recursive https://github.com/protocolbuffers/protobuf.git \
           && cd protobuf && ./autogen.sh \
           && ./configure --enable-static=no \
           && cmake ../cmake  -DCMAKE_INSTALL_LIBDIR=lib64 \
