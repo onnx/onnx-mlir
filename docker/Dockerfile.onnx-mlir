@@ -24,7 +24,7 @@ RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . \
     && pip3 show protobuf \
     && protoc --version \
-    && which protoc \
+    && which protoc 
 
 ARG NPROC=4
 ARG ACCEL=NNPA
