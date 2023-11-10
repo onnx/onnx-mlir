@@ -1023,10 +1023,19 @@ def get_test_models():
         },
         # ==OP== GatherND
         # ==MIN== 11
-        "test_gathernd_example_int32_cpu": {STATIC_SHAPE: {}, CONSTANT_INPUT: {-1}},
-        "test_gathernd_example_float32_cpu": {STATIC_SHAPE: {}, CONSTANT_INPUT: {-1}},
+        "test_gathernd_example_int32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_gathernd_example_float32_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gemm
@@ -1141,6 +1150,28 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         "test_greater_bcast_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # ==OP== GroupNormalization
+        # ==MIN== 18
+        "test_group_normalization_epsilon_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_group_normalization_epsilon_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_group_normalization_example_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_group_normalization_example_expanded_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},

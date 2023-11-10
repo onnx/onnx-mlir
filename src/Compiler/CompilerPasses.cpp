@@ -45,8 +45,9 @@ namespace onnx_mlir {
 void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
-      onnxConstPropDisablePatterns, disableConstantProp);
+  configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,
+      onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
+      disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
@@ -68,14 +69,17 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+  if (!disableRecomposeOption)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
     // Convolution Optimization for CPU: enable when there are no accelerators.
     if (targetCPU && enableConvOptPass) {
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
           enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createONNXHybridTransformPass());
+          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
     }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
@@ -92,7 +96,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
       // Dynamic iterate in ONNXOpTransformPass
       pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
           onnxOpTransformReport, targetCPU,
-          enableSimdDataLayout && !disableSimdOption, enableConvOptPass));
+          enableSimdDataLayout && !disableSimdOption, enableConvOptPass,
+          !disableRecomposeOption));
     } else {
       // Statically add extra passes
       for (int i = 0; i < repeatOnnxTransform; i++) {
@@ -110,7 +115,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.
   if (enableONNXHybridPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());

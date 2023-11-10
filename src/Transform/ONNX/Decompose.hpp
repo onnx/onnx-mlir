@@ -2,6 +2,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+//===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
+//
+// Copyright 2019-2023 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file implements a set of rewriters to decompose an ONNX operation into
+// composition of other ONNX operations.
+//
+// This pass is applied before any other pass so that there is no need to
+// implement shape inference for the decomposed operation. Hence, it is expected
+// that there is no knowledge about tensor shape at this point.
+//
+//===----------------------------------------------------------------------===//
+
 #pragma once
 
 #include "mlir/IR/PatternMatch.h"

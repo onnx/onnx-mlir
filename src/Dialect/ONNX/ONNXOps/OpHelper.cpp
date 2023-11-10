@@ -317,6 +317,18 @@ ONNXConstantOp getONNXConstantOp(Value value) {
   return dyn_cast_or_null<ONNXConstantOp>(value.getDefiningOp());
 }
 
+bool getI64ValuesFromONNXConstantOp(
+    mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes) {
+  ElementsAttr elemsAttr = getElementAttributeFromONNXValue(val);
+  if (!elemsAttr)
+    return false;
+  if (!getElementType(elemsAttr.getType()).isInteger(64))
+    return false;
+  SmallVector<int64_t, 4> iVals(elemsAttr.getValues<int64_t>());
+  iRes.append(iVals);
+  return true;
+}
+
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
@@ -375,6 +387,18 @@ bool HasSpecifiedConstantShape(Value value, Value shape) {
   return true;
 }
 
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v) {
+  if (!hasShapeAndRank(v))
+    return false;
+
+  auto t = dyn_cast<ShapedType>(v.getType());
+  int64_t r = t.getRank();
+  return isDenseONNXConstant(v) &&
+         ((r == 0) || ((r == 1) && (t.getShape()[0] == 1)));
+}
+
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(Value val) {
   Type valType = val.getType();
@@ -421,19 +445,6 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
 //===----------------------------------------------------------------------===//
-
-/// Check the defining operation of a value.
-template <typename OP>
-bool definedBy(Value v) {
-  return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
-}
-
-/// Template instantiation for definedBy.
-template bool definedBy<ONNXCastOp>(Value v);
-template bool definedBy<ONNXConcatOp>(Value v);
-template bool definedBy<ONNXConstantOp>(Value v);
-template bool definedBy<ONNXDimOp>(Value v);
-template bool definedBy<ONNXExpandOp>(Value v);
 
 /// Check if a value is to store dimensions, meaning it is a tensor of one
 /// element or concatenation of one-element tensors.

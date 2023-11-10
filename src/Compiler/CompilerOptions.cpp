@@ -32,6 +32,7 @@ std::string mtriple;                                   // common for both
 std::string mcpu;                                      // common for both
 std::string march;                                     // common for both
 InstrumentStages instrumentStage;                      // common for both
+bool onnxConstPropRoundFPToInt;                        // common for both
 int onnxConstPropExpansionBound;                       // common for both
 std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
@@ -63,6 +64,7 @@ int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
+bool disableRecomposeOption;                           // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -156,6 +158,14 @@ static llvm::cl::opt<InstrumentStages, true> instrumentStageOpt(
             APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM)),
     llvm::cl::init(Onnx), llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::opt<bool, true> onnxConstPropRoundFPToIntOpt(
+    "onnx-const-prop-round-fp-to-int",
+    llvm::cl::desc("If true constant propagates onnx.Cast from a floating "
+                   "point type to an integer type by rounding to nearest, "
+                   "ties to even. If false truncates towards zero."),
+    llvm::cl::location(onnxConstPropRoundFPToInt), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 static llvm::cl::opt<int, true> onnxConstPropExpansionBoundOpt(
     "onnx-const-prop-expansion-bound",
     llvm::cl::desc("ONNX dialect constant propagation maximum expansion factor."
@@ -184,6 +194,11 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::desc("Specify ONNX functions to decompose"),
         llvm::cl::location(functionsToDecompose),
         llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
+    llvm::cl::desc("Disable recomposition of ONNX operations."),
+    llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(

@@ -25,6 +25,7 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/Stick/Stick.cpp
   ZHighOps/StickForGRU/StickForGRU.cpp
   ZHighOps/StickForLSTM/StickForLSTM.cpp
+  ZHighOps/StickifiedConstantOfShape/StickifiedConstantOfShape.cpp
   ZHighOps/Unstick/Unstick.cpp
 
   DEPENDS
