@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import requests
-import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,6 +16,7 @@ logging.basicConfig(
 cpu_arch = os.getenv("CPU_ARCH")
 docker_pushpull_rwlock = os.getenv("DOCKER_PUSHPULL_RWLOCK")
 docker_daemon_socket = os.getenv("DOCKER_DAEMON_SOCKET")
+docker_registry_token_access = os.getenv("DOCKER_REGISTRY_TOKEN_ACCESS")
 docker_registry_host_name = os.getenv("DOCKER_REGISTRY_HOST_NAME")
 docker_registry_user_name = os.getenv("DOCKER_REGISTRY_USER_NAME")
 docker_registry_login_name = os.getenv("DOCKER_REGISTRY_LOGIN_NAME")
@@ -116,14 +116,22 @@ pr_mergeable_state = {
     "unstable": {"mergeable": True, "desc": "mergeable with non-passing commit status"},
 }
 
-DOCKER_DIST_MANIFESTS = {
-    "v1": "application/vnd.docker.distribution.manifest.v1+json",
-    "v2": "application/vnd.docker.distribution.manifest.v2+json",
-}
+DOCKER_DIST_MANIFEST = "application/vnd.docker.distribution.manifest.v2+json"
 DOCKER_DIST_MANIFEST_LIST = "application/vnd.docker.distribution.manifest.list.v2+json"
 
 docker_rwlock = fasteners.InterProcessReaderWriterLock(docker_pushpull_rwlock)
 docker_api = docker.APIClient(base_url=docker_daemon_socket)
+
+
+def strtobool(s: str) -> bool:
+    """Reimplement strtobool per PEP 632 and python 3.12 deprecation."""
+
+    if s.lower() in ["y", "yes", "t", "true", "on", "1"]:
+        return True
+    elif s.lower() in ["n", "no", "f", "false", "off", "0", ""]:
+        return False
+    else:
+        raise ValueError(f"{s} cannot be converted to bool")
 
 
 # Get the labels of a local docker image, raise exception
@@ -152,62 +160,14 @@ def get_local_image_labels(host_name, user_name, image_name, image_tag, image_la
     )
 
 
-# Make REST call to get the v1 or v2 manifest of an image from
-# private docker registry
-def get_image_manifest_private(
-    host_name, user_name, image_name, image_tag, schema_version, login_name, login_token
-):
-    resp = requests.get(
-        url=(
-            "https://"
-            + host_name
-            + "/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={"Accept": DOCKER_DIST_MANIFESTS[schema_version]},
-        auth=(login_name, login_token),
-    )
-    resp.raise_for_status()
-    return resp
-
-
-# Make REST call to put multiarch manfiest list of an image in
-# private docker registry
-def put_image_manifest_private(
-    host_name, user_name, image_name, image_tag, manifest_list, login_name, login_token
-):
-    resp = requests.put(
-        url=(
-            "https://"
-            + host_name
-            + "/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={"Content-Type": DOCKER_DIST_MANIFEST_LIST},
-        auth=(login_name, login_token),
-        json={
-            "schemaVersion": 2,
-            "mediaType": DOCKER_DIST_MANIFEST_LIST,
-            "manifests": manifest_list,
-        },
-    )
-    resp.raise_for_status()
-    return resp
-
-
 # Make REST call to get the access token to operate on an image in
 # public docker registry
-def get_access_token(user_name, image_name, action, login_name, login_token):
+def get_access_token(host_name, user_name, image_name, login_name, login_token, action):
     resp = requests.get(
         url=(
-            "https://auth.docker.io/token"
-            + "?service=registry.docker.io"
+            "https://"
+            + (host_name if host_name else "auth.docker.io")
+            + "/token?service=registry.docker.io"
             + "&scope=repository:"
             + (user_name + "/" if user_name else "")
             + image_name
@@ -222,73 +182,86 @@ def get_access_token(user_name, image_name, action, login_name, login_token):
 
 # Make REST call to get the v1 or v2 manifest of an image from
 # public docker registry
-def get_image_manifest_public(
+#
+# ghcr.io only supports v2 manifest which has no v1Compatibility
+# so we now get the labels by using v2 config blobs
+def get_image_manifest_config(
+    host_name,
     user_name,
     image_name,
     image_tag,
-    schema_version,
     login_name,
     login_token,
-    access_token=None,
+    access_token,
 ):
-    # Get access token if not passed in
-    if not access_token:
-        access_token = get_access_token(
-            user_name, image_name, "pull", login_name, login_token
-        )
     # Get manifest
-    resp = requests.get(
-        url=(
-            "https://registry-1.docker.io/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={
-            "Accept": DOCKER_DIST_MANIFESTS[schema_version],
-            "Authorization": "Bearer " + access_token,
-        },
+    url = (
+        "https://"
+        + (host_name if host_name else "registry-1.docker.io")
+        + "/v2/"
+        + (user_name + "/" if user_name else "")
+        + image_name
     )
-    resp.raise_for_status()
-    return resp
+
+    headers = {}
+    headers["Accept"] = DOCKER_DIST_MANIFEST
+    if access_token:
+        headers_manifest["Authorization"] = "Bearer " + access_token
+        auth = None
+    else:
+        auth = (login_name, login_token)
+
+    manifest = requests.get(
+        url=url + "/manifests/" + image_tag, headers=headers_manifest, auth=auth
+    )
+    manifest.raise_for_status()
+
+    # Get config blobs
+    config_digest = manifest.json()["config"]["digest"]
+    config = requests.get(
+        url=url + "/blobs/" + config_digest, headers=headers, auth=auth
+    )
+    config.raise_for_status()
+
+    return manifest, config
 
 
 # Make REST call to put multiarch manfiest list of an image in
-# private docker registry
-def put_image_manifest_public(
+# public docker registry
+def put_image_manifest(
+    host_name,
     user_name,
     image_name,
     image_tag,
     manifest_list,
     login_name,
     login_token,
-    access_token=None,
+    access_token,
 ):
-    # Get access token if not passed in
-    if not access_token:
-        access_token = get_access_token(
-            user_name, image_name, "push", login_name, login_token
-        )
     # Put manifest
-    resp = requests.put(
-        url=(
-            "https://registry-1.docker.io/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={
-            "Content-Type": DOCKER_DIST_MANIFEST_LIST,
-            "Authorization": "Bearer " + access_token,
-        },
-        json={
-            "schemaVersion": 2,
-            "mediaType": DOCKER_DIST_MANIFEST_LIST,
-            "manifests": manifest_list,
-        },
+    url = (
+        "https://"
+        + (host_name if host_name else "registry-1.docker.io")
+        + "/v2/"
+        + (user_name + "/" if user_name else "")
+        + image_name
+        + "/manifests/"
+        + image_tag
     )
+    json = {
+        "schemaVersion": 2,
+        "mediaType": DOCKER_DIST_MANIFEST_LIST,
+        "manifests": manifest_list,
+    }
+    headers = {}
+    headers["Content-Type"] = DOCKER_DIST_MANIFEST_LIST
+    if access_token:
+        headers["Authorization"] = "Bearer " + access_token
+        auth = None
+    else:
+        auth = (login_name, login_token)
+
+    resp = requests.put(url=url, json=json, headers=headers, auth=auth)
     resp.raise_for_status()
     return resp
 
@@ -300,24 +273,22 @@ def get_remote_image_labels(
     host_name, user_name, image_name, image_tag, image_labels, login_name, login_token
 ):
     try:
-        # Get manifest, only v1 schema has labels so accept v1 only
-        resp = (
-            # private docker registry
-            get_image_manifest_private(
-                host_name,
-                user_name,
-                image_name,
-                image_tag,
-                "v1",
-                login_name,
-                login_token,
+        access_token = (
+            get_access_token(
+                host_name, user_name, image_name, login_name, login_token, "pull"
             )
-            if host_name
-            else
-            # public docker registry
-            get_image_manifest_public(
-                user_name, image_name, image_tag, "v1", login_name, login_token
-            )
+            if strtobool(docker_registry_token_access)
+            else None
+        )
+
+        _, config = get_image_manifest_config(
+            host_name,
+            user_name,
+            image_name,
+            image_tag,
+            login_name,
+            login_token,
+            access_token,
         )
 
         image_full = (
@@ -328,12 +299,8 @@ def get_remote_image_labels(
             + image_tag
         )
 
-        # v1Compatibility is a quoted JSON string, not a JSON object
-        manifest = json.loads(resp.json()["history"][0]["v1Compatibility"])
-        logging.info(
-            "remote image %s labels: %s", image_full, manifest["config"]["Labels"]
-        )
-        labels = manifest["config"]["Labels"]
+        labels = config.json()["config"]["Labels"]
+        logging.info("remote image %s labels: %s", image_full, labels)
         if labels:
             labels_ok = True
             for label in image_labels:
@@ -345,8 +312,8 @@ def get_remote_image_labels(
         raise Exception(
             "remote image " + image_full + " does not exist or has invalid labels"
         )
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
         return ""
 
 
@@ -368,8 +335,8 @@ def post_pr_comment(url, msg, token):
             resp.json()["updated_at"],
             resp.json()["body"],
         )
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
 
 
 # Get pull request source mergeable state
@@ -381,8 +348,8 @@ def get_pr_mergeable_state(url, token):
         )
         resp.raise_for_status()
         return resp.json()["mergeable_state"]
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
         return "unknown"
 
 
@@ -519,10 +486,13 @@ def publish_multiarch_manifest(
     host_name, user_name, image_name, manifest_tag, login_name, login_token
 ):
     try:
-        if not host_name:
-            access_token = get_access_token(
-                user_name, image_name, "pull,push", login_name, login_token
+        access_token = (
+            get_access_token(
+                host_name, user_name, image_name, login_name, login_token, "pull,push"
             )
+            if strtobool(docker_registry_token_access)
+            else None
+        )
 
         # For each arch, construct the manifest element needed for the
         # manifest list by extracting fields from v1 and v2 image manifests.
@@ -531,86 +501,41 @@ def publish_multiarch_manifest(
         manifest_list = []
         for image_tag in IMAGE_ARCHS:
             m = {}
-            resp = (
-                get_image_manifest_private(
-                    host_name,
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v2",
-                    login_name,
-                    login_token,
-                )
-                if host_name
-                else get_image_manifest_public(
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v2",
-                    login_name,
-                    login_token,
-                    access_token,
-                )
-            )
-            m["mediaType"] = resp.headers["Content-Type"]
-            m["size"] = len(resp.text)
-            m["digest"] = resp.headers["Docker-Content-Digest"]
-
-            resp = (
-                get_image_manifest_private(
-                    host_name,
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v1",
-                    login_name,
-                    login_token,
-                )
-                if host_name
-                else get_image_manifest_public(
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v1",
-                    login_name,
-                    login_token,
-                    access_token,
-                )
-            )
-            m["platform"] = {}
-            v1Compatibility = json.loads(resp.json()["history"][0]["v1Compatibility"])
-            m["platform"]["architecture"] = v1Compatibility["architecture"]
-            m["platform"]["os"] = v1Compatibility["os"]
-
-            manifest_list.append(m)
-
-        # Make the REST call to PUT the multiarch manifest list.
-        resp = (
-            put_image_manifest_private(
+            manifest, config = get_image_manifest_config(
                 host_name,
                 user_name,
                 image_name,
-                manifest_tag,
-                manifest_list,
-                login_name,
-                login_token,
-            )
-            if host_name
-            else put_image_manifest_public(
-                user_name,
-                image_name,
-                manifest_tag,
-                manifest_list,
+                image_tag,
                 login_name,
                 login_token,
                 access_token,
             )
+            m["mediaType"] = manifest.headers["Content-Type"]
+            m["size"] = len(manifest.text)
+            m["digest"] = manifest.headers["Docker-Content-Digest"]
+
+            m["platform"] = {}
+            m["platform"]["architecture"] = config.json()["architecture"]
+            m["platform"]["os"] = config.json()["os"]
+
+            manifest_list.append(m)
+
+        # Make the REST call to PUT the multiarch manifest list.
+        resp = put_image_manifest(
+            host_name,
+            user_name,
+            image_name,
+            manifest_tag,
+            manifest_list,
+            login_name,
+            login_token,
+            access_token,
         )
 
         logging.info("publish %s/%s:%s", user_name, image_name, manifest_tag)
         logging.info("        %s", resp.headers["Docker-Content-Digest"])
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
 
 
 # Publish an image if it should be published and publish multiarch manifest
