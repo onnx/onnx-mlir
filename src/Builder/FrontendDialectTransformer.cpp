@@ -500,7 +500,6 @@ private:
         std::string dimParam = "";
         Type argTy = ImportType(input.type(), dimParam);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
-        llvm::outs() << "input dim: " << dimParam << "\n";
         inputDimParams.emplace_back(dimParam);
 
         argTypes.emplace_back(argTy);
@@ -549,7 +548,6 @@ private:
     for (const auto &output : graph.output()) {
       std::string dimParam = "";
       ImportOutputTensor(output, retTys, retVals, dimParam);
-      llvm::outs() << "output dim: " << dimParam << "\n";
       outputDimParams.emplace_back(dimParam);
     }
 
