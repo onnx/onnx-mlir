@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa -cse %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa=grouped-conv-threshold=4 -cse %s -split-input-file | FileCheck %s
 
 
 func.func @test_onnx_conv2d_stride_13(%arg0: tensor<5x3x256x256xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: tensor<2xf32>) ->  tensor<5x2x15x15xf32> {
@@ -119,4 +119,14 @@ func.func @test_onnx_conv2d_autopad(%arg0: tensor<5x3x125x256xf32>, %arg1 : tens
 // CHECK-DAG:       [[VAR_4_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
 // CHECK:           [[VAR_5_:%.+]] = "tosa.transpose"([[VAR_3_]], [[VAR_4_]]) : (tensor<5x125x256x2xf32>, tensor<4xi32>) -> tensor<5x2x125x256xf32>
 // CHECK:           return [[VAR_5_]] : tensor<5x2x125x256xf32>
+}
+
+// -----
+func.func @test_onnx_conv2d_group_higher_4(%arg0: tensor<5x128x256x256xf32>, %arg1 : tensor<16x16x45x45xf32>, %arg2: tensor<16xf32>) ->  tensor<5x16x17x17xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", group = 8 : si64, pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<5x128x256x256xf32>, tensor<16x16x45x45xf32>, tensor<16xf32>) ->  tensor<5x16x17x17xf32>
+  return %0 : tensor<5x16x17x17xf32>
+// CHECK-LABEL:  func.func @test_onnx_conv2d_group_higher_4
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x128x256x256xf32>, [[PARAM_1_:%.+]]: tensor<16x16x45x45xf32>, [[PARAM_2_:%.+]]: tensor<16xf32>) -> tensor<5x16x17x17xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "NOTSET", group = 8 : si64, pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<5x128x256x256xf32>, tensor<16x16x45x45xf32>, tensor<16xf32>) -> tensor<5x16x17x17xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x16x17x17xf32>
 }
