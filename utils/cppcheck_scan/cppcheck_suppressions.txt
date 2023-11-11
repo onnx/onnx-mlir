@@ -10,7 +10,7 @@ preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-d
 preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-ml.pb.h:12
 preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-operators-ml.pb.h:12
 
-# c scan doesn't detect the macro accurately causing preprocessor issues.
+# Cppcheck scan doesn't detect the macro accurately causing preprocessor issues.
 #        <error id="preprocessorErrorDirective" severity="error" msg="#error &quot;The standard header &lt;cstdint&gt; is not C++11 compliant. Must #define &quot;\" verbose="        &quot;__STDC_CONSTANT_MACROS before #including llvm-c/DataTypes.h&quot;">
 #            <location file="/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h" line="38" column="0"/>
 #        </error>
