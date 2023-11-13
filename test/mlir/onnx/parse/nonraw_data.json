@@ -487,7 +487,7 @@
   ]
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   () -> (tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>) attributes {input_dim_params = {{.*}}, input_names = [], output_dim_params = {{.*}}, output_names = ["output0", "output1", "output2", "output3", "output4", "output5", "output6", "output7", "output8", "output9", "output10", "output11"]} {
+// CHECK-SAME:   () -> (tensor<3xf32> {onnx.names = "output0"}, tensor<3xui8> {onnx.names = "output1"}, tensor<3xi8> {onnx.names = "output2"}, tensor<3xui16> {onnx.names = "output3"}, tensor<3xi16> {onnx.names = "output4"}, tensor<3xi32> {onnx.names = "output5"}, tensor<3xi64> {onnx.names = "output6"}, tensor<3xi1> {onnx.names = "output7"}, tensor<3xf16> {onnx.names = "output8"}, tensor<3xf64> {onnx.names = "output9"}, tensor<3xui32> {onnx.names = "output10"}, tensor<3xui64> {onnx.names = "output11"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 0.000000e+00, 1.000000e+00]> : tensor<3xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[1, 0, 1]> : tensor<3xui8>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[1, 0, 1]> : tensor<3xi8>
@@ -502,3 +502,4 @@
 // CHECK-DAG:       [[VAR_11_:%.+]] = onnx.Constant dense<[1, 0, 1]> : tensor<3xui64>
 // CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_4_]], [[VAR_5_]], [[VAR_6_]], [[VAR_7_]], [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0, [[VAR_1_]]1 : tensor<3xf32>, tensor<3xui8>, tensor<3xi8>, tensor<3xui16>, tensor<3xi16>, tensor<3xi32>, tensor<3xi64>, tensor<3xi1>, tensor<3xf16>, tensor<3xf64>, tensor<3xui32>, tensor<3xui64>
 // CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

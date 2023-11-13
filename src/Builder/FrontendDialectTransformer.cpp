@@ -330,13 +330,14 @@ private:
     return RankedTensorType::get(tensor_dims, elementType);
   }
 
-  Type ImportSequenceType(const onnx::TypeProto &type_proto) {
+  Type ImportSequenceType(
+      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
     auto input_seq_type = type_proto.sequence_type();
     if (input_seq_type.has_elem_type()) {
       onnx::TypeProto elem_type = input_seq_type.elem_type();
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
-      Type mlir_elem_type = ImportTensorType(elem_type);
+      Type mlir_elem_type = ImportTensorType(elem_type, dim_params);
       if (!mlir_elem_type.isa<ShapedType>())
         llvm_unreachable("Seq type is incorrect");
       Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
@@ -362,7 +363,7 @@ private:
       return ImportTensorType(type_proto, dim_params);
       break;
     case onnx::TypeProto::kSequenceType:
-      return ImportSequenceType(type_proto);
+      return ImportSequenceType(type_proto, dim_params);
       break;
     case onnx::TypeProto::kOptionalType:
       return ImportOptionalType(type_proto);
@@ -548,7 +549,8 @@ private:
     for (const auto &output : graph.output()) {
       std::string dimParams = "";
       ImportOutputTensor(output, retTys, retVals, &dimParams);
-      outputDimParams.emplace_back(dimParams);
+      if (!dimParams.empty())
+        outputDimParams.emplace_back(dimParams);
     }
 
     if (useReturn)
@@ -562,12 +564,16 @@ private:
       inputDimParamsRefs.emplace_back(llvm::StringRef(inputDimParams[i]));
     for (uint64_t i = 0; i < outputDimParams.size(); ++i)
       outputDimParamsRefs.emplace_back(llvm::StringRef(outputDimParams[i]));
-    op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
-    op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
-    op->setAttr(
-        "input_dim_params", builder_.getStrArrayAttr(inputDimParamsRefs));
-    op->setAttr(
-        "output_dim_params", builder_.getStrArrayAttr(outputDimParamsRefs));
+    if (!inputNames.empty())
+      op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
+    if (!outputNames.empty())
+      op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
+    if (!inputDimParamsRefs.empty())
+      op->setAttr(
+          "input_dim_params", builder_.getStrArrayAttr(inputDimParamsRefs));
+    if (!outputDimParamsRefs.empty())
+      op->setAttr(
+          "output_dim_params", builder_.getStrArrayAttr(outputDimParamsRefs));
 
     frontend_symbols_.popScope(graph.name());
     onnx_type_map.popScope(graph.name());
@@ -1380,6 +1386,54 @@ private:
     ret_vals.push_back(val);
   }
 
+  // Move function attributes for argument/result names and dim_params into
+  // argument/result attributes.
+  void moveFuncAttrsToArgAttrs(func::FuncOp funcOp,
+      ArrayRef<std::string> funcAttrNames, ArrayRef<std::string> argAttrNames,
+      bool isArg) {
+    assert(funcAttrNames.size() == argAttrNames.size() &&
+           "The number of attributes to move mismatched");
+    Operation *op = funcOp.getOperation();
+    size_t numOfArgs =
+        (isArg) ? funcOp.getNumArguments() : funcOp.getNumResults();
+
+    // Only move attributes that exists.
+    SmallVector<ArrayAttr, 2> funcAttrsToMove;
+    SmallVector<std::string, 2> targetArgAttrNames;
+    for (size_t i = 0; i < funcAttrNames.size(); ++i) {
+      ArrayAttr attr = op->getAttrOfType<ArrayAttr>(funcAttrNames[i]);
+      if (!attr)
+        continue;
+      funcAttrsToMove.emplace_back(attr);
+      targetArgAttrNames.emplace_back(argAttrNames[i]);
+    }
+
+    // Move function attributes to argument/result attributes.
+    for (size_t i = 0; i < numOfArgs; ++i) {
+      SmallVector<NamedAttribute, 2> argAttrs;
+      for (size_t k = 0; k < funcAttrsToMove.size(); ++k) {
+        if (i < funcAttrsToMove[k].size()) {
+          auto name = (funcAttrsToMove[k].getValue()[i]).cast<StringAttr>();
+          if (name) {
+            NamedAttribute namedAttr =
+                builder_.getNamedAttr(argAttrNames[k], name);
+            argAttrs.emplace_back(namedAttr);
+          }
+        }
+      }
+      if (!argAttrs.empty()) {
+        if (isArg)
+          funcOp.setArgAttrs(i, argAttrs);
+        else
+          funcOp.setResultAttrs(i, argAttrs);
+      }
+    }
+
+    // Clean up the function attributes.
+    for (std::string s : funcAttrNames)
+      op->removeAttr(s);
+  }
+
   /*!
    * Import ONNX main computation graph.
    * @param graph onnx graph proto.
@@ -1397,6 +1451,13 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
         /*op=*/mainFunc.getOperation(), /*useReturn=*/true);
     mainFunc.setType(funcType);
+
+    // Move function attributes for argument/result names and dim_params into
+    // argument/result attributes.
+    moveFuncAttrsToArgAttrs(mainFunc, {"input_names", "input_dim_params"},
+        {"onnx.names", "onnx.dim_params"}, /*isArg=*/true);
+    moveFuncAttrsToArgAttrs(mainFunc, {"output_names", "output_dim_params"},
+        {"onnx.names", "onnx.dim_params"}, /*isArg=*/false);
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);

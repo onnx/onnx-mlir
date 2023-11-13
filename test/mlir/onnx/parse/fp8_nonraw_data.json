@@ -172,10 +172,11 @@
   ]
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   () -> (tensor<2xf8E4M3FN>, tensor<2xf8E4M3FNUZ>, tensor<2xf8E5M2>, tensor<2xf8E5M2FNUZ>) attributes {input_dim_params = {{.*}}, input_names = [], output_dim_params = {{.*}}, output_names = ["output_f8e4m3fn", "output_f8e4m3fnuz", "output_f8e5m2", "output_f8e5m2fnuz"]} {
+// CHECK-SAME:   () -> (tensor<2xf8E4M3FN> {onnx.names = "output_f8e4m3fn"}, tensor<2xf8E4M3FNUZ> {onnx.names = "output_f8e4m3fnuz"}, tensor<2xf8E5M2> {onnx.names = "output_f8e5m2"}, tensor<2xf8E5M2FNUZ> {onnx.names = "output_f8e5m2fnuz"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E4M3FN>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E4M3FNUZ>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E5M2>
 // CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E5M2FNUZ>
 // CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf8E4M3FN>, tensor<2xf8E4M3FNUZ>, tensor<2xf8E5M2>, tensor<2xf8E5M2FNUZ>
 // CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

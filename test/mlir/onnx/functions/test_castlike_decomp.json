@@ -86,6 +86,9 @@
     }
   ]
 }
-// CHECK: func.func @main_graph(%arg0: tensor<3x4xf16>, %arg1: tensor<1xf32>) -> tensor<3x4xf32> attributes {input_dim_params = {{.*}}, input_names = ["input", "like"], output_dim_params = {{.*}}, output_names = ["output"]} {
-// CHECK:     %0 = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f32} : (tensor<3x4xf16>) -> tensor<3x4xf32>
-// CHECK:     onnx.Return %0 : tensor<3x4xf32>
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf16> {onnx.names = "input"}, [[PARAM_1_:%.+]]: tensor<1xf32> {onnx.names = "like"}) -> (tensor<3x4xf32> {onnx.names = "output"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = f32} : (tensor<3x4xf16>) -> tensor<3x4xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

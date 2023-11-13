@@ -14,7 +14,7 @@ test_abs (float[3,4,5] x) => (float[3,4,5] y) {
    y = Abs (x)
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {{.*}} {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32> {onnx.names = "x"}) -> (tensor<3x4x5xf32> {onnx.names = "y"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Abs"([[PARAM_0_]]) : (tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4x5xf32>
 // CHECK:         }
