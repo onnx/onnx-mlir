@@ -15,4 +15,3 @@ preprocessorErrorDirective:/workdir/onnx-mlir/build/third_party/onnx/onnx/onnx-o
 #            <location file="/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h" line="38" column="0"/>
 #        </error>
 preprocessorErrorDirective:/workdir/llvm-project/llvm/include/llvm-c/DataTypes.h:38
-

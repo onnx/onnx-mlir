@@ -24,8 +24,6 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
     && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
           DEBIAN_FRONTEND=noninteractive && \
           apt-get update -qq && \
-          apt-get purge --remove protobuf-compiler && \
-          apt-get purge --remove libprotobuf* && \
           apt-get install -qq -y --no-install-recommends tzdata && \
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           dpkg-reconfigure -f noninteractive tzdata && \
@@ -78,7 +76,10 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuf
     && ./configure --enable-static=no \
     && make -j${NPROC} install && ldconfig \
     && cd python && python3 setup.py install --cpp_implementation \
-    && cd ../.. && rm -rf protobuf
+    && cd ../.. && rm -rf protobuf \
+    && ls /usr/local/lib/libproto* -l \
+    && ls /etc/ld.so.c* -l \
+    && echo '/usr/local/lib' >> /etc/ld.so.conf
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
