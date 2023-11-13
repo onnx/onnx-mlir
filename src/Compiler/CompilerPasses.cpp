@@ -230,6 +230,8 @@ void addKrnlToLLVMPasses(
   mlir::bufferization::buildBufferDeallocationPipeline(
       pm, bufferDeallocOptions);
 
+  pm.addPass(mlir::createBufferizationToMemRefPass());
+
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this
   // time. Uncomment if subview/collapse are used.
