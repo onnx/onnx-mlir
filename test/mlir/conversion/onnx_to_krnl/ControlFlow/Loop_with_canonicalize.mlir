@@ -12,7 +12,7 @@ func.func @test_loop_tiny_yolo() -> tensor<?xi32> {
       %4 = onnx.Constant dense<1> : tensor<i32>
       %5 = "onnx.Add"(%arg2, %4) : (tensor<i32>, tensor<i32>) -> tensor<i32>
       onnx.Yield %arg1, %5, %arg2 : tensor<i1>, tensor<i32>, tensor<i32>
-    }) {input_names = ["i", "cond", "prev"], output_names = ["cond_out", "current", "range"]} : (tensor<i64>, tensor<i1>, tensor<i32>) -> (tensor<i32>, tensor<?xi32>)
+    }) : (tensor<i64>, tensor<i1>, tensor<i32>) -> (tensor<i32>, tensor<?xi32>)
     return %3#1 : tensor<?xi32>
 
 // CHECK-LABEL:  func @test_loop_tiny_yolo
