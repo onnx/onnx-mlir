@@ -1,10 +1,10 @@
 // RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-krnl --canonicalize --zlow-rewrite --canonicalize %s -split-input-file | FileCheck %s
 
-func.func @lstm_return_single_step(%input : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_return_single_step(%input : tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = 0 : si64} : (tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = 0 : si64} : (tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -38,11 +38,11 @@ func.func @lstm_return_single_step(%input : tensor<3x5x7xf32, #zhigh.layout<{dat
 
 // -----
 
-func.func @lstm_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_return_all_steps(%input : tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -76,11 +76,11 @@ func.func @lstm_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.layout<{dataL
 
 // -----
 
-func.func @lstm_backward_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_backward_return_all_steps(%input : tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "backward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "backward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -114,11 +114,11 @@ func.func @lstm_backward_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.layo
 
 // -----
 
-func.func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<2x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<2x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<2x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<2x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<2x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<2x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<2x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<2x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x5x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<3x5x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x5x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG: [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (0, (d2 + (d2 floordiv 9) * 55) floordiv 64, d0, d1 floordiv 32, d1 mod 32, (d2 + (d2 floordiv 9) * 55) mod 64)>
@@ -153,11 +153,11 @@ func.func @lstm_bidir_return_all_steps(%input : tensor<3x5x7xf32, #zhigh.layout<
 // -----
 
 // COM: Test unknown timesteps and batch size.
-func.func @lstm_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_unknown_dims(%input : tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // mlir2FileCheck.py
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -207,11 +207,11 @@ func.func @lstm_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.layout<{dataLayou
 // -----
 
 // COM: Test unknown timesteps and batch size.
-func.func @lstm_bidir_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<2x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<2x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<2x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<2x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_bidir_unknown_dims(%input : tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<2x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<2x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<2x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<2x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "bidirectional", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<2x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<2x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // mlir2FileCheck.py
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -260,12 +260,12 @@ func.func @lstm_bidir_unknown_dims(%input : tensor<?x?x7xf32, #zhigh.layout<{dat
 
 // -----
 
-func.func @lstm_no_intial_h_and_c(%input : tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_no_intial_h_and_c(%input : tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %input_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_bias : tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
   %cst = "onnx.NoValue"() {value} : () -> none
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %cst, %cst, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, none, none, tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %cst, %cst, %input_weights, %input_bias, %hidden_weights, %hidden_bias) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none, none, tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, tensor<1x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // mlir2FileCheck.py
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
@@ -319,12 +319,12 @@ func.func @lstm_no_intial_h_and_c(%input : tensor<?x?x7xf32, #zhigh.layout<{data
 
 // -----
 
-func.func @lstm_no_input_and_hidden_biases(%input : tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf32>, tensor<*xf32>) {
+func.func @lstm_no_input_and_hidden_biases(%input : tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %h0 : tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %c0 : tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, %input_weights : tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, %hidden_weights : tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>) -> (tensor<*xf16>, tensor<*xf16>) {
 
   %cst = "onnx.NoValue"() {value} : () -> none
-  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %cst, %hidden_weights, %cst) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf32, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, none, tensor<1x9x36xf32, #zhigh.layout<{dataLayout = "FICO"}>>, none) -> (tensor<*xf32>, tensor<*xf32>)
+  %hn_output, %cf_output = "zhigh.LSTM"(%input, %h0, %c0, %input_weights, %cst, %hidden_weights, %cst) {direction = "forward", hidden_size = 9 : si64, return_all_steps = -1 : si64} : (tensor<?x?x7xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x?x9xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<1x7x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, none, tensor<1x9x36xf16, #zhigh.layout<{dataLayout = "FICO"}>>, none) -> (tensor<*xf16>, tensor<*xf16>)
 
-  "func.return"(%hn_output, %cf_output) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  "func.return"(%hn_output, %cf_output) : (tensor<*xf16>, tensor<*xf16>) -> ()
 
 // mlir2FileCheck.py
 // CHECK-DAG: [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>

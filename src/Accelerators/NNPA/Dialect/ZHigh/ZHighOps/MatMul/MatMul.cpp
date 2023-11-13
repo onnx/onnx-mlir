@@ -112,7 +112,7 @@ LogicalResult ZHighMatMulOp::inferShapes(
     encoding = ZTensorEncodingAttr::get(
         this->getContext(), ZTensorEncodingAttr::DataLayout::_3DS);
 
-  updateType(getResult(), outputDims, elementType, encoding);
+  updateType(getOperation(), getResult(), outputDims, elementType, encoding);
   return success();
 }
 

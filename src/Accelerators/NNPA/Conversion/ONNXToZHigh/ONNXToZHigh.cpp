@@ -197,7 +197,7 @@ Value getLSTMGRUGetYc(
     return noneValue;
 
   zhigh::ZHighUnstickOp unstickOp =
-      rewriter.create<zhigh::ZHighUnstickOp>(loc, val.getType(), val);
+      rewriter.create<zhigh::ZHighUnstickOp>(loc, val);
   return rewriter.create<ONNXSqueezeV11Op>(
       loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
 }

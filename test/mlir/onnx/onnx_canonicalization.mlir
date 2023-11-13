@@ -238,6 +238,20 @@ func.func @test_reshape_should_not_remove(%arg0: tensor<3x5x10x20xf32>, %arg1: t
 
 // -----
 
+func.func @test_reshape_propagate_through_elementwise_ops(%arg0: tensor<3x5x10x20xf32>, %arg1: tensor<1xf32>) -> tensor<150x20xf32> {
+  %shape1 = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  %0 = "onnx.Reshape"(%arg0, %shape1) : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
+  %1 = "onnx.Mul"(%0, %arg1) : (tensor<150x20xf32>, tensor<1xf32>) -> tensor<150x20xf32>
+  onnx.Return %1 : tensor<150x20xf32>
+  // CHECK-LABEL: test_reshape_propagate_through_elementwise_ops
+  // CHECK-NEXT: [[CST:%.+]] = onnx.Constant dense<[150, 20]> : tensor<2xi64>
+  // CHECK-NEXT: [[MUL:%.+]] = "onnx.Mul"(%arg0, %arg1) : (tensor<3x5x10x20xf32>, tensor<1xf32>) -> tensor<3x5x10x20xf32>
+  // CHECK-NEXT: [[RES:%.+]] = "onnx.Reshape"([[MUL]], [[CST]]) {allowzero = 0 : si64} : (tensor<3x5x10x20xf32>, tensor<2xi64>) -> tensor<150x20xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<150x20xf32>
+}
+
+// -----
+
 // Check EmptyTensorInputsResizePattern. Example from yolov4 model after --decompose-onnx.
 func.func @test_resize_empty_tensor_inputs(%8: tensor<0xf32>, %714: tensor<*xf32>, %719: tensor<*xi64>) -> tensor<*xf32> {
   %720 = "onnx.Resize"(%714, %8, %8, %719) {antialias = 0 : si64, coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "stretch", mode = "nearest", nearest_mode = "floor"} : (tensor<*xf32>, tensor<0xf32>, tensor<0xf32>, tensor<*xi64>) -> tensor<*xf32>
@@ -302,8 +316,8 @@ func.func @test_transpose_besides_hardsigmoid_fusion(%arg0: tensor<10x11x12x13xf
 // -----
 
 // Check the combining of reshape into a simple reshape.
-// CHECK-LABEL: func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
-func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
+// CHECK-LABEL: func @test_reshape_fusion1(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
+func.func @test_reshape_fusion1(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13x11xf32> {
   %0 = onnx.Constant dense<[2, 60, 11, 13]> : tensor<4xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<2x60x11x13xf32>
   %2 = onnx.Constant dense<[8, 15, 13, 11]> : tensor<4xi64>
@@ -311,6 +325,47 @@ func.func @test_reshape_fusion(%arg0: tensor<10x11x12x13xf32>) -> tensor<8x15x13
   // CHECK-NEXT: [[RES:%.+]] = onnx.Constant dense<[8, 15, 13, 11]> : tensor<4xi64>
   // CHECK-NEXT: %{{.*}} = "onnx.Reshape"(%arg0, [[RES]]) {allowzero = 0 : si64} : (tensor<10x11x12x13xf32>, tensor<4xi64>) -> tensor<8x15x13x11xf32>
   "onnx.Return"(%3) : (tensor<8x15x13x11xf32>) -> ()
+}
+
+// -----
+
+// Check the combining of reshape into a simple reshape.
+func.func @test_reshape_fusion_2(%arg0: tensor<3x4x2x2xf32>) -> tensor<3x2x8xf32> {
+  %0 = onnx.Constant dense<[3, 2, 2, 2, 2]> : tensor<5xi64>
+  %1 = onnx.Constant dense<[0, 0, -1]> : tensor<3xi64>
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<3x4x2x2xf32>, tensor<5xi64>) -> tensor<3x2x2x2x2xf32>
+  %3 = "onnx.Reshape"(%2, %1) {allowzero = 0 : si64} : (tensor<3x2x2x2x2xf32>, tensor<3xi64>) -> tensor<3x2x8xf32>
+  onnx.Return %3 : tensor<3x2x8xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_fusion_2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x2x2xf32>) -> tensor<3x2x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[3, 2, -1]> : tensor<3xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<3x4x2x2xf32>, tensor<3xi64>) -> tensor<3x2x8xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x2x8xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Check the combining of reshape into a simple reshape.
+func.func @test_reshape_fusion3(%arg0: tensor<?x4x2x2xf32>) -> tensor<?x2x?xf32> {
+  %0 = onnx.Constant dense<2> : tensor<1xi64>
+  %1 = onnx.Constant dense<[0, 0, -1]> : tensor<3xi64>
+  %2 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<?x4x2x2xf32>) -> tensor<1xi64>
+  %3 = "onnx.Concat"(%2, %0, %0, %0, %0) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<5xi64>
+  %4 = "onnx.Reshape"(%arg0, %3) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<5xi64>) -> tensor<?x2x2x2x2xf32>
+  %5 = "onnx.Reshape"(%4, %1) {allowzero = 0 : si64} : (tensor<?x2x2x2x2xf32>, tensor<3xi64>) -> tensor<?x2x?xf32>
+  onnx.Return %5 : tensor<?x2x?xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_fusion3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x4x2x2xf32>) -> tensor<?x2x?xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<-1> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2> : tensor<1xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x4x2x2xf32>) -> tensor<1xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<3xi64>) -> tensor<?x2x?xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<?x2x?xf32>
+// CHECK:         }
 }
 
 // -----

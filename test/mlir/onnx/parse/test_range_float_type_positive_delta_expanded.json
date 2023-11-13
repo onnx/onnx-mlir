@@ -258,7 +258,7 @@
   ]
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<f32>, [[PARAM_1_:%.+]]: tensor<f32>, [[PARAM_2_:%.+]]: tensor<f32>) -> tensor<2xf32> {{.*}} {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<f32> {onnx.name = "start"}, [[PARAM_1_:%.+]]: tensor<f32> {onnx.name = "limit"}, [[PARAM_2_:%.+]]: tensor<f32> {onnx.name = "delta"}) -> (tensor<2xf32> {onnx.name = "output"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sub"([[PARAM_1_]], [[PARAM_0_]]) : (tensor<f32>, tensor<f32>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Cast"([[VAR_0_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Cast"([[PARAM_2_]]) {saturate = 1 : si64, to = f32} : (tensor<f32>) -> tensor<f32>

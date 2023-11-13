@@ -62,6 +62,12 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value constant(mlir::Attribute denseAttr) const;
   mlir::Value constantInt64(const mlir::ArrayRef<int64_t> intVals) const;
 
+  // ONNXConvOp
+  mlir::Value conv(mlir::Type Y, mlir::Value X, mlir::Value W, mlir::Value B,
+      llvm::StringRef autoPad, mlir::ArrayRef<int64_t> dilations, int64_t group,
+      mlir::ArrayRef<int64_t> kernelShape, mlir::ArrayRef<int64_t> pads,
+      mlir::ArrayRef<int64_t> strides) const;
+
   // ONNXDivOp
   mlir::Value div(mlir::Value A, mlir::Value B) const;
 
@@ -74,6 +80,11 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXExpandOp
   mlir::Value expand(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+
+  // ONNXLayerNormalizationOp, version with one output only (Y).
+  mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
+      mlir::Value scale, mlir::Value bias, int64_t axis,
+      mlir::FloatAttr epsilon) const;
 
   // ONNXMatMulOp or ONNXGemmOp
   mlir::Value matmul(
@@ -121,6 +132,8 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXReshapeOp
   mlir::Value reshape(
       mlir::Type outputType, mlir::Value input, mlir::Value shape) const;
+  mlir::Value reshape(mlir::Type outputType, mlir::Value input,
+      mlir::Value shape, mlir::IntegerAttr allowZero) const;
   // Reshape input val to a N-dimensional shape; when collapseMostSignificant is
   // true, we collapse the most significant dimensions (and preserve the N-1
   // least significant dims); otherwise we collapse the least significant
@@ -138,8 +151,13 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXRoundOp
   mlir::Value round(mlir::Value input, bool scalarType = false) const;
 
-  // ONNXShapeOp
+  // ONNXShapeOp (start is inclusive, default 0; end is exclusive, default
+  // nullptr means all)
   mlir::Value shape(mlir::Type outputType, mlir::Value input) const;
+  mlir::Value shape(
+      mlir::Type outputType, mlir::Value input, int64_t start) const;
+  mlir::Value shape(mlir::Type outputType, mlir::Value input, int64_t start,
+      int64_t end) const;
 
   // ONNXSliceOp
   mlir::Value slice(mlir::Type outputType, mlir::Value input,
@@ -161,6 +179,9 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXSubOp
   mlir::Value sub(mlir::Value A, mlir::Value B) const;
+
+  // ONNXSumOp
+  mlir::Value sum(mlir::Type outputType, mlir::ValueRange inputs) const;
 
   // UnrealizedConversionCastOp
   // Convert a Value to TensorType if it is of MemRefType.
@@ -185,6 +206,9 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXWhereOp
   mlir::Value where(mlir::Type outputType, mlir::Value condition, mlir::Value X,
       mlir::Value Y) const;
+
+private:
+  mlir::IntegerAttr getSignedInt64Attr(int64_t n) const;
 };
 
 // Recursive class specialized for OnnxBuilder refereed to as onnx.
