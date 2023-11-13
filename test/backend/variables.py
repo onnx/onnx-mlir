@@ -44,7 +44,6 @@ def get_args_from_env():
     TEST_VERBOSE = os.getenv("TEST_VERBOSE")
     TEST_CASE_CHECK = os.getenv("TEST_CASE_CHECK")
     TEST_INVOKECONVERTER = os.getenv("TEST_INVOKECONVERTER")
-    TEST_IMPORTER_FORCE_DYNAMIC = os.getenv("TEST_IMPORTER_FORCE_DYNAMIC")
     # Force input tensors to constants. Set this to a list of input indices.
     # E.g.
     #   - "0, 2" for the first and third input tensors.

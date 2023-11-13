@@ -194,23 +194,37 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     funcOp = f;
     numOfFuncOp++;
   });
-  if ((numOfFuncOp == 1) && (!shapeInformation.empty())) {
+  if ((numOfFuncOp == 1) &&
+      ((!shapeInformation.empty()) || std::getenv("IMPORTER_FORCE_DYNAMIC"))) {
     ModelInputShaper modelInputShaper_;
     modelInputShaper_.setShapeInformation(shapeInformation);
     auto funcType = dyn_cast<FunctionType>(funcOp.getFunctionType());
+    // Calculate new argument types
     ArrayRef<Type> argTypes = funcType.getInputs();
     SmallVector<Type, 4> newArgTypes;
     for (uint64_t i = 0; i < argTypes.size(); ++i) {
       Type argTy = argTypes[i];
       // Get user's shape information.
-      argTy = modelInputShaper_.reshape(i, argTy);
+      argTy = modelInputShaper_.reshapeInput(i, argTy);
       // Update the arguments.
       funcOp.getBody().back().getArgument(i).setType(argTy);
       newArgTypes.emplace_back(argTy);
     }
+    // Calculate new result types
+    ArrayRef<Type> resultTypes = funcType.getResults();
+    SmallVector<Type, 4> newResultTypes;
+    Operation *returnOp = funcOp.getBody().back().getTerminator();
+    for (uint64_t i = 0; i < returnOp->getOperands().size(); ++i) {
+      Type resultTy = resultTypes[i];
+      // Get user's shape information.
+      resultTy = modelInputShaper_.reshapeResult(i, resultTy);
+      // Update the results.
+      returnOp->getOperands()[i].setType(resultTy);
+      newResultTypes.emplace_back(resultTy);
+    }
     // Update the function type.
     FunctionType newType =
-        FunctionType::get(&context, newArgTypes, funcType.getResults());
+        FunctionType::get(&context, newArgTypes, newResultTypes);
     ConversionPatternRewriter rewriter(&context);
     rewriter.updateRootInPlace(funcOp, [&] { funcOp.setType(newType); });
   }

@@ -25,11 +25,15 @@ namespace onnx_mlir {
 // Temporarily added to use the test cases with static shape to test.
 // The Backus–Naur Form (BNF) for IMPORTER_FORCE_DYNAMIC is as follows.
 //
-// <ImportForceDymanicExpr> :== `'` <expr> `'`
-//                   <expr> ::= <inputString> | <inputString> `|` <expr>
-//             <inputString ::= <inputIndex> `:` <dimString>
+// <ImportForceDymanicExpr> ::= `'` <inputExpr> `'` |
+//                              `'` <inputExpr> `%` <outputExpr> `'`
+//              <inputExpr> ::= <ioExpr>
+//             <outputExpr> ::= <ioExpr>
+//                 <ioExpr> ::= <ioString> | <ioString> `|` <ioExpr>
+//                <ioString ::= <ioIndex> `:` <dimString>
+//                <ioString ::= <ioIndex> `:` <dimString>
 //              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
-//             <inputIndex> ::= <index>
+//                <ioIndex> ::= <index>
 //               <dimIndex> ::= <index>
 //                  <index> ::= -1 | <number>
 //                 <number> ::= <digit> | <digit><number>
@@ -54,6 +58,14 @@ namespace onnx_mlir {
 //    and
 //    - change the first and second dimensions in the second input to unknown
 //    dimensions
+// 6. IMPORTER_FORCE_DYNAMIC='0:1|1:0,1%0:1|1:0'
+//    - change the second dimension in the first input to unknown dimensions,
+//    - change the first and second dimensions in the second input to unknown
+//    dimensions
+//    - change the second dimension in the first output to unknown dimensions,
+//    and
+//    - change the first and second dimensions in the second output to unknown
+//    dimensions
 class ModelInputShaper {
 public:
   // For users of onnx-mlir.
@@ -74,8 +86,15 @@ public:
   // the environment variable IMPORTER_FORCE_DYNAMIC
   // or any shapeInformation set in setShapeInformation.
   mlir::Type reshape(int inputIndex, mlir::Type inputType) const;
+  mlir::Type reshapeInput(int inputIndex, mlir::Type inputType) const;
+  mlir::Type reshapeResult(int inputIndex, mlir::Type inputType) const;
 
 private:
+  void setForcedDims(
+      char *envString, std::map<int, std::vector<int>> *forced_dims);
+  mlir::Type reshape(int inputIndex, mlir::Type inputType,
+      std::map<int, std::vector<int>> forced_dims,
+      std::map<int64_t, std::vector<int64_t>> shape_information) const;
   // Whether environment variable IMPORTER_FORCE_DYNAMIC is set.
   bool force_dim_dynamic_enabled_;
 
@@ -83,8 +102,15 @@ private:
   // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'.
   std::map<int, std::vector<int>> forced_inputs_dims_;
 
+  // A map from an result index to a list of dim indices those are changed to
+  // dynamic. Default value corresponds to IMPORTER_FORCE_DYNAMIC='-1:-1'.
+  std::map<int, std::vector<int>> forced_results_dims_;
+
   // Custom shape information for the graph inputs.
   std::map<int64_t, std::vector<int64_t>> inputs_shape_information_;
+
+  // Custom shape information for the graph results.
+  std::map<int64_t, std::vector<int64_t>> results_shape_information_;
 };
 
 } // namespace onnx_mlir

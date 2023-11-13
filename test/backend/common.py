@@ -47,23 +47,27 @@ def execute_commands(cmds, dynamic_inputs_dims):
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims, file=sys.stderr)
 
     my_env = os.environ.copy()
-    env_string = ""
+    env_string_for_inputs = ""
+    env_string_for_results = ""
     if dynamic_inputs_dims is not None:
         first_input = True
         for input_index, dim_indices in dynamic_inputs_dims.items():
             if first_input:
-                env_string += str(input_index)
+                env_string_for_inputs += str(input_index)
                 first_input = False
             else:
-                env_string += "|" + str(input_index)
+                env_string_for_inputs += "|" + str(input_index)
             first_dim = True
             for dim_index in dim_indices:
                 if first_dim:
-                    env_string += ":" + str(dim_index)
+                    env_string_for_inputs += ":" + str(dim_index)
                     first_dim = False
                 else:
-                    env_string += "," + str(dim_index)
-        my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
+                    env_string_for_inputs += "," + str(dim_index)
+            if str(input_index) == "-1":  # copy the inputs string
+                env_string_for_results = env_string_for_inputs
+        env_string = env_string_for_inputs + "%" + env_string_for_results
+        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
 
 
