@@ -130,3 +130,19 @@ func.func @test_onnx_conv2d_group_higher_4(%arg0: tensor<5x128x256x256xf32>, %ar
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {auto_pad = "NOTSET", group = 8 : si64, pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<5x128x256x256xf32>, tensor<16x16x45x45xf32>, tensor<16xf32>) -> tensor<5x16x17x17xf32>
 // CHECK:           return [[VAR_0_]] : tensor<5x16x17x17xf32>
 }
+
+// -----
+func.func @test_onnx_conv2d_group_to_depthwise(%arg0: tensor<32x48x112x112xf32>, %arg1 : tensor<48x1x3x3xf32>, %arg2: tensor<48xf32>) ->  tensor<32x48x112x112xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {auto_pad = "NOTSET", dilations = [1, 1], group = 48 : si64, kernel_shape = [3, 3], onnx_node_name = "Conv_1395", pads = [1, 1, 1, 1], strides = [1, 1]} : (tensor<32x48x112x112xf32>, tensor<48x1x3x3xf32>, tensor<48xf32>) -> tensor<32x48x112x112xf32>
+  return %0 : tensor<32x48x112x112xf32>
+// CHECK-LABEL:  func.func @test_onnx_conv2d_group_to_depthwise
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<32x48x112x112xf32>, [[PARAM_1_:%.+]]: tensor<48x1x3x3xf32>, [[PARAM_2_:%.+]]: tensor<48xf32>) -> tensor<32x48x112x112xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_1_:%.+]] = "tosa.transpose"([[PARAM_0_]], [[VAR_0_]]) : (tensor<32x48x112x112xf32>, tensor<4xi32>) -> tensor<32x112x112x48xf32>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<[2, 3, 0, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_3_:%.+]] = "tosa.transpose"([[PARAM_1_]], [[VAR_2_]]) : (tensor<48x1x3x3xf32>, tensor<4xi32>) -> tensor<3x3x48x1xf32>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.depthwise_conv2d"([[VAR_1_]], [[VAR_3_]], [[PARAM_2_]]) <{dilation = array<i64: 1, 1>, pad = array<i64: 1, 1, 1, 1>, stride = array<i64: 1, 1>}> : (tensor<32x112x112x48xf32>, tensor<3x3x48x1xf32>, tensor<48xf32>) -> tensor<32x112x112x48xf32>
+// CHECK:           [[VAR_5_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_6_:%.+]] = "tosa.transpose"([[VAR_4_]], [[VAR_5_]]) : (tensor<32x112x112x48xf32>, tensor<4xi32>) -> tensor<32x48x112x112xf32>
+// CHECK:           return [[VAR_6_]] : tensor<32x48x112x112xf32>
+}
