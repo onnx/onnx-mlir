@@ -32,7 +32,7 @@ square (x) => (y) {
   y = Mul (x, x)
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x128xf32> {onnx.dim_params = "0:N", onnx.names = "X"}, [[PARAM_1_:%.+]]: tensor<128x10xf32> {onnx.names = "W"}, [[PARAM_2_:%.+]]: tensor<10xf32> {onnx.names = "B"}) -> (tensor<?x10xf32> {onnx.dim_params = "0:N", onnx.names = "C"}) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x128xf32> {onnx.dim_params = "0:N", onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<128x10xf32> {onnx.name = "W"}, [[PARAM_2_:%.+]]: tensor<10xf32> {onnx.name = "B"}) -> (tensor<?x10xf32> {onnx.dim_params = "0:N", onnx.name = "C"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x128xf32>, tensor<128x10xf32>) -> tensor<?x10xf32>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_2_]]) : (tensor<?x10xf32>, tensor<10xf32>) -> tensor<?x10xf32>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.SoftmaxV11"([[VAR_1_]]) {axis = 1 : si64} : (tensor<?x10xf32>) -> tensor<?x10xf32>

@@ -30,7 +30,7 @@ preprocess (input_batch) => (output_tensor)
    output_tensor = ConcatFromSequence <axis = 0, new_axis = 1> (tmp_seq)
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<?x?x3xui8>> {onnx.names = "images"}) -> (tensor<?x3x224x224xf32> {onnx.dim_params = "0:B", onnx.names = "preproc_data"}) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<?x?x3xui8>> {onnx.name = "images"}) -> (tensor<?x3x224x224xf32> {onnx.dim_params = "0:B", onnx.name = "preproc_data"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceMap"([[PARAM_0_]]) ({
 // CHECK:           ^bb0([[PARAM_1_:%.+]]: tensor<?x?x3xui8>):
 // CHECK-DAG:         [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<2xi64>

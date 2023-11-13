@@ -9,7 +9,7 @@ agraph (float[12,3,5] X, float[5] S) => (float[12,3,5] LN) {
    LN = LayerNormalization (X, S)
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x3x5xf32> {onnx.names = "X"}, [[PARAM_1_:%.+]]: tensor<5xf32> {onnx.names = "S"}) -> (tensor<12x3x5xf32> {onnx.names = "LN"}) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x3x5xf32> {onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<5xf32> {onnx.name = "S"}) -> (tensor<12x3x5xf32> {onnx.name = "LN"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<9.99999974E-6> : tensor<f32>
 // CHECK-NOT: separator of consecutive DAGs

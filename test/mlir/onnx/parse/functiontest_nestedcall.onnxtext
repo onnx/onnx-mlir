@@ -29,7 +29,7 @@ twice (lx) => (ly) {
     ly = Mul (lx, two)
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xf32> {onnx.dim_params = "0:N", onnx.names = "x"}) -> (tensor<?xf32> {onnx.dim_params = "0:N", onnx.names = "y"}) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "x"}) -> (tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "y"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<1xf32>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>

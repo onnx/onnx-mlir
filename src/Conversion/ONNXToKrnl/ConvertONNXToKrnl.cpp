@@ -131,8 +131,8 @@ private:
       StringAttr inputName = b.getStringAttr({"input_" + std::to_string(i)});
       if (argAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(argAttrs[i]);
-        if (dictAttrs && dictAttrs.contains("onnx.names"))
-          inputName = dictAttrs.getNamed("onnx.names")
+        if (dictAttrs && dictAttrs.contains("onnx.name"))
+          inputName = dictAttrs.getNamed("onnx.name")
                           .value()
                           .getValue()
                           .cast<StringAttr>();
@@ -150,8 +150,8 @@ private:
       StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
       if (argAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
-        if (dictAttrs && dictAttrs.contains("onnx.names"))
-          outputName = dictAttrs.getNamed("onnx.names")
+        if (dictAttrs && dictAttrs.contains("onnx.name"))
+          outputName = dictAttrs.getNamed("onnx.name")
                            .value()
                            .getValue()
                            .cast<StringAttr>();

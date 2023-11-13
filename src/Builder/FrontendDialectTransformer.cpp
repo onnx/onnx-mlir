@@ -1455,9 +1455,9 @@ private:
     // Move function attributes for argument/result names and dim_params into
     // argument/result attributes.
     moveFuncAttrsToArgAttrs(mainFunc, {"input_names", "input_dim_params"},
-        {"onnx.names", "onnx.dim_params"}, /*isArg=*/true);
+        {"onnx.name", "onnx.dim_params"}, /*isArg=*/true);
     moveFuncAttrsToArgAttrs(mainFunc, {"output_names", "output_dim_params"},
-        {"onnx.names", "onnx.dim_params"}, /*isArg=*/false);
+        {"onnx.name", "onnx.dim_params"}, /*isArg=*/false);
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);

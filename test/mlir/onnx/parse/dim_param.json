@@ -6,7 +6,7 @@
 // this json input is generated with utils/testing/dim_param.py
 
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32> {onnx.dim_params = "0:batch_size,1:sequence_len", onnx.names = "X"}, [[PARAM_1_:%.+]]: tensor<1x?xf32> {onnx.dim_params = "1:sequence_len", onnx.names = "Y"}) -> (tensor<?x?xf32> {onnx.dim_params = "0:batch_size,1:sequence_len", onnx.names = "Z"}) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32> {onnx.dim_params = "0:batch_size,1:sequence_len", onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<1x?xf32> {onnx.dim_params = "1:sequence_len", onnx.name = "Y"}) -> (tensor<?x?xf32> {onnx.dim_params = "0:batch_size,1:sequence_len", onnx.name = "Z"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?xf32>, tensor<1x?xf32>) -> tensor<?x?xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?xf32>
 // CHECK:         }
