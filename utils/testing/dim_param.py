@@ -26,7 +26,7 @@ X = helper.make_tensor_value_info(
 )
 
 # Create second input (ValueInfoProto)
-Y = helper.make_tensor_value_info("Y", TensorProto.INT64, [1, "sequence_len"])
+Y = helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1, "sequence_len"])
 
 # Create one output (ValueInfoProto)
 Z = helper.make_tensor_value_info(
