@@ -4,7 +4,7 @@
 
 // Test unit strides. Only convert weight tensor
 
-  func.func @test_convtrans_unitstrides(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x5x5xf32> attributes {input_names = ["X", "W"], output_names = ["Y"]} {
+  func.func @test_convtrans_unitstrides(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x5x5xf32> {
 // CHECK-LABEL:  func.func @test_convtrans_unitstrides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>)
 
@@ -39,7 +39,7 @@
 
 // Test 1d input
 
-  func.func @test_convtrans1d_unitstrides(%arg0: tensor<1x1x3xf32>, %arg1: tensor<1x2x3xf32>) -> tensor<1x2x5xf32> attributes {input_names = ["X", "W"], output_names = ["Y"]} {
+  func.func @test_convtrans1d_unitstrides(%arg0: tensor<1x1x3xf32>, %arg1: tensor<1x2x3xf32>) -> tensor<1x2x5xf32> {
 // CHECK-LABEL:  func.func @test_convtrans1d_unitstrides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3xf32>)
 
@@ -65,7 +65,7 @@
 
 // Test 3d input
 
-  func.func @test_convtrans3d_unitstrides(%arg0: tensor<1x1x3x4x5xf32>, %arg1: tensor<1x2x3x3x3xf32>) -> tensor<1x2x5x6x7xf32> attributes {input_names = ["X", "W"], output_names = ["Y"]} {
+  func.func @test_convtrans3d_unitstrides(%arg0: tensor<1x1x3x4x5xf32>, %arg1: tensor<1x2x3x3x3xf32>) -> tensor<1x2x5x6x7xf32> {
 // CHECK-LABEL:  func.func @test_convtrans3d_unitstrides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x4x5xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3x3xf32>)
 
@@ -107,7 +107,7 @@
 
 // Test non unit strides. Added pads between elements  in input data.
 
-  func.func @test_convtrans_strides(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x7x3xf32> attributes {input_names = ["X", "W"], output_names = ["Y"]} {
+  func.func @test_convtrans_strides(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x7x3xf32> {
 // CHECK-LABEL:  func.func @test_convtrans_strides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>)
 
@@ -167,7 +167,7 @@
 
 // Test output_padding. Additional pads are inserted after Conv op
 
-  func.func @test_convtrans_outputpadding(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x10x8xf32> attributes {input_names = ["X", "W"], output_names = ["Y"]} {
+  func.func @test_convtrans_outputpadding(%arg0: tensor<1x1x3x3xf32>, %arg1: tensor<1x2x3x3xf32>) -> tensor<1x2x10x8xf32> {
 // CHECK-LABEL:  func.func @test_convtrans_outputpadding
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>)
 
@@ -227,7 +227,7 @@
 
 // Test for unknown dimension in spatial dimensions
 
-  func.func @test_convtranspose_unknown_spatial_dim(%arg0: tensor<?x?x3x3xf32>, %arg1: tensor<?x?x3x3xf32>) -> tensor<?x?x10x8xf32> attributes {input_names = ["X", "W"], output_names = ["Y"]} {
+  func.func @test_convtranspose_unknown_spatial_dim(%arg0: tensor<?x?x3x3xf32>, %arg1: tensor<?x?x3x3xf32>) -> tensor<?x?x10x8xf32> {
 // CHECK-LABEL:  func.func @test_convtranspose_unknown_spatial_dim
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x3x3xf32>, [[PARAM_1_:%.+]]: tensor<?x?x3x3xf32>)
     %0 = "onnx.NoValue"() {value} : () -> none
