@@ -287,9 +287,10 @@ private:
   /*!
    * Import an onnx tensor type by determining and returning its type
    * @param type_proto onnx tensor TypeProto.
+   * @param dim_params a comma-separated string of dimIndex:dimParam.
    */
   Type ImportTensorType(
-      const onnx::TypeProto &type_proto, std::string &dimParam) {
+      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
     assert(type_proto.value_case() == onnx::TypeProto::kTensorType &&
            "expect tensor type");
     std::vector<int64_t> dims;
@@ -312,12 +313,13 @@ private:
           // If dim_value < 0, then dim is parametric.
           dims.push_back(ShapedType::kDynamic);
         }
-      } else if (shape_proto.dim()[i].has_dim_param()) {
+      } else if (dim_params && shape_proto.dim()[i].has_dim_param()) {
         // Dim is unknown but assigned a string ID that can be used to check
         // equality between unknown dimensions.
-        if (!dimParam.empty())
-          dimParam += ",";
-        dimParam += std::to_string(i) + ":" + shape_proto.dim()[i].dim_param();
+        if (!dim_params->empty())
+          *dim_params += ",";
+        *dim_params +=
+            std::to_string(i) + ":" + shape_proto.dim()[i].dim_param();
         dims.push_back(ShapedType::kDynamic);
       } else {
         dims.push_back(ShapedType::kDynamic);
@@ -334,8 +336,7 @@ private:
       onnx::TypeProto elem_type = input_seq_type.elem_type();
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
-      std::string s;
-      Type mlir_elem_type = ImportTensorType(elem_type, s);
+      Type mlir_elem_type = ImportTensorType(elem_type);
       if (!mlir_elem_type.isa<ShapedType>())
         llvm_unreachable("Seq type is incorrect");
       Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
@@ -348,17 +349,17 @@ private:
     auto input_opt_type = type_proto.optional_type();
     if (input_opt_type.has_elem_type()) {
       onnx::TypeProto elem_type = input_opt_type.elem_type();
-      std::string s;
-      Type mlir_elem_type = ImportType(elem_type, s);
+      Type mlir_elem_type = ImportType(elem_type);
       return mlir::OptType::get(mlir_elem_type);
     }
     llvm_unreachable("unexpected type");
   }
 
-  Type ImportType(const onnx::TypeProto &type_proto, std::string &dimParams) {
+  Type ImportType(
+      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
     switch (type_proto.value_case()) {
     case onnx::TypeProto::kTensorType:
-      return ImportTensorType(type_proto, dimParams);
+      return ImportTensorType(type_proto, dim_params);
       break;
     case onnx::TypeProto::kSequenceType:
       return ImportSequenceType(type_proto);
@@ -376,8 +377,7 @@ private:
     if (options_.useOnnxModelTypes) {
       if (const onnx::TypeProto *onnxTypePtr =
               onnx_type_map.GetByOnnxName(onnx_name)) {
-        std::string s;
-        return std::optional<Type>(ImportType(*onnxTypePtr, s));
+        return std::optional<Type>(ImportType(*onnxTypePtr));
       }
     }
     return std::optional<Type>();
@@ -417,10 +417,9 @@ private:
       }
       mlirAttr = builder_.getStrArrayAttr(llvm::ArrayRef(vectorStringRef));
     } break;
-    case onnx::AttributeProto::TYPE_PROTO: {
-      std::string s;
-      mlirAttr = TypeAttr::get(ImportType(attr.tp(), s));
-    } break;
+    case onnx::AttributeProto::TYPE_PROTO:
+      mlirAttr = TypeAttr::get(ImportType(attr.tp()));
+      break;
     case onnx::AttributeProto::GRAPH:
       llvm_unreachable("Subgraph attribute is imported as regions.");
       break;
@@ -497,10 +496,11 @@ private:
       AddValueInfo(input);
       if (initializerNames.count(input.name()) == 0) {
         inputNames.push_back(input.name());
-        std::string dimParam = "";
-        Type argTy = ImportType(input.type(), dimParam);
+        std::string dimParams = "";
+        Type argTy = ImportType(input.type(), &dimParams);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
-        inputDimParams.emplace_back(dimParam);
+        if (!dimParams.empty())
+          inputDimParams.emplace_back(dimParams);
 
         argTypes.emplace_back(argTy);
 
@@ -546,9 +546,9 @@ private:
     llvm::SmallVector<Value, 4> retVals;
     // Import the output tensors
     for (const auto &output : graph.output()) {
-      std::string dimParam = "";
-      ImportOutputTensor(output, retTys, retVals, dimParam);
-      outputDimParams.emplace_back(dimParam);
+      std::string dimParams = "";
+      ImportOutputTensor(output, retTys, retVals, &dimParams);
+      outputDimParams.emplace_back(dimParams);
     }
 
     if (useReturn)
@@ -1361,19 +1361,21 @@ private:
    * @param output onnx output ValueInfoProto.
    * @param ret_types a vector of types representing graph's output types.
    * @param ret_vals a vector of mlir Value representing graph's output.
+   * @param dim_params a comma-separated string of dimIndex:dimParam.
    */
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
-      llvm::SmallVectorImpl<Value> &ret_vals, std::string &dimParam) {
+      llvm::SmallVectorImpl<Value> &ret_vals,
+      std::string *dim_params = nullptr) {
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        val.setType(ImportType(output.type(), dimParam));
+        val.setType(ImportType(output.type(), dim_params));
       }
       ret_types.emplace_back(val.getType());
     } else {
-      ret_types.emplace_back(ImportType(output.type(), dimParam));
+      ret_types.emplace_back(ImportType(output.type(), dim_params));
     }
     ret_vals.push_back(val);
   }
