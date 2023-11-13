@@ -134,6 +134,23 @@ parser.add_argument(
     help="seed to initialize the random num generator for inputs.",
 )
 
+parser.add_argument(
+    "--lower-bound",
+    type=str,
+    help="Lower bound values for each data type. Used inputs."
+    " E.g. --lower-bound=int64:-10,float32:-0.2,uint8:1."
+    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+    " uint64, int64,float16, float32, float64",
+)
+parser.add_argument(
+    "--upper-bound",
+    type=str,
+    help="Upper bound values for each data type. Used to generate random inputs."
+    " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
+    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+    " uint64, int64, float16, float32, float64",
+)
+
 args = parser.parse_args()
 
 VERBOSE = os.environ.get("VERBOSE", False)
@@ -222,6 +239,11 @@ def main():
     if args.shape_info:
         ref_cmd += ["--shape-info=" + args.shape_info]
     ref_cmd += ["--seed=" + args.seed]
+    # Handle lb/ub
+    if args.lower_bound:
+        ref_cmd += ["--lower-bound=" + args.lower_bound]
+    if args.upper_bound:
+        ref_cmd += ["--upper-bound=" + args.upper_bound]
     # Model name.
     ref_cmd += [model_str]
 
