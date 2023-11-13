@@ -1899,7 +1899,7 @@ void OpFusionHelper::decideCollapsibleLoops() {
   Type outputType = rootOp->getResultTypes()[0];
   int rank = (int)getRank(outputType);
 
-  llvm::dbgs() << "broadcast bits " << broadcastBits << "\n";
+  LLVM_DEBUG(llvm::dbgs() << "broadcast bits " << broadcastBits << "\n";);
 
   for (int i = 0; i < rank; i++) {
     if ((broadcastBits & (0x01 << i)) != 0) {
@@ -2113,8 +2113,8 @@ struct ONNXElementwiseUnaryOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    llvm::dbgs() << "loop collaping: " << opFusionHelper.collapsibleLoops
-                 << "\n";
+    LLVM_DEBUG(llvm::dbgs() << "loop collaping: " << opFusionHelper.collapsibleLoops
+                 << "\n");
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
@@ -2284,8 +2284,8 @@ struct ONNXElementwiseBinaryOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    llvm::dbgs() << "loop collaping: " << opFusionHelper.collapsibleLoops
-                 << "\n";
+    LLVM_DEBUG(llvm::dbgs() << "loop collaping: "
+                            << opFusionHelper.collapsibleLoops << "\n";);
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -2450,8 +2450,8 @@ struct ONNXElementwiseVariadicOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    llvm::dbgs() << "loop collaping: " << opFusionHelper.collapsibleLoops
-                 << "\n";
+    LLVM_DEBUG(llvm::dbgs() << "loop collaping: "
+                            << opFusionHelper.collapsibleLoops << "\n");
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
