@@ -1867,6 +1867,9 @@ uint64_t OpFusionHelper::broadcastDimsForAll() {
   do {
     // check the operands of this op.
     for (Value operand : op->getOperands()) {
+      if (isa<ONNXClipOp>(op))
+        continue;
+      // ToFix: check the op is a broadcast op.
       result |= broadcastDimsForOneOperand(operand, output);
     }
   } while ((fusibleOpIndex < fusibleOps.size()) &&
@@ -2113,8 +2116,8 @@ struct ONNXElementwiseUnaryOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    LLVM_DEBUG(llvm::dbgs() << "loop collaping: " << opFusionHelper.collapsibleLoops
-                 << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "loop collaping: "
+                            << opFusionHelper.collapsibleLoops << "\n");
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
