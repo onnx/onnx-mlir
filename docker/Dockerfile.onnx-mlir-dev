@@ -29,8 +29,9 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
     && rm -rf build && mkdir -p build && cd build \
 # NNPA acclerator is built on all archs to enable lit tests
 # (dependent libzdnn is built on s390x only)
-    && CC=clang CXX=clang++ \
-       cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
+    # && CC=clang CXX=clang++ \
+    #    cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
+    && cmake -DMLIR_DIR=${LLVM_PROJECT_ROOT}/build/lib/cmake/mlir \
              -DCMAKE_BUILD_TYPE=Debug \
              -DONNX_MLIR_TEST_OPTLEVEL=0 \
              -DONNX_MLIR_ACCELERATORS=${ACCEL} .. \
