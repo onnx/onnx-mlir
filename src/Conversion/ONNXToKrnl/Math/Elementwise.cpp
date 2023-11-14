@@ -1867,9 +1867,14 @@ uint64_t OpFusionHelper::broadcastDimsForAll() {
   do {
     // check the operands of this op.
     for (Value operand : op->getOperands()) {
-      if (isa<ONNXClipOp>(op))
+      // Check the MDBroadcast op
+      if (!isa<ONNXAddOp, ONNXAndOp, ONNXBitwiseAndOp, ONNXBitwiseXorOp,
+          ONNXBitShiftOp, ONNXDivOp, ONNXEqualOp, ONNXGreaterOp, ONNXLessOp,
+          ONNXMaxOp, ONNXMeanOp, ONNXMinOp, ONNXModOp, ONNXMulOp,
+          ONNXOrOp, ONNXPowOp, ONNXSubOp, ONNXSumOp, ONNXXorOp>(op))
         continue;
-      // ToFix: check the op is a broadcast op.
+      // ToFix: some our elementwise op may have issue for collapsing.
+      // For example, the other operands of ONNXClipOp
       result |= broadcastDimsForOneOperand(operand, output);
     }
   } while ((fusibleOpIndex < fusibleOps.size()) &&
@@ -1882,6 +1887,13 @@ uint64_t OpFusionHelper::broadcastDimsForOneOperand(
   uint64_t result = 0;
   uint64_t outputRank = getRank(output.getType());
   uint64_t operandRank = getRank(operand.getType());
+  if (operandRank == 1) {
+    ArrayRef<int64_t> operandShape = getShape(operand.getType());
+    if (operandShape[0] == 1)
+      // Special case for one element: the index will always be [0]
+      return result;
+  }
+    
   int64_t diff = outputRank - operandRank;
   for (int64_t i = 0; i < (int64_t)outputRank; i++) {
     if (i < diff) {
@@ -1902,16 +1914,23 @@ void OpFusionHelper::decideCollapsibleLoops() {
   Type outputType = rootOp->getResultTypes()[0];
   int rank = (int)getRank(outputType);
 
-  LLVM_DEBUG(llvm::dbgs() << "broadcast bits " << broadcastBits << "\n";);
+  //LLVM_DEBUG(llvm::dbgs() << "broadcast bits " << broadcastBits << "\n";);
+  llvm::dbgs() << "\nFusion "<<fusibleOps.size()<<"\n";
+  (llvm::dbgs() << "broadcast bits " << broadcastBits << "\n");
+  llvm::dbgs() << "number of loops " << rank << "\n";
 
   for (int i = 0; i < rank; i++) {
     if ((broadcastBits & (0x01 << i)) != 0) {
       collapsibleLoops = i - 1;
+  /*LLVM_DEBUG*/(llvm::dbgs() << "loop collaping: "
+                            <<collapsibleLoops << "\n");
       return;
     }
   }
 
   collapsibleLoops = rank - 1;
+  /*LLVM_DEBUG*/(llvm::dbgs() << "loop collaping: "
+                            <<collapsibleLoops << "\n");
 }
 
 // After fusion, the only store is for the last Op.
@@ -2116,8 +2135,6 @@ struct ONNXElementwiseUnaryOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    LLVM_DEBUG(llvm::dbgs() << "loop collaping: "
-                            << opFusionHelper.collapsibleLoops << "\n");
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation for the result of this operation.
@@ -2287,8 +2304,6 @@ struct ONNXElementwiseBinaryOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    LLVM_DEBUG(llvm::dbgs() << "loop collaping: "
-                            << opFusionHelper.collapsibleLoops << "\n";);
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
@@ -2453,8 +2468,6 @@ struct ONNXElementwiseVariadicOpLowering
     OpFusionHelper opFusionHelper(rewriter, op, dimAnalysis);
     opFusionHelper.findFusibleOps();
     opFusionHelper.decideCollapsibleLoops();
-    LLVM_DEBUG(llvm::dbgs() << "loop collaping: "
-                            << opFusionHelper.collapsibleLoops << "\n");
     outputMemRefType = opFusionHelper.getOutputType(outputMemRefType);
 
     // Insert an allocation and deallocation for the result of this operation.
