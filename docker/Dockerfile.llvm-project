@@ -81,7 +81,8 @@ RUN git clone https://github.com/protocolbuffers/protobuf.git \
     && make -j${NPROC} install && ldconfig \
     && cd python && python3 setup.py install --cpp_implementation \
     && cd ../.. && rm -rf protobuf \
-    && ls /usr/local/lib/libproto* -l
+    && ls /usr/local/lib/libproto* -l \
+    && find / -name "libproto*.*" -print 2> /dev/null
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
