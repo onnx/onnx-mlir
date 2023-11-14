@@ -519,7 +519,7 @@ void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, dimAnalysis,
-      enableTiling, enableSIMD, enableParallel);
+      enableTiling, enableSIMD, false && enableParallel);
 }
 
 } // namespace onnx_mlir

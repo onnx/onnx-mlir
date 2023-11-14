@@ -1080,10 +1080,10 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, enableParallel);
+      typeConverter, ctx, enableSIMD, false && enableParallel);
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, /*computeMean=*/true, enableParallel);
+      typeConverter, ctx, enableSIMD, /*computeMean=*/true, false && enableParallel);
 }
 } // namespace onnx_mlir

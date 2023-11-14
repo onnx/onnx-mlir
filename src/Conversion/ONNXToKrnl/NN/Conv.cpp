@@ -255,7 +255,7 @@ void populateLoweringONNXConvOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel,
     std::string opsForCall) {
   patterns.insert<ONNXConvOpToCall>(typeConverter, ctx, opsForCall);
-  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, enableParallel);
+  patterns.insert<ONNXConvOpLowering>(typeConverter, ctx, false && enableParallel);
 }
 
 } // namespace onnx_mlir

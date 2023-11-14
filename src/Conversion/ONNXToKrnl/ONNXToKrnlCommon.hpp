@@ -582,6 +582,17 @@ bool hasNonIdentityLayout(mlir::Value val);
 bool hasNonIdentityLayout(mlir::ValueRange operands);
 
 //===----------------------------------------------------------------------===//
+// Support functions for parallel region.
+//===----------------------------------------------------------------------===//
+
+// Return the outermost loop within (firstDim, lastDim] for which (lb-Ub) >
+// minSize. Runtime dimensions are assumed to satisfy the size requirement by
+// definition. If found one, it is parDim and the function returns true.
+bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim, int64_t lastDim,
+    int64_t &parDim, int64_t minSize = 1);
+
+//===----------------------------------------------------------------------===//
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
@@ -617,6 +628,19 @@ inline void onnxToKrnlParallelReport(mlir::Operation *op,
   if (OnnxToKrnlLoweringConfiguration::reportOnParallel)
     impl::onnxToKrnlParallelReport(
         op, successful, loopLevel, parallelLoopTripCount, comment);
+}
+
+inline void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
+    int64_t loopLevel, IndexExpr lb, IndexExpr ub,
+    const std::string &comment = "") {
+  if (OnnxToKrnlLoweringConfiguration::reportOnParallel) {
+    IndexExpr tripCount = ub - lb;
+    if (tripCount.isLiteral())
+      impl::onnxToKrnlParallelReport(
+          op, successful, loopLevel, tripCount.getLiteral(), comment);
+    else
+      impl::onnxToKrnlParallelReport(op, successful, loopLevel, -1, comment);
+  }
 }
 
 // When reporting is enabled (--opt-report=Simd), report on if/how are

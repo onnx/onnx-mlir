@@ -1026,7 +1026,7 @@ void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
   patterns.insert<ONNXLayerNormalizationOpLowering>(
-      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+      typeConverter, ctx, dimAnalysis, enableSIMD, false && enableParallel);
 }
 
 } // namespace onnx_mlir

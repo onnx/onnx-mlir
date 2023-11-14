@@ -426,7 +426,7 @@ void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
     bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
-      typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
+      typeConverter, ctx, enableTiling, enableSIMD, false && enableParallel);
 }
 
 } // namespace onnx_mlir

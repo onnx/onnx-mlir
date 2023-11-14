@@ -241,7 +241,7 @@ private:
 
 void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx, enableParallel);
+  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx, false && enableParallel);
 }
 
 } // namespace onnx_mlir

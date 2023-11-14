@@ -303,7 +303,7 @@ void populateLoweringONNXSoftmaxOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
   patterns.insert<ONNXSoftmaxLowering<ONNXSoftmaxOp>,
       ONNXSoftmaxLowering<ONNXSoftmaxV11Op>>(
-      typeConverter, ctx, enableParallel);
+      typeConverter, ctx, false && enableParallel);
 }
 
 } // namespace onnx_mlir

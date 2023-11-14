@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
 
