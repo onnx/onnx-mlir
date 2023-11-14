@@ -598,15 +598,6 @@ public:
         Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
         waitOps.emplace_back(asyncAwaitOutTensor);
       }
-      for (Value b : subBs) {
-        // Call dummy function to prevent deallocation of input(a and b).
-        // TODO: Insert deallocate op in zlow-rewrite pass instead of using
-        // this.
-        SmallVector<Value, 2> parameters = {
-            create.onnx.toMemref(a), create.onnx.toMemref(b)};
-        rewriter.create<KrnlCallOp>(
-            loc, "dummyFuncForKeepParam", 2, parameters);
-      }
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
         // Concat sub results along dimension M of B.

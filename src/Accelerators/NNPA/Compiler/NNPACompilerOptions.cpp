@@ -71,7 +71,7 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
 llvm::cl::opt<std::string> nnpaParallelOpt{"nnpa-parallel",
     llvm::cl::desc(
         "Enable parallelization with the number of devices and "
-        "the threshold of dimension size. \"value\" is in the format of "
+        "the threshold of dimension size. \"string\" is in the format of "
         "\"#DEVICES\":\"THRESHOLD\".\n"
         "Currently MatMul ops are supported. Given A(N x K) * B(K x M), M is "
         "split for the parallelization. The MatMul ops whose M is greater than "

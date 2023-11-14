@@ -28,6 +28,9 @@
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
+#include <llvm/Support/Debug.h>
+#define DEBUG_TYPE "zlow-rewrite"
+
 #include <map>
 
 using namespace mlir;
@@ -633,18 +636,20 @@ private:
 };
 
 /// This pattern rewrites alloc and dealloc ops used in the region of async
-/// execute op. The inputs for the async execute op need to be deallocated after
-/// completing the threads. The results need to be allocated outside of the
-/// region (in main thread) and deallocated after used.
+/// execute op. The input values for the async execute op need to be deallocated
+/// after completing the threads. The result value need to be allocated outside
+/// of the region (in main thread) and deallocated after used.
 ///
 /// Example (ZLowIR):
-/// - Inputs(%arg0, %alloc) are allocated before async.execute. They need to be
-/// deallocated after async.await.
-/// - Result(%alloc_8) is allocated in async.execute. It is used in krnl.iterate
-/// for Concat. It needs to be deallocated after the krnl.iterate.
+/// - Input values (%arg0, %alloc) are allocated before async.execute. They need
+/// to be deallocated after async.await.
+/// - Result value (%alloc_8) is allocated in async.execute. It is used in
+/// krnl.iterate for Concat. It needs to be deallocated after the krnl.iterate.
 ///
-/// This pattern moves %alloc_8 before async.execute and inserts dealloc op to
-/// deallocate inputs and results.
+/// This pattern inserts dealloc op for %alloc after krnl.iterate. The %alloc
+/// can be deallocated by other threads. So the dealloc op is inserted only when
+/// it is not deallocated yet. This pattern moves %alloc_8 before async.execute
+/// and inserts dealloc op to deallocate it.
 // clang-format off
 /// ```mlir
 ///    %alloc = memref.alloc() {alignment = 16 : i64} : memref<512x512xf32>
@@ -680,14 +685,25 @@ public:
 
   LogicalResult matchAndRewrite(
       async::ExecuteOp executeOp, PatternRewriter &rewriter) const override {
-    // Get allocOps from body of async.execute
+
     SmallVector<memref::AllocOp, 4> regionAllocOps;
+    SmallVector<Value, 4> inputValues;
     for (Operation &op : executeOp.getBodyRegion().getOps()) {
+      // Get allocOps in body of async.execute
       if (auto allocOp = dyn_cast<memref::AllocOp>(op))
         regionAllocOps.push_back(allocOp);
+      // Get input values used in async.execute.
+      for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+        Operation *defOp = op.getOperand(i).getDefiningOp();
+        auto allocOp = dyn_cast_or_null<memref::AllocOp>(defOp);
+        if (allocOp) {
+          if (allocOp->getBlock() != executeOp.getBody())
+            inputValues.push_back(allocOp.getResult());
+        }
+      }
     }
-    // Move the allocOp before async.execute when it is an operand of
-    // async.yeild.
+    // Get the allocOp for the result value of async.execute and move it before
+    // async.execute. The allocOp is an operand of async.yeild.
     async::YieldOp yieldOp =
         cast<async::YieldOp>(executeOp.getBody()->getTerminator());
     // Currently support single operand.
@@ -720,7 +736,9 @@ public:
       }
     }
 
-    // Insert deallocOp after the result is used.
+    // Insert deallocOp for the result value after it is used. When it is used
+    // in different block from allocation (This happens when it is used in the
+    // loop), deallocOp is inserted in parent block.
     Operation *insertionPointOp;
     if (yAllocOp->getBlock() != awaitOutUsers[0]->getBlock())
       insertionPointOp = awaitOutUsers[0]->getParentOp();
@@ -731,6 +749,13 @@ public:
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointAfter(insertionPointOp);
     create.mem.dealloc(yAllocOp.getResult());
+
+    // Insert deallocOp for the input values if it is not deallocated yet.
+    for (Value inVal : inputValues) {
+      if (llvm::none_of(inVal.getUsers(),
+              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+        create.mem.dealloc(inVal);
+    }
 
     return success();
   }
