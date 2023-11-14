@@ -62,6 +62,23 @@ void scanAndSetOptLevel(int argc, char **argv) {
   }
 }
 
+void scanAndSetMCPU(int argc, char **argv) {
+  // Scan --mcpu and add them to the mcpu option.
+  for (int i = argc - 1; i > 0; --i) {
+    std::string currStr(argv[i]);
+    if (currStr.find("--mcpu=") == 0) {
+      std::string cpuKind(&argv[i][7]); // Get the string starting 7 chars down.
+      setTargetCPU(cpuKind);
+      break;
+    }
+    if (currStr.find("-mcpu=") == 0) {
+      std::string cpuKind(&argv[i][6]); // Get the string starting 6 chars down.
+      setTargetCPU(cpuKind);
+      break;
+    }
+  }
+}
+
 void scanAndSetMAccel(int argc, char **argv) {
   // Scan accelerators and add them to the maccel option.
   for (int i = argc - 1; i > 0; --i) {
@@ -87,6 +104,10 @@ int main(int argc, char **argv) {
   // Scan Opt Level manually now as it is needed to register passes
   // before command line options are parsed.
   scanAndSetOptLevel(argc, argv);
+
+  // Scan CPU manually now as it is needed to register passes
+  // before command line options are parsed.
+  scanAndSetMCPU(argc, argv);
 
   // Scan maccel manually now as it is needed to initialize accelerators
   // before ParseCommandLineOptions() is called.

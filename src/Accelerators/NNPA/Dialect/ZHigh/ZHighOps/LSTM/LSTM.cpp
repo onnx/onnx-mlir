@@ -153,8 +153,10 @@ LogicalResult ZHighLSTMOp::inferShapes(
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ZTensorEncodingAttr encoding = ZTensorEncodingAttr::get(
       this->getContext(), ZTensorEncodingAttr::DataLayout::_4DS);
-  updateType(getResults()[0], hnOutputDims, elementType, encoding);
-  updateType(getResults()[1], cfOutputDims, elementType, encoding);
+  updateType(
+      getOperation(), getResults()[0], hnOutputDims, elementType, encoding);
+  updateType(
+      getOperation(), getResults()[1], cfOutputDims, elementType, encoding);
   return success();
 }
 
