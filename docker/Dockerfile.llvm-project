@@ -79,7 +79,8 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuf
     && cd python && python3 setup.py install --cpp_implementation \
     && cd ../.. && rm -rf protobuf \
     && ls /usr/local/lib/libproto* -l \
-    && ls /usr/local/lib64/libproto* -l
+    && if [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
+       ls /usr/local/lib64/libproto* -l
 
 # Install jsoniter
 ARG JSONITER_VERSION=0.9.23
