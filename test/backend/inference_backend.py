@@ -1158,7 +1158,6 @@ def get_test_models():
         # ==MIN== 18
         "test_group_normalization_epsilon_cpu": {
             STATIC_SHAPE: {},
-            # XXX TEMPORAL DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_group_normalization_epsilon_expanded_cpu": {
@@ -1282,7 +1281,6 @@ def get_test_models():
         },
         "test_instancenorm_epsilon_cpu": {
             STATIC_SHAPE: {},
-            # XXX TEMPORAL DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== IsInf
