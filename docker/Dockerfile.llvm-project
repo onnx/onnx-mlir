@@ -74,7 +74,7 @@ ARG PROTOBUF_VERSION=3.20.3
 RUN git clone https://github.com/protocolbuffers/protobuf.git \
     # && git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git \
     && cd protobuf \
-    && git checkout v{PROTOBUF_VERSION} \
+    && git checkout v${PROTOBUF_VERSION} \
     && git submodule update --init --recursive \
     && ./autogen.sh \
     && ./configure --enable-static=no \
