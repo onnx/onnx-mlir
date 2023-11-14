@@ -1154,6 +1154,28 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== GroupNormalization
+        # ==MIN== 18
+        "test_group_normalization_epsilon_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_group_normalization_epsilon_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_group_normalization_example_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_group_normalization_example_expanded_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         # ==OP== GRU
         # ==MIN== 7
         # CONSTANT_INPUT for W and R.

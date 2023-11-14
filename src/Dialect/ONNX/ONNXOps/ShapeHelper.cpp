@@ -70,7 +70,7 @@ int64_t getAxisInRange(int64_t axis, Value val, bool includeRank) {
 /// Refine `inferredDims` using the output's shape if possible. For example,
 /// replacing a dynamic dim in `inferredDims` by a static dim in the output's
 /// shape.
-static void refineDims(DimsExpr &inferredDims, Value output) {
+static void refineDims(Operation *op, DimsExpr &inferredDims, Value output) {
   // Nothing to do if the output is unranked.
   if (!isRankedShapedType(output.getType()))
     return;
@@ -113,11 +113,17 @@ static void refineDims(DimsExpr &inferredDims, Value output) {
     // inferredDim is different from existingDim. Believe in existingDim.
     assert(inferredDims[i].isLiteral() && "isLiteral failed");
     if (existingDims[i] != inferredDims[i].getLiteral()) {
-      // Warning for users.
-      llvm::outs() << "Warning: [Shape inference, dim " << i
-                   << "] the inferred dim (" << inferredDims[i].getLiteral()
-                   << ") is different from the existing dim ("
-                   << existingDims[i] << "). Use the existing dim instead.\n";
+      if (op)
+        llvm::outs() << "Warning for operation " << op->getName()
+                     << ": [Shape inference, dim " << i
+                     << "] the inferred dim (" << inferredDims[i].getLiteral()
+                     << ") is different from the existing dim ("
+                     << existingDims[i] << "). Use the existing dim instead.\n";
+      else
+        llvm::outs() << "Warning: [Shape inference, dim " << i
+                     << "] the inferred dim (" << inferredDims[i].getLiteral()
+                     << ") is different from the existing dim ("
+                     << existingDims[i] << "). Use the existing dim instead.\n";
       inferredDims[i] = LiteralIndexExpr(existingDims[i]);
     }
   }
@@ -172,7 +178,7 @@ void ONNXOpShapeHelper::setOutputDims(
   privateOutputsDims[n] = inferredDims;
   if (refineShape) {
     Value output = getOutput(n);
-    refineDims(privateOutputsDims[n], output);
+    refineDims(op, privateOutputsDims[n], output);
   }
 }
 
@@ -226,7 +232,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
     IndexExpr::getShape(getOutputDims(i), shapeVect);
     // Set refineShape to false here because we refine it (or not) when setting
     // the output shape. So there is no need to perform this again here.
-    updateType(op->getResults()[i], shapeVect, elementType, encoding,
+    updateType(op, op->getResults()[i], shapeVect, elementType, encoding,
         /*refineShape*/ false);
   }
   return success();
@@ -254,7 +260,7 @@ LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateTypes(
     Type currElementType = elementTypeRange[i];
     // Set refineShape to false here because we refine it (or not) when setting
     // the output shape. So there is no need to perform this again here.
-    updateType(op->getResults()[i], shapeVect, currElementType,
+    updateType(op, op->getResults()[i], shapeVect, currElementType,
         hasEncoding ? encodingList[i] : nullptr, /*refineShape*/ false);
   }
   return success();
@@ -790,8 +796,8 @@ void SaveOnnxConstInOp(Operation *op, MutableOperandRange operand,
 //===----------------------------------------------------------------------===//
 
 /// Update a tensor type by using the given shape, elementType and encoding.
-void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
-    Attribute encoding, bool refineShape) {
+void updateType(Operation *op, Value val, ArrayRef<int64_t> shape,
+    Type elementType, Attribute encoding, bool refineShape) {
   // Try to combine the given shape and the output's shape if possible.
   SmallVector<int64_t, 4> inferredShape;
   if (refineShape) {
@@ -805,7 +811,7 @@ void updateType(Value val, ArrayRef<int64_t> shape, Type elementType,
       else
         inferredDims.emplace_back(LiteralIndexExpr(d));
     }
-    refineDims(inferredDims, val);
+    refineDims(op, inferredDims, val);
     IndexExpr::getShape(inferredDims, inferredShape);
   } else {
     // TODO: "-1" may be used if "shape" is coming from e.g. the parameters of

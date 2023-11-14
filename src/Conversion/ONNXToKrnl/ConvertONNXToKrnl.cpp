@@ -118,33 +118,9 @@ private:
     parsingFailure = false;
     auto inputs = funcType.getInputs();
     auto outputs = funcType.getResults();
-
-    ArrayAttr inputNames = op->getAttrOfType<ArrayAttr>("input_names");
-    if (!inputNames) {
-      SmallVector<StringRef, 4> names;
-      for (uint64_t i = 0; i < inputs.size(); ++i)
-        names.emplace_back(StringRef("input_" + std::to_string(i)));
-      inputNames = b.getStrArrayAttr(names);
-    } else if (inputNames.size() != inputs.size()) {
-      llvm::errs()
-          << "Please ensure that the 'input_name' function attribute has "
-             "the same number of names as function parameters.";
-      parsingFailure = true;
-      return "";
-    }
-    ArrayAttr outputNames = op->getAttrOfType<ArrayAttr>("output_names");
-    if (!outputNames) {
-      SmallVector<StringRef, 4> names;
-      for (uint64_t i = 0; i < outputs.size(); ++i)
-        names.emplace_back(StringRef("output_" + std::to_string(i)));
-      outputNames = b.getStrArrayAttr(names);
-    } else if (outputNames.size() != outputs.size()) {
-      llvm::errs()
-          << "Please ensure that the 'output_name' function attribute has "
-             "the same number of names as function results.";
-      parsingFailure = true;
-      return "";
-    }
+    auto funcOp = dyn_cast_or_null<func::FuncOp>(op);
+    ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
+    ArrayAttr resAttrs = funcOp.getResAttrsAttr();
 
     std::string dString;
     llvm::raw_string_ostream dstream(dString);
@@ -152,7 +128,16 @@ private:
     std::string comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
       dstream << comma;
-      concatTypeString(inputs[i], inputNames[i], dstream);
+      StringAttr inputName = b.getStringAttr({"input_" + std::to_string(i)});
+      if (argAttrs) {
+        DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(argAttrs[i]);
+        if (dictAttrs && dictAttrs.contains("onnx.name"))
+          inputName = dictAttrs.getNamed("onnx.name")
+                          .value()
+                          .getValue()
+                          .cast<StringAttr>();
+      }
+      concatTypeString(inputs[i], inputName, dstream);
       comma = std::string(" , ");
     }
     dstream << "\n]";
@@ -162,7 +147,16 @@ private:
     comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
-      concatTypeString(outputs[i], outputNames[i], dstream);
+      StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
+      if (argAttrs) {
+        DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
+        if (dictAttrs && dictAttrs.contains("onnx.name"))
+          outputName = dictAttrs.getNamed("onnx.name")
+                           .value()
+                           .getValue()
+                           .cast<StringAttr>();
+      }
+      concatTypeString(outputs[i], outputName, dstream);
       comma = std::string(" , ");
     }
     dstream << "\n]";
@@ -273,7 +267,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel, opsForCall);
-  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, enableSIMD);
+  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
   populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
