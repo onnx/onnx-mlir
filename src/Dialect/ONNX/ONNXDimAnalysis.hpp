@@ -97,8 +97,8 @@ private:
   /// This method returns the set ID that contains the dimension.
   int64_t build(DimT d, int64_t setID = -1);
 
-  /// Initializes the internal mappings for function arguments.
-  void buildFuncArguments(mlir::func::FuncOp funcOp);
+  /// Initializes the internal mappings for function arguments and resutls.
+  void buildFunctionArgsRes(mlir::func::FuncOp funcOp);
 
   // Create dims for function arguments.
   /// Update each set of dynamic dimensions to include the same dynamic
