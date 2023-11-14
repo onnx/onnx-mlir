@@ -28,7 +28,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime && \
           dpkg-reconfigure -f noninteractive tzdata && \
           apt-get install -qq -y --no-install-recommends \
-                  autoconf automake ca-certificates cmake cppcheck \
+                  autoconf automake ca-certificates clang cmake cppcheck \
                   curl default-jdk-headless gcc g++ git libncurses-dev \
                   libtool make maven ninja-build openjdk-11-jdk-headless \
                   python3 python3-dev python3-distutils python3-numpy \
@@ -47,7 +47,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               https://dl.fedoraproject.org/pub/epel/epel-release-latest-${RHEL_VERSION}.noarch.rpm && \
           yum update -q -y && \
           yum install -q -y \
-              autoconf automake ca-certificates cmake diffutils \
+              autoconf automake ca-certificates clang cmake diffutils \
               file java-11-openjdk-devel java-11-openjdk-headless \
               gcc gcc-c++ git libtool make ncurses-devel \
               python39 python39-devel python39-numpy python39-pip \
@@ -74,7 +74,11 @@ ARG PROTOBUF_VERSION=3.20.3
 RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git \
     && cd protobuf && ./autogen.sh \
     && ./configure --enable-static=no \
-    && make -j${NPROC} install && ldconfig \
+    && make -j${NPROC} install \
+    && ls /usr/local/lib/libproto* -l \
+    && ln -s /usr/local/lib/libprotoc.so.31.0.3 libprotoc.so.31 \
+    && ln -s /usr/local/lib/libprotobuf-lite.so.31 libprotobuf-lite.so.31.0.3 \
+    && ldconfig \
     && cd python && python3 setup.py install --cpp_implementation \
     && cd ../.. && rm -rf protobuf \
     && ls /usr/local/lib/libproto* -l
@@ -92,9 +96,8 @@ RUN git clone -n https://github.com/llvm/llvm-project.git \
     && git checkout ${LLVM_PROJECT_SHA1} \
     && mkdir -p build && cd build \
 # Build with clang since gcc on ppc64le doesn't support __builtin_thread_pointer
-    # && CC=clang CXX=clang++ \
-    #    cmake -G Ninja ../llvm \
-    && cmake -G Ninja ../llvm \
+    && CC=clang CXX=clang++ \
+       cmake -G Ninja ../llvm \
              -DLLVM_ENABLE_PROJECTS=mlir \
              -DLLVM_TARGETS_TO_BUILD="host" \
              -DCMAKE_BUILD_TYPE=Release \
