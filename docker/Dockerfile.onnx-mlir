@@ -19,23 +19,11 @@ COPY . onnx-mlir
 # it fails to find protobuf because CMAKE_INSTALL_LIBDIR resolves to
 # lib64 but protobuf is installed under /usr/local/lib. So we force
 # CMAKE_INSTALL_LIBDIR to be lib.
-RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]') \
-    && TZ="America/New_York" \
-    && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
-        ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-        && cd ${ONNX_ROOT} \
-        && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . \
-        && pip3 show protobuf \
-        && protoc --version \
-        && ls /usr/local/lib64/libproto* -l; \
-    elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-        ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
-        && cd ${ONNX_ROOT} \
-        && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib64" python3 -m pip install . \
-        && pip3 show protobuf \
-        && protoc --version \
-        && ls /usr/local/lib64/libproto* -l; \
-    fi
+RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
+    && cd ${ONNX_ROOT} \
+    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . \
+    && pip3 show protobuf \
+    && protoc --version
 
 ARG NPROC=4
 ARG ACCEL=NNPA
