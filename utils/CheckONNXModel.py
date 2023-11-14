@@ -94,14 +94,26 @@ parser.add_argument(
     help="Reference arguments passed directly to onnx-mlir command."
     " See bin/onnx-mlir --help.",
 )
-parser.add_argument(
+test_group = parser.add_mutually_exclusive_group()
+test_group.add_argument(
     "-t",
     "--test-compile-args",
     type=str,
     default="-O3",
     help="Reference arguments passed directly to onnx-mlir command."
+    " Use either the -t or -a argument but not both."
     " See bin/onnx-mlir --help.",
 )
+test_group.add_argument(
+    "-a",
+    "--additional-test-compile-args",
+    type=str,
+    default="",
+    help="Additional reference arguments passed directly to onnx-mlir command."
+    " Use either the -t or -a argument but not both."
+    " See bin/onnx-mlir --help.",
+)
+
 parser.add_argument(
     "-s",
     "--save-ref",
@@ -142,6 +154,7 @@ parser.add_argument(
     " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
     " uint64, int64,float16, float32, float64",
 )
+
 parser.add_argument(
     "--upper-bound",
     type=str,
@@ -250,7 +263,12 @@ def main():
     # Test command
     test_cmd = [cmd]
     # Compile options for test
-    test_cmd += ["--compile-args=" + args.test_compile_args]
+    if args.additional_test_compile_args:
+        compile_args = args.ref_compile_args + " " + args.additional_test_compile_args
+    else:
+        compile_args = args.test_compile_args
+    test_cmd = [cmd]
+    test_cmd += ["--compile-args=" + compile_args]
     # Where to load the ref from
     test_cmd += ["--load-ref=" + test_dir]
     # How to verify

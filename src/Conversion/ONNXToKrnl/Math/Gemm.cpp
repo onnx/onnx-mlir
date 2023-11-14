@@ -66,9 +66,11 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     IndexExpr innerUb = shapeHelper.aDims[1];
     SmallVector<IndexExpr, 3> loopUbs{outerUb0, outerUb1, innerUb};
     // Outer loops.
-    // FIXME refactor
     if (enableParallel) {
+      int64_t parId = 0;
       create.krnl.parallel(outerLoopDef[0]);
+      onnxToKrnlParallelReport(op, true, parId, loopLbs[parId], loopUbs[parId],
+          "generic GEMM on outer loop");
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM\n");
     }
     create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
@@ -223,7 +225,9 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           {/*i*/ 0, 4, 5, /*j*/ 1, 3, 6, /*k*/ 2, 7});
       if (enableParallel) {
         create.krnl.parallel(ii1);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM \n");
+        onnxToKrnlParallelReport(
+            op, true, 0, zeroIE, I, "GEMM tiled copy I parallel");
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM I\n");
       }
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
@@ -270,7 +274,9 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
           {/*j*/ 0, 3, 5, /*k*/ 1, 6, /*i*/ 2, 4, 7});
       if (enableParallel) {
         create.krnl.parallel(jj1);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM\n");
+        onnxToKrnlParallelReport(
+            op, true, 1, zeroIE, J, "GEMM tiled no copy J parallel");
+        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM J\n");
       }
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       // Krnl Rule: must put all the iter bounds at once, but can only put the
