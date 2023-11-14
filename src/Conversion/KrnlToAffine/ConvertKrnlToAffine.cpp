@@ -646,7 +646,7 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     AffineParallelOp parallelLoop = opBuilder.create<AffineParallelOp>(loc,
         ValueRange(reducedValues).getTypes(), reductionKinds, ArrayRef(lbsMap),
         lbsOperands, ArrayRef(ubsMap), ubsOperands,
-        ArrayRef(loopToParallel.getStep()));
+        ArrayRef(loopToParallel.getStepAsInt()));
     parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
     Operation *yieldOp = &parallelLoop.getBody()->back();
 
