@@ -504,10 +504,13 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
     if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
+      // Build dimensions for function arguments and results.
       buildFunctionArgsRes(funcOp);
     } else {
+      // Build dimensions for normal operation results.
       for (Value output : op->getResults())
-        build(output);
+        if (!isNoneValue(output))
+          build(output);
     }
   });
   LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
