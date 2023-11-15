@@ -39,14 +39,14 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK-DAG:       [[VAR_4_2_:%.+]] = llvm.mlir.addressof @_entry_point_1_tag_symbols : !llvm.ptr<array<27 x i8>>
 // CHECK:           [[VAR_5_3_:%.+]] = llvm.bitcast [[VAR_4_2_]] : !llvm.ptr<array<27 x i8>> to !llvm.ptr
 // CHECK-DAG:       [[VAR_6_2_:%.+]] = llvm.insertvalue [[VAR_5_3_]], [[VAR_3_3_]][1] : !llvm.array<3 x ptr>
-// CHECK-DAG:       [[VAR_7_1_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK-DAG:       [[VAR_7_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.insertvalue [[VAR_7_1_]], [[VAR_6_2_]][2] : !llvm.array<3 x ptr>
 // CHECK:           llvm.return [[VAR_8_1_]] : !llvm.array<3 x ptr>
 // CHECK:         }
 
 // CHECK:         llvm.func @omQueryEntryPoints_tag_symbols([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
 // CHECK-DAG:       [[VAR_0_6_:%.+]] = llvm.mlir.constant(2 : i64) : i64
-// CHECK-DAG:       [[VAR_1_4_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK-DAG:       [[VAR_1_4_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           [[VAR_2_4_:%.+]] = llvm.icmp "ne" [[arg0_]], [[VAR_1_4_]] : !llvm.ptr
 // CHECK:           llvm.cond_br [[VAR_2_4_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
@@ -86,7 +86,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_14_1_:%.+]] = llvm.bitcast [[LOAD_VAR_11_MEM_1_]] : !llvm.ptr<array<9 x i8>> to !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_1_]] : !llvm.ptr
 // CHECK:         ^bb4:  // pred: ^bb2
-// CHECK:           [[LOAD_VAR_12_MEM_1_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK:           [[LOAD_VAR_12_MEM_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           llvm.return [[LOAD_VAR_12_MEM_1_]] : !llvm.ptr
 // CHECK:         }
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
@@ -118,7 +118,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_14_2_:%.+]] = llvm.bitcast [[LOAD_VAR_11_MEM_1_]] : !llvm.ptr<array<10 x i8>> to !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
 // CHECK:         ^bb4:  // pred: ^bb2
-// CHECK:           [[LOAD_VAR_12_MEM_1_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK:           [[LOAD_VAR_12_MEM_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           llvm.return [[LOAD_VAR_12_MEM_1_]] : !llvm.ptr
 // CHECK:         }
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
@@ -141,13 +141,13 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @constant_2_tag_constants_to_file(dense<[21, 22, 23, 24, 25, 26, 27, 28, 29, 30]> : tensor<10xi64>) {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.array<10 x i64>
 
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal @om_external_constant_data_constant_1_tag_constants_to_file() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
-// CHECK-CONST-TO-FILE:           [[VAR_0_13_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK-CONST-TO-FILE:           [[VAR_0_13_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_13_]] : !llvm.ptr
 // CHECK-CONST-TO-FILE:         }
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_offset_constant_1_tag_constants_to_file(0 : i64) {addr_space = 0 : i32} : i64
 
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal @om_external_constant_data_constant_0_tag_constants_to_file() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
-// CHECK-CONST-TO-FILE:           [[VAR_0_14_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK-CONST-TO-FILE:           [[VAR_0_14_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_14_]] : !llvm.ptr
 // CHECK-CONST-TO-FILE:         }
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_offset_constant_0_tag_constants_to_file(4096 : i64) {addr_space = 0 : i32} : i64
@@ -156,7 +156,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_filesize_tag_constants_to_file(4176 : i64) {addr_space = 0 : i32} : i64
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_isLE_tag_constants_to_file({{.*}} : i8) {addr_space = 0 : i32} : i8
 // CHECK-CONST-TO-FILE:         llvm.mlir.global internal @om_external_constant_packedConst_tag_constants_to_file() {addr_space = 0 : i32} : !llvm.ptr {
-// CHECK-CONST-TO-FILE:           [[VAR_0_15_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK-CONST-TO-FILE:           [[VAR_0_15_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_15_]] : !llvm.ptr
 // CHECK-CONST-TO-FILE:         }
 
