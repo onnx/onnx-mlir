@@ -17,6 +17,52 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Here we are installing the required dependency named "abseil" 
+# in order to upgrade protobuf version to >= 3.21.0
+if (Protobuf_FOUND)
+  find_package(absl REQUIRED)
+  find_package(utf8_range REQUIRED)
+  message(STATUS "absl_VERSION: ${absl_VERSION}")
+  set(protobuf_ABSL_USED_TARGETS
+    absl::absl_check
+    absl::absl_log
+    absl::algorithm
+    absl::base
+    absl::bind_front
+    absl::bits
+    absl::btree
+    absl::cleanup
+    absl::cord
+    absl::core_headers
+    absl::debugging
+    absl::die_if_null
+    absl::dynamic_annotations
+    absl::flags
+    absl::flat_hash_map
+    absl::flat_hash_set
+    absl::function_ref
+    absl::hash
+    absl::layout
+    absl::log_initialize
+    absl::log_severity
+    absl::memory
+    absl::node_hash_map
+    absl::node_hash_set
+    absl::optional
+    absl::span
+    absl::status
+    absl::statusor
+    absl::strings
+    absl::synchronization
+    absl::time
+    absl::type_traits
+    absl::utility
+    absl::variant
+    utf8_range::utf8_range
+    utf8_range::utf8_validity
+  )
+endif()
+
 # On systems that still have legacy lib64 directories (e.g., rhel/fedora,
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
