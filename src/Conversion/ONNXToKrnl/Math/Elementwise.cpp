@@ -1869,9 +1869,9 @@ uint64_t OpFusionHelper::broadcastDimsForAll() {
     for (Value operand : op->getOperands()) {
       // Check the MDBroadcast op
       if (!isa<ONNXAddOp, ONNXAndOp, ONNXBitwiseAndOp, ONNXBitwiseXorOp,
-          ONNXBitShiftOp, ONNXDivOp, ONNXEqualOp, ONNXGreaterOp, ONNXLessOp,
-          ONNXMaxOp, ONNXMeanOp, ONNXMinOp, ONNXModOp, ONNXMulOp,
-          ONNXOrOp, ONNXPowOp, ONNXSubOp, ONNXSumOp, ONNXXorOp>(op))
+              ONNXBitShiftOp, ONNXDivOp, ONNXEqualOp, ONNXGreaterOp, ONNXLessOp,
+              ONNXMaxOp, ONNXMeanOp, ONNXMinOp, ONNXModOp, ONNXMulOp, ONNXOrOp,
+              ONNXPowOp, ONNXSubOp, ONNXSumOp, ONNXXorOp>(op))
         continue;
       // ToFix: some our elementwise op may have issue for collapsing.
       // For example, the other operands of ONNXClipOp
@@ -1893,7 +1893,7 @@ uint64_t OpFusionHelper::broadcastDimsForOneOperand(
       // Special case for one element: the index will always be [0]
       return result;
   }
-    
+
   int64_t diff = outputRank - operandRank;
   for (int64_t i = 0; i < (int64_t)outputRank; i++) {
     if (i < diff) {
@@ -1914,23 +1914,23 @@ void OpFusionHelper::decideCollapsibleLoops() {
   Type outputType = rootOp->getResultTypes()[0];
   int rank = (int)getRank(outputType);
 
-  //LLVM_DEBUG(llvm::dbgs() << "broadcast bits " << broadcastBits << "\n";);
-  llvm::dbgs() << "\nFusion "<<fusibleOps.size()<<"\n";
-  (llvm::dbgs() << "broadcast bits " << broadcastBits << "\n");
-  llvm::dbgs() << "number of loops " << rank << "\n";
+  // LLVM_DEBUG(llvm::dbgs() << "broadcast bits " << broadcastBits << "\n";);
+  // llvm::dbgs() << "\nFusion " << fusibleOps.size() << "\n";
+  //(llvm::dbgs() << "broadcast bits " << broadcastBits << "\n");
+  // llvm::dbgs() << "number of loops " << rank << "\n";
 
   for (int i = 0; i < rank; i++) {
     if ((broadcastBits & (0x01 << i)) != 0) {
       collapsibleLoops = i - 1;
-  /*LLVM_DEBUG*/(llvm::dbgs() << "loop collaping: "
-                            <<collapsibleLoops << "\n");
+      ///*LLVM_DEBUG*/ (
+      //    llvm::dbgs() << "loop collaping: " << collapsibleLoops << "\n");
       return;
     }
   }
 
   collapsibleLoops = rank - 1;
-  /*LLVM_DEBUG*/(llvm::dbgs() << "loop collaping: "
-                            <<collapsibleLoops << "\n");
+  ///*LLVM_DEBUG*/ (
+  // llvm::dbgs() << "loop collaping: " << collapsibleLoops << "\n");
 }
 
 // After fusion, the only store is for the last Op.
