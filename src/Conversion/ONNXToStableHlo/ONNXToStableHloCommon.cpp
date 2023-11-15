@@ -94,4 +94,17 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
   }
   return broadcastedOperands;
 }
+
+ElementsAttr getElementAttributeFromStablehloValue(Value value) {
+  auto definingOp = value.getDefiningOp();
+  if (auto constantOp = dyn_cast_or_null<stablehlo::ConstantOp>(definingOp))
+    return constantOp.getValue().dyn_cast<ElementsAttr>();
+  else if (auto constantOp =
+               dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
+    if (constantOp.getValue().has_value())
+      return constantOp.getValueAttr().dyn_cast<ElementsAttr>();
+  }
+  return nullptr;
+}
+
 } // namespace onnx_mlir
