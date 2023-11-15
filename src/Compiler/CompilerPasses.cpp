@@ -213,7 +213,7 @@ void addKrnlToLLVMPasses(
   pm.addPass(mlir::createLowerAffinePass());
 
   // Originally: 0 (done after)
-#define PARALLEL_BEFORE_BUFFER 1
+#define PARALLEL_BEFORE_BUFFER 0
 #if PARALLEL_BEFORE_BUFFER != 0
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
