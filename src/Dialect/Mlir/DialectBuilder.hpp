@@ -312,7 +312,8 @@ struct MemRefBuilder final : DialectBuilder {
       int64_t dimsToFlatten) const;
   // Flatten to a 2D MemRef, with outer dim including outermost dim to axis -1,
   // and inner dim including the remaining innermost dims. Values of axis are
-  // in the [1, rank of input) range. Legal only on types with identity layouts.
+  // in the [1, rank of input) range. Negative axis values are taken from the
+  // back. Legal only on types with identity layouts.
   mlir::Value reshapeToFlat2D(mlir::Value valToReshape,
       llvm::SmallVectorImpl<IndexExpr> &dims,
       llvm::SmallVectorImpl<IndexExpr> &flattenDims, int64_t axis) const;

@@ -1203,6 +1203,8 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
   int64_t inputRank = inputType.getRank();
   // Verify dims has the right number of elements.
   assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  if (axis < 0)
+    axis += inputRank;
   assert(axis > 0 && axis < inputRank && "axis is out of range");
   if (inputRank == 2) {
     // Input is already 2D, nothing to do.
@@ -1940,7 +1942,7 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 }
 
 Value LLVMBuilder::null(Type type) const {
-  return b().create<LLVM::NullOp>(loc(), type);
+  return b().create<LLVM::ZeroOp>(loc(), type);
 }
 
 Value LLVMBuilder::ori(Value lhs, Value rhs) const {

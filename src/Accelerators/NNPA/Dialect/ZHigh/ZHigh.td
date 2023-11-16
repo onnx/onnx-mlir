@@ -91,7 +91,7 @@ class DataLayoutOfPred<string layout> : And<[
         " == ZTensorEncodingAttr::DataLayout::" # layout # ")"> 
 ]>;
 
-// So far ZTensor supports only F32 for pre-stickified data.
+// So far ZTensor supports only F16 for stickified data.
 class ZTensorOf<string layout, list<int> ranks> :
     Type<And<[TensorOf<[F16]>.predicate, HasAnyRankOfPred<ranks>,
               DataLayoutOfPred<layout>]>,

@@ -121,8 +121,7 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
 
   // Constant propagation at ZHighIR: constant stickify.
   // Only support BE machines.
-  bool isBE = llvm::support::endian::system_endianness() ==
-              llvm::support::endianness::big;
+  bool isBE = llvm::endianness::native == llvm::support::endianness::big;
   if (isBE)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
