@@ -103,9 +103,7 @@ The suggested workaround until jsoniter is fixed is as follows: install maven (e
 
 On Mac M1, you may have some issues building protobuf. In particular, you may fail to install onnx (via `pip install -e third_party/onnx`) or you may fail to compile `onnx-mlir` (no arm64 symbol for `InternalMetadata::~InternalMetadata`).
 
-The first failure is likely an issue with having multiple versions of protobuf.
-
-Installing a version with `brew` was not helpful (version 4.21.12 because of a known bug that can be corrected with a patch below).
+The first failure is likely an issue with having multiple versions of protobuf. Installing a version with `brew` was not helpful (version 4.21.12 because of a known bug that can be corrected with a patch below).
 Uninstall the brew version, and make sure you install the right one with pip: `pip install protobuf== 4.21.12`.
 
 The second failure can be remediated by downloading protobuf source code, applying a patch, and installing it on the local machine.

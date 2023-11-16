@@ -21,7 +21,7 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib -DONNX_USE_PROTOBUF_SHARED_LIBS=OFF -DProtobuf_USE_STATIC_LIBS=ON" python3 -m pip install .
+    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
