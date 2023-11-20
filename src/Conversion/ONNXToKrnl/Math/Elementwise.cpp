@@ -2210,7 +2210,7 @@ struct ONNXElementwiseBinaryOpLowering
       create.krnlIE.getShapeAsDims(alloc, ubs);
       // TODO adjust in the future
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
+        create.krnl.parallel(loopDef);
         LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -2373,7 +2373,7 @@ struct ONNXElementwiseVariadicOpLowering
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
+        create.krnl.parallel(loopDef);
         LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

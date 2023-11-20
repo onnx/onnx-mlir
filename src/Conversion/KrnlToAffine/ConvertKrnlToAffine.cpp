@@ -620,8 +620,11 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " interpret parallel op "
                             << parallelOp << "\n");
     // ToFix handle multiple parallel loop
+    ValueRange loopRefs = parallelOp.getLoops();
+
     // Obtain the the reference the loop that needs to be parallelized
-    Value loopRef = parallelOp.getLoops()[0];
+    for (Value loopRef : loopRefs) {
+    //Value loopRef = parallelOp.getLoops()[0];
     // Obtain the lowered affine.forOp
     AffineForOp loopToParallel = llvm::cast<AffineForOp>(loopRefToOp[loopRef]);
     OpBuilder opBuilder(loopToParallel);
@@ -654,8 +657,9 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     yieldOp->setOperands(reducedValues);
     // Replace the affine.forOp with affine.parallelOp in loopRefToTop
     loopRefToOp[loopRef] = parallelLoop;
-    opsToErase.insert(parallelOp);
     loopToParallel.erase();
+    }
+    opsToErase.insert(parallelOp);
     return success();
   }
   return success();
