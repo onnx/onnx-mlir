@@ -626,14 +626,14 @@ public:
     Type bType = B.getType();
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
-    ArrayRef<int64_t> aShape = getShape(aType);
+    // ArrayRef<int64_t> aShape = getShape(aType);
     ArrayRef<int64_t> bShape = getShape(bType);
 
     // Expect 2D or 3D input.
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
       return false;
 
-    int64_t N = aShape[aRank - 2];
+    // int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
 
     bool smallDimSize = M < nnpaParallelMinimumDimThreshold;
@@ -864,6 +864,20 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
 
+  Option<std::string> nnpaParallelOpt{*this, "nnpa-parallel",
+      llvm::cl::desc(
+          "Enable parallelization with the number of devices and "
+          "the threshold of dimension size. \"string\" is in the format of "
+          "\"#DEVICES\":\"THRESHOLD\".\n"
+          "Currently MatMul ops are supported. Given A(N x K) * B(K x M), M is "
+          "split for the parallelization. The MatMul ops whose M is greater "
+          "than "
+          "or equal to this threshold are parallelized.\n"
+          "Disable parallelization if this option is not used. If the "
+          "threshold "
+          "is not specified, the default is 32)\n"),
+      llvm::cl::init("")};
+
   StringRef getArgument() const override { return "rewrite-onnx-for-zhigh"; }
 
   StringRef getDescription() const override {
@@ -871,14 +885,14 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
-  RewriteONNXForZHighPass(std::string nnpaParallelOpt) {
+  RewriteONNXForZHighPass(const RewriteONNXForZHighPass &pass)
+      : mlir::PassWrapper<RewriteONNXForZHighPass,
+            OperationPass<mlir::ModuleOp>>() {}
+  RewriteONNXForZHighPass(const std::string nnpaParallelOpt) {
     this->nnpaParallelOpt = nnpaParallelOpt;
   }
 
   void runOnOperation() final;
-
-private:
-  std::string nnpaParallelOpt = "";
 };
 
 void RewriteONNXForZHighPass::runOnOperation() {
