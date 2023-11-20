@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx  --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh=nnpa-parallel=2:256 %s --split-input-file | FileCheck --check-prefix=PARALLEL %s
+
 
 func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
@@ -661,3 +663,56 @@ func.func @test_replace_sub_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?x
 // CHECK:           return [[PARAM_0_]] : tensor<2x4xf32>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Rewrite for parallelization for two devices (--nnpa-parallel=2:256)
+
+func.func @test_matmul_parallel(%arg0: tensor<1x64xf32>, %arg1: tensor<64x512xf32>) -> tensor<1x512xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x64xf32>, tensor<64x512xf32>) -> tensor<1x512xf32>
+  return %0 : tensor<1x512xf32>
+
+// PARALLEL-LABEL:  func.func @test_matmul_parallel
+// PARALLEL-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64xf32>, [[PARAM_1_:%.+]]: tensor<64x512xf32>) -> tensor<1x512xf32> {
+// PARALLEL:           [[VAR_0_:%.+]] = onnx.Constant dense<256> : tensor<2xi64>
+// PARALLEL:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[PARAM_1_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<64x512xf32>, tensor<2xi64>) -> (tensor<64x256xf32>, tensor<64x256xf32>)
+// PARALLEL:           [[token_:%.+]], [[VAR_bodyResults_:%.+]] = async.execute -> !async.value<memref<1x256xf32>> {
+// PARALLEL:             [[CST_0_:%.+]] = arith.constant 0 : i64
+// PARALLEL:             "krnl.call"([[CST_0_]]) {funcName = "threadAffine", numOfOutput = 1 : si64} : (i64) -> ()
+// PARALLEL:             [[VAR_7_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]#0) : (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
+// PARALLEL:             [[VAR_8_:%.+]] = builtin.unrealized_conversion_cast [[VAR_7_]] : tensor<1x256xf32> to memref<1x256xf32>
+// PARALLEL:             async.yield [[VAR_8_]] : memref<1x256xf32>
+// PARALLEL:           }
+// PARALLEL:           [[token_0_:%.+]], [[VAR_bodyResults_1_:%.+]] = async.execute -> !async.value<memref<1x256xf32>> {
+// PARALLEL:             [[CST_1_:%.+]] = arith.constant 1 : i64
+// PARALLEL:             "krnl.call"([[CST_1_]]) {funcName = "threadAffine", numOfOutput = 1 : si64} : (i64) -> ()
+// PARALLEL:             [[VAR_7_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]#1) : (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
+// PARALLEL:             [[VAR_8_1_:%.+]] = builtin.unrealized_conversion_cast [[VAR_7_1_]] : tensor<1x256xf32> to memref<1x256xf32>
+// PARALLEL:             async.yield [[VAR_8_1_]] : memref<1x256xf32>
+// PARALLEL:           }
+// PARALLEL:           [[VAR_2_:%.+]] = async.await [[VAR_bodyResults_]] : !async.value<memref<1x256xf32>>
+// PARALLEL-DAG:       [[VAR_3_:%.+]] = builtin.unrealized_conversion_cast [[VAR_2_]] : memref<1x256xf32> to tensor<1x256xf32>
+// PARALLEL-DAG:       [[VAR_4_:%.+]] = async.await [[VAR_bodyResults_1_]] : !async.value<memref<1x256xf32>>
+// PARALLEL:           [[VAR_5_:%.+]] = builtin.unrealized_conversion_cast [[VAR_4_]] : memref<1x256xf32> to tensor<1x256xf32>
+// PARALLEL:           [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_3_]], [[VAR_5_]]) {axis = 1 : si64} : (tensor<1x256xf32>, tensor<1x256xf32>) -> tensor<1x512xf32>
+// PARALLEL:           return [[VAR_6_]] : tensor<1x512xf32>
+// PARALLEL:         }
+
+}
+
+// -----
+
+// COM: Not parallelized because dimension size is smaller than one specified by the option (< 256)
+
+func.func @test_matmul_not_parallelized(%arg0: tensor<1x64xf32>, %arg1: tensor<64x128xf32>) -> tensor<1x128xf32> {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x64xf32>, tensor<64x128xf32>) -> tensor<1x128xf32>
+  return %0 : tensor<1x128xf32>
+
+// PARALLEL-LABEL:  func.func @test_matmul_not_parallelized
+// PARALLEL-SAME:   ([[PARAM_0_:%.+]]: tensor<1x64xf32>, [[PARAM_1_:%.+]]: tensor<64x128xf32>) -> tensor<1x128xf32> {
+// PARALLEL:           [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<1x64xf32>, tensor<64x128xf32>) -> tensor<1x128xf32>
+// PARALLEL:           return [[VAR_0_]] : tensor<1x128xf32>
+// PARALLEL:         }
+
+}
+
