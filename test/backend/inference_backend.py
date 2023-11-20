@@ -891,7 +891,7 @@ def get_test_models():
         },
         # Issue #2416: We currently do not support input type of string for backend tests
         # "test_equal_string_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        "test_equal_string_broadcast_cpu": {STATIC_SHAPE:{}},
+        "test_equal_string_broadcast_cpu": {STATIC_SHAPE: {}},
         "test_equal_string_cpu": {STATIC_SHAPE: {}},
         # ==OP== Erf
         # ==MIN== 9
