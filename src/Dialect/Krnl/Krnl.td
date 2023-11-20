@@ -513,10 +513,10 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
     ```
   }];
 
-  let arguments = (ins AnyType:$loop);
+  let arguments = (ins Variadic<AnyType>:$loops);
 
   let assemblyFormat = [{
-      $loop attr-dict `:` type($loop)
+      $loops attr-dict `:` type($loops)
   }];
 }
 
