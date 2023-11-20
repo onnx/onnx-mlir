@@ -251,6 +251,9 @@ void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
   if (tensor->_owning) {
+    if (tensor->_dataType == ONNX_TYPE_STRING)
+      for (int64_t i = 0; i < getNumElems(tensor->_shape, tensor->_rank); i++)
+        free(((char **)tensor->_alignedPtr)[i]);
     free(tensor->_allocatedPtr);
   }
   free(tensor->_shape);

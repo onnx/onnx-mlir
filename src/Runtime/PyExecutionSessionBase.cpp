@@ -120,6 +120,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_COMPLEX64;
     else if (py::isinstance<py::array_t<std::complex<double>>>(inputPyArray))
       dtype = ONNX_TYPE_COMPLEX128;
+    else if (inputPyArray.dtype().kind() == 'O') // case of py::object type
+      dtype = ONNX_TYPE_STRING;
     // Missing bfloat16 support
     else {
       std::stringstream errStr;
@@ -130,7 +132,24 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
 
     // Convert Py_ssize_t to int64_t if necessary
     OMTensor *inputOMTensor = nullptr;
-    if (std::is_same<int64_t, pybind11::ssize_t>::value) {
+    if (dtype == ONNX_TYPE_STRING) {
+      auto vec = inputPyArray.cast<std::vector<std::string>>();
+      ownData = 1;
+      // allocate strArray
+      char **strArray = (char **)malloc(sizeof(char *) * inputPyArray.ndim());
+      // "strArray" will be freed by omTensor destroy, since ownData is set.
+      uint64_t numElem = 1;
+      for (size_t i = 0; i < (size_t)inputPyArray.ndim(); ++i)
+        numElem *= inputPyArray.shape(i);
+      for (size_t i = 0; i < numElem; ++i)
+        strArray[i] = strdup(vec[i].data());
+      inputOMTensor = omTensorCreateWithOwnership(strArray,
+          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
+          static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
+          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
+      // omTensorPrint("XXXXX InputOMTensor: %d", inputOMTensor);fflush(stdout);
+    } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
           static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
