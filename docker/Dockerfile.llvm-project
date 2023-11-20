@@ -75,8 +75,10 @@ RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuf
     && cd protobuf && ./autogen.sh \
     && ./configure --enable-static=no \
     && make -j${NPROC} install \
-    && ldconfig \
-    && rm -rf /workdir/protobuf/src/.libs/libprotobuf.so.32 \
+    && ln -sf /usr/local/lib/libprotobuf.so libprotobuf.so.32 \
+    && ln -sf /usr/local/lib/libprotobuf.so.32 libprotobuf.so.32 \
+    && ln -sf /usr/local/lib/libprotobuf-lite.so.32  libprotobuf-lite.so.32 \
+    && ln -sf /usr/local/lib/libprotoc.so.32 libprotoc.so.32 \
     && cd python && python3 setup.py install --cpp_implementation \
     && cd ../.. && rm -rf protobuf
 
