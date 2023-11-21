@@ -67,14 +67,8 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             -j${NPROC} \
             check-onnx-backend-numerical \
     && make -j${NPROC} install \
-    && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]') \
-    && if [ "${distro}" = "debian" ] || [ "${distro}" = "ubuntu" ]; then \
-          echo -e "/usr/local/lib" > \
-            /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig; \
-        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
-            echo -e "/usr/local/lib64" > \
-                /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig && \
-        fi \
+    && echo -e "/usr/local/lib" > \
+       /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig \      
 # Clean up
     && cd ${WORK_DIR} \
     && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
