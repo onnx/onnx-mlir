@@ -115,11 +115,15 @@ OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreate(
  * @param shape list of integers indicating the tensor shape.
  * @param rank tensor rank.
  * @param dtype tensor element data type.
- * @param owning whether OMTensor owns the data, if set to true, OMTensor will
- * release the data_ptr upon destruction.
+ * @param owning whether OMTensor owns the data, if set to
+ * OMTENSOR_OWNING_DATA_PTR, OMTensor will release the data_ptr upon
+ * destruction. If set to OMTENSOR_OWNING_DATA_PTR_AND_STRING, OMTensor will
+ * free both the data_ptr and its corresponding strings upon destruction.
  * @return pointer to OMTensor created, NULL if creation failed.
  *
  */
+#define OMTENSOR_OWNING_DATA_PTR 1
+#define OMTENSOR_OWNING_DATA_PTR_AND_STRING 2
 OM_EXTERNAL_VISIBILITY OMTensor *omTensorCreateWithOwnership(void *data_ptr,
     const int64_t *shape, int64_t rank, OM_DATA_TYPE dtype, int64_t owning);
 

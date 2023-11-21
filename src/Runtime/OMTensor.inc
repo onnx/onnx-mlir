@@ -80,7 +80,7 @@ struct OMTensor {
       _offset = 0;
       _dataType = ONNX_TYPE_UNDEFINED;
       _rank = rank;
-      _owning = false;
+      _owning = 0;
     } else {
       if (_shape)
         free(_shape);
@@ -127,10 +127,12 @@ struct OMTensor {
 
   OM_DATA_TYPE _dataType; // ONNX data type
 
-  int64_t _owning; // indicates whether the Omt owns the memory space
-                   // referenced by _allocatedPtr. Omt struct will release the
-                   // memory space referred to by _allocatedPtr upon destruction
-                   // if and only if it owns it.
+  int64_t _owning; // indicates whether the Omt owns the data if set to
+                   // OMTENSOR_OWNING_DATA_PTR, OMTensor will release
+                   // the data_ptr upon destruction.
+                   // If set to OMTENSOR_OWNING_DATA_PTR_AND_STRING,
+                   // the Omt will free both the data_ptr and its
+                   // corresponding strings upon destruction.
 };
 
 /* Helper function to compute the number of data elements */
@@ -168,7 +170,7 @@ OMTensor *omTensorCreate(
     tensor->_offset = 0;
     tensor->_rank = rank;
     tensor->_dataType = dtype;
-    tensor->_owning = false;
+    tensor->_owning = 0;
   } else {
     free(tensor->_shape);
     free(tensor);
@@ -222,7 +224,7 @@ OMTensor *omTensorCreateUntyped(int64_t rank) {
     omt->_offset = 0;
     omt->_dataType = ONNX_TYPE_UNDEFINED;
     omt->_rank = rank;
-    omt->_owning = false;
+    omt->_owning = 0;
   } else {
     free(omt->_shape);
     free(omt);
@@ -250,10 +252,10 @@ OMTensor *omTensorCreateEmpty(
 void omTensorDestroy(OMTensor *tensor) {
   if (!tensor)
     return;
+  if (tensor->_owning == OMTENSOR_OWNING_DATA_PTR_AND_STRING)
+    for (int64_t i = 0; i < getNumElems(tensor->_shape, tensor->_rank); i++)
+      free(((char **)tensor->_alignedPtr)[i]);
   if (tensor->_owning) {
-    if (tensor->_dataType == ONNX_TYPE_STRING)
-      for (int64_t i = 0; i < getNumElems(tensor->_shape, tensor->_rank); i++)
-        free(((char **)tensor->_alignedPtr)[i]);
     free(tensor->_allocatedPtr);
   }
   free(tensor->_shape);
@@ -653,7 +655,7 @@ OMTensor *omTensorCreateWithShape(const std::vector<int64_t> &shape) {
   }
 
   /* Set flag for destructor */
-  omt->_owning = true;
+  omt->_owning = OMTENSOR_OWNING_DATA_PTR;
   return omt;
 }
 

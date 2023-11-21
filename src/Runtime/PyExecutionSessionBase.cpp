@@ -180,10 +180,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       default:
         assert(false && "not implemented");
       }
-      ownData = 1;
       inputOMTensor = omTensorCreateWithOwnership(strArray,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
-          static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
+          static_cast<int64_t>(inputPyArray.ndim()), dtype,
+          /*own_data=*/OMTENSOR_OWNING_DATA_PTR_AND_STRING);
       omTensorSetStridesWithPyArrayStrides(inputOMTensor,
           reinterpret_cast<const int64_t *>(inputPyArray.strides()));
       // omTensorPrint("XXXXX InputOMTensor: %d", inputOMTensor);fflush(stdout);
