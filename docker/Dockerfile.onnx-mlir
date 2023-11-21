@@ -21,7 +21,7 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install .
+    && python3 -m pip install -e .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -74,8 +74,6 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
         elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
             echo -e "/usr/local/lib64" > \
                 /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig && \
-            ls /usr/local/lib64/libproto* -l && \
-            ln -sf /usr/local/lib/libprotobuf.so.32 libprotobuf.so.32; \
         fi \
 # Clean up
     && cd ${WORK_DIR} \
