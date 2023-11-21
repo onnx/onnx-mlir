@@ -31,7 +31,6 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
-#include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
@@ -857,13 +856,15 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // Request C wrapper emission via attribute.
   for (auto func : module.getOps<func::FuncOp>()) {
-    func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
-        UnitAttr::get(&getContext()));
+    // Skip function declaration.
+    if (!func.getBody().empty())
+      func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+          UnitAttr::get(&getContext()));
   }
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);
-  target.addLegalDialect<LLVM::LLVMDialect, mlir::async::AsyncDialect>();
+  target.addLegalDialect<LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<UnrealizedConversionCastOp>();
 

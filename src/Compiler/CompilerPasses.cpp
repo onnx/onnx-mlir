@@ -211,6 +211,10 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
+  pm.addPass(mlir::createAsyncToAsyncRuntimePass());
+  pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
+  pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
+  pm.addPass(mlir::createConvertAsyncToLLVMPass());
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
     pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
@@ -242,14 +246,6 @@ void addKrnlToLLVMPasses(
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
       outputNameNoExt, enableParallel));
-
-  // These passes below are converting async ops to llvm.
-  pm.addPass(mlir::createAsyncToAsyncRuntimePass());
-  pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
-  pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
-  pm.addPass(mlir::createConvertAsyncToLLVMPass());
-  pm.addPass(mlir::createConvertFuncToLLVMPass());
-
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }

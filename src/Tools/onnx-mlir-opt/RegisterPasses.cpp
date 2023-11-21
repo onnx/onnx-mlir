@@ -181,9 +181,6 @@ void registerMLIRPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createConvertAsyncToLLVMPass();
   });
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createConvertFuncToLLVMPass();
-  });
 }
 
 void registerPasses(int optLevel) {
