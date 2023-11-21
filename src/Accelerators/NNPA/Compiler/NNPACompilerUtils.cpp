@@ -126,6 +126,14 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
 
+  // Experimental feature: Decompose stick/unstick into two phases: layout
+  // transform and data conversion.
+  if (nnpaEnableZHighDecomposeStickUnstick) {
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+  }
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 

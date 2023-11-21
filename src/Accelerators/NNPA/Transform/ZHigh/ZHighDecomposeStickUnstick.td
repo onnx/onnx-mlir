@@ -37,15 +37,21 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 def NoneLayoutAttr: NativeCodeCall<"StringAttr()">;
 
 // zhigh.Stick $input, $layout = onnx.LayoutTransform (zhigh.F32ToDLF16 $input), $layout
+// Not support NHWC layout since the stick does transpose internally. We can
+// introduce transpose explicitly, but need to evaluate its overhead.
 def DecomposeStickPattern: Pat<
   (ZHighStickOp $input, $layout),
-  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input), $layout)
+  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input), $layout),
+  [(IsNotNHWCLayout $layout)]
 >;
 
 // zhigh.Unstick $input = zhigh.F32ToDLF16 (onnx.LayoutTransform $input, $none_layout)
+// Not support NHWC layout since the unstick does transpose internally. We can
+// introduce transpose explicitly, but need to evaluate its overhead.
 def DecomposeUnstickPattern: Pat<
   (ZHighUnstickOp $input),
-  (ZHighDLF16ToF32Op (ONNXLayoutTransformOp $input, (NoneLayoutAttr)))
+  (ZHighDLF16ToF32Op (ONNXLayoutTransformOp $input, (NoneLayoutAttr))),
+  [(TensorHasNoNHWCLayout $input)]
 >;
 
 #endif // DECOMPOSE_STICK_UNSTICK_TD
