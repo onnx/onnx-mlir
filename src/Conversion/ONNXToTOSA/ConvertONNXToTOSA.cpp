@@ -56,7 +56,7 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
   populateLoweringONNXTransposeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-  populateLoweringONNXUnsqueezeOpToTOSAPattern(
+  populateLoweringONNXSqueezeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   // NN
   populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
