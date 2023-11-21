@@ -513,7 +513,7 @@ def generate_random_input(input_signature, input_shapes):
             rinput = np.greater_equal(rinput, [0])
         elif np.issubdtype(np_elem_type, np.str_):
             rinput = np.array(rinput, dtype=np.str_)
-            # rinput = np.array([["ab", "defg"],["cd", "hijklmn"]], dtype=np.str_)
+            # rinput = np.array(["ab", "defg"], dtype=np.str_)
             rinput = np.array(rinput, dtype=object)
         print(
             "  - {} input's shape {}, element type {}.".format(

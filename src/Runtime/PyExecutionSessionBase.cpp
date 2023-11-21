@@ -133,16 +133,54 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // Convert Py_ssize_t to int64_t if necessary
     OMTensor *inputOMTensor = nullptr;
     if (dtype == ONNX_TYPE_STRING) {
-      auto vec = inputPyArray.cast<std::vector<std::string>>();
-      ownData = 1;
-      // allocate strArray
-      char **strArray = (char **)malloc(sizeof(char *) * inputPyArray.ndim());
-      // "strArray" will be freed by omTensor destroy, since ownData is set.
+      auto shape = inputPyArray.shape();
       uint64_t numElem = 1;
       for (size_t i = 0; i < (size_t)inputPyArray.ndim(); ++i)
-        numElem *= inputPyArray.shape(i);
-      for (size_t i = 0; i < numElem; ++i)
-        strArray[i] = strdup(vec[i].data());
+        numElem *= shape[i];
+      // allocate strArray
+      // "strArray" will be freed by omTensor destroy, since ownData is set.
+      char **strArray = (char **)malloc(sizeof(char *) * numElem);
+      switch (inputPyArray.ndim()) {
+      case 1: {
+        auto vec = inputPyArray.cast<std::vector<std::string>>();
+        for (int64_t i = 0; i < shape[0]; ++i)
+          strArray[i] = strdup(vec[i].data());
+        break;
+      }
+      case 2: {
+        auto vec = inputPyArray.cast<std::vector<std::vector<std::string>>>();
+        int off = 0;
+        for (int64_t i = 0; i < shape[0]; ++i)
+          for (int64_t j = 0; j < shape[1]; ++j)
+            strArray[off++] = strdup(vec[i][j].data());
+        break;
+      }
+      case 3: {
+        auto vec =
+            inputPyArray
+                .cast<std::vector<std::vector<std::vector<std::string>>>>();
+        int off = 0;
+        for (int64_t i = 0; i < shape[0]; ++i)
+          for (int64_t j = 0; j < shape[1]; ++j)
+            for (int64_t k = 0; k < shape[2]; ++k)
+              strArray[off++] = strdup(vec[i][j][k].data());
+        break;
+      }
+      case 4: {
+        auto vec = inputPyArray.cast<
+            std::vector<std::vector<std::vector<std::vector<std::string>>>>>();
+        int off = 0;
+        for (int64_t i = 0; i < shape[0]; ++i)
+          for (int64_t j = 0; j < shape[1]; ++j)
+            for (int64_t k = 0; k < shape[2]; ++k)
+              for (int64_t l = 0; l < shape[3]; ++l)
+                strArray[off++] = strdup(vec[i][j][k][l].data());
+        break;
+      }
+      default:
+        assert(false && "not implemented");
+      }
+      ownData = 1;
       inputOMTensor = omTensorCreateWithOwnership(strArray,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
           static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
