@@ -889,10 +889,9 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # Issue #2416: We currently do not support input type of string for backend tests
-        # "test_equal_string_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        "test_equal_string_broadcast_cpu": {STATIC_SHAPE: {}},
-        "test_equal_string_cpu": {STATIC_SHAPE: {}},
+        # Issue #2416: We currently do not support input type of string for backend tests with JNI
+        "test_equal_string_broadcast_cpu": {STATIC_SHAPE_STRING: {}},
+        "test_equal_string_cpu": {STATIC_SHAPE_STRING: {}},
         # ==OP== Erf
         # ==MIN== 9
         "test_erf_cpu": {
@@ -3302,17 +3301,20 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value) or
+           ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
         key
         for (key, value) in variables.model_test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value) or
+           ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     test_to_enable = [
         key
         for (key, value) in variables.test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value) or
+           ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
 
     # Test for dynamic inputs.
