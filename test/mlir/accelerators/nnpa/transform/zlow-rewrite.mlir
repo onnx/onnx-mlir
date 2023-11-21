@@ -763,3 +763,150 @@ func.func @should_not_rewrite_unstick_transpose_stick_3(%arg0: memref<5x10xf16, 
 // COM: // CHECK: zlow.stick
 // COM: }
 
+// -----
+
+#map = affine_map<(d0) -> (d0 + 64)>
+#map1 = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+func.func @test_insert_dealloc_async_pattern(%arg0: memref<1x64xf32>, %arg1: memref<64x128xf32>) -> memref<1x128xf32> {
+  %c64_i64 = arith.constant 64 : i64
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %c1_i64 = arith.constant 1 : i64
+  %c0_i64 = arith.constant 0 : i64
+  %alloc = memref.alloc() {alignment = 16 : i64} : memref<64x64xf32>
+  %alloc_0 = memref.alloc() {alignment = 16 : i64} : memref<64x64xf32>
+  %0:2 = krnl.define_loops 2
+  krnl.iterate(%0#0, %0#1) with (%0#0 -> %arg2 = 0 to 64, %0#1 -> %arg3 = 0 to 64){
+    %6:2 = krnl.get_induction_var_value(%0#0, %0#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %7 = krnl.load %arg1[%6#0, %6#1] : memref<64x128xf32>
+    krnl.store %7, %alloc[%6#0, %6#1] : memref<64x64xf32>
+  }
+  %1:2 = krnl.define_loops 2
+  krnl.iterate(%1#0, %1#1) with (%1#0 -> %arg2 = 0 to 64, %1#1 -> %arg3 = 0 to 64){
+    %6:2 = krnl.get_induction_var_value(%1#0, %1#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %7 = affine.apply #map(%6#1)
+    %8 = krnl.load %arg1[%6#0, %7] : memref<64x128xf32>
+    krnl.store %8, %alloc_0[%6#0, %6#1] : memref<64x64xf32>
+  }
+  %token, %bodyResults = async.execute -> !async.value<memref<1x64xf32>> {
+    "krnl.call"(%c0_i64) {funcName = "threadAffine", numOfOutput = 1 : si64} : (i64) -> ()
+    %alloc_4 = memref.alloc() {alignment = 4096 : i64} : memref<1x64xf16, #map1>
+    "zlow.stick"(%arg0, %alloc_4) {layout = "2D"} : (memref<1x64xf32>, memref<1x64xf16, #map1>) -> ()
+    %alloc_5 = memref.alloc() {alignment = 4096 : i64} : memref<64x64xf16, #map1>
+    "zlow.stick"(%alloc, %alloc_5) {layout = "2D"} : (memref<64x64xf32>, memref<64x64xf16, #map1>) -> ()
+    %alloc_6 = memref.alloc() {alignment = 4096 : i64} : memref<1x64xf16, #map1>
+    %alloc_7 = memref.alloc() {alignment = 16 : i64} : memref<3xi64>
+    krnl.store %c1_i64, %alloc_7[%c0] : memref<3xi64>
+    krnl.store %c64_i64, %alloc_7[%c1] : memref<3xi64>
+    krnl.store %c64_i64, %alloc_7[%c2] : memref<3xi64>
+    %6 = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>} : () -> memref<1x1x1x1x32x64xf16>
+    "zlow.matmul"(%alloc_4, %alloc_5, %6, %alloc_7, %alloc_6) {is_bcast = 0 : si64, is_stacked = 0 : si64} : (memref<1x64xf16, #map1>, memref<64x64xf16, #map1>, memref<1x1x1x1x32x64xf16>, memref<3xi64>, memref<1x64xf16, #map1>) -> ()
+    %alloc_8 = memref.alloc() {alignment = 4096 : i64} : memref<1x64xf32>
+    "zlow.unstick"(%alloc_6, %alloc_8) {layout = "2D"} : (memref<1x64xf16, #map1>, memref<1x64xf32>) -> ()
+    async.yield %alloc_8 : memref<1x64xf32>
+  }
+  %token_1, %bodyResults_2 = async.execute -> !async.value<memref<1x64xf32>> {
+    "krnl.call"(%c1_i64) {funcName = "threadAffine", numOfOutput = 1 : si64} : (i64) -> ()
+    %alloc_4 = memref.alloc() {alignment = 4096 : i64} : memref<1x64xf16, #map1>
+    "zlow.stick"(%arg0, %alloc_4) {layout = "2D"} : (memref<1x64xf32>, memref<1x64xf16, #map1>) -> ()
+    %alloc_5 = memref.alloc() {alignment = 4096 : i64} : memref<64x64xf16, #map1>
+    "zlow.stick"(%alloc_0, %alloc_5) {layout = "2D"} : (memref<64x64xf32>, memref<64x64xf16, #map1>) -> ()
+    %alloc_6 = memref.alloc() {alignment = 4096 : i64} : memref<1x64xf16, #map1>
+    %alloc_7 = memref.alloc() {alignment = 16 : i64} : memref<3xi64>
+    krnl.store %c1_i64, %alloc_7[%c0] : memref<3xi64>
+    krnl.store %c64_i64, %alloc_7[%c1] : memref<3xi64>
+    krnl.store %c64_i64, %alloc_7[%c2] : memref<3xi64>
+    %6 = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_1", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh_1> : tensor<4096xi8>} : () -> memref<1x1x1x1x32x64xf16>
+    "zlow.matmul"(%alloc_4, %alloc_5, %6, %alloc_7, %alloc_6) {is_bcast = 0 : si64, is_stacked = 0 : si64} : (memref<1x64xf16, #map1>, memref<64x64xf16, #map1>, memref<1x1x1x1x32x64xf16>, memref<3xi64>, memref<1x64xf16, #map1>) -> ()
+    %alloc_8 = memref.alloc() {alignment = 4096 : i64} : memref<1x64xf32>
+    "zlow.unstick"(%alloc_6, %alloc_8) {layout = "2D"} : (memref<1x64xf16, #map1>, memref<1x64xf32>) -> ()
+    async.yield %alloc_8 : memref<1x64xf32>
+  }
+  %2 = async.await %bodyResults : !async.value<memref<1x64xf32>>
+  %3 = async.await %bodyResults_2 : !async.value<memref<1x64xf32>>
+  %alloc_3 = memref.alloc() {alignment = 16 : i64} : memref<1x128xf32>
+  %4:2 = krnl.define_loops 2
+  krnl.iterate(%4#0, %4#1) with (%4#0 -> %arg2 = 0 to 1, %4#1 -> %arg3 = 0 to 64){
+    %6:2 = krnl.get_induction_var_value(%4#0, %4#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %7 = krnl.load %2[%6#0, %6#1] : memref<1x64xf32>
+    krnl.store %7, %alloc_3[%6#0, %6#1] : memref<1x128xf32>
+  }
+  %5:2 = krnl.define_loops 2
+  krnl.iterate(%5#0, %5#1) with (%5#0 -> %arg2 = 0 to 1, %5#1 -> %arg3 = 0 to 64){
+    %6:2 = krnl.get_induction_var_value(%5#0, %5#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+    %7 = affine.apply #map(%6#1)
+    %8 = krnl.load %3[%6#0, %6#1] : memref<1x64xf32>
+    krnl.store %8, %alloc_3[%6#0, %7] : memref<1x128xf32>
+  }
+  return %alloc_3 : memref<1x128xf32>
+
+// CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0 + 64)>
+// CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1) -> (0, d1 floordiv 64, 0, d0 floordiv 32, d0 mod 32, d1 mod 64)>
+// CHECK-LABEL:  func.func @test_insert_dealloc_async_pattern
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<1x64xf32>, [[PARAM_1_:%.+]]: memref<64x128xf32>) -> memref<1x128xf32> {
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
+// CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
+// CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : index
+// CHECK-DAG:       [[CST_1_1_:%.+]] = arith.constant 1 : i64
+// CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : i64
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<64x64xf32>
+// CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() {{.*}}: memref<64x64xf32>
+
+// CHECK:           [[RES_2_:%.+]] = memref.alloc() {{.*}}: memref<1x64xf32>
+// CHECK:           [[token_:%.+]], [[VAR_bodyResults_:%.+]] = async.execute -> !async.value<memref<1x64xf32>> {
+// CHECK:             [[RES_3_:%.+]] = memref.alloc() {{.*}}: memref<1x64xf16, #map1>
+// CHECK:             "zlow.stick"([[PARAM_0_]], [[RES_3_]]) {layout = "2D"} : (memref<1x64xf32>, memref<1x64xf16, #map1>) -> ()
+// CHECK:             [[RES_4_:%.+]] = memref.alloc() {{.*}}: memref<64x64xf16, #map1>
+// CHECK:             "zlow.stick"([[RES_]], [[RES_]]_7) {layout = "2D"} : (memref<64x64xf32>, memref<64x64xf16, #map1>) -> ()
+// CHECK-DAG:         [[RES_5_:%.+]] = memref.alloc() {{.*}}: memref<1x64xf16, #map1>
+// CHECK-DAG:         [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
+// CHECK:             krnl.store [[CST_1_1_]], [[RES_6_]]{{.}}[[CST_0_]]{{.}} : memref<3xi64>
+// CHECK:             krnl.store [[CST_64_]], [[RES_6_]]{{.}}[[CST_1_]]{{.}} : memref<3xi64>
+// CHECK:             krnl.store [[CST_64_]], [[RES_6_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
+// CHECK:             [[VAR_6_2_:%.+]] = "krnl.global"() {alignment = 4096 : i64, name = "constant_stickify_0", shape = [1, 1, 1, 1, 32, 64], value = dense_resource<zhigh> : tensor<4096xi8>} : () -> memref<1x1x1x1x32x64xf16>
+// CHECK:             "zlow.matmul"([[RES_3_]], [[RES_4_]], [[VAR_6_2_]], [[RES_6_]], [[RES_5_]]) {is_bcast = 0 : si64, is_stacked = 0 : si64} : (memref<1x64xf16, #map1>, memref<64x64xf16, #map1>, memref<1x1x1x1x32x64xf16>, memref<3xi64>, memref<1x64xf16, #map1>) -> ()
+// CHECK:             "zlow.unstick"([[RES_5_]], [[RES_2_]]) {layout = "2D"} : (memref<1x64xf16, #map1>, memref<1x64xf32>) -> ()
+// CHECK:             async.yield [[RES_2_]] : memref<1x64xf32>
+// CHECK:           }
+// CHECK:           [[RES_7_:%.+]] = memref.alloc() {{.*}}: memref<1x64xf32>
+// CHECK:           [[token_3_:%.+]], [[VAR_bodyResults_4_:%.+]] = async.execute -> !async.value<memref<1x64xf32>> {
+// CHECK:             [[RES_8_:%.+]] = memref.alloc() {{.*}}: memref<1x64xf16, #map1>
+// CHECK:             "zlow.stick"([[PARAM_0_]], [[RES_8_]])
+// CHECK:             [[RES_9_:%.+]] = memref.alloc() {{.*}}: memref<64x64xf16, #map1>
+// CHECK:             "zlow.stick"([[RES_1_]], [[RES_9_]])
+// CHECK-DAG:         [[RES_10_:%.+]] = memref.alloc() {{.*}}: memref<1x64xf16, #map1>
+// CHECK-DAG:         [[RES_11_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
+// CHECK:             krnl.store [[CST_1_1_]], [[RES_11_]]{{.}}[[CST_0_]]{{.}} : memref<3xi64>
+// CHECK:             krnl.store [[CST_64_]], [[RES_11_]]{{.}}[[CST_1_]]{{.}} : memref<3xi64>
+// CHECK:             krnl.store [[CST_64_]], [[RES_11_]]{{.}}[[CST_2_]]{{.}} : memref<3xi64>
+// CHECK:             [[VAR_6_3_:%.+]] = "krnl.global"()
+// CHECK:             "zlow.matmul"([[RES_8_]], [[RES_9_]], [[VAR_6_3_]], [[RES_11_]], [[RES_10_]])
+// CHECK:             "zlow.unstick"([[RES_10_]], [[RES_7_]])
+// CHECK:             async.yield [[RES_7_]] : memref<1x64xf32>
+// CHECK:           }
+// CHECK-DAG:       [[VAR_2_:%.+]] = async.await [[VAR_bodyResults_]] : !async.value<memref<1x64xf32>>
+// CHECK-DAG:       [[VAR_3_:%.+]] = async.await [[VAR_bodyResults_4_]] : !async.value<memref<1x64xf32>>
+// CHECK-DAG:       [[RES_12_:%.+]] = memref.alloc() {{.*}}: memref<1x128xf32>
+// CHECK-DAG:       [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 1, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_6_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK:             [[LOAD_PARAM_1_MEM_1_:%.+]] = krnl.load [[VAR_2_]]{{.}}[[VAR_6_4_]]#0, [[VAR_6_4_]]#1] : memref<1x64xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_1_]], [[RES_12_]]{{.}}[[VAR_6_4_]]#0, [[VAR_6_4_]]#1] : memref<1x128xf32>
+// CHECK:           }
+// CHECK:           memref.dealloc [[RES_2_]] : memref<1x64xf32>
+// CHECK:           memref.dealloc [[RES_]] : memref<64x64xf32>
+// CHECK:           [[LOOP_3_:%.+]]:2 = krnl.define_loops 2
+// CHECK:           krnl.iterate([[LOOP_3_]]#0, [[LOOP_3_]]#1) with ([[LOOP_3_]]#0 -> [[I_6_:%.+]] = 0 to 1, [[LOOP_3_]]#1 -> [[I_7_:%.+]] = 0 to 64){
+// CHECK:             [[VAR_6_5_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_3_]]#0, [[LOOP_3_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_1_1_:%.+]] = affine.apply [[MAP_0_]]([[VAR_6_5_]]#1)
+// CHECK-DAG:         [[LOAD_PARAM_1_MEM_2_:%.+]] = krnl.load [[VAR_3_]]{{.}}[[VAR_6_5_]]#0, [[VAR_6_5_]]#1] : memref<1x64xf32>
+// CHECK:             krnl.store [[LOAD_PARAM_1_MEM_2_]], [[RES_12_]]{{.}}[[VAR_6_5_]]#0, [[LOAD_PARAM_1_MEM_1_1_]]{{.}} : memref<1x128xf32>
+// CHECK:           }
+// CHECK:           memref.dealloc [[RES_7_]] : memref<1x64xf32>
+// CHECK:           memref.dealloc [[RES_1_]] : memref<64x64xf32>
+// CHECK:           return [[RES_12_]] : memref<1x128xf32>
+// CHECK:         }
+
+}
