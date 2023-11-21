@@ -162,33 +162,42 @@ public:
       conv2D = tosa::CreateOpAndInfer<mlir::tosa::Conv2DOp>(rewriter,
           convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
           newPads, strides, dilations);
-    } else if (group <= groupedConvThreshold) {
-      // Decompose group convolution into a concatenation of tosa.conv2d ops can
-      // be costly, so only allow it when the number of groups is less than
-      // configurable threshold.
+    } else {
+      auto inputChannels = inputType.getDimSize(1);
+      auto outputChannels = resultType.cast<ShapedType>().getDimSize(1);
+      if (group == inputChannels && (outputChannels % inputChannels == 0)) {
+        // If the group == inputChannels and
+        // outputChannels == inputChannels * integerNumber,
+        // this grouped convolution is equal to a Depthwise convolution.
 
-      conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
-          weightShape, newInput, newWeight, bias, group, newPads, strides,
-          dilations);
-    } else if (weightShape[1] == 1 &&
-               resultType.cast<ShapedType>().getShape()[1] == group) {
-      // If the weights channel == 1 and output channel == num of groups,
-      // this grouped convolution is equal to a Depthwise convolution.
+        // Convert weights [OC,IC,KH,KW] -> [KH, KW, OC, M(ChannelMultiplier)]
+        Value transposedWeight = tosaBuilder.transpose(weights, {2, 3, 0, 1});
+        // A reshape op is needed to adhere to the TOSA standard
+        // https://www.mlplatform.org/tosa/tosa_spec.html#_depthwise_conv2d
+        Value newWeight = tosaBuilder.reshape(
+            transposedWeight, {weightShape[2], weightShape[3], inputChannels,
+                                  outputChannels / inputChannels});
 
-      // Convert weights [OC,IC,KH,KW] -> [KH, KW, OC, M(ChannelMultiplier)]
-      Value newWeight = tosaBuilder.transpose(weights, {2, 3, 0, 1});
+        Type newConvOutputType = RankedTensorType::get(
+            llvm::SmallVector<int64_t, 4>(4, ShapedType::kDynamic),
+            resultType.cast<ShapedType>().getElementType());
 
-      Type newConvOutputType = RankedTensorType::get(
-          llvm::SmallVector<int64_t, 4>(4, ShapedType::kDynamic),
-          resultType.cast<ShapedType>().getElementType());
+        conv2D = tosa::CreateOpAndInfer<mlir::tosa::DepthwiseConv2DOp>(rewriter,
+            convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
+            newPads, strides, dilations);
+      } else if (group <= groupedConvThreshold) {
+        // Decompose group convolution into a concatenation of tosa.conv2d ops
+        // can be costly, so only allow it when the number of groups is less
+        // than configurable threshold.
 
-      conv2D = tosa::CreateOpAndInfer<mlir::tosa::DepthwiseConv2DOp>(rewriter,
-          convOp->getLoc(), newConvOutputType, newInput, newWeight, bias,
-          newPads, strides, dilations);
-
-    } else
-      return rewriter.notifyMatchFailure(
-          op, "this type of grouped Conv is not supported");
+        conv2D = createConvInGroups(rewriter, convOp, tosaBuilder, resultType,
+            weightShape, newInput, newWeight, bias, group, newPads, strides,
+            dilations);
+      } else {
+        return rewriter.notifyMatchFailure(
+            op, "this type of grouped Conv is not supported");
+      }
+    }
 
     // Convert output [N,OH,OW,OC] -> [N,OC,OH,OW]
     Value newOutput = tosaBuilder.transpose(conv2D, {0, 3, 1, 2});
