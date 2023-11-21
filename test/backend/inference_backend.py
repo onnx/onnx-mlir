@@ -3301,20 +3301,20 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if (STATIC_SHAPE in value) or
-           ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
         key
         for (key, value) in variables.model_test_to_enable_dict.items()
-        if (STATIC_SHAPE in value) or
-           ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     test_to_enable = [
         key
         for (key, value) in variables.test_to_enable_dict.items()
-        if (STATIC_SHAPE in value) or
-           ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
 
     # Test for dynamic inputs.
