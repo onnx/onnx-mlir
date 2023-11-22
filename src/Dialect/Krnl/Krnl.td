@@ -509,14 +509,14 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
     operator before krnl.iterate. Since we do not want to parallelize the loop
     until we interpret krnl.block, krnl.permute and krnl.unroll.
     ```
-    krnl.parallel %i
+    krnl.parallel (%i0, %i1)
     ```
   }];
 
   let arguments = (ins Variadic<AnyType>:$loops);
 
   let assemblyFormat = [{
-      $loops attr-dict `:` type($loops)
+      `(` $loops `)` attr-dict `:` type($loops)
   }];
 }
 
