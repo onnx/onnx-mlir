@@ -1073,6 +1073,10 @@ void initCompilerConfig() {
             : std::vector<std::string>{"jniruntime", "cruntime"});
     addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, {getLibraryPath()});
 
+    // Add OpenMP LLVM library if parallel is enabled.
+    if (enableParallel)
+      addCompilerConfig(CCM_SHARED_LIB_DEPS, {"ompruntime"});
+
     // Add user specified libs and their path
     // Multiple lib or directory can be specified with multiple options.
     // For example, -lextra1, -lextra2, -Lpath1, -Lpath2

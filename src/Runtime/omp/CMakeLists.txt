@@ -27,7 +27,7 @@ if(TARGET omp)
 
   add_custom_target(libOMomp
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${OMP_TOPDIR}/lib/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libOMomp.a
+            ${OMP_TOPDIR}/lib/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
     DEPENDS OMomp
     # BYPRODUCTS requires cmake 3.20+
     BYPRODUCTS ${OMP_TOPDIR}/lib/libomp.a
