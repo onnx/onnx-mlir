@@ -714,6 +714,16 @@ void loadConstantsFromFile(ModuleOp &module,
   create.llvm._return();
 }
 
+// Check if function name is included in async runtime library.
+// The name is described in
+// llvm-project/mlir/lib/Conversion/AsyncToLLVM/AsyncToLLVM.cpp
+// This is used to skip to add C wrpper "_mlir_ciface_mlir" for async runtime
+// library
+bool isAsyncRuntimeFunc(StringRef funcName) {
+  StringRef asyncRuntimeFuncName = "mlirAsync";
+  return funcName.contains(asyncRuntimeFuncName);
+}
+
 //===----------------------------------------------------------------------===//
 // Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
@@ -856,8 +866,8 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 
   // Request C wrapper emission via attribute.
   for (auto func : module.getOps<func::FuncOp>()) {
-    // Skip function declaration.
-    if (!func.getBody().empty())
+    // Skip to add the wrapper for async runtime.
+    if (!isAsyncRuntimeFunc(func.getName()))
       func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
           UnitAttr::get(&getContext()));
   }
