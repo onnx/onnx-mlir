@@ -890,8 +890,16 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # Issue #2416: We currently do not support input type of string for backend tests with JNI
-        "test_equal_string_broadcast_cpu": {STATIC_SHAPE_STRING: {}},
-        "test_equal_string_cpu": {STATIC_SHAPE_STRING: {}},
+        "test_equal_string_broadcast_cpu": {
+            STATIC_SHAPE_STRING: {},
+            DYNAMIC_SHAPE_STRING: {-1: {-1}},
+            CONSTANT_INPUT_STRING: {-1},
+        },
+        "test_equal_string_cpu": {
+            STATIC_SHAPE_STRING: {},
+            DYNAMIC_SHAPE_STRING: {-1: {-1}},
+            CONSTANT_INPUT_STRING: {-1},
+        },
         # ==OP== Erf
         # ==MIN== 9
         "test_erf_cpu": {
