@@ -87,6 +87,8 @@ add_onnx_mlir_library(OMCompilerPasses
   ${OMLibs}
   OMCompilerOptions
   MLIRAffineTransforms
+  MLIRBufferizationPipelines
+  MLIRBufferizationToMemRef
   MLIRIR
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
@@ -185,6 +187,9 @@ add_onnx_mlir_library(OMCompilerUtils
 add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
+endif()
+if (TARGET omp)
+  add_dependencies(OMCompilerUtils libOMomp)
 endif()
 
 add_onnx_mlir_library(OMCompiler
