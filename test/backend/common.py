@@ -64,7 +64,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                 else:
                     env_string += "," + str(dim_index)
         if env_string == "-1:-1":
-          env_string = env_string + "%" + env_string
+            env_string = env_string + "%" + env_string
         my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
 
@@ -136,7 +136,8 @@ def compile_model(model, emit):
         )
     if os.getenv("EMIT_TARGET"):
         import copy
-        EMIT_TARGET =  os.getenv("EMIT_TARGET")
+
+        EMIT_TARGET = os.getenv("EMIT_TARGET")
         command_list_emit_target = copy.deepcopy(command_list)
         command_list_emit_target.append("--Emit" + EMIT_TARGET)
         command_list_emit_target.append(model_name)
