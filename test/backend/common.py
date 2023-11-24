@@ -47,26 +47,24 @@ def execute_commands(cmds, dynamic_inputs_dims):
         print("IMPORTER FORCE DYNAMIC ", dynamic_inputs_dims, file=sys.stderr)
 
     my_env = os.environ.copy()
-    env_string_for_inputs = ""
-    env_string_for_results = ""
+    env_string = ""
     if dynamic_inputs_dims is not None:
         first_input = True
         for input_index, dim_indices in dynamic_inputs_dims.items():
             if first_input:
-                env_string_for_inputs += str(input_index)
+                env_string += str(input_index)
                 first_input = False
             else:
-                env_string_for_inputs += "|" + str(input_index)
+                env_string += "|" + str(input_index)
             first_dim = True
             for dim_index in dim_indices:
                 if first_dim:
-                    env_string_for_inputs += ":" + str(dim_index)
+                    env_string += ":" + str(dim_index)
                     first_dim = False
                 else:
-                    env_string_for_inputs += "," + str(dim_index)
-            if str(input_index) == "-1":  # copy the inputs string
-                env_string_for_results = env_string_for_inputs
-        env_string = env_string_for_inputs + "%" + env_string_for_results
+                    env_string += "," + str(dim_index)
+        if env_string == "-1:-1":
+          env_string = env_string + "%" + env_string
         my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
 
@@ -136,7 +134,16 @@ def compile_model(model, emit):
             "--constants-to-file-total-threshold="
             + str(args.constants_to_file_total_threshold)
         )
-
+    if os.getenv("EMIT_TARGET"):
+        import copy
+        EMIT_TARGET =  os.getenv("EMIT_TARGET")
+        command_list_emit_target = copy.deepcopy(command_list)
+        command_list_emit_target.append("--Emit" + EMIT_TARGET)
+        command_list_emit_target.append(model_name)
+        command_list_emit_target.append("-o=" + exec_base)
+        dynamic_inputs_dims_emit_target = determine_dynamic_parameters(name)
+        execute_commands(command_list_emit_target, dynamic_inputs_dims_emit_target)
+        print("generating: " + EMIT_TARGET + " for " + model_name + "\n")
     command_list.append(target[emit])
     command_list.append(model_name)
     command_list.append("-o=" + exec_base)
