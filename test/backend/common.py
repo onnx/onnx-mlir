@@ -63,7 +63,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                     first_dim = False
                 else:
                     env_string += "," + str(dim_index)
-        my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
+        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
 
 
