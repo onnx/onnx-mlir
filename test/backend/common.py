@@ -65,7 +65,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
                     env_string += "," + str(dim_index)
         if env_string == "-1:-1":
           env_string = env_string + "%" + env_string
-        my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
+        my_env["TEST_IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
 
 
