@@ -209,6 +209,46 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
   return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
 }
 
+// Match v = shape_transform(X*A + B).
+// shape_transform is a sequence of operations like Reshape, Transpose,
+// Squeeze, Unsqueeze, etc. that do not change the numerical values by data
+// shape.
+// A and B are constants.
+bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
+    Operation *&matmulOp, Operation *&addOp) {
+  if (v.isa<BlockArgument>())
+    return false;
+  Value origV = v;
+  // Match shape operations.
+  while (isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(
+      origV.getDefiningOp())) {
+    origV = origV.getDefiningOp()->getOperands()[0];
+    if (origV.isa<BlockArgument>())
+      return false;
+  }
+
+  // Match Add.
+  addOp = origV.getDefiningOp();
+  if (!addOp || !isa<ONNXAddOp>(addOp))
+    return false;
+
+  // LHS of Add is MatMul.
+  matmulOp = addOp->getOperands()[0].getDefiningOp();
+  if (!matmulOp || !isa<ONNXMatMulOp>(matmulOp))
+    return false;
+  matA = matmulOp->getOperands()[1];
+  if (!isDenseONNXConstant(matA))
+    return false;
+
+  // RHS of Add is a constant.
+  biasB = addOp->getOperands()[1];
+  if (!isDenseONNXConstant(biasB))
+    return false;
+
+  // Passed all tests.
+  return true;
+}
+
 } // namespace onnx_mlir
 
 // =============================================================================
@@ -393,6 +433,103 @@ public:
     rewriter.replaceOp(op, res);
     return success();
   };
+};
+
+// This rewriting is to optimize the scalar Div in self-attention layers.
+// In particular, it rewrites the following pattern:
+// ```
+// shape_transform(X1 * A1 + B1) * shape_transform(X2 * A2 + B2) / k
+// ```
+//
+// into
+// ```
+// shape_transform(X1 * A1 + B1) * shape_transform(X2 * A2/k + B2/k)
+// ```
+// if A2, B2 and k are constants,
+//
+// or into
+// ```
+// shape_transform(X1 * A1/k + B1/k) * shape_transform(X2 * A2 + B2)
+// ```
+// if A1, B1 and k are constants,
+//
+// where
+// - * is matrix multiplication; + and / are element-wise addition and division
+// - A1, A2, B1, B2, and k are constants so that A1/k, B1/k, A2/k and B2/k can
+// be folded. k is a scalar constant so that it's broadcastable to all A1, A2,
+// B1, B2.
+// - shape_transform includes a sequence of operations that change the data
+// shape of the input but not numerical values, for example: Reshape,
+// Transpose, etc.
+//
+struct PropagateScalarDivInAttentionLayerPattern
+    : public OpRewritePattern<ONNXDivOp> {
+  using OpRewritePattern<ONNXDivOp>::OpRewritePattern;
+
+  PropagateScalarDivInAttentionLayerPattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXDivOp omDivOp, PatternRewriter &rewriter) const final {
+    Operation *divOp = omDivOp.getOperation();
+    Value divLHS = omDivOp.getA();
+    Value divK = omDivOp.getB();
+
+    // Match (lhs * rhs) / divK.
+    // The first operand of Div is produced by MatMulOp.
+    auto onnxMatMulOp = divLHS.getDefiningOp<ONNXMatMulOp>();
+    if (!onnxMatMulOp)
+      return rewriter.notifyMatchFailure(
+          divOp, "The first operand of Div is not produced by MatMulOp");
+    Value lhs = onnxMatMulOp.getA();
+    Value rhs = onnxMatMulOp.getB();
+    // The second operand of Div is a scalar constant.
+    if (!isScalarConstantTensor(divK))
+      return rewriter.notifyMatchFailure(
+          divOp, "The second operand of Div is not a scalar constant");
+
+    // Match lhs = shape_transform(X1*A1 + B1)
+    Value A1, B1;
+    Operation *lhsSubMatOp, *lhsAddOp;
+    bool matchLHS = matchShapeAddMatMul(lhs, A1, B1, lhsSubMatOp, lhsAddOp);
+
+    // Match rhs = shape_transform(X2*A2 + B2)
+    Value A2, B2;
+    Operation *rhsSubMatOp, *rhsAddOp;
+    bool matchRHS = matchShapeAddMatMul(rhs, A2, B2, rhsSubMatOp, rhsAddOp);
+
+    if (!matchLHS && !matchRHS)
+      return rewriter.notifyMatchFailure(divOp,
+          "There is no constant tensor to replace the first operand of Div");
+
+    // Rewrite.
+    // Only rewrite one side, so use LHS if both sides are matched.
+    if (matchLHS && matchRHS)
+      matchRHS = false;
+    ONNXMatMulOp onnxSubMatOp =
+        cast<ONNXMatMulOp>(matchLHS ? lhsSubMatOp : rhsSubMatOp);
+    ONNXAddOp onnxAddOp = cast<ONNXAddOp>(matchLHS ? lhsAddOp : rhsAddOp);
+    Value A = matchLHS ? A1 : A2;
+    Value B = matchLHS ? B1 : B2;
+
+    // Move divK up before MatMul to make sure it is in the dominant region.
+    divK.getDefiningOp()->moveBefore(onnxSubMatOp);
+    // Update in place MatMul and Add.
+    rewriter.updateRootInPlace(onnxSubMatOp, [&] {
+      OnnxBuilder createONNX(rewriter, onnxSubMatOp.getLoc());
+      rewriter.setInsertionPoint(onnxSubMatOp);
+      onnxSubMatOp.getBMutable().assign(createONNX.div(A, divK));
+    });
+    rewriter.updateRootInPlace(onnxAddOp, [&] {
+      OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
+      rewriter.setInsertionPoint(onnxAddOp);
+      onnxAddOp.getBMutable().assign(createONNX.div(B, divK));
+    });
+
+    // Bypass Div.
+    rewriter.replaceOp(divOp, onnxMatMulOp.getY());
+    return success();
+  }
 };
 
 // =============================================================================
@@ -1379,6 +1516,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
+  result.insert<PropagateScalarDivInAttentionLayerPattern>(context);
 }
 
 /// on the ONNXDropoutOp.
