@@ -189,7 +189,7 @@ if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
 endif()
 if (TARGET omp)
-  add_dependencies(OMCompilerUtils libOMomp)
+  add_dependencies(OMCompilerUtils ompruntime)
 endif()
 
 add_onnx_mlir_library(OMCompiler
