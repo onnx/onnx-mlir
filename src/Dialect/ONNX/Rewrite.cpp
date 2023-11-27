@@ -218,34 +218,49 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
     Operation *&matmulOp, Operation *&addOp) {
   if (v.isa<BlockArgument>())
     return false;
+  if (!hasOneUseExceptDimOp(v))
+    return false;
   Value origV = v;
-  // Match shape operations.
-  while (isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(
-      origV.getDefiningOp())) {
-    origV = origV.getDefiningOp()->getOperands()[0];
-    if (origV.isa<BlockArgument>())
-      return false;
+  // Match a sequence of shape operations. Each shape operation has only one
+  // use.
+  while (auto defOp = origV.getDefiningOp()) {
+    if (!isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(
+            defOp))
+      break;
+    origV = defOp->getOperands()[0];
+    if (!hasOneUseExceptDimOp(origV))
+      break;
   }
+  if (origV.isa<BlockArgument>() || !hasOneUseExceptDimOp(origV))
+    return false;
 
   // Match Add.
-  addOp = origV.getDefiningOp();
-  if (!addOp || !isa<ONNXAddOp>(addOp))
+  auto onnxAddOp = origV.getDefiningOp<ONNXAddOp>();
+  if (!onnxAddOp)
     return false;
+  Value lhsAdd = onnxAddOp.getA();
+  Value rhsAdd = onnxAddOp.getB();
 
-  // LHS of Add is MatMul.
-  matmulOp = addOp->getOperands()[0].getDefiningOp();
-  if (!matmulOp || !isa<ONNXMatMulOp>(matmulOp))
+  // LHS of Add is the only one use of MatMul's result.
+  if (!hasOneUseExceptDimOp(lhsAdd))
     return false;
-  matA = matmulOp->getOperands()[1];
-  if (!isDenseONNXConstant(matA))
+  auto onnxMatMulOp = lhsAdd.getDefiningOp<ONNXMatMulOp>();
+  if (!onnxMatMulOp)
+    return false;
+  Value rhsMatMul = onnxMatMulOp.getB();
+  if (!isDenseONNXConstant(rhsMatMul))
     return false;
 
   // RHS of Add is a constant.
-  biasB = addOp->getOperands()[1];
-  if (!isDenseONNXConstant(biasB))
+  if (!isDenseONNXConstant(rhsAdd))
     return false;
 
   // Passed all tests.
+  matmulOp = onnxMatMulOp.getOperation();
+  addOp = onnxAddOp.getOperation();
+  matA = rhsMatMul;
+  biasB = rhsAdd;
+
   return true;
 }
 
@@ -435,7 +450,7 @@ public:
   };
 };
 
-// This rewriting is to optimize the scalar Div in self-attention layers.
+// This rewriting is to optimize the scalar Div/Mul in self-attention layers.
 // In particular, it rewrites the following pattern:
 // ```
 // shape_transform(X1 * A1 + B1) * shape_transform(X2 * A2 + B2) / k
@@ -462,31 +477,30 @@ public:
 // shape of the input but not numerical values, for example: Reshape,
 // Transpose, etc.
 //
-struct PropagateScalarDivInAttentionLayerPattern
-    : public OpRewritePattern<ONNXDivOp> {
-  using OpRewritePattern<ONNXDivOp>::OpRewritePattern;
-
-  PropagateScalarDivInAttentionLayerPattern(MLIRContext *context)
-      : OpRewritePattern(context) {}
+// This pattern supports both division and multiplication by k.
+template <typename ONNXOp>
+struct PropagateConstantScalingInAttentionLayerPattern
+    : public OpRewritePattern<ONNXOp> {
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      ONNXDivOp omDivOp, PatternRewriter &rewriter) const final {
-    Operation *divOp = omDivOp.getOperation();
-    Value divLHS = omDivOp.getA();
-    Value divK = omDivOp.getB();
+      ONNXOp omOp, PatternRewriter &rewriter) const final {
+    Operation *genericOp = omOp.getOperation();
+    Value lhsOMOp = omOp.getA();
+    Value K = omOp.getB();
 
-    // Match (lhs * rhs) / divK.
-    // The first operand of Div is produced by MatMulOp.
-    auto onnxMatMulOp = divLHS.getDefiningOp<ONNXMatMulOp>();
+    // Match (lhs * rhs) / K.
+    // The first operand of Div/Mul is produced by MatMulOp.
+    auto onnxMatMulOp = lhsOMOp.getDefiningOp<ONNXMatMulOp>();
     if (!onnxMatMulOp)
-      return rewriter.notifyMatchFailure(
-          divOp, "The first operand of Div is not produced by MatMulOp");
+      return rewriter.notifyMatchFailure(genericOp,
+          "The first operand of Div/Mul is not produced by MatMulOp");
     Value lhs = onnxMatMulOp.getA();
     Value rhs = onnxMatMulOp.getB();
-    // The second operand of Div is a scalar constant.
-    if (!isScalarConstantTensor(divK))
+    // The second operand of Div/Mul is a scalar constant.
+    if (!isScalarConstantTensor(K))
       return rewriter.notifyMatchFailure(
-          divOp, "The second operand of Div is not a scalar constant");
+          genericOp, "The second operand of Div/Mul is not a scalar constant");
 
     // Match lhs = shape_transform(X1*A1 + B1)
     Value A1, B1;
@@ -499,35 +513,37 @@ struct PropagateScalarDivInAttentionLayerPattern
     bool matchRHS = matchShapeAddMatMul(rhs, A2, B2, rhsSubMatOp, rhsAddOp);
 
     if (!matchLHS && !matchRHS)
-      return rewriter.notifyMatchFailure(divOp,
-          "There is no constant tensor to replace the first operand of Div");
+      return rewriter.notifyMatchFailure(genericOp,
+          "There is no constant tensor to replace the first operand "
+          "of Div/Mul");
 
     // Rewrite.
     // Only rewrite one side, so use LHS if both sides are matched.
     if (matchLHS && matchRHS)
       matchRHS = false;
-    ONNXMatMulOp onnxSubMatOp =
+    auto onnxSubMatOp =
         cast<ONNXMatMulOp>(matchLHS ? lhsSubMatOp : rhsSubMatOp);
-    ONNXAddOp onnxAddOp = cast<ONNXAddOp>(matchLHS ? lhsAddOp : rhsAddOp);
+    auto onnxAddOp = cast<ONNXAddOp>(matchLHS ? lhsAddOp : rhsAddOp);
     Value A = matchLHS ? A1 : A2;
     Value B = matchLHS ? B1 : B2;
 
-    // Move divK up before MatMul to make sure it is in the dominant region.
-    divK.getDefiningOp()->moveBefore(onnxSubMatOp);
+    // Move K up before MatMul to make sure it is in the dominant region.
+    K.getDefiningOp()->moveBefore(onnxSubMatOp);
     // Update in place MatMul and Add.
     rewriter.updateRootInPlace(onnxSubMatOp, [&] {
-      OnnxBuilder createONNX(rewriter, onnxSubMatOp.getLoc());
       rewriter.setInsertionPoint(onnxSubMatOp);
-      onnxSubMatOp.getBMutable().assign(createONNX.div(A, divK));
+      onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
+          onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
     });
     rewriter.updateRootInPlace(onnxAddOp, [&] {
       OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
       rewriter.setInsertionPoint(onnxAddOp);
-      onnxAddOp.getBMutable().assign(createONNX.div(B, divK));
+      onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
+          onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
     });
 
-    // Bypass Div.
-    rewriter.replaceOp(divOp, onnxMatMulOp.getY());
+    // Bypass Div/Mul.
+    rewriter.replaceOp(genericOp, onnxMatMulOp.getY());
     return success();
   }
 };
@@ -1516,7 +1532,8 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
-  result.insert<PropagateScalarDivInAttentionLayerPattern>(context);
+  result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
+      context);
 }
 
 /// on the ONNXDropoutOp.
@@ -1602,6 +1619,8 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
+  results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
+      context);
 }
 
 /// on the ONNXOrOp.
