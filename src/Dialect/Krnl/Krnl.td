@@ -503,13 +503,15 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
 }
 
 def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
-  let summary = "Krnl parallel operation";
+  let summary = "Mark Krnl loops as parallel loops";
   let description = [{
-    Parallelize the specified loops. krnl.parallel should be placed as the last
-    operator before krnl.iterate. Since we do not want to parallelize the loop
-    until we interpret krnl.block, krnl.permute and krnl.unroll.
+    Parallelize the specified loops. When multiple loop specifiers are passed
+    as parameters, there loops can be parallelized as a collapsed loop.
+    krnl.parallel should be placed as the last operator before krnl.iterate,
+    Since we do not want to parallelize the loop until we interpret krnl.block,
+    krnl.permute and krnl.unroll.
     ```
-    krnl.parallel (%i0, %i1)
+    krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
     ```
   }];
 
