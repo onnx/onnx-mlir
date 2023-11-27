@@ -25,7 +25,7 @@ if(TARGET omp)
     INSTALL_COMMAND ""
     )
 
-  add_custom_target(libOMomp
+  add_custom_target(ompruntime
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${OMP_TOPDIR}/lib/libomp.a ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a
     DEPENDS OMomp
