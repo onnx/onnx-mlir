@@ -367,7 +367,7 @@ def read_input_from_refs(num_inputs, load_ref):
         with open(input_file, "rb") as f:
             input_ts.ParseFromString(f.read())
         input_np = numpy_helper.to_array(input_ts)
-        if np.issubdtype(input_np, np.str_):
+        if np.issubdtype(input_np.dtype, np.str_):
             input_np = np.array(input_np, dtype=object)
         print(
             "  - {} input: [{}x{}]".format(
