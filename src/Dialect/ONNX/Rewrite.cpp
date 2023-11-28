@@ -215,7 +215,7 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
 // shape.
 // A and B are constants.
 bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
-    Operation *&matmulOp, Operation *&addOp) {
+    Operation *&matmulOrGemmOp, Operation *&addOp, bool &isGemm) {
   if (v.isa<BlockArgument>())
     return false;
   if (!hasOneUseExceptDimOp(v))
@@ -234,7 +234,22 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
   if (origV.isa<BlockArgument>() || !hasOneUseExceptDimOp(origV))
     return false;
 
-  // Match Add.
+  // Match Gemm
+  auto onnxGemmOp = origV.getDefiningOp<ONNXGemmOp>();
+  if (onnxGemmOp) {
+    if (!isDenseONNXConstant(onnxGemmOp.getB()))
+      return false;
+    if (!isNoneValue(onnxGemmOp.getC()) &&
+        !isDenseONNXConstant(onnxGemmOp.getC()))
+      return false;
+    matmulOrGemmOp = onnxGemmOp.getOperation();
+    matA = onnxGemmOp.getB();
+    biasB = onnxGemmOp.getC();
+    isGemm = true;
+    return true;
+  }
+
+  // Not Gemm, match Add.
   auto onnxAddOp = origV.getDefiningOp<ONNXAddOp>();
   if (!onnxAddOp)
     return false;
@@ -256,10 +271,11 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
     return false;
 
   // Passed all tests.
-  matmulOp = onnxMatMulOp.getOperation();
+  matmulOrGemmOp = onnxMatMulOp.getOperation();
   addOp = onnxAddOp.getOperation();
   matA = rhsMatMul;
   biasB = rhsAdd;
+  isGemm = false;
 
   return true;
 }
@@ -503,44 +519,52 @@ struct PropagateConstantScalingInAttentionLayerPattern
           genericOp, "The second operand of Div/Mul is not a scalar constant");
 
     // Match lhs = shape_transform(X1*A1 + B1)
-    Value A1, B1;
-    Operation *lhsSubMatOp, *lhsAddOp;
-    bool matchLHS = matchShapeAddMatMul(lhs, A1, B1, lhsSubMatOp, lhsAddOp);
+    Value A, B;
+    Operation *matmulOrGemmOp, *addOp;
+    bool isGemm;
+    bool matched =
+        matchShapeAddMatMul(lhs, A, B, matmulOrGemmOp, addOp, isGemm);
 
-    // Match rhs = shape_transform(X2*A2 + B2)
-    Value A2, B2;
-    Operation *rhsSubMatOp, *rhsAddOp;
-    bool matchRHS = matchShapeAddMatMul(rhs, A2, B2, rhsSubMatOp, rhsAddOp);
+    if (!matched) {
+      // Match rhs = shape_transform(X2*A2 + B2)
+      matched = matchShapeAddMatMul(rhs, A, B, matmulOrGemmOp, addOp, isGemm);
+    }
 
-    if (!matchLHS && !matchRHS)
+    if (!matched)
       return rewriter.notifyMatchFailure(genericOp,
           "There is no constant tensor to replace the first operand "
           "of Div/Mul");
 
     // Rewrite.
-    // Only rewrite one side, so use LHS if both sides are matched.
-    if (matchLHS && matchRHS)
-      matchRHS = false;
-    auto onnxSubMatOp =
-        cast<ONNXMatMulOp>(matchLHS ? lhsSubMatOp : rhsSubMatOp);
-    auto onnxAddOp = cast<ONNXAddOp>(matchLHS ? lhsAddOp : rhsAddOp);
-    Value A = matchLHS ? A1 : A2;
-    Value B = matchLHS ? B1 : B2;
-
-    // Move K up before MatMul to make sure it is in the dominant region.
-    K.getDefiningOp()->moveBefore(onnxSubMatOp);
-    // Update in place MatMul and Add.
-    rewriter.updateRootInPlace(onnxSubMatOp, [&] {
-      rewriter.setInsertionPoint(onnxSubMatOp);
-      onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
-          onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
-    });
-    rewriter.updateRootInPlace(onnxAddOp, [&] {
-      OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
-      rewriter.setInsertionPoint(onnxAddOp);
-      onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
-          onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
-    });
+    // Move K up before MatMul/Gemm to make sure it is in the dominant region.
+    K.getDefiningOp()->moveBefore(matmulOrGemmOp);
+    if (isGemm) {
+      auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
+      // Update in place B and C of Gemm.
+      rewriter.updateRootInPlace(onnxGemmOp, [&] {
+        rewriter.setInsertionPoint(onnxGemmOp);
+        onnxGemmOp.getBMutable().assign(rewriter.create<ONNXOp>(
+            onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
+        if (!isNoneValue(onnxGemmOp.getC()))
+          onnxGemmOp.getCMutable().assign(rewriter.create<ONNXOp>(
+              onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
+      });
+    } else {
+      auto onnxSubMatOp = cast<ONNXMatMulOp>(matmulOrGemmOp);
+      auto onnxAddOp = cast<ONNXAddOp>(addOp);
+      // Update in place MatMul and Add.
+      rewriter.updateRootInPlace(onnxSubMatOp, [&] {
+        rewriter.setInsertionPoint(onnxSubMatOp);
+        onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
+            onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
+      });
+      rewriter.updateRootInPlace(onnxAddOp, [&] {
+        OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
+        rewriter.setInsertionPoint(onnxAddOp);
+        onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
+            onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
+      });
+    }
 
     // Bypass Div/Mul.
     rewriter.replaceOp(genericOp, onnxMatMulOp.getY());
