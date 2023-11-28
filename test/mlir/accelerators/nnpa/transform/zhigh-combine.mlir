@@ -232,3 +232,31 @@ func.func @reshape_transpose_reshape_3ds_to_2d(%arg0: tensor<48x256x64xf16, #zhi
 // CHECK:           return [[VAR_2_]] : tensor<1024x768xf16, #zhigh.layout<{dataLayout = "2D"}>>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_unstick_dim(%arg0: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<1xi64> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x?x?xf32>
+  %1 = "onnx.Dim"(%0) {axis = 1 : si64}: (tensor<?x?x?xf32>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL:  func.func @test_unstick_dim
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<1xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<1xi64>
+// CHECK:           return [[VAR_0_]] : tensor<1xi64>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_unstick_dim_nchw(%arg0: tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64> {
+  %0 = "zhigh.Unstick"(%arg0) : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x?x?x?xf32>
+  %1 = "onnx.Dim"(%0) {axis = 1 : si64}: (tensor<?x?x?x?xf32>) -> tensor<1xi64>
+  return %1 : tensor<1xi64>
+
+// CHECK-LABEL:  func.func @test_unstick_dim_nchw
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 3 : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<1xi64>
+// CHECK:           return [[VAR_0_]] : tensor<1xi64>
+// CHECK:         }
+}
