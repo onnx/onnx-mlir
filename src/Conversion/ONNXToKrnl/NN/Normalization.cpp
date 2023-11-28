@@ -300,7 +300,7 @@ struct ONNXInstanceNormalizationOpLowering
 };
 
 //===----------------------------------------------------------------------===//
-// Layer Normalization
+// Layer Normalization unoptimized.
 //===----------------------------------------------------------------------===//
 
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
@@ -309,16 +309,25 @@ using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
 
 // Util: gather the 3 results (possibly none values) and replace the original op
 // by these results.
-static inline void replaceLayerNormalizationOp(
-    ConversionPatternRewriter &rewriter, ONNXLayerNormalizationOp lnOp, Value Y,
-    Value meanOfX, Value invStdDev) {
+template <typename OP_TYPE>
+static inline void replaceGenericLayerNormOp(
+    ConversionPatternRewriter &rewriter, OP_TYPE lnOp, Value Y, Value meanOfX,
+    Value invStdDev) {
   llvm::SmallVector<Value, 3> outputs;
   outputs.emplace_back(Y);
   Value noneValue;
-  if (isNoneValue(lnOp.getMean()))
-    outputs.emplace_back(noneValue);
-  else
-    outputs.emplace_back(meanOfX);
+  if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+    // Mean only for ONNXLayerNormalizationOp
+    if (isNoneValue(lnOp.getMean()))
+      outputs.emplace_back(noneValue);
+    else
+      outputs.emplace_back(meanOfX);
+  } else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value) {
+    // Nothing to do
+  } else {
+    llvm_unreachable("unknown type");
+  }
   if (isNoneValue(lnOp.getInvStdDev()))
     outputs.emplace_back(noneValue);
   else
@@ -326,11 +335,17 @@ static inline void replaceLayerNormalizationOp(
   rewriter.replaceOp(lnOp, outputs);
 }
 
+static inline void replaceONNXLayerNormalizationOp(
+    ConversionPatternRewriter &rewriter, ONNXLayerNormalizationOp lnOp, Value Y,
+    Value meanOfX, Value invStdDev) {
+  replaceGenericLayerNormOp(rewriter, lnOp, Y, meanOfX, invStdDev);
+}
+
 // Generate the original ONNX operations. This is the unoptimized path.
 // TODO: conversions of types are not handled.
-LogicalResult generateONNXLayerNormalizationOpONNXCode(
-    ConversionPatternRewriter &rewriter, Location loc,
-    ONNXLayerNormalizationOp lnOp) {
+template <typename OP_TYPE>
+LogicalResult generateGenericLayerNormOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp) {
   MDBuilder create(rewriter, loc);
   Value X = lnOp.getX(); // Original value, not translated.
   TensorType XType = X.getType().cast<TensorType>();
@@ -355,22 +370,37 @@ LogicalResult generateONNXLayerNormalizationOpONNXCode(
   Value axes =
       create.onnx.constant(create.getBuilder().getI64TensorAttr(axesIntArray));
   TensorType reductionType = RankedTensorType::get(reductionShape, elementType);
-  // Reduction of input
-  Value meanOfX = create.onnx.reduceMean(reductionType, X, axes);
-  Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
-  Value XPow2 = create.onnx.mul(X, X);
-  Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
-  Value var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+  Value meanOfX, d, var;
+  if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+    // Reduction of input
+    meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+    Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
+    Value XPow2 = create.onnx.mul(X, X);
+    Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
+    var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+    d = create.onnx.sub(X, meanOfX);
+  } else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value) {
+    // For RMS, just take X as the input minus mean.
+    Value XPow2 = create.onnx.mul(X, X);
+    var = create.onnx.reduceMean(reductionType, XPow2, axes);
+    d = X;
+  }
   Value varWithEpsilon = create.onnx.add(var, epsilon);
   Value stdDev = create.onnx.sqrt(varWithEpsilon);
   Value invStdDev = create.onnx.reciprocal(stdDev);
-  Value d = create.onnx.sub(X, meanOfX);
   Value normalized = create.onnx.mul(d, invStdDev);
   Value Y = create.onnx.mul(normalized, lnOp.getScale());
   if (!isNoneValue(lnOp.getB()))
     Y = create.onnx.add(Y, lnOp.getB());
-  replaceLayerNormalizationOp(rewriter, lnOp, Y, meanOfX, invStdDev);
+  replaceGenericLayerNormOp<OP_TYPE>(rewriter, lnOp, Y, meanOfX, invStdDev);
   return success();
+}
+
+LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ONNXLayerNormalizationOp lnOp) {
+  return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
 }
 
 struct ONNXLayerNormalizationOpLowering
@@ -924,7 +954,7 @@ struct ONNXLayerNormalizationOpLowering
         }); /* blocked loop */
     // We don't seem to need to reshape fhe flattened memref, just pass the
     // original ones.
-    replaceLayerNormalizationOp(
+    replaceONNXLayerNormalizationOp(
         rewriter, lnOp, YMemRef, meanMemRef, invStdDevMemRef);
     return success();
   }
