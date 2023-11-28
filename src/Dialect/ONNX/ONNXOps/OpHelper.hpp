@@ -209,6 +209,9 @@ bool isScalarConstantTensor(mlir::Value v);
 bool hasShapeAndRank(mlir::Value val);
 bool hasShapeAndRank(mlir::Operation *op);
 
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(mlir::Value val);
+
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
 //===----------------------------------------------------------------------===//
