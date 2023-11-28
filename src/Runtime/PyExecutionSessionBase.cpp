@@ -136,16 +136,16 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       for (size_t i = 0; i < (size_t)inputPyArray.ndim(); ++i)
         numElem *= shape[i];
       //
-      // Convert multi-dimentional array (for string data pointers) to
-      // one-dimentional array to mange multi-dimentional array in an
-      // integurated way.
+      // Convert multi-dimensional array (for string data pointers) to
+      // one-dimensional array to mange multi-dimensional array in an
+      // integrated way.
       //
-      // Normally pybind11 can convert multi-dimentional array into
-      // one-dimentional array without manual conversion, but pybind11 has
-      // ans issue about "dype caster does not accept strings or type objects"
+      // Normally pybind11 can convert multi-dimensional array into
+      // one-dimensional array without manual conversion, but pybind11 has
+      // an issue about "dtype caster does not accept strings or type objects"
       // (https://github.com/pybind/pybind11/issues/1538). The issue page
       // shows a solution to avoid the bug, but it does not work for our case.
-      // This part is a kind of temporal hack to aoid this issue.
+      // This part is a kind of temporal hack to avoid this issue.
       //
 
       // Allocate buffer for one-dimentional array for string data pointers
