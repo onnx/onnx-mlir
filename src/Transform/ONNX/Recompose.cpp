@@ -54,25 +54,61 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     Value x, scale;
     FloatAttr epsilon;
     int64_t axis;
-    if (!matchLayerNormPattern(mulOp, x, scale, axis, epsilon))
+    bool isRMSLayerNorm;
+    if (!matchLayerNormPattern(mulOp, x, scale, axis, epsilon, isRMSLayerNorm))
       return failure();
 
     // Replace
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Type xType = x.getType();
     Value noneVal = create.onnx.none();
-    Value res = create.onnx.layerNorm(xType, x, scale, noneVal, axis, epsilon);
+    Value res;
+    if (isRMSLayerNorm)
+      res = create.onnx.RMSLayerNorm(xType, x, scale, noneVal, axis, epsilon);
+    else
+      res = create.onnx.layerNorm(xType, x, scale, noneVal, axis, epsilon);
     rewriter.replaceOp(mulOp, res);
     return success();
   }
 
+  /*
+   * Primary LayerNormalization pattern being matched:
+
+     mean = reduceMean(X)
+     D = X - mean
+     var = reduceMean(D*D)
+     stdDev = sqrt(var + eps)
+     y = mul(scale, D / stdDev)
+
+
+  * Secondary pattern associated with RMSLayerNormalization:
+
+    var = reduceMean(X * X)
+    stdDev = sqrt(var + eps)
+    Y = mul(scale, X / stdDev)
+
+  As it can be seen here, the RMS LN pattern matches the traditional LN for
+  the bottom 3 statements. In RMS LN, X is the raw input, whereas in the
+  traditional LN, the input to the lower 3 statements are D = X - mean(X).
+
+  * Variations around the div (for both patterns):
+
+     D / stdDev
+     D * (1 / stdDev)
+     D * recip(stdDev)
+
+  */
   static bool matchLayerNormPattern(ONNXMulOp LayerNormOp, Value &x,
-      Value &scale, int64_t &axis, FloatAttr &epsilonAttr) {
+      Value &scale, int64_t &axis, FloatAttr &epsilonAttr,
+      bool &isRMSLayerNorm) {
     using namespace onnx_mlir;
     Location loc = LayerNormOp.getLoc();
+    isRMSLayerNorm = false;
+
+    // 1: Start first to detect if we have the common layer norm pattern.
 
     // Values that will be gathered and only kept locally.
-    Value norm, invStdDev, stdDev, varEps, var, epsilon, dd, d, mean;
+    Value norm, invStdDev, stdDev, varEps, var, epsilon, dd, d, mean, x1;
     // Replicate of values, check that they are identical to originals.
     Value d1, d2;
     // Operations that will be gathered and kept locally.
@@ -91,7 +127,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       // %stdDev = "onnx.Sqrt"(%varEps)
       // %norm = "onnx.Div"(%d, %stdDev)
       if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, nDivOp, d, stdDev, 1))
-        return reportFailure("missing std dev (via div), sqrt op");
+        return reportFailure("RMS missing std dev (via div), sqrt op");
 
     } else if (operandOfOpDefinedBy<ONNXMulOp>(
                    nMulOp, nsMulOp, norm, scale, 0) ||
@@ -113,7 +149,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
         // %StdDev = "onnx.Sqrt"(%varEps)
         // %InvStdDev = "onnx.Reciprocal"(%StdDev)
         if (!operandOfOpDefinedBy<ONNXSqrtOp>(sdSqrtOp, isdRecipOp, stdDev)) {
-          return reportFailure("missing std dev (via reciprocal), sqrt op");
+          return reportFailure("RMS missing std dev (via reciprocal), sqrt op");
         }
       } else if (operandOfOpDefinedBy<ONNXDivOp>(
                      isdRecipOp, nMulOp, invStdDev, d, 0) ||
@@ -137,97 +173,135 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
               createIE.getArraySize(one, /*static only*/ true) == 1) {
             IndexExpr floatVal = createIE.getFloatAsNonAffine(one);
             if (!floatVal.isLiteral() || (floatVal.getFloatLiteral() != 1.0))
-              return reportFailure("missing std dev (via 1/x), not div of 1.0");
+              return reportFailure(
+                  "RMS missing std dev (via 1/x), not div of 1.0");
           } else {
             return reportFailure(
                 "missing std dev (via 1/x), not div of scalar");
           }
         } else {
-          return reportFailure("missing std dev (via 1/x), sqrt op");
+          return reportFailure("RMS missing std dev (via 1/x), sqrt op");
         }
       } else {
-        return reportFailure("missing inv std dev, reciprocal op");
+        return reportFailure("RMS missing inv std dev, reciprocal op");
       }
     } else {
-      return reportFailure("missing norm, div or reciprocal op");
+      return reportFailure("RMS missing norm, div or reciprocal op");
     }
     // %varEps = "onnx.Add"(%var, %eps)
     // %stdDev = "onnx.Sqrt"(%varEps)
     if (!operandOfOpDefinedBy<ONNXAddOp>(veAddOp, sdSqrtOp, varEps))
-      return reportFailure("missing var + eps, add op");
+      return reportFailure("RMS missing var + eps, add op");
     // %var = "onnx.ReduceMeanV13"(%dd)
     // %varEps = "onnx.Add"(%var, %eps)
     if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             vReduceOp, veAddOp, var, epsilon, 0) &&
         !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
             vReduceOp, veAddOp, epsilon, var, 1))
-      return reportFailure("missing var, reduce mean op");
+      return reportFailure("RMS missing var, reduce mean op");
     // %dd = "onnx.Mul"(%d, %d)
     // %var = "onnx.ReduceMeanV13"(%dd)
     if (!operandOfOpDefinedBy<ONNXMulOp>(ddMulOp, vReduceOp, dd))
-      return reportFailure("missing DD, mul op");
-    // %d = "onnx.Sub"(%X, %mean)
-    // %dd = "onnx.Mul"(%d, %d)
-    if (!operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 0))
-      return reportFailure("missing D, sub op");
-    if (!operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 1))
-      return reportFailure("missing D, sub op");
+      return reportFailure("RMS missing DD, mul op");
+
+    // 2: Now we have the common pattern, make additional checks
+    // Make sure that all of the d's matches.
+    d1 = ddMulOp->getOperand(0);
+    d2 = ddMulOp->getOperand(1);
     if (d != d1 || d != d2)
       return reportFailure("Various versions of d do not match");
-    // %mean = "onnx.ReduceMeanV13"(%x)
-    // %d = "onnx.Sub"(%X, %mean)
-    if (!operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
-            mReduceOp, dSubOp, x, mean, 1))
-      return reportFailure("missing mean, reduce mean op");
-    // Verify that the mReduceOp uses x as well.
-    auto lnOp = cast<ONNXReduceMeanV13Op>(mReduceOp);
-    Value x2 = lnOp.getData();
-    if (x != x2)
-      return reportFailure("input x to mean/ReduceMean and sub are different");
-    // Check the number of uses, for now only the 1 uses.
-    if (!mReduceOp->hasOneUse())
-      return reportFailure("mean reduce has too many uses");
-    // d = sub has 3 uses from 2 distinct ops, ignore test for now.
+    // Check one usages of the key computations.
     if (!ddMulOp->hasOneUse())
-      return reportFailure("dd/mul has too many uses");
+      return reportFailure("RMS dd/mul has too many uses");
     if (!vReduceOp->hasOneUse())
-      return reportFailure("var reduce has too many uses");
+      return reportFailure("RMS var reduce has too many uses");
     if (!veAddOp->hasOneUse())
-      return reportFailure("var eps add has too many uses");
+      return reportFailure("RMS var eps add has too many uses");
     if (!sdSqrtOp->hasOneUse())
-      return reportFailure("std dev sqrt has too many uses");
+      return reportFailure("RMS std dev sqrt has too many uses");
     // Gate the next 3 ops by being nonnull, as there are multiple paths.
     if (nDivOp && !nDivOp->hasOneUse())
-      return reportFailure("norm div has too many uses");
+      return reportFailure("RMS norm div has too many uses");
     if (nMulOp && !nMulOp->hasOneUse())
-      return reportFailure("norm mul has too many uses");
+      return reportFailure("RMS norm mul has too many uses");
     if (isdRecipOp && !isdRecipOp->hasOneUse())
-      return reportFailure("norm recip has too many uses");
+      return reportFailure("RMS norm recip has too many uses");
     if (!nsMulOp->hasOneUse())
-      return reportFailure("norm scale mul has too many uses");
-
+      return reportFailure("RMS norm scale mul has too many uses");
     // Now check values epsilon.
     if (!isScalarTensor(epsilon))
-      return reportFailure("epsilon is expected to be scalar");
+      return reportFailure("RMS epsilon is expected to be scalar");
     ONNXConstantOp epsilonOp =
         dyn_cast<ONNXConstantOp>(epsilon.getDefiningOp());
     if (!epsilonOp)
-      return reportFailure("epsilon needs to be a constant");
+      return reportFailure("RMS epsilon needs to be a constant");
     epsilonAttr = epsilonOp.getValueFloatAttr();
     // Check axes.
-    if (!hasShapeAndRank(x))
-      return reportFailure("need rank and shape for input x");
-    int64_t xRank = x.getType().cast<ShapedType>().getRank();
-    int64_t meanAxis, varAxis;
-    if (!suitableAxis(mReduceOp, xRank, meanAxis))
-      return reportFailure("unsuitable mean reduce axes");
-    if (!suitableAxis(vReduceOp, xRank, varAxis))
-      return reportFailure("unsuitable var reduce axes");
-    if (meanAxis != varAxis)
-      return reportFailure("mean and var axes must be the same");
-    // Axis is fine
-    axis = meanAxis;
-    LLVM_DEBUG(llvm::dbgs() << "LayerNorm from mult, axis : " << axis << "\n");
+    if (!hasShapeAndRank(dd))
+      return reportFailure("RMS need rank and shape for input dd");
+    int64_t ddRank = dd.getType().cast<ShapedType>().getRank();
+    int64_t varAxis;
+    if (!suitableAxis(vReduceOp, ddRank, varAxis))
+      return reportFailure("RMS unsuitable var reduce axes");
+
+    // 3: All the conditions are now correct for having an RMS pattern.
+    // Now check if we can extend the pattern to a full LM pattern.
+
+    bool hasFullPattern = true;
+    // %d = "onnx.Sub"(%X, %mean)
+    // %dd = "onnx.Mul"(%d, %d)
+    if (!operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 0))
+      hasFullPattern = reportFailure("LN missing D, sub op");
+    if (hasFullPattern &&
+        !operandOfOpDefinedBy<ONNXSubOp>(dSubOp, ddMulOp, d1, d2, 1))
+      hasFullPattern = reportFailure("LN missing D, sub op");
+    // %mean = "onnx.ReduceMeanV13"(%x)
+    // %d = "onnx.Sub"(%X, %mean)
+    if (hasFullPattern && !operandOfOpDefinedBy<ONNXReduceMeanV13Op>(
+                              mReduceOp, dSubOp, x1, mean, 1))
+      hasFullPattern = reportFailure("LN missing mean, reduce mean op");
+
+    // 4: We have the ops for a traditional LM pattern, now check a few more
+    // things.
+
+    // d = sub has 3 uses from 2 distinct ops, ignore test for now.
+
+    if (hasFullPattern) {
+      // Verify that the mReduceOp uses x as well.
+      auto lnOp = cast<ONNXReduceMeanV13Op>(mReduceOp);
+      Value x2 = lnOp.getData();
+      if (x1 != x2)
+        hasFullPattern = reportFailure(
+            "LN input x to mean/ReduceMean and sub are different");
+    }
+    // Check the number of uses, for now only the 1 uses.
+    if (hasFullPattern && !mReduceOp->hasOneUse())
+      hasFullPattern = reportFailure("LN mean reduce has too many uses");
+    if (hasFullPattern) {
+      if (!hasShapeAndRank(x1))
+        return reportFailure("LN need rank and shape for input x");
+      int64_t x1Rank = x1.getType().cast<ShapedType>().getRank();
+      int64_t meanAxis;
+      if (!suitableAxis(mReduceOp, x1Rank, meanAxis))
+        hasFullPattern = reportFailure("LN unsuitable mean reduce axes");
+      else if (meanAxis != varAxis)
+        hasFullPattern = reportFailure("LN mean and var axes must be the same");
+    }
+
+    // We have now success, either with the shorter RMS LN pattern or the
+    // full/traditional LN pattern. Set the last params and report success.
+    axis = varAxis;
+    if (hasFullPattern) {
+      isRMSLayerNorm = false;
+      x = x1;
+      LLVM_DEBUG(llvm::dbgs() << "LayerNorm from mult, axis " << axis << "\n");
+    } else {
+      isRMSLayerNorm = true;
+      x = d;
+      LLVM_DEBUG(
+          llvm::dbgs() << "RMSLayerNorm from mult, axis " << axis << "\n");
+    }
+    isRMSLayerNorm = !hasFullPattern;
     return true;
   }
 
@@ -311,8 +385,9 @@ void RecomposeONNXToONNXPass::runOnOperation() {
     Value x, scale;
     FloatAttr epsilon;
     int64_t axis;
+    bool isRMSLayerNorm;
     return !RecomposeLayerNormFromMulPattern::matchLayerNormPattern(
-        op, x, scale, axis, epsilon);
+        op, x, scale, axis, epsilon, isRMSLayerNorm);
   });
 
   RewritePatternSet patterns(context);
