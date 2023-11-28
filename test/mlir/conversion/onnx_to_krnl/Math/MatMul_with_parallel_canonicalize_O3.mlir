@@ -24,7 +24,7 @@ func.func @test_matmul_parallel(%arg0 : tensor<4x8xf32>, %arg1 : tensor<8x16xf32
   // CHECK:           [[BLOCK_TILE__1_:%.+]], [[BLOCK_IN__1_:%.+]] = krnl.block [[LOOP_0_]]#1 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   // CHECK:           [[BLOCK_TILE__2_:%.+]], [[BLOCK_IN__2_:%.+]] = krnl.block [[LOOP_0_]]#2 8 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   // CHECK:           krnl.permute([[BLOCK_TILE__0_]], [[BLOCK_IN__0_]], [[BLOCK_TILE__0_]]_0, [[BLOCK_IN__0_]]_1, [[BLOCK_TILE__0_]]_2, [[BLOCK_IN__0_]]_3) [0, 3, 1, 4, 2, 5] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
-  // CHECK:           krnl.parallel [[BLOCK_TILE__0_]] : !krnl.loop
+  // CHECK:           krnl.parallel([[BLOCK_TILE__0_]]) : !krnl.loop
   // CHECK:           krnl.iterate([[BLOCK_TILE__0_]], [[BLOCK_TILE__0_]]_0, [[BLOCK_TILE__0_]]_2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = [[CST_0_]] to [[CST_4_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = [[CST_0_]] to [[CST_16_]], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = [[CST_0_]] to [[CST_8_]]){
   // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[BLOCK_TILE__0_]], [[BLOCK_TILE__0_]]_0, [[BLOCK_TILE__0_]]_2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
   // CHECK:             krnl.matmul [[PARAM_0_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, [[PARAM_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, [[RES_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}}, ([[BLOCK_IN__0_]], [[BLOCK_IN__0_]]_1, [[BLOCK_IN__0_]]_3), ([[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2), ([[CST_4_]], [[CST_16_]], [[CST_8_]]) {aTileSize = [], bTileSize = [], cTileSize = [], computeTileSize = [4, 8, 8]} : memref<4x8xf32>, memref<8x16xf32>, memref<4x16xf32>, (!krnl.loop, !krnl.loop, !krnl.loop)
