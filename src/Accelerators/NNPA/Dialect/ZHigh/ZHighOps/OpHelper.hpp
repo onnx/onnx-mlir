@@ -78,5 +78,8 @@ mlir::AffineMapAttr getCollapsing4DTo2DMap(mlir::OpBuilder &b, mlir::Value val);
 mlir::AffineMapAttr getTransposeMap(
     mlir::OpBuilder &b, mlir::ArrayAttr permAttr);
 
+/// Get an axis for NHWC layout given an axis for NCHW layout.
+mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);
+
 } // namespace zhigh
 } // namespace onnx_mlir
