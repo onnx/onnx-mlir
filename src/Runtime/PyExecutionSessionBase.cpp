@@ -129,22 +129,34 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
              << std::endl;
       throw std::runtime_error(reportPythonError(errStr.str()));
     }
-
-    // Convert Py_ssize_t to int64_t if necessary
-    OMTensor *inputOMTensor = nullptr;
+    OMTensor *inputOMTensor = NULL;
     if (dtype == ONNX_TYPE_STRING) {
       auto shape = inputPyArray.shape();
       uint64_t numElem = 1;
       for (size_t i = 0; i < (size_t)inputPyArray.ndim(); ++i)
         numElem *= shape[i];
-      // allocate strArray
-      // "strArray" will be freed by omTensor destroy, since ownData is set.
-      char **strArray = (char **)malloc(sizeof(char *) * numElem);
+      //
+      // Convert multi-dimentional array (for string data pointers) to
+      // one-dimentional array to mange multi-dimentional array in an
+      // integurated way.
+      //
+      // Normally pybind11 can convert multi-dimentional array into
+      // one-dimentional array without manual conversion, but pybind11 has
+      // ans issue about "dype caster does not accept strings or type objects"
+      // (https://github.com/pybind/pybind11/issues/1538). The issue page
+      // shows a solution to avoid the bug, but it does not work for our case.
+      // This part is a kind of temporal hack to aoid this issue.
+      //
+
+      // Allocate buffer for one-dimentional array for string data pointers
+      char **strPointerArray = (char **)alloca(sizeof(char *) * numElem);
+      assert(
+          strPointerArray && "fail to alloc array for pointers to string data");
       switch (inputPyArray.ndim()) {
       case 1: {
         auto vec = inputPyArray.cast<std::vector<std::string>>();
         for (int64_t i = 0; i < shape[0]; ++i)
-          strArray[i] = strdup(vec[i].data());
+          strPointerArray[i] = vec[i].data();
         break;
       }
       case 2: {
@@ -152,7 +164,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         int off = 0;
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
-            strArray[off++] = strdup(vec[i][j].data());
+            strPointerArray[off++] = vec[i][j].data();
         break;
       }
       case 3: {
@@ -163,7 +175,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
-              strArray[off++] = strdup(vec[i][j][k].data());
+              strPointerArray[off++] = vec[i][j][k].data();
         break;
       }
       case 4: {
@@ -174,19 +186,60 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
               for (int64_t l = 0; l < shape[3]; ++l)
-                strArray[off++] = strdup(vec[i][j][k][l].data());
+                strPointerArray[off++] = vec[i][j][k][l].data();
+        break;
+      }
+      case 5: {
+        auto vec = inputPyArray.cast<std::vector<
+            std::vector<std::vector<std::vector<std::vector<std::string>>>>>>();
+        int off = 0;
+        for (int64_t i = 0; i < shape[0]; ++i)
+          for (int64_t j = 0; j < shape[1]; ++j)
+            for (int64_t k = 0; k < shape[2]; ++k)
+              for (int64_t l = 0; l < shape[3]; ++l)
+                for (int64_t m = 0; m < shape[4]; ++m)
+                  strPointerArray[off++] = vec[i][j][k][l][m].data();
+        break;
+      }
+      case 6: {
+        auto vec = inputPyArray.cast<std::vector<std::vector<std::vector<
+            std::vector<std::vector<std::vector<std::string>>>>>>>();
+        int off = 0;
+        for (int64_t i = 0; i < shape[0]; ++i)
+          for (int64_t j = 0; j < shape[1]; ++j)
+            for (int64_t k = 0; k < shape[2]; ++k)
+              for (int64_t l = 0; l < shape[3]; ++l)
+                for (int64_t m = 0; m < shape[4]; ++m)
+                  for (int64_t n = 0; n < shape[5]; ++n)
+                    strPointerArray[off++] = vec[i][j][k][l][m][n].data();
         break;
       }
       default:
         assert(false && "not implemented");
       }
+      // Calculate total length of all strings including null termination.
+      uint64_t strLenTotal = 0;
+      for (uint64_t i = 0; i < numElem; i++)
+        strLenTotal += strlen(strPointerArray[i]) + 1;
+      // allocate OMTensor->_allocatedPtr for holding both string data pointers
+      // and strind data themselves.
+      void *strArray =
+          malloc(sizeof(char *) * numElem + sizeof(char) * strLenTotal);
+      assert(strArray && "fail to alloc array for pointers to string data and "
+                         "string data themselves");
+      memcpy(strArray, (void *)strPointerArray, sizeof(char *) * numElem);
+      void *strDataBuffer = (void *)(((char **)strArray) + numElem);
+      char *strDataPtr = (char *)strDataBuffer;
+      for (uint64_t i = 0; i < numElem; i++) {
+        strcpy(strDataPtr, strPointerArray[i]);
+        ((char **)strArray)[i] = strDataPtr;
+        strDataPtr += strlen(strPointerArray[i]) + 1;
+      }
       inputOMTensor = omTensorCreateWithOwnership(strArray,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
-          static_cast<int64_t>(inputPyArray.ndim()), dtype,
-          /*own_data=*/OMTENSOR_OWNING_DATA_PTR_AND_STRING);
+          static_cast<int64_t>(inputPyArray.ndim()), dtype, /*own_data=*/true);
       omTensorSetStridesWithPyArrayStrides(inputOMTensor,
           reinterpret_cast<const int64_t *>(inputPyArray.strides()));
-      // omTensorPrint("XXXXX InputOMTensor: %d", inputOMTensor);fflush(stdout);
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
