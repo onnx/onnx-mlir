@@ -186,4 +186,8 @@ def IsIdentityAffineMap : Constraint<
   "Is identity AffineMap"
 >;
 
+def GetAxisNHWC : NativeCodeCall<
+  "::onnx_mlir::zhigh::getAxisNHWC($0)"
+>;
+
 #endif // OP_HELPER 

@@ -15,8 +15,8 @@ Build protobuf as a static library.
 
 [same-as-file]: <> (utils/install-protobuf.cmd)
 ```shell
-REM Check out protobuf v3.20.3
-set protobuf_version=3.20.3
+REM Check out protobuf v21.12
+set protobuf_version=21.12
 git clone -b v%protobuf_version% --recursive https://github.com/protocolbuffers/protobuf.git
 
 set root_dir=%cd%
@@ -42,7 +42,7 @@ set PATH=%root_dir%\protobuf_install\bin;%PATH%
 
 If you wish to be able to run all the ONNX-MLIR tests, you will also need to install the matching version of protobuf through pip. Note that this is included in the requirements.txt file at the root of onnx-mlir, so if you plan on using it, you won't need to explicitly install protobuf.
 ```shell
-python3 -m pip install protobuf==3.20.3
+python3 -m pip install protobuf==4.21.12
 ```
 
 #### MLIR
@@ -52,7 +52,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout b44b3494f60296db6aca38a14cab061d9b747a0a && cd ..
+cd llvm-project && git checkout 28b27c1b10ae8d1f5b4fb9df691e8cf0da9be3f6 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
