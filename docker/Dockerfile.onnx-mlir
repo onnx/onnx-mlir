@@ -21,7 +21,9 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && python3 -m pip install .
+    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . \
+    && find / -name "libprotobuf.so*.*" -print 2> /dev/null \
+    && find / -name "libprotobuf.so.32" -print 2> /dev/null
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -68,7 +70,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
             check-onnx-backend-numerical \
     && make -j${NPROC} install \
     && echo -e "/usr/local/lib" > \
-       /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig \      
+            /etc/ld.so.conf.d/onnx-mlir.conf && ldconfig \
 # Clean up
     && cd ${WORK_DIR} \
     && distro=$(cat /etc/os-release|grep -Po '(?<=^ID=).*'|sed 's/\"//g') \
