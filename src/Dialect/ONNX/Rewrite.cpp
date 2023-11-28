@@ -1613,6 +1613,7 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
 void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<ONNXLayoutTransformEliminationPattern>(context);
+  result.insert<ONNXLayoutTransformFusionPattern>(context);
 }
 
 /// on the ONNXLessOp.

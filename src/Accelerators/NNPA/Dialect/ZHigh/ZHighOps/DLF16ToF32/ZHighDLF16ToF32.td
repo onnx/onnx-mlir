@@ -30,14 +30,44 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def GetTypeInDLF16: NativeCodeCall<
+  "RankedTensorType::get($0.getType().cast<ShapedType>().getShape(), $_builder.getF16Type())"
+>;
+
 //===----------------------------------------------------------------------===//
 // DRR patterns 
 //===----------------------------------------------------------------------===//
 
-// zhigh.DLF16ToF32 (zhigh.DLF16ToF32(%X)) = %X
+// zhigh.DLF16ToF32 (zhigh.F32ToDLF16(%X)) = %X
 def ConversionRemovalPattern : Pat<
   (ZHighDLF16ToF32Op (ZHighF32ToDLF16Op $arg)),
   (replaceWithValue $arg)
+>;
+
+// Delay zhigh.DLF16ToF32 as long as possible, and finally it can be cancelled
+// when it meets zhigh.F32ToDLF16.
+def DelayDLF16ToF32ViaReshapePattern : Pat<
+  (ONNXReshapeOp:$res (ZHighDLF16ToF32Op $arg), $shape, $allowZero),
+  (ZHighDLF16ToF32Op (ONNXReshapeOp $arg, $shape, $allowZero,
+                                    (returnType (GetTypeInDLF16 $res))))
+>;
+
+def DelayDLF16ToF32ViaTransposePattern : Pat<
+  (ONNXTransposeOp:$res (ZHighDLF16ToF32Op $arg), $perm),
+  (ZHighDLF16ToF32Op (ONNXTransposeOp $arg, $perm,
+                                      (returnType (GetTypeInDLF16 $res))))
+>;
+
+def DelayDLF16ToF32ViaSqueezePattern : Pat<
+  (ONNXSqueezeOp:$res (ZHighDLF16ToF32Op $arg), $axes),
+  (ZHighDLF16ToF32Op (ONNXSqueezeOp $arg, $axes,
+                                    (returnType (GetTypeInDLF16 $res))))
+>;
+
+def DelayDLF16ToF32ViaUnsqueezePattern : Pat<
+  (ONNXUnsqueezeOp:$res (ZHighDLF16ToF32Op $arg), $axes),
+  (ZHighDLF16ToF32Op (ONNXUnsqueezeOp $arg, $axes,
+                                      (returnType (GetTypeInDLF16 $res))))
 >;
 
 #endif // DLF16_TO_F32_TD

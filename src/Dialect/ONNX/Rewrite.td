@@ -443,6 +443,11 @@ def ONNXLayoutTransformEliminationPattern : Pat<
   [(HaveSameEncodingAttr $res, $arg),
    (HaveSameElementType $res, $arg)]>;
 
+def ONNXLayoutTransformFusionPattern : Pat<
+  (ONNXLayoutTransformOp (ONNXLayoutTransformOp $arg, $layout1), $layout2),
+  (ONNXLayoutTransformOp $arg, $layout2)
+>;
+
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXTransposeOp
 //===----------------------------------------------------------------------===//

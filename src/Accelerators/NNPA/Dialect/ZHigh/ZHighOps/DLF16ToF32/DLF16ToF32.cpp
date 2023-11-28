@@ -55,6 +55,10 @@ LogicalResult ZHighDLF16ToF32Op::inferShapes(
 void ZHighDLF16ToF32Op::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ConversionRemovalPattern>(context);
+  results.insert<DelayDLF16ToF32ViaReshapePattern>(context);
+  results.insert<DelayDLF16ToF32ViaTransposePattern>(context);
+  results.insert<DelayDLF16ToF32ViaSqueezePattern>(context);
+  results.insert<DelayDLF16ToF32ViaUnsqueezePattern>(context);
 }
 } // namespace zhigh
 } // namespace onnx_mlir
