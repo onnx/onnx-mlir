@@ -140,12 +140,13 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       // one-dimensional array to mange multi-dimensional array in an
       // integrated way.
       //
-      // Normally pybind11 can convert multi-dimensional array into
+      // For numerical array, pybind11 can convert multi-dimensional array into
       // one-dimensional array without manual conversion, but pybind11 has
       // an issue about "dtype caster does not accept strings or type objects"
       // (https://github.com/pybind/pybind11/issues/1538). The issue page
       // shows a solution to avoid the bug, but it does not work for our case.
-      // This part is a kind of temporal hack to avoid this issue.
+      // The following part solves the issue temporally, and will be updated
+      // if we find better way to avoid the issue or pybind11 fixes the issue.
       //
 
       // Allocate buffer for one-dimentional array for string data pointers
