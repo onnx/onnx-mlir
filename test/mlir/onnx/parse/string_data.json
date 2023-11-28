@@ -57,7 +57,7 @@
   ]
 }
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   () -> tensor<2x!onnx.String> attributes {input_names = [], output_names = ["output"]} {
+// CHECK-SAME:   () -> (tensor<2x!onnx.String> {onnx.name = "output"}) {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<["hello", "world"]> : tensor<2x!onnx.String>
 // CHECK:           onnx.Return %0 : tensor<2x!onnx.String>
 // CHECK:         }

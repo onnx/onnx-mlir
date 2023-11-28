@@ -20,6 +20,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -115,6 +116,8 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
     llvm::SmallVector<Value, 4> &operands, Type outputType,
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
 
+mlir::ElementsAttr getElementAttributeFromStablehloValue(mlir::Value value);
+
 // `Math` directory methods:
 void populateLoweringONNXClipOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
@@ -150,7 +153,11 @@ void populateLoweringONNXFlattenOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXGatherOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXGatherElementsOpToStableHloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXIdentityOpToStableHloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXPadOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReshapeOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);

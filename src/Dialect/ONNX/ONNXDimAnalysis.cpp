@@ -504,14 +504,102 @@ DimAnalysis::DimAnalysis(ArrayRef<Value> vals) {
 DimAnalysis::DimAnalysis(ModuleOp moduleOp) {
   moduleOp.walk([&](Operation *op) {
     if (auto funcOp = dyn_cast<func::FuncOp>(op)) {
-      for (Value arg : funcOp.getArguments())
-        build(arg);
+      // Build dimensions for function arguments and results.
+      buildFunctionArgsRes(funcOp);
+    } else {
+      // Build dimensions for normal operation results.
+      for (Value output : op->getResults())
+        if (!isNoneValue(output))
+          build(output);
     }
-    for (Value output : op->getResults())
-      build(output);
   });
   LLVM_DEBUG(llvm::dbgs() << "The number of dynamic dims in the IR: "
                           << numOfDynamicDims << "\n");
+}
+
+int64_t DimAnalysis::build(DimT d, int64_t setID) {
+  if (setID >= 0) {
+    if (dimSetMap.contains(setID)) {
+      dimSetMap[setID].insert(d);
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Build a new dim(" << d.first << ", " << d.second
+                 << ") and insert it into the existing set " << setID << "\n");
+    }
+  } else {
+    setID = setCounter;
+    DimSetT dimSet;
+    dimSet.insert(d);
+    dimSetMap[setID] = dimSet;
+    setCounter++;
+    LLVM_DEBUG(llvm::dbgs()
+               << "Build a new dim(" << d.first << ", " << d.second
+               << ") and insert it into a new set " << setID << "\n");
+  }
+  if (setID >= 0)
+    numOfDynamicDims++;
+  return setID;
+}
+
+void DimAnalysis::buildFunctionArgsRes(func::FuncOp funcOp) {
+  // If dim_params are available, try to group dims using dim_params because
+  // dimensions wih the same dim_param are supposed to be the same at runtime.
+
+  // Keep dynamic dimensions with the same dim_param.
+  std::map<std::string, DimSetT> paramSetMap;
+
+  auto buildFor = [&paramSetMap, this](ValueRange args, ArrayAttr argAttrs) {
+    for (size_t argPos = 0; argPos < args.size(); ++argPos) {
+      Value arg = args[argPos];
+      auto tensorType = arg.getType().dyn_cast<RankedTensorType>();
+      if (!tensorType)
+        continue;
+      // Get dim_params if exists.
+      std::map<unsigned, std::string> indexParamMap;
+      getONNXDimParams(indexParamMap, argAttrs, argPos);
+      // Check and build each dynamic dimension.
+      for (int64_t dimPos = 0; dimPos < tensorType.getRank(); ++dimPos) {
+        if (!tensorType.isDynamicDim(dimPos))
+          continue;
+        DimT ti(arg, dimPos);
+        if (auto dp = indexParamMap.find(dimPos); dp != indexParamMap.end()) {
+          // This arg has dim_param, build it later with other args of the
+          // same dim_param
+          if (paramSetMap.find(dp->second) == paramSetMap.end()) {
+            DimSetT dimSet;
+            dimSet.insert(ti);
+            paramSetMap[dp->second] = dimSet;
+          } else {
+            paramSetMap[dp->second].insert(ti);
+          }
+        } else {
+          // This arg does not have dim_param, build it now.
+          build(ti);
+        }
+      }
+    }
+  };
+
+  // Build internal mappings for arguments.
+  ArrayRef<BlockArgument> args = funcOp.getArguments();
+  ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
+  buildFor(args, argAttrs);
+
+  // Build internal mappings for results.
+  Operation *terminator = funcOp.getRegion().back().getTerminator();
+  ValueRange resVals;
+  if (auto returnOp = dyn_cast<func::ReturnOp>(terminator))
+    resVals = returnOp.getOperands();
+  else if (auto returnOp = dyn_cast<ONNXReturnOp>(terminator))
+    resVals = returnOp.getOperands();
+  ArrayAttr resAttrs = funcOp.getResAttrsAttr();
+  buildFor(resVals, resAttrs);
+
+  // Build dynamic dimensions using dim_param.
+  for (const auto &[param, dimSet] : paramSetMap) {
+    int64_t setID = -1;
+    for (DimT d : dimSet)
+      setID = build(d, setID);
+  }
 }
 
 void DimAnalysis::build(Value val) {
@@ -524,8 +612,10 @@ void DimAnalysis::build(Value val) {
         dimSet.insert(ti);
         dimSetMap[setCounter++] = dimSet;
         numOfDynamicDims++;
-        LLVM_DEBUG(llvm::dbgs() << "Build a new dim(" << ti.first << ", "
-                                << ti.second << ")\n");
+        LLVM_DEBUG(llvm::dbgs()
+                   << "Build a new dim(" << ti.first << ", " << ti.second
+                   << ") and insert it into a new set " << (setCounter - 1)
+                   << "\n");
       }
     }
   }
@@ -635,6 +725,31 @@ void DimAnalysis::dump() const {
     llvm::outs() << "\n- Set " << i << " (size: " << dimSet.size() << "):\n";
     for (auto &ti : dimSet)
       llvm::outs() << "  - Dim " << ti.second << " of " << ti.first << "\n";
+  }
+}
+
+void DimAnalysis::getONNXDimParams(
+    std::map<unsigned, std::string> &indexParamMap, ArrayAttr argResAttr,
+    unsigned index) {
+  if (!argResAttr)
+    return;
+  if (index >= argResAttr.size())
+    return;
+  DictionaryAttr dictAttr = llvm::dyn_cast<DictionaryAttr>(argResAttr[index]);
+  if (dictAttr && dictAttr.contains("onnx.dim_params")) {
+    // onnx.dim_params = dimIndex:dimParam,dimIndex:dimParam,...
+    StringRef dimParams = dictAttr.getNamed("onnx.dim_params")
+                              .value()
+                              .getValue()
+                              .cast<StringAttr>()
+                              .getValue();
+    SmallVector<StringRef, 4> splittedDimParams;
+    dimParams.split(splittedDimParams, ',');
+    for (size_t k = 0; k < splittedDimParams.size(); ++k) {
+      StringRef s = splittedDimParams[k];
+      std::pair<StringRef, StringRef> indexParam = s.split(':');
+      indexParamMap[stoi(indexParam.first.str())] = indexParam.second.str();
+    }
   }
 }
 

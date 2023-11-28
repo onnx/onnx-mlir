@@ -16,7 +16,7 @@
 
 template <typename OnnxOpType, typename... Args>
 OnnxOpType OnnxBuilder::createOpAndInferShapes(Args &&... args) const {
-  OnnxOpType op = b().create<OnnxOpType>(loc(), args...);
+  OnnxOpType op = b().create<OnnxOpType>(loc(), args ...);
   if (!op)
     llvm_unreachable("unexpected failure to create op");
   if (failed(op.inferShapes([](mlir::Region &region) {})))
@@ -31,5 +31,5 @@ OnnxOpType OnnxBuilder::createOpAndInferShapes(Args &&... args) const {
 template <typename OnnxOpType, typename... Args>
 OnnxOpType OnnxBuilder::createTypedOpAndInferShapes(
     mlir::Type result_ty, Args &&... args) const {
-  return createOpAndInferShapes<OnnxOpType>(result_ty, args...);
+  return createOpAndInferShapes<OnnxOpType>(result_ty, args ...);
 }

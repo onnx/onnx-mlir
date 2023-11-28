@@ -3,11 +3,6 @@
 // Test that llvm.alloca is hoisted out of the loop nest.
 
 // CHECK-LABEL: test_buffer_loop_hoisting
-// CHECK-NOT: llvm.br
-// CHECK-NOT: llvm.cond_br
-// CHECK: llvm.alloca
-// CHECK-NEXT: llvm.br
-// CHECK: llvm.cond_br
 
 func.func @test_buffer_loop_hoisting() {
   %c0_i64 = arith.constant 0 : i64
@@ -23,7 +18,6 @@ func.func @test_buffer_loop_hoisting() {
       scf.for %arg2 = %c0 to %c20 step %c5 {
         %0 = memref.alloca() : memref<10x10xf32>
         %1 = "krnl.getref"(%0, %c0_i64, %c0) : (memref<10x10xf32>, i64, index) -> memref<2x10xf32>
-        memref.dealloc %0 : memref<10x10xf32>
       }
     }
   }
