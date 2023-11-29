@@ -1645,7 +1645,6 @@ struct ZHighToZLowDataConversionLowering
     Type i16Type = rewriter.getI16Type();
     Type i32Type = rewriter.getI32Type();
     Type i64Type = rewriter.getI64Type();
-    Type inputElemType = getElementType(X.getType());
     // Use integer as data container
     Type inputIntElemType = (fromF32) ? i32Type : i16Type;
     Type outputIntElemType = (fromF32) ? i16Type : i32Type;
@@ -1683,7 +1682,6 @@ struct ZHighToZLowDataConversionLowering
     // Prepare an integer buffer for output.
     Value outBuf = create.mem.alignedAlloca(outCacheType, alignment);
     Value cacheSizeI64 = create.math.constant(i64Type, VL);
-    Value cacheSizeIdx = create.math.constantIndex(VL);
 
     // Create loop iteration (flattened to 1D) with inner one and blocked by VL.
     ValueRange loopDef = create.krnl.defineLoops(1);
@@ -1694,7 +1692,7 @@ struct ZHighToZLowDataConversionLowering
     create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},
         flattenedOutputDims, [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
-          Value cacheStartIdx = create.math.mul(loopInd[0], cacheSizeIdx);
+          Value cacheStartIdx = loopInd[0];
           // Copy data to the temp input buffer.
           // Need not to care about actual values.
           create.krnl.memcpy(
