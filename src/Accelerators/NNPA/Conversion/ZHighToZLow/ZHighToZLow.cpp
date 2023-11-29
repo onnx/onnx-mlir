@@ -1594,10 +1594,12 @@ struct ZHighToZLowDataConversionLowering
     : public OpConversionPattern<CONVERT_OP> {
   using OpAdaptor = typename CONVERT_OP::Adaptor;
   bool fromF32 = false;
+  bool enableParallel = false;
 
-  ZHighToZLowDataConversionLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx, bool fromF32)
-      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32) {}
+  ZHighToZLowDataConversionLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool fromF32, bool enableParallel)
+      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32),
+        enableParallel(enableParallel) {}
 
   LogicalResult matchAndRewrite(CONVERT_OP convertOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -1610,7 +1612,8 @@ struct ZHighToZLowDataConversionLowering
     int64_t rank = getRank(X.getType());
 
     // SIMD info.
-    int64_t VL = 8; // one conversion instruction uses 8 bytes.
+    // Fixed VL for the conversion instruction: 8 elements per instruction call.
+    int64_t VL = 8;
     int64_t VLHalf = VL / 2;
 
     // Convert the output type to MemRef.
@@ -1624,8 +1627,8 @@ struct ZHighToZLowDataConversionLowering
     // Types.
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
-    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
     VectorType vecF16Type = VectorType::get({VL}, f16Type);
+    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
 
     // Compute output dims.
     DimsExpr outputDims;
@@ -1651,10 +1654,15 @@ struct ZHighToZLowDataConversionLowering
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
 
-    // Create loop iteration (flattened to 1D) with inner one and blocked by VL.
+    // Create loop iteration (flattened to 1D) and block it by VL.
     ValueRange loopDef = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
     SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
+
+    if (enableParallel) {
+      create.krnl.parallel(blockedLoopDef[0]);
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+    }
 
     IndexExpr zero = LiteralIndexExpr(0);
     create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},
@@ -1695,7 +1703,8 @@ struct ZHighToZLowDataConversionLowering
 };
 
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
-    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    bool enableParallel) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
@@ -1705,9 +1714,9 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
       typeConverter, ctx);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
-      typeConverter, ctx, /*fromF32=*/false);
+      typeConverter, ctx, /*fromF32=*/false, enableParallel);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
-      typeConverter, ctx, /*fromF32=*/true);
+      typeConverter, ctx, /*fromF32=*/true, enableParallel);
   // Binary operations
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighAddOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighSubOp>>(typeConverter, ctx);
