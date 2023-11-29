@@ -1642,16 +1642,10 @@ struct ZHighToZLowDataConversionLowering
            "Failed to convert type to MemRefType");
 
     // Types.
-    Type i16Type = rewriter.getI16Type();
-    Type i32Type = rewriter.getI32Type();
-    Type i64Type = rewriter.getI64Type();
-    // Use integer as data container
-    Type inputIntElemType = (fromF32) ? i32Type : i16Type;
-    Type outputIntElemType = (fromF32) ? i16Type : i32Type;
-    VectorType vecI32Type = VectorType::get({VLHalf}, i32Type);
-    VectorType vecI16Type = VectorType::get({VL}, i16Type);
-    MemRefType inCacheType = MemRefType::get({VL}, inputIntElemType);
-    MemRefType outCacheType = MemRefType::get({VL}, outputIntElemType);
+    Type f16Type = rewriter.getF16Type();
+    Type f32Type = rewriter.getF32Type();
+    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+    VectorType vecF16Type = VectorType::get({VL}, f16Type);
 
     // Compute output dims.
     DimsExpr outputDims;
@@ -1677,12 +1671,6 @@ struct ZHighToZLowDataConversionLowering
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
 
-    // Prepare an integer buffer for input.
-    Value inBuf = create.mem.alignedAlloca(inCacheType, alignment);
-    // Prepare an integer buffer for output.
-    Value outBuf = create.mem.alignedAlloca(outCacheType, alignment);
-    Value cacheSizeI64 = create.math.constant(i64Type, VL);
-
     // Create loop iteration (flattened to 1D) with inner one and blocked by VL.
     ValueRange loopDef = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
@@ -1692,42 +1680,34 @@ struct ZHighToZLowDataConversionLowering
     create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},
         flattenedOutputDims, [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
-          Value cacheStartIdx = loopInd[0];
-          // Copy data to the temp input buffer.
-          // Need not to care about actual values.
-          create.krnl.memcpy(
-              inBuf, flatInput, cacheSizeI64, zero.getValue(), cacheStartIdx);
-          Value baseIdx = create.math.constantIndex(0);
-          Value baseIdxNext = create.math.constantIndex(VLHalf);
+          Value baseIdx = loopInd[0];
+          Value baseIdxNext =
+              create.math.add(baseIdx, create.math.constantIndex(VLHalf));
           if (fromF32) {
             // F32 -> DLF16
             // Load VL f32 values from the input into two vectors each
             // with VLHalf f32 values.
-            Value vecI32H = create.vec.load(vecI32Type, inBuf, {baseIdx});
-            Value vecI32L = create.vec.load(vecI32Type, inBuf, {baseIdxNext});
-            Value vecI16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                loc, vecI32H, vecI32L);
+            Value vecF32H = create.vec.load(vecF32Type, flatInput, {baseIdx});
+            Value vecF32L =
+                create.vec.load(vecF32Type, flatInput, {baseIdxNext});
+            Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                loc, vecF32H, vecF32L);
             // Store VL f16 values back to the output.
-            create.vec.store(vecI16, outBuf, {baseIdx});
+            create.vec.store(vecF16, flatOutput, {baseIdx});
           } else {
             // DLF16 -> F32
             // Load VL f16 values from the input into a register.
-            Value vecI16 = create.vec.load(vecI16Type, inBuf, {baseIdx});
+            Value vecF16 = create.vec.load(vecF16Type, flatInput, {baseIdx});
             auto convertOp =
-                rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecI16);
-            Value vecI32H = convertOp.getResult(0);
-            Value vecI32L = convertOp.getResult(1);
+                rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
+            Value vecF32H = convertOp.getResult(0);
+            Value vecF32L = convertOp.getResult(1);
             // Store f32 values back to the output.
-            create.vec.store(vecI32H, outBuf, {baseIdx});
-            create.vec.store(vecI32L, outBuf, {baseIdxNext});
+            create.vec.store(vecF32H, flatOutput, {baseIdx});
+            create.vec.store(vecF32L, flatOutput, {baseIdxNext});
           }
-          // Copy data from the temp output buffer to the final output.
-          create.krnl.memcpy(
-              flatOutput, outBuf, cacheSizeI64, cacheStartIdx, zero.getValue());
         });
 
-    // Value res = EmitConversionOp<CONVERT_OP>(
-    //     rewriter, convertOp.getLoc(), adaptor.getOperands()[0]);
     rewriter.replaceOp(convertOp, alloc);
 
     return success();
