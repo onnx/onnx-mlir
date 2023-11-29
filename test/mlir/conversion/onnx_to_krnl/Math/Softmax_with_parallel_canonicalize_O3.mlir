@@ -17,7 +17,7 @@ func.func @test_softmax_v13_parallel(%arg0 : tensor<10x20x30xf32>) -> tensor<*xf
   // CHECK-DAG:       [[RES_1_:%.+]] = memref.alloc() : memref<f32>
   // CHECK-DAG:       [[RES_2_:%.+]] = memref.alloc() : memref<f32>
   // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-  // CHECK:           krnl.parallel [[LOOP_0_]]#0 : !krnl.loop
+  // CHECK:           krnl.parallel([[LOOP_0_]]#0) : !krnl.loop
   // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 30){
   // CHECK:             [[VAR_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK:             krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
