@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
 #include "mlir/Dialect/Affine/Utils.h"
 #include "mlir/IR/AsmState.h"
@@ -27,6 +29,8 @@
 #include "src/Accelerators/NNPA/Support/Stickify/Convert.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
+
+#define DEBUG_TYPE "zhigh-to-zlow"
 
 using namespace mlir;
 using namespace onnx_mlir::zlow;
@@ -1580,6 +1584,51 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
   }
 };
 
+//===----------------------------------------------------------------------===//
+// A template to lower ZHigh DLF16ToF32 and F32ToDLF16.
+//===----------------------------------------------------------------------===//
+
+template <typename OP_TYPE>
+Value EmitConversionOp(
+    ConversionPatternRewriter &rewriter, Location loc, Value input) {
+  return nullptr;
+}
+
+template <>
+Value EmitConversionOp<ZHighF32ToDLF16Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Value input) {
+  return rewriter.create<ZLowConvertDLF16Op>(
+      loc, input, rewriter.getStringAttr("from_f32"));
+}
+
+template <>
+Value EmitConversionOp<ZHighDLF16ToF32Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Value input) {
+  return rewriter.create<ZLowConvertDLF16Op>(
+      loc, input, rewriter.getStringAttr("to_f32"));
+}
+
+template <typename CONVERT_OP>
+struct ZHighToZLowDataConversionLowering
+    : public OpConversionPattern<CONVERT_OP> {
+  using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
+      MemRefBuilder, VectorBuilder>;
+  using OpAdaptor = typename CONVERT_OP::Adaptor;
+
+  ZHighToZLowDataConversionLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx) {}
+
+  LogicalResult matchAndRewrite(CONVERT_OP convertOp, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const final {
+    Value res = EmitConversionOp<CONVERT_OP>(
+        rewriter, convertOp.getLoc(), adaptor.getOperands()[0]);
+    rewriter.replaceOp(convertOp, res);
+
+    return success();
+  }
+};
+
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx) {
   // Stickify and unstickify operations.
@@ -1590,6 +1639,10 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
       typeConverter, ctx);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
+      typeConverter, ctx);
+  patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
+      typeConverter, ctx);
   // Binary operations
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighAddOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighSubOp>>(typeConverter, ctx);
