@@ -106,7 +106,6 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     isRMSLayerNorm = false;
 
     // 1: Start first to detect if we have the common layer norm pattern.
-
     // Values that will be gathered and only kept locally.
     Value norm, invStdDev, stdDev, varEps, var, epsilon, dd, d, mean, x1;
     // Replicate of values, check that they are identical to originals.
