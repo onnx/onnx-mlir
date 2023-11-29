@@ -212,14 +212,8 @@ void addKrnlToLLVMPasses(
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
-  // Originally: 0 (done after)
-#define PARALLEL_BEFORE_BUFFER 0
-#if PARALLEL_BEFORE_BUFFER != 0
-  if (enableParallel) {
-    pm.addPass(mlir::createConvertSCFToOpenMPPass());
-    pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-  }
-#endif
+  // Early introduction of omp causes problems with bufferization, delay for
+  // now. May revise this decision later.
 
   // After affine is lowered, KrnlRegion for affine scope can be removed.
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
@@ -237,12 +231,11 @@ void addKrnlToLLVMPasses(
 
   pm.addPass(mlir::createBufferizationToMemRefPass());
 
-#if PARALLEL_BEFORE_BUFFER == 0
+  // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
     pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
   }
-#endif
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this

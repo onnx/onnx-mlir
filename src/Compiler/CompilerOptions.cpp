@@ -1025,19 +1025,6 @@ std::string getToolPath(
   return toolPathMap.at(tool);
 }
 
-std::string getLLVMLibraryPath() {
-  std::string toolPath = getToolPath("llc");
-  // Strip "tool-name".
-  llvm::StringRef toolPathRef(toolPath);
-  llvm::SmallVector<char> path(toolPathRef.begin(), toolPathRef.end());
-  llvm::sys::path::remove_filename(path);
-  // Add "../lib".
-  llvm::sys::path::append(path, "../lib");
-  // "Remove bin/..".
-  llvm::sys::path::remove_dots(path, /*remove dot dot*/ true);
-  return std::string(path.data(), path.size());
-}
-
 // This function is called before llvm::cl::ParseCommandLineOptions
 // to remove unrelated options in addition to hiding them. Since
 // hiding only means that unrelated options will not be printed by
@@ -1086,16 +1073,9 @@ void initCompilerConfig() {
             : std::vector<std::string>{"jniruntime", "cruntime"});
     addCompilerConfig(CCM_SHARED_LIB_PATH_DEPS, {getLibraryPath()});
 
-    if (enableParallel) {
-      // Add the static and dynamic path to OMP lib, which resides with the llvm
-      // tools. Thus fetch library path associated with "llc".
-      std::string libPath = getLLVMLibraryPath();
-      addCompilerConfig(CCM_SHARED_LIB_DEPS, std::vector<std::string>{"omp"});
-      addCompilerConfig(
-          CCM_SHARED_LIB_PATH_DEPS, std::vector<std::string>{libPath});
-      addCompilerConfig(
-          CCM_SHARED_DYN_LIB_PATH_DEPS, std::vector<std::string>{libPath});
-    }
+    // Add OpenMP LLVM library if parallel is enabled.
+    if (enableParallel)
+      addCompilerConfig(CCM_SHARED_LIB_DEPS, {"ompruntime"});
 
     // Add user specified libs and their path
     // Multiple lib or directory can be specified with multiple options.

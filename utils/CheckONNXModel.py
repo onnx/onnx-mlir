@@ -78,7 +78,9 @@ parser = argparse.ArgumentParser(
     prog="CheckONNXModel.py",
     description="Compile and run an ONNX/MLIR model twice. "
     "Once with reference compiler options (-r) to set the reference values. "
-    "And once with test compiler options (-t) to verify the validity of these options.",
+    "And once with test compiler options (-t or -a) to verify the validity of these options. "
+    "When using -t option, a new set of optimizations is used; when using -a options, "
+    "the provided -a options are added to the options provided by the -r flag.",
 )
 parser.add_argument(
     "-m",

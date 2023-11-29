@@ -173,7 +173,6 @@ using CompilerOptionList =
 
 #define CCM_SHARED_LIB_DEPS "sharedLibDeps"
 #define CCM_SHARED_LIB_PATH_DEPS "sharedLibPathDeps"
-#define CCM_SHARED_DYN_LIB_PATH_DEPS "sharedDynamicLibPathDeps"
 extern std::map<std::string, std::vector<std::string>> CompilerConfigMap;
 
 // Return 0 on success. These functions are not thread-safe and should be called
@@ -194,9 +193,7 @@ void delCompilerConfig(std::string k, std::vector<std::string> v);
 std::optional<std::string> getEnvVar(std::string name);
 std::string getExecPath();
 std::string getLibraryPath();
-std::string getLLVMLibraryPath();
 std::string getToolPath(const std::string &tool, bool flag = false);
-
 void removeUnrelatedOptions(
     const std::vector<llvm::cl::OptionCategory *> Categories);
 void initCompilerConfig();
