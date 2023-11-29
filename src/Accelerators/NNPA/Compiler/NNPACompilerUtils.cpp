@@ -201,9 +201,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else {
         // Partially lower Krnl ops to Affine dialect.
         addKrnlToAffinePasses(pm);
-        // Lower some zlow ops to Affine dialect.
-        pm.addPass(zlow::createConvertZLowToAffinePass());
-        pm.addPass(mlir::createCanonicalizerPass());
         // Optimizations at ZLow that needs affine map in MemRef.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());

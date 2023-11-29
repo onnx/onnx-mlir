@@ -1,4 +1,3 @@
 add_subdirectory(ONNXToZHigh)
 add_subdirectory(ZHighToZLow)
-add_subdirectory(ZLowToAffine)
 add_subdirectory(ZLowToLLVM)

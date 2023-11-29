@@ -1589,26 +1589,6 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
 // A template to lower ZHigh DLF16ToF32 and F32ToDLF16.
 //===----------------------------------------------------------------------===//
 
-template <typename OP_TYPE>
-Value EmitConversionOp(
-    ConversionPatternRewriter &rewriter, Location loc, Value input) {
-  return nullptr;
-}
-
-template <>
-Value EmitConversionOp<ZHighF32ToDLF16Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Value input) {
-  return rewriter.create<ZLowConvertDLF16Op>(
-      loc, input, rewriter.getStringAttr("from_f32"));
-}
-
-template <>
-Value EmitConversionOp<ZHighDLF16ToF32Op>(
-    ConversionPatternRewriter &rewriter, Location loc, Value input) {
-  return rewriter.create<ZLowConvertDLF16Op>(
-      loc, input, rewriter.getStringAttr("to_f32"));
-}
-
 template <typename CONVERT_OP>
 struct ZHighToZLowDataConversionLowering
     : public OpConversionPattern<CONVERT_OP> {

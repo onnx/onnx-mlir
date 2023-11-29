@@ -457,36 +457,6 @@ def ZLowDummyOp:ZLow_Op<"dummy", [MemRefsNormalizable]> {
   let hasCanonicalizer = 1;
 }
 
-def ZLowConvertDLF16Op:ZLow_Op<"convert_dlf16", [Pure, MemRefsNormalizable]> {
-  let summary = "Convert a MemRef between dlf16 and f32 types.";
-  let description = [{
-  This operation converts a MemRef between dlf16 and f32 types.
-  The source and target MemRefs must have the same number of elements.
-
-  `direction` must be either `from_f32` or `to_f32`.
-  }];
-  let arguments = (ins AnyTypeOf<[ZMemRef, MemRefOf<[F32]>]>:$input,
-                       StrAttr:$direction);
-  let results = (outs AnyTypeOf<[ZMemRef, MemRefOf<[F32]>]>:$output);
-  let builders = [
-    OpBuilder<(ins "::mlir::Value":$input, "::mlir::StringAttr":$direction), [{
-      auto inputTy = input.getType().cast<MemRefType>();
-      llvm::StringRef dir = direction.getValue();
-      mlir::Type elementTy;
-      if (dir.equals_insensitive("to_f32"))
-        elementTy = $_builder.getF32Type();
-      else if (dir.equals_insensitive("from_f32"))
-        elementTy = $_builder.getF16Type();
-      else
-        llvm_unreachable("Unsupported types in building a ZLowConvertDLF16 operation");
-      MemRefType resTy = MemRefType::Builder(inputTy).setElementType(elementTy);
-      build($_builder, $_state, resTy, input, direction);
-    }]>
-  ];
-  // TODO
-  // let verifier = 1;
-}
-
 def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", [Pure]> {
   let summary = "Convert a dlfloat16 value to a float32 value";
   let description = [{
