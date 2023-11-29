@@ -28,7 +28,7 @@ func.func @test_gemm_parallel(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>
   // CHECK:           [[BLOCK_TILE__3_:%.+]], [[BLOCK_IN__3_:%.+]] = krnl.block [[BLOCK_IN__2_]] 16 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   // CHECK:           [[BLOCK_TILE__4_:%.+]], [[BLOCK_IN__4_:%.+]] = krnl.block [[LOOP_0_]]#2 256 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
   // CHECK:           krnl.permute([[BLOCK_TILE__2_]], [[BLOCK_TILE__3_]], [[BLOCK_IN__3_]], [[BLOCK_TILE__4_]], [[BLOCK_IN__4_]], [[BLOCK_TILE__0_]], [[BLOCK_TILE__0_]]_3, [[BLOCK_IN__1_]]) [0, 3, 5, 1, 6, 2, 4, 7] : !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop
-  // CHECK:           krnl.parallel [[BLOCK_TILE__2_]] : !krnl.loop
+  // CHECK:           krnl.parallel([[BLOCK_TILE__2_]]) : !krnl.loop
   // CHECK:           krnl.iterate([[BLOCK_TILE__2_]], [[BLOCK_TILE__4_]]) with ([[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 10, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#0 -> [[I_2_:%.+]] = 0 to 10){
   // CHECK:             [[VAR_2_:%.+]]:2 = krnl.get_induction_var_value([[BLOCK_TILE__2_]], [[BLOCK_TILE__4_]]) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK:             krnl.copy_to_tile_buffer [[RES_2_]], [[PARAM_1_]]{{.}}[[VAR_2_]]#1, [[VAR_2_]]#0], [[CST_0_dot_000000_]] {padToNext = [], tileSize = []} : memref<256x64xf32>, memref<5x10xf32>
@@ -42,7 +42,7 @@ func.func @test_gemm_parallel(%arg0 : tensor<5x10xf32>, %arg1 : tensor<5x10xf32>
   // CHECK:             }
   // CHECK:           }
   // CHECK:           [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
-  // CHECK:           krnl.parallel [[LOOP_1_]]#0 : !krnl.loop
+  // CHECK:           krnl.parallel([[LOOP_1_]]#0) : !krnl.loop
   // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to 10, [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to 10){
   // CHECK:             [[VAR_2_1_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK-DAG:         [[VAR_3_1_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_2_1_]]#0, [[VAR_2_1_]]#1] : memref<10x10xf32>
