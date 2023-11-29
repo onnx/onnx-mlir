@@ -204,16 +204,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         // Lower some zlow ops to Affine dialect.
         pm.addPass(zlow::createConvertZLowToAffinePass());
         pm.addPass(mlir::createCanonicalizerPass());
-        // Replace zlow.stick, zlow.unstick by inserting dlf16 conversion
-        // directly into affine.for loops. This must be done before
-        // normalize-memrefs so that access indices are automatically
-        // generated. pm.addPass(zlow::createZLowInsertDLF16ConversionPass());
-        // pm.addPass(mlir::createCanonicalizerPass());
-
         // Optimizations at ZLow that needs affine map in MemRef.
         pm.addPass(zlow::createZLowRewritePass());
         pm.addPass(mlir::createCanonicalizerPass());
-
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
         // Some Krnl ops, e.g. KrnlMemset, potentially exist and will be lowered
