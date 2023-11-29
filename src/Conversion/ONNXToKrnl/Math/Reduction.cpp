@@ -1084,6 +1084,7 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, /*computeMean=*/true, false && enableParallel);
+      typeConverter, ctx, enableSIMD, /*computeMean=*/true,
+      false && enableParallel);
 }
 } // namespace onnx_mlir
