@@ -29,6 +29,7 @@
 #include "src/Accelerators/NNPA/Support/Stickify/Convert.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 
@@ -37,6 +38,9 @@ using namespace onnx_mlir::zlow;
 
 namespace onnx_mlir {
 namespace zhigh {
+
+using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
+    MathBuilder, MemRefBuilder, VectorBuilder>;
 
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
@@ -1511,9 +1515,6 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
             ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {}
-  using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder,
-      KrnlBuilder, MemRefBuilder>;
-
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -1611,19 +1612,125 @@ Value EmitConversionOp<ZHighDLF16ToF32Op>(
 template <typename CONVERT_OP>
 struct ZHighToZLowDataConversionLowering
     : public OpConversionPattern<CONVERT_OP> {
-  using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
-      MemRefBuilder, VectorBuilder>;
   using OpAdaptor = typename CONVERT_OP::Adaptor;
+  bool fromF32 = false;
 
   ZHighToZLowDataConversionLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx) {}
+      TypeConverter &typeConverter, MLIRContext *ctx, bool fromF32)
+      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32) {}
 
   LogicalResult matchAndRewrite(CONVERT_OP convertOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    Value res = EmitConversionOp<CONVERT_OP>(
-        rewriter, convertOp.getLoc(), adaptor.getOperands()[0]);
-    rewriter.replaceOp(convertOp, res);
+    Location loc = convertOp.getLoc();
+    MDBuilder create(rewriter, loc);
+
+    Operation *op = convertOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Value X = operands[0];
+    int64_t rank = getRank(X.getType());
+
+    // SIMD info.
+    int64_t VL = 8; // one conversion instruction uses 8 bytes.
+    int64_t VLHalf = VL / 2;
+
+    // Convert the output type to MemRef.
+    Type outputTensorType = convertOp.getResult().getType();
+    Type convertedType = this->typeConverter->convertType(outputTensorType);
+    int64_t alignment =
+        KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+
+    // Types.
+    Type i16Type = rewriter.getI16Type();
+    Type i32Type = rewriter.getI32Type();
+    Type i64Type = rewriter.getI64Type();
+    Type inputElemType = getElementType(X.getType());
+    // Use integer as data container
+    Type inputIntElemType = (fromF32) ? i32Type : i16Type;
+    Type outputIntElemType = (fromF32) ? i16Type : i32Type;
+    VectorType vecI32Type = VectorType::get({VLHalf}, i32Type);
+    VectorType vecI16Type = VectorType::get({VL}, i16Type);
+    MemRefType inCacheType = MemRefType::get({VL}, inputIntElemType);
+    MemRefType outCacheType = MemRefType::get({VL}, outputIntElemType);
+
+    // Compute output dims.
+    DimsExpr outputDims;
+    ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    IndexExprScope allocScope(create.vec, shapeHelper.getScope());
+    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+
+    // Alloc memory with padding for SIMD.
+    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    Value alloc = create.mem.alignedAllocWithSimdPadding(
+        outputMemRefType, outputDims, VL, alignment);
+
+    // Flatten the input to 1D.
+    int64_t collapsedInnermostLoops = rank;
+    DimsExpr inputDims, flattenedInputDims;
+    create.krnlIE.getShapeAsSymbols(X, inputDims);
+    Value flatInput = create.mem.reshapeToFlatInnermost(
+        X, inputDims, flattenedInputDims, collapsedInnermostLoops);
+
+    // Flatten the output to 1D.
+    SmallVector<IndexExpr, 4> flattenedOutputDims;
+    Value flatOutput = create.mem.reshapeToFlatInnermost(
+        alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
+
+    // Prepare an integer buffer for input.
+    Value inBuf = create.mem.alignedAlloca(inCacheType, alignment);
+    // Prepare an integer buffer for output.
+    Value outBuf = create.mem.alignedAlloca(outCacheType, alignment);
+    Value cacheSizeI64 = create.math.constant(i64Type, VL);
+    Value cacheSizeIdx = create.math.constantIndex(VL);
+
+    // Create loop iteration (flattened to 1D) with inner one and blocked by VL.
+    ValueRange loopDef = create.krnl.defineLoops(1);
+    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+    SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
+
+    IndexExpr zero = LiteralIndexExpr(0);
+    create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},
+        flattenedOutputDims, [&](KrnlBuilder &b, ValueRange loopInd) {
+          MDBuilder create(b);
+          Value cacheStartIdx = create.math.mul(loopInd[0], cacheSizeIdx);
+          // Copy data to the temp input buffer.
+          // Need not to care about actual values.
+          create.krnl.memcpy(
+              inBuf, flatInput, cacheSizeI64, zero.getValue(), cacheStartIdx);
+          Value baseIdx = create.math.constantIndex(0);
+          Value baseIdxNext = create.math.constantIndex(VLHalf);
+          if (fromF32) {
+            // F32 -> DLF16
+            // Load VL f32 values from the input into two vectors each
+            // with VLHalf f32 values.
+            Value vecI32H = create.vec.load(vecI32Type, inBuf, {baseIdx});
+            Value vecI32L = create.vec.load(vecI32Type, inBuf, {baseIdxNext});
+            Value vecI16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                loc, vecI32H, vecI32L);
+            // Store VL f16 values back to the output.
+            create.vec.store(vecI16, outBuf, {baseIdx});
+          } else {
+            // DLF16 -> F32
+            // Load VL f16 values from the input into a register.
+            Value vecI16 = create.vec.load(vecI16Type, inBuf, {baseIdx});
+            auto convertOp =
+                rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecI16);
+            Value vecI32H = convertOp.getResult(0);
+            Value vecI32L = convertOp.getResult(1);
+            // Store f32 values back to the output.
+            create.vec.store(vecI32H, outBuf, {baseIdx});
+            create.vec.store(vecI32L, outBuf, {baseIdxNext});
+          }
+          // Copy data from the temp output buffer to the final output.
+          create.krnl.memcpy(
+              flatOutput, outBuf, cacheSizeI64, cacheStartIdx, zero.getValue());
+        });
+
+    // Value res = EmitConversionOp<CONVERT_OP>(
+    //     rewriter, convertOp.getLoc(), adaptor.getOperands()[0]);
+    rewriter.replaceOp(convertOp, alloc);
 
     return success();
   }
@@ -1640,9 +1747,9 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
       typeConverter, ctx);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
-      typeConverter, ctx);
+      typeConverter, ctx, /*fromF32=*/false);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
-      typeConverter, ctx);
+      typeConverter, ctx, /*fromF32=*/true);
   // Binary operations
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighAddOp>>(typeConverter, ctx);
   patterns.insert<ZHighToZLowBinaryOpLowering<ZHighSubOp>>(typeConverter, ctx);
