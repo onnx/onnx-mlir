@@ -2,9 +2,7 @@
 
 add_onnx_mlir_library(OMZLowToAffine
   ConvertZLowToAffine.cpp
-  ZLowAttachLayout.cpp
   ZLowConvertDLF16.cpp
-  ZLowDetachLayout.cpp
 
   LINK_LIBS PUBLIC
   OMZLowOps

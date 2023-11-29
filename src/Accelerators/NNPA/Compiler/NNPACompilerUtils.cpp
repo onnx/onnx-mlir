@@ -201,20 +201,14 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
       else {
         // Partially lower Krnl ops to Affine dialect.
         addKrnlToAffinePasses(pm);
-        if (0) {
-          // Loop sinking optimization.
-          pm.addPass(zlow::createZLowLoopSinkingPass());
-          // Fuse zlow ops that cannot be sinked.
-          pm.addPass(zlow::createZLowFusionPass());
-          // Lower some zlow ops to affine
-          pm.addPass(zlow::createConvertZLowToAffinePass());
-          pm.addPass(mlir::createCanonicalizerPass());
-          // Replace zlow.stick, zlow.unstick by inserting dlf16 conversion
-          // directly into affine.for loops. This must be done before
-          // normalize-memrefs so that access indices are automatically
-          // generated. pm.addPass(zlow::createZLowInsertDLF16ConversionPass());
-          // pm.addPass(mlir::createCanonicalizerPass());
-        }
+        // Lower some zlow ops to Affine dialect.
+        pm.addPass(zlow::createConvertZLowToAffinePass());
+        pm.addPass(mlir::createCanonicalizerPass());
+        // Replace zlow.stick, zlow.unstick by inserting dlf16 conversion
+        // directly into affine.for loops. This must be done before
+        // normalize-memrefs so that access indices are automatically
+        // generated. pm.addPass(zlow::createZLowInsertDLF16ConversionPass());
+        // pm.addPass(mlir::createCanonicalizerPass());
 
         // Optimizations at ZLow that needs affine map in MemRef.
         pm.addPass(zlow::createZLowRewritePass());
@@ -222,13 +216,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
-        if (0) {
-          pm.addPass(mlir::createCanonicalizerPass());
-          // Some ZLow ops, e.g. ZLowConvertDLF16, potentially exist and will be
-          // lowered to Affine when its operands are normalized.
-          pm.addPass(zlow::createConvertZLowToAffinePass());
-          pm.addPass(mlir::createCanonicalizerPass());
-        }
         // Some Krnl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);

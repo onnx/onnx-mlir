@@ -41,30 +41,3 @@ add_onnx_mlir_library(OMZLowInsertDLF16Conversion
   ${NNPA_INCLUDE_PATH}
   )
 
-add_onnx_mlir_library(OMZLowLoopSinking
-  ZLowLoopSinking.cpp
-
-  LINK_LIBS PUBLIC
-  MLIRAffineUtils
-  MLIRFuncDialect
-  MLIRRewrite
-  MLIRTransformUtils
-  OMZLowOps
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_INCLUDE_PATH}
-  )
-
-add_onnx_mlir_library(OMZLowFusion
-  ZLowFusion.cpp
-
-  LINK_LIBS PUBLIC
-  MLIRFuncDialect
-  MLIRRewrite
-  MLIRTransformUtils
-  OMZLowOps
-  OMONNXToKrnl # this is due to calling insertAllocAndDeallocSimple
-
-  ACCEL_INCLUDE_DIRS PRIVATE
-  ${NNPA_INCLUDE_PATH}
-  )

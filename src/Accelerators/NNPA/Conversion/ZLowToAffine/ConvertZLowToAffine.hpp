@@ -4,7 +4,7 @@
 
 //====------ ConvertZLowToAffine.hpp - ZLow Dialect Lowering --------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,15 +26,7 @@ namespace zlow {
 void populateZLowToAffineConversion(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
-void populateLoweringZLowAttachLayoutOpPattern(
-    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
-    mlir::MLIRContext *ctx);
-
 void populateLoweringZLowConvertDLF16OpPattern(
-    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
-    mlir::MLIRContext *ctx);
-
-void populateLoweringZLowDetachLayoutOpPattern(
     mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
     mlir::MLIRContext *ctx);
 

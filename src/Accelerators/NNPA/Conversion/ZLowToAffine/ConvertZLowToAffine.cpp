@@ -72,14 +72,7 @@ void ConvertZLowToAffinePass::runOnOperation() {
       mlir::KrnlDialect>();
 
   // These ops will be lowered to affine.
-  target.addIllegalOp<ZLowAttachLayoutOp>();
-  target.addDynamicallyLegalOp<ZLowConvertDLF16Op>([](ZLowConvertDLF16Op op) {
-    MemRefType inputTy = op.getInput().getType().cast<MemRefType>();
-    MemRefType outputTy = op.getOutput().getType().cast<MemRefType>();
-    return (!inputTy.getLayout().isIdentity()) ||
-           (!outputTy.getLayout().isIdentity());
-  });
-  target.addIllegalOp<ZLowDetachLayoutOp>();
+  target.addIllegalOp<ZLowConvertDLF16Op>();
 
   // Patterns.
   RewritePatternSet patterns(ctx);
@@ -97,9 +90,7 @@ std::unique_ptr<Pass> createConvertZLowToAffinePass() {
 
 void populateZLowToAffineConversion(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  populateLoweringZLowAttachLayoutOpPattern(typeConverter, patterns, ctx);
   populateLoweringZLowConvertDLF16OpPattern(typeConverter, patterns, ctx);
-  populateLoweringZLowDetachLayoutOpPattern(typeConverter, patterns, ctx);
 }
 
 } // namespace zlow

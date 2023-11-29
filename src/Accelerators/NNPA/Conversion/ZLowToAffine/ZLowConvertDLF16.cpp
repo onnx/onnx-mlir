@@ -101,12 +101,6 @@ public:
     Value input1D = rewriter.create<memref::ReshapeOp>(
         loc, input1DType, inputMemref, shape1D);
 
-    // Allocate an output 1-D MemRef.
-    int64_t alignment = 4096;
-    MemRefType output1DType =
-        MemRefType::Builder(input1DType).setElementType(outputElementType);
-    Value output1D = create.mem.alignedAlloc(output1DType, ubs1D, alignment);
-
     // SIMDize conversion between fp32 and dlf16.
     int64_t VL = 8;
     int64_t VLHalf = VL / 2;
@@ -114,9 +108,14 @@ public:
     int64_t tileSize = unrollFactor * VL;
     int64_t bufferAlignment = 64;
 
+    // Allocate an output 1-D MemRef with padding for SIMD.
+    MemRefType output1DType =
+        MemRefType::Builder(input1DType).setElementType(outputElementType);
+    Value output1D =
+        create.mem.alignedAllocWithSimdPadding(output1DType, ubs1D, VL);
+
     int64_t cacheSize = tileSize * unrollFactor * VL;
     Value cacheSizeI64 = create.math.constant(i64Type, cacheSize);
-    Value tileSizeI64 = create.math.constant(i64Type, tileSize);
 
     VectorType vecI32Type = VectorType::get({VLHalf}, rewriter.getI32Type());
     VectorType vecI16Type = VectorType::get({VL}, rewriter.getI16Type());

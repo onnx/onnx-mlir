@@ -487,44 +487,6 @@ def ZLowConvertDLF16Op:ZLow_Op<"convert_dlf16", [Pure, MemRefsNormalizable]> {
   // let verifier = 1;
 }
 
-def ZLowAttachLayoutOp:ZLow_Op<"attach_layout", [Pure]> {
-  let summary = "Add a layout affine map to a MemRef";
-  let description = [{
-  This operations creates a new MemRef by attaching a layout affine map to
-  the input MemRef.
-  }];
-  let arguments = (ins MemRefOf<[F32]>:$input, AffineMapAttr:$layout, StrAttr:$layout_name);
-  let results = (outs MemRefOf<[F32]>:$output);
-  let builders = [
-    OpBuilder<(ins "::mlir::Value":$input, "::mlir::AffineMapAttr":$layout, "::mlir::StringAttr":$layout_name), [{
-      auto inputTy = input.getType().cast<MemRefType>();
-      Type resTy = MemRefType::Builder(inputTy).setLayout(layout);
-      build($_builder, $_state, resTy, input, layout, layout_name);
-    }]>
-  ];
-  // TODO
-  // let verifier = 1;
-}
-
-def ZLowDetachLayoutOp:ZLow_Op<"detach_layout", [Pure]> {
-  let summary = "Remove a layout affine map from a MemRef";
-  let description = [{
-  This operations creates a new MemRef by detaching a layout affine map from 
-  the input MemRef.
-  }];
-  let arguments = (ins MemRefOf<[F32]>:$input, StrAttr:$layout_name);
-  let results = (outs MemRefOf<[F32]>:$output);
-  let builders = [
-    OpBuilder<(ins "::mlir::Value":$input, "::mlir::StringAttr":$layout_name), [{
-      auto inputTy = input.getType().cast<MemRefType>();
-      Type resTy = MemRefType::Builder(inputTy).setLayout({});
-      build($_builder, $_state, resTy, input, layout_name);
-    }]>
-  ];
-  // TODO
-  // let verifier = 1;
-}
-
 def ZLowConvertDLF16ToF32Op:ZLow_Op<"dlf16_to_f32", [Pure]> {
   let summary = "Convert a dlfloat16 value to a float32 value";
   let description = [{
