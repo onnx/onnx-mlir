@@ -21,9 +21,7 @@ COPY . onnx-mlir
 # CMAKE_INSTALL_LIBDIR to be lib.
 RUN ONNX_ROOT=${WORK_DIR}/onnx-mlir/third_party/onnx \
     && cd ${ONNX_ROOT} \
-    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install . \
-    && find / -name "libprotobuf.so*.*" -print 2> /dev/null \
-    && find / -name "libprotobuf.so.32" -print 2> /dev/null
+    && CMAKE_ARGS="-DCMAKE_INSTALL_LIBDIR=lib" python3 -m pip install .
 
 ARG NPROC=4
 ARG ACCEL=NNPA
@@ -58,7 +56,9 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                                ([ "$(uname -m)" = "x86_64" ] &&  echo || \
                                ([ "$(uname -m)" = "ppc64le" ] && echo || echo)))} \
     && TEST_ARGS="-mcpu=${TEST_MCPU}" \
+    && cd docs/doc_example/ \
     && make check-docs \
+    && cd ../.. \
     && make check-unittest \
     && make check-multiple-models \
     && make NPROC=${NPROC} \
