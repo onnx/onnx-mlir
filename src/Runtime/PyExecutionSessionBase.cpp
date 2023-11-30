@@ -131,7 +131,12 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     }
     OMTensor *inputOMTensor = NULL;
     if (dtype == ONNX_TYPE_STRING) {
-      auto shape = inputPyArray.shape();
+      std::vector<int64_t> safeShape(
+          inputPyArray.shape(), inputPyArray.shape() + inputPyArray.ndim());
+      int64_t *shape = safeShape.data();
+      std::vector<int64_t> safeStrides(
+          inputPyArray.strides(), inputPyArray.strides() + inputPyArray.ndim());
+      int64_t *strides = safeStrides.data();
       uint64_t numElem = 1;
       for (size_t i = 0; i < (size_t)inputPyArray.ndim(); ++i)
         numElem *= shape[i];
@@ -236,11 +241,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         ((char **)strArray)[i] = strDataPtr;
         strDataPtr += strlen(strPointerArray[i]) + 1;
       }
-      inputOMTensor = omTensorCreateWithOwnership(strArray,
-          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
+      inputOMTensor = omTensorCreateWithOwnership(strArray, shape,
           static_cast<int64_t>(inputPyArray.ndim()), dtype, /*own_data=*/true);
-      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
-          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor, strides);
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
