@@ -1661,8 +1661,17 @@ struct ZHighToZLowDataConversionLowering
 
     if (enableParallel) {
       create.krnl.parallel(blockedLoopDef[0]);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      onnxToKrnlParallelReport(op, /*successful*/ true, 0,
+          flattenedOutputDims[0].isLiteral()
+              ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)VL)
+              : -1,
+          "dlf16-f32 conversion fully parallelized");
     }
+
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+        flattenedOutputDims[0].isLiteral() ? flattenedOutputDims[0].getLiteral()
+                                           : -1,
+        "dlf16-f32 conversion fully flattened");
 
     IndexExpr zero = LiteralIndexExpr(0);
     create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},

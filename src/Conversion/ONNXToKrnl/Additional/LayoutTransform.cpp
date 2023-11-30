@@ -80,7 +80,8 @@ struct ONNXLayoutTransformOpLowering
     ValueRange loopDef = create.krnl.defineLoops(rank);
     if (enableParallel) {
       create.krnl.parallel(loopDef);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      onnxToKrnlParallelReport(op, /*successful*/ true, rank, -1,
+          "LayoutTransform op fully parallelized with perfectly nested loops");
     }
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

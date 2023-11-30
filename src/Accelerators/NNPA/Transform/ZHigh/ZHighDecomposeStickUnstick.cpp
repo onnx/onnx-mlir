@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ZHighDecomposeStickUnstick.cpp - ZHigh High Level Optimizer
-//---===//
+//===----- ZHighDecomposeStickUnstick.cpp - ZHigh High Level Optimizer ----===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
