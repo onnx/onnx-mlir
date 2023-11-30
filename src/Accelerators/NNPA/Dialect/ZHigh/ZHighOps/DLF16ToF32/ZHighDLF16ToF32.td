@@ -70,4 +70,10 @@ def DelayDLF16ToF32ViaUnsqueezePattern : Pat<
                                       (returnType (GetTypeInDLF16 $res))))
 >;
 
+// onnx.Dim (zhigh.DLF16ToF32(%X)) = onnx.Dim %X
+def DimDLF16ToF32RemovalPattern : Pat<
+  (ONNXDimOp (ZHighDLF16ToF32Op $arg), $axis),
+  (ONNXDimOp $arg, $axis)
+>;
+
 #endif // DLF16_TO_F32_TD

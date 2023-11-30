@@ -59,6 +59,7 @@ void ZHighDLF16ToF32Op::getCanonicalizationPatterns(
   results.insert<DelayDLF16ToF32ViaTransposePattern>(context);
   results.insert<DelayDLF16ToF32ViaSqueezePattern>(context);
   results.insert<DelayDLF16ToF32ViaUnsqueezePattern>(context);
+  results.insert<DimDLF16ToF32RemovalPattern>(context);
 }
 } // namespace zhigh
 } // namespace onnx_mlir
