@@ -32,12 +32,9 @@ static llvm::cl::list<accel::Accelerator::Kind,
         // clang-format on
         llvm::cl::cat(OnnxMlirLspOptions), llvm::cl::ValueRequired);
 
-
-
-
 int main(int argc, char **argv) {
 
   auto registry = onnx_mlir::registerDialects(maccel);
-  
+
   return failed(MlirLspServerMain(argc, argv, registry));
 }
