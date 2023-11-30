@@ -82,7 +82,7 @@ RUN LLVM_PROJECT_ROOT=${WORK_DIR}/llvm-project \
                pytest-xdist typing-extensions && \
           yum remove -q -y \
               adwaita-icon-theme autoconf automake cmake file \
-              git libtool python3 && \
+              git libtool python39 && \
           rm -rf /var/cache/dnf/* /usr/local/bin/ninja; \
        fi \
     && rm -rf /tmp/* /usr/bin/python \
