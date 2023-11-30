@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=true store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s && rm model.constants.bin 
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s && rm model.constants.bin 
 
 // Thresholds for this files: 
 //  -constants-to-file-single-threshold=0.03: 30 bytes for a single constants 
@@ -63,7 +63,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK-DAG:       [[VAR_1_3_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
 // CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       [[VAR_2_4_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr<array<20 x i8>>
+// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_4_3_:%.+]] = llvm.bitcast [[VAR_3_3_]] : !llvm.ptr<array<20 x i8>> to !llvm.ptr
 // CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr<ptr>

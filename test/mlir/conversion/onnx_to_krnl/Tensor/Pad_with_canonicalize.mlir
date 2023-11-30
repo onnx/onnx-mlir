@@ -123,7 +123,8 @@ func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2
 // CHECK-DAG:         [[VAR_23_:%.+]] = affine.apply [[MAP_8_]]([[VAR_21_]]#0){{.}}[[VAR_1_]]{{.}}
 // CHECK:             [[VAR_24_:%.+]] = arith.select [[VAR_22_]], [[CST_0_]], [[VAR_23_]] : index
 // CHECK:             [[VAR_25_:%.+]] = arith.cmpi sge, [[VAR_24_]], [[CST_1_]] : index
-// CHECK-DAG:         [[VAR_27_:%.+]] = arith.select [[VAR_25_]], [[CST_0_]], [[VAR_24_]] : index
+// CHECK:             [[VAR_26_:%.+]] = arith.ori [[VAR_25_]], [[VAR_22_]] : i1
+// CHECK-DAG:         [[VAR_27_:%.+]] = arith.select [[VAR_26_]], [[CST_0_]], [[VAR_23_]] : index
 // CHECK-DAG:         [[VAR_28_:%.+]] = arith.cmpi sle, [[VAR_21_]]#1, [[VAR_6_]] : index
 // CHECK-DAG:         [[VAR_29_:%.+]] = affine.apply [[MAP_8_]]([[VAR_21_]]#1){{.}}[[VAR_6_]]{{.}}
 // CHECK:             [[VAR_30_:%.+]] = arith.select [[VAR_28_]], [[CST_0_]], [[VAR_29_]] : index

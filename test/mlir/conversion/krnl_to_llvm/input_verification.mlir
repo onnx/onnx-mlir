@@ -1,6 +1,7 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="verify-input-tensors=true use-opaque-pointers=true" --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="verify-input-tensors=true" --canonicalize %s -split-input-file | FileCheck %s
 
 // COM: Check verification code at the beginning of the entry point function.
+
 module {
   func.func @main_graph(%arg0: memref<3x4x5xf32>, %arg1: memref<?x4x5xf32>) -> memref<3x4x5xf32> {
     return %arg0 : memref<3x4x5xf32>
@@ -20,7 +21,7 @@ module {
 // CHECK:           %[[VAL_3:.*]] = llvm.icmp "ne" %[[CONST_2]], %[[VAL_2]] : i64
 // CHECK:           llvm.cond_br %[[VAL_3]], ^bb1, ^bb2
 // CHECK:         ^bb1:
-// CHECK:           %[[VAL_4:.*]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr<array<54 x i8>>
+// CHECK:           %[[VAL_4:.*]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr
 // CHECK:           %[[VAL_6:.*]] = llvm.bitcast %[[VAL_4]] : !llvm.ptr<array<54 x i8>> to !llvm.ptr
 // CHECK:           llvm.call @printf(%[[VAL_6]], %[[VAL_2]]) : (!llvm.ptr, i64) -> ()
 // CHECK-DAG:       %[[VAL_7:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr

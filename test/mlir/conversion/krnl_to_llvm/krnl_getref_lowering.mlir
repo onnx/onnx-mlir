@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm="use-opaque-pointers=true" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine %s -split-input-file | FileCheck %s
 
 func.func @test_getref_lowering(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
   %c13_i64 = arith.constant 13 : i64

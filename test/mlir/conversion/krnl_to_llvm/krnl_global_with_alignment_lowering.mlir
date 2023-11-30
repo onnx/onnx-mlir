@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm="use-opaque-pointers=true" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 %s -split-input-file | FileCheck %s
 
 // Test that the global constant is aligned as specified by the explicit alignment.
 func.func @test_krnl_global_constant_alignment() -> memref<3xf32> {

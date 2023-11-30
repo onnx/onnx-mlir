@@ -72,7 +72,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-bool LLVM_USE_OPAQUE_POINTER = true;
 std::string EXTERNAL_CONSTANT_PREFIX = "om_external_constant_";
 
 uint64_t KRNL_ENTRY_POINT_ID = 0;
@@ -560,7 +559,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       EXTERNAL_CONSTANT_PREFIX + "filesize",
       b.getI64IntegerAttr(packedConst.size()));
   // Create a global to store isLE.
-  bool isLE = llvm::endianness::native == llvm::support::endianness::little;
+  bool isLE = llvm::endianness::native == llvm::endianness::little;
   create.llvm.globalOp(llvmI8Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
@@ -726,13 +725,12 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass() = default;
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
-  ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useOpaquePointers,
+  ConvertKrnlToLLVMPass(bool verifyInputTensors,
       bool useLRODATA, bool storeConstantsToFile,
       uint64_t constantsToFileSingleThreshold,
       uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt,
       bool enableParallel) {
     this->verifyInputTensors = verifyInputTensors;
-    this->useOpaquePointers = useOpaquePointers;
     // Exclusive options. no option or only one option can be True.
     this->useLRODATA = useLRODATA;
     this->storeConstantsToFile = storeConstantsToFile;
@@ -753,11 +751,6 @@ struct ConvertKrnlToLLVMPass
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<cf::ControlFlowDialect>();
   }
-
-  Option<bool> useOpaquePointers{*this, "use-opaque-pointers",
-      llvm::cl::desc("Whether to use opaque pointers instead of typed pointers "
-                     "when lowering to LLVM. Default: true"),
-      llvm::cl::init(true)};
 
   Option<bool> verifyInputTensors{*this, "verify-input-tensors",
       llvm::cl::desc(
@@ -805,11 +798,6 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   OpBuilder builder(ctx);
   const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(ctx, dataLayoutAnalysis.getAtOrAbove(module));
-
-  // MLIR/LLVM is moving to using opaque pointers instead of typed pointers.
-  // Remove this once MLIR/LLVM completely uses opaque pointers.
-  options.useOpaquePointers = useOpaquePointers; // for LLVMTypeConverter.
-  LLVM_USE_OPAQUE_POINTER = useOpaquePointers; // for onnx-mlir util functions.
 
   // Append a unique string to each entry point function.
   // The string is getting from the module's attribute
@@ -935,14 +923,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
-std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
-    bool useOpaquePointers, bool useLRODATA, bool storeConstantsToFile,
-    float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors, bool useLRODATA,
+    bool storeConstantsToFile, float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
     std::string outputNameNoExt, bool enableParallel) {
   return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors,
-      useOpaquePointers, useLRODATA, storeConstantsToFile,
-      constantsToFileSingleThreshold, constantsToFileTotalThreshold,
-      outputNameNoExt, enableParallel);
+      useLRODATA, storeConstantsToFile, constantsToFileSingleThreshold,
+      constantsToFileTotalThreshold, outputNameNoExt, enableParallel);
 }
 
 void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,

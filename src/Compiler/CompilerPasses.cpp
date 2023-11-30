@@ -245,7 +245,6 @@ void addKrnlToLLVMPasses(
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,
-      /*useOpaquePointers=*/true,
       /*useLRODATA=*/(modelSize == ModelSize::large),
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,

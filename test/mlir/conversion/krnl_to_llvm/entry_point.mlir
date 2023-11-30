@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=true" --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --canonicalize %s -split-input-file | FileCheck %s
 
 // COM: Generate the default entry point "run_main_graph" since there is only
 // COM: one single point.

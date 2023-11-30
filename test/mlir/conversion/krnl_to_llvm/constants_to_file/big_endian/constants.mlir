@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=true store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s && rm model.constants.bin 
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s && rm model.constants.bin 
 
 // Thresholds for this files: 
 //  -constants-to-file-single-threshold=0.03: 30 bytes for a single constants 
