@@ -160,9 +160,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // Disable constprop rules:
   // - add(add(x, c), y) to add(add(x, y), c)
   // - add(x, add(y, c)) to add(add(x, y), c)
-  // because in foundation models we have add(matmul(add(x, c), z), y), and we
-  // want to keep c near matmul so that matmul-add will be run on zAIU as one
-  // call.
+  // because in foundation models we have add(add(matmul(x, z), c), y), and we
+  // want to keep c near matmul so that add(matmul(x, z), c) will be run on zAIU
+  // as one call.
   onnxConstPropDisablePatterns.emplace_back("AddConstAssociative2");
   onnxConstPropDisablePatterns.emplace_back("AddConstAssociative3");
 
