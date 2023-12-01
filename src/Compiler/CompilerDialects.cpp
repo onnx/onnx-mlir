@@ -43,6 +43,7 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   for (auto *accel : accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
 
+  memref::registerAllocationOpInterfaceExternalModels(registry);
   return registry;
 }
 
