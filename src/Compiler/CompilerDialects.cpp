@@ -6,6 +6,7 @@
 
 #include "CompilerDialects.hpp"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 
@@ -43,7 +44,9 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   for (auto *accel : accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
 
-  memref::registerAllocationOpInterfaceExternalModels(registry);
+  if (useOldBufferization)
+    memref::registerAllocationOpInterfaceExternalModels(registry);
+
   return registry;
 }
 
