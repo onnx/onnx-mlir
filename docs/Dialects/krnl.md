@@ -126,9 +126,10 @@ means to block the for loop referred to by %i using a tile size of 4.
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `tile_size` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>tile_size</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -178,10 +179,11 @@ Interfaces: MemoryEffectOpInterface
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `funcName` | ::mlir::StringAttr | string attribute
-| `numOfOutput` | ::mlir::IntegerAttr | 64-bit signed integer attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>funcName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>numOfOutput</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -214,9 +216,10 @@ Traits: MemRefsNormalizable
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `tileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>tileSize</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -280,11 +283,12 @@ Traits: MemRefsNormalizable
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `tileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-| `padToNext` | ::mlir::ArrayAttr | 64-bit integer array attribute
-| `transpose` | ::mlir::BoolAttr | bool attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>tileSize</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>padToNext</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>transpose</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -469,13 +473,14 @@ Effects: MemoryEffects::Effect{}
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `shape` | ::mlir::Attribute | any attribute
-| `name` | ::mlir::StringAttr | string attribute
-| `value` | ::mlir::Attribute | any attribute
-| `offset` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-| `alignment` | ::mlir::IntegerAttr | 64-bit signless integer attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>shape</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
+<tr><td><code>name</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>value</code></td><td>::mlir::Attribute</td><td>any attribute</td></tr>
+<tr><td><code>offset</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
+<tr><td><code>alignment</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
+</table>
 
 #### Results:
 
@@ -492,11 +497,12 @@ May be used for gdb.
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `opName` | ::mlir::StringAttr | string attribute
-| `tag` | ::mlir::IntegerAttr | 64-bit signless integer attribute
-| `nodeName` | ::mlir::StringAttr | string attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>opName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>tag</code></td><td>::mlir::IntegerAttr</td><td>64-bit signless integer attribute</td></tr>
+<tr><td><code>nodeName</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
 
 ### `krnl.isinf` (KrnlIsInfOp)
 
@@ -789,15 +795,16 @@ Interfaces: SpecializedKernelOpInterface
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `computeTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-| `aTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-| `bTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-| `cTileSize` | ::mlir::ArrayAttr | 64-bit integer array attribute
-| `simdize` | ::mlir::BoolAttr | bool attribute
-| `unroll` | ::mlir::BoolAttr | bool attribute
-| `overcompute` | ::mlir::BoolAttr | bool attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>computeTileSize</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>aTileSize</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>bTileSize</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>cTileSize</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+<tr><td><code>simdize</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
+<tr><td><code>unroll</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
+<tr><td><code>overcompute</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -876,9 +883,10 @@ Traits: MemRefsNormalizable
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `delayed` | ::mlir::BoolAttr | bool attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>delayed</code></td><td>::mlir::BoolAttr</td><td>bool attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -911,27 +919,29 @@ Traits: SingleBlock, SingleBlockImplicitTerminator<KrnlTerminatorOp>
 
 ### `krnl.parallel` (KrnlParallelOp)
 
-_Krnl parallel operation_
+_Mark Krnl loops as parallel loops_
 
 
 Syntax:
 
 ```
-operation ::= `krnl.parallel` $loop attr-dict `:` type($loop)
+operation ::= `krnl.parallel` `(` $loops `)` attr-dict `:` type($loops)
 ```
 
-Parallelize the specified loops. krnl.parallel should be placed as the last
-operator before krnl.iterate. Since we do not want to parallelize the loop
-until we interpret krnl.block, krnl.permute and krnl.unroll.
+Parallelize the specified loops. When multiple loop specifiers are passed
+as parameters, there loops can be parallelized as a collapsed loop.
+krnl.parallel should be placed as the last operator before krnl.iterate,
+Since we do not want to parallelize the loop until we interpret krnl.block,
+krnl.permute and krnl.unroll.
 ```
-krnl.parallel %i
+krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
 ```
 
 #### Operands:
 
 | Operand | Description |
 | :-----: | ----------- |
-| `loop` | any type
+| `loops` | any type
 
 ### `krnl.permute` (KrnlPermuteOp)
 
@@ -1001,9 +1011,10 @@ affine.for %arg0 = 0 to 1024 step 4 {
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `map` | ::mlir::ArrayAttr | 64-bit integer array attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>map</code></td><td>::mlir::ArrayAttr</td><td>64-bit integer array attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -1023,9 +1034,10 @@ Traits: MemRefsNormalizable
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `format` | ::mlir::StringAttr | string attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>format</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -1051,9 +1063,10 @@ Traits: MemRefsNormalizable
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `msg` | ::mlir::StringAttr | string attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>msg</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -1160,9 +1173,10 @@ Interfaces: AllocationOpInterface, MemoryEffectOpInterface
 
 #### Attributes:
 
-| Attribute | MLIR Type | Description |
-| :-------: | :-------: | ----------- |
-| `copy` | ::mlir::IntegerAttr | 1-bit unsigned integer attribute
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>copy</code></td><td>::mlir::IntegerAttr</td><td>1-bit unsigned integer attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -1348,7 +1362,9 @@ successor of the operation enclosing the region.
 This operation does _not_ have a custom syntax. However, krnl control
 operations omit the terminator in their custom syntax for brevity.
 
-Traits: Terminator
+Traits: ReturnLike, Terminator
+
+Interfaces: RegionBranchTerminatorOpInterface
 
 ### `krnl.unroll` (KrnlUnrollOp)
 
