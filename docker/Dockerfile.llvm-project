@@ -36,7 +36,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                   python3-typing-extensions zlib1g-dev && \
           # Use newer version of setuptools  
           python3 -m pip install --upgrade pip && \
-          python3 -m pip install --upgrade setuptools &&  \
+          pip3 install --upgrade setuptools && \
           rm -rf /var/lib/apt/lists/* && \
           ln -sf /usr/bin/pytest-3 /usr/bin/pytest; \
        elif [ "${distro}" = "rhel" ] || [ "${distro}" = "fedora" ]; then \
@@ -53,8 +53,8 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
               python39 python39-devel python39-numpy python39-pip \
               python39-setuptools python39-wheel tzdata-java zlib-devel && \
           # Use newer version of pip and setuptools
-          python3 -m pip install --upgrade pip && \
-          python3 -m pip install --upgrade setuptools &&  \
+          python3 -m pip install --upgrade --user pip && \
+          python3 -m pip install --upgrade --user setuptools &&  \
           # Use same versions as those in ubuntu:jammy
           pip3 install -q \
                Cython pytest==6.2.5 pytest-forked==1.4.0 \
