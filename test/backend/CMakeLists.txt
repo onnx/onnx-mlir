@@ -176,7 +176,7 @@ add_custom_target(check-onnx-backend-signature
 add_custom_target(check-onnx-backend-case
   COMMAND
     TEST_CASE_CHECK=true
-    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    ${Python3_EXECUTABLE} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
