@@ -300,7 +300,6 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
       LLVM_DEBUG(
           llvm::dbgs() << "RMSLayerNorm from mult, axis " << axis << "\n");
     }
-    isRMSLayerNorm = !hasFullPattern;
     return true;
   }
 
