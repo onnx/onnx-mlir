@@ -725,9 +725,8 @@ struct ConvertKrnlToLLVMPass
   ConvertKrnlToLLVMPass() = default;
   ConvertKrnlToLLVMPass(const ConvertKrnlToLLVMPass &pass)
       : PassWrapper<ConvertKrnlToLLVMPass, OperationPass<ModuleOp>>() {}
-  ConvertKrnlToLLVMPass(bool verifyInputTensors,
-      bool useLRODATA, bool storeConstantsToFile,
-      uint64_t constantsToFileSingleThreshold,
+  ConvertKrnlToLLVMPass(bool verifyInputTensors, bool useLRODATA,
+      bool storeConstantsToFile, uint64_t constantsToFileSingleThreshold,
       uint64_t constantsToFileTotalThreshold, std::string outputNameNoExt,
       bool enableParallel) {
     this->verifyInputTensors = verifyInputTensors;
@@ -923,11 +922,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
 std::unique_ptr<Pass> createConvertKrnlToLLVMPass() {
   return std::make_unique<ConvertKrnlToLLVMPass>();
 }
-std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors, bool useLRODATA,
-    bool storeConstantsToFile, float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
+std::unique_ptr<Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
+    bool useLRODATA, bool storeConstantsToFile,
+    float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
     std::string outputNameNoExt, bool enableParallel) {
-  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors,
-      useLRODATA, storeConstantsToFile, constantsToFileSingleThreshold,
+  return std::make_unique<ConvertKrnlToLLVMPass>(verifyInputTensors, useLRODATA,
+      storeConstantsToFile, constantsToFileSingleThreshold,
       constantsToFileTotalThreshold, outputNameNoExt, enableParallel);
 }
 
