@@ -6537,6 +6537,78 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `y` | tensor of 8-bit signless integer values or tensor of 8-bit unsigned integer values or tensor of f8E4M3FN type values or tensor of f8E4M3FNUZ type values or tensor of f8E5M2 type values or tensor of f8E5M2FNUZ type values
 
+### `onnx.RMSLayerNormalization` (ONNXRMSLayerNormalizationOp)
+
+_ONNX RMSLayerNormalization operation_
+
+This is RMS layer normalization defined in ONNX as function.
+      The overall computation can be split into two stages.
+      The first stage is an approximate standardization, which makes the
+      normalized elements have zero mean and unit variances.
+      See Equation (4) in [this paper](https://arxiv.org/pdf/1910.07467.pdf).
+      The computation required by standardization can be
+      described by the following equations.
+      ```
+      DD = Mul(X, X)
+      Var = ReduceMean<axes=normalized_axes>(DD)
+      VarEps = Add(Var, epsilon)
+      StdDev = Sqrt(VarEps)
+      InvStdDev = Reciprocal(StdDev)
+      Normalized = Mul(X, InvStdDev)
+      ```
+      where `normalized_axes` is `[axis, ..., rank of X - 1]`.
+      The variables `Var` and `StdDev` stand for approximate variance and
+      standard deviation, respectively.
+      Depending on `stash_type` attribute, the actual computation
+      must happen in different floating-point precision.
+      For example, if `stash_type` is 1, this operator casts
+      all input variables to 32-bit float, perform the computation, and
+      finally cast `Normalized` back to the original type of `X`.
+      The second stage then scales and shifts the outcome of the
+      first stage using
+      ```
+      NormalizedScaled = Mul(Normalized, Scale)
+      Y = Add(NormalizedScaled, B)
+      ```
+      The second stage doesn't depends on `stash_type`.
+      All equations are in [this syntax](https://github.com/onnx/onnx/blob/main/docs/Syntax.md).
+      The same variable (i.e., input, output, and attribute) uses
+      the same name in the equations above and this operator's definition.
+      Let `d[i]` indicate the i-th dimension of `X`.
+      If `X`'s shape is `[d[0], ..., d[axis-1], d[axis], ..., d[rank-1]]`,
+      the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
+      `Y` and `X` have the same shape.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+
+Effects: MemoryEffects::Effect{}
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+<tr><td><code>epsilon</code></td><td>::mlir::FloatAttr</td><td>32-bit float attribute</td></tr>
+<tr><td><code>stash_type</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `X` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `Scale` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `B` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values or none type
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Y` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `InvStdDev` | tensor of 32-bit float values or tensor of bfloat16 type values or none type
+
 ### `onnx.RNN` (ONNXRNNOp)
 
 _ONNX RNN operation_
