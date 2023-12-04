@@ -23,6 +23,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Async/Passes.h"
+#include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
@@ -211,14 +212,14 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
+
   pm.addPass(mlir::createAsyncToAsyncRuntimePass());
   pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
   pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
   pm.addPass(mlir::createConvertAsyncToLLVMPass());
-  if (enableParallel) {
-    pm.addPass(mlir::createConvertSCFToOpenMPPass());
-    pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-  }
+
+  // Early introduction of omp causes problems with bufferization, delay for
+  // now. May revise this decision later.
 
   // After affine is lowered, KrnlRegion for affine scope can be removed.
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
@@ -230,8 +231,21 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  pm.addNestedPass<func::FuncOp>(
-      mlir::bufferization::createBufferDeallocationPass());
+  if (useOldBufferization) {
+    pm.addNestedPass<func::FuncOp>(
+        mlir::bufferization::createBufferDeallocationPass());
+  } else {
+    bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+    mlir::bufferization::buildBufferDeallocationPipeline(
+        pm, bufferDeallocOptions);
+    pm.addPass(mlir::createBufferizationToMemRefPass());
+  }
+
+  // Late introduction of OpenMP, after bufferization.
+  if (enableParallel) {
+    pm.addPass(mlir::createConvertSCFToOpenMPPass());
+    pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+  }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this

@@ -4,6 +4,8 @@
 /// Test the reshape op inference when constants are present.
 //===----------------------------------------------------------------------===//
 
+// -----
+
 func.func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<4xi64>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()

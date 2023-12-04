@@ -99,6 +99,20 @@ def TensorHas3DSLayout: Constraint<
   "ZTensor has 3DS layout"
 >;
 
+def TensorHasNHWCLayout: Constraint<
+  CPred<"::onnx_mlir::isNHWCLayout("
+        "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+        "::onnx_mlir::zhigh::getZTensorLayout($0.getType())))">,
+  "ZTensor has NHWC layout"
+>;
+
+def TensorHasNoNHWCLayout: Constraint<
+  CPred<"!::onnx_mlir::isNHWCLayout("
+        "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
+        "::onnx_mlir::zhigh::getZTensorLayout($0.getType())))">,
+  "ZTensor has no NHWC layout"
+>;
+
 def Is2DLayout : Constraint<
   CPred<"::onnx_mlir::is2DLayout($0)">,
   "Is 2D layout"
@@ -165,6 +179,10 @@ def GetTransposeMap : NativeCodeCall<
 def IsIdentityAffineMap : Constraint<
   CPred<"$_self.isIdentity()">,
   "Is identity AffineMap"
+>;
+
+def GetAxisNHWC : NativeCodeCall<
+  "::onnx_mlir::zhigh::getAxisNHWC($0)"
 >;
 
 #endif // OP_HELPER 

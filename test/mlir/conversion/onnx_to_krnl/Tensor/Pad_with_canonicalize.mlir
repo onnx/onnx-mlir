@@ -72,7 +72,7 @@ func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2
   %0 = "onnx.Pad"(%arg0, %arg1, %arg2, %cst) {mode = "edge"} : (tensor<1x3x4x5xf32>, tensor<8xi64>, tensor<f32>, none) -> tensor<*xf32>
   return %0 : tensor<*xf32>
 
-// mlir2FileCheck.py -a'["data","pad","constant_value"]'
+// mlir2FileCheck.py -a '["data","pad","constant_value"]'
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<()[s0, s1] -> (s0 + s1 + 1)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0, s1] -> (s0 + s1 + 3)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s0 + s1 + 4)>
@@ -82,12 +82,12 @@ func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2
 // CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<(d0, d1, d2)[s0, s1, s2, s3, s4, s5, s6, s7] -> (d2)>
 // CHECK-DAG:   [[MAP_7_:#.+]] = affine_map<(d0, d1, d2, d3)[s0, s1, s2, s3, s4, s5, s6, s7] -> (d3)>
 // CHECK-DAG:   [[MAP_8_:#.+]] = affine_map<(d0)[s0] -> (d0 - s0)>
-// CHECK-LABEL:  func @pad_edge_mode
+// CHECK-LABEL:  func.func @pad_edge_mode
 // CHECK-SAME:   ([[DATA_:%.+]]: memref<1x3x4x5xf32>, [[PAD_:%.+]]: memref<8xi64>, [[CONSTANT_VALUE_:%.+]]: memref<f32>) -> memref<?x?x?x?xf32> {
 // CHECK-DAG:       [[CST_7_:%.+]] = arith.constant 7 : index
-// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_6_:%.+]] = arith.constant 6 : index
 // CHECK-DAG:       [[CST_2_:%.+]] = arith.constant 2 : index
+// CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
 // CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
@@ -118,29 +118,29 @@ func.func @pad_edge_mode(%arg0: tensor<1x3x4x5xf32>, %arg1: tensor<8xi64>, %arg2
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc([[VAR_4_]], [[VAR_9_]], [[VAR_14_]], [[VAR_19_]]) {{.*}}: memref<?x?x?x?xf32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:4 = krnl.define_loops 4
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_4_]]([[VAR_4_]]){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to [[MAP_5_]]([[VAR_4_]], [[VAR_9_]]){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8], [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to [[MAP_6_]]([[VAR_4_]], [[VAR_9_]], [[VAR_1_]]4){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8], [[LOOP_0_]]#3 -> [[I_3_:%.+]] = 0 to [[MAP_7_]]([[VAR_4_]], [[VAR_9_]], [[VAR_1_]]4, [[VAR_1_]]9){{.}}[[VAR_1_]], [[VAR_3_]], [[VAR_6_]], [[VAR_8_]], [[VAR_1_]]1, [[VAR_1_]]3, [[VAR_1_]]6, [[VAR_1_]]8]){
-// CHECK:             [[VAR_22_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
-// CHECK-DAG:         [[VAR_23_:%.+]] = arith.cmpi sle, [[VAR_22_]]#0, [[VAR_1_]] : index
-// CHECK-DAG:         [[VAR_24_:%.+]] = affine.apply [[MAP_8_]]([[VAR_22_]]#0){{.}}[[VAR_1_]]{{.}}
-// CHECK:             [[VAR_25_:%.+]] = arith.select [[VAR_23_]], [[CST_0_]], [[VAR_24_]] : index
-// CHECK:             [[VAR_26_:%.+]] = arith.cmpi sge, [[VAR_25_]], [[CST_1_]] : index
-// CHECK-DAG:         [[VAR_27_:%.+]] = arith.select [[VAR_26_]], [[CST_0_]], [[VAR_25_]] : index
-// CHECK-DAG:         [[VAR_28_:%.+]] = arith.cmpi sle, [[VAR_22_]]#1, [[VAR_6_]] : index
-// CHECK-DAG:         [[VAR_29_:%.+]] = affine.apply [[MAP_8_]]([[VAR_22_]]#1){{.}}[[VAR_6_]]{{.}}
+// CHECK:             [[VAR_21_:%.+]]:4 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2, [[LOOP_0_]]#3) : (!krnl.loop, !krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index, index)
+// CHECK-DAG:         [[VAR_22_:%.+]] = arith.cmpi sle, [[VAR_21_]]#0, [[VAR_1_]] : index
+// CHECK-DAG:         [[VAR_23_:%.+]] = affine.apply [[MAP_8_]]([[VAR_21_]]#0){{.}}[[VAR_1_]]{{.}}
+// CHECK:             [[VAR_24_:%.+]] = arith.select [[VAR_22_]], [[CST_0_]], [[VAR_23_]] : index
+// CHECK:             [[VAR_25_:%.+]] = arith.cmpi sge, [[VAR_24_]], [[CST_1_]] : index
+// CHECK-DAG:         [[VAR_27_:%.+]] = arith.select [[VAR_25_]], [[CST_0_]], [[VAR_24_]] : index
+// CHECK-DAG:         [[VAR_28_:%.+]] = arith.cmpi sle, [[VAR_21_]]#1, [[VAR_6_]] : index
+// CHECK-DAG:         [[VAR_29_:%.+]] = affine.apply [[MAP_8_]]([[VAR_21_]]#1){{.}}[[VAR_6_]]{{.}}
 // CHECK:             [[VAR_30_:%.+]] = arith.select [[VAR_28_]], [[CST_0_]], [[VAR_29_]] : index
 // CHECK:             [[VAR_31_:%.+]] = arith.cmpi sge, [[VAR_30_]], [[CST_3_]] : index
 // CHECK-DAG:         [[VAR_32_:%.+]] = arith.select [[VAR_31_]], [[CST_2_]], [[VAR_30_]] : index
-// CHECK-DAG:         [[VAR_33_:%.+]] = arith.cmpi sle, [[VAR_22_]]#2, [[VAR_11_]] : index
-// CHECK-DAG:         [[VAR_34_:%.+]] = affine.apply [[MAP_8_]]([[VAR_22_]]#2){{.}}[[VAR_11_]]{{.}}
+// CHECK-DAG:         [[VAR_33_:%.+]] = arith.cmpi sle, [[VAR_21_]]#2, [[VAR_11_]] : index
+// CHECK-DAG:         [[VAR_34_:%.+]] = affine.apply [[MAP_8_]]([[VAR_21_]]#2){{.}}[[VAR_11_]]{{.}}
 // CHECK:             [[VAR_35_:%.+]] = arith.select [[VAR_33_]], [[CST_0_]], [[VAR_34_]] : index
 // CHECK:             [[VAR_36_:%.+]] = arith.cmpi sge, [[VAR_35_]], [[CST_4_]] : index
 // CHECK-DAG:         [[VAR_37_:%.+]] = arith.select [[VAR_36_]], [[CST_3_]], [[VAR_35_]] : index
-// CHECK-DAG:         [[VAR_38_:%.+]] = arith.cmpi sle, [[VAR_22_]]#3, [[VAR_16_]] : index
-// CHECK-DAG:         [[VAR_39_:%.+]] = affine.apply [[MAP_8_]]([[VAR_22_]]#3){{.}}[[VAR_16_]]{{.}}
+// CHECK-DAG:         [[VAR_38_:%.+]] = arith.cmpi sle, [[VAR_21_]]#3, [[VAR_16_]] : index
+// CHECK-DAG:         [[VAR_39_:%.+]] = affine.apply [[MAP_8_]]([[VAR_21_]]#3){{.}}[[VAR_16_]]{{.}}
 // CHECK:             [[VAR_40_:%.+]] = arith.select [[VAR_38_]], [[CST_0_]], [[VAR_39_]] : index
 // CHECK:             [[VAR_41_:%.+]] = arith.cmpi sge, [[VAR_40_]], [[CST_5_]] : index
 // CHECK:             [[VAR_42_:%.+]] = arith.select [[VAR_41_]], [[CST_4_]], [[VAR_40_]] : index
 // CHECK:             [[LOAD_DATA_MEM_:%.+]] = krnl.load [[DATA_]]{{.}}[[VAR_27_]], [[VAR_32_]], [[VAR_37_]], [[VAR_42_]]{{.}} : memref<1x3x4x5xf32>
-// CHECK:             krnl.store [[LOAD_DATA_MEM_]], [[RES_]]{{.}}[[VAR_22_]]#0, [[VAR_22_]]#1, [[VAR_22_]]#2, [[VAR_22_]]#3] : memref<?x?x?x?xf32>
+// CHECK:             krnl.store [[LOAD_DATA_MEM_]], [[RES_]]{{.}}[[VAR_21_]]#0, [[VAR_21_]]#1, [[VAR_21_]]#2, [[VAR_21_]]#3] : memref<?x?x?x?xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<?x?x?x?xf32>
 // CHECK:         }
