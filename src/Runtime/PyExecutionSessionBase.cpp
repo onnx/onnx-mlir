@@ -163,16 +163,14 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         auto vec = inputPyArray.cast<std::vector<std::string>>();
         for (int64_t i = 0; i < shape[0]; ++i)
           strPointerArray[i] = vec[i].data();
-        break;
-      }
+      } break;
       case 2: {
         auto vec = inputPyArray.cast<std::vector<std::vector<std::string>>>();
         int off = 0;
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
             strPointerArray[off++] = vec[i][j].data();
-        break;
-      }
+      } break;
       case 3: {
         auto vec =
             inputPyArray
@@ -182,8 +180,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
               strPointerArray[off++] = vec[i][j][k].data();
-        break;
-      }
+      } break;
       case 4: {
         auto vec = inputPyArray.cast<
             std::vector<std::vector<std::vector<std::vector<std::string>>>>>();
@@ -193,8 +190,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
             for (int64_t k = 0; k < shape[2]; ++k)
               for (int64_t l = 0; l < shape[3]; ++l)
                 strPointerArray[off++] = vec[i][j][k][l].data();
-        break;
-      }
+      } break;
       case 5: {
         auto vec = inputPyArray.cast<std::vector<
             std::vector<std::vector<std::vector<std::vector<std::string>>>>>>();
@@ -205,8 +201,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
               for (int64_t l = 0; l < shape[3]; ++l)
                 for (int64_t m = 0; m < shape[4]; ++m)
                   strPointerArray[off++] = vec[i][j][k][l][m].data();
-        break;
-      }
+      } break;
       case 6: {
         auto vec = inputPyArray.cast<std::vector<std::vector<std::vector<
             std::vector<std::vector<std::vector<std::string>>>>>>>();
@@ -218,10 +213,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
                 for (int64_t m = 0; m < shape[4]; ++m)
                   for (int64_t n = 0; n < shape[5]; ++n)
                     strPointerArray[off++] = vec[i][j][k][l][m][n].data();
-        break;
-      }
+      } break;
       default:
         assert(false && "not implemented");
+        break;
       }
       // Calculate total length of all strings including null termination.
       uint64_t strLenTotal = 0;
