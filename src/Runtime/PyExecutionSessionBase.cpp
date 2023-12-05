@@ -158,62 +158,67 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       char **strPointerArray = (char **)malloc(sizeof(char *) * numElem);
       assert(
           strPointerArray && "fail to alloc array for pointers to string data");
+      int off = 0;
+      std::vector<std::string> vec1;
+      std::vector<std::vector<std::string>> vec2;
+      std::vector<std::vector<std::vector<std::string>>> vec3;
+      std::vector<std::vector<std::vector<std::vector<std::string>>>> vec4;
+      std::vector<
+          std::vector<std::vector<std::vector<std::vector<std::string>>>>>
+          vec5;
+      std::vector<std::vector<
+          std::vector<std::vector<std::vector<std::vector<std::string>>>>>>
+          vec6;
       switch (inputPyArray.ndim()) {
-      case 1: {
-        auto vec = inputPyArray.cast<std::vector<std::string>>();
+      case 1:
+        vec1 = inputPyArray.cast<std::vector<std::string>>();
         for (int64_t i = 0; i < shape[0]; ++i)
-          strPointerArray[i] = vec[i].data();
-      } break;
-      case 2: {
-        auto vec = inputPyArray.cast<std::vector<std::vector<std::string>>>();
-        int off = 0;
+          strPointerArray[i] = vec1[i].data();
+        break;
+      case 2:
+        vec2 = inputPyArray.cast<std::vector<std::vector<std::string>>>();
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
-            strPointerArray[off++] = vec[i][j].data();
-      } break;
-      case 3: {
-        auto vec =
-            inputPyArray
-                .cast<std::vector<std::vector<std::vector<std::string>>>>();
-        int off = 0;
+            strPointerArray[off++] = vec2[i][j].data();
+        break;
+      case 3:
+        vec3 = inputPyArray
+                   .cast<std::vector<std::vector<std::vector<std::string>>>>();
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
-              strPointerArray[off++] = vec[i][j][k].data();
-      } break;
-      case 4: {
-        auto vec = inputPyArray.cast<
+              strPointerArray[off++] = vec3[i][j][k].data();
+        break;
+      case 4:
+        vec4 = inputPyArray.cast<
             std::vector<std::vector<std::vector<std::vector<std::string>>>>>();
-        int off = 0;
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
               for (int64_t l = 0; l < shape[3]; ++l)
-                strPointerArray[off++] = vec[i][j][k][l].data();
-      } break;
-      case 5: {
-        auto vec = inputPyArray.cast<std::vector<
+                strPointerArray[off++] = vec4[i][j][k][l].data();
+        break;
+      case 5:
+        vec5 = inputPyArray.cast<std::vector<
             std::vector<std::vector<std::vector<std::vector<std::string>>>>>>();
-        int off = 0;
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
               for (int64_t l = 0; l < shape[3]; ++l)
                 for (int64_t m = 0; m < shape[4]; ++m)
-                  strPointerArray[off++] = vec[i][j][k][l][m].data();
-      } break;
-      case 6: {
-        auto vec = inputPyArray.cast<std::vector<std::vector<std::vector<
+                  strPointerArray[off++] = vec5[i][j][k][l][m].data();
+        break;
+      case 6:
+        vec6 = inputPyArray.cast<std::vector<std::vector<std::vector<
             std::vector<std::vector<std::vector<std::string>>>>>>>();
-        int off = 0;
         for (int64_t i = 0; i < shape[0]; ++i)
           for (int64_t j = 0; j < shape[1]; ++j)
             for (int64_t k = 0; k < shape[2]; ++k)
               for (int64_t l = 0; l < shape[3]; ++l)
                 for (int64_t m = 0; m < shape[4]; ++m)
                   for (int64_t n = 0; n < shape[5]; ++n)
-                    strPointerArray[off++] = vec[i][j][k][l][m][n].data();
-      } break;
+                    strPointerArray[off++] = vec6[i][j][k][l][m][n].data();
+        break;
       default:
         assert(false && "not implemented");
         break;
