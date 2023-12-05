@@ -155,7 +155,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       //
 
       // Allocate buffer for one-dimentional array for string data pointers
-      char **strPointerArray = (char **)alloca(sizeof(char *) * numElem);
+      char **strPointerArray = (char **)malloc(sizeof(char *) * numElem);
       assert(
           strPointerArray && "fail to alloc array for pointers to string data");
       switch (inputPyArray.ndim()) {
@@ -236,9 +236,11 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         ((char **)strArray)[i] = strDataPtr;
         strDataPtr += strlen(strPointerArray[i]) + 1;
       }
+      free(strPointerArray);
       inputOMTensor = omTensorCreateWithOwnership(strArray, shape,
           static_cast<int64_t>(inputPyArray.ndim()), dtype, /*own_data=*/true);
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, strides);
+      // omTensorPrint("PyExecutionSessionBase::pyRun: %t %d", inputOMTensor);
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
