@@ -119,6 +119,7 @@ extern std::vector<std::string> extraLibPaths;                // onnx-mlir only
 extern std::vector<std::string> extraLibs;                    // onnx-mlir only
 extern ProfileIRs profileIR;                                  // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
+extern bool useOldBufferization;                              // onnx-mlir only
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
 extern bool verify_passes;             // onnx-mlir-opt only

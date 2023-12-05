@@ -33,7 +33,7 @@ func.func @test_relu_parallel(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   // CHECK-DAG:       [[VAR_reshape_3_:%.+]] = memref.reshape [[VAR_view_]]([[RES_2_]]) : (memref<?x10xf32>, memref<1xindex>) -> memref<?xf32>
   // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
   // CHECK:           [[BLOCK_TILE__0_:%.+]], [[BLOCK_IN__0_:%.+]] = krnl.block [[LOOP_0_]] 32 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
-  // CHECK:           krnl.parallel [[BLOCK_TILE__0_]] : !krnl.loop
+  // CHECK:           krnl.parallel([[BLOCK_TILE__0_]]) : !krnl.loop
   // CHECK:           krnl.iterate([[BLOCK_TILE__0_]]) with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to [[MAP_2_]](){{.}}[[VAR_dim_]], [[VAR_dim_]]_0]){
   // CHECK:             [[VAR_4_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
   // CHECK:             [[LOAD_VAR_reshape_MEM_:%.+]] = vector.load [[VAR_reshape_]]{{.}}[[VAR_4_]]{{.}} : memref<?xf32>, vector<32xf32>
