@@ -654,10 +654,19 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
           ValueRange(reducedValues).getTypes(), reductionKinds,
           ArrayRef(lbsMap), lbsOperands, ArrayRef(ubsMap), ubsOperands,
           ArrayRef(loopToParallel.getStepAsInt()));
+#if 1
       parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
       Operation *yieldOp = &parallelLoop.getBody()->back();
-
       yieldOp->setOperands(reducedValues);
+#else
+      {
+        OpBuilder::InsertionGuard allocaGuard(opBuilder);
+        opBuilder.setInsertionPointToStart(&*parallelLoop.getRegion().begin());
+        auto scope = opBuilder.create<memref::AllocaScopeOp>(loc, TypeRange());
+        opBuilder.create<AffineYieldOp>(loc, ValueRange());
+      }
+#endif
+
       // Replace the affine.forOp with affine.parallelOp in loopRefToTop
       loopRefToOp[loopRef] = parallelLoop;
       loopToParallel.erase();

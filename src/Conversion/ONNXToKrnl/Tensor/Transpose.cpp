@@ -77,9 +77,9 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     if (auto numLastDims =
             unchangedInnerDimensions(inMemRefType, outMemRefType, permAttr))
       blockTranspose(
-          data, alloc, permAttr, &create, numLastDims, enableParallel);
+          op, data, alloc, permAttr, &create, numLastDims, enableParallel);
     else
-      scalarTranspose(data, alloc, permAttr, &create, enableParallel);
+      scalarTranspose(op, data, alloc, permAttr, &create, enableParallel);
 
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
@@ -134,7 +134,7 @@ private:
   }
 
   // Do transpose by copying elements one-by-one.
-  void scalarTranspose(Value inputMemRef, Value outputMemRef,
+  void scalarTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create,
       bool enableParallel) const {
     uint64_t rank = outputMemRef.getType().cast<MemRefType>().getRank();
@@ -144,7 +144,9 @@ private:
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
     if (enableParallel) {
+      // TODO: consider flattening the outer dims.
       create->krnl.parallel(loopDef[0]);
+      onnxToKrnlParallelReport(op, true, 0, lbs[0], ubs[0], "scalar transpose");
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Transpose \n");
     }
 
@@ -163,7 +165,7 @@ private:
 
   // Do transpose by copying block of consecutive elements in the inner-most
   // dimensions.
-  void blockTranspose(Value inputMemRef, Value outputMemRef,
+  void blockTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims,
       bool enableParallel) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
@@ -210,7 +212,10 @@ private:
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LiteralIndexExpr(0));
     if (enableParallel) {
+      // TODO: consider flattening the outer dims.
       create->krnl.parallel(loopDef[0]);
+      onnxToKrnlParallelReport(
+          op, true, 0, lbs[0], inUBs[0], "scalar transpose");
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Transpose \n");
     }
 
@@ -241,8 +246,7 @@ private:
 
 void populateLoweringONNXTransposeOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
-  patterns.insert<ONNXTransposeOpLowering>(
-      typeConverter, ctx, false && enableParallel);
+  patterns.insert<ONNXTransposeOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir
