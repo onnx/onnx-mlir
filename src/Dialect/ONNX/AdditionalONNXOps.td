@@ -2,7 +2,7 @@
 
 //===-- AdditionalONNXOps.td -- ONNX Dialect Additional Ops  -*- tablegen -===//
 //
-// Copyright 2019-2022 The IBM Research Authors
+// Copyright 2019-2023 The IBM Research Authors
 //
 // =============================================================================
 //
@@ -546,3 +546,77 @@ def ONNXShapeTransformOp: ONNX_Op<"ShapeTransform", [Pure,
   let hasVerifier = 1;
 }
 
+//===----------------------------------------------------------------------===//
+// ONNXRMSNormOp (Variant of LayerNormalization found in T5 model)
+
+def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX RMSLayerNormalization operation";
+  let description = [{
+  This is RMS layer normalization defined in ONNX as function.
+        The overall computation can be split into two stages.
+        The first stage is an approximate standardization, which makes the
+        normalized elements have zero mean and unit variances.
+        See Equation (4) in [this paper](https://arxiv.org/pdf/1910.07467.pdf).
+        The computation required by standardization can be
+        described by the following equations.
+        ```
+        DD = Mul(X, X)
+        Var = ReduceMean<axes=normalized_axes>(DD)
+        VarEps = Add(Var, epsilon)
+        StdDev = Sqrt(VarEps)
+        InvStdDev = Reciprocal(StdDev)
+        Normalized = Mul(X, InvStdDev)
+        ```
+        where `normalized_axes` is `[axis, ..., rank of X - 1]`.
+        The variables `Var` and `StdDev` stand for approximate variance and
+        standard deviation, respectively.
+        Depending on `stash_type` attribute, the actual computation
+        must happen in different floating-point precision.
+        For example, if `stash_type` is 1, this operator casts
+        all input variables to 32-bit float, perform the computation, and
+        finally cast `Normalized` back to the original type of `X`.
+        The second stage then scales and shifts the outcome of the
+        first stage using
+        ```
+        NormalizedScaled = Mul(Normalized, Scale)
+        Y = Add(NormalizedScaled, B)
+        ```
+        The second stage doesn't depends on `stash_type`.
+        All equations are in [this syntax](https://github.com/onnx/onnx/blob/main/docs/Syntax.md).
+        The same variable (i.e., input, output, and attribute) uses
+        the same name in the equations above and this operator's definition.
+        Let `d[i]` indicate the i-th dimension of `X`.
+        If `X`'s shape is `[d[0], ..., d[axis-1], d[axis], ..., d[rank-1]]`,
+        the shape of `Mean` and `InvStdDev` is `[d[0], ..., d[axis-1], 1, ..., 1]`.
+        `Y` and `X` have the same shape.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Scale,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, NoneType]>:$B,
+    DefaultValuedAttr<SI64Attr, "-1">:$axis,
+    DefaultValuedAttr<F32Attr, "1e-05">:$epsilon,
+    DefaultValuedAttr<SI64Attr, "1">:$stash_type);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>, NoneType]>:$InvStdDev);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 3;
+    }
+    static int getNumberOfResults() {
+      return 2;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30,1};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXRMSLayerNormalizationOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+  let hasVerifier = 1;
+}
