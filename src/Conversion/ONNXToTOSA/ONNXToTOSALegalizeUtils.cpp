@@ -35,17 +35,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace tosa {
 
-int64_t convertNegativeAxis(int64_t axis, int64_t inputRank) {
-  if (axis < 0)
-    axis += inputRank;
-
-  // Check if axis is in correct range.
-  assert(
-      (axis >= 0 && axis < inputRank) && "axis attribute not in correct range");
-
-  return axis;
-}
-
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding) {
   return mlir::RankedTensorType::get(

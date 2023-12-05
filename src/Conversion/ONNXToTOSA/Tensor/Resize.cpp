@@ -73,9 +73,8 @@ ScaleHelper normalize(int64_t output, int64_t input, bool pytorchHalfPixel,
 
 void valuesFromAxis(ArrayAttr *axis, llvm::SmallVectorImpl<int64_t> &axisVec) {
   auto axisRange = axis->getAsRange<IntegerAttr>();
-  llvm::transform(axisRange, std::back_inserter(axisVec), [](IntegerAttr attr) {
-    return tosa::convertNegativeAxis(attr.getInt(), 4);
-  });
+  llvm::transform(axisRange, std::back_inserter(axisVec),
+      [](IntegerAttr attr) { return getAxisInRange(attr.getInt(), 4, true); });
 }
 
 LogicalResult getScaleValue(ConversionPatternRewriter &rewriter, Operation *op,
@@ -131,11 +130,10 @@ public:
   /// ## coordinateTransformationMode ##
   /// TOSA uses the formula ix = (ox * scale_x_d + offset_x) / scale_x_n
   /// to find the input coordinates. In order to lower ONNX one needs to
-  /// express the modes in this context. Border is only used to check if certain
-  /// conditions in the dimensions are met, but has no actual use in calculating
-  /// something. It is probably an error in the TOSA specification. In order to
-  /// fulfill the conditions, border is always
-  /// border = d * (output - 1) - n *(input - 1) + offset
+  /// express the modes in this context. Border is used to ensure that the shape
+  /// calculation is exactly defined with an integer ratio. In order to fulfill
+  /// the conditions, border is always border = d * (output - 1) - n *(input -
+  /// 1) + offset
   ///
   /// ### half_pixel ###
   /// ONNX formula: ix = (ox + 0.5) / scale - 0.5

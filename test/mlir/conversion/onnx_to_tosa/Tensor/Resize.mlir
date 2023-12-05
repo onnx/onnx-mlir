@@ -204,6 +204,23 @@ func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed(%arg0: tenso
 
 // -----
 
+func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed_negative_axis(%arg0: tensor<1x1x2x4xf32>) -> tensor<1x1x2x8xf32> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>
+    %2 = "onnx.Resize"(%arg0, %0, %1, %0) {axes = [1, -1], coordinate_transformation_mode = "pytorch_half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<1x1x2x4xf32>, none, tensor<2xf32>, none) -> tensor<1x1x2x8xf32>
+    return %2 : tensor<1x1x2x8xf32>
+// CHECK-LABEL:  func.func @test_resize_pytorch_half_pixel_linear_other_axis_allowed_negative_axis
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x2x4xf32>) -> tensor<1x1x2x8xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[VAR_0_]] : (tensor<1x1x2x4xf32>, tensor<4xi32>) -> tensor<1x2x4x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, 1>, mode = "BILINEAR", offset = array<i64: -1, -1>, scale = array<i64: 1, 1, 4, 2>} : (tensor<1x2x4x1xf32>) -> tensor<1x2x8x1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK:           [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x2x8x1xf32>, tensor<4xi32>) -> tensor<1x1x2x8xf32>
+// CHECK:           return [[VAR_4_]] : tensor<1x1x2x8xf32>
+}
+
+// -----
+
 func.func @test_resize_pytorch_half_pixel_linearother_axis_disallowed(%arg0: tensor<1x1x2x4xf32>) -> tensor<1x1x2x8xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.Constant"() {value = dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>} : () -> tensor<2xf32>

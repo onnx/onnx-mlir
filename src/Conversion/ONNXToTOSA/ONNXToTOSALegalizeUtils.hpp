@@ -30,10 +30,6 @@
 namespace onnx_mlir {
 namespace tosa {
 
-// ONNX can use negative indices for axis while TOSA cannot. This functions
-// makes sure the axis is in the right range for TOSA.
-int64_t convertNegativeAxis(int64_t axis, int64_t inputRank);
-
 // Create a RankedTensorType with shape and all elements being 1
 mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding = {});
