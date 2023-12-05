@@ -145,6 +145,20 @@ Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
   return layerNormOp.getY();
 }
 
+Value OnnxBuilder::RMSLayerNorm(Type outputType, Value input, Value scale,
+    Value bias, int64_t axis, FloatAttr epsilon) const {
+  IntegerAttr axisAttr = getSignedInt64Attr(axis);
+  IntegerAttr stashTypeAttr = getSignedInt64Attr(1);
+  Value noneVal = none();
+  Type noneType = noneVal.getType();
+  ONNXRMSLayerNormalizationOp RMSLayerNormOp =
+      createOpAndInferShapes<ONNXRMSLayerNormalizationOp>(
+          /*Y type*/ toTensor(outputType), /*std dev Type*/ noneType,
+          toTensor(input), toTensor(scale), toTensor(bias), axisAttr, epsilon,
+          stashTypeAttr);
+  return RMSLayerNormOp.getY();
+}
+
 Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   // Gemm only supports rank 2.
   bool canUseGemm = useGemm && A.getType().isa<ShapedType>() &&
