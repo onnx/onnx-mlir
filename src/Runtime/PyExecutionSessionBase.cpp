@@ -80,8 +80,8 @@ void *generateOMTensorBufferForStringData(py::array pyArray) {
       strLenTotal += strlen(vec[i].data()) + 1;
     dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
     assert(dataBuffer && "fail to alloc bufferData for string data");
-    strArray = (char **)dataBuffer;
-    strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
+    char **strArray = (char **)dataBuffer;
+    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
     for (int64_t i = 0; i < shape[0]; ++i) {
       strcpy(strPos, vec[i].data());
       strArray[off++] = strPos;
