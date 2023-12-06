@@ -260,3 +260,38 @@ func.func @test_unstick_dim_nchw(%arg0: tensor<?x?x?x?xf16, #zhigh.layout<{dataL
 // CHECK:           return [[VAR_0_]] : tensor<1xi64>
 // CHECK:         }
 }
+
+// -----
+
+// COM: Remove all LayoutTransform and data conversion since the whole computation is identity.
+func.func @test_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>> {
+  %0 = "onnx.LayoutTransform"(%arg0) : (tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16>
+  %1 = "zhigh.DLF16ToF32"(%0) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
+  %2 = "zhigh.F32ToDLF16"(%1) : (tensor<1x3x5x?xf32>) -> tensor<1x3x5x?xf16>
+  %3 = "onnx.LayoutTransform"(%2) {target_layout = "4D"} : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+  onnx.Return %3 : tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+
+// CHECK-LABEL:  func.func @test_dlf16_to_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>) -> tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>> {
+// CHECK:           onnx.Return [[PARAM_0_]] : tensor<1x3x5x?xf16, #zhigh.layout<{dataLayout = "4D"}>>
+// CHECK:         }
+}
+
+// -----
+
+// COM: DLF16ToF32 is delayed and pushed down through Reshape and Transpose,
+// and it is removed when combined with F32ToDLF16.
+func.func @test_delay_dlf16_to_f32(%arg0: tensor<1x3x5x?xf16>, %arg1: tensor<3xi64>) -> tensor<5x3x?xf16> {
+  %1 = "zhigh.DLF16ToF32"(%arg0) : (tensor<1x3x5x?xf16>) -> tensor<1x3x5x?xf32>
+  %2 = "onnx.Reshape"(%1, %arg1) {allowzero = 0 : si64} : (tensor<1x3x5x?xf32>, tensor<3xi64>) -> tensor<3x5x?xf32>
+  %3 = "onnx.Transpose"(%2) {perm = [1, 0, 2]} : (tensor<3x5x?xf32>) -> tensor<5x3x?xf32>
+  %4 = "zhigh.F32ToDLF16"(%3) : (tensor<5x3x?xf32>) -> tensor<5x3x?xf16>
+  onnx.Return %4 : tensor<5x3x?xf16>
+
+// CHECK-LABEL:  func.func @test_delay_dlf16_to_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x5x?xf16>, [[PARAM_1_:%.+]]: tensor<3xi64>) -> tensor<5x3x?xf16> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[PARAM_1_]]) {allowzero = 0 : si64} : (tensor<1x3x5x?xf16>, tensor<3xi64>) -> tensor<3x5x?xf16>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Transpose"([[VAR_0_]]) {perm = [1, 0, 2]} : (tensor<3x5x?xf16>) -> tensor<5x3x?xf16>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<5x3x?xf16>
+// CHECK:         }
+}

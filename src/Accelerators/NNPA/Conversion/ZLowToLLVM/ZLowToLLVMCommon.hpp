@@ -56,7 +56,10 @@ enum class API {
   ZDNN_AVGPOOL2D,
   ZDNN_MAXPOOL2D,
   ZDNN_MEANREDUCE2D,
-  ZDNN_BATCHNORM
+  ZDNN_BATCHNORM,
+  // Scalar operations.
+  DLF16_TO_F32,
+  F32_TO_DLF16,
 };
 
 // Obtain a zDNN API for an elementwise ZLow operation.

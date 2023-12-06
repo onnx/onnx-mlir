@@ -126,6 +126,14 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
 
+  // Experimental feature: Decompose stick/unstick into two phases: layout
+  // transform and data conversion.
+  if (nnpaEnableZHighDecomposeStickUnstick) {
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+  }
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 
@@ -210,7 +218,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
-        // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
+        // Some Krnl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);
         // Optimizations at ZLow after normalizing MemRefs.

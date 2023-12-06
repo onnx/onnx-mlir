@@ -12,7 +12,9 @@ add_onnx_mlir_library(OMZHighOps
   # Please list in the alphabetical order.
   ZHighOps/BatchNorm/BatchNorm.cpp
   ZHighOps/Conv2D/Conv2D.cpp
+  ZHighOps/DLF16ToF32/DLF16ToF32.cpp
   ZHighOps/Elementwise/Elementwise.cpp
+  ZHighOps/F32ToDLF16/F32ToDLF16.cpp
   ZHighOps/GRU/FixGRUY.cpp
   ZHighOps/GRU/FixGRUYh.cpp
   ZHighOps/GRU/GRU.cpp
@@ -31,6 +33,8 @@ add_onnx_mlir_library(OMZHighOps
   DEPENDS
   OMLayoutHelper
   OMZHighIncGen
+  OMONNXZHighDLF16ToF32IncGen
+  OMONNXZHighF32ToDLF16IncGen
   OMONNXZHighStickIncGen
   OMONNXZHighUnstickIncGen
   OMShapeInferenceOpInterfaceIncGen

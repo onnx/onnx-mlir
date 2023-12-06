@@ -45,13 +45,15 @@ namespace zhigh {
     virtual ~SHAPE_HELPER() {}                                                 \
     mlir::LogicalResult computeShape() final;                                  \
   };
-DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighDLF16ToF32OpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighF32ToDLF16OpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighFixGRUYhOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighMeanReduce2DOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForGRUOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickForLSTMOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickifiedConstantOfShapeOpShapeHelper)
+DECLARE_SHAPE_HELPER_ZHIGH(ZHighStickOpShapeHelper)
 DECLARE_SHAPE_HELPER_ZHIGH(ZHighUnstickOpShapeHelper)
-DECLARE_SHAPE_HELPER_ZHIGH(ZHighMeanReduce2DOpShapeHelper)
-DECLARE_SHAPE_HELPER_ZHIGH(ZHighFixGRUYhOpShapeHelper)
 #undef DECLARE_SHAPE_HELPER_ZHIGH
 
 //===----------------------------------------------------------------------===//
