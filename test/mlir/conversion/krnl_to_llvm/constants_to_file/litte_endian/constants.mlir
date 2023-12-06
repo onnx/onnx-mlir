@@ -65,16 +65,12 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK-DAG:       [[VAR_2_4_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_4_3_:%.+]] = llvm.bitcast [[VAR_3_3_]] : !llvm.ptr<array<20 x i8>> to !llvm.ptr
-// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr<ptr>
-// CHECK:           [[VAR_6_3_:%.+]] = llvm.bitcast [[VAR_5_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omMMapBinaryFile([[VAR_6_3_]], [[VAR_4_3_]], [[VAR_1_3_]], [[VAR_2_4_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
-// CHECK:           [[VAR_7_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
-// CHECK:           [[VAR_8_3_:%.+]] = llvm.bitcast [[VAR_7_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_8_3_]], [[VAR_6_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
-// CHECK:           [[VAR_10_3_:%.+]] = llvm.bitcast [[VAR_9_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_10_3_]], [[VAR_6_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr
+// CHECK:           llvm.call @omMMapBinaryFile([[VAR_5_3_]], [[VAR_3_3_]], [[VAR_1_3_]], [[VAR_2_4_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK:           [[VAR_7_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr
+// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_7_3_]], [[VAR_5_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr
+// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_9_3_]], [[VAR_5_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 
