@@ -65,8 +65,7 @@ namespace onnx_mlir {
 // better way for fixing it is found.
 //
 void *generateOMTensorBufferForStringData(py::array pyArray) {
-  int64_t *shape = (int64_t *)pyArray.shape();
-  int64_t *strides = (int64_t *)pyArray.strides();
+  auto shape = pyArray.shape();
   uint64_t numElem = 1;
   for (size_t i = 0; i < (size_t)pyArray.ndim(); ++i)
     numElem *= shape[i];
