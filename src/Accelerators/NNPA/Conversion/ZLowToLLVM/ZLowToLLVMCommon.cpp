@@ -467,7 +467,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   Type llvmI64Ty = IntegerType::get(context, 64);
   Type llvmI1Ty = IntegerType::get(context, 1);
   Type llvmI8Ty = IntegerType::get(context, 8);
-  Type llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 32);
+  Type llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 31);
   Type llvmI8PtrTy = krnl::getPointerType(context, llvmI8Ty);
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
 
@@ -484,7 +484,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   zTensorTypeElements.emplace_back(llvmI8PtrTy);
   // indicator if data in buffer has been transformed
   zTensorTypeElements.emplace_back(llvmI1Ty);
-  // reserved[32], not currently used, exploiter should not touch
+  // reserved[31], not currently used, exploiter should not touch
   zTensorTypeElements.emplace_back(llvmArrayI8Ty);
 
   Type zTensorStructTy = LLVM::LLVMStructType::getLiteral(context,
