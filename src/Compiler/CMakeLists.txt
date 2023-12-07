@@ -219,9 +219,7 @@ add_dependencies(PyCompile onnx_proto)
 target_compile_options(PyCompile
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
-  # Suppress the warning C4293 caused by LLVM:
-  # include/mlir/Dialect/SparseTensor/IR/Enums.h(537): warning C4293: '<<': shift count negative or too big, undefined behavior
-  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR /wd4293>
+  $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
 target_compile_definitions(PyCompile
   PRIVATE
