@@ -12,12 +12,6 @@
 
 #include "mlir/InitAllDialects.h"
 
-// TODO: remove this once LLVM in onnx-mlir includes
-// https://github.com/llvm/llvm-project/pull/74002
-#if defined(_MSC_VER)
-#pragma warning(disable : 4293)
-#endif
-
 using namespace mlir;
 
 namespace onnx_mlir {
