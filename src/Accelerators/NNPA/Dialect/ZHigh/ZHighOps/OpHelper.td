@@ -123,6 +123,11 @@ def Is3DSLayout : Constraint<
   "Is 3DS layout"
 >;
 
+def IsNotNHWCLayout : Constraint<
+  CPred<"!::onnx_mlir::isNHWCLayout($0)">,
+  "Is not NHWC layout"
+>;
+
 /// Compose two affine maps.
 def GetComposedMap : NativeCodeCall<
  "mlir::AffineMapAttr::get($0.getValue().compose($1.getValue()))"
