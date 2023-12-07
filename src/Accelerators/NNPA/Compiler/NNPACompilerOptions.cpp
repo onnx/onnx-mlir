@@ -40,6 +40,15 @@ llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
         "level. Default is true."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
+    "enable-zhigh-decompose-stick-unstick",
+    llvm::cl::desc(
+        "[Experimental feature] Enabling this will convert zhigh.Stick to "
+        "`zhigh.F32ToDLF16 -> onnx.LayoutTransform` and zhigh.Unstick to "
+        "`onnx.LayoutTransform -> zhigh.DLF16ToF32`. "
+        "Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     "nnpa-load-device-placement-file",
     llvm::cl::desc(
@@ -55,10 +64,29 @@ llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile{
     llvm::cl::desc("Save device placement configuration to a JSON file."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<bool> nnpaEnableZHighPerfModel("enable-zhigh-perf-model",
-    llvm::cl::desc("Enabling performance cost model to estimate if ONNX "
-                   "operations will be faster on the NNPA or the CPU. Works "
-                   "best with static shapes. Default is false."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
+    "nnpa-placement-heuristic",
+    llvm::cl::desc(
+        "[Optional] Choose NNPA-related heuristic to place operations "
+        "on NNPA device:"),
+    llvm::cl::values(
+        clEnumVal(QualifyingOps, "Place all qualifying ops on NNPA (default)"),
+        clEnumVal(FasterOps, "Place qualifying ops that are faster on NNPA"),
+        clEnumVal(FasterOpsWSU, "FasterOps with stick/unstick cost"),
+        clEnumVal(MuchFasterOpsWSU,
+            "Much/Significantly FasterOps with stick/unstick cost")),
+    llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<std::string> nnpaParallelOpt{"nnpa-parallel",
+    llvm::cl::desc(
+        "Enable parallelization with the number of devices and "
+        "the threshold of dimension size. \"string\" is in the format of "
+        "\"#DEVICES\":\"THRESHOLD\".\n"
+        "Currently MatMul ops are supported. Given A(N x K) * B(K x M), M is "
+        "split for the parallelization. The MatMul ops whose M is greater than "
+        "or equal to this threshold are parallelized.\n"
+        "Disable parallelization if this option is not used. If the threshold "
+        "is not specified, the default is 32)\n"),
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
 
 } // namespace onnx_mlir

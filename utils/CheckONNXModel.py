@@ -63,7 +63,7 @@ VERBOSITY_LEVEL = {"debug": 10, "info": 5, "warning": 1, "error": 0, "critical":
 
 
 def valid_onnx_input(fname):
-    valid_exts = ["onnx", "mlir"]
+    valid_exts = ["onnx", "mlir", "onnxtext"]
     ext = os.path.splitext(fname)[1][1:]
 
     if ext not in valid_exts:
@@ -78,7 +78,9 @@ parser = argparse.ArgumentParser(
     prog="CheckONNXModel.py",
     description="Compile and run an ONNX/MLIR model twice. "
     "Once with reference compiler options (-r) to set the reference values. "
-    "And once with test compiler options (-t) to verify the validity of these options.",
+    "And once with test compiler options (-t or -a) to verify the validity of these options. "
+    "When using -t option, a new set of optimizations is used; when using -a options, "
+    "the provided -a options are added to the options provided by the -r flag.",
 )
 parser.add_argument(
     "-m",
@@ -94,14 +96,26 @@ parser.add_argument(
     help="Reference arguments passed directly to onnx-mlir command."
     " See bin/onnx-mlir --help.",
 )
-parser.add_argument(
+test_group = parser.add_mutually_exclusive_group()
+test_group.add_argument(
     "-t",
     "--test-compile-args",
     type=str,
     default="-O3",
     help="Reference arguments passed directly to onnx-mlir command."
+    " Use either the -t or -a argument but not both."
     " See bin/onnx-mlir --help.",
 )
+test_group.add_argument(
+    "-a",
+    "--additional-test-compile-args",
+    type=str,
+    default="",
+    help="Additional reference arguments passed directly to onnx-mlir command."
+    " Use either the -t or -a argument but not both."
+    " See bin/onnx-mlir --help.",
+)
+
 parser.add_argument(
     "-s",
     "--save-ref",
@@ -132,6 +146,24 @@ parser.add_argument(
     type=str,
     default="42",
     help="seed to initialize the random num generator for inputs.",
+)
+
+parser.add_argument(
+    "--lower-bound",
+    type=str,
+    help="Lower bound values for each data type. Used inputs."
+    " E.g. --lower-bound=int64:-10,float32:-0.2,uint8:1."
+    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+    " uint64, int64,float16, float32, float64",
+)
+
+parser.add_argument(
+    "--upper-bound",
+    type=str,
+    help="Upper bound values for each data type. Used to generate random inputs."
+    " E.g. --upper-bound=int64:10,float32:0.2,uint8:9."
+    " Supported types are bool, uint8, int8, uint16, int16, uint32, int32,"
+    " uint64, int64, float16, float32, float64",
 )
 
 args = parser.parse_args()
@@ -222,13 +254,23 @@ def main():
     if args.shape_info:
         ref_cmd += ["--shape-info=" + args.shape_info]
     ref_cmd += ["--seed=" + args.seed]
+    # Handle lb/ub
+    if args.lower_bound:
+        ref_cmd += ["--lower-bound=" + args.lower_bound]
+    if args.upper_bound:
+        ref_cmd += ["--upper-bound=" + args.upper_bound]
     # Model name.
     ref_cmd += [model_str]
 
     # Test command
     test_cmd = [cmd]
     # Compile options for test
-    test_cmd += ["--compile-args=" + args.test_compile_args]
+    if args.additional_test_compile_args:
+        compile_args = args.ref_compile_args + " " + args.additional_test_compile_args
+    else:
+        compile_args = args.test_compile_args
+    test_cmd = [cmd]
+    test_cmd += ["--compile-args=" + compile_args]
     # Where to load the ref from
     test_cmd += ["--load-ref=" + test_dir]
     # How to verify

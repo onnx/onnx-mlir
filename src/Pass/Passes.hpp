@@ -33,10 +33,12 @@ std::unique_ptr<mlir::Pass> createScrubDisposablePass(bool closeAfter = true);
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass();
 std::unique_ptr<mlir::Pass> createONNXOpTransformPass(int threshold,
     bool report, bool targetCPU, bool enableSimdDataLayoutOpt,
-    bool enableConvOptPass);
+    bool enableConvOptPass, bool enableRecomposeOptPass);
 
 /// Pass for rewriting inside frontend dialect.
 std::unique_ptr<mlir::Pass> createDecomposeONNXToONNXPass(
+    const std::string &target = "");
+std::unique_ptr<mlir::Pass> createRecomposeONNXToONNXPass(
     const std::string &target = "");
 
 std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
@@ -45,7 +47,7 @@ std::unique_ptr<mlir::Pass> createConvOptONNXToONNXPass(
 std::unique_ptr<mlir::Pass> createShapeInferencePass();
 
 // To configure ConstPropONNXToONNXPass at program start.
-void configureConstPropONNXToONNXPass(int expansionBound,
+void configureConstPropONNXToONNXPass(bool roundFPToInt, int expansionBound,
     llvm::ArrayRef<std::string> disabledPatterns, bool constantPropIsDisabled);
 
 std::unique_ptr<mlir::Pass> createConstPropONNXToONNXPass();
@@ -67,7 +69,8 @@ std::unique_ptr<mlir::Pass> createStandardFuncReturnPass();
 
 /// Pass that combines multiple ONNX dialect transformations,
 /// including shape inference.
-std::unique_ptr<mlir::Pass> createONNXHybridTransformPass();
+std::unique_ptr<mlir::Pass> createONNXHybridTransformPass(
+    bool enableRecomposition);
 
 /// Pass for analyzing unknown dimension in ONNX operations.
 std::unique_ptr<mlir::Pass> createONNXDimAnalysisPass();
@@ -80,14 +83,14 @@ std::unique_ptr<mlir::Pass> createONNXPreKrnlVerifyPass();
 
 /// Add pass for lowering to Krnl IR.
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
-std::unique_ptr<mlir::Pass> createLowerToKrnlPass(
-    bool enableTiling, bool enableSIMD, bool enableParallel);
+std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
+    bool enableSIMD, bool enableParallel, std::string opsForCall);
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled);
 
-#ifdef ONNX_MLIR_ENABLE_MHLO
-/// Add pass for lowering to Mhlo IR.
-std::unique_ptr<mlir::Pass> createLowerToMhloPass();
+#ifdef ONNX_MLIR_ENABLE_STABLEHLO
+/// Add pass for lowering to StableHlo IR.
+std::unique_ptr<mlir::Pass> createLowerToStableHloPass();
 #endif
 
 /// Pass for lowering krnl.dim operations to standard dialect.

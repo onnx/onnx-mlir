@@ -42,6 +42,19 @@ namespace onnx_mlir {
 // Support functions.
 //===----------------------------------------------------------------------===//
 
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is
+// true.  Assert when not in range. Return positive axis.
+int64_t getAxisInRange(int64_t axis, int64_t rank, bool includeRank = false);
+int64_t getAxisInRange(int64_t axis, mlir::Value val, bool includeRank = false);
+// Check if axis is in [-rank, rank), or [-rank, rank] when includeRank is true.
+// Return false when not in range; set axis to positive value when in range.
+bool isAxisInRange(int64_t &axis, int64_t rank, bool includeRank = false);
+bool isAxisInRange(int64_t &axis, mlir::Value val, bool includeRank = false);
+
+//===----------------------------------------------------------------------===//
+// Support functions.
+//===----------------------------------------------------------------------===//
+
 // Update a tensor type by using the given shape, elementType and encoding.
 // TODO: when all ops are migrated to the new scheme, make this function private
 // to ONNXOpShapeHelper.
@@ -50,9 +63,9 @@ namespace onnx_mlir {
 // shape: shape of the ranked tensor type of val.
 // elementType: When nullptr, pick the elementary type from val.
 // encoding: When nullptr, pick the encoding from val if defined.
-void updateType(mlir::Value val, llvm::ArrayRef<int64_t> shape,
-    mlir::Type elementType = nullptr, mlir::Attribute encoding = nullptr,
-    bool refineShape = true);
+void updateType(mlir::Operation *op, mlir::Value val,
+    llvm::ArrayRef<int64_t> shape, mlir::Type elementType = nullptr,
+    mlir::Attribute encoding = nullptr, bool refineShape = true);
 
 // When we perform shape inference, we always assume that the type's shape in
 // onnx is correct. There are rare instance where we transform an existing op
@@ -276,6 +289,22 @@ struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
     return ONNXBroadcastOpShapeHelper::computeShape();
   }
 };
+
+// Template for Layer Normalization (LN) ops
+template <typename OP_TYPE>
+struct ONNXLNOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXLNOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
+            /*hasUniBroadcasting*/ true) {}
+  virtual ~ONNXLNOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+};
+
+// clang-format off
+using ONNXLayerNormalizationOpShapeHelper = ONNXLNOpShapeHelper<mlir::ONNXLayerNormalizationOp>;
+using ONNXRMSLayerNormalizationOpShapeHelper = ONNXLNOpShapeHelper<mlir::ONNXRMSLayerNormalizationOp>;
+// clang-format on
 
 //===----------------------------------------------------------------------===//
 // Unary Ops

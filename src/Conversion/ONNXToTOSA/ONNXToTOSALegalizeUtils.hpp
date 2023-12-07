@@ -66,7 +66,7 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   // target type.
   auto predictedShape = returnedShapes[0];
   if (predictedShape.hasRank())
-    updateType(op, predictedShape.getDims(),
+    updateType(nullptr, op, predictedShape.getDims(),
         result_ty.cast<mlir::ShapedType>().getElementType());
   return op;
 }

@@ -123,6 +123,10 @@ void defineLoops(mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
 mlir::Value getDimOrConstant(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value operand, int64_t axis, mlir::Type type);
 
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(mlir::Operation *op, std::string opsForCall);
+
 //===----------------------------------------------------------------------===//
 // Fold and emit support.
 //===----------------------------------------------------------------------===//
@@ -335,9 +339,13 @@ void populateLoweringONNXCategoryMapperOpPattern(
 
 // `NN` directory methods:
 void populateLoweringONNXConvOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, bool enableTiling);
-void populateLoweringONNXNormalizationOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+    std::string opsForCall);
+mlir::LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::ONNXLayerNormalizationOp lnOp);
+void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD);
 void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
@@ -446,8 +454,8 @@ void populateLoweringONNXCompressOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXLayoutTransformOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXLayoutTransformOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXUniqueOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
@@ -457,6 +465,90 @@ void populateLoweringONNXShapeTransformOpPattern(
 
 void populateLoweringONNXCustomOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+
+// Utilities for generating krnl.call for ONNX Ops
+
+// Create allocate based on COMPUTED shapeHelper.
+// The generic computed shapehelper avoids the specific type of shape helper
+// for each op, and shape helper may be used in krnl loop generation, too.
+// Use template in case some op has special allocation. For the generic cases,
+// the typename is only used in location, which is not absolutely needed
+template <typename OP_TYPE>
+std::vector<mlir::Value> allocForONNXOp(mlir::Operation *op,
+    mlir::ConversionPatternRewriter &rewriter,
+    const mlir::TypeConverter *const typeConverter,
+    ONNXOpShapeHelper &shapeHelper) {
+  mlir::Location loc = ONNXLoc<OP_TYPE>(op);
+
+  // Get shape.
+  MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+      rewriter, loc);
+
+  std::vector<mlir::Value> allocs;
+  for (uint64_t i = 0; i < op->getResults().size(); i++) {
+    mlir::Value output = op->getResults()[i];
+    // Convert the output type to MemRefType.
+    mlir::Type convertedType = typeConverter->convertType(output.getType());
+    assert(convertedType && convertedType.isa<mlir::MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    mlir::MemRefType memRefType = convertedType.cast<mlir::MemRefType>();
+
+    // Insert an allocation and deallocation for the result of this operation.
+    mlir::Value alloc =
+        create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims(i));
+    allocs.emplace_back(alloc);
+  }
+  return allocs;
+}
+
+// Template to create ONNXOp to Call pattern
+template <typename OP_TYPE, typename SHAPEHELPER_TYPE>
+struct ONNXGenericOpToCall : public mlir::OpConversionPattern<OP_TYPE> {
+  using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
+  ONNXGenericOpToCall(mlir::TypeConverter &typeConverter,
+      mlir::MLIRContext *ctx, std::string opsForCall)
+      : mlir::OpConversionPattern<OP_TYPE>(
+            typeConverter, ctx, /*benefit higher than default*/ 10),
+        opsForCall(opsForCall) {}
+  std::string opsForCall;
+
+  mlir::LogicalResult match(OP_TYPE onnxOp) const final {
+    mlir::Operation *op = onnxOp.getOperation();
+    if (!checkOpToCall(op, opsForCall))
+      return mlir::failure();
+
+    // Additional checks
+
+    return mlir::success();
+  }
+  void rewrite(OP_TYPE onnxOp, ADAPTOR_TYPE adaptor,
+      mlir::ConversionPatternRewriter &rewriter) const final {
+    mlir::Operation *op = onnxOp.getOperation();
+    mlir::Location loc = onnx_mlir::ONNXLoc<OP_TYPE>(op);
+    mlir::ValueRange operands = adaptor.getOperands();
+
+    // Get shape.
+    MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
+        rewriter, loc);
+
+    SHAPEHELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+    // Insert an allocation and deallocation for the result of this operation.
+    std::vector<mlir::Value> allocs = allocForONNXOp<OP_TYPE>(
+        onnxOp, rewriter, this->typeConverter, shapeHelper);
+
+    // Create krnl.call here.
+    // You may customize the krnl.call according to your library
+    // Use Op name in ONNX as the fuction name. Remove the leading "onnx."
+    std::string funcName = op->getName().getStringRef().str().substr(5);
+    rewriter.create<mlir::KrnlCallOp>(loc, funcName, allocs, op, operands,
+        /*keep all attributes*/ true);
+    rewriter.replaceOp(op, allocs);
+  }
+};
+
+using ONNXConvOpToCall =
+    ONNXGenericOpToCall<mlir::ONNXConvOp, ONNXConvOpShapeHelper>;
 
 /// This function returns the index in the list of alloc arguments of the
 /// dynamic dimension corresponding to `index` in the MemRef shape.

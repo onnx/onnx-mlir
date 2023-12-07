@@ -13,10 +13,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+
+#include <functional>
+
+#define DEBUG_TYPE "lowering-to-krnl"
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+//===----------------------------------------------------------------------===//
+// Batch Norm
+//===----------------------------------------------------------------------===//
 
 struct ONNXBatchNormalizationInferenceModeOpLowering
     : public OpConversionPattern<ONNXBatchNormalizationInferenceModeOp> {
@@ -25,12 +35,12 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
       : OpConversionPattern(typeConverter, ctx) {}
 
   LogicalResult matchAndRewrite(
-      ONNXBatchNormalizationInferenceModeOp batchnormOp,
+      ONNXBatchNormalizationInferenceModeOp batchNormOp,
       ONNXBatchNormalizationInferenceModeOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    // batchnorm{epsilon}(x, scale, bias, mean, variance) =
+    // batchNorm{epsilon}(x, scale, bias, mean, variance) =
     //      scale * (x - mean) / sqrt(variance + epsilon) + bias
-    Operation *op = batchnormOp.getOperation();
+    Operation *op = batchNormOp.getOperation();
     Location loc = ONNXLoc<ONNXBatchNormalizationInferenceModeOp>(op);
 
     MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
@@ -135,6 +145,10 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     return success();
   }
 };
+
+//===----------------------------------------------------------------------===//
+// Instance Normalization
+//===----------------------------------------------------------------------===//
 
 struct ONNXInstanceNormalizationOpLowering
     : public OpConversionPattern<ONNXInstanceNormalizationOp> {
@@ -285,11 +299,788 @@ struct ONNXInstanceNormalizationOpLowering
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Layer Normalization unoptimized.
+//===----------------------------------------------------------------------===//
+
+using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+    MemRefBuilder, MathBuilder, VectorBuilder, OnnxBuilder,
+    AffineBuilderKrnlMem, SCFBuilder>;
+
+// Util: gather the 3 results (possibly none values) and replace the original op
+// by these results.
+template <typename OP_TYPE>
+static inline void replaceGenericLayerNormOp(
+    ConversionPatternRewriter &rewriter, OP_TYPE lnOp, Value Y, Value meanOfX,
+    Value invStdDev) {
+  llvm::SmallVector<Value, 3> outputs;
+  outputs.emplace_back(Y);
+  Value noneValue;
+  if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+    // Mean only for ONNXLayerNormalizationOp
+    if (isNoneValue(lnOp.getMean()))
+      outputs.emplace_back(noneValue);
+    else
+      outputs.emplace_back(meanOfX);
+  } else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value) {
+    // Nothing to do
+  } else {
+    llvm_unreachable("unknown type");
+  }
+  if (isNoneValue(lnOp.getInvStdDev()))
+    outputs.emplace_back(noneValue);
+  else
+    outputs.emplace_back(invStdDev);
+  rewriter.replaceOp(lnOp, outputs);
+}
+
+// Generate the original ONNX operations. This is the unoptimized path.
+// TODO: conversions of types are not handled.
+template <typename OP_TYPE>
+LogicalResult generateGenericLayerNormOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp) {
+  MDBuilder create(rewriter, loc);
+  Value X = lnOp.getX(); // Original value, not translated.
+  TensorType XType = X.getType().cast<TensorType>();
+  Type elementType = XType.getElementType();
+  int64_t XRank = XType.getRank();
+  int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+  // Get epsilon
+  FloatAttr epsilonAttr = lnOp.getEpsilonAttr();
+  DenseElementsAttr epsilonDenseAttr =
+      onnx_mlir::createDenseElementsAttrFromFloatAttr(
+          rewriter, elementType, epsilonAttr);
+  Value epsilon = create.onnx.constant(epsilonDenseAttr);
+
+  // Create reduction axes array.
+  llvm::SmallVector<int64_t, 4> axesIntArray, reductionShape;
+  for (int64_t r = 0; r < axis; ++r)
+    reductionShape.emplace_back(XType.getShape()[r]);
+  for (int64_t r = axis; r < XRank; ++r) {
+    reductionShape.emplace_back(1);
+    axesIntArray.emplace_back(r);
+  }
+  Value axes =
+      create.onnx.constant(create.getBuilder().getI64TensorAttr(axesIntArray));
+  TensorType reductionType = RankedTensorType::get(reductionShape, elementType);
+  Value meanOfX, d, var;
+  if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+    // Reduction of input
+    meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+    Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
+    Value XPow2 = create.onnx.mul(X, X);
+    Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
+    var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+    d = create.onnx.sub(X, meanOfX);
+  } else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value) {
+    // For RMS, just take X as the input minus mean.
+    Value XPow2 = create.onnx.mul(X, X);
+    var = create.onnx.reduceMean(reductionType, XPow2, axes);
+    d = X;
+  }
+  Value varWithEpsilon = create.onnx.add(var, epsilon);
+  Value stdDev = create.onnx.sqrt(varWithEpsilon);
+  Value invStdDev = create.onnx.reciprocal(stdDev);
+  Value normalized = create.onnx.mul(d, invStdDev);
+  Value Y = create.onnx.mul(normalized, lnOp.getScale());
+  if (!isNoneValue(lnOp.getB()))
+    Y = create.onnx.add(Y, lnOp.getB());
+  replaceGenericLayerNormOp<OP_TYPE>(rewriter, lnOp, Y, meanOfX, invStdDev);
+  return success();
+}
+
+LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ONNXLayerNormalizationOp lnOp) {
+  return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
+}
+
+template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
+struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
+  GenericLayerNormaOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableSIMD)
+      : OpConversionPattern<OP_TYPE>(typeConverter, ctx),
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {}
+
+  DimAnalysis *dimAnalysis;
+  bool enableSIMD;
+
+  using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
+
+  /*
+   * Handle cases below ('|' is where the axis is):
+   *
+   * Scalar: operand = 1, 1, 1, | 1, 1, 1 => gen scalar operand to be splatted.
+   *
+   * Fully specified: operand = O1, O2, O3, | O4, O5, O6 where O1..O6 are the
+   * same as the X's dims => gen simd oper with one load for each outer
+   * flattened loop.
+   *
+   * Partially specified: operand = 1, O2, O3 | O4, O5, O6 where O2...O6 are the
+   * same as the X's dim. In this case the flattened outermost iteration goes
+   * over X1 x X2 x X3 iterations, but we can only go over O2 x O3 iterations
+   * for this operand. Thus the index i in 0... X1 x X2 x X3 must be reduced to
+   * i % X2 * X3.
+   *
+   * Low part (i.e. the SIMD part, after the `|`) can be scalar or fully
+   * specified. High part (i.e. non-SIMD part, before the `|`) can be scalar,
+   * partially specified, or fully specified.
+   */
+
+  enum BroadcastKind { // Legend: HighStatus_LowStatus.
+    Unsupported,
+    Scalar_Scalar,                   // Flattened to 1D.
+    Scalar_FullySpecified,           // Flattened to 1D.
+    PartialSpecified_Scalar,         // Flattened to 2D.
+    PartialSpecified_FullySpecified, // Flattened to 2D.
+    FullySpecified_Scalar,           // Flattened to 2D.
+    FullySpecified_FullySpecified    // Flattened to 2D.
+  };
+
+  BroadcastKind isBroadcastCompatible(SHAPE_HELPER_TYPE &shapeHelper, Value X,
+      Value operand, int64_t operandIndex, int64_t axis, int64_t XRank,
+      IndexExpr &modFactor) const {
+    DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex];
+    int64_t operandRank = operand.getType().cast<MemRefType>().getRank();
+    modFactor = LiteralIndexExpr(1);
+
+    // X:     X0  X1  X2 | X3  X4  X5  .
+    //        ^          | ^           ^
+    //        0          | axis        XRank
+    //        <highRank> | < lowRank>
+    // Oper:      O0  O1 | O2  O3  O4 .
+    //            ^        ^          ^
+    //            0        ^          operandRank
+    //
+    // Here, the lowRank represents the SIMD loops.
+    int64_t lowRank = XRank - axis;
+
+    // Look at dims being 1 (scalar). Use shapeHelper.inputsDims as they have
+    // been extended with 1s to have explicit the broadcast dims (i.e.
+    // guaranteed to have the same rank as X).
+    bool highScalar = true;
+    for (int64_t i = 0; i < axis && highScalar; ++i) {
+      if (!operandDims[i].isLiteralAndIdenticalTo(1))
+        highScalar = false;
+    }
+    bool lowScalar = true;
+    for (int64_t i = axis; i < XRank && lowScalar; ++i) {
+      if (!operandDims[i].isLiteralAndIdenticalTo(1))
+        lowScalar = false;
+    }
+    if (highScalar && lowScalar) {
+      LLVM_DEBUG(llvm::dbgs() << "  operands: scalar-scalar, SIMD ok\n");
+      return BroadcastKind::Scalar_Scalar;
+    }
+
+    // Now that the all-scalar case has been eliminated, rank of operand has to
+    // be at least lowRank.
+    if (operandRank < lowRank) {
+      LLVM_DEBUG(llvm::dbgs() << "  operands: rank too small, no SIMD\n");
+      return BroadcastKind::Unsupported;
+    }
+
+    // Find out in the low part if all dims from the operand and input are
+    // identical. Iterate from the back.
+    bool lowFullySpecified = !lowScalar;
+    for (int64_t i = 0; i < lowRank && lowFullySpecified; ++i) {
+      if (!dimAnalysis->sameDim(X, -(i + 1), operand, -(i + 1)))
+        lowFullySpecified = false;
+    }
+    // Low must be scalar or fully qualified; otherwise partial broadcast in the
+    // SIMD code, which is not supported.
+    if (!(lowScalar || lowFullySpecified)) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  operands: low not scalar/fully specified, no SIMD\n");
+      return BroadcastKind::Unsupported;
+    }
+    if (highScalar && lowFullySpecified) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  operands: high ones, low fully specified, SIMD ok\n");
+      return BroadcastKind::Scalar_FullySpecified;
+    }
+
+    // Now find out how many dims in the high part have identical operands and
+    // input dims. Iterate from the back. Exit at the first non-identical.
+    bool highFullySpecified = !highScalar;
+    int64_t highSpecifiedCount = 0;
+    for (int64_t i = lowRank; i < operandRank && highFullySpecified; ++i) {
+      if (dimAnalysis->sameDim(X, -(i + 1), operand, -(i + 1)))
+        highSpecifiedCount++;
+      else
+        highFullySpecified = false;
+    }
+    // To be fully specified, operandRank must be the same as input rank;
+    // disable only after the loop as we still need the highSpecifiedCount for
+    // partial specified.
+    if (operandRank < XRank)
+      highFullySpecified = false;
+    // For partial specified to be valid, all the non-identical dims must be
+    // scalar.
+    bool highPartialSpecified = !(highScalar || highFullySpecified);
+    int64_t broadcastIndex = XRank - (highSpecifiedCount + lowRank);
+    for (int64_t i = 0; i < broadcastIndex && highPartialSpecified; i++) {
+      if (!operandDims[i].isLiteralAndIdenticalTo(1))
+        highPartialSpecified = false;
+    }
+    // High must be scalar, fully specified, or partial specified.
+    if (!(highScalar || highFullySpecified || highPartialSpecified)) {
+      LLVM_DEBUG(llvm::dbgs() << "  operands: high not scalar/fully/partial "
+                                 "specified, no SIMD\n");
+      return BroadcastKind::Unsupported;
+    }
+    // Cases with high fully specified.
+    if (highFullySpecified && lowFullySpecified) {
+      LLVM_DEBUG(
+          llvm::dbgs() << "  operands: fully specified low/high, SIMD ok\n");
+      return BroadcastKind::FullySpecified_FullySpecified;
+    }
+    if (highFullySpecified && lowScalar) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  operands: high fully specified, low scalar, SIMD ok\n");
+      return BroadcastKind::FullySpecified_Scalar;
+    }
+    // Case with high partial specified, now compute the mod factor.
+    for (int64_t i = broadcastIndex; i < axis; ++i) {
+      modFactor = modFactor * operandDims[i];
+    }
+    if (highPartialSpecified && lowScalar) {
+      LLVM_DEBUG(
+          llvm::dbgs()
+          << "  operands: high partial specified, low scalar, SIMD ok\n");
+      return BroadcastKind::PartialSpecified_Scalar;
+    }
+    if (highPartialSpecified && lowFullySpecified) {
+      LLVM_DEBUG(llvm::dbgs() << "  operands: high partial specified, low "
+                                 "fully specified, SIMD ok\n");
+      return BroadcastKind::PartialSpecified_FullySpecified;
+    }
+    llvm_unreachable("unexpected case");
+  }
+
+  bool isSimdizable(MDBuilder &create, OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
+      SHAPE_HELPER_TYPE &shapeHelper, int64_t &VL,
+      BroadcastKind &scaleBroadcastKind, BroadcastKind &biasBroadcastKind,
+      IndexExpr &scaleModFactor, IndexExpr &biasModFactor) const {
+
+    VL = 0;
+    Operation *op = lnOp.getOperation();
+    if (!enableSIMD) {
+      onnxToKrnlSimdReport(
+          op, /*successful*/ false, 0, 0, "no simd because disabled");
+      return false;
+    }
+
+    // Get info.
+    Value X = adaptor.getX();
+    MemRefType XMemRefType = X.getType().cast<MemRefType>();
+    DimsExpr XDims = shapeHelper.inputsDims[0];
+    int64_t XRank = XMemRefType.getRank();
+    int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+    int64_t lowRank = XRank - axis;
+    // Detect if we can use SIMD based on inout/X output/Y shape.
+    VectorMachineSupport *vms =
+        VectorMachineSupport::getGlobalVectorMachineSupport();
+
+    // Implementation relies into splitting the input X into a 2D vector, with
+    // outer dim is batches, and inner dims is where the mean/stddev is
+    // performed. This approach could be extended with some work to handle
+    // cases where there is no batches at all (so everything is part of
+    // mean/std dev computation); this is not supported at this time. Most
+    // cases seen are just the last dim for mean/std dev.
+    if (axis == 0) {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+          "no simd because cannot handle case with axis=0");
+      return false;
+    }
+
+    // Do not want to disable SIMD for lack of sum across support at this
+    // stage. Type elementType = XMemRefType.getElementType();
+    //
+    // if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
+    //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
+    //   return false;
+    // }
+
+    int64_t simdLoopStaticTripCount;
+    VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
+        lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);
+    LLVM_DEBUG(llvm::dbgs()
+                   << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
+                   << " loops, VL " << VL << "\n";);
+    if (VL == 0) {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
+          "no simd because could not find beneficial VL");
+      return false;
+    }
+
+    // Now if we have SIMD, check scale and Bias have compatible broadcast
+    // with X/Y.
+    scaleBroadcastKind =
+        isBroadcastCompatible(shapeHelper, X, adaptor.getScale(),
+            /*scale index*/ 1, axis, XRank, scaleModFactor);
+    if (scaleBroadcastKind == BroadcastKind::Unsupported) {
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
+          "no simd because scale is not broadcast compatible");
+      return false;
+    }
+    if (!isNoneValue(adaptor.getB())) {
+      biasBroadcastKind = isBroadcastCompatible(shapeHelper, X, adaptor.getB(),
+          /*B index*/ 2, axis, XRank, biasModFactor);
+      if (biasBroadcastKind == BroadcastKind::Unsupported) {
+        onnxToKrnlSimdReport(op, /*successful*/ false, 0,
+            simdLoopStaticTripCount,
+            "no simd because bias is not broadcast compatible");
+        return false;
+      }
+    }
+    onnxToKrnlSimdReport(
+        op, /*successful*/ true, VL, simdLoopStaticTripCount, "successful");
+    return true;
+  }
+
+  LogicalResult matchAndRewrite(OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
+      ConversionPatternRewriter &rewriter) const final {
+    // Get generic info.
+    Operation *op = lnOp.getOperation();
+    ValueRange operands = adaptor.getOperands();
+    Location loc = ONNXLoc<OP_TYPE>(op);
+    // Create builder and shape helper
+    MDBuilder create(rewriter, loc);
+    SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    int64_t VL;
+    BroadcastKind scaleBroadcastKind, biasBroadcastKind;
+    IndexExpr scaleModFactor, biasModFactor;
+    bool isSIMD = isSimdizable(create, lnOp, adaptor, shapeHelper, VL,
+        scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
+
+    if (isSIMD) {
+      return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, VL,
+          scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
+    }
+    return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
+  }
+
+  using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
+
+  void inlineFor(MDBuilder &create, int64_t B, F1 genCode) const {
+    for (int64_t offsetInt = 0; offsetInt < B; ++offsetInt) {
+      Value offsetVal = create.math.constantIndex(offsetInt);
+      genCode(offsetInt, offsetVal);
+    }
+  }
+
+  void convertAlignAllocAndFlatten(MDBuilder &create, Value inputVal,
+      DimsExpr &inputDims, int64_t axis, /*output*/ Value &memRef,
+      /*output*/ Value &flatMemRef) const {
+    // Convert input.
+    Type convertedType = this->typeConverter->convertType(inputVal.getType());
+    assert(convertedType && convertedType.isa<MemRefType>() &&
+           "Failed to convert type to MemRefType");
+    MemRefType memRefType = convertedType.cast<MemRefType>();
+    // Allocate.
+    memRef = create.mem.alignedAlloc(memRefType, inputDims);
+    // Flatten (do not keep flatten dims at this time).
+    DimsExpr flatDims;
+    flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
+  }
+
+  // Limitation: see restrictions on SIMD in isSimdizable.
+  int64_t getScalarFlattenedRank(BroadcastKind broadcastKind) const {
+    assert(broadcastKind != BroadcastKind::Unsupported && "supported only");
+    if (broadcastKind == BroadcastKind::Scalar_Scalar ||
+        broadcastKind == BroadcastKind::Scalar_FullySpecified)
+      return 1;
+    return 2;
+  }
+
+  Value getScalarWithBroadcast(MDBuilder &create, VectorType vecType,
+      Value memRef, Value zero, Value i, Value j, BroadcastKind broadcastKind,
+      IndexExpr modFactor) const {
+    switch (broadcastKind) {
+    case BroadcastKind::Scalar_Scalar: {
+      Value scalar = create.krnl.load(memRef, {zero});
+      return create.vec.splat(vecType, scalar);
+    }
+    case BroadcastKind::Scalar_FullySpecified: {
+      return create.vec.load(vecType, memRef, {j});
+    }
+    case BroadcastKind::PartialSpecified_Scalar: {
+      Value iii = create.math.rem(i, modFactor.getValue());
+      Value scalar = create.krnl.load(memRef, {iii, zero});
+      return create.vec.splat(vecType, scalar);
+    }
+    case BroadcastKind::PartialSpecified_FullySpecified: {
+      Value iii = create.math.rem(i, modFactor.getValue());
+      return create.vec.load(vecType, memRef, {iii, j});
+    }
+    case BroadcastKind::FullySpecified_Scalar: {
+      Value scalar = create.krnl.load(memRef, {i, zero});
+      return create.vec.splat(vecType, scalar);
+    }
+    case BroadcastKind::FullySpecified_FullySpecified: {
+      return create.vec.load(vecType, memRef, {i, j});
+    }
+    default:
+      llvm_unreachable("unsupported");
+    }
+  }
+
+  void generateIterWithSIMD(ConversionPatternRewriter &rewriter,
+      MDBuilder &create, OP_TYPE lnOp,
+      /* flat inputs */ Value XMemRef, Value scaleMemRef, Value biasMemRef,
+      /* flat outputs */ Value YMemRef, Value meanMemRef, Value invStdDevMemRef,
+      /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
+      /* index expr param */ IndexExpr redDim,
+      /* value params */ Value i, Value epsilon,
+      /* int params */ int64_t B, int64_t VL, BroadcastKind scaleBroadcastKind,
+      BroadcastKind biasBroadcastKind, IndexExpr scaleModFactor,
+      IndexExpr biasModFactor) const {
+    // Bool isTraditionalLayerNorm is true when computing traditional layer
+    // norm, not the faster RMS version.
+    bool isTraditionalLayerNorm = false;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      isTraditionalLayerNorm = true;
+    // Vector type.
+    Type elementType = YMemRef.getType().cast<ShapedType>().getElementType();
+    VectorType vecType = VectorType::get({VL}, elementType);
+    // Init the two reductions.
+    Value init = create.math.constant(elementType, 0.0);
+    Value initVec = create.vec.splat(vecType, init);
+    Value zero = create.math.constantIndex(0);
+    inlineFor(create, B, [&](int64_t d, Value o) {
+      if (isTraditionalLayerNorm)
+        create.vec.store(initVec, redMemRef, {o, zero});
+      create.vec.store(initVec, redMemRef2, {o, zero});
+    });
+    // Perform reduction of entire vectors.
+    IndexExpr izero = LiteralIndexExpr(0);
+    create.affineKMem.forIE(izero, redDim, VL,
+        [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
+          MDBuilder create(ck);
+          // load X, compute X**2, sum into reductions.
+          inlineFor(create, B, [&](int64_t d, Value o) {
+            Value ii = create.math.add(i, o);
+            // Load X, compute X2.
+            Value currX = create.vec.load(vecType, XMemRef, {ii, j});
+            Value currXSquare = create.math.mul(currX, currX);
+            // Perform reduction ov X values.
+            if (isTraditionalLayerNorm) {
+              Value currRed = create.vec.load(vecType, redMemRef, {o, zero});
+              Value newRed = create.math.add(currRed, currX);
+              create.vec.store(newRed, redMemRef, {o, zero});
+            }
+            // Perform reduction of X square values.
+            Value currRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
+            Value newRed2 = create.math.add(currRed2, currXSquare);
+            create.vec.store(newRed2, redMemRef2, {o, zero});
+          });
+        });
+
+    // Sum across, compute mean, var, standard deviation and its inverse.
+    llvm::SmallVector<Value, 4> mean(B), invStdDev(B);
+    Value redDimFloat = create.math.cast(elementType, redDim.getValue());
+    Value oneFloat = create.math.constant(elementType, 1.0);
+    inlineFor(create, B, [&](int64_t d, Value o) {
+      Value finalRed, finalRed2, currSum, currSum2, mean2, meanSquare, var;
+      // Load reductions.
+      if (isTraditionalLayerNorm)
+        finalRed = create.vec.load(vecType, redMemRef, {o, zero});
+      finalRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
+      // Horizontal reductions.
+      if (isTraditionalLayerNorm)
+        currSum =
+            create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed);
+      currSum2 =
+          create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed2);
+      // Compute means.
+      if (isTraditionalLayerNorm)
+        mean[d] = create.math.div(currSum, redDimFloat);
+      mean2 = create.math.div(currSum2, redDimFloat);
+      // Compute standard deviation (with epsilon) and its inverse.
+      if (isTraditionalLayerNorm) {
+        meanSquare = create.math.mul(mean[d], mean[d]);
+        var = create.math.sub(mean2, meanSquare);
+      } else {
+        var = mean2;
+      }
+      Value varEps = create.math.add(var, epsilon);
+      Value stdDev = create.math.sqrt(varEps);
+      invStdDev[d] = create.math.div(oneFloat, stdDev);
+    });
+    // Normalize of entire vectors.
+    create.affineKMem.forIE(izero, redDim, VL,
+        [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
+          MDBuilder create(ck);
+          // load X, compute X**2, sum into reductions.
+          inlineFor(create, B, [&](int64_t d, Value o) {
+            Value ii = create.math.add(i, o);
+            // Load X, compute X2.
+            Value currX = create.vec.load(vecType, XMemRef, {ii, j});
+            Value XMinusMean;
+            if (isTraditionalLayerNorm) {
+              Value meanSplat = create.vec.splat(vecType, mean[d]);
+              XMinusMean = create.math.sub(currX, meanSplat);
+            } else {
+              XMinusMean = currX;
+            }
+            Value invStdDevSplat = create.vec.splat(vecType, invStdDev[d]);
+            Value normalizedX = create.math.mul(XMinusMean, invStdDevSplat);
+            // Process with multiplying by scale (scalar or 1D vector).
+            Value scale = getScalarWithBroadcast(create, vecType, scaleMemRef,
+                zero, ii, j, scaleBroadcastKind, scaleModFactor);
+            Value Y = create.math.mul(normalizedX, scale);
+            // Process with adding bias (scalar or 1D vector), if provided.
+            if (biasMemRef && !isNoneValue(biasMemRef)) {
+              Value bias = getScalarWithBroadcast(create, vecType, biasMemRef,
+                  zero, ii, j, biasBroadcastKind, biasModFactor);
+              Y = create.math.add(Y, bias);
+            }
+            create.vec.store(Y, YMemRef, {ii, j});
+          });
+        });
+    // save mean and std dev if requested.
+    if (isTraditionalLayerNorm && meanMemRef) {
+      inlineFor(create, B, [&](int64_t d, Value o) {
+        Value ii = create.math.add(i, o);
+        create.krnl.store(mean[d], meanMemRef, {ii, zero});
+      });
+    }
+    if (invStdDevMemRef) {
+      inlineFor(create, B, [&](int64_t d, Value o) {
+        Value ii = create.math.add(i, o);
+        create.krnl.store(invStdDev[d], invStdDevMemRef, {ii, zero});
+      });
+    }
+  }
+
+  LogicalResult generateSIMDCode(ConversionPatternRewriter &rewriter,
+      Location loc, OP_TYPE lnOp, ADAPTOR_TYPE &adaptor,
+      SHAPE_HELPER_TYPE &shapeHelper, int64_t B, int64_t VL,
+      BroadcastKind scaleBroadcastKind, BroadcastKind biasBroadcastKind,
+      IndexExpr scaleModFactor, IndexExpr biasModFactor) const {
+
+    MDBuilder create(rewriter, loc);
+    Value XMemRef = adaptor.getX();
+    MemRefType XMemRefType = XMemRef.getType().cast<MemRefType>();
+    Type elementType = XMemRefType.getElementType();
+    int64_t XRank = XMemRefType.getRank();
+    int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
+    int64_t lowRank = XRank - axis;
+    // Get epsilon as a scalar.
+    Value epsilon =
+        create.math.constant(elementType, lnOp.getEpsilon().convertToDouble());
+
+    // Flatten X input.
+    Value XFlatMemRef, scaleFlatMemRef, biasFlatMemRef;
+    DimsExpr XFlatDims, flatDims;
+    XFlatMemRef = create.mem.reshapeToFlat2D(
+        XMemRef, shapeHelper.inputsDims[0], XFlatDims, axis);
+
+    // Fully flatten scale input.
+    int64_t scaleRank =
+        adaptor.getScale().getType().template cast<MemRefType>().getRank();
+    DimsExpr scaleDims;
+    for (int64_t i = XRank - scaleRank; i < XRank; ++i)
+      scaleDims.emplace_back(shapeHelper.inputsDims[1][i]);
+    if (getScalarFlattenedRank(scaleBroadcastKind) == 1)
+      scaleFlatMemRef = create.mem.reshapeToFlatInnermost(
+          adaptor.getScale(), scaleDims, flatDims, scaleRank);
+    else
+      scaleFlatMemRef = create.mem.reshapeToFlat2D(
+          adaptor.getScale(), scaleDims, flatDims, -lowRank);
+    // Fully flatten bias input, if present.
+    if (!isNoneValue(lnOp.getB())) {
+      int64_t biasRank =
+          adaptor.getB().getType().template cast<MemRefType>().getRank();
+      DimsExpr biasDims;
+      for (int64_t i = XRank - biasRank; i < XRank; ++i)
+        biasDims.emplace_back(shapeHelper.inputsDims[2][i]);
+      if (getScalarFlattenedRank(biasBroadcastKind) == 1)
+        biasFlatMemRef = create.mem.reshapeToFlatInnermost(
+            adaptor.getB(), biasDims, flatDims, biasRank);
+      else
+        biasFlatMemRef = create.mem.reshapeToFlat2D(
+            adaptor.getB(), biasDims, flatDims, -lowRank);
+    }
+    // Convert outputs, alloc data, and flatten them too.
+    Value YMemRef, meanMemRef, invStdDevMemRef;
+    Value YFlatMemRef, meanFlatMemRef, invStdDevFlatMemRef;
+    convertAlignAllocAndFlatten(create, lnOp.getY(),
+        shapeHelper.getOutputDims(0), axis, YMemRef, YFlatMemRef);
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+      if (!isNoneValue(lnOp.getMean()))
+        convertAlignAllocAndFlatten(create, lnOp.getMean(),
+            shapeHelper.getOutputDims(1), axis, meanMemRef, meanFlatMemRef);
+    }
+    if (!isNoneValue(lnOp.getInvStdDev()))
+      convertAlignAllocAndFlatten(create, lnOp.getInvStdDev(),
+          shapeHelper.getOutputDims(2), axis, invStdDevMemRef,
+          invStdDevFlatMemRef);
+    // Alloc mem for reductions (should be private if parallel)
+    MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
+    Value tmpRedMemRef;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+      // First reduction only needed for LayerNorm.
+      tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
+    }
+    Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
+    // Iterate over 1st dim by block
+    ValueRange loopDefs = create.krnl.defineLoops(1);
+    IndexExpr zero = LiteralIndexExpr(0);
+    ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
+    create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDefs[0]}, {zero},
+        {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
+          MDBuilder create(ck);
+          IndexExprScope innerScope(ck);
+          IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
+          IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0]);
+          IndexExpr isFull = create.krnlIE.isTileFull(
+              blockedCurrIndex, LiteralIndexExpr(B), blockedUB);
+          Value zero = create.math.constantIndex(0);
+          Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
+          create.scf.ifThenElse(
+              isNotFullVal,
+              [&](SCFBuilder &scf) {
+                MDBuilder create(scf);
+                // create.krnl.printf("partial tile\n");
+                Value startOfLastBlockVal = blockedCurrIndex.getValue();
+                Value blockedUBVal = blockedUB.getValue();
+                create.scf.forLoop(startOfLastBlockVal, blockedUBVal, 1,
+                    [&](SCFBuilder &scf, Value blockLocalInd) {
+                      MDBuilder create(scf);
+                      generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
+                          scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
+                          meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
+                          tmpRedMemRef2, XFlatDims[1], blockLocalInd, epsilon,
+                          1, VL, scaleBroadcastKind, biasBroadcastKind,
+                          scaleModFactor, biasModFactor);
+                    }); /* for inside blocked loop */
+              },
+              [&](SCFBuilder &scf) {
+                MDBuilder create(scf);
+                // create.krnl.printf("full tile\n");
+                generateIterWithSIMD(rewriter, create, lnOp, XFlatMemRef,
+                    scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
+                    meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
+                    tmpRedMemRef2, XFlatDims[1], blockedLoopIndices[0], epsilon,
+                    B, VL, scaleBroadcastKind, biasBroadcastKind,
+                    scaleModFactor, biasModFactor);
+              });
+        }); /* blocked loop */
+    // We don't seem to need to reshape fhe flattened memref, just pass the
+    // original ones.
+    replaceGenericLayerNormOp(
+        rewriter, lnOp, YMemRef, meanMemRef, invStdDevMemRef);
+    return success();
+  }
+};
+
+using ONNXLayerNormalizationOpLowering =
+    GenericLayerNormaOpLowering<ONNXLayerNormalizationOp,
+        ONNXLayerNormalizationOpShapeHelper>;
+using ONNXRMSLayerNormalizationOpLowering =
+    GenericLayerNormaOpLowering<ONNXRMSLayerNormalizationOp,
+        ONNXRMSLayerNormalizationOpShapeHelper>;
+
+// clang-format off
+/*
+ *  Explanation on the SIMD code.
+
+ * Algorithm.
+
+  There are 2 ways to compute var[x]. The first is the method listed in the op
+  definition:
+
+  E[ (x -E[x]) ^2]  where E[x] corresponds to the mean of x.
+
+  The second method is:
+
+  E[x]^2 - E[x^2].
+
+  As shown in wikipedia (https://en.wikipedia.org/wiki/Variance)
+
+   E[ (x -E[x]) ^2]) = E[ x^2 -2xE[x] + E[x]^2 ] =
+   E[x^2] -2E[x]E[x] + E[x]^2 = E[x^2] - E[x]^2
+
+  This second method is faster as we can compute both E[x] and E[x^2] at the
+  same time.
+
+ * Python code that explains how the code was derived.
+
+def layer_norm_simd2_v3(x, a, scale, b):
+    (b1, b2) = (2, 4)
+    t_rank = len(x.shape)
+    assert t_rank==2, "work for rank 2 only"
+    (a1, s2)  = x.shape
+    mean = np.zeros((a1, 1))
+    inv_std_dev = np.zeros((a1, 1))
+    y = np.zeros((a1, s2))
+    for i1 in range(0, a1, b1):
+        # iterate over blocks of b1 values
+        
+        # MEAN(x), MEAN(x2)
+        # iterate over a_block, s_block: parallel add
+        r = np.zeros((b1, b2))
+        r_square = np.zeros((b1, b2))
+        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2, 
+            xx = x[i1:i1+b1, i2:i2+b2]
+            xxx = np.multiply(xx, xx)
+            r = np.add(r, xx)
+            r_square = np.add(r_square, xxx)
+            
+        # simd reduction; res B1 x 1
+        # 2 B1 div
+        mean_b = np.sum(r, axis=1, keepdims=True) # SIMD reduction to (B1x1) values.
+        mean_b = np.divide(mean_b, s2) # (B2x1) values... so scalar is ok. 
+        mean_square_b = np.sum(r_square, axis=1, keepdims=True) # Same.
+        mean_square_b = np.divide(mean_square_b, s2) 
+
+        # var = mean_square - mean**2; all compute here are on (B1x1): B1 mul, B1 add
+        mean2_b = np.multiply(mean_b, mean_b) # B1 values, ok to do scalar
+        var_b = np.subtract(mean_square_b, mean2_b)
+        
+        # ADD eps, sqrt, inverse
+        # computations on B1x1, scalar ok: B1 add, B1 sqrt, B1 div
+        var_eps_b = np.add(var_b, 1e-05)
+        std_dev_b = np.sqrt(var_eps_b)
+        inv_std_dev_b = np.divide(1.0, std_dev_b)
+
+        # tot ops up to here (on B1x1): div: 3*B1, sqrt: B1, mul B1, add/sub 2 B1, sqrt B1: tot 8 B1
+
+        # SIMD on entire S2 size
+        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2, 
+            x_b = x[i1:i1+b1, i2:i2+b2]
+            d_b = np.subtract(x_b, mean_b) # broadcast of mean_b of 1 -> s2
+            normalized_b = np.multiply(d_b, inv_std_dev_b)  # broadcast of mean_b of 1 -> s2
+            normalized_scaled_b = np.multiply(normalized_b, scale) # assume here scale is scalar
+            y_b = np.add(normalized_scaled_b, b) # assume here b is scalar
+
+            # save values
+            #mean[i1:i1+b1, i2:i2+b2] = mean_b
+            #inv_std_dev[i1:i1+b1, i2:i2+b2] = inv_std_dev_b
+            y[i1:i1+b1, i2:i2+b2] = y_b
+        mean[i1:i1+b1, :] = mean_b
+        inv_std_dev[i1:i1+b1, :] = inv_std_dev_b
+
+    return (y, mean, inv_std_dev)
+*/
+// clang-format on
+
 void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
+    TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
+    bool enableSIMD) {
   patterns.insert<ONNXBatchNormalizationInferenceModeOpLowering>(
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
+  patterns.insert<ONNXLayerNormalizationOpLowering>(
+      typeConverter, ctx, dimAnalysis, enableSIMD);
+  patterns.insert<ONNXRMSLayerNormalizationOpLowering>(
+      typeConverter, ctx, dimAnalysis, enableSIMD);
 }
 
 } // namespace onnx_mlir

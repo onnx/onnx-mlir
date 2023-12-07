@@ -14,6 +14,7 @@
 #include "llvm/ADT/STLExtras.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 
 using namespace mlir;
@@ -122,8 +123,8 @@ struct YieldShapesPattern : public OpRewritePattern<ONNXYieldOp> {
   LogicalResult matchAndRewrite(
       ONNXYieldOp yieldOp, PatternRewriter &rewriter) const override {
     Operation *parent = yieldOp->getParentOp();
-    assert((isa<ONNXIfOp, ONNXLoopOp, ONNXScanOp>(parent)) &&
-           "onnx.Yield has if/loop/scan parent");
+    assert(parent->getName().hasInterface<HasOnnxSubgraphOpInterface>() &&
+           "onnx.Yield has parent with subgraph");
     return inferShapes(cast<ShapeInferenceOpInterface>(parent), rewriter);
   }
 };

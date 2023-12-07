@@ -7,10 +7,11 @@ project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
-option(ONNX_MLIR_ENABLE_MHLO "Enable MHLO support." ON)
+option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE "Enable ONNXConvTransposeOp decomposition." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
+option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -87,37 +88,42 @@ endif()
 
 find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)
 
-# On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
-# and JAVA_INCLUDE_PATH2 are not set. Setting them requires JAVA_HOME to be
-# known. If the JAVA_HOME env var isn't set, we try to figure it out by running
-# java and looking for the java.home property.
-if (APPLE)
-  set(JAVA_HOME $ENV{JAVA_HOME})
-  if ("${JAVA_HOME}" STREQUAL "")
-    execute_process(
-      COMMAND bash -c "java -XshowSettings:properties -version 2>&1 | \
-                       sed -n 's/[ \t]*java.home = //p'"
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-      OUTPUT_VARIABLE JAVA_HOME)
+if(ONNX_MLIR_ENABLE_JAVA)
+  # On MacOS, find_package for Java and JNI doesn't work if JAVA_INCLUDE_PATH
+  # and JAVA_INCLUDE_PATH2 are not set. Setting them requires JAVA_HOME to be
+  # known. If the JAVA_HOME env var isn't set, we try to figure it out by running
+  # java and looking for the java.home property.
+  if (APPLE)
+    set(JAVA_HOME $ENV{JAVA_HOME})
+    if ("${JAVA_HOME}" STREQUAL "")
+      execute_process(
+        COMMAND bash -c "java -XshowSettings:properties -version 2>&1 | \
+                         sed -n 's/[ \t]*java.home = //p'"
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        OUTPUT_VARIABLE JAVA_HOME)
+    endif()
+    if (NOT "${JAVA_HOME}" STREQUAL "")
+      SET(JAVA_INCLUDE_PATH  "${JAVA_HOME}/include")
+      SET(JAVA_INCLUDE_PATH2 "${JAVA_HOME}/include/darwin")
+    endif()
   endif()
-  if (NOT "${JAVA_HOME}" STREQUAL "")
-    SET(JAVA_INCLUDE_PATH  "${JAVA_HOME}/include")
-    SET(JAVA_INCLUDE_PATH2 "${JAVA_HOME}/include/darwin")
+
+  # Don't require AWT to allow headless JDK to reduce docker image size
+  set(JAVA_AWT_INCLUDE_PATH headless)
+  set(JAVA_AWT_LIBRARY headless)
+  find_package(Java COMPONENTS Development)
+  find_package(JNI)
+
+  if (Java_Development_FOUND AND JNI_FOUND)
+    set(ONNX_MLIR_ENABLE_JNI TRUE)
+    include(UseJava)
+  else()
+    set(ONNX_MLIR_ENABLE_JNI FALSE)
+    message(WARNING "Java Development component or JNI not found, JNI targets will not work")
   endif()
-endif()
-
-# Don't require AWT to allow headless JDK to reduce docker image size
-set(JAVA_AWT_INCLUDE_PATH headless)
-set(JAVA_AWT_LIBRARY headless)
-find_package(Java COMPONENTS Development)
-find_package(JNI)
-
-if (Java_Development_FOUND AND JNI_FOUND)
-  set(ONNX_MLIR_ENABLE_JNI TRUE)
-  include(UseJava)
 else()
   set(ONNX_MLIR_ENABLE_JNI FALSE)
-  message(WARNING "Java Development component or JNI not found, JNI targets will not work")
+  message(WARNING "Java explicitly disabled with the ONNX_MLIR_ENABLE_JAVA option, JNI targets will not work")
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
@@ -158,12 +164,8 @@ add_subdirectory(third_party/onnx)
 add_subdirectory(third_party/pybind11)
 add_subdirectory(third_party/rapidcheck)
 
-if (ONNX_MLIR_ENABLE_MHLO)
-  add_subdirectory(third_party/mlir-hlo EXCLUDE_FROM_ALL)
-
-  # mlir-hlo depends on these paths being visible, but does not propagate them.
-  include_directories(${ONNX_MLIR_SRC_ROOT}/third_party/mlir-hlo)
-  include_directories(${ONNX_MLIR_BIN_ROOT}/third_party/mlir-hlo)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
+  add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
 endif()
 
 if (NOT TARGET benchmark)
@@ -184,10 +186,9 @@ llvm_update_compile_flags(benchmark)
 llvm_update_compile_flags(benchmark_main)
 llvm_update_compile_flags(rapidcheck)
 
-if (ONNX_MLIR_ENABLE_MHLO)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
   llvm_update_compile_flags(stablehlo-opt)
   llvm_update_compile_flags(stablehlo-translate)
-  llvm_update_compile_flags(mlir-hlo-opt)
 endif()
 
 # Increase the log level for onnx-mlir
@@ -202,8 +203,8 @@ if (ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DSUPPRESS_THIRD_PARTY_WARNINGS")
 endif()
 
-if (ONNX_MLIR_ENABLE_MHLO)
-  add_compile_definitions(ONNX_MLIR_ENABLE_MHLO)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
+  add_compile_definitions(ONNX_MLIR_ENABLE_STABLEHLO)
 endif()
 
 if (ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE)

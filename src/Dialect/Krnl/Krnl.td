@@ -21,6 +21,7 @@ include "mlir/IR/OpBase.td"
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
 include "mlir/Dialect/Bufferization/IR/AllocationOpInterface.td"
 include "mlir/Interfaces/CastInterfaces.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
@@ -285,7 +286,7 @@ def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
                        Index:$index);
 }
 
-def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [Terminator]> {
+def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator]> {
   let summary = "Krnl terminator operation";
   let description = [{
     Krnl terminator is a special terminator operation for blocks inside krnl
@@ -502,20 +503,22 @@ def KrnlUnrollOp : Op<Krnl_Dialect, "unroll"> {
 }
 
 def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
-  let summary = "Krnl parallel operation";
+  let summary = "Mark Krnl loops as parallel loops";
   let description = [{
-    Parallelize the specified loops. krnl.parallel should be placed as the last
-    operator before krnl.iterate. Since we do not want to parallelize the loop
-    until we interpret krnl.block, krnl.permute and krnl.unroll.
+    Parallelize the specified loops. When multiple loop specifiers are passed
+    as parameters, there loops can be parallelized as a collapsed loop.
+    krnl.parallel should be placed as the last operator before krnl.iterate,
+    Since we do not want to parallelize the loop until we interpret krnl.block,
+    krnl.permute and krnl.unroll.
     ```
-    krnl.parallel %i
+    krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
     ```
   }];
 
-  let arguments = (ins AnyType:$loop);
+  let arguments = (ins Variadic<AnyType>:$loops);
 
   let assemblyFormat = [{
-      $loop attr-dict `:` type($loop)
+      `(` $loops `)` attr-dict `:` type($loops)
   }];
 }
 

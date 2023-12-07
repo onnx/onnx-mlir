@@ -23,6 +23,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Async/Passes.h"
+#include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/Pass.h"
@@ -46,8 +47,9 @@ namespace onnx_mlir {
 void configurePasses() {
   // Set global vector machine support.
   VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
-  configureConstPropONNXToONNXPass(onnxConstPropExpansionBound,
-      onnxConstPropDisablePatterns, disableConstantProp);
+  configureConstPropONNXToONNXPass(onnxConstPropRoundFPToInt,
+      onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
+      disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, optReport == OptReport::Simd, !disableSimdOption);
 }
@@ -67,37 +69,45 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   pm.addInstrumentation(
       std::make_unique<DisposableGarbageCollector>(pm.getContext()));
 
+  // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
+  if (!disableRecomposeOption)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3 passes
-    // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+    // Convolution Optimization for CPU: enable when there are no accelerators.
+    if (targetCPU && enableConvOptPass) {
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
+          enableSimdDataLayout && !disableSimdOption));
+      pm.addNestedPass<func::FuncOp>(
+          onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
+    }
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
-  // Convolution Optimization for CPU: enable when there are no accelerators.
-  if (targetCPU && enableConvOptPass) {
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
-        enableSimdDataLayout && !disableSimdOption));
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  }
-  // There are more opportunities for const propagation once all tensors have
-  // inferred shapes.
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
-  if (onnxOpTransformThreshold > 0) {
-    // Dynamic iterate in ONNXOpTransformPass
-    pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
-        onnxOpTransformReport, targetCPU,
-        enableSimdDataLayout && !disableSimdOption, enableConvOptPass));
-  } else {
-    // Statically add extra passes
-    for (int i = 0; i < repeatOnnxTransform; i++) {
-      pm.addPass(mlir::createCanonicalizerPass());
+    // Convolution Optimization for CPU: enable when there are no accelerators.
+    if (targetCPU && enableConvOptPass) {
+      pm.addNestedPass<func::FuncOp>(onnx_mlir::createConvOptONNXToONNXPass(
+          enableSimdDataLayout && !disableSimdOption));
       pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-      pm.addNestedPass<func::FuncOp>(
-          onnx_mlir::createConstPropONNXToONNXPass());
+    }
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
+    if (onnxOpTransformThreshold > 0) {
+      // Dynamic iterate in ONNXOpTransformPass
+      pm.addPass(onnx_mlir::createONNXOpTransformPass(onnxOpTransformThreshold,
+          onnxOpTransformReport, targetCPU,
+          enableSimdDataLayout && !disableSimdOption, enableConvOptPass,
+          !disableRecomposeOption));
+    } else {
+      // Statically add extra passes
+      for (int i = 0; i < repeatOnnxTransform; i++) {
+        pm.addPass(mlir::createCanonicalizerPass());
+        pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+        pm.addNestedPass<func::FuncOp>(
+            onnx_mlir::createConstPropONNXToONNXPass());
+      }
     }
   }
 
@@ -107,10 +117,8 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
   // One more call to ONNX shape inference/canonicalization/... to update
   // shape if possible.
   if (enableONNXHybridPass) {
-    // For starters only illustrating the new hybrid pass by replacing 3
-    // passes here. The plan is to replace most of the passes in
-    // addONNXToMLIRPasses.
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
@@ -180,8 +188,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
         onnx_mlir::createInstrumentONNXSignaturePass());
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption,
-      /*enableParallel*/ enableParallel));
-  // pm.addPass(onnx_mlir::createRemoveUnrealizedConversionCastOpForTensorToMemrefPass());
+      /*enableParallel*/ enableParallel,
+      /*opsToCall*/ opsForCall));
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -204,14 +212,14 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createCSEPass());
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
+
   pm.addPass(mlir::createAsyncToAsyncRuntimePass());
   pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
   pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
   pm.addPass(mlir::createConvertAsyncToLLVMPass());
-  if (enableParallel) {
-    pm.addPass(mlir::createConvertSCFToOpenMPPass());
-    pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
-  }
+
+  // Early introduction of omp causes problems with bufferization, delay for
+  // now. May revise this decision later.
 
   // After affine is lowered, KrnlRegion for affine scope can be removed.
   pm.addNestedPass<func::FuncOp>(krnl::createLowerKrnlRegionPass());
@@ -223,8 +231,21 @@ void addKrnlToLLVMPasses(
   // Currently this has to be done *after* lowering the affine dialect because
   // operations in that dialect do not conform to the requirements explained
   // in https://mlir.llvm.org/docs/BufferDeallocationInternals.
-  pm.addNestedPass<func::FuncOp>(
-      mlir::bufferization::createBufferDeallocationPass());
+  if (useOldBufferization) {
+    pm.addNestedPass<func::FuncOp>(
+        mlir::bufferization::createBufferDeallocationPass());
+  } else {
+    bufferization::BufferDeallocationPipelineOptions bufferDeallocOptions;
+    mlir::bufferization::buildBufferDeallocationPipeline(
+        pm, bufferDeallocOptions);
+    pm.addPass(mlir::createBufferizationToMemRefPass());
+  }
+
+  // Late introduction of OpenMP, after bufferization.
+  if (enableParallel) {
+    pm.addPass(mlir::createConvertSCFToOpenMPPass());
+    pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
+  }
 
   // The pass below is needed for subview and collapseShape.. Unfortunately,
   // MLIR supports only collapse for scalar loaded by scalar memory at this

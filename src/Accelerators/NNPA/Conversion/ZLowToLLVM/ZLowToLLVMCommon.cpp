@@ -31,8 +31,10 @@ namespace zlow {
 ApiRegistry RegisterAllApis(MLIRContext *context) {
   auto voidTy = LLVM::LLVMVoidType::get(context);
   auto opaquePtrTy = krnl::getI8PointerType(context);
+  auto int16Ty = IntegerType::get(context, 16);
   auto int32Ty = IntegerType::get(context, 32);
   auto int64Ty = IntegerType::get(context, 64);
+  auto float32Ty = FloatType::getF32(context);
 
   // Declare API type as an enum value, its string name and an LLVM Type
   // specifying its signature.
@@ -75,9 +77,13 @@ ApiRegistry RegisterAllApis(MLIRContext *context) {
     ApiSpec(API::ZDNN_MATMUL_BCAST_OP, "zdnn_matmul_bcast_op", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_CONV2D, "zdnn_conv2d", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy, opaquePtrTy}, false),
     ApiSpec(API::ZDNN_AVGPOOL2D, "zdnn_avgpool2d", int32Ty, {opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API:: ZDNN_MAXPOOL2D, "zdnn_maxpool2d", int32Ty, {opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
-    ApiSpec(API:: ZDNN_MEANREDUCE2D, "zdnn_meanreduce2d", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
-    ApiSpec(API:: ZDNN_BATCHNORM, "zdnn_batchnorm", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MAXPOOL2D, "zdnn_maxpool2d", int32Ty, {opaquePtrTy, int64Ty, int64Ty, int64Ty, int64Ty, int64Ty, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_MEANREDUCE2D, "zdnn_meanreduce2d", int32Ty, {opaquePtrTy, opaquePtrTy}, false),
+    ApiSpec(API::ZDNN_BATCHNORM, "zdnn_batchnorm", int32Ty, {opaquePtrTy, opaquePtrTy, opaquePtrTy, opaquePtrTy}, false),
+    // Scalar operations
+    // Note: these APIs are for testing purpose only.
+    ApiSpec(API::DLF16_TO_F32, "cnvt_1_dlf16_to_fp32", float32Ty, {int16Ty}, false),
+    ApiSpec(API::F32_TO_DLF16, "cnvt_1_fp32_to_dlf16", int16Ty, {float32Ty}, false),
   };
   // clang-format on
 
@@ -467,7 +473,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   Type llvmI64Ty = IntegerType::get(context, 64);
   Type llvmI1Ty = IntegerType::get(context, 1);
   Type llvmI8Ty = IntegerType::get(context, 8);
-  Type llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 32);
+  Type llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, 31);
   Type llvmI8PtrTy = krnl::getPointerType(context, llvmI8Ty);
   Type llvmZTensorDescStructTy = getZTensorDescStructTy(context);
 
@@ -484,7 +490,7 @@ Type getZTensorStructTy(MLIRContext *context) {
   zTensorTypeElements.emplace_back(llvmI8PtrTy);
   // indicator if data in buffer has been transformed
   zTensorTypeElements.emplace_back(llvmI1Ty);
-  // reserved[32], not currently used, exploiter should not touch
+  // reserved[31], not currently used, exploiter should not touch
   zTensorTypeElements.emplace_back(llvmArrayI8Ty);
 
   Type zTensorStructTy = LLVM::LLVMStructType::getLiteral(context,

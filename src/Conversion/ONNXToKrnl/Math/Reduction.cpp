@@ -544,8 +544,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           }
           LLVM_DEBUG(llvm::dbgs()
                      << "  SIMD: study with init unroll " << unroll << "\n");
-          VL = create.vec.SuitableUnrollFactor(vms, memRefInType, inputDims,
-              innermostLoopCollapse, unroll, /*canPad*/ false,
+          VL = create.vec.computeSuitableUnrollFactor(vms, memRefInType,
+              inputDims, innermostLoopCollapse, unroll, /*canPad*/ false,
               estimatedSimdLoopTripCount);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, VL " << VL << "\n");
@@ -702,10 +702,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
           inRank, outRank, dynamicAxes, maskVal, outInDimMap, divisorForMean,
           enableParallel);
-      onnxToKrnlSimdReport(op, /*successful*/ false, /*vl*/ 0,
-          estimatedSimdLoopTripCount,
-          (parallelSimd ? "no simd because no supported for parallel scheme"
-                        : "unsupported"));
+      std::string msg;
+      if (parallelSimd)
+        msg = "no simd because no supported for parallel scheme";
+      else
+        msg = "unsupported";
+      onnxToKrnlSimdReport(
+          op, /*successful*/ false, /*vl*/ 0, estimatedSimdLoopTripCount, msg);
     }
     rewriter.replaceOp(op, alloc);
     return success();
@@ -862,7 +865,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
     DimsExpr inDims, flatInDims;
     create.krnlIE.getShapeAsSymbols(input, inDims);
-    Value flatInput = create.mem.reshapeToFlat(
+    Value flatInput = create.mem.reshapeToFlatInnermost(
         input, inDims, flatInDims, collapsedInnermostLoops);
     int64_t flatInRank = flatInDims.size();
     Value simdUB = flatInDims[flatInRank - 1].getValue();
@@ -871,7 +874,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnlIE.getShapeAsSymbols(alloc, outDims);
     int64_t collapseOutInnermostLoop =
         isKeepDims ? collapsedInnermostLoops + 1 : 1;
-    Value flatAlloc = create.mem.reshapeToFlat(
+    Value flatAlloc = create.mem.reshapeToFlatInnermost(
         alloc, outDims, flatOutDims, collapseOutInnermostLoop);
     int64_t flatOutRank = flatOutDims.size();
     // Flat output should have all but the flattened SIMD loop, so there should
@@ -979,7 +982,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
     DimsExpr inDims, flatInDims;
     create.krnlIE.getShapeAsSymbols(input, inDims);
-    Value flatInput = create.mem.reshapeToFlat(
+    Value flatInput = create.mem.reshapeToFlatInnermost(
         input, inDims, flatInDims, collapsedInnermostLoops);
     int64_t flatInRank = flatInDims.size();
     // Flatten input last dim is all of SIMD.
@@ -991,14 +994,14 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnlIE.getShapeAsSymbols(alloc, outDims);
     int64_t collapseOutInnermostLoop =
         isKeepDims ? collapsedInnermostLoops + 1 : 1;
-    Value flatAlloc = create.mem.reshapeToFlat(
+    Value flatAlloc = create.mem.reshapeToFlatInnermost(
         alloc, outDims, flatOutDims, collapseOutInnermostLoop);
     int64_t flatOutRank = flatOutDims.size();
     // Flat output should have all but the flattened SIMD loop, so there should
     // only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
-    // Alloca a small temp vector.
+    // Alloca a small temp vector. Should be private if parallel.
     MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
     Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
     // Define loops for input dimensions, blocking the inner out dim by VL

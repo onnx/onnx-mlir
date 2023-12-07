@@ -25,14 +25,11 @@
 // todo: parse /proc/cpuinfo at runtime
 static const int thread_affinity[] = {
     0, 1, 2, 3, 4, 5, 6, 7}; // id-to-zaiu mapping
-// static const int thread_affinity[] = {0, 1, 2, 3, 0, 1, 2, 3}; // id-to-zaiu
-// mapping
+
 static const int zaiu_cpuid_from[] = {
     0, 7, 14, 21, 27, 33, 39, 45}; // zaiu-to-cpuid mapping(from)
 static const int zaiu_cpuid_to[] = {
     6, 13, 20, 26, 32, 38, 44, 50}; // zaiu-to-cpuid mapping(to)
-// int zaiu_cpuid_from[] = {0, 12};
-// int zaiu_cpuid_to[] = {11, 23};
 
 void threadAffine(int64_t id) {
   // std::cout << "XXX threadAffine #" << id << "\n" << std::flush;

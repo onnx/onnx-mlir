@@ -17,21 +17,23 @@
 
 #include "mlir/Pass/Pass.h"
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+
 namespace onnx_mlir {
 
 // Add pass for device placement.
 std::unique_ptr<mlir::Pass> createDevicePlacementPass();
 std::unique_ptr<mlir::Pass> createDevicePlacementPass(
     std::string loadConfigFile, std::string saveConfigFile,
-    bool useZHighPerfModel);
+    NNPAPlacementHeuristic placementHeuristic);
 
 /// Add pass for lowering ONNX ops to ZHigh ops.
-std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
-std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
+std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(
+    std::string nnpaParallelOpt);
 
 /// Add pass for re-construct ONNX ops from ZHigh ops.
 std::unique_ptr<mlir::Pass> createZHighToONNXPass();
@@ -49,6 +51,10 @@ std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
 /// Pass for clipping values to dlfloat before stickification at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighClipToDLFloatPass();
+
+/// Pass for decomposing stick/unstick at ZHighIR.
+std::unique_ptr<mlir::Pass> createZHighDecomposeStickUnstickPass();
+
 } // end namespace zhigh
 
 namespace zlow {

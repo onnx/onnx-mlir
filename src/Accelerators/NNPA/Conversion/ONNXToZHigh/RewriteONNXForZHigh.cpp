@@ -23,12 +23,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
+#include <llvm/Support/Debug.h>
+
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/RewriteONNXForZHigh.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -37,8 +40,8 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include <llvm/Support/Debug.h>
-#define DEBUG_TYPE "foo"
+
+#define DEBUG_TYPE "rewrite-onnx-for-zhigh"
 
 using namespace mlir;
 
@@ -347,15 +350,13 @@ public:
 
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ValueRange subAs(A), subBs(B);
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
     if (nExceeded) {
       // Split A along the dimension N.
-      subAs = splitAlongAxis(create, A, aRank - 2, serialChunkSize);
+      subAs = splitAlongAxis(create, A, aRank - 2);
     }
     if (mExceeded) {
       // Split B along the dimension M.
-      subBs = splitAlongAxis(create, B, bRank - 1, serialChunkSize);
+      subBs = splitAlongAxis(create, B, bRank - 1);
     }
     // Emit sub matrix multiplication.
     SmallVector<Value> resSubAs;
@@ -406,12 +407,8 @@ public:
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    int serialChunkSize = (chunkSize < 0) ? -chunkSize : 65536;
-    nExceeded = N > serialChunkSize;
-    mExceeded = M > serialChunkSize;
-    // nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
-    // mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
     if (!(nExceeded || mExceeded))
       return false;
 
@@ -475,16 +472,52 @@ public:
   }
 };
 
+/// This pattern is to split a MatMul op into smaller ones to run it in
+/// parallel using mutiple threads.
+/// Given (N x K) * (K * M), the pattern considers dimensions M to
+/// split if M is greater than threshold specified by option. The default value
+/// is ? (TODO: Create the option)
+/// For example, given A(N x K) * B(K x M), we will split A and B as follows.
+// clang-format off
+///
+///                K                    MDIS        MDIS    M - 2 * MDIS
+///       <---------------->        <----------><----------><----->
+///       +----------------+       +-----------+-----------+-----+
+///     ^ |                |     ^ |           |           |     |
+///     | |                |     | |           |           |     |
+///   N | |       A        |   K | |  B1       |  B2       |  B3 |
+///     | |                |     | |           |           |     |
+///     v |                |     v |           |           |     |
+///       +----------------+       +-----------+-----------+-----+
+///
+/// Then,
+/// - Run (A * B1) by the first thread, (A * B2) by the second thread,
+///   and (A * B3) by the third thread.
+/// - Then, concat the results to get (A * B).
+///
+// clang-format on
+///
+/// Tensors are splitted into chunks of the equal size of MDIS, except the last
+/// chunk.
+/// Currently splitting A is not supported. The code is partially included, but
+/// not well tested.
 class ParallelMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
 public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
+
+  std::string nnpaParallelOpt;
+
+  ParallelMatMulPattern(MLIRContext *context, std::string nnpaParallelOpt)
+      : OpRewritePattern<ONNXMatMulOp>(context, 1001),
+        nnpaParallelOpt(nnpaParallelOpt) {}
 
   LogicalResult matchAndRewrite(
       ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
     Location loc = matmulOp.getLoc();
     Operation *op = matmulOp.getOperation();
-    Value A = matmulOp.getA(); // NxK
-    Value B = matmulOp.getB(); // KxM
+
+    Value A = matmulOp.getA(); // N x K
+    Value B = matmulOp.getB(); // K x M
 
     Type aType = A.getType();
     Type bType = B.getType();
@@ -492,34 +525,32 @@ public:
     int64_t aRank = getRank(aType);
     int64_t bRank = getRank(bType);
     int64_t outputRank = getRank(outputType);
-    ArrayRef<int64_t> aShape = getShape(aType);
-    ArrayRef<int64_t> bShape = getShape(bType);
     ArrayRef<int64_t> outputShape = getShape(outputType);
     Type elementType = getElementType(bType);
     auto unrankedType = UnrankedTensorType::get(elementType);
-    LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 00.\n");
+
+    ArrayRef<int64_t> bShape = getShape(bType);
+    int64_t M = bShape[bRank - 1];
+    SmallVector<int64_t, 2> parallelOpts = getParallelOpt(nnpaParallelOpt);
+    int chunkSize = getChunkSize(M, /* #Devices */ parallelOpts[0]);
+    bool nExceeded = false;
+    bool mExceeded = false;
+    if (!canBeRewritten(matmulOp, nExceeded, mExceeded, chunkSize,
+            /* threshold*/ parallelOpts[1]))
+      return failure();
+
     // Expect 2D or 3D input.
     if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
-      return failure();
-    // Expect N or M exceeds NNPA limitation.
-    int64_t N = aShape[aRank - 2];
-    int64_t M = bShape[bRank - 1];
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
-    LLVM_DEBUG(llvm::dbgs() << "chunkSize = " << chunkSize << "\n");
-
-    bool nExceeded = N > chunkSize;
-    bool mExceeded = M > chunkSize;
-    if (!(nExceeded || mExceeded))
       return failure();
 
     // Rewrite
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     ValueRange subAs(A), subBs(B);
-    if (nExceeded) {
-      // Split A along the dimension N.
-      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
-    }
+    // Splitting A  is not supported now.
+    //    if (nExceeded) {
+    //      // Split A along the dimension N.
+    //      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
+    //    }
     if (mExceeded) {
       // Split B along the dimension M.
       subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
@@ -550,12 +581,15 @@ public:
           executeBuilder.create<async::YieldOp>(
               executeLoc, ValueRange{smMemref});
         };
+        // Dummy op to get result type
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
         Value smDummyMemref = create.onnx.toMemref(smDummy);
         auto execute = rewriter.create<async::ExecuteOp>(loc,
             TypeRange{smDummyMemref.getType()}, ValueRange(), ValueRange(),
             executeBodyBuilder);
         subMatrices.emplace_back(execute.getBodyResults()[0]);
+        rewriter.eraseOp(smDummy.getDefiningOp());
+        rewriter.eraseOp(smDummyMemref.getDefiningOp());
       }
       SmallVector<Value> waitOps;
       for (Value subMatrix : subMatrices) {
@@ -563,13 +597,6 @@ public:
             rewriter.create<async::AwaitOp>(loc, subMatrix).getResult();
         Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
         waitOps.emplace_back(asyncAwaitOutTensor);
-      }
-      for (Value b : subBs) {
-        // Call dummy function to prevent deallocation of a and b.
-        SmallVector<Value, 2> parameters = {
-            create.onnx.toMemref(a), create.onnx.toMemref(b)};
-        rewriter.create<KrnlCallOp>(
-            loc, "dummyFuncForKeepParam", 2, parameters);
       }
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
@@ -582,21 +609,57 @@ public:
       resSubAs.emplace_back(res);
     }
     Value res = resSubAs[0];
+    // Not supported: Concat sub results along dimension N of A.
     if (resSubAs.size() > 1)
-      // Concat sub results along dimension N of A.
-      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
-    //    for (Value a : subAs) {
-    //      for (Value b : subBs) {
-    //        // Call dummy function to prevent deallocation of a and b.
-    //        SmallVector<Value, 2> parameters = {
-    //            create.onnx.toMemref(a), create.onnx.toMemref(b)};
-    //        rewriter.create<KrnlCallOp>(
-    //            loc, "dummyFuncForKeepParam", 1, parameters);
-    //      }
-    //    }
+      return failure();
+    // res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
 
     rewriter.replaceOp(op, res);
     return success();
+  }
+  static bool canBeRewritten(ONNXMatMulOp matmulOp, bool &nExceeded,
+      bool &mExceeded, int chunkSize, int nnpaParallelMinimumDimThreshold) {
+    Value A = matmulOp.getA(); // NxK
+    Value B = matmulOp.getB(); // KxM
+
+    Type aType = A.getType();
+    Type bType = B.getType();
+    int64_t aRank = getRank(aType);
+    int64_t bRank = getRank(bType);
+    // ArrayRef<int64_t> aShape = getShape(aType);
+    ArrayRef<int64_t> bShape = getShape(bType);
+
+    // Expect 2D or 3D input.
+    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
+      return false;
+
+    // int64_t N = aShape[aRank - 2];
+    int64_t M = bShape[bRank - 1];
+
+    bool smallDimSize = M < nnpaParallelMinimumDimThreshold;
+    if (smallDimSize)
+      return false;
+
+    // Expect N or M exceeds NNPA limitation.
+    // nExceeded = N > chunkSize;
+    mExceeded = M > chunkSize;
+    // if (!(nExceeded || mExceeded))
+    if (!mExceeded)
+      return false;
+
+    // Expect matmulOp has not split yet.
+    if (auto executeOp =
+            llvm::dyn_cast<async::ExecuteOp>(matmulOp->getParentOp()))
+      return false;
+
+    return true;
+  }
+
+  static int getChunkSize(int dimM, int nnpaParallelNdev) {
+    int numDevices = nnpaParallelNdev;
+    int chunkSize =
+        (dimM + numDevices - 1) / numDevices; // Round-up of dimM / numDevices
+    return chunkSize;
   }
 };
 
@@ -607,19 +670,21 @@ public:
 /// Include the patterns defined in the Declarative Rewrite framework.
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXRewriteONNXForZHigh.inc"
 
-void getRewriteONNXForZHighPatterns(
-    RewritePatternSet &patterns, DimAnalysis *dimAnalysis) {
+void getRewriteONNXForZHighPatterns(RewritePatternSet &patterns,
+    DimAnalysis *dimAnalysis, std::string nnpaParallelOpt) {
   populateWithGenerated(patterns);
   patterns.insert<SplitLargeMatMulPattern>(patterns.getContext());
+  if (!nnpaParallelOpt.empty())
+    patterns.insert<ParallelMatMulPattern>(
+        patterns.getContext(), nnpaParallelOpt);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
       patterns.getContext(), dimAnalysis);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
       patterns.getContext(), dimAnalysis);
-  patterns.insert<ParallelMatMulPattern>(patterns.getContext());
 }
 
-void getRewriteONNXForZHighDynamicallyLegal(
-    mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis) {
+void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
+    const DimAnalysis *dimAnalysis, std::string nnpaParallelOpt) {
   // `ONNXBatchNormalizationInferenceModeOp` to `ZHigh.BatchNorm`,
   // generating `ONNX.Add`, `ONNX.Sub`, `ONNX.Mul`, `ONNX.Div`,
   // and `ONNX.Sqrt` to calculate inputs(`a` and `b`)
@@ -632,8 +697,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   //
   // This is preferred for NNPA because NNPA BinaryOp does not support
   // broadcasting.
-  addDynamicallyLegalOpFor<ONNXAddOp>(
-      target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXAddOp>(target, dimAnalysis,
+      [](ONNXAddOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -647,8 +713,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
                  AddSubWithRHSZeroExpandPattern<ONNXAddOp>::canBeRewritten(
                      op, dimAnalysis));
       });
-  addDynamicallyLegalOpFor<ONNXDivOp>(
-      target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXDivOp>(target, dimAnalysis,
+      [](ONNXDivOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -660,8 +727,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
                  (isDefinedByONNXConstantOp(op.getB()) &&
                      isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
       });
-  addDynamicallyLegalOpFor<ONNXMulOp>(
-      target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXMulOp>(target, dimAnalysis,
+      [](ONNXMulOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -673,8 +741,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
                  (isDefinedByONNXConstantOp(op.getB()) &&
                      isUniBroadcatableFirstToSecond(op.getB(), op.getA())));
       });
-  addDynamicallyLegalOpFor<ONNXSubOp>(
-      target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXSubOp>(target, dimAnalysis,
+      [](ONNXSubOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -698,7 +767,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   // For such cases, rewrite patterns will be added to turn MatMulOp into the
   // one where N-D will become 3-D or to split MatMul into smaller MatMuls.
   addDynamicallyLegalOpFor<ONNXMatMulOp>(
-      target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
+      target, dimAnalysis,
+      [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -723,6 +794,14 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic
         // or exceeds NNPA limitation.
         bool nExceeded, mExceeded;
+
+        int64_t M = bShape[bRank - 1];
+        SmallVector<int64_t, 2> parallelOpts = getParallelOpt(nnpaParallelOpt);
+        int chunkSize = ParallelMatMulPattern::getChunkSize(M, parallelOpts[0]);
+        if (ParallelMatMulPattern::canBeRewritten(
+                op, nExceeded, mExceeded, chunkSize, parallelOpts[1]))
+          return false;
+
         if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded))
           return false;
 
@@ -746,14 +825,16 @@ void getRewriteONNXForZHighDynamicallyLegal(
 
         // Make other cases legal.
         return true;
-      });
+      },
+      nnpaParallelOpt);
 
   // Illegalize SoftmaxOp if
   // - the NNPA level is not compatible, or
   // - axis is the last dimension.
   // This SoftmaxOp will be rewritten in which its input is reshaped to 3D.
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
-      [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
+      [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
           return true;
@@ -772,8 +853,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
         return true;
       });
 
-  addDynamicallyLegalOpFor<ONNXConvOp>(
-      target, dimAnalysis, [](ONNXConvOp op, const DimAnalysis *dimAnalysis) {
+  addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis,
+      [](ONNXConvOp op, const DimAnalysis *dimAnalysis,
+          std::string nnpaParallelOpt) {
         return isSuitableForZDNN<ONNXConvOp>(op) ||
                !canInferencePadsForNNPAConv(op);
       });
@@ -782,6 +864,20 @@ void getRewriteONNXForZHighDynamicallyLegal(
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
 
+  Option<std::string> nnpaParallelOpt{*this, "nnpa-parallel",
+      llvm::cl::desc(
+          "Enable parallelization with the number of devices and "
+          "the threshold of dimension size. \"string\" is in the format of "
+          "\"#DEVICES\":\"THRESHOLD\".\n"
+          "Currently MatMul ops are supported. Given A(N x K) * B(K x M), M is "
+          "split for the parallelization. The MatMul ops whose M is greater "
+          "than "
+          "or equal to this threshold are parallelized.\n"
+          "Disable parallelization if this option is not used. If the "
+          "threshold "
+          "is not specified, the default is 32)\n"),
+      llvm::cl::init("")};
+
   StringRef getArgument() const override { return "rewrite-onnx-for-zhigh"; }
 
   StringRef getDescription() const override {
@@ -789,6 +885,13 @@ struct RewriteONNXForZHighPass
   }
 
   RewriteONNXForZHighPass() = default;
+  RewriteONNXForZHighPass(const RewriteONNXForZHighPass &pass)
+      : mlir::PassWrapper<RewriteONNXForZHighPass,
+            OperationPass<mlir::ModuleOp>>() {}
+  RewriteONNXForZHighPass(const std::string nnpaParallelOpt) {
+    this->nnpaParallelOpt = nnpaParallelOpt;
+  }
+
   void runOnOperation() final;
 };
 
@@ -806,26 +909,33 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect,
-      mlir::async::AsyncDialect>();
-  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(&target, &dimAnalysis);
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
+      func::FuncDialect, arith::ArithDialect, mlir::async::AsyncDialect,
+      math::MathDialect>();
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+
+  onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(
+      &target, &dimAnalysis, nnpaParallelOpt);
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
-  onnx_mlir::getRewriteONNXForZHighPatterns(patterns, &dimAnalysis);
+  onnx_mlir::getRewriteONNXForZHighPatterns(
+      patterns, &dimAnalysis, nnpaParallelOpt);
 
-  auto function = getOperation();
-  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
-    signalPassFailure();
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
   // operations were not converted successfully.
-  //  if (failed(applyPartialConversion(module, target, std::move(patterns))))
-  //    signalPassFailure();
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+    signalPassFailure();
 }
 
 std::unique_ptr<Pass> createRewriteONNXForZHighPass() {
   return std::make_unique<RewriteONNXForZHighPass>();
+}
+
+std::unique_ptr<Pass> createRewriteONNXForZHighPass(
+    std::string nnpaParallelOpt) {
+  return std::make_unique<RewriteONNXForZHighPass>(nnpaParallelOpt);
 }
 
 } // namespace onnx_mlir

@@ -20,11 +20,11 @@
 namespace onnx_mlir {
 
 // Exports RewriteONNXForZHigh patterns.
-void getRewriteONNXForZHighPatterns(
-    mlir::RewritePatternSet &patterns, DimAnalysis *dimAnalysis);
+void getRewriteONNXForZHighPatterns(mlir::RewritePatternSet &patterns,
+    DimAnalysis *dimAnalysis, std::string nnpaParallelOpt = "");
 
 // Exports RewriteONNXForZHigh dynamically legal checks.
-void getRewriteONNXForZHighDynamicallyLegal(
-    mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis);
+void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
+    const DimAnalysis *dimAnalysis, std::string nnpaParallelOpt = "");
 
 } // namespace onnx_mlir

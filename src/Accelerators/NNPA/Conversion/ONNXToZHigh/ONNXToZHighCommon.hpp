@@ -16,9 +16,9 @@
 
 #include "llvm/ADT/STLExtras.h"
 
-#include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/NNPALimit.h"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 #include "mlir/Dialect/Async/IR/Async.h"
@@ -29,13 +29,16 @@ const std::string DEVICE_ATTRIBUTE = "device";
 const std::string CPU_DEVICE = "cpu";
 const std::string NNPA_DEVICE = "nnpa";
 
+mlir::SmallVector<int64_t, 2> getParallelOpt(std::string nnpaParallelOpt);
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
-    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *)> checkLegalityFn =
-        nullptr) {
-  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, checkLegalityFn](
-                                             OP_TYPE op) {
+    llvm::function_ref<bool(OP_TYPE, const DimAnalysis *, std::string)>
+        checkLegalityFn = nullptr,
+    std::string nnpaParallelOpt = "") {
+  target->addDynamicallyLegalOp<OP_TYPE>([dimAnalysis, checkLegalityFn,
+                                             nnpaParallelOpt](OP_TYPE op) {
     mlir::Operation *genericOp = op.getOperation();
     mlir::StringAttr device =
         genericOp->getAttrOfType<mlir::StringAttr>(DEVICE_ATTRIBUTE);
@@ -52,11 +55,14 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
 
     // If not CPU, check if the op is legal for NNPA.
     bool isLegalForNNPA = false;
-    if (checkLegalityFn)
-      isLegalForNNPA = !checkLegalityFn(op, dimAnalysis);
-    else {
+    if (checkLegalityFn) {
+      mlir::SmallVector<int64_t, 2> parallelOpts =
+          getParallelOpt(nnpaParallelOpt);
+      isLegalForNNPA = !checkLegalityFn(op, dimAnalysis, nnpaParallelOpt);
+    } else {
       // Check zDNN limitations for each input tensors.
-      // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another limitation
+      // TODO: Check tensor size NNPA_MAXIMUM_TENSOR_SIZE of another
+      // limitation
       bool exceedLimit =
           llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
             if (auto valueType =
@@ -88,10 +94,21 @@ mlir::Value emitONNXTransposeWithType(mlir::Location loc,
     mlir::PatternRewriter &rewriter, mlir::Type transposedType, mlir::Value x,
     mlir::ArrayRef<int64_t> perms);
 
-/// Split a tensor along an axis in which each chunk has a size of
-/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chucnk can be smaller.
+/// Split a tensor along an axis by chunkSize. The last chunk becomes smaller
+/// than it. The default chunkSize is NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
 mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
     mlir::Value X, int64_t axis,
     int64_t chunkSize = NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
+
+// Check if a value is a constant tensor of a single f32 value or not.
+bool isF32ScalarConstantTensor(mlir::Value v);
+
+// Get FloatAttr from a constant tensor of a single f32 value.
+mlir::FloatAttr getScalarF32AttrFromConstant(mlir::Value v);
+
+// Emit ONNX Concat to store the shape of the input x.
+mlir::Value getDynShape(
+    mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
+
 } // namespace onnx_mlir

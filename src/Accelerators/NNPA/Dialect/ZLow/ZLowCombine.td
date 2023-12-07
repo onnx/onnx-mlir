@@ -38,4 +38,10 @@ def RemoveDummyOpPattern: Pat<
   (replaceWithValue $arg)
 >;
 
+// Remove pairs of dlf16_to_f32 and f32_to_dlf16
+def DLF16ConversionOpPattern: Pat<
+  (ZLowConvertF32ToDLF16Op (ZLowConvertDLF16ToF32Op $arg)),
+  (replaceWithValue $arg)
+>;
+
 #endif // ZLOW_COMBINE

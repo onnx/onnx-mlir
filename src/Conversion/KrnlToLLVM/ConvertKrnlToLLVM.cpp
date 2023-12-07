@@ -560,8 +560,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       EXTERNAL_CONSTANT_PREFIX + "filesize",
       b.getI64IntegerAttr(packedConst.size()));
   // Create a global to store isLE.
-  bool isLE = llvm::support::endian::system_endianness() ==
-              llvm::support::endianness::little;
+  bool isLE = llvm::endianness::native == llvm::support::endianness::little;
   create.llvm.globalOp(llvmI8Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
@@ -714,6 +713,16 @@ void loadConstantsFromFile(ModuleOp &module,
   create.llvm._return();
 }
 
+// Check if function name is included in async runtime library.
+// The name is described in
+// llvm-project/mlir/lib/Conversion/AsyncToLLVM/AsyncToLLVM.cpp
+// This is used to skip to add C wrpper "_mlir_ciface_mlir" for async runtime
+// library
+bool isAsyncRuntimeFunc(StringRef funcName) {
+  StringRef asyncRuntimeFuncName = "mlirAsync";
+  return funcName.contains(asyncRuntimeFuncName);
+}
+
 //===----------------------------------------------------------------------===//
 // Krnl Dialect lowering pass
 //===----------------------------------------------------------------------===//
@@ -855,11 +864,12 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   }
 
   // Request C wrapper emission via attribute.
-  //  for (auto func : module.getOps<func::FuncOp>()) {
-  // TODO: Temporaly comment out to avoid link error
-  //    func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
-  //        UnitAttr::get(&getContext()));
-  //  }
+  for (auto func : module.getOps<func::FuncOp>()) {
+    // Skip to add the wrapper for async runtime.
+    if (!isAsyncRuntimeFunc(func.getName()))
+      func->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
+          UnitAttr::get(&getContext()));
+  }
 
   // Define the target for this lowering i.e. the LLVM dialect.
   ConversionTarget target(*ctx);

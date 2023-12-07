@@ -25,12 +25,13 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 
-#include <map>
-
 #include <llvm/Support/Debug.h>
-#define DEBUG_TYPE "foo"
+#define DEBUG_TYPE "zlow-rewrite"
+
+#include <map>
 
 using namespace mlir;
 
@@ -633,78 +634,131 @@ private:
     return (loadOp && unstickOp);
   }
 };
-/*
-class MoveAllocOpOutsideOfAsyncExecPattern : public
-OpRewritePattern<memref::AllocOp> { public: using
-OpRewritePattern<memref::AllocOp>::OpRewritePattern;
 
-LogicalResult matchAndRewrite(
-      memref::AllocOp allocOp, PatternRewriter &rewriter) const override {
-  Value allocMemref = allocOp.getResult();
-  for (Operation *user : allocMemref.getUsers()) {
-    Block *userBlock = user->getBlock();
-    Operation *userBlockParentOp = userBlock->getParentOp();
-    if (auto executeOp = dyn_cast_or_null<async::ExecuteOp>(userBlockParentOp))
-{ LLVM_DEBUG(llvm::dbgs() << "executeOp: "  << executeOp << " \n"); if (auto
-yieldOp = dyn_cast_or_null<async::YieldOp>(user)) { LLVM_DEBUG(llvm::dbgs() <<
-"yieldOp: " << yieldOp << " \n"); LLVM_DEBUG(llvm::dbgs() << "allocOp: " <<
-allocOp << " \n"); allocOp->moveBefore(executeOp);
-      }
-    }
-  }
+/// This pattern rewrites alloc and dealloc ops used in the region of async
+/// execute op. The input values for the async execute op need to be deallocated
+/// after completing the threads. The result value need to be allocated outside
+/// of the region (in main thread) and deallocated after used.
+///
+/// Example (ZLowIR):
+/// - Input values (%arg0, %alloc) are allocated before async.execute. They need
+/// to be deallocated after async.await.
+/// - Result value (%alloc_8) is allocated in async.execute. It is used in
+/// krnl.iterate for Concat. It needs to be deallocated after the krnl.iterate.
+///
+/// This pattern inserts dealloc op for %alloc after krnl.iterate. The %alloc
+/// can be deallocated by other threads. So the dealloc op is inserted only when
+/// it is not deallocated yet. This pattern moves %alloc_8 before async.execute
+/// and inserts dealloc op to deallocate it.
+// clang-format off
+/// ```mlir
+///    %alloc = memref.alloc() {alignment = 16 : i64} : memref<512x512xf32>
+///        :
+///    %token, %bodyResults = async.execute -> !async.value<memref<512x512xf32>> {
+///      %alloc_4 = memref.alloc() {...
+///      "zlow.stick"(%arg0, %alloc_4) {...
+///      %alloc_5 = memref.alloc() {...
+///      "zlow.stick"(%alloc, %alloc_5) {...
+///      %alloc_6 = memref.alloc() {...
+///       :
+///      "zlow.matmul"(%alloc_4, %alloc_5, ..., %alloc_6) {...
+///      %alloc_8 = memref.alloc() {...
+///      "zlow.unstick"(%alloc_6, %alloc_8) {...
+///      async.yield %alloc_8 : memref<512x512xf32>
+///    }
+///      :
+///    %2 = async.await %bodyResults : !async.value<memref<512x512xf32>>
+///      :
+///    %4:2 = krnl.define_loops 2
+///    krnl.iterate(%4#0, %4#1) with (...   ){
+///      %6:2 = krnl.get_induction_var_value(%4#0, %4#1) : (...
+///      %7 = krnl.load %2[%6#0, %6#1] : memref<512x512xf32>
+///      krnl.store %7, %alloc_3[%6#0, %6#1] : memref<512x1024xf32>
+///    }
+/// ```
+// clang-format on
 
-//    Value memRef = allocOp.getResult();
-//    MemRefType memRefType = memRef.getType().dyn_cast<MemRefType>();
-//    Type elementType = memRefType.getElementType();
-
-//    // Input is a block argument, ignore it.
-//    if (stickInput.dyn_cast<BlockArgument>())
-//      return failure();
-
-  // Rewrite
-  // rewriter.eraseOp(stickOp);
-  // stickRes.replaceAllUsesWith(unstickInput);
-
-  return success();
-}
-};
-*/
-
-class MoveAllocOpOutsideOfAsyncExecPattern
-    : public OpRewritePattern<async::YieldOp> {
+class InsertDeallocForAsyncExecRegionPattern
+    : public OpRewritePattern<async::ExecuteOp> {
 public:
-  using OpRewritePattern<memref::AllocOp>::OpRewritePattern;
+  using OpRewritePattern<async::ExecuteOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
-      async::YieldOp yieldOp, PatternRewriter &rewriter) const override {
-    if (yieldOp.getOperands().empty())
+      async::ExecuteOp executeOp, PatternRewriter &rewriter) const override {
+
+    SmallVector<memref::AllocOp, 4> regionAllocOps;
+    SmallVector<Value, 4> inputValues;
+    for (Operation &op : executeOp.getBodyRegion().getOps()) {
+      // Get allocOps in body of async.execute
+      if (auto allocOp = dyn_cast<memref::AllocOp>(op))
+        regionAllocOps.push_back(allocOp);
+      // Get input values used in async.execute.
+      for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+        Operation *defOp = op.getOperand(i).getDefiningOp();
+        auto allocOp = dyn_cast_or_null<memref::AllocOp>(defOp);
+        if (allocOp) {
+          if (allocOp->getBlock() != executeOp.getBody())
+            inputValues.push_back(allocOp.getResult());
+        }
+      }
+    }
+    // Get the allocOp for the result value of async.execute and move it before
+    // async.execute. The allocOp is an operand of async.yeild.
+    async::YieldOp yieldOp =
+        cast<async::YieldOp>(executeOp.getBody()->getTerminator());
+    // Currently support single operand.
+    if (yieldOp.getOperands().size() > 1)
       return failure();
     Value yieldOperand = yieldOp.getOperands()[0];
-    Block *block = yieldOp.getBlock();
-    Operation *executeOp = block->getParentOp();
-    LLVM_DEBUG(llvm::dbgs() << "executeOp: " << executeOp << " \n");
-    if (auto yieldOp = dyn_cast_or_null<async::YieldOp>(user)) {
-      LLVM_DEBUG(llvm::dbgs() << "yieldOp: " << yieldOp << " \n");
-      LLVM_DEBUG(llvm::dbgs() << "allocOp: " << allocOp << " \n");
-      allocOp->moveBefore(executeOp);
+    auto yAllocOp =
+        dyn_cast_or_null<memref::AllocOp>(yieldOperand.getDefiningOp());
+    if (yAllocOp) {
+      if (llvm::none_of(regionAllocOps,
+              [&](memref::AllocOp aop) { return aop == yAllocOp; }))
+        return failure();
+      else
+        yAllocOp->moveBefore(executeOp);
+    } else {
+      return failure();
     }
+
+    // Get users of async.await
+    // Currently support single body result.
+    if (executeOp.getBodyResults().size() > 1)
+      return failure();
+    Value executeOpResult = executeOp.getBodyResults()[0];
+    SmallVector<Operation *, 4> awaitOutUsers;
+    for (Operation *user : executeOpResult.getUsers()) {
+      if (auto awaitOp = llvm::dyn_cast<async::AwaitOp>(user)) {
+        Value awaitOpOut = awaitOp.getResult();
+        for (Operation *awaitUser : awaitOpOut.getUsers())
+          awaitOutUsers.push_back(awaitUser);
+      }
+    }
+
+    // Insert deallocOp for the result value after it is used. When it is used
+    // in different block from allocation (This happens when it is used in the
+    // loop), deallocOp is inserted in parent block.
+    Operation *insertionPointOp;
+    if (yAllocOp->getBlock() != awaitOutUsers[0]->getBlock())
+      insertionPointOp = awaitOutUsers[0]->getParentOp();
+    else
+      insertionPointOp = awaitOutUsers[0];
+    Location loc = insertionPointOp->getLoc();
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(insertionPointOp);
+    create.mem.dealloc(yAllocOp.getResult());
+
+    // Insert deallocOp for the input values if it is not deallocated yet.
+    for (Value inVal : inputValues) {
+      if (llvm::none_of(inVal.getUsers(),
+              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+        create.mem.dealloc(inVal);
+    }
+
+    return success();
   }
-}
-
-//    Value memRef = allocOp.getResult();
-//    MemRefType memRefType = memRef.getType().dyn_cast<MemRefType>();
-//    Type elementType = memRefType.getElementType();
-
-//    // Input is a block argument, ignore it.
-//    if (stickInput.dyn_cast<BlockArgument>())
-//      return failure();
-
-// Rewrite
-// rewriter.eraseOp(stickOp);
-// stickRes.replaceAllUsesWith(unstickInput);
-
-return success();
-}
 };
 
 /*!
@@ -729,7 +783,7 @@ public:
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
     patterns.insert<UnstickLoadStoreStickRemovalPattern>(
         &getContext(), removableStickOps);
-    patterns.insert<MoveAllocOpOutsideOfAsyncExecPattern>(&getContext());
+    patterns.insert<InsertDeallocForAsyncExecRegionPattern>(&getContext());
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();

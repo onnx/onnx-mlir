@@ -36,9 +36,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
   MLIRSCFToControlFlow
   MLIRShapeToStandard
   MLIRVectorToLLVMPass
-  MLIRVectorToLLVM
-  MLIRAsyncDialect
-  MLIRAsyncToLLVM
   MLIRAsyncTransforms
+  MLIRAsyncToLLVM
   onnx
   )

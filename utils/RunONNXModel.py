@@ -28,7 +28,7 @@ from collections import OrderedDict
 
 
 def valid_onnx_input(fname):
-    valid_exts = ["onnx", "mlir"]
+    valid_exts = ["onnx", "mlir", "onnxtext"]
     ext = os.path.splitext(fname)[1][1:]
 
     if ext not in valid_exts:
@@ -612,7 +612,7 @@ def main():
             if args.model.endswith(".onnx"):
                 input_model_path = os.path.join(temp_dir, "model.onnx")
                 onnx.save(model, input_model_path)
-            elif args.model.endswith(".mlir"):
+            elif args.model.endswith(".mlir") or args.model.endswith(".onnxtext"):
                 input_model_path = args.model
             else:
                 print("Invalid input model path. Must end with .onnx or .mlir")
@@ -671,7 +671,10 @@ def main():
         # Use the generated shared library to create an execution session.
         print("Loading the compiled model ...")
         start = time.perf_counter()
-        sess = OMExecutionSession(shared_lib_path)
+        if args.load_so:
+            sess = OMExecutionSession(shared_lib_path, tag="None")
+        else:
+            sess = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 

@@ -41,13 +41,22 @@ typedef enum {
   EmitZHighIR,
 } NNPAEmissionTargetType;
 
+typedef enum {
+  QualifyingOps,    /* Any ops that qualify for NNPA will go on NNPA. */
+  FasterOps,        /* Only qualifying ops that are faster on NNPA */
+  FasterOpsWSU,     /* FasterOps with With Stick and Unstick (WSU) cost.*/
+  MuchFasterOpsWSU, /* FasterOpsWSU only if significantly faster. */
+} NNPAPlacementHeuristic;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::opt<bool> nnpaClipToDLFloatRange;
 extern llvm::cl::opt<bool> nnpaEnableZHighToOnnx;
-extern llvm::cl::opt<bool> nnpaEnableZHighPerfModel;
+extern llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick;
+extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
 extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
+extern llvm::cl::opt<std::string> nnpaParallelOpt;
 
 } // namespace onnx_mlir

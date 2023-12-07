@@ -91,15 +91,15 @@ class DataLayoutOfPred<string layout> : And<[
         " == ZTensorEncodingAttr::DataLayout::" # layout # ")"> 
 ]>;
 
-// So far ZTensor supports only F32 for pre-stickified data.
+// So far ZTensor supports only F16 for stickified data.
 class ZTensorOf<string layout, list<int> ranks> :
-    Type<And<[TensorOf<[F32]>.predicate, HasAnyRankOfPred<ranks>,
+    Type<And<[TensorOf<[F16]>.predicate, HasAnyRankOfPred<ranks>,
               DataLayoutOfPred<layout>]>,
          !interleave(!foreach(rank, ranks, rank # "D"), "/") # " " #
-         TensorOf<[F32]>.summary # " with layout " # layout,
+         TensorOf<[F16]>.summary # " with layout " # layout,
          "::mlir::TensorType">;
 
-def UnrankedZTensor : UnrankedTensorOf<[F32]>;
+def UnrankedZTensor : UnrankedTensorOf<[F16]>;
 
 def ZTensor_1D: AnyTypeOf<[UnrankedZTensor, ZTensorOf<"_1D", [1]>]>;
 def ZTensor_2D: AnyTypeOf<[UnrankedZTensor, ZTensorOf<"_2D", [2]>]>;
@@ -185,6 +185,52 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [Pure,
     onnx_mlir::ONNXOpShapeHelper * ZHighUnstickOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnstickOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighF32ToDLF16Op:ZHigh_Op<"F32ToDLF16", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh F32ToDLF16 operation";
+  let description = [{
+    ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
+  }];
+  let arguments = (ins TensorOf<[F32]>: $In);
+  let results = (outs TensorOf<[F16]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In)>,
+  ];
+  let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighF32ToDLF16Op::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighDLF16ToF32Op:ZHigh_Op<"DLF16ToF32", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh DLF16ToF32 operation";
+  let description = [{
+    ZHigh operation to convert a tensor of dlfloat16 to a tensor of f32.
+  }];
+  let arguments = (ins TensorOf<[F16]>: $In);
+  let results = (outs TensorOf<[F32]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In)>,
+  ];
+  let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighDLF16ToF32Op::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -554,118 +600,6 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
   }];
 }
 
-def ZHighMatMulAsyncOp:ZHigh_Op<"MatMulAsync", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ZHigh Asynchronous MatMul operation";
-  let description = [{
-    ZHigh operation to perform a MatMul asynchronously.
-  }];
-  let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$X,
-                       AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Y,
-                       AnyTypeOf<[ZTensor_1D, ZTensor_2DS, NoneType]>:$B);
-
-  let results = (outs AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Out,
-                      TensorOf<[F32]>:$Token);
-  let builders = [
-    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Y, "::mlir::Value":$B), [{
-      Type elementType = X.getType().cast<ShapedType>().getElementType();
-      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-// TODO: Temporary change
-//      Type i64Ty = $_builder.getI64Type();
-//      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
-      Type f32Ty = $_builder.getF32Type();
-      RankedTensorType tokenType = RankedTensorType::get({32}, f32Ty);
-      build($_builder, $_state, resType, tokenType, X, Y, B);
-    }]>
-  ];
-/*
-  let hasVerifier = 1;
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * ZHighMatMulAsyncOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighMatMulAsyncOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
-*/
-/*
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$A,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$C);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
-                       TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
-                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
-                      TensorOf<[F32]>:$Token);
-// TODO: Temporary change
-//                      TensorOf<[I64]>:$Token);
-  let builders = [
-    OpBuilder<(ins "::mlir::Value":$A, "::mlir::Value":$B, "::mlir::Value":$C), [{
-      Type elementType = A.getType().cast<ShapedType>().getElementType();
-      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-// TODO: Temporary change
-//      Type i64Ty = $_builder.getI64Type();
-//      RankedTensorType tokenType = RankedTensorType::get({8}, i64Ty);
-      Type f32Ty = $_builder.getF32Type();
-      RankedTensorType tokenType = RankedTensorType::get({32}, f32Ty);
-      build($_builder, $_state, resType, tokenType, A, B, C);
-    }]>
-  ];
-*/
-}
-
-def ZHighMatMulWaitOp:ZHigh_Op<"MatMulWait", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
-  let summary = "ZHigh MatMul Wait operation";
-  let description = [{
-    ZHigh operation to wait for token for MatMul asynchronous execution.
-  }];
-  let arguments = (ins AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Y,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Token,
-                       AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$A,
-                       AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$B,
-                       AnyTypeOf<[ZTensor_1D, ZTensor_2DS, NoneType]>:$C);
-
-  let results = (outs AnyTypeOf<[ZTensor_2D, ZTensor_3DS]>:$Out);
-
-/*
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
-                       TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
-                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$Y,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$Token,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$A,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$B,
-                       AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>,
-                        TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>,
-                        TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$C);
-
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>,
-                       TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>,
-                       TensorOf<[I64]>, TensorOf<[BF16]>]>:$Out);
-*/
-  let builders = [
-    OpBuilder<(ins "::mlir::Value":$Y, "::mlir::Value":$Token, "::mlir::Value":$A, "::mlir::Value":$B, "::mlir::Value":$C), [{
-      Type elementType = Y.getType().cast<ShapedType>().getElementType();
-      UnrankedTensorType resType = UnrankedTensorType::get(elementType);
-      build($_builder, $_state, resType, Y, Token, A, B, C);
-    }]>
-  ];
-}
-
 def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
@@ -790,7 +724,7 @@ def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [Pure,
   let builders = [
     OpBuilder<(ins "::mlir::Value":$f_gate, "::mlir::Value":$i_gate,
                    "::mlir::Value":$c_gate, "::mlir::Value":$o_gate), [{
-      Type elementType = f_gate.getType().cast<ShapedType>().getElementType();
+      Type elementType = $_builder.getF16Type();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, f_gate, i_gate, c_gate, o_gate);
     }]>
@@ -821,7 +755,7 @@ def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [Pure,
   let results = (outs ZTensor_ZRH:$out);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$z_gate, "::mlir::Value":$r_gate, "::mlir::Value":$h_gate), [{
-      Type elementType = z_gate.getType().cast<ShapedType>().getElementType();
+      Type elementType = $_builder.getF16Type();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, z_gate, r_gate, h_gate);
     }]>
@@ -911,7 +845,7 @@ def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [Pure,
 def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let summary = "ZHigh Stickified Constant operation";
   let description = [{
-    This operator produces a constant tensor to store stickified data."
+    This operator produces a constant tensor to store stickified data.
     Stickified data is opaque and must be 4K-aligned. One who produces
     the stickified data must make sure its size in bytes consistent with
     the output tensor's size.
@@ -919,6 +853,33 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
+}
+
+def ZHighStickifiedConstantOfShapeOp:ZHigh_Op<"StickifiedConstantOfShape", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Stickified Constant operation for a dynamic shape";
+  let description = [{
+    This operator produces a constant tensor to store stickified data.
+    The stickified data is defined by a f32 scalar value, a dynamic shape 
+    and a layout. Stickified data is 4K-aligned.
+  }];
+  let arguments = (ins TensorOf<[I64]>:$shape,
+                       F32Attr:$value,
+                       OptionalAttr<StrAttr>:$layout);
+  let results = (outs AnyZTensor:$output);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$shape, "::mlir::FloatAttr":$value,
+               "::mlir::StringAttr":$layout)>
+  ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighStickifiedConstantOfShapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighStickifiedConstantOfShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighFixGRUYOp:ZHigh_Op<"FixGRUY", [Pure, SameOperandsAndResultLayout,

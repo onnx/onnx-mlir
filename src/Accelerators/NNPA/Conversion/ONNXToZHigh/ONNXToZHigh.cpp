@@ -16,16 +16,12 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include <llvm/Support/Debug.h>
-#define DEBUG_TYPE "foo"
 
 using namespace mlir;
 
@@ -201,7 +197,7 @@ Value getLSTMGRUGetYc(
     return noneValue;
 
   zhigh::ZHighUnstickOp unstickOp =
-      rewriter.create<zhigh::ZHighUnstickOp>(loc, val.getType(), val);
+      rewriter.create<zhigh::ZHighUnstickOp>(loc, val);
   return rewriter.create<ONNXSqueezeV11Op>(
       loc, resYc.getType(), unstickOp.getResult(), rewriter.getI64ArrayAttr(0));
 }
@@ -254,20 +250,6 @@ SmallVector<int64_t, 2> getArrayStrides(OP op) {
   return shapeHelper.strides;
 }
 
-// Get LayoutStringAttr for MatMul
-StringAttr getMatMulLayoutAttr(PatternRewriter &rewriter, Value input) {
-  int64_t rank = getRank(input.getType());
-  return rewriter.getStringAttr((rank == 2) ? LAYOUT_2D : LAYOUT_3DS);
-}
-
-StringAttr getMatMulBiasLayoutAttr(
-    PatternRewriter &rewriter, Value a, Value b) {
-  int64_t rankA = getRank(a.getType());
-  int64_t rankB = getRank(b.getType());
-  return rewriter.getStringAttr(
-      ((rankA == 3) && (rankB == 3)) ? LAYOUT_2DS : LAYOUT_1D);
-}
-
 //===----------------------------------------------------------------------===//
 // ONNX to ZHigh Lowering Pass
 //===----------------------------------------------------------------------===//
@@ -286,197 +268,6 @@ struct ONNXSumOpPatternEnhancedRecursion
     // recursion bounded as the number of variadic operands is strictly
     // decreasing.
     setHasBoundedRewriteRecursion(true);
-  }
-};
-
-// TODO: Shared with rewriting
-class ONNXMatMulAsyncExecutionPattern : public OpRewritePattern<ONNXMatMulOp> {
-public:
-  using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXMatMulOp matmulOp, PatternRewriter &rewriter) const override {
-    Location loc = matmulOp.getLoc();
-    Operation *op = matmulOp.getOperation();
-    Value A = matmulOp.getA(); // NxK
-    Value B = matmulOp.getB(); // KxM
-
-    Type aType = A.getType();
-    Type bType = B.getType();
-    Type outputType = matmulOp.getY().getType();
-    int64_t aRank = getRank(aType);
-    int64_t bRank = getRank(bType);
-    int64_t outputRank = getRank(outputType);
-    ArrayRef<int64_t> aShape = getShape(aType);
-    ArrayRef<int64_t> bShape = getShape(bType);
-    ArrayRef<int64_t> outputShape = getShape(outputType);
-    Type elementType = getElementType(bType);
-    auto unrankedType = UnrankedTensorType::get(elementType);
-    // Expect 2D or 3D input.
-    if (!((aRank == 2 || aRank == 3) && (bRank == 2 || bRank == 3)))
-      return failure();
-    // Expect N or M exceeds NNPA limitation.
-    int64_t N = aShape[aRank - 2];
-    int64_t M = bShape[bRank - 1];
-    // TODO : Change the way to set chunkSize
-    int chunkSize = getenv("CHUNKSIZE") ? atoi(getenv("CHUNKSIZE")) : -65536;
-    chunkSize = (chunkSize > 0) ? chunkSize : 65536;
-    bool nExceeded = N > chunkSize;
-    bool mExceeded = M > chunkSize;
-    if (!(nExceeded || mExceeded))
-      return failure();
-    // Rewrite
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    ValueRange subAs(A), subBs(B);
-    if (nExceeded) {
-      // Split A along the dimension N.
-      subAs = splitAlongAxis(create, A, aRank - 2, chunkSize);
-    }
-    if (mExceeded) {
-      // Split B along the dimension M.
-      subBs = splitAlongAxis(create, B, bRank - 1, chunkSize);
-    }
-    LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 00.\n");
-    // Emit sub matrix multiplication.
-    SmallVector<Value> resSubAs;
-    for (Value a : subAs) {
-      ArrayRef<int64_t> subAShape = getShape(a.getType());
-      // For each matrix along dimension N, do MatMul for sub matrices along
-      // dimension M.
-      SmallVector<Value> stickedOuts, tokens, stickedBs, stickedCZeros;
-      Value stickedA = rewriter.create<zhigh::ZHighStickOp>(
-          loc, a, getMatMulLayoutAttr(rewriter, a));
-      for (Value b : subBs) {
-        // Create ZHighMatMulAsync op
-        // TODO: Temporary change. I64 might be ok.
-        RankedTensorType tokenType =
-            RankedTensorType::get({32}, rewriter.getF32Type());
-        // RankedTensorType tokenType =
-        //    RankedTensorType::get({8}, rewriter.getI64Type());
-        Value stickedB = rewriter.create<zhigh::ZHighStickOp>(
-            loc, b, getMatMulLayoutAttr(rewriter, b));
-        stickedBs.emplace_back(stickedB);
-        // Create C with zero
-        SmallVector<int64_t, 3> cShape;
-        Type subBType = b.getType();
-        int64_t subBRank = getRank(subBType);
-        ArrayRef<int64_t> subBShape = getShape(subBType);
-        cShape.emplace_back(subBShape[subBRank - 1]);
-        Type cType = RankedTensorType::get(cShape, elementType);
-        Value cZero =
-            onnx_mlir::zhigh::getConstantOfType(rewriter, loc, cType, 0.0);
-        Value stickedC = rewriter.create<zhigh::ZHighStickOp>(
-            loc, cZero, getMatMulBiasLayoutAttr(rewriter, a, b));
-        stickedCZeros.emplace_back(stickedC);
-        LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging.\n");
-        async::ExecuteOp::BodyBuilderFn executeBodyBuilder =
-            [&](OpBuilder &executeBuilder, Location executeLoc,
-                ValueRange executeArgs) {
-              // LLVM_DEBUG(llvm::dbgs() << "B " << executeArgs[0] << "\n");
-              // LLVM_DEBUG(llvm::dbgs() << "stickedA " << executeArgs[1] <<
-              // "\n");
-              Type bType = executeArgs[0].getType(); // executeArgs[0]: B
-              Type elementType = getElementType(bType);
-              auto unrankedType = UnrankedTensorType::get(elementType);
-              RankedTensorType tokenType =
-                  RankedTensorType::get({32}, executeBuilder.getF32Type());
-              zhigh::ZHighMatMulAsyncOp asyncMatMulOp =
-                  executeBuilder.create<zhigh::ZHighMatMulAsyncOp>(executeLoc,
-                      unrankedType, tokenType, /*stickedA*/ executeArgs[1],
-                      /* stickedB */ executeArgs[2],
-                      /*stickedC*/ executeArgs[2]);
-              (void)asyncMatMulOp.inferShapes([](Region &region) {});
-              LLVM_DEBUG(llvm::dbgs()
-                         << "asyncMatMulOp.getResults()[0].getTYpe() "
-                         << asyncMatMulOp.getResults()[0].getType() << "\n");
-              executeBuilder.create<async::YieldOp>(
-                  executeLoc, asyncMatMulOp.getResults());
-              // executeBuilder.create<async::YieldOp>(executeLoc,
-              // ValueRange());
-            };
-        Value asyncB = rewriter
-                           .create<async::RuntimeCreateOp>(
-                               loc, async::ValueType::get(B.getType()))
-                           .getResult();
-        Value asyncStickedA = rewriter
-                                  .create<async::RuntimeCreateOp>(loc,
-                                      async::ValueType::get(stickedA.getType()))
-                                  .getResult();
-        Value asyncStickedB = rewriter
-                                  .create<async::RuntimeCreateOp>(loc,
-                                      async::ValueType::get(stickedB.getType()))
-                                  .getResult();
-        Value asyncStickedC = rewriter
-                                  .create<async::RuntimeCreateOp>(loc,
-                                      async::ValueType::get(stickedC.getType()))
-                                  .getResult();
-        rewriter.create<async::RuntimeStoreOp>(loc, B, asyncB);
-        rewriter.create<async::RuntimeStoreOp>(loc, stickedA, asyncStickedA);
-        rewriter.create<async::RuntimeStoreOp>(loc, stickedB, asyncStickedB);
-        rewriter.create<async::RuntimeStoreOp>(loc, stickedC, asyncStickedC);
-        LLVM_DEBUG(llvm::dbgs() << "asyncB " << asyncB << "\n");
-        auto execute = rewriter.create<async::ExecuteOp>(loc,
-            TypeRange{unrankedType, tokenType}, ValueRange(),
-            ValueRange{asyncB, asyncStickedA, asyncStickedB, asyncStickedC},
-            executeBodyBuilder);
-        //        auto execute = rewriter.create<async::ExecuteOp>(loc,
-        //							 TypeRange{unrankedType,
-        //tokenType}, ValueRange(), ValueRange{B, stickedA, stickedB, stickedC},
-        //executeBodyBuilder);
-        // LLVM_DEBUG(llvm::dbgs() << "execute.getBodyResults()[0] " <<
-        // execute.getBodyResults()[0] << "\n"); LLVM_DEBUG(llvm::dbgs() <<
-        // "execute.getToken() " << execute.getToken()<< "\n"); Value stickOut =
-        // rewriter.create<async::RuntimeLoadOp>(loc, unrankedType,
-        // execute.getBodyResults()[0]); stickedOuts.emplace_back(stickOut);
-        stickedOuts.emplace_back(execute.getBodyResults()[0]);
-        tokens.emplace_back(execute.getToken());
-      }
-      LLVM_DEBUG(llvm::dbgs() << "This is a message for debugging 0.\n");
-      // Wait op
-      SmallVector<Value> waitOps;
-      for (auto it : llvm::zip(stickedOuts, tokens)) {
-        // for (auto it : llvm::zip(stickedOuts, tokens, stickedBs,
-        // stickedCZeros)) {
-        Value stickedOut = std::get<0>(it);
-        LLVM_DEBUG(llvm::dbgs() << "stickedOut " << stickedOut << ".\n");
-        Value token = std::get<1>(it);
-        LLVM_DEBUG(llvm::dbgs() << "token " << token << ".\n");
-        Value asyncAwaitOut =
-            rewriter.create<async::AwaitOp>(loc, stickedOut).getResult();
-        LLVM_DEBUG(llvm::dbgs() << "asyncAwaitOut " << asyncAwaitOut << ".\n");
-        Value awaitOut = rewriter.create<async::RuntimeLoadOp>(
-            loc, stickedOut.getType(), asyncAwaitOut);
-        Value unstickedOut =
-            rewriter.create<zhigh::ZHighUnstickOp>(loc, awaitOut);
-        //        onnx_mlir::zhigh::ZHighMatMulWaitOp waitOp =
-        //            rewriter.create<onnx_mlir::zhigh::ZHighMatMulWaitOp>(loc,
-        //                stickedOut.getType(), stickedOut, token, stickedA,
-        //                stickedB, stickedC);
-        //        Value unstickedOut =
-        //            rewriter.create<zhigh::ZHighUnstickOp>(loc,
-        //            waitOp.getResult());
-        LLVM_DEBUG(llvm::dbgs() << "unstickedOut " << unstickedOut << ".\n");
-        waitOps.emplace_back(unstickedOut);
-      }
-      Value res = waitOps[0];
-      if (stickedOuts.size() > 1) {
-        // Concat sub results along dimension M of B.
-        SmallVector<int64_t> concatShape(outputShape);
-        concatShape[outputRank - 2] = subAShape[aRank - 2];
-        Type concatTy = RankedTensorType::get(concatShape, elementType);
-        res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
-      }
-      LLVM_DEBUG(llvm::dbgs() << "res " << res << ".\n");
-      resSubAs.emplace_back(res);
-    }
-    Value res = resSubAs[0];
-    if (resSubAs.size() > 1)
-      // Concat sub results along dimension N of A.
-      res = create.onnx.concat(outputType, resSubAs, outputRank - 2);
-    LLVM_DEBUG(llvm::dbgs() << "final res " << res << ".\n");
-    LLVM_DEBUG(llvm::dbgs() << "matmulOp " << matmulOp << ".\n");
-    rewriter.replaceOp(op, res);
-    return success();
   }
 };
 
@@ -537,7 +328,6 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   patterns.insert<replaceONNXMatMulAddPattern2>(context);
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
-  // patterns.insert<ONNXMatMulAsyncExecutionPattern>(&getContext());  
 }
 
 void ONNXToZHighLoweringPass::runOnOperation() {
@@ -554,9 +344,11 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
+  // Async Dialect and UnrealizedConversionCastOp are introduced when
+  // parallelize matmul ops in rewriting for zhigh.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
-      func::FuncDialect, arith::ArithDialect>();
-
+      func::FuncDialect, arith::ArithDialect, mlir::async::AsyncDialect>();
+  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
   // NOTE: if we change the order of calling combinedPatterns and single op
   // patterns, make sure to change the order in DevicePlacement.cpp also to make
   // them synced.

@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(Stickify)
-
 add_onnx_mlir_rewriter(ZHighConstPropagation)
 add_onnx_mlir_library(OMZHighConstPropagation
   ZHighConstPropagation.cpp
@@ -49,4 +47,22 @@ add_onnx_mlir_library(OMZHighClipToDLFloat
   MLIRTransformUtils
   OMZHighOps
   OMONNXOps
+  )
+
+add_onnx_mlir_rewriter(ZHighDecomposeStickUnstick)
+add_onnx_mlir_library(OMZHighDecomposeStickUnstick
+  ZHighDecomposeStickUnstick.cpp
+
+  DEPENDS
+  OMLayoutHelper
+  OMONNXZHighDecomposeStickUnstickIncGen
+
+  LINK_LIBS PUBLIC
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZHighOps
+  OMONNXOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )
