@@ -126,6 +126,14 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighConstPropagationPass());
 
+  // Experimental feature: Decompose stick/unstick into two phases: layout
+  // transform and data conversion.
+  if (nnpaEnableZHighDecomposeStickUnstick) {
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
+    pm.addPass(mlir::createCanonicalizerPass());
+  }
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
 
@@ -156,6 +164,18 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     std::string outputNameNoExt) {
   // TODO: Develop and use determineInputIRLevel for NNPA
   // InputIRLevelType inputIRLevel = determineInputIRLevel(module);
+
+  // Disable constprop rules:
+  // - add(add(x, c), y) to add(add(x, y), c)
+  // - add(x, add(y, c)) to add(add(x, y), c)
+  // because in foundation models we have add(add(matmul(x, z), c), y), and we
+  // want to keep c near matmul so that add(matmul(x, z), c) will be run on zAIU
+  // as one call.
+  onnxConstPropDisablePatterns.emplace_back("AddConstAssociative2");
+  onnxConstPropDisablePatterns.emplace_back("AddConstAssociative3");
+
+  // Override pass configurations.
+  configurePasses();
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
@@ -198,7 +218,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);
-        // Some Knrl ops, e.g. KrnlMemset, potentially exist and will be lowered
+        // Some Krnl ops, e.g. KrnlMemset, potentially exist and will be lowered
         // to Affine when its operands are normalized.
         addKrnlToAffinePasses(pm);
         // Optimizations at ZLow after normalizing MemRefs.

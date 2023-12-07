@@ -290,16 +290,21 @@ struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   }
 };
 
-// Helper for ONNXLayerNormalizationOp (B and Scales broadcast to input X)
-struct ONNXLayerNormalizationOpShapeHelper : public ONNXBroadcastOpShapeHelper {
-  ONNXLayerNormalizationOpShapeHelper(mlir::Operation *op,
-      mlir::ValueRange operands, IndexExprBuilder *ieBuilder = nullptr,
-      IndexExprScope *scope = nullptr)
+// Template for Layer Normalization (LN) ops
+template <typename OP_TYPE>
+struct ONNXLNOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXLNOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
             /*hasUniBroadcasting*/ true) {}
-  virtual ~ONNXLayerNormalizationOpShapeHelper() {}
+  virtual ~ONNXLNOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
+
+// clang-format off
+using ONNXLayerNormalizationOpShapeHelper = ONNXLNOpShapeHelper<mlir::ONNXLayerNormalizationOp>;
+using ONNXRMSLayerNormalizationOpShapeHelper = ONNXLNOpShapeHelper<mlir::ONNXRMSLayerNormalizationOp>;
+// clang-format on
 
 //===----------------------------------------------------------------------===//
 // Unary Ops

@@ -1,0 +1,1 @@
+add_onnx_mlir_rewriter(ZHighF32ToDLF16)
