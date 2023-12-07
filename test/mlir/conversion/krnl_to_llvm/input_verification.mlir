@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm="verify-input-tensors=true" --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // COM: Check verification code at the beginning of the entry point function.
 
 module {
@@ -21,7 +23,7 @@ module {
 // CHECK:           %[[VAL_3:.*]] = llvm.icmp "ne" %[[CONST_2]], %[[VAL_2]] : i64
 // CHECK:           llvm.cond_br %[[VAL_3]], ^bb1, ^bb2
 // CHECK:         ^bb1:
-// CHECK:           %[[VAL_4:.*]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr
+// CHECK:           %[[VAL_4:.*]] = llvm.mlir.addressof @"om_Wrong number of input tensors: expect 2, but got {{\%}}lld\0A" : !llvm.ptr<array<54 x i8>>
 // CHECK:           llvm.call @printf(%[[VAL_4]], %[[VAL_2]]) : (!llvm.ptr, i64) -> ()
 // CHECK-DAG:       %[[VAL_7:.*]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK-DAG:       llvm.store %[[CONST_22]], %[[VAL_7]] : i32, !llvm.ptr

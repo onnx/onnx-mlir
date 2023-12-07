@@ -1,6 +1,8 @@
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s -check-prefix=CHECK-CONST-TO-FILE && rm model.constants.bin
 
+// -----
+
 module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
   func.func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
     %0 = "krnl.global"() {name = "constant", alignment = 1024 : i64, shape = [3], value = dense<[0.0, 0.1, 0.2]> : tensor<3xf32>} : () -> memref<3xf32>

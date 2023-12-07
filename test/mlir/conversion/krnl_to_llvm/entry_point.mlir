@@ -19,7 +19,7 @@ module {
 
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() {addr_space = 0 : i32} : !llvm.array<2 x ptr> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<2 x ptr>
-// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
+// CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
 // CHECK:           [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_2_]], [[VAR_0_]][0] : !llvm.array<2 x ptr>
 // CHECK:           [[VAR_5_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           [[VAR_6_:%.+]] = llvm.insertvalue [[VAR_5_]], [[VAR_4_]][1] : !llvm.array<2 x ptr>
@@ -41,7 +41,7 @@ module {
 
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
 // CHECK-DAG:       [[VAR_0_4_:%.+]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-DAG:       [[VAR_4_5_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
+// CHECK-DAG:       [[VAR_4_5_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
 // CHECK-DAG:       [[VAR_6_3_:%.+]] = llvm.mlir.constant(15 : i64) : i64
 // CHECK:           [[VAR_7_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_4_5_]], [[VAR_6_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.icmp "eq" [[VAR_7_1_]], [[VAR_0_4_]] : i32
@@ -56,7 +56,7 @@ module {
 
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
 // CHECK-DAG:       [[VAR_0_5_:%.+]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-DAG:       [[VAR_4_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
+// CHECK-DAG:       [[VAR_4_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
 // CHECK-DAG:       [[VAR_6_4_:%.+]] = llvm.mlir.constant(15 : i64) : i64
 // CHECK:           [[VAR_7_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_4_6_]], [[VAR_6_4_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_2_:%.+]] = llvm.icmp "eq" [[VAR_7_2_]], [[VAR_0_5_]] : i32
@@ -68,7 +68,6 @@ module {
 // CHECK:           [[VAR_11_2_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           llvm.return [[VAR_11_2_]] : !llvm.ptr
 // CHECK:         }
-
 }
 
 // -----
@@ -100,7 +99,7 @@ module {
 
 // CHECK:         llvm.mlir.global internal constant @_entry_point_arrays() {addr_space = 0 : i32} : !llvm.array<3 x ptr> {
 // CHECK-DAG:       [[VAR_0_6_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr>
-// CHECK-DAG:       [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
+// CHECK-DAG:       [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>> 
 // CHECK:           [[VAR_4_6_:%.+]] = llvm.insertvalue [[VAR_2_6_]], [[VAR_0_6_]][0] : !llvm.array<3 x ptr>
 // CHECK:           [[VAR_6_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr
 // CHECK:           [[VAR_8_3_:%.+]] = llvm.insertvalue [[VAR_6_5_]], [[VAR_4_6_]][1] : !llvm.array<3 x ptr>
@@ -200,3 +199,5 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
 // CHECK-NEXT: ^bb3:  // pred: ^bb2
 // CHECK-NEXT:   {{.*}} = llvm.call @omTensorListGetOmtArray(%arg0) : (!llvm.ptr) -> !llvm.ptr
 }
+
+// -----

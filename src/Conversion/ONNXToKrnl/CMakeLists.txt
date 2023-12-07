@@ -5,8 +5,9 @@ add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ONNXToKrnlCommon.cpp
   PerfectHash.cpp
-  Additional/ShapeTransform.cpp
   Additional/Custom.cpp
+  Additional/LayoutTransform.cpp
+  Additional/ShapeTransform.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
@@ -55,7 +56,6 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/GatherElements.cpp
   Tensor/GatherND.cpp
   Tensor/Identity.cpp
-  Tensor/LayoutTransform.cpp
   Tensor/NonZero.cpp
   Tensor/OneHot.cpp  
   Tensor/Pad.cpp
