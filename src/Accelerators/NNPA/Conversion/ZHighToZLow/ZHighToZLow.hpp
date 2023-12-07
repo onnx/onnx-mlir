@@ -52,7 +52,8 @@ mlir::Value insertAllocForZMemRef(ZMemRefType zType,
 
 /// Populate all conversion patterns for ZHigh Ops.
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
-    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    bool enableParallel = false);
 
 } // namespace zhigh
 } // namespace onnx_mlir

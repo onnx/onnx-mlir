@@ -1437,6 +1437,7 @@ private:
 // Rewrite pattern LayerNormalization
 // =============================================================================
 
+template <typename OP_TYPE>
 struct PropagateBiasIntoLayerNormRewritePattern
     : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
@@ -1456,16 +1457,16 @@ struct PropagateBiasIntoLayerNormRewritePattern
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
     // %yBias = "onnx.Add"(%y, %bias)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+    if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
             yLayerNormOp, ywbAddOp, y, bias, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+        !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
             yLayerNormOp, ywbAddOp, bias, y, 1))
       return reportFailure("missing y, layer norm op");
     // Study layer norm op; make sure its used only one and that bias is not
     // used.
     if (!yLayerNormOp->hasOneUse())
       return reportFailure("y/layer norm has too many uses");
-    auto lnOp = cast<ONNXLayerNormalizationOp>(yLayerNormOp);
+    auto lnOp = cast<OP_TYPE>(yLayerNormOp);
     if (!onnx_mlir::isNoneValue(lnOp.getB()))
       return reportFailure("layer norm already has a bias");
     // We are fine.
@@ -1478,7 +1479,14 @@ struct PropagateBiasIntoLayerNormRewritePattern
     // Replace
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Type xType = x.getType();
-    Value res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    Value res;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value)
+      res = create.onnx.RMSLayerNorm(xType, x, scale, bias, axis, epsilon);
+    else
+      llvm_unreachable("unsupported op");
     rewriter.replaceOp(addOp, res);
     return success();
   }
@@ -1515,7 +1523,12 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
-  results.insert<PropagateBiasIntoLayerNormRewritePattern>(context);
+  results.insert<
+      PropagateBiasIntoLayerNormRewritePattern<ONNXLayerNormalizationOp>>(
+      context);
+  results.insert<
+      PropagateBiasIntoLayerNormRewritePattern<ONNXRMSLayerNormalizationOp>>(
+      context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
 }
 
@@ -1613,6 +1626,7 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
 void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<ONNXLayoutTransformEliminationPattern>(context);
+  result.insert<ONNXLayoutTransformFusionPattern>(context);
 }
 
 /// on the ONNXLessOp.

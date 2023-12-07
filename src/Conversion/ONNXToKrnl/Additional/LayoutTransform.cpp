@@ -13,8 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+
+#define DEBUG_TYPE "layout-tranform"
 
 using namespace mlir;
 
@@ -22,8 +26,12 @@ namespace onnx_mlir {
 
 struct ONNXLayoutTransformOpLowering
     : public OpConversionPattern<ONNXLayoutTransformOp> {
-  ONNXLayoutTransformOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  bool enableParallel = false;
+
+  ONNXLayoutTransformOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx),
+        enableParallel(enableParallel) {}
 
   LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutOp,
       ONNXLayoutTransformOpAdaptor adaptor,
@@ -70,6 +78,11 @@ struct ONNXLayoutTransformOpLowering
 
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
+    if (enableParallel) {
+      create.krnl.parallel(loopDef);
+      onnxToKrnlParallelReport(op, /*successful*/ true, rank, -1,
+          "LayoutTransform op fully parallelized with perfectly nested loops");
+    }
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -85,8 +98,9 @@ struct ONNXLayoutTransformOpLowering
 };
 
 void populateLoweringONNXLayoutTransformOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXLayoutTransformOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXLayoutTransformOpLowering>(
+      typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

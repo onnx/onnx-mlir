@@ -300,7 +300,7 @@ struct ONNXInstanceNormalizationOpLowering
 };
 
 //===----------------------------------------------------------------------===//
-// Layer Normalization
+// Layer Normalization unoptimized.
 //===----------------------------------------------------------------------===//
 
 using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
@@ -309,16 +309,25 @@ using MDBuilder = MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
 
 // Util: gather the 3 results (possibly none values) and replace the original op
 // by these results.
-static inline void replaceLayerNormalizationOp(
-    ConversionPatternRewriter &rewriter, ONNXLayerNormalizationOp lnOp, Value Y,
-    Value meanOfX, Value invStdDev) {
+template <typename OP_TYPE>
+static inline void replaceGenericLayerNormOp(
+    ConversionPatternRewriter &rewriter, OP_TYPE lnOp, Value Y, Value meanOfX,
+    Value invStdDev) {
   llvm::SmallVector<Value, 3> outputs;
   outputs.emplace_back(Y);
   Value noneValue;
-  if (isNoneValue(lnOp.getMean()))
-    outputs.emplace_back(noneValue);
-  else
-    outputs.emplace_back(meanOfX);
+  if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+    // Mean only for ONNXLayerNormalizationOp
+    if (isNoneValue(lnOp.getMean()))
+      outputs.emplace_back(noneValue);
+    else
+      outputs.emplace_back(meanOfX);
+  } else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value) {
+    // Nothing to do
+  } else {
+    llvm_unreachable("unknown type");
+  }
   if (isNoneValue(lnOp.getInvStdDev()))
     outputs.emplace_back(noneValue);
   else
@@ -328,9 +337,9 @@ static inline void replaceLayerNormalizationOp(
 
 // Generate the original ONNX operations. This is the unoptimized path.
 // TODO: conversions of types are not handled.
-LogicalResult generateONNXLayerNormalizationOpONNXCode(
-    ConversionPatternRewriter &rewriter, Location loc,
-    ONNXLayerNormalizationOp lnOp) {
+template <typename OP_TYPE>
+LogicalResult generateGenericLayerNormOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp) {
   MDBuilder create(rewriter, loc);
   Value X = lnOp.getX(); // Original value, not translated.
   TensorType XType = X.getType().cast<TensorType>();
@@ -355,34 +364,50 @@ LogicalResult generateONNXLayerNormalizationOpONNXCode(
   Value axes =
       create.onnx.constant(create.getBuilder().getI64TensorAttr(axesIntArray));
   TensorType reductionType = RankedTensorType::get(reductionShape, elementType);
-  // Reduction of input
-  Value meanOfX = create.onnx.reduceMean(reductionType, X, axes);
-  Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
-  Value XPow2 = create.onnx.mul(X, X);
-  Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
-  Value var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+  Value meanOfX, d, var;
+  if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+    // Reduction of input
+    meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+    Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
+    Value XPow2 = create.onnx.mul(X, X);
+    Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
+    var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
+    d = create.onnx.sub(X, meanOfX);
+  } else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value) {
+    // For RMS, just take X as the input minus mean.
+    Value XPow2 = create.onnx.mul(X, X);
+    var = create.onnx.reduceMean(reductionType, XPow2, axes);
+    d = X;
+  }
   Value varWithEpsilon = create.onnx.add(var, epsilon);
   Value stdDev = create.onnx.sqrt(varWithEpsilon);
   Value invStdDev = create.onnx.reciprocal(stdDev);
-  Value d = create.onnx.sub(X, meanOfX);
   Value normalized = create.onnx.mul(d, invStdDev);
   Value Y = create.onnx.mul(normalized, lnOp.getScale());
   if (!isNoneValue(lnOp.getB()))
     Y = create.onnx.add(Y, lnOp.getB());
-  replaceLayerNormalizationOp(rewriter, lnOp, Y, meanOfX, invStdDev);
+  replaceGenericLayerNormOp<OP_TYPE>(rewriter, lnOp, Y, meanOfX, invStdDev);
   return success();
 }
 
-struct ONNXLayerNormalizationOpLowering
-    : public OpConversionPattern<ONNXLayerNormalizationOp> {
-  ONNXLayerNormalizationOpLowering(TypeConverter &typeConverter,
-      MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
-      bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
-        enableSIMD(enableSIMD), enableParallel(enableParallel) {}
+LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ONNXLayerNormalizationOp lnOp) {
+  return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
+}
+
+template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
+struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
+  GenericLayerNormaOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
+      : OpConversionPattern<OP_TYPE>(typeConverter, ctx),
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD), enableParallel(enableParallel) {}
 
   DimAnalysis *dimAnalysis;
   bool enableSIMD, enableParallel;
+
+  using ADAPTOR_TYPE = typename OP_TYPE::Adaptor;
 
   /*
    * Handle cases below ('|' is where the axis is):
@@ -414,9 +439,8 @@ struct ONNXLayerNormalizationOpLowering
     FullySpecified_FullySpecified    // Flattened to 2D.
   };
 
-  BroadcastKind isBroadcastCompatible(
-      ONNXLayerNormalizationOpShapeHelper &shapeHelper, Value X, Value operand,
-      int64_t operandIndex, int64_t axis, int64_t XRank,
+  BroadcastKind isBroadcastCompatible(SHAPE_HELPER_TYPE &shapeHelper, Value X,
+      Value operand, int64_t operandIndex, int64_t axis, int64_t XRank,
       IndexExpr &modFactor) const {
     DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex];
     int64_t operandRank = operand.getType().cast<MemRefType>().getRank();
@@ -536,11 +560,11 @@ struct ONNXLayerNormalizationOpLowering
     llvm_unreachable("unexpected case");
   }
 
-  bool isSimdizable(MDBuilder &create, ONNXLayerNormalizationOp lnOp,
-      ONNXLayerNormalizationOpAdaptor adaptor,
-      ONNXLayerNormalizationOpShapeHelper &shapeHelper, int64_t &VL,
+  bool isSimdizable(MDBuilder &create, OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
+      SHAPE_HELPER_TYPE &shapeHelper, int64_t &VL,
       BroadcastKind &scaleBroadcastKind, BroadcastKind &biasBroadcastKind,
       IndexExpr &scaleModFactor, IndexExpr &biasModFactor) const {
+
     VL = 0;
     Operation *op = lnOp.getOperation();
     if (!enableSIMD) {
@@ -617,17 +641,15 @@ struct ONNXLayerNormalizationOpLowering
     return true;
   }
 
-  LogicalResult matchAndRewrite(ONNXLayerNormalizationOp lnOp,
-      ONNXLayerNormalizationOpAdaptor adaptor,
+  LogicalResult matchAndRewrite(OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Get generic info.
     Operation *op = lnOp.getOperation();
     ValueRange operands = adaptor.getOperands();
-    Location loc = ONNXLoc<ONNXLayerNormalizationOp>(op);
+    Location loc = ONNXLoc<OP_TYPE>(op);
     // Create builder and shape helper
     MDBuilder create(rewriter, loc);
-    ONNXLayerNormalizationOpShapeHelper shapeHelper(
-        op, operands, &create.krnlIE);
+    SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     int64_t VL;
@@ -635,11 +657,12 @@ struct ONNXLayerNormalizationOpLowering
     IndexExpr scaleModFactor, biasModFactor;
     bool isSIMD = isSimdizable(create, lnOp, adaptor, shapeHelper, VL,
         scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
+
     if (isSIMD) {
       return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, VL,
           scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
     }
-    return generateONNXLayerNormalizationOpONNXCode(rewriter, loc, lnOp);
+    return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
@@ -655,7 +678,7 @@ struct ONNXLayerNormalizationOpLowering
       DimsExpr &inputDims, int64_t axis, /*output*/ Value &memRef,
       /*output*/ Value &flatMemRef) const {
     // Convert input.
-    Type convertedType = typeConverter->convertType(inputVal.getType());
+    Type convertedType = this->typeConverter->convertType(inputVal.getType());
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
@@ -708,7 +731,7 @@ struct ONNXLayerNormalizationOpLowering
   }
 
   void generateIterWithSIMD(ConversionPatternRewriter &rewriter,
-      MDBuilder &create, ONNXLayerNormalizationOp lnOp,
+      MDBuilder &create, OP_TYPE lnOp,
       /* flat inputs */ Value XMemRef, Value scaleMemRef, Value biasMemRef,
       /* flat outputs */ Value YMemRef, Value meanMemRef, Value invStdDevMemRef,
       /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
@@ -717,6 +740,11 @@ struct ONNXLayerNormalizationOpLowering
       /* int params */ int64_t B, int64_t VL, BroadcastKind scaleBroadcastKind,
       BroadcastKind biasBroadcastKind, IndexExpr scaleModFactor,
       IndexExpr biasModFactor) const {
+    // Bool isTraditionalLayerNorm is true when computing traditional layer
+    // norm, not the faster RMS version.
+    bool isTraditionalLayerNorm = false;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      isTraditionalLayerNorm = true;
     // Vector type.
     Type elementType = YMemRef.getType().cast<ShapedType>().getElementType();
     VectorType vecType = VectorType::get({VL}, elementType);
@@ -725,7 +753,8 @@ struct ONNXLayerNormalizationOpLowering
     Value initVec = create.vec.splat(vecType, init);
     Value zero = create.math.constantIndex(0);
     inlineFor(create, B, [&](int64_t d, Value o) {
-      create.vec.store(initVec, redMemRef, {o, zero});
+      if (isTraditionalLayerNorm)
+        create.vec.store(initVec, redMemRef, {o, zero});
       create.vec.store(initVec, redMemRef2, {o, zero});
     });
     // Perform reduction of entire vectors.
@@ -739,14 +768,15 @@ struct ONNXLayerNormalizationOpLowering
             // Load X, compute X2.
             Value currX = create.vec.load(vecType, XMemRef, {ii, j});
             Value currXSquare = create.math.mul(currX, currX);
-            // Load reductions.
-            Value currRed = create.vec.load(vecType, redMemRef, {o, zero});
+            // Perform reduction ov X values.
+            if (isTraditionalLayerNorm) {
+              Value currRed = create.vec.load(vecType, redMemRef, {o, zero});
+              Value newRed = create.math.add(currRed, currX);
+              create.vec.store(newRed, redMemRef, {o, zero});
+            }
+            // Perform reduction of X square values.
             Value currRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
-            // perform reductions.
-            Value newRed = create.math.add(currRed, currX);
             Value newRed2 = create.math.add(currRed2, currXSquare);
-            // Store reductions.
-            create.vec.store(newRed, redMemRef, {o, zero});
             create.vec.store(newRed2, redMemRef2, {o, zero});
           });
         });
@@ -756,20 +786,28 @@ struct ONNXLayerNormalizationOpLowering
     Value redDimFloat = create.math.cast(elementType, redDim.getValue());
     Value oneFloat = create.math.constant(elementType, 1.0);
     inlineFor(create, B, [&](int64_t d, Value o) {
+      Value finalRed, finalRed2, currSum, currSum2, mean2, meanSquare, var;
       // Load reductions.
-      Value finalRed = create.vec.load(vecType, redMemRef, {o, zero});
-      Value finalRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
+      if (isTraditionalLayerNorm)
+        finalRed = create.vec.load(vecType, redMemRef, {o, zero});
+      finalRed2 = create.vec.load(vecType, redMemRef2, {o, zero});
       // Horizontal reductions.
-      Value currSum =
-          create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed);
-      Value currSum2 =
+      if (isTraditionalLayerNorm)
+        currSum =
+            create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed);
+      currSum2 =
           create.vec.reduction(VectorBuilder::CombiningKind::ADD, finalRed2);
       // Compute means.
-      mean[d] = create.math.div(currSum, redDimFloat);
-      Value mean2 = create.math.div(currSum2, redDimFloat);
+      if (isTraditionalLayerNorm)
+        mean[d] = create.math.div(currSum, redDimFloat);
+      mean2 = create.math.div(currSum2, redDimFloat);
       // Compute standard deviation (with epsilon) and its inverse.
-      Value meanSquare = create.math.mul(mean[d], mean[d]);
-      Value var = create.math.sub(mean2, meanSquare);
+      if (isTraditionalLayerNorm) {
+        meanSquare = create.math.mul(mean[d], mean[d]);
+        var = create.math.sub(mean2, meanSquare);
+      } else {
+        var = mean2;
+      }
       Value varEps = create.math.add(var, epsilon);
       Value stdDev = create.math.sqrt(varEps);
       invStdDev[d] = create.math.div(oneFloat, stdDev);
@@ -783,8 +821,13 @@ struct ONNXLayerNormalizationOpLowering
             Value ii = create.math.add(i, o);
             // Load X, compute X2.
             Value currX = create.vec.load(vecType, XMemRef, {ii, j});
-            Value meanSplat = create.vec.splat(vecType, mean[d]);
-            Value XMinusMean = create.math.sub(currX, meanSplat);
+            Value XMinusMean;
+            if (isTraditionalLayerNorm) {
+              Value meanSplat = create.vec.splat(vecType, mean[d]);
+              XMinusMean = create.math.sub(currX, meanSplat);
+            } else {
+              XMinusMean = currX;
+            }
             Value invStdDevSplat = create.vec.splat(vecType, invStdDev[d]);
             Value normalizedX = create.math.mul(XMinusMean, invStdDevSplat);
             // Process with multiplying by scale (scalar or 1D vector).
@@ -801,7 +844,7 @@ struct ONNXLayerNormalizationOpLowering
           });
         });
     // save mean and std dev if requested.
-    if (meanMemRef) {
+    if (isTraditionalLayerNorm && meanMemRef) {
       inlineFor(create, B, [&](int64_t d, Value o) {
         Value ii = create.math.add(i, o);
         create.krnl.store(mean[d], meanMemRef, {ii, zero});
@@ -816,11 +859,11 @@ struct ONNXLayerNormalizationOpLowering
   }
 
   LogicalResult generateSIMDCode(ConversionPatternRewriter &rewriter,
-      Location loc, ONNXLayerNormalizationOp lnOp,
-      ONNXLayerNormalizationOpAdaptor &adaptor,
-      ONNXLayerNormalizationOpShapeHelper &shapeHelper, int64_t B, int64_t VL,
+      Location loc, OP_TYPE lnOp, ADAPTOR_TYPE &adaptor,
+      SHAPE_HELPER_TYPE &shapeHelper, int64_t B, int64_t VL,
       BroadcastKind scaleBroadcastKind, BroadcastKind biasBroadcastKind,
       IndexExpr scaleModFactor, IndexExpr biasModFactor) const {
+
     MDBuilder create(rewriter, loc);
     Value XMemRef = adaptor.getX();
     MemRefType XMemRefType = XMemRef.getType().cast<MemRefType>();
@@ -838,9 +881,9 @@ struct ONNXLayerNormalizationOpLowering
     XFlatMemRef = create.mem.reshapeToFlat2D(
         XMemRef, shapeHelper.inputsDims[0], XFlatDims, axis);
 
-    // Fully latten scale input.
+    // Fully flatten scale input.
     int64_t scaleRank =
-        adaptor.getScale().getType().cast<MemRefType>().getRank();
+        adaptor.getScale().getType().template cast<MemRefType>().getRank();
     DimsExpr scaleDims;
     for (int64_t i = XRank - scaleRank; i < XRank; ++i)
       scaleDims.emplace_back(shapeHelper.inputsDims[1][i]);
@@ -850,10 +893,10 @@ struct ONNXLayerNormalizationOpLowering
     else
       scaleFlatMemRef = create.mem.reshapeToFlat2D(
           adaptor.getScale(), scaleDims, flatDims, -lowRank);
-
-    // Fully latten bias input, if present.
+    // Fully flatten bias input, if present.
     if (!isNoneValue(lnOp.getB())) {
-      int64_t biasRank = adaptor.getB().getType().cast<MemRefType>().getRank();
+      int64_t biasRank =
+          adaptor.getB().getType().template cast<MemRefType>().getRank();
       DimsExpr biasDims;
       for (int64_t i = XRank - biasRank; i < XRank; ++i)
         biasDims.emplace_back(shapeHelper.inputsDims[2][i]);
@@ -869,15 +912,18 @@ struct ONNXLayerNormalizationOpLowering
     Value YFlatMemRef, meanFlatMemRef, invStdDevFlatMemRef;
     convertAlignAllocAndFlatten(create, lnOp.getY(),
         shapeHelper.getOutputDims(0), axis, YMemRef, YFlatMemRef);
-    if (!isNoneValue(lnOp.getMean()))
-      convertAlignAllocAndFlatten(create, lnOp.getMean(),
-          shapeHelper.getOutputDims(1), axis, meanMemRef, meanFlatMemRef);
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
+      if (!isNoneValue(lnOp.getMean()))
+        convertAlignAllocAndFlatten(create, lnOp.getMean(),
+            shapeHelper.getOutputDims(1), axis, meanMemRef, meanFlatMemRef);
+    }
     if (!isNoneValue(lnOp.getInvStdDev()))
       convertAlignAllocAndFlatten(create, lnOp.getInvStdDev(),
           shapeHelper.getOutputDims(2), axis, invStdDevMemRef,
           invStdDevFlatMemRef);
     // Alloc mem for reductions (should be private if parallel)
     MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
+    Value tmpRedMemRef, tmpRedMemRef2;
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
     IndexExpr zero = LiteralIndexExpr(0);
@@ -929,11 +975,18 @@ struct ONNXLayerNormalizationOpLowering
         }); /* blocked loop */
     // We don't seem to need to reshape fhe flattened memref, just pass the
     // original ones.
-    replaceLayerNormalizationOp(
+    replaceGenericLayerNormOp(
         rewriter, lnOp, YMemRef, meanMemRef, invStdDevMemRef);
     return success();
   }
 };
+
+using ONNXLayerNormalizationOpLowering =
+    GenericLayerNormaOpLowering<ONNXLayerNormalizationOp,
+        ONNXLayerNormalizationOpShapeHelper>;
+using ONNXRMSLayerNormalizationOpLowering =
+    GenericLayerNormaOpLowering<ONNXRMSLayerNormalizationOp,
+        ONNXRMSLayerNormalizationOpShapeHelper>;
 
 // clang-format off
 /*
@@ -1026,6 +1079,8 @@ void populateLoweringONNXNormalizationOpPattern(RewritePatternSet &patterns,
       typeConverter, ctx);
   patterns.insert<ONNXInstanceNormalizationOpLowering>(typeConverter, ctx);
   patterns.insert<ONNXLayerNormalizationOpLowering>(
+      typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  patterns.insert<ONNXRMSLayerNormalizationOpLowering>(
       typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
 }
 
