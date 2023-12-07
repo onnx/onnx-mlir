@@ -9,8 +9,8 @@ func.func @test_krnl_global_constant_alignment() -> memref<3xf32> {
 
 // CHECK:         llvm.mlir.global internal constant @constant(dense<[0.000000e+00, 1.000000e-01, 2.000000e-01]> : tensor<3xf32>) {addr_space = 0 : i32, alignment = 1024 : i64} : !llvm.array<3 x f32>
 // CHECK-LABEL:   llvm.func @test_krnl_global_constant_alignment() -> !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface} {
-// CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr<array<3 x f32>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr<array<3 x f32>> to !llvm.ptr
+// CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr
+// CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr to !llvm.ptr
 // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           [[VAR_3_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_2_]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:       [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_3_]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
@@ -35,8 +35,8 @@ func.func @test_krnl_global_constant_no_alignment() -> memref<2xi64> {
 
 // CHECK:         llvm.mlir.global internal constant @constant(dense<[0, 1]> : tensor<2xi64>) {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<2 x i64>
 // CHECK-LABEL:   llvm.func @test_krnl_global_constant_no_alignment() -> !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)> attributes {llvm.emit_c_interface} {
-// CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr<array<2 x i64>>
-// CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr<array<2 x i64>> to !llvm.ptr
+// CHECK:           [[VAR_0_:%.+]] = llvm.mlir.addressof @constant : !llvm.ptr
+// CHECK-DAG:       [[VAR_1_:%.+]] = llvm.bitcast [[VAR_0_]] : !llvm.ptr to !llvm.ptr
 // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           [[VAR_3_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_2_]][0] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK-DAG:       [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_1_]], [[VAR_3_]][1] : !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
