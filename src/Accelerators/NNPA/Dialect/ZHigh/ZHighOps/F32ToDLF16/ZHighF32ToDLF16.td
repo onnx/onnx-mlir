@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//===--------- ZLowCombine.td - Pattern Match for ZLowDialect -------------===//
+//===------- ZHighF32ToDLF16.td - Pattern Match for ZHighUnstick ----------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2023 The IBM Research Authors.
 //
 // =============================================================================
 //
-// Defines language-specific pattern match optimizations for ZLow using
+// Defines language-specific pattern match optimizations for ZHigh using
 // Declarative Rewrite Rules (DRR) specified using TableGen records.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ZLOW_COMBINE
-#define ZLOW_COMBINE
+#ifndef F32_TO_DLF16_TD 
+#define F32_TO_DLF16_TD 
 
 #ifndef OP_BASE
-include "mlir/IR/PatternBase.td"
-include "ZLow.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
+include "src/Dialect/ONNX/ONNX.td"
 #endif // OP_BASE
+
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 /// Note: The DRR definition used for defining patterns is shown below:
 ///
@@ -29,19 +31,13 @@ include "ZLow.td"
 /// >;
 
 //===----------------------------------------------------------------------===//
-// Pattern-Match and Rewrite
+// DRR patterns 
 //===----------------------------------------------------------------------===//
 
-// zlow.dummy(X) is replaced by X.
-def RemoveDummyOpPattern: Pat<
-  (ZLowDummyOp $arg),
+// zhigh.F32ToDLF16 (zhigh.DLF16ToF32(%X)) = %X
+def ConversionRemovalPattern : Pat<
+  (ZHighF32ToDLF16Op (ZHighDLF16ToF32Op $arg)),
   (replaceWithValue $arg)
 >;
 
-// Remove pairs of dlf16_to_f32 and f32_to_dlf16
-def DLF16ConversionOpPattern: Pat<
-  (ZLowConvertF32ToDLF16Op (ZLowConvertDLF16ToF32Op $arg)),
-  (replaceWithValue $arg)
->;
-
-#endif // ZLOW_COMBINE
+#endif // F32_TO_DLF16_TD
