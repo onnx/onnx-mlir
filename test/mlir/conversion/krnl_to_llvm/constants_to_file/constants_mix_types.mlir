@@ -1,6 +1,6 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=true store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file && binary-decoder model.constants.bin -s 0 -n 40 --onnx::TensorProto::FLOAT -rm | FileCheck %s -check-prefix=BINARY_DECODER_0
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file && binary-decoder model.constants.bin -s 0 -n 40 --onnx::TensorProto::FLOAT -rm | FileCheck %s -check-prefix=BINARY_DECODER_0
 
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=true store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file && binary-decoder model.constants.bin -s 4096 -n 80 --onnx::TensorProto::INT64 -rm | FileCheck %s -check-prefix=BINARY_DECODER_1
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file && binary-decoder model.constants.bin -s 4096 -n 80 --onnx::TensorProto::INT64 -rm | FileCheck %s -check-prefix=BINARY_DECODER_1
 
 // Thresholds for this files: 
 //  -constants-to-file-single-threshold=0.03: 30 bytes for a single constants 

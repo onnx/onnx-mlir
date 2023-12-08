@@ -203,7 +203,8 @@ void IndexExprImpl::initAsAffineExpr(AffineExpr const val) {
   // Check if the affine expression is reduced to a constant expr.
   AffineExpr simpleVal =
       simplifyAffineExpr(val, scope->getNumDims(), scope->getNumSymbols());
-  AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
+  AffineConstantExpr constAffineExpr =
+      llvm::dyn_cast<AffineConstantExpr>(simpleVal);
   if (constAffineExpr) {
     initAsLiteral(constAffineExpr.getValue(), IndexExprKind::Affine);
   } else {
