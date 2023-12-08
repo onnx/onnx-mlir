@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --convert-krnl-to-llvm="use-opaque-pointers=true" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --convert-krnl-to-llvm %s -split-input-file | FileCheck %s
 
 // -----
 

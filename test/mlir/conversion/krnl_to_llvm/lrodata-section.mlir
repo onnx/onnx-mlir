@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm="use-opaque-pointers=true use-lrodata-section=true" %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-llvm="use-lrodata-section=true" %s -split-input-file | FileCheck %s
 
 // Test if global constants are annotated with .lrodata section or not.
 module {

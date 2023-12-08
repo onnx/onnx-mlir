@@ -367,7 +367,8 @@ public:
       if (unstickNCHWLayout) {
         AffineMapAttr oldMap = loadOp.getAffineMapAttr();
         // NCHW -> NHWC
-        AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
+        SmallVector<unsigned, 4> permutation = {0, 2, 3, 1};
+        AffineMap permuteMap = AffineMap::getPermutationMap(permutation, ctx);
         AffineMapAttr newMap =
             AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
         clonedOp->setAttr(affine::AffineLoadOp::getMapAttrStrName(), newMap);
@@ -435,7 +436,8 @@ public:
       if (stickNCHWLayout) {
         AffineMapAttr oldMap = storeOp.getAffineMapAttr();
         // NCHW -> NHWC
-        AffineMap permuteMap = AffineMap::getPermutationMap({0, 2, 3, 1}, ctx);
+        SmallVector<unsigned, 4> permutation = {0, 2, 3, 1};
+        AffineMap permuteMap = AffineMap::getPermutationMap(permutation, ctx);
         AffineMapAttr newMap =
             AffineMapAttr::get(permuteMap.compose(oldMap.getValue()));
         clonedOp->setAttr(affine::AffineStoreOp::getMapAttrStrName(), newMap);
