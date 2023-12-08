@@ -57,16 +57,16 @@ public:
           maxpoolOp, "storage_order attribute is unsupported by TOSA");
     }
 
-    std::optional<Value> newMaxpoolOp =
+    FailureOr<Value> newMaxpoolOp =
         tosa::convertPoolOp<ONNXMaxPoolSingleOutOp, mlir::tosa::MaxPool2dOp>(
             rewriter, op);
 
-    if (!newMaxpoolOp) {
+    if (failed(newMaxpoolOp)) {
       return rewriter.notifyMatchFailure(
           maxpoolOp, "Could not create maxpool op.");
     }
 
-    rewriter.replaceOp(op, newMaxpoolOp.value());
+    rewriter.replaceOp(op, *newMaxpoolOp);
     return success();
   }
 };

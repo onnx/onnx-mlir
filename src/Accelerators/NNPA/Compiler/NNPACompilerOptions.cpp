@@ -30,8 +30,28 @@ llvm::cl::list<std::string> execNodesOnCpu{"execNodesOnCpu",
     llvm::cl::desc("Comma-separated list of node names in an onnx graph. The "
                    "specified nodes are forced to run on the CPU instead of "
                    "using the zDNN. The node name is an optional attribute "
-                   "in onnx graph, which is `onnx_node_name` in ONNX IR"),
+                   "in onnx graph, which is `onnx_node_name` in ONNX IR."),
     llvm::cl::CommaSeparated, llvm::cl::ZeroOrMore,
     llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<bool> nnpaClipToDLFloatRange("nnpa-clip-to-dlfloat-range",
+    llvm::cl::desc("Clip CPU tensors to dlfloat range before stickification to "
+                   "avoid out-of-range. Only clip Softmax inputs at this "
+                   "moment. Default is true."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
+    llvm::cl::desc(
+        "Enabling this will convert a pattern `stick -> element-wise op -> "
+        "unstick` back to an ONNX element-wise op. This conversion is called "
+        "after applying all optimizations to remove stick/unstick at ZHigh "
+        "level. Default is true."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaEnableZHighPerfModel("enable-zhigh-perf-model",
+    llvm::cl::desc("Enabling performance cost model to estimate if ONNX "
+                   "operations will be faster on the NNPA or the CPU. Works "
+                   "best with static shapes. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 } // namespace onnx_mlir

@@ -8,12 +8,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/ElementsAttrBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Support/Arrays.hpp"
 
 #include "mlir/IR/Builders.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -32,7 +32,7 @@ bool near(double a, double b) { return fabs(a - b) < 1e-6; }
 
 template <typename CPPTY>
 bool eq(CPPTY a, CPPTY b) {
-  if constexpr (isFP16Type<CPPTY>)
+  if constexpr (isSmallFPType<CPPTY>)
     return a.toFloat() == b.toFloat();
   else
     return a == b;

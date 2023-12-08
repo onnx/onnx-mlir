@@ -137,6 +137,9 @@ struct ONNXOpShapeHelper {
   IndexExprScope *getScope() { return scope; }
   mlir::Operation *getOp() { return op; }
 
+  // Set the operands with a vector of Value
+  void setOperands(mlir::ValueRange);
+
 protected:
   // Helper for ops for which the output (n'th) is the same as the type of a
   // given input operand's type.

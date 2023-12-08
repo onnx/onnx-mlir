@@ -19,15 +19,20 @@
 
 namespace onnx_mlir {
 
+// Add pass for device placement.
+std::unique_ptr<mlir::Pass> createDevicePlacementPass();
+std::unique_ptr<mlir::Pass> createDevicePlacementPass(bool useZHighPerfModel);
+
 /// Add pass for lowering ONNX ops to ZHigh ops.
 std::unique_ptr<mlir::Pass> createONNXToZHighPass();
-std::unique_ptr<mlir::Pass> createONNXToZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu);
+std::unique_ptr<mlir::Pass> createONNXToZHighPass();
 
 /// Add pass for rewriting ONNX ops for ZHigh.
 std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
-std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass(
-    mlir::ArrayRef<std::string> execNodesOnCpu);
+std::unique_ptr<mlir::Pass> createRewriteONNXForZHighPass();
+
+/// Add pass for re-construct ONNX ops from ZHigh ops.
+std::unique_ptr<mlir::Pass> createZHighToONNXPass();
 
 /// Pass for folding std.alloc.
 std::unique_ptr<mlir::Pass> createFoldStdAllocPass();
@@ -40,6 +45,8 @@ std::unique_ptr<mlir::Pass> createZHighLayoutPropagationPass();
 /// Pass for constant propagation at ZHighIR.
 std::unique_ptr<mlir::Pass> createZHighConstPropagationPass();
 
+/// Pass for clipping values to dlfloat before stickification at ZHighIR.
+std::unique_ptr<mlir::Pass> createZHighClipToDLFloatPass();
 } // end namespace zhigh
 
 namespace zlow {

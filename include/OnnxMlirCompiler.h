@@ -60,18 +60,18 @@ namespace onnx_mlir {
  *  Name may include a path, and must include the file name and its extention.
  *
  *  @param outputFilename Output file name of the compiled output for the given
- * emission target. User is responsible for freeing the string.
+ *  emission target. User is responsible for freeing the string.
  *
  *  @param flags A char * contains all the options provided to compile the
- * model.
+ *  model.
  *
  *  @param errorMessage Output error message, if any. User is responsible for
- * freeing the string.
+ *  freeing the string.
  *
  *  @return 0 on success or OnnxMlirCompilerErrorCodes on failure.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
-    const char *flags, const char **outputFilename, const char **errorMessage);
+    const char *flags, char **outputFilename, char **errorMessage);
 
 /*!
  *  Compile an onnx model from an ONNX protobuf array. This method is not thread
@@ -85,18 +85,44 @@ ONNX_MLIR_EXPORT int64_t omCompileFromFile(const char *inputFilename,
  *  @param bufferSize Size of ONNX protobuf array.
  *  @param outputBaseName File name without extension to write output.
  *  Name may include a path, must include the file name, and should not include
- * an extention.
+ *  an extention.
  *  @param emissionTarget Target format to compile to.
  *  @param outputFilename Output file name of the compiled output for the given
- * emission target. User is responsible for freeing the string.
- *  @param errorMessage Error message.
+ *  emission target. User is responsible for freeing the string.
+ *  @param errorMessage Error message, if any. User is responsible for freeing
+ *  the string.
  *  @return 0 on success or OnnxMlirCompilerErrorCodes failure. User is
- * responsible for freeing the string.
+ *  responsible for freeing the string.
  */
 ONNX_MLIR_EXPORT int64_t omCompileFromArray(const void *inputBuffer,
     int64_t bufferSize, const char *outputBaseName,
-    EmissionTargetType emissionTarget, const char **outputFilename,
-    const char **errorMessage);
+    EmissionTargetType emissionTarget, char **outputFilename,
+    char **errorMessage);
+
+/*!
+ * Compute the file name of the compiled output for the given
+ * emission target. User is responsible for freeing the string.
+ *
+ *  @param inputFilename File name pointing onnx model protobuf or MLIR.
+ *  Name may include a path, and must include the file name and its extention.
+ *  @param flags A char * contains all the options provided to compile the
+ *  model.
+ *  @return string containing the file name. User is responsible for freeing the
+ *  string.
+ */
+ONNX_MLIR_EXPORT char *omCompileOutputFileName(
+    const char *inputFilename, const char *flags);
+
+/*!
+ * Compute the model tag from the given compile options.
+ * User is responsible for freeing the string.
+ *
+ *  @param flags A char * contains all the options provided to compile the
+ *  model.
+ *  @return string containing the model tag. User is responsible for freeing the
+ *  string.
+ */
+ONNX_MLIR_EXPORT char *omCompileModelTag(const char *flags);
 
 #ifdef __cplusplus
 } // namespace onnx_mlir

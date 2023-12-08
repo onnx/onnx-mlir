@@ -103,7 +103,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   } else {
     std::vector<NamedAttribute> attributes;
     auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
-    auto namedAttr2 = builder.getNamedAttr("numOfOuptut", funcNameAttr);
+    auto namedAttr2 = builder.getNamedAttr("numOfOutput", numOfOutputAttr);
     attributes.emplace_back(namedAttr1);
     attributes.emplace_back(namedAttr2);
     for (auto namedAttr : op->getAttrs()) {
@@ -124,9 +124,15 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 
   std::vector<NamedAttribute> attributes;
   StringAttr funcNameAttr = builder.getStringAttr(funcNameStr);
-  auto namedAttr = builder.getNamedAttr("funcName", funcNameAttr);
+  auto namedAttr1 = builder.getNamedAttr("funcName", funcNameAttr);
+  attributes.emplace_back(namedAttr1);
 
-  attributes.emplace_back(namedAttr);
+  IntegerAttr numOfOutputAttr =
+      IntegerAttr::get(builder.getIntegerType(64, /*isSigned=*/true),
+          APInt(64, /*value=*/resultVals.size(), /*isSigned=*/true));
+  auto namedAttr2 = builder.getNamedAttr("numOfOutput", numOfOutputAttr);
+  attributes.emplace_back(namedAttr2);
+
   for (auto attributeName : attributeNames) {
     if (Attribute attr = op->getAttr(attributeName)) {
       attributes.emplace_back(builder.getNamedAttr(attributeName, attr));
@@ -500,7 +506,9 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   return success();
 }
 
-Region &KrnlIterateOp::getLoopBody() { return getBodyRegion(); }
+::llvm::SmallVector<mlir::Region *> KrnlIterateOp::getLoopRegions() {
+  return {&getBodyRegion()};
+}
 
 LogicalResult KrnlIterateOp::verify() {
   // TODO: Verify number of induction variable bounds matches the number of

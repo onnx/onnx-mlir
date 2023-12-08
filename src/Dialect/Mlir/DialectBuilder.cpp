@@ -30,7 +30,7 @@
 
 #include <algorithm>
 
-#define DEBUG_TYPE "dialect_builder"
+#define DEBUG_TYPE "dialect-builder"
 
 using namespace mlir;
 
@@ -50,6 +50,10 @@ namespace onnx_mlir {
 // for example. Indices are signless. Also, in ONNX, we currently treat all
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
+
+/* static */ bool MathBuilder::isVector(Type type) {
+  return type.dyn_cast<VectorType>() != nullptr;
+}
 
 /* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
   VectorType vectorType = elementOrVectorType.dyn_cast<VectorType>();
@@ -274,7 +278,7 @@ Value MathBuilder::floor(Value val) const {
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MinFOp>(loc(), lhs, rhs);
+    return b().create<arith::MinNumFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MinUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -285,7 +289,7 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MaxFOp>(loc(), lhs, rhs);
+    return b().create<arith::MaxNumFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -553,16 +557,32 @@ TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
 }
 
 Value MathBuilder::negativeInf(Type type) const {
-  TypedAttr attr = negativeInfAttr(type);
+  // Strip vector type if any.
+  Type elementType = elementTypeWithVector(type);
+  TypedAttr attr = negativeInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 
 Value MathBuilder::positiveInf(Type type) const {
-  TypedAttr attr = positiveInfAttr(type);
+  // Strip vector type if any.
+  Type elementType = elementTypeWithVector(type);
+  TypedAttr attr = positiveInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 
@@ -937,25 +957,48 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 //===----------------------------------------------------------------------===//
 // Info about memory size.
 
-// Compute static and dynamic size of memref. Return true if has static size.
+// Compute static and dynamic size of memref in elements. Return true if has
+// static size.
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
-    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize) const {
+    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
+    int64_t range) const {
   Type elementType = type.getElementType();
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
   staticSize = 1;                // Multiplication of static sizes.
   dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = (dynSymbols.size() == 0);
+  bool staticShape = true;       // Static until proven otherwise.
   int64_t rank = type.getRank();
+  // Process with range [lb inclusive, ub exclusive)
+  int64_t lb = 0, ub = rank;
+  if (range == 0)
+    // Empty range, nothing to do.
+    return staticShape;
+  if (range > 0) {
+    // Positive range r: interval is [ 0, min(r, rank) ).
+    ub = (range < rank) ? range : rank;
+  } else {
+    // Negative range r: interval is [ max(0, r+rank) to rank ).
+    range += rank;
+    lb = range > 0 ? range : 0;
+  }
+  assert(lb >= 0 && ub <= rank && "out of bound range");
   int64_t iDim = 0;
   for (int64_t i = 0; i < rank; ++i) {
     if (shape[i] == ShapedType::kDynamic) {
-      assert(!staticShape && "expected static shape");
       assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
-      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+      if (i >= lb && i < ub) {
+        // Keep track of static shape and dynamic sizes only when inbounds.
+        staticShape = false;
+        dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim]);
+      }
+      iDim++;
     } else {
       // Has constant shape.
-      staticSize *= shape[i];
+      if (i >= lb && i < ub) {
+        // Keep track of static size only when inbounds.
+        staticSize *= shape[i];
+      }
     }
   }
   return staticShape;
@@ -963,10 +1006,11 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
     llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-    IndexExpr &dynSize) const {
+    IndexExpr &dynSize, int64_t range) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
-  return getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
+  return getStaticAndDynamicMemSize(
+      type, dynSymbols, staticSize, dynSize, range);
 }
 
 //===----------------------------------------------------------------------===//
@@ -979,19 +1023,17 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
+    ValueRange dynSymbols, int64_t VL, int64_t alignment) const {
   Type elementType = type.getElementType();
   assert(!hasNonIdentityLayout(type) && "unsupported layout");
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
-  assert(simdUnroll >= 1 && "expected positive simd unroll factor");
+  assert(VL >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
   int64_t staticSize;
   IndexExpr dynSize;
   bool staticShape =
       getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
-  MultiDialectBuilder<VectorBuilder> create(*this);
-  int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
   // If the static size component is already a multiple of VL, no matter the
   // values of the dynamic shapes, the last value is part of a full SIMD. No
   // need for extra padding then.
@@ -1043,18 +1085,18 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
-    MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+    MemRefType type, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(operandOfSameType, type, dynSymbols);
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL,
     int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1095,7 +1137,8 @@ memref::ReshapeOp MemRefBuilder::reshape(
 // is -1, flatten them all. Expect to flatten at least 1 dim (which is a noop).
 // Output rank is Rank(input) - dimsToFlatten + 1.
 Value MemRefBuilder::reshapeToFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, Value &flattenedSize,
+    llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
     int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
@@ -1108,22 +1151,17 @@ Value MemRefBuilder::reshapeToFlat(Value valToReshape,
     dimsToFlatten = inputRank;
   assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
          "out of range dimsToFlatten");
-  // Create scope to avoid issues.
-  IndexExprScope innerScope(getBuilderPtr(), loc());
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of flattened elements in new scope.
-  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
-  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d) {
-    numOfFlattenedElements = numOfFlattenedElements * SymbolIndexExpr(dims[d]);
-  }
-  // flattenedSize is an output value corresponding to the total number of
-  // elements that were flattened.
-  flattenedSize = numOfFlattenedElements.getValue();
-  if (dimsToFlatten == 1)
+  if (dimsToFlatten == 1) {
     // Flattening of the last dim is really no flattening at all. Return
     // original value before doing the actual reshaping, which is unnecessary.
-    // Waited until here as we need to return a valid flattenedSize,
+    flattenedDims = dims;
     return valToReshape;
+  }
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  // Compute total number of flattened elements.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = inputRank - dimsToFlatten; d < inputRank; ++d)
+    numOfFlattenedElements = numOfFlattenedElements * dims[d];
   // Shape for reshaping from N-D to M-D saved into memory.
   int64_t outputRank = (inputRank - dimsToFlatten) + 1;
   Type indexType = b().getIndexType();
@@ -1131,10 +1169,12 @@ Value MemRefBuilder::reshapeToFlat(Value valToReshape,
       alignedAlloc(MemRefType::get({outputRank}, indexType));
   llvm::SmallVector<int64_t, 4> outputShape;
   // Compute shape and store it in memory.
+  flattenedDims.clear();
   for (int64_t d = 0; d < outputRank; ++d) {
     Value dd = create.math.constantIndex(d);
     IndexExpr shapeIE =
         (d == outputRank - 1) ? numOfFlattenedElements : dims[d];
+    flattenedDims.emplace_back(shapeIE);
     create.affine.store(shapeIE.getValue(), outputShapeInMem, {dd});
     outputShape.emplace_back(shapeIE.getShape());
   }
@@ -1308,6 +1348,19 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
+void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
+    function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
+  MathBuilder createMath(*this);
+  Value stepVal = createMath.constantIndex(step);
+  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+      [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
+          ValueRange args) {
+        SCFBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVar);
+        yield();
+      });
+}
+
 void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
@@ -1465,17 +1518,79 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
   return shuffle(lhs, rhs, mask);
 }
 
+Value VectorBuilder::reduction(
+    VectorBuilder::CombiningKind kind, Value value) const {
+  Type type = value.getType();
+  switch (kind) {
+  case CombiningKind::ADD: {
+    return b().create<vector::ReductionOp>(
+        loc(), vector::CombiningKind::ADD, value);
+  }
+  case CombiningKind::MUL: {
+    return b().create<vector::ReductionOp>(
+        loc(), vector::CombiningKind::MUL, value);
+  }
+  case CombiningKind::MAX: {
+    if (MathBuilder::isUnsignedIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXUI, value);
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXSI, value);
+    if (MathBuilder::isFloatWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXF, value);
+    llvm_unreachable("unknown type in max");
+  }
+  case CombiningKind::MIN: {
+    if (MathBuilder::isUnsignedIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINUI, value);
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINSI, value);
+    if (MathBuilder::isFloatWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINF, value);
+    llvm_unreachable("unknown type in min");
+  }
+  case CombiningKind::AND: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::AND, value);
+    llvm_unreachable("unknown type in and");
+  }
+  case CombiningKind::OR: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::OR, value);
+    llvm_unreachable("unknown type in or");
+  }
+  case CombiningKind::XOR: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::XOR, value);
+    llvm_unreachable("unknown type in xor");
+  }
+  } // Switch.
+  llvm_unreachable("unknown combining kind");
+}
+
 // Do a parallel-simd reduction of N vectors of SIMD length VL.
 // Restrictions:
 // *  VL is the vector length of the machine SIMD vectors.
 // *  N is a multiple of VL as we can perform consecutive VL x VL
 //    reductions.
+// For example, when we passe N=VL input vectors, the output has one vector;
+// when we passe N=2VL input vectors, the output has 2 vectors...
+
 void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
-    SmallVectorImpl<Value> &outputVecArray) {
+    F2 reductionFct, SmallVectorImpl<Value> &outputVecArray) {
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
   uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  // TODO alex, should relax this
   assert(VL == machineVL && "only natural sizes supported at this time");
   assert(N % machineVL == 0 &&
          "can only reduces multiple of VL vectors at this time");
@@ -1494,17 +1609,21 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   // Reductions of full physical vectors.
   outputVecArray.clear();
   MultiDialectBuilder<MathBuilder> create(*this);
+  // Process each block of machineVL input vectors at a time.
   for (uint64_t r = 0; r < N; r += machineVL) {
     // Algorithm for the set of input arrays from tmp[r] to
     // tmp[r+machineVL-1].
-    uint64_t numPairs = machineVL / 2; // Pair number decrease by power of 2.
+    // With machineVL inputs, we have machineVL/2 initial pairs.
+    uint64_t numPairs = machineVL / 2;
+    // While we have pairs...
     for (uint64_t step = 1; step < machineVL; step = step * 2) {
+      // For each pair, reduce pair 2p and 2p+1 and save sum into p.
       for (uint64_t p = 0; p < numPairs; ++p) {
         Value highVal =
             mergeHigh(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
         Value lowVal =
             mergeLow(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
-        Value red = create.math.add(highVal, lowVal);
+        Value red = reductionFct(highVal, lowVal);
         tmpArray[r + p] = red;
       }
       numPairs = numPairs / 2; // Pair number decrease by power of 2.
@@ -1512,6 +1631,59 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     // Completed the machineVL x machineVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+int64_t VectorBuilder::SuitableUnrollFactor(VectorMachineSupport *vms,
+    MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
+    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+    int64_t &estimatedSimdLoopTripCount) const {
+  assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
+  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
+  Type elementType = memRefType.getElementType();
+  int64_t VL = vms->getVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
+  if (VL == 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
+    return 0;
+  }
+  MemRefBuilder createMem(*this);
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool isStaticSize = createMem.getStaticAndDynamicMemSize(
+      memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
+  if (isStaticSize && staticSize < VL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
+                            << " too short for a VL of " << VL << "\n");
+    return 0;
+  }
+  // Unless otherwise disabled, here is the estimated trip count.
+  estimatedSimdLoopTripCount = staticSize > 1 ? staticSize : -1;
+  if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
+    // Fully collapsed and can add padding to be fine
+    return maxSimdUnroll * VL;
+  }
+  // We have a partially flattened operator. Since we do only simdize entire
+  // loops (i.e. we don't support scalar epilogues at this time), make sure
+  // the static size is a multiple of the VL. Get the VL of the store
+  // (output's element type).
+  if (staticSize % VL != 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
+                            << collapsedInnermostLoops << " with size "
+                            << staticSize << " is not 0 mod VL " << VL << "\n");
+    return 0;
+  }
+  // See if we can get a unroll factor.
+  for (int64_t u = maxSimdUnroll; u > 0; --u) {
+    if (staticSize % (u * VL) == 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  partial flattened dims " << collapsedInnermostLoops
+                 << " with size " << staticSize << " works with VL " << VL
+                 << " and unroll " << u << "\n");
+      return u * VL;
+    }
+  }
+  llvm_unreachable("should always find u==1 feasible");
 }
 
 //===----------------------------------------------------------------------===//
@@ -1623,8 +1795,49 @@ Value LLVMBuilder::extractValue(
       loc(), resultType, container, position);
 }
 
-LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
-  return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
+LLVM::LLVMFuncOp LLVMBuilder::func(
+    StringRef funcName, Type funcType, bool createUniqueFunc) const {
+  // If createUniqueFunc, we create two functions: name and name_postfix.
+  // They have the same signatures and `name` will call `name_postfix`.
+  // `name_postfix` funtion is expected to be unique across all generated
+  // modules, allowing to run multiple models at the same time.
+  LLVM::LLVMFuncOp funcOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), funcName, funcType);
+  if (!createUniqueFunc)
+    return funcOp;
+
+  // Create uniqueFuncOp if there exists a postfix.
+  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition before
+  // `funcOp`.
+  b().setInsertionPoint(funcOp);
+  ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
+  std::string uniqueFuncName =
+      LLVMBuilder::SymbolPostfix(module, funcName.str());
+  if (uniqueFuncName == funcName.str())
+    return funcOp;
+
+  auto uniqueFuncType = cast<LLVM::LLVMFunctionType>(funcType);
+  LLVM::LLVMFuncOp uniqueFuncOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
+
+  // Call uniqueFuncOp inside funcOp.
+  Block *entryBlock = funcOp.addEntryBlock();
+  OpBuilder::InsertionGuard bodyGuard(b());
+  b().setInsertionPointToStart(entryBlock);
+  ValueRange args = entryBlock->getArguments();
+  TypeRange resultTypes = uniqueFuncType.getReturnTypes();
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
+    b().create<LLVM::CallOp>(loc(), ArrayRef<Type>({}), uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({}));
+  } else {
+    LLVM::CallOp callOp =
+        b().create<LLVM::CallOp>(loc(), resultTypes, uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({callOp.getResult()}));
+  }
+
+  return uniqueFuncOp;
 }
 
 Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
@@ -1634,9 +1847,17 @@ Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
-    uint64_t alignment) const {
-  return b().create<LLVM::GlobalOp>(loc(), resultType,
+    uint64_t alignment, bool uniqueName) const {
+  LLVM::GlobalOp gop = b().create<LLVM::GlobalOp>(loc(), resultType,
       /*isConstant=*/isConstant, linkage, name, valueAttr);
+  if (!uniqueName)
+    return gop;
+
+  // Append to `name` a unique string to make it unique across multiple
+  // generated LLVMIR.
+  ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
+  gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
+  return gop;
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
@@ -1667,6 +1888,10 @@ Value LLVMBuilder::null(Type type) const {
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {
   return b().create<LLVM::PtrToIntOp>(loc(), type, val);
+}
+
+void LLVMBuilder::_return() const {
+  b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>{});
 }
 
 void LLVMBuilder::_return(Value val) const {
@@ -1701,14 +1926,14 @@ void LLVMBuilder::ifThenElse(
   // Split the current block into IF, THEN, ELSE and END blocks.
   Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
   ifBlock = b().getInsertionBlock();
-  thenBlock = ifBlock->splitBlock(b().getInsertionPoint());
-  elseBlock = b().createBlock(
-      thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+  endBlock = ifBlock->splitBlock(b().getInsertionPoint());
+  thenBlock = b().createBlock(
+      ifBlock->getParent(), std::next(Region::iterator(ifBlock)));
   if (elseFn)
-    endBlock = b().createBlock(
-        elseBlock->getParent(), std::next(Region::iterator(elseBlock)));
+    elseBlock = b().createBlock(
+        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
   else
-    endBlock = elseBlock;
+    elseBlock = endBlock;
 
   // Emit code for the IF block.
   b().setInsertionPointToEnd(ifBlock);

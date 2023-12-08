@@ -76,6 +76,10 @@ union WideNum {
     case BType::FLOAT:
     case BType::FLOAT16:
     case BType::BFLOAT16:
+    case BType::FLOAT8E4M3FN:
+    case BType::FLOAT8E4M3FNUZ:
+    case BType::FLOAT8E5M2:
+    case BType::FLOAT8E5M2FNUZ:
       return static_cast<T>(dbl);
     default:
       llvm_unreachable("to unsupported btype");
@@ -100,6 +104,10 @@ union WideNum {
     case BType::FLOAT:
     case BType::FLOAT16:
     case BType::BFLOAT16:
+    case BType::FLOAT8E4M3FN:
+    case BType::FLOAT8E4M3FNUZ:
+    case BType::FLOAT8E5M2:
+    case BType::FLOAT8E5M2FNUZ:
       return WideNum(static_cast<double>(x)); // .dbl
     default:
       llvm_unreachable("from unsupported btype");

@@ -4,17 +4,17 @@
 // RUN: rm -rf %t && mkdir %t
 // RUN: cp %s %t/invalid_output_path.mlir
 
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t\abc 2>&1 | FileCheck --check-prefix=VALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/abc 2>&1 | FileCheck --check-prefix=VALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/abc. 2>&1 | FileCheck --check-prefix=VALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/abc.. 2>&1 | FileCheck --check-prefix=VALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/..abc.. 2>&1 | FileCheck --check-prefix=VALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t\abc 2>&1 | FileCheck --check-prefix=VALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t/abc 2>&1 | FileCheck --check-prefix=VALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t/abc. 2>&1 | FileCheck --check-prefix=VALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t/abc.. 2>&1 | FileCheck --check-prefix=VALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t/..abc.. 2>&1 | FileCheck --check-prefix=VALID %s
 
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t\\ 2>&1 | FileCheck --check-prefix=INVALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/ 2>&1 | FileCheck --check-prefix=INVALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o %t/. 2>&1 | FileCheck --check-prefix=INVALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o . 2>&1 | FileCheck --check-prefix=INVALID %s
-// RUN: onnx-mlir %t/invalid_output_path.mlir -v -o .. 2>&1 | FileCheck --check-prefix=INVALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t\\ 2>&1 | FileCheck --check-prefix=INVALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t/ 2>&1 | FileCheck --check-prefix=INVALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o %t/. 2>&1 | FileCheck --check-prefix=INVALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o . 2>&1 | FileCheck --check-prefix=INVALID %s
+// RUN: onnx-mlir %t/invalid_output_path.mlir -tag="test" -v -o .. 2>&1 | FileCheck --check-prefix=INVALID %s
 
 // INVALID: Invalid -o option value {{.*}} ignored.
 // VALID-NOT: Invalid -o option value {{.*}} ignored.

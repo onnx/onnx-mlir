@@ -8,7 +8,7 @@
 # Immutable global variables:
 #   - args, tempdir, result_dir, RUNTIME_DIR, TEST_DRIVER
 # Mutable global variables:
-#   - test_for_dynamic, test_for_constant, test_need_converter
+#   - test_for_dynamic, test_for_constant, test_for_constants_to_file, test_need_converter
 #   - real_model_tests, node_model_tests
 #   - test_to_enable_dict
 ################################################################################
@@ -23,6 +23,7 @@ import sys
 import argparse
 import tempfile
 
+
 # Reimplement strtobool per PEP 632 and python 3.12 deprecation
 def strtobool(s: str) -> bool:
     if s.lower() in ["y", "yes", "t", "true", "on", "1"]:
@@ -31,6 +32,7 @@ def strtobool(s: str) -> bool:
         return False
     else:
         raise ValueError(f"{s} cannot be converted to bool")
+
 
 def get_args_from_env():
     # Casting with "bool" does not work well. When you specify TEST_VERBOSE=xxx,
@@ -53,6 +55,8 @@ def get_args_from_env():
     TEST_INPUT_VERIFICATION = os.getenv("TEST_INPUT_VERIFICATION")
     TEST_COMPILERLIB = os.getenv("TEST_COMPILERLIB")
     TEST_INSTRUCTION_CHECK = os.getenv("TEST_INSTRUCTION_CHECK")
+    TEST_CONSTANTS_TO_FILE = os.getenv("TEST_CONSTANTS_TO_FILE")
+    TEST_NOFLOAT16 = os.getenv("TEST_NOFLOAT16")
 
     # Set ONNX_HOME to /tmp if not set to prevent onnx from downloading
     # real model files into home directory.
@@ -79,6 +83,27 @@ def get_args_from_env():
         help="enable constant input tests (default: false if TEST_CONSTANT env var not set)",
     )
     parser.add_argument(
+        "--constants_to_file",
+        action="store_true",
+        default=(
+            strtobool(TEST_CONSTANTS_TO_FILE) if TEST_CONSTANTS_TO_FILE else False
+        ),
+        help="whether store constants to file or not, passed to the compiler",
+    )
+    parser.add_argument(
+        "--nofloat16",
+        action="store_true",
+        default=(strtobool(TEST_NOFLOAT16) if TEST_NOFLOAT16 else False),
+        help="whether to disable float16 backend tests",
+    )
+    parser.add_argument(
+        "--constants_to_file_total_threshold",
+        type=float,
+        default=(0.000001 if TEST_CONSTANTS_TO_FILE else 2),
+        help="total threshold to trigger constants to file. Set it to a small "
+        "value, 1024 bytes, since models in the model zoo are small",
+    )
+    parser.add_argument(
         "--compilerlib",
         action="store_true",
         default=(strtobool(TEST_COMPILERLIB) if TEST_COMPILERLIB else False),
@@ -87,13 +112,17 @@ def get_args_from_env():
     parser.add_argument(
         "--input_verification",
         action="store_true",
-        default=(strtobool(TEST_INPUT_VERIFICATION) if TEST_INPUT_VERIFICATION else False),
+        default=(
+            strtobool(TEST_INPUT_VERIFICATION) if TEST_INPUT_VERIFICATION else False
+        ),
         help="enable input verification tests (default: false if TEST_INPUT_VERIFICATION env var not set)",
     )
     parser.add_argument(
         "--instruction_check",
         action="store_true",
-        default=(strtobool(TEST_INSTRUCTION_CHECK) if TEST_INSTRUCTION_CHECK else False),
+        default=(
+            strtobool(TEST_INSTRUCTION_CHECK) if TEST_INSTRUCTION_CHECK else False
+        ),
         help="check if specific instruction is included in generated library (default: false if TEST_INSTRUCTION_CHECK env var not set)",
     )
     parser.add_argument(
@@ -185,7 +214,6 @@ def get_args_from_env():
         default=(strtobool(TEST_CASE_CHECK) if TEST_CASE_CHECK else False),
         help="report the change of test cases (default: false if TEST_CASE_CHECK env var not set)",
     )
-        
     parser.add_argument("unittest_args", nargs="*")
     args = parser.parse_args()
     return args
@@ -215,8 +243,8 @@ def get_runtime_vars():
     if args.maccel:
         print("  targeting maccel:", args.maccel, file=sys.stderr)
 
-    RUNTIME_DIR = ''
-    TEST_DRIVER = ''
+    RUNTIME_DIR = ""
+    TEST_DRIVER = ""
     if args.compilerlib:
         import test_config_compilerlib
 
@@ -248,6 +276,8 @@ def get_runtime_vars():
 STATIC_SHAPE = "static"
 DYNAMIC_SHAPE = "dynamic"
 CONSTANT_INPUT = "constant"
+CONSTANTS_TO_FILE = "constants_to_file"
+FLOAT16 = "float16"
 
 ### immutable variables ###
 
@@ -273,10 +303,16 @@ except NameError:
 
 # test_xxx
 try:
-    _, _, _ = test_for_dynamic, test_for_constant, test_need_converter
+    _, _, _, _ = (
+        test_for_dynamic,
+        test_for_constant,
+        test_for_constants_to_file,
+        test_need_converter,
+    )
 except NameError:
     test_for_dynamic = []
     test_for_constant = []
+    test_for_constants_to_file = []
     test_need_converter = []
 
 # real_model_tests, node_model_tests

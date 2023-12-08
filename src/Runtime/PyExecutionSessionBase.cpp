@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Support/SmallFP.hpp"
 #include "src/Support/SuppressWarnings.h"
 
 SUPPRESS_WARNINGS_PUSH
@@ -21,20 +22,58 @@ SUPPRESS_WARNINGS_POP
 
 #include "PyExecutionSessionBase.hpp"
 
+namespace pybind11 {
+namespace detail {
+
+// Note: Since float16 is not a builtin type in C++, we register
+// onnx_mlir::float_16 as numpy.float16.
+// Ref: https://github.com/pybind/pybind11/issues/1776
+//
+// This implementation is copied from https://github.com/PaddlePaddle/Paddle
+template <>
+struct npy_format_descriptor<onnx_mlir::float_16> {
+  static py::dtype dtype() {
+    // Note: use same enum number of float16 in numpy.
+    // import numpy as np
+    // print np.dtype(np.float16).num  # 23
+    constexpr int NPY_FLOAT16 = 23;
+    handle ptr = npy_api::get().PyArray_DescrFromType_(NPY_FLOAT16);
+    return reinterpret_borrow<py::dtype>(ptr);
+  }
+  static std::string format() {
+    // Note: "e" represents float16.
+    // Details at:
+    // https://docs.python.org/3/library/struct.html#format-characters.
+    return "e";
+  }
+  static constexpr auto name = _("float16");
+};
+
+} // namespace detail
+} // namespace pybind11
+
 namespace onnx_mlir {
 
 PyExecutionSessionBase::PyExecutionSessionBase(
-    std::string sharedLibPath, bool defaultEntryPoint)
-    : onnx_mlir::ExecutionSession(sharedLibPath, defaultEntryPoint) {}
+    std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
+    : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
+
+// =============================================================================
+// Run.
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
     const std::vector<py::array> &inputsPyArray) {
-  assert(_entryPointFunc && "Entry point not loaded.");
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
+  if (!_entryPointFunc)
+    throw std::runtime_error(reportUndefinedEntryPointIn("run"));
 
+  // 1. Process inputs.
   std::vector<OMTensor *> omts;
   for (auto inputPyArray : inputsPyArray) {
-    assert(inputPyArray.flags() && py::array::c_style &&
-           "Expect contiguous python array.");
+    if (!inputPyArray.flags() || !py::array::c_style)
+      throw std::runtime_error(
+          reportPythonError("Expect contiguous python array."));
 
     void *dataPtr;
     int64_t ownData = 0;
@@ -69,7 +108,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     // string type missing
     else if (py::isinstance<py::array_t<bool>>(inputPyArray))
       dtype = ONNX_TYPE_BOOL;
-    // Missing fp16 support.
+    else if (py::isinstance<py::array_t<float_16>>(inputPyArray))
+      dtype = ONNX_TYPE_FLOAT16;
     else if (py::isinstance<py::array_t<double>>(inputPyArray))
       dtype = ONNX_TYPE_DOUBLE;
     else if (py::isinstance<py::array_t<std::uint32_t>>(inputPyArray))
@@ -82,9 +122,10 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_COMPLEX128;
     // Missing bfloat16 support
     else {
-      std::cerr << "Numpy type not supported: " << inputPyArray.dtype()
-                << ".\n";
-      exit(1);
+      std::stringstream errStr;
+      errStr << "Numpy type not supported: " << inputPyArray.dtype()
+             << std::endl;
+      throw std::runtime_error(reportPythonError(errStr.str()));
     }
 
     // Convert Py_ssize_t to int64_t if necessary
@@ -107,10 +148,13 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     omts.emplace_back(inputOMTensor);
   }
 
+  // 2. Call entry point.
   auto *wrappedInput = omTensorListCreate(&omts[0], omts.size());
   auto *wrappedOutput = _entryPointFunc(wrappedInput);
   if (!wrappedOutput)
     throw std::runtime_error(reportErrnoError());
+
+  // 3. Process outputs.
   std::vector<py::array> outputPyArrays;
   for (int64_t i = 0; i < omTensorListGetSize(wrappedOutput); i++) {
     auto *omt = omTensorListGetOmtByIndex(wrappedOutput, i);
@@ -148,7 +192,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = py::dtype("bool_");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::FLOAT16:
-      dtype = py::dtype("float32");
+      dtype = py::dtype("float16");
       break;
     case (OM_DATA_TYPE)onnx::TensorProto::DOUBLE:
       dtype = py::dtype("float64");
@@ -165,10 +209,13 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     case (OM_DATA_TYPE)onnx::TensorProto::COMPLEX128:
       dtype = py::dtype("cdouble");
       break;
-    default:
-      std::cerr << "Unsupported ONNX type in OMTensor: "
-                << omTensorGetDataType(omt) << ".\n";
-      exit(1);
+    default: {
+      std::stringstream errStr;
+      errStr << "Unsupported ONNX type in OMTensor: "
+             << omTensorGetDataType(omt) << std::endl;
+
+      throw std::runtime_error(reportPythonError(errStr.str()));
+    }
     }
 
     outputPyArrays.emplace_back(
@@ -180,11 +227,16 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
   return outputPyArrays;
 }
 
+// =============================================================================
+// Setter and getter.
+
 void PyExecutionSessionBase::pySetEntryPoint(std::string entryPointName) {
   setEntryPoint(entryPointName);
 }
 
 std::vector<std::string> PyExecutionSessionBase::pyQueryEntryPoints() {
+  if (!isInitialized)
+    throw std::runtime_error(reportInitError());
   assert(_queryEntryPointsFunc && "Query entry point not loaded.");
   const char **entryPointArr = _queryEntryPointsFunc(NULL);
 
@@ -198,13 +250,23 @@ std::vector<std::string> PyExecutionSessionBase::pyQueryEntryPoints() {
 }
 
 std::string PyExecutionSessionBase::pyInputSignature() {
-  assert(_inputSignatureFunc && "Input signature entry point not loaded.");
   return inputSignature();
 }
 
 std::string PyExecutionSessionBase::pyOutputSignature() {
-  assert(_outputSignatureFunc && "Output signature entry point not loaded.");
   return outputSignature();
+}
+
+// =============================================================================
+// Error reporting
+
+std::string PyExecutionSessionBase::reportPythonError(
+    std::string errorStr) const {
+  errno = EFAULT; // Bad Address.
+  std::stringstream errStr;
+  errStr << "Execution session: encountered python error `" << errorStr << "'."
+         << std::endl;
+  return errStr.str();
 }
 
 } // namespace onnx_mlir

@@ -4,7 +4,8 @@
 
 We provide here directions to install ONNX-MLIR on Linux and OSX.
 On Mac, there are a couple of commands that are different.
-These differences will be listed in the explanation below, when relevant.
+These differences will be listed in the explanation below, when relevant. Installing ONNX-MLIR on Apple silicon is natively supported and it is recommended to use brew to manage prerequisites.
+
 
 ## MLIR
 
@@ -14,7 +15,7 @@ Firstly, install MLIR (as a part of LLVM-Project):
 ``` bash
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout 6cf7fe4a9a715bcdf3f4913753109e22dfc9940b && cd ..
+cd llvm-project && git checkout d13da154a7c7eff77df8686b2de1cfdfa7cc7029 && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.sh)
@@ -41,7 +42,7 @@ The `MLIR_DIR` cmake variable must be set before building onnx-mlir. It should p
 
 This project uses lit ([LLVM's Integrated Tester](https://llvm.org/docs/CommandGuide/lit.html)) for unit tests. When running cmake, we can also specify the path to the lit tool from LLVM using the `LLVM_EXTERNAL_LIT` variable but it is not required as long as MLIR_DIR points to a build directory of llvm-project. If `MLIR_DIR` points to an install directory of llvm-project, `LLVM_EXTERNAL_LIT` is required.
 
-To build ONNX-MLIR, use the following commands:
+To build ONNX-MLIR, use the following commands (maybe with additional `-DCMAKE_CXX_FLAGS` argument described [below](#enable-cpu-optimizations)):
 
 [same-as-file]: <> ({"ref": "utils/install-onnx-mlir.sh", "skip-doc": 2})
 ```bash
@@ -75,9 +76,16 @@ The environment variable `$pythonLocation` may be used to specify the base direc
 
 After the above commands succeed, an `onnx-mlir` executable should appear in the `Debug/bin` or `Release/bin` directory.
 
+### Enable CPU Optimizations
+
+To make the compiler run faster (without any affect on the generated code)
+you can pass `-DCMAKE_CXX_FLAGS=-march=native` to the `cmake -G Ninja ..` build configuration step above to generate code that exploits all the features of your local CPU, at the expense of portability. Or you can enable a specific CPU feature, e.g. `-DCMAKE_CXX_FLAGS=-mf16c` to enable the F16C feature to enable native conversion between float16 and (32 bit) float. It is used in `src/Support/SmallFP.hpp`.
+
 ### Known MacOS Issues
 
-There is a known issue when building onnx-mlir. If you see a error of this sorts:
+#### jsoniter issue
+
+There is a known issue when building onnx-mlir. If you see an error of this sorts:
 
 ``` shell
 Cloning into '/home/user/onnx-mlir/build/src/Runtime/jni/jsoniter'...
@@ -90,6 +98,22 @@ make: *** [Makefile:146: all] Error 2.
 ```
 
 The suggested workaround until jsoniter is fixed is as follows: install maven (e.g. `brew install maven`) and run `alias nproc="sysctl -n hw.logicalcpu"` in your shell.
+
+#### Protobuf issue (Mac M1, specific to protobuf 3.20.3 which is currently required)
+
+On Mac M1, you may have some issues building protobuf. In particular, you may fail to install onnx (via `pip install -e third_party/onnx`) or you may fail to compile `onnx-mlir` (no arm64 symbol for `InternalMetadata::~InternalMetadata`).
+
+The first failure is likely an issue with having multiple versions of protobuf.
+Installing a version with `brew` was not helpful (version 3.20.3 because of a known bug that can be corrected with a patch below).
+Uninstall the brew version, and make sure you install the right one with pip: `pip install protobuf==3.20.3`.
+
+The second failure can be remediated by downloading protobuf source code, applying a patch, and installing it on the local machine.
+See [Dockerfile.llvm-project](../docker/Dockerfile.llvm-project) on line 66 for cloning instructions. After cloning the right version, you should apply a patch [patch](https://github.com/protocolbuffers/protobuf/commit/0574167d92a232cb8f5a9107aabda0aefbc39e8b) by downloading from the link above and applying it.
+Then you should follow the steps in the [Dockerfile.llvm-project](../docker/Dockerfile.llvm-project) file (skipped the `ldconfig` step without consequences).
+You may have to brew a couple of the tools, see the `yum install` in the `Dockerfile.llvm-project` file above.
+You should then be able to successfully install protobuf and compile `onnx-mlir`.
+As the dependences between `third_party` and `onnx-mlir` might cause issues, it is always safe to delete the `third_party` directory, reinstall using `git submodule update --init --recursive`, reinstall `onnx`, delete `onnx-mlir/build` and rebuild `onnx-mlir` from scratch.
+
 
 ### Trouble shooting build issues
 

@@ -79,6 +79,7 @@ struct ONNXLayoutTransformOpLowering
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

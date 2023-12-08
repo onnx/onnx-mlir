@@ -32,7 +32,7 @@ def ONNXAbsOp:ONNX_Op<"Abs",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -61,7 +61,7 @@ def ONNXAcosOp:ONNX_Op<"Acos",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -90,7 +90,7 @@ def ONNXAcoshOp:ONNX_Op<"Acosh",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -145,7 +145,7 @@ def ONNXAddOp:ONNX_Op<"Add",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -308,7 +308,7 @@ def ONNXAsinOp:ONNX_Op<"Asin",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -337,7 +337,7 @@ def ONNXAsinhOp:ONNX_Op<"Asinh",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -366,7 +366,7 @@ def ONNXAtanOp:ONNX_Op<"Atan",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -395,7 +395,7 @@ def ONNXAtanhOp:ONNX_Op<"Atanh",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -424,11 +424,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
    ```
    output_spatial_shape[i] = ceil((input_spatial_shape[i] + pad_shape[i] - ((kernel_spatial_shape[i] - 1) * dilations[i] + 1)) / strides_spatial_shape[i] + 1)
    ```
-   if ceil_mode is enabled
-  
-   ```
-   * pad_shape[i] is sum of pads along axis i
-   ```
+   if ceil_mode is enabled `pad_shape[i]` is the sum of pads along axis `i`.
   
    `auto_pad` is a DEPRECATED attribute. If you are using them currently, the output spatial shape will be following:
    ```
@@ -446,6 +442,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
     DefaultValuedStrAttr<StrAttr, "NOTSET">:$auto_pad,
     DefaultValuedAttr<SI64Attr, "0">:$ceil_mode,
     DefaultValuedAttr<SI64Attr, "0">:$count_include_pad,
+    OptionalAttr<I64ArrayAttr>:$dilations,
     I64ArrayAttr:$kernel_shape,
     OptionalAttr<I64ArrayAttr>:$pads,
     OptionalAttr<I64ArrayAttr>:$strides);
@@ -458,7 +455,7 @@ def ONNXAveragePoolOp:ONNX_Op<"AveragePool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -535,7 +532,7 @@ def ONNXBatchNormalizationOp:ONNX_Op<"BatchNormalization",
       return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {20,23,23};
+      return {30,33,33};
     }
   }];
   let extraClassDefinition = [{
@@ -613,7 +610,7 @@ def ONNXBitShiftOp:ONNX_Op<"BitShift",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -647,7 +644,7 @@ def ONNXBitwiseAndOp:ONNX_Op<"BitwiseAnd",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -677,7 +674,7 @@ def ONNXBitwiseNotOp:ONNX_Op<"BitwiseNot",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -710,7 +707,7 @@ def ONNXBitwiseOrOp:ONNX_Op<"BitwiseOr",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -744,7 +741,7 @@ def ONNXBitwiseXorOp:ONNX_Op<"BitwiseXor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -814,7 +811,8 @@ def ONNXCastOp:ONNX_Op<"Cast",
   For example, a 64-bit float 3.1415926459 may be round to a 32-bit float 3.141592. Similarly, converting
   an integer 36 to Boolean may produce 1 because we truncate bits which can't be stored in the targeted type.
   
-  In more detail, the conversion among numerical types should follow these rules:
+  In more detail, the conversion among numerical types should follow these rules
+  if the destination type is not a float 8 type.
   
   * Casting from floating point to:
     * floating point: +/- infinity if OOR (out of range).
@@ -829,10 +827,39 @@ def ONNXCastOp:ONNX_Op<"Cast",
     * floating point: `{1.0, 0.0}`.
     * fixed point: `{1, 0}`.
     * bool: no change.
+  
+  Float 8 type were introduced to speed up the training of
+  deep models. By default the conversion of a float *x* obeys
+  to the following rules. `[x]` means the value rounded to
+  the target mantissa width.
+  
+  | x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+  |------|----|----|----|----|
+  | 0 | 0 | 0 | 0 | 0 |
+  |-0 | -0 | 0 | -0 | 0 |
+  | NaN | NaN | NaN | NaN | NaN |
+  | +/- Inf | +/- FLT_MAX | NaN | FLT_MAX | NaN |
+  | [x] > FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX | FLT_MAX |
+  | [x] < -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+  | else | RNE | RNE | RNE | RNE |
+  
+  The behavior changes if the parameter 'saturate' is set to False.
+  The rules then become:
+  
+  | x | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+  |------|----|----|----|----|
+  | 0 | 0 | 0 | 0 | 0 |
+  |-0 | -0 | 0 | -0 | 0 |
+  | NaN | NaN | NaN | NaN | NaN |
+  | +/- Inf | NaN | NaN | +/- Inf | NaN |
+  | [x] > FLT_MAX | NaN | NaN | Inf | NaN |
+  | [x] < -FLT_MAX | NaN | NaN | -Inf | NaN |
+  | else | RNE | RNE | RNE | RNE |
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$input,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$input,
+    DefaultValuedAttr<SI64Attr, "1">:$saturate,
     TypeAttr:$to);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -853,9 +880,9 @@ def ONNXCastOp:ONNX_Op<"Cast",
     }
   }];
    let builders = [
-  OpBuilder<(ins "Value":$input, "TypeAttr":$to), [{
+  OpBuilder<(ins "Value":$input, "IntegerAttr":$saturate, "TypeAttr":$to), [{
    auto resultType = mlir::UnrankedTensorType::get(to.getValue());
-   build($_builder, $_state, resultType, input, to);
+   build($_builder, $_state, resultType, input, saturate, to);
   }] >
   ];
 }
@@ -868,9 +895,10 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
   the same data type as the elements of the second input tensor.
   See documentation of the Cast operator for further details.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$input,
-    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$target_type);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$input,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$target_type,
+    DefaultValuedAttr<SI64Attr, "1">:$saturate);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[StringType]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -879,7 +907,7 @@ def ONNXCastLikeOp:ONNX_Op<"CastLike",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {21};
+      return {31};
     }
   }];
   let extraClassDefinition = [{
@@ -910,7 +938,7 @@ def ONNXCeilOp:ONNX_Op<"Ceil",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -984,7 +1012,7 @@ def ONNXCenterCropPadOp:ONNX_Op<"CenterCropPad",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1017,7 +1045,7 @@ def ONNXClipOp:ONNX_Op<"Clip",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1050,7 +1078,7 @@ def ONNXClipV12Op:ONNX_Op<"ClipV12",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1083,7 +1111,7 @@ def ONNXClipV11Op:ONNX_Op<"ClipV11",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1116,7 +1144,7 @@ def ONNXClipV6Op:ONNX_Op<"ClipV6",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1159,7 +1187,7 @@ def ONNXCol2ImOp:ONNX_Op<"Col2Im",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1193,7 +1221,7 @@ def ONNXCompressOp:ONNX_Op<"Compress",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1224,7 +1252,7 @@ def ONNXConcatOp:ONNX_Op<"Concat",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1290,7 +1318,7 @@ def ONNXConstantOp:ONNX_Op<"Constant",
     OptionalAttr<I64ArrayAttr>:$value_ints,
     OptionalAttr<StrAttr>:$value_string,
     OptionalAttr<StrArrayAttr>:$value_strings);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 0;
@@ -1393,7 +1421,7 @@ def ONNXConvOp:ONNX_Op<"Conv",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -1485,7 +1513,7 @@ def ONNXConvTransposeOp:ONNX_Op<"ConvTranspose",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1515,7 +1543,7 @@ def ONNXCosOp:ONNX_Op<"Cos",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1544,7 +1572,7 @@ def ONNXCoshOp:ONNX_Op<"Cosh",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1595,7 +1623,7 @@ def ONNXCumSumOp:ONNX_Op<"CumSum",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1628,13 +1656,53 @@ def ONNXDFTOp:ONNX_Op<"DFT",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
       onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDFTOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXDeformConvOp:ONNX_Op<"DeformConv",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX DeformConv operation";
+  let description = [{
+  Performs deformable convolution as described in https://arxiv.org/abs/1703.06211 and https://arxiv.org/abs/1811.11168.
+  This operator specification supports the general N-D case. Note that most common use cases have 2D or 3D data.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$W,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$offset,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$B,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$mask,
+    OptionalAttr<I64ArrayAttr>:$dilations,
+    DefaultValuedAttr<SI64Attr, "1">:$group,
+    OptionalAttr<I64ArrayAttr>:$kernel_shape,
+    DefaultValuedAttr<SI64Attr, "1">:$offset_group,
+    OptionalAttr<I64ArrayAttr>:$pads,
+    OptionalAttr<I64ArrayAttr>:$strides);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$Y);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 5;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXDeformConvOpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }
@@ -1682,7 +1750,7 @@ def ONNXDepthToSpaceOp:ONNX_Op<"DepthToSpace",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1705,12 +1773,14 @@ def ONNXDequantizeLinearOp:ONNX_Op<"DequantizeLinear",
   for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantization.
   `x_zero_point` and `x` must have same type. `x` and `y` must have same shape. In the case of dequantizing int32,
   there's no zero point (zero point is supposed to be 0).
+  `zero-point` is usually not used in the case of float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz quantization,
+  but the dequantization formula remains the same for consistency and 'x_scale' still determines the output type.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I32]>]>:$x,
-    TensorOf<[F32]>:$x_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I32]>, NoneType]>:$x_zero_point,
+  let arguments = (ins AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I32]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$x,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$x_scale,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[I32]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, NoneType]>:$x_zero_point,
     DefaultValuedAttr<SI64Attr, "1">:$axis);
-  let results = (outs TensorOf<[F32]>:$y);
+  let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -1753,7 +1823,7 @@ def ONNXDetOp:ONNX_Op<"Det",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1808,7 +1878,7 @@ def ONNXDivOp:ONNX_Op<"Div",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -1854,7 +1924,7 @@ def ONNXDropoutOp:ONNX_Op<"Dropout",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,9};
+      return {30,9};
     }
   }];
   let extraClassDefinition = [{
@@ -1965,7 +2035,7 @@ def ONNXEinsumOp:ONNX_Op<"Einsum",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -1999,7 +2069,7 @@ def ONNXEluOp:ONNX_Op<"Elu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2022,8 +2092,8 @@ def ONNXEqualOp:ONNX_Op<"Equal",
   
   This operator supports **multidirectional (i.e., Numpy-style) broadcasting**; for more details please check [the doc](Broadcasting.md).
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
-    AnyTypeOf<[TensorOf<[I1]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
+  let arguments = (ins AnyTypeOf<[TensorOf<[I1]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[StringType]>]>:$A,
+    AnyTypeOf<[TensorOf<[I1]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[StringType]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
   let builders = [
     OpBuilder<(ins "Value":$A, "Value":$B), [{
@@ -2085,7 +2155,7 @@ def ONNXErfOp:ONNX_Op<"Erf",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2124,7 +2194,7 @@ def ONNXExpOp:ONNX_Op<"Exp",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -2161,7 +2231,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2231,7 +2301,7 @@ def ONNXFlattenOp:ONNX_Op<"Flatten",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2263,7 +2333,7 @@ def ONNXFloorOp:ONNX_Op<"Floor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2353,7 +2423,7 @@ def ONNXGRUOp:ONNX_Op<"GRU",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,20};
+      return {30,30};
     }
   }];
   let extraClassDefinition = [{
@@ -2431,7 +2501,7 @@ def ONNXGatherOp:ONNX_Op<"Gather",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2513,7 +2583,7 @@ def ONNXGatherElementsOp:ONNX_Op<"GatherElements",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2635,7 +2705,7 @@ def ONNXGatherNDOp:ONNX_Op<"GatherND",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2682,7 +2752,7 @@ def ONNXGemmOp:ONNX_Op<"Gemm",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2714,7 +2784,7 @@ def ONNXGlobalAveragePoolOp:ONNX_Op<"GlobalAveragePool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2746,7 +2816,7 @@ def ONNXGlobalLpPoolOp:ONNX_Op<"GlobalLpPool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2778,7 +2848,7 @@ def ONNXGlobalMaxPoolOp:ONNX_Op<"GlobalMaxPool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2860,26 +2930,48 @@ def ONNXGreaterOrEqualOp:ONNX_Op<"GreaterOrEqual",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {9};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOrEqualOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
-  let hasVerifier = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXGreaterOrEqualOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasVerifier = 1;
 }
 
 def ONNXGridSampleOp:ONNX_Op<"GridSample",
@@ -2914,7 +3006,7 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -2961,7 +3053,7 @@ def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3056,7 +3148,7 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3087,7 +3179,7 @@ def ONNXHardSwishOp:ONNX_Op<"HardSwish",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3123,7 +3215,7 @@ def ONNXHardmaxOp:ONNX_Op<"Hardmax",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3144,8 +3236,8 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
   let description = [{
   Identity operator
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$input);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$output);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$input);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>:$output);
   let builders = [
     OpBuilder<(ins "Value":$input), [{
       auto resultType = UnrankedTensorType::get(input.getType().cast<ShapedType>().getElementType());
@@ -3164,7 +3256,7 @@ def ONNXIdentityOp:ONNX_Op<"Identity",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -3184,7 +3276,7 @@ def ONNXIfOp:ONNX_Op<"If",
   If conditional
   }];
   let arguments = (ins TensorOf<[I1]>:$cond);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$outputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[F8E4M3FN]>]>, SeqOf<[TensorOf<[F8E4M3FNUZ]>]>, SeqOf<[TensorOf<[F8E5M2]>]>, SeqOf<[TensorOf<[F8E5M2FNUZ]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, OptOf<TensorOf<[F8E4M3FN]>>, OptOf<TensorOf<[F8E4M3FNUZ]>>, OptOf<TensorOf<[F8E5M2]>>, OptOf<TensorOf<[F8E5M2FNUZ]>>]>>:$outputs);
   let regions = (region SizedRegion<1>:$then_branch,
     SizedRegion<1>:$else_branch);
   let extraClassDeclaration = [{
@@ -3238,7 +3330,7 @@ def ONNXInstanceNormalizationOp:ONNX_Op<"InstanceNormalization",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3342,7 +3434,7 @@ def ONNXLRNOp:ONNX_Op<"LRN",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3438,7 +3530,7 @@ def ONNXLSTMOp:ONNX_Op<"LSTM",
       return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {20,20,20};
+      return {30,30,30};
     }
   }];
   let extraClassDefinition = [{
@@ -3512,7 +3604,7 @@ def ONNXLayerNormalizationOp:ONNX_Op<"LayerNormalization",
       return 3;
     }
     static std::vector<int> getTypeMap() {
-      return {20,1,1};
+      return {30,1,1};
     }
   }];
   let extraClassDefinition = [{
@@ -3544,7 +3636,7 @@ def ONNXLeakyReluOp:ONNX_Op<"LeakyRelu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3626,26 +3718,48 @@ def ONNXLessOrEqualOp:ONNX_Op<"LessOrEqual",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$A,
     AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$B);
   let results = (outs TensorOf<[I1]>:$C);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {9};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOrEqualOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
-  let hasVerifier = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$A, "Value":$B), [{
+      auto lhsTy = A.getType();
+      auto rhsTy = B.getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, resultType, A, B);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto lhsTy = operands[0].getType();
+      auto rhsTy = operands[1].getType();
+      auto elTy = $_builder.getI1Type();
+      auto resultType = getBroadcastedRankedType(lhsTy, rhsTy, elTy);
+      auto shapedType = resultType.dyn_cast_or_null<ShapedType>();
+      if (!shapedType || !shapedType.hasStaticShape())
+        resultType = UnrankedTensorType::get(elTy);
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {9};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXLessOrEqualOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+    let hasVerifier = 1;
 }
 
 def ONNXLogOp:ONNX_Op<"Log",
@@ -3664,7 +3778,7 @@ def ONNXLogOp:ONNX_Op<"Log",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3700,7 +3814,7 @@ def ONNXLogSoftmaxOp:ONNX_Op<"LogSoftmax",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3857,8 +3971,8 @@ def ONNXLoopOp:ONNX_Op<"Loop",
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$M,
     AnyTypeOf<[TensorOf<[I1]>, NoneType]>:$cond,
-    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$v_initial);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>]>>:$v_final_and_scan_outputs);
+    Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[F8E4M3FN]>]>, SeqOf<[TensorOf<[F8E4M3FNUZ]>]>, SeqOf<[TensorOf<[F8E5M2]>]>, SeqOf<[TensorOf<[F8E5M2FNUZ]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, OptOf<TensorOf<[F8E4M3FN]>>, OptOf<TensorOf<[F8E4M3FNUZ]>>, OptOf<TensorOf<[F8E5M2]>>, OptOf<TensorOf<[F8E5M2FNUZ]>>]>>:$v_initial);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[F8E4M3FN]>]>, SeqOf<[TensorOf<[F8E4M3FNUZ]>]>, SeqOf<[TensorOf<[F8E5M2]>]>, SeqOf<[TensorOf<[F8E5M2FNUZ]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, OptOf<TensorOf<[F8E4M3FN]>>, OptOf<TensorOf<[F8E4M3FNUZ]>>, OptOf<TensorOf<[F8E5M2]>>, OptOf<TensorOf<[F8E5M2FNUZ]>>]>>:$v_final_and_scan_outputs);
   let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -3868,7 +3982,7 @@ def ONNXLoopOp:ONNX_Op<"Loop",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {32};
     }
 
     mlir::Operation::result_range v_final();
@@ -3906,7 +4020,7 @@ def ONNXLpNormalizationOp:ONNX_Op<"LpNormalization",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3964,7 +4078,7 @@ def ONNXLpPoolOp:ONNX_Op<"LpPool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -3994,7 +4108,7 @@ def ONNXMatMulOp:ONNX_Op<"MatMul",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4059,7 +4173,7 @@ def ONNXMaxOp:ONNX_Op<"Max",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4121,7 +4235,7 @@ def ONNXMaxPoolOp:ONNX_Op<"MaxPool",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,7};
+      return {30,7};
     }
   }];
   let extraClassDefinition = [{
@@ -4155,7 +4269,7 @@ def ONNXMaxRoiPoolOp:ONNX_Op<"MaxRoiPool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4206,7 +4320,7 @@ def ONNXMaxUnpoolOp:ONNX_Op<"MaxUnpool",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4237,7 +4351,7 @@ def ONNXMeanOp:ONNX_Op<"Mean",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4269,7 +4383,7 @@ def ONNXMeanVarianceNormalizationOp:ONNX_Op<"MeanVarianceNormalization",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4341,7 +4455,7 @@ def ONNXMinOp:ONNX_Op<"Min",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4377,7 +4491,7 @@ def ONNXMishOp:ONNX_Op<"Mish",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4420,7 +4534,7 @@ def ONNXModOp:ONNX_Op<"Mod",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4476,7 +4590,7 @@ def ONNXMulOp:ONNX_Op<"Mul",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -4551,7 +4665,7 @@ def ONNXNegOp:ONNX_Op<"Neg",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -4684,7 +4798,7 @@ def ONNXNegativeLogLikelihoodLossOp:ONNX_Op<"NegativeLogLikelihoodLoss",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -4837,7 +4951,7 @@ def ONNXOneHotOp:ONNX_Op<"OneHot",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {32};
     }
   }];
   let extraClassDefinition = [{
@@ -5022,7 +5136,7 @@ def ONNXPReluOp:ONNX_Op<"PRelu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5050,6 +5164,8 @@ def ONNXPadOp:ONNX_Op<"Pad",
   2) `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis
   
   3) `edge` - pads with the edge values of array
+  
+  4) `wrap` - wrap-around padding as if the data tensor forms a torus
   
   
   Example 1 (`constant` mode):
@@ -5115,6 +5231,29 @@ def ONNXPadOp:ONNX_Op<"Pad",
       [4.5, 4.5, 4.5, 5.7],
   ]
   ```
+  
+  Example 4 (`wrap` mode):
+  
+  ```
+  data = [
+      [1.0, 1.2],
+      [2.3, 3.4],
+      [4.5, 5.7],
+  ]
+  
+  pads = [2, 1, 1, 1]
+  
+  mode = 'wrap'
+  
+  output = [
+      [3.4, 2.3, 3.4, 2.3],
+      [5.7, 4.5, 5.7, 4.5],
+      [1.2, 1.0, 1.2, 1.0],
+      [3.4, 2.3, 3.4, 2.3],
+      [5.7, 4.5, 5.7, 4.5],
+      [1.2, 1.0, 1.2, 1.0],
+  ]
+  ```
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
     TensorOf<[I64]>:$pads,
@@ -5140,7 +5279,7 @@ def ONNXPadOp:ONNX_Op<"Pad",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -5247,7 +5386,7 @@ def ONNXPadV13Op:ONNX_Op<"PadV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5353,7 +5492,7 @@ def ONNXPadV11Op:ONNX_Op<"PadV11",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5400,7 +5539,7 @@ def ONNXPadV2Op:ONNX_Op<"PadV2",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5454,7 +5593,7 @@ def ONNXPowOp:ONNX_Op<"Pow",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -5504,7 +5643,7 @@ def ONNXQLinearConvOp:ONNX_Op<"QLinearConv",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {27};
+      return {37};
     }
   }];
   let extraClassDefinition = [{
@@ -5550,7 +5689,7 @@ def ONNXQLinearMatMulOp:ONNX_Op<"QLinearMatMul",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {27};
+      return {37};
     }
   }];
   let extraClassDefinition = [{
@@ -5569,15 +5708,20 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
   let description = [{
   The linear quantization operator. It consumes a high precision tensor, a scale, and a zero point to compute the low precision / quantized tensor.
   The scale factor and zero point must have same shape, and can be either a scalar for per-tensor / per layer quantization, or a 1-D tensor for per-axis quantization.
-  The quantization formula is y = saturate ((x / y_scale) + y_zero_point).
+  The quantization formula is `y = saturate ((x / y_scale) + y_zero_point)`.
   For saturation, it saturates to [0, 255] if it's uint8, or [-128, 127] if it's int8.
-  For (x / y_scale), it's rounding to the nearest even. Refer to https://en.wikipedia.org/wiki/Rounding for details. 'y_zero_point' and 'y' must have same type.
+  For (x / y_scale), it's rounding to the nearest even. Refer to https://en.wikipedia.org/wiki/Rounding for details.
+  'y_zero_point' and 'y' must have same type.
+  'y_zero_point' is usually not used for quantization to float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz,
+  but the quantization formula remains the same for consistency and
+  the type of the attribute 'y_zero_point' still determines the quantization type.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[I32]>]>:$x,
-    TensorOf<[F32]>:$y_scale,
-    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, NoneType]>:$y_zero_point,
-    DefaultValuedAttr<SI64Attr, "1">:$axis);
-  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>]>:$y);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I32]>]>:$x,
+    AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F16]>, TensorOf<[BF16]>, TensorOf<[I32]>]>:$y_scale,
+    AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, NoneType]>:$y_zero_point,
+    DefaultValuedAttr<SI64Attr, "1">:$axis,
+    DefaultValuedAttr<SI64Attr, "1">:$saturate);
+  let results = (outs AnyTypeOf<[TensorOf<[I8]>, TensorOf<[UI8]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 3;
@@ -5586,7 +5730,7 @@ def ONNXQuantizeLinearOp:ONNX_Op<"QuantizeLinear",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {32};
     }
   }];
   let extraClassDefinition = [{
@@ -5668,7 +5812,7 @@ def ONNXRNNOp:ONNX_Op<"RNN",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,20};
+      return {30,30};
     }
   }];
   let extraClassDefinition = [{
@@ -5884,7 +6028,7 @@ def ONNXRangeOp:ONNX_Op<"Range",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5916,7 +6060,7 @@ def ONNXReciprocalOp:ONNX_Op<"Reciprocal",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5954,7 +6098,7 @@ def ONNXReduceL1Op:ONNX_Op<"ReduceL1",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -5991,7 +6135,7 @@ def ONNXReduceL1V13Op:ONNX_Op<"ReduceL1V13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6029,7 +6173,7 @@ def ONNXReduceL2Op:ONNX_Op<"ReduceL2",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6066,7 +6210,7 @@ def ONNXReduceL2V13Op:ONNX_Op<"ReduceL2V13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6114,7 +6258,7 @@ def ONNXReduceLogSumOp:ONNX_Op<"ReduceLogSum",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -6151,7 +6295,7 @@ def ONNXReduceLogSumV13Op:ONNX_Op<"ReduceLogSumV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6189,7 +6333,7 @@ def ONNXReduceLogSumExpOp:ONNX_Op<"ReduceLogSumExp",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6226,7 +6370,7 @@ def ONNXReduceLogSumExpV13Op:ONNX_Op<"ReduceLogSumExpV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6274,7 +6418,7 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -6321,7 +6465,7 @@ def ONNXReduceMaxV13Op:ONNX_Op<"ReduceMaxV13",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -6359,7 +6503,7 @@ def ONNXReduceMeanOp:ONNX_Op<"ReduceMean",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6396,7 +6540,7 @@ def ONNXReduceMeanV13Op:ONNX_Op<"ReduceMeanV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6434,7 +6578,7 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6471,7 +6615,7 @@ def ONNXReduceMinV13Op:ONNX_Op<"ReduceMinV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6509,7 +6653,7 @@ def ONNXReduceProdOp:ONNX_Op<"ReduceProd",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6546,7 +6690,7 @@ def ONNXReduceProdV13Op:ONNX_Op<"ReduceProdV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6594,7 +6738,7 @@ def ONNXReduceSumOp:ONNX_Op<"ReduceSum",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -6640,7 +6784,7 @@ def ONNXReduceSumV11Op:ONNX_Op<"ReduceSumV11",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -6688,7 +6832,7 @@ def ONNXReduceSumSquareOp:ONNX_Op<"ReduceSumSquare",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -6725,7 +6869,7 @@ def ONNXReduceSumSquareV13Op:ONNX_Op<"ReduceSumSquareV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6756,7 +6900,7 @@ def ONNXReluOp:ONNX_Op<"Relu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6788,10 +6932,10 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
   contain both a zero value and -1, as the value of the dimension corresponding
   to -1 cannot be determined uniquely.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$data,
     TensorOf<[I64]>:$shape,
     DefaultValuedAttr<SI64Attr, "0">:$allowzero);
-  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$reshaped);
+  let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$reshaped);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 2;
@@ -6800,7 +6944,7 @@ def ONNXReshapeOp:ONNX_Op<"Reshape",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6820,8 +6964,10 @@ def ONNXResizeOp:ONNX_Op<"Resize",
   let summary = "ONNX Resize operation";
   let description = [{
   Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
-  Each dimension value of the output tensor is: <br/>
-    `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
+  Each dimension value of the output tensor is:
+  ```
+  output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)
+  ```
   if input \\"sizes\\" is not specified.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$X,
@@ -6846,7 +6992,7 @@ def ONNXResizeOp:ONNX_Op<"Resize",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6887,7 +7033,7 @@ def ONNXResizeV13Op:ONNX_Op<"ResizeV13",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6927,7 +7073,7 @@ def ONNXResizeV11Op:ONNX_Op<"ResizeV11",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -6960,7 +7106,7 @@ def ONNXResizeV10Op:ONNX_Op<"ResizeV10",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7024,7 +7170,7 @@ def ONNXReverseSequenceOp:ONNX_Op<"ReverseSequence",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7072,7 +7218,7 @@ def ONNXRoiAlignOp:ONNX_Op<"RoiAlign",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7115,7 +7261,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7148,7 +7294,7 @@ def ONNXSTFTOp:ONNX_Op<"STFT",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7287,13 +7433,13 @@ def ONNXScanOp:ONNX_Op<"Scan",
       }
   
   }];
-  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$initial_state_and_scan_inputs,
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>>:$initial_state_and_scan_inputs,
     SI64Attr:$num_scan_inputs,
     OptionalAttr<I64ArrayAttr>:$scan_input_axes,
     OptionalAttr<I64ArrayAttr>:$scan_input_directions,
     OptionalAttr<I64ArrayAttr>:$scan_output_axes,
     OptionalAttr<I64ArrayAttr>:$scan_output_directions);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>>:$final_state_and_scan_outputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>>:$final_state_and_scan_outputs);
   let regions = (region SizedRegion<1>:$body);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -7303,7 +7449,7 @@ def ONNXScanOp:ONNX_Op<"Scan",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
 
     mlir::Operation::operand_range getVInitial();
@@ -7396,7 +7542,7 @@ def ONNXScatterOp:ONNX_Op<"Scatter",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7490,7 +7636,7 @@ def ONNXScatterElementsOp:ONNX_Op<"ScatterElements",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7597,7 +7743,7 @@ def ONNXScatterNDOp:ONNX_Op<"ScatterND",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7632,7 +7778,7 @@ def ONNXSeluOp:ONNX_Op<"Selu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7757,7 +7903,7 @@ def ONNXSequenceEraseOp:ONNX_Op<"SequenceErase",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7792,7 +7938,7 @@ def ONNXSequenceInsertOp:ONNX_Op<"SequenceInsert",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -7866,7 +8012,7 @@ def ONNXSequenceMapOp:ONNX_Op<"SequenceMap",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   int64_t getSubgraphRegionIdx(const std::string& name) {
     if (name == "body") return 0;
@@ -7927,7 +8073,7 @@ def ONNXShapeOp:ONNX_Op<"Shape",
   Output: [3]
   ```
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$data,
     OptionalAttr<SI64Attr>:$end,
     DefaultValuedAttr<SI64Attr, "0">:$start);
   let results = (outs TensorOf<[I64]>:$shape);
@@ -7974,7 +8120,7 @@ def ONNXShrinkOp:ONNX_Op<"Shrink",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8005,7 +8151,7 @@ def ONNXSigmoidOp:ONNX_Op<"Sigmoid",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8035,7 +8181,7 @@ def ONNXSignOp:ONNX_Op<"Sign",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8064,7 +8210,7 @@ def ONNXSinOp:ONNX_Op<"Sin",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8093,7 +8239,7 @@ def ONNXSinhOp:ONNX_Op<"Sinh",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8113,7 +8259,7 @@ def ONNXSizeOp:ONNX_Op<"Size",
   let description = [{
   Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data);
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$data);
   let results = (outs TensorOf<[I64]>:$size);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
@@ -8217,7 +8363,7 @@ def ONNXSliceOp:ONNX_Op<"Slice",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8263,7 +8409,7 @@ def ONNXSoftmaxOp:ONNX_Op<"Softmax",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8307,7 +8453,7 @@ def ONNXSoftmaxV11Op:ONNX_Op<"SoftmaxV11",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8380,7 +8526,7 @@ def ONNXSoftmaxCrossEntropyLossOp:ONNX_Op<"SoftmaxCrossEntropyLoss",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,20};
+      return {30,30};
     }
   }];
   let extraClassDefinition = [{
@@ -8411,7 +8557,7 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8440,7 +8586,7 @@ def ONNXSoftsignOp:ONNX_Op<"Softsign",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8473,7 +8619,7 @@ def ONNXSpaceToDepthOp:ONNX_Op<"SpaceToDepth",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8520,7 +8666,7 @@ def ONNXSplitOp:ONNX_Op<"Split",
         return -1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8564,7 +8710,7 @@ def ONNXSplitV13Op:ONNX_Op<"SplitV13",
         return -1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8597,7 +8743,7 @@ def ONNXSplitV11Op:ONNX_Op<"SplitV11",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8682,7 +8828,7 @@ def ONNXSqrtOp:ONNX_Op<"Sqrt",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8726,7 +8872,7 @@ def ONNXSqueezeOp:ONNX_Op<"Squeeze",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8771,7 +8917,7 @@ def ONNXSqueezeV11Op:ONNX_Op<"SqueezeV11",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8868,7 +9014,7 @@ def ONNXSubOp:ONNX_Op<"Sub",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -8900,7 +9046,7 @@ def ONNXSumOp:ONNX_Op<"Sum",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8930,7 +9076,7 @@ def ONNXTanOp:ONNX_Op<"Tan",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -8959,7 +9105,7 @@ def ONNXTanhOp:ONNX_Op<"Tanh",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9055,7 +9201,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9087,7 +9233,7 @@ def ONNXTileOp:ONNX_Op<"Tile",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9135,7 +9281,7 @@ def ONNXTopKOp:ONNX_Op<"TopK",
       return 2;
     }
     static std::vector<int> getTypeMap() {
-      return {20,7};
+      return {30,7};
     }
   }];
   let extraClassDefinition = [{
@@ -9169,7 +9315,7 @@ def ONNXTransposeOp:ONNX_Op<"Transpose",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9211,7 +9357,7 @@ def ONNXTriluOp:ONNX_Op<"Trilu",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9341,7 +9487,7 @@ def ONNXUniqueOp:ONNX_Op<"Unique",
       return 4;
     }
     static std::vector<int> getTypeMap() {
-      return {20,7,7,7};
+      return {30,7,7,7};
     }
   }];
   let extraClassDefinition = [{
@@ -9374,25 +9520,35 @@ def ONNXUnsqueezeOp:ONNX_Op<"Unsqueeze",
   let arguments = (ins AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$data,
     TensorOf<[I64]>:$axes);
   let results = (outs AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>]>:$expanded);
-  let extraClassDeclaration = [{
-    static int getNumberOfOperands() {
-      return 2;
-    }
-    static int getNumberOfResults() {
-      return 1;
-    }
-    static std::vector<int> getTypeMap() {
-      return {20};
-    }
-  }];
-  let extraClassDefinition = [{
-    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
-        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeOpShapeHelper(op, oper, ieb, scope);
-      assert(sh && "failed to allocate shape helper");
-      return sh;
-    }
-  }];
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {30};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXUnsqueezeOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
 }
 
 def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
@@ -9434,7 +9590,7 @@ def ONNXUnsqueezeV11Op:ONNX_Op<"UnsqueezeV11",
         return 1;
       }
       static std::vector<int> getTypeMap() {
-        return {20};
+        return {30};
       }
     }];
     let extraClassDefinition = [{
@@ -9467,7 +9623,7 @@ def ONNXUpsampleOp:ONNX_Op<"Upsample",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9501,7 +9657,7 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9537,7 +9693,7 @@ def ONNXWhereOp:ONNX_Op<"Where",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {21};
+      return {31};
     }
   }];
   let extraClassDefinition = [{
@@ -9624,7 +9780,7 @@ def ONNXArrayFeatureExtractorOp:ONNX_Op<"ArrayFeatureExtractor",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9654,7 +9810,7 @@ def ONNXBinarizerOp:ONNX_Op<"Binarizer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -9844,7 +10000,7 @@ def ONNXImputerOp:ONNX_Op<"Imputer",
       return 1;
     }
     static std::vector<int> getTypeMap() {
-      return {20};
+      return {30};
     }
   }];
   let extraClassDefinition = [{
@@ -10387,7 +10543,7 @@ def ONNXAdagradOp:ONNX_Op<"Adagrad",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {32};
     }
   }];
   let extraClassDefinition = [{
@@ -10483,7 +10639,7 @@ def ONNXAdamOp:ONNX_Op<"Adam",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {32};
     }
   }];
   let extraClassDefinition = [{
@@ -10731,7 +10887,7 @@ def ONNXMomentumOp:ONNX_Op<"Momentum",
       return -1;
     }
     static std::vector<int> getTypeMap() {
-      return {22};
+      return {32};
     }
   }];
   let extraClassDefinition = [{
