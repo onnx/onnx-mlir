@@ -277,8 +277,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     if (dtype == ONNX_TYPE_STRING) {
       void *tensorBuffer = generateOMTensorBufferForStringData(inputPyArray);
       inputOMTensor = omTensorCreateWithOwnership(tensorBuffer,
-          inputPyArray.shape(), static_cast<int64_t>(inputPyArray.ndim()),
-          dtype, /*own_data=*/true);
+          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
+          static_cast<int64_t>(inputPyArray.ndim()), dtype, /*own_data=*/true);
       omTensorSetStridesWithPyArrayStrides(
           inputOMTensor, inputPyArray.strides());
       // omTensorPrint("PyExecutionSessionBase::pyRun: %t %d", inputOMTensor);
