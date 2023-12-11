@@ -279,8 +279,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       inputOMTensor = omTensorCreateWithOwnership(tensorBuffer,
           reinterpret_cast<const int64_t *>(inputPyArray.shape()),
           static_cast<int64_t>(inputPyArray.ndim()), dtype, /*own_data=*/true);
-      omTensorSetStridesWithPyArrayStrides(
-          inputOMTensor, inputPyArray.strides());
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
+          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
       // omTensorPrint("PyExecutionSessionBase::pyRun: %t %d", inputOMTensor);
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
       inputOMTensor = omTensorCreateWithOwnership(dataPtr,
