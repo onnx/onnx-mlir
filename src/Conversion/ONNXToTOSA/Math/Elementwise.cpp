@@ -306,33 +306,6 @@ public:
   }
 };
 
-class ONNXDivOpLoweringToTOSA : public OpConversionPattern<ONNXDivOp> {
-public:
-  using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXDivOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override {
-    Value lhs = adaptor.getA();
-    Value rhs = adaptor.getB();
-    auto resultType = op.getResult().getType().template cast<TensorType>();
-    Type resultElementType = resultType.getElementType();
-
-    TosaBuilder tosaBuilder(rewriter, op->getLoc());
-
-    if (resultElementType.isSignlessInteger(32)) {
-      // tosa::DivOp takes 32-but signless integers as inputs
-      Value divOp = tosaBuilder.intdiv(lhs, rhs);
-      rewriter.replaceOp(op, {divOp});
-      return success();
-    }
-    // If it is not a 32-bit signless integer, decompose ONNXDivOp into
-    // tosa::ReciprocalOp and tosa::MulOp
-    Value reciprocalOp = tosaBuilder.reciprocal(rhs);
-    Value mulOp = tosaBuilder.mul(lhs, reciprocalOp);
-    rewriter.replaceOp(op, {mulOp});
-    return success();
-  }
-};
-
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
