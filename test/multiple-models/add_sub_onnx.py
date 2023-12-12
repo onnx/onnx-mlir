@@ -96,8 +96,24 @@ if args.run_models:
     b = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64).reshape((3, 2))
 
     # Do (a+b)-b using the two models: Add and Sub.
-    ab = add_sess.run([a, b])[0]
-    abb = sub_sess.run([ab, b])[0]
+    inputs = [a, b]
+    run_inputs = []
+    run_shapes = []
+    run_strides = []
+    for inp in inputs:
+        run_inputs.append(inp.flatten())
+        run_shapes.append(np.array(inp.shape, dtype=np.int64))
+        run_strides.append(np.array(inp.strides, dtype=np.int64))
+    ab = add_sess.run(run_inputs, run_shapes, run_strides)[0]
+    inputs = [ab, b]
+    run_inputs = []
+    run_shapes = []
+    run_strides = []
+    for inp in inputs:
+        run_inputs.append(inp.flatten())
+        run_shapes.append(np.array(inp.shape, dtype=np.int64))
+        run_strides.append(np.array(inp.strides, dtype=np.int64))
+    abb = sub_sess.run(run_inputs, run_shapes, run_strides)[0]
     try:
         # Verify that a+b-b = a.
         np.testing.assert_array_equal(a, abb)

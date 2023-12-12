@@ -133,14 +133,14 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
 
     // Prepare shape
     assert(py::isinstance<py::array_t<std::int64_t>>(shapePyArray) &&
-           // shapePyArray.writeable() &&
+           shapePyArray.writeable() &&
            "shape should be writable py::array_t<std::int64_t>");
     const int64_t *shape =
         reinterpret_cast<const int64_t *>(shapePyArray.mutable_data());
 
     // Prepare stride
     assert(py::isinstance<py::array_t<std::int64_t>>(stridePyArray) &&
-           // stridePyArray.writeable() &&
+           stridePyArray.writeable() &&
            "stride should be writable py::array_t<std::int64_t>");
     const int64_t *stride =
         reinterpret_cast<const int64_t *>(stridePyArray.mutable_data());
