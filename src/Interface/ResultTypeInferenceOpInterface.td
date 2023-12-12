@@ -31,6 +31,8 @@ def ResultTypeInferenceOpInterface : OpInterface<"ResultTypeInferenceOpInterface
           "std::vector<mlir::Type>", "resultTypeInference"
       >
   ];
+
+  let cppNamespace = "::mlir";
 }
 
 #endif // RESULT_TYPE_INFERENCE_OP_INTERFACE

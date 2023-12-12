@@ -18,7 +18,10 @@ include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "src/Interface/ShapeHelperOpInterface.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
+include "src/Interface/ResultTypeInferenceOpInterface.td"
+include "src/Interface/HasOnnxSubgraphOpInterface.td"
 include "src/IR/AttrBase.td"
+
 
 //===----------------------------------------------------------------------===//
 // ZHigh Dialect
@@ -923,4 +926,44 @@ def ZHighFixGRUYhOp:ZHigh_Op<"FixGRUYh", [Pure,
   }];
 }
 
+def ZHighExecuteOp:ZHigh_Op<"Execute",
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+    DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>,
+    OpInterface<"mlir::HasOnnxSubgraphOpInterface">]> {
+  let summary = "ZHigh operation for Asynchronous execution";
+  let description = [{
+  }];
+
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$inputs);
+
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
+  // TODO: Need more type support?
+  //   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[F8E4M3FN]>]>, SeqOf<[TensorOf<[F8E4M3FNUZ]>]>, SeqOf<[TensorOf<[F8E5M2]>]>, SeqOf<[TensorOf<[F8E5M2FNUZ]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, OptOf<TensorOf<[F8E4M3FN]>>, OptOf<TensorOf<[F8E4M3FNUZ]>>, OptOf<TensorOf<[F8E5M2]>>, OptOf<TensorOf<[F8E5M2FNUZ]>>]>>:$inputs);
+
+//  let results = (outs Variadic<AnyTypeOf<[TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[StringType]>, TensorOf<[I1]>, TensorOf<[Complex<F32>]>, TensorOf<[Complex<F64>]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>, SeqOf<[TensorOf<[UI8]>]>, SeqOf<[TensorOf<[UI16]>]>, SeqOf<[TensorOf<[UI32]>]>, SeqOf<[TensorOf<[UI64]>]>, SeqOf<[TensorOf<[I8]>]>, SeqOf<[TensorOf<[I16]>]>, SeqOf<[TensorOf<[I32]>]>, SeqOf<[TensorOf<[I64]>]>, SeqOf<[TensorOf<[BF16]>]>, SeqOf<[TensorOf<[F16]>]>, SeqOf<[TensorOf<[F32]>]>, SeqOf<[TensorOf<[F64]>]>, SeqOf<[TensorOf<[StringType]>]>, SeqOf<[TensorOf<[I1]>]>, SeqOf<[TensorOf<[Complex<F32>]>]>, SeqOf<[TensorOf<[Complex<F64>]>]>, SeqOf<[TensorOf<[F8E4M3FN]>]>, SeqOf<[TensorOf<[F8E4M3FNUZ]>]>, SeqOf<[TensorOf<[F8E5M2]>]>, SeqOf<[TensorOf<[F8E5M2FNUZ]>]>, OptOf<SeqOf<[TensorOf<[UI8]>]>>, OptOf<SeqOf<[TensorOf<[UI16]>]>>, OptOf<SeqOf<[TensorOf<[UI32]>]>>, OptOf<SeqOf<[TensorOf<[UI64]>]>>, OptOf<SeqOf<[TensorOf<[I8]>]>>, OptOf<SeqOf<[TensorOf<[I16]>]>>, OptOf<SeqOf<[TensorOf<[I32]>]>>, OptOf<SeqOf<[TensorOf<[I64]>]>>, OptOf<SeqOf<[TensorOf<[BF16]>]>>, OptOf<SeqOf<[TensorOf<[F16]>]>>, OptOf<SeqOf<[TensorOf<[F32]>]>>, OptOf<SeqOf<[TensorOf<[F64]>]>>, OptOf<SeqOf<[TensorOf<[StringType]>]>>, OptOf<SeqOf<[TensorOf<[I1]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F32>]>]>>, OptOf<SeqOf<[TensorOf<[Complex<F64>]>]>>, OptOf<TensorOf<[UI8]>>, OptOf<TensorOf<[UI16]>>, OptOf<TensorOf<[UI32]>>, OptOf<TensorOf<[UI64]>>, OptOf<TensorOf<[I8]>>, OptOf<TensorOf<[I16]>>, OptOf<TensorOf<[I32]>>, OptOf<TensorOf<[I64]>>, OptOf<TensorOf<[BF16]>>, OptOf<TensorOf<[F16]>>, OptOf<TensorOf<[F32]>>, OptOf<TensorOf<[F64]>>, OptOf<TensorOf<[StringType]>>, OptOf<TensorOf<[I1]>>, OptOf<TensorOf<[Complex<F32>]>>, OptOf<TensorOf<[Complex<F64>]>>, OptOf<TensorOf<[F8E4M3FN]>>, OptOf<TensorOf<[F8E4M3FNUZ]>>, OptOf<TensorOf<[F8E5M2]>>, OptOf<TensorOf<[F8E5M2FNUZ]>>]>>:$resultss);
+
+  let regions = (region SizedRegion<1>:$body);
+  let extraClassDeclaration = [{
+//    static int getNumberOfOperands() {
+//      return -1;
+//    }
+//    static int getNumberOfResults() {
+//      return -1;
+//    }
+      int64_t getSubgraphRegionIdx(const std::string& name) {
+        if (name == "body") return 0;
+        llvm_unreachable("region with the specified name does not exist");
+      }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighExecuteOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighExecuteOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+
+}
 #endif // ZHIGH_OPS

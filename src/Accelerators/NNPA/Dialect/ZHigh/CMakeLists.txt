@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/Conv2D/Conv2D.cpp
   ZHighOps/DLF16ToF32/DLF16ToF32.cpp
   ZHighOps/Elementwise/Elementwise.cpp
+  ZHighOps/Execute/Execute.cpp
   ZHighOps/F32ToDLF16/F32ToDLF16.cpp
   ZHighOps/GRU/FixGRUY.cpp
   ZHighOps/GRU/FixGRUYh.cpp
@@ -37,7 +38,9 @@ add_onnx_mlir_library(OMZHighOps
   OMONNXZHighF32ToDLF16IncGen
   OMONNXZHighStickIncGen
   OMONNXZHighUnstickIncGen
+  OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
+  OMHasOnnxSubgraphOpInterfaceIncGen
   libzdnn
 
   LINK_LIBS PRIVATE

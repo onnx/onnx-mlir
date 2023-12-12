@@ -33,6 +33,8 @@ def HasOnnxSubgraphOpInterface : OpInterface<"HasOnnxSubgraphOpInterface"> {
           "int64_t", "getSubgraphRegionIdx", (ins "const std::string &":$name)
       >
   ];
+
+  let cppNamespace = "::mlir";
 }
 
 #endif // HAS_ONNX_SUBGRAPH_OP_INTERFACE
