@@ -131,7 +131,7 @@ public:
       axes = rewriter.getI64ArrayAttr(allDims);
     }
     // Tosa needs a DenseElementsAttr
-    auto vecValues = extractFromI64ArrayAttr(axes.value());
+    auto vecValues = extractFromIntegerArrayAttr<int64_t>(axes.value());
     const int64_t vecValuesSize = vecValues.size();
     DenseElementsAttr newAxesAttr = DenseIntElementsAttr::get(
         RankedTensorType::get({vecValuesSize}, rewriter.getI64Type()),
