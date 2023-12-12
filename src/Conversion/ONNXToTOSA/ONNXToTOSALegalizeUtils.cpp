@@ -23,8 +23,8 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h"
 
-#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp" // from @llvm-project
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
@@ -59,6 +59,51 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
     mlir::Type elementType, mlir::Attribute encoding) {
   return mlir::RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(shape.size(), 1), elementType, encoding);
+}
+
+mlir::ElementsAttr getElementsAttrFromConst(mlir::Value &val) {
+  if (auto source = val.getDefiningOp<mlir::ONNXConstantOp>()) {
+    if (source.getValue())
+      return cast<mlir::ElementsAttr>(source.getValue().value());
+  }
+  // if the constant is not an onnx.const it has to be a tosa.const
+  assert(val.getDefiningOp<mlir::tosa::ConstOp>());
+  return tosa::getValueFromTosaConst<ElementsAttr>(val);
+}
+
+// Create a TOSA rescale op from input framework tensor, zero points and
+// rounding mode
+Value buildRescale(PatternRewriter &rewriter, Operation *op,
+    ShapedType output_type, Value input_val, double scale, int64_t input_zp,
+    int64_t output_zp, bool double_round, bool scale32) {
+  int32_t multiplier;
+  int32_t shift;
+
+  int32_t scale_width = scale32 ? 32 : 16;
+
+  mlir::tosa::computeMultiplierAndShift(scale, multiplier, shift, scale_width);
+
+  auto rescale_op = CreateOpAndInfer<mlir::tosa::RescaleOp>(rewriter,
+      op->getLoc(), output_type, input_val,
+      rewriter.getI32IntegerAttr(static_cast<int32_t>(input_zp)),
+      rewriter.getI32IntegerAttr(static_cast<int32_t>(output_zp)),
+      rewriter.getDenseI32ArrayAttr({multiplier}),
+      rewriter.getDenseI32ArrayAttr({shift}), rewriter.getBoolAttr(scale32),
+      rewriter.getBoolAttr(double_round), rewriter.getBoolAttr(false));
+
+  return rescale_op.getResult();
+}
+
+// Creates TOSA rescale op with int32 output
+Value buildRescaleToInt32(PatternRewriter &rewriter, Operation *op,
+    Value input_val, double input_scale, int64_t input_zp) {
+  // Output is always int32 type
+  auto input_type = input_val.getType().dyn_cast<mlir::ShapedType>();
+  assert(input_type);
+  auto output_type = input_type.clone(rewriter.getI32Type());
+
+  return buildRescale(rewriter, op, output_type, input_val, input_scale,
+      input_zp, 0, false, true);
 }
 
 mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
