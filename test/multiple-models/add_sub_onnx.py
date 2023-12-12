@@ -86,10 +86,12 @@ if args.run_models:
         )
     RUNTIME_DIR = os.environ["PY_LIB"]
     sys.path.append(RUNTIME_DIR)
-    from py_om_compile_execution_session import PyOMCompileExecutionSession
-
-    add_sess = PyOMCompileExecutionSession(add_model, "", reuse_compiled_model=0)
-    sub_sess = PyOMCompileExecutionSession(sub_model, "", reuse_compiled_model=0)
+    try:
+        from PyCompileAndRuntime import OMCompileExecutionSession
+    except ImportError as ie:
+        raise ie
+    add_sess = OMCompileExecutionSession(add_model, "", reuse_compiled_model=0)
+    sub_sess = OMCompileExecutionSession(sub_model, "", reuse_compiled_model=0)
     a = np.array([10, 20, 30, 40, 50, 60], dtype=np.int64).reshape((3, 2))
     b = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64).reshape((3, 2))
 

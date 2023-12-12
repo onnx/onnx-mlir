@@ -10,12 +10,6 @@ configure_file(
   COPYONLY
 )
 
-configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/py_om_compile_execution_session.py
-  ${CMAKE_CURRENT_BINARY_DIR}/py_om_compile_execution_session.py
-  COPYONLY
-)
-
 set(OMRuntimeTestMultiModelONNXFiles ${CMAKE_CURRENT_BINARY_DIR}/add.onnx)
 list(APPEND OMRuntimeTestMultiModelONNXFiles ${CMAKE_CURRENT_BINARY_DIR}/sub.onnx)
 
