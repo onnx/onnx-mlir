@@ -36,7 +36,9 @@ public:
       bool defaultEntryPoint = true);
   std::vector<std::string> pyQueryEntryPoints();
   void pySetEntryPoint(std::string entryPointName);
-  std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray);
+  std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
+      const std::vector<py::array> &shapesPyArray,
+      const std::vector<py::array> &stridesPyArray);
   std::string pyInputSignature();
   std::string pyOutputSignature();
 

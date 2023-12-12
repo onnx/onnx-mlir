@@ -3629,7 +3629,7 @@ class EndiannessAwareExecutionSession(object):
 
     def run(self, inputs, **kwargs):
         sys.path.append(RUNTIME_DIR)
-        from PyRuntime import OMExecutionSession
+        from py_om_execution_session import PyOMExecutionSession
 
         # If constant is set, recompile the model so inputs are model constants
         if args.constant:
@@ -3655,7 +3655,7 @@ class EndiannessAwareExecutionSession(object):
 
         # Run the model
         if args.emit == "lib":
-            session = OMExecutionSession(self.exec_name)
+            session = PyOMExecutionSession(self.exec_name)
             outputs = session.run(inputs)
             # print('input='+str(inputs), file=sys.stderr)
             # print('output='+str(outputs), file=sys.stderr)

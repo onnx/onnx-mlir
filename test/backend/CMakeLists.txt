@@ -40,6 +40,11 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/common.py
   )
 
+file(GENERATE
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/py_om_execution_session.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/py_om_execution_session.py
+  )
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg

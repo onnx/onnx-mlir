@@ -233,13 +233,8 @@ ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
 RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
 sys.path.append(RUNTIME_DIR)
 
-try:
-    from PyRuntime import OMExecutionSession
-except ImportError:
-    raise ImportError(
-        "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
-        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
-    )
+from py_om_execution_session import PyOMExecutionSession
+
 
 # A type mapping from MLIR to Numpy.
 MLIR_TYPE_TO_NP_TYPE = {
@@ -681,9 +676,9 @@ def main():
         print("Loading the compiled model ...")
         start = time.perf_counter()
         if args.load_so:
-            sess = OMExecutionSession(shared_lib_path, tag="None")
+            sess = PyOMExecutionSession(shared_lib_path, tag="None")
         else:
-            sess = OMExecutionSession(shared_lib_path)
+            sess = PyOMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 

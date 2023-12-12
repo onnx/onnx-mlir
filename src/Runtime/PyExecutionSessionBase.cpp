@@ -72,128 +72,18 @@ void *generateOMTensorBufferForStringData(py::array pyArray) {
   uint64_t strLenTotal = 0;
   uint64_t off = 0;
   void *dataBuffer = NULL;
-  switch (pyArray.ndim()) {
-  case 1: {
-    auto vec = pyArray.cast<std::vector<std::string>>();
-    for (int64_t i = 0; i < shape[0]; ++i)
-      strLenTotal += strlen(vec[i].data()) + 1;
-    dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-    assert(dataBuffer && "fail to alloc bufferData for string data");
-    char **strArray = (char **)dataBuffer;
-    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-    for (int64_t i = 0; i < shape[0]; ++i) {
-      strcpy(strPos, vec[i].data());
-      strArray[off++] = strPos;
-      strPos += strlen(vec[i].data()) + 1;
-    }
-  } break;
-  case 2: {
-    auto vec = pyArray.cast<std::vector<std::vector<std::string>>>();
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        strLenTotal += strlen(vec[i][j].data()) + 1;
-    dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-    assert(dataBuffer && "fail to alloc bufferData for string data");
-    char **strArray = (char **)dataBuffer;
-    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j) {
-        strcpy(strPos, vec[i][j].data());
-        strArray[off++] = strPos;
-        strPos += strlen(vec[i][j].data()) + 1;
-      }
-  } break;
-  case 3: {
-    auto vec =
-        pyArray.cast<std::vector<std::vector<std::vector<std::string>>>>();
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          strLenTotal += strlen(vec[i][j][k].data()) + 1;
-    dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-    assert(dataBuffer && "fail to alloc bufferData for string data");
-    char **strArray = (char **)dataBuffer;
-    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k) {
-          strcpy(strPos, vec[i][j][k].data());
-          strArray[off++] = strPos;
-          strPos += strlen(vec[i][j][k].data()) + 1;
-        }
-  } break;
-  case 4: {
-    auto vec = pyArray.cast<
-        std::vector<std::vector<std::vector<std::vector<std::string>>>>>();
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          for (int64_t l = 0; l < shape[3]; ++l)
-            strLenTotal += strlen(vec[i][j][k][l].data()) + 1;
-    dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-    assert(dataBuffer && "fail to alloc bufferData for string data");
-    char **strArray = (char **)dataBuffer;
-    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          for (int64_t l = 0; l < shape[3]; ++l) {
-            strcpy(strPos, vec[i][j][k][l].data());
-            strArray[off++] = strPos;
-            strPos += strlen(vec[i][j][k][l].data()) + 1;
-          }
-  } break;
-  case 5: {
-    auto vec = pyArray.cast<std::vector<
-        std::vector<std::vector<std::vector<std::vector<std::string>>>>>>();
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          for (int64_t l = 0; l < shape[3]; ++l)
-            for (int64_t m = 0; m < shape[4]; ++m)
-              strLenTotal += strlen(vec[i][j][k][l][m].data()) + 1;
-    dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-    assert(dataBuffer && "fail to alloc bufferData for string data");
-    char **strArray = (char **)dataBuffer;
-    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          for (int64_t l = 0; l < shape[3]; ++l)
-            for (int64_t m = 0; m < shape[4]; ++m) {
-              strcpy(strPos, vec[i][j][k][l][m].data());
-              strArray[off++] = strPos;
-              strPos += strlen(vec[i][j][k][l][m].data()) + 1;
-            }
-  } break;
-  case 6: {
-    auto vec = pyArray.cast<std::vector<std::vector<
-        std::vector<std::vector<std::vector<std::vector<std::string>>>>>>>();
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          for (int64_t l = 0; l < shape[3]; ++l)
-            for (int64_t m = 0; m < shape[4]; ++m)
-              for (int64_t n = 0; n < shape[5]; ++n)
-                strLenTotal += strlen(vec[i][j][k][l][m][n].data()) + 1;
-    dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-    assert(dataBuffer && "fail to alloc bufferData for string data");
-    char **strArray = (char **)dataBuffer;
-    char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
-    for (int64_t i = 0; i < shape[0]; ++i)
-      for (int64_t j = 0; j < shape[1]; ++j)
-        for (int64_t k = 0; k < shape[2]; ++k)
-          for (int64_t l = 0; l < shape[3]; ++l)
-            for (int64_t m = 0; m < shape[4]; ++m)
-              for (int64_t n = 0; n < shape[5]; ++n) {
-                strcpy(strPos, vec[i][j][k][l][m][n].data());
-                strArray[off++] = strPos;
-                strPos += strlen(vec[i][j][k][l][m][n].data()) + 1;
-              }
-  } break;
-  default:
-    assert(false && "not implemented");
-    break;
+  assert(pyArray.ndim() == 1 && "input pyArray should be flatten");
+  auto vec = pyArray.cast<std::vector<std::string>>();
+  for (int64_t i = 0; i < shape[0]; ++i)
+    strLenTotal += strlen(vec[i].data()) + 1;
+  dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
+  assert(dataBuffer && "fail to alloc bufferData for string data");
+  char **strArray = (char **)dataBuffer;
+  char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
+  for (int64_t i = 0; i < shape[0]; ++i) {
+    strcpy(strPos, vec[i].data());
+    strArray[off++] = strPos;
+    strPos += strlen(vec[i].data()) + 1;
   }
   return dataBuffer;
 }
@@ -206,7 +96,9 @@ PyExecutionSessionBase::PyExecutionSessionBase(
 // Run.
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
-    const std::vector<py::array> &inputsPyArray) {
+    const std::vector<py::array> &inputsPyArray,
+    const std::vector<py::array> &shapesPyArray,
+    const std::vector<py::array> &stridesPyArray) {
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
   if (!_entryPointFunc)
@@ -214,7 +106,14 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
 
   // 1. Process inputs.
   std::vector<OMTensor *> omts;
-  for (auto inputPyArray : inputsPyArray) {
+  assert((inputsPyArray.size() == shapesPyArray.size()) &&
+         "numbers of inputs and shapes should be the same");
+  assert((inputsPyArray.size() == stridesPyArray.size()) &&
+         "numbers of inputs and strides should be the same");
+  for (size_t argId = 0; argId < inputsPyArray.size(); argId++) {
+    auto inputPyArray = inputsPyArray[argId];
+    auto shapePyArray = shapesPyArray[argId];
+    auto stridePyArray = stridesPyArray[argId];
     if (!inputPyArray.flags() || !py::array::c_style)
       throw std::runtime_error(
           reportPythonError("Expect contiguous python array."));
@@ -231,6 +130,23 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       // We want OMTensor to free up the memory space upon destruction.
       ownData = 1;
     }
+
+    // Prepare shape
+    assert(py::isinstance<py::array_t<std::int64_t>>(shapePyArray) &&
+           // shapePyArray.writeable() &&
+           "shape should be writable py::array_t<std::int64_t>");
+    const int64_t *shape =
+        reinterpret_cast<const int64_t *>(shapePyArray.mutable_data());
+
+    // Prepare stride
+    assert(py::isinstance<py::array_t<std::int64_t>>(stridePyArray) &&
+           // stridePyArray.writeable() &&
+           "stride should be writable py::array_t<std::int64_t>");
+    const int64_t *stride =
+        reinterpret_cast<const int64_t *>(stridePyArray.mutable_data());
+
+    // Prepare ndim
+    auto ndim = shapePyArray.ndim();
 
     // Borrowed from:
     // https://github.com/pybind/pybind11/issues/563#issuecomment-267835542
@@ -276,25 +192,19 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     OMTensor *inputOMTensor = NULL;
     if (dtype == ONNX_TYPE_STRING) {
       void *tensorBuffer = generateOMTensorBufferForStringData(inputPyArray);
-      inputOMTensor = omTensorCreateWithOwnership(tensorBuffer,
-          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
-          static_cast<int64_t>(inputPyArray.ndim()), dtype, /*own_data=*/true);
-      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
-          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
+      inputOMTensor = omTensorCreateWithOwnership(tensorBuffer, shape,
+          static_cast<int64_t>(shapePyArray.ndim()), dtype, /*own_data=*/true);
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
       // omTensorPrint("PyExecutionSessionBase::pyRun: %t %d", inputOMTensor);
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
-      inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
-          static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
-      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
-          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
+      inputOMTensor =
+          omTensorCreateWithOwnership(dataPtr, shape, ndim, dtype, ownData);
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
     } else {
-      std::vector<int64_t> safeShape(
-          inputPyArray.shape(), inputPyArray.shape() + inputPyArray.ndim());
-      std::vector<int64_t> safeStrides(
-          inputPyArray.strides(), inputPyArray.strides() + inputPyArray.ndim());
-      inputOMTensor = omTensorCreateWithOwnership(dataPtr, safeShape.data(),
-          (int64_t)inputPyArray.ndim(), dtype, ownData);
+      std::vector<int64_t> safeShape(shape, shape + ndim);
+      std::vector<int64_t> safeStrides(stride, stride + ndim);
+      inputOMTensor = omTensorCreateWithOwnership(
+          dataPtr, safeShape.data(), ndim, dtype, ownData);
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, safeStrides.data());
     }
     omts.emplace_back(inputOMTensor);

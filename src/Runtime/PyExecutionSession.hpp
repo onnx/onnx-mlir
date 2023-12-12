@@ -34,7 +34,8 @@ PYBIND11_MODULE(PyRuntime, m) {
       .def("entry_points", &onnx_mlir::PyExecutionSession::pyQueryEntryPoints)
       .def("set_entry_point", &onnx_mlir::PyExecutionSession::pySetEntryPoint,
           py::arg("name"))
-      .def("run", &onnx_mlir::PyExecutionSession::pyRun, py::arg("input"))
+      .def("run", &onnx_mlir::PyExecutionSession::pyRun, py::arg("input"),
+          py::arg("shape"), py::arg("stride"))
       .def("input_signature", &onnx_mlir::PyExecutionSession::pyInputSignature)
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature);

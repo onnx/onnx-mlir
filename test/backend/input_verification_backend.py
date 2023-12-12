@@ -195,9 +195,9 @@ class InputVerificationExecutionSession(object):
 
     def run(self, inputs, **kwargs):
         sys.path.append(RUNTIME_DIR)
-        from PyRuntime import OMExecutionSession
+        from py_om_execution_session import PyOMExecutionSession
 
-        session = OMExecutionSession(self.exec_name)
+        session = PyOMExecutionSession(self.exec_name)
         f = io.BytesIO()
         with redirect_c_stdout(f):
             try:
