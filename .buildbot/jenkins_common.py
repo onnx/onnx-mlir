@@ -239,13 +239,13 @@ def get_image_manifest_config(
     headers = {}
     headers["Accept"] = DOCKER_DIST_MANIFEST
     if access_token:
-        headers_manifest["Authorization"] = "Bearer " + access_token
+        headers["Authorization"] = "Bearer " + access_token
         auth = None
     else:
         auth = (login_name, login_token)
 
     manifest = requests.get(
-        url=url + "/manifests/" + image_tag, headers=headers_manifest, auth=auth
+        url=url + "/manifests/" + image_tag, headers=headers, auth=auth
     )
     manifest.raise_for_status()
 
