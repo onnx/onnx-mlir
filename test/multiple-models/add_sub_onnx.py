@@ -101,7 +101,7 @@ if args.run_models:
     run_shapes = []
     run_strides = []
     for inp in inputs:
-        run_inputs.append(inp.flatten())
+        run_inputs.append(inp.ravel())
         run_shapes.append(np.array(inp.shape, dtype=np.int64))
         run_strides.append(np.array(inp.strides, dtype=np.int64))
     ab = add_sess.run(run_inputs, run_shapes, run_strides)[0]
@@ -110,7 +110,7 @@ if args.run_models:
     run_shapes = []
     run_strides = []
     for inp in inputs:
-        run_inputs.append(inp.flatten())
+        run_inputs.append(inp.ravel())
         run_shapes.append(np.array(inp.shape, dtype=np.int64))
         run_strides.append(np.array(inp.strides, dtype=np.int64))
     abb = sub_sess.run(run_inputs, run_shapes, run_strides)[0]

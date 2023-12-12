@@ -25,7 +25,7 @@ class PyOMExecutionSession(OMExecutionSession):
         pyrun_shapes = []
         pyrun_strides = []
         for inp in inputs:
-            pyrun_inputs.append(inp.flatten())
+            pyrun_inputs.append(inp.ravel())
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
         return super(PyOMExecutionSession, self).run(
