@@ -3620,3 +3620,37 @@ func.func @test_clipv6(%arg0: tensor<*xf32>) -> tensor<*xf32> {
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
+
+// -----
+
+// Test layer norm when not decomposed
+
+func.func @test_layer_norm_3inputs(%arg0: tensor<12x3x5xf32>, %arg1: tensor<5xf32>,  %arg2: tensor<5xf32>) -> tensor<*xf32> {
+  %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %arg2) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<12x3x5xf32>, tensor<5xf32>, tensor<5xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_layer_norm_3inputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x3x5xf32>, [[PARAM_1_:%.+]]: tensor<5xf32>, [[PARAM_2_:%.+]]: tensor<5xf32>) -> tensor<12x3x5xf32> {
+// CHECK:           [[Y_:%.+]], [[Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<12x3x5xf32>, tensor<5xf32>, tensor<5xf32>) -> (tensor<12x3x5xf32>, tensor<12x3x1xf32>, tensor<12x3x1xf32>)
+// CHECK:           return [[Y_]] : tensor<12x3x5xf32>
+// CHECK:         }
+}
+
+// -----
+
+// Test layer norm when not decomposed
+
+func.func @test_layer_norm_2inputs(%arg0: tensor<12x3x5xf32>, %arg1: tensor<5xf32>) -> tensor<*xf32> {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %Y, %Mean, %InvStdDev = "onnx.LayerNormalization"(%arg0, %arg1, %0) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<12x3x5xf32>, tensor<5xf32>, none) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_layer_norm_2inputs
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<12x3x5xf32>, [[PARAM_1_:%.+]]: tensor<5xf32>) -> tensor<12x3x5xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[Y_:%.+]], [[Mean_:%.+]], [[VAR_InvStdDev_:%.+]] = "onnx.LayerNormalization"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {axis = -1 : si64, epsilon = 9.99999974E-6 : f32, stash_type = 1 : si64} : (tensor<12x3x5xf32>, tensor<5xf32>, none) -> (tensor<12x3x5xf32>, tensor<12x3x1xf32>, tensor<12x3x1xf32>)
+// CHECK:           return [[Y_]] : tensor<12x3x5xf32>
+// CHECK:         }
+}

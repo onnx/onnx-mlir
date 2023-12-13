@@ -397,6 +397,16 @@ func.func @test_global_average_pool_dyn_dims(%arg0: tensor<1x?x?x5xf32>) -> tens
 
 // -----
 
+// COM: Test that GlobalAveragePool with dynamic rank does not crash
+func.func @test_global_average_pool_dynamic_rank(%arg0: tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GlobalAveragePool"(%arg0) : (tensor<*xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+  // CHECK-LABEL: test_global_average_pool_dynamic_rank
+  // CHECK: "onnx.GlobalAveragePool"
+  }
+
+// -----
+
 // COM: Test rewriting GlobalMaxPool into ReduceMaxV13
 func.func @test_global_average_pool(%arg0: tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32> {
   %0 = "onnx.GlobalMaxPool"(%arg0) : (tensor<1x3x5x5xf32>) -> tensor<1x3x1x1xf32>
