@@ -40,8 +40,13 @@ public:
     int64_t axis = adaptor.getAxis();
     auto inputType = input.getType().cast<ShapedType>();
 
-    // onnx allows values beetween [-r, r-1] where r is the rank
-    axis = tosa::convertNegativeAxis(axis, inputType.getRank());
+    // onnx allows values beetween [-r, r] where r is the rank.
+    if (axis == inputType.getRank()) {
+      // axis == rank is valid for Flatten
+    } else {
+      // check if the axis is in range [-r, r-1] where r is the rank
+      axis = tosa::convertNegativeAxis(axis, inputType.getRank());
+    }
 
     llvm::SmallVector<int64_t, 4> newShape;
     auto inputShape = inputType.getShape();

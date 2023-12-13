@@ -26,3 +26,10 @@ func.func @test_flatten_axes_last(%arg0: tensor<32x51x1x3xf32>) -> tensor<1632x3
   return %0 : tensor<1632x3xf32>
   //CHECK:  {{%.+}} = "tosa.reshape"(%arg0) <{new_shape = array<i64: 1632, 3>}> : (tensor<32x51x1x3xf32>) -> tensor<1632x3xf32>
 }
+
+// -----
+func.func @test_flatten_axes_equals_rank(%arg0: tensor<32x51x1x3xf32>) -> tensor<4896x1xf32> {
+  %0 = "onnx.Flatten"(%arg0) {axis = 4 : si64} : (tensor<32x51x1x3xf32>) -> tensor<4896x1xf32>
+  return %0 : tensor<4896x1xf32>
+  //CHECK:  {{%.+}} = "tosa.reshape"(%arg0) <{new_shape = array<i64: 4896, 1>}> : (tensor<32x51x1x3xf32>) -> tensor<4896x1xf32>
+}
