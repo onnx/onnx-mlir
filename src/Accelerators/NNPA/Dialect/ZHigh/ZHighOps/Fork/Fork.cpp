@@ -96,4 +96,3 @@ void ZHighForkOp::build(OpBuilder &builder, OperationState &result,
 
 } // namespace zhigh
 } // namespace onnx_mlir
-
