@@ -220,24 +220,35 @@ def publish_arch_image(
 
         # Push the image tagged with arch then remove it, regardless of
         # whether the push worked or not.
-        logging.info("pushing %s", image_arch)
-        for line in docker_api.push(
-            repository=image_repo,
-            tag=cpu_arch,
-            auth_config={"username": login_name, "password": login_token},
-            stream=True,
-            decode=True,
-        ):
-            print(
-                (line["id"] + ": " if "id" in line and "progress" not in line else "")
-                + (
-                    line["status"] + "\n"
-                    if "status" in line and "progress" not in line
-                    else ""
-                ),
-                end="",
-                flush=True,
-            )
+        for i in range(0, RETRY_LIMIT):
+            try:
+                logging.info("pushing %s [%s/%s]", image_arch, i, RETRY_LIMIT)
+                for line in docker_api.push(
+                    repository=image_repo,
+                    tag=cpu_arch,
+                    auth_config={"username": login_name, "password": login_token},
+                    stream=True,
+                    decode=True,
+                ):
+                    print(
+                        (
+                            line["id"] + ": "
+                            if "id" in line and "progress" not in line
+                            else ""
+                        )
+                        + (
+                            line["status"] + "\n"
+                            if "status" in line and "progress" not in line
+                            else ""
+                        ),
+                        end="",
+                        flush=True,
+                    )
+                logging.info("pushed %s [%s/%s]", image_arch, i, RETRY_LIMIT)
+                break
+            except Exception as e:
+                logging.exception(e)
+                continue
     # Remove arch image and release lock regardless of exception or not
     finally:
         docker_api.remove_image(image_arch, force=True)
@@ -259,10 +270,8 @@ def publish_multiarch_manifest(
             else None
         )
 
-        # For each arch, construct the manifest element needed for the
-        # manifest list by extracting fields from v1 and v2 image manifests.
-        # We get platform from v1 image manifest, and mediaType, size, and
-        # digest from v2 image manifest.
+        # For each arch, construct the manifest element needed for the manifest
+        # list by extracting fields from v2 image manifest and config.
         manifest_list = []
         for image_tag in IMAGE_ARCHS:
             m = {}
@@ -284,6 +293,7 @@ def publish_multiarch_manifest(
             m["platform"]["os"] = config.json()["os"]
 
             manifest_list.append(m)
+        logging.info("manifests: %s", manifest_list)
 
         # Make the REST call to PUT the multiarch manifest list.
         resp = put_image_manifest(
