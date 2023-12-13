@@ -587,14 +587,16 @@ public:
         subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
       }
-      //      SmallVector<Value> waitOps;
-      //      for (Value subMatrix : subMatrices) {
-      //        Value asyncAwaitOut =
-      //            rewriter.create<async::AwaitOp>(loc, subMatrix).getResult();
-      //        Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
-      //        waitOps.emplace_back(asyncAwaitOutTensor);
-      //      }
-      SmallVector<Value> waitOps = subMatrices;
+      SmallVector<Value> waitOps;
+      for (Value subMatrix : subMatrices) {
+        Value asyncAwaitOut =
+            rewriter
+                .create<zhigh::ZHighJoinOp>(loc, subMatrix.getType(), subMatrix)
+                .getResult();
+        Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
+        waitOps.emplace_back(asyncAwaitOutTensor);
+      }
+      // SmallVector<Value> waitOps = subMatrices;
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
         // Concat sub results along dimension M of B.

@@ -937,7 +937,8 @@ def ZHighExecuteOp:ZHigh_Op<"Execute",
   }];
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
                   TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$inputs);
-  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
   let regions = (region SizedRegion<1>:$body);
   let skipDefaultBuilders = 1;
   let extraClassDeclaration = [{
@@ -963,4 +964,17 @@ def ZHighExecuteOp:ZHigh_Op<"Execute",
            "nullptr">:$bodyBuilder)>
   ];
 }
+
+def ZHighJoinOp : ZHigh_Op<"Join"> {
+  let summary = "join threads";
+  let description = [{
+    The `zhigh.join` operation waits until the argument becomes ready.
+  }];
+
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$operand);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>:$result);
+}
+
 #endif // ZHIGH_OPS
