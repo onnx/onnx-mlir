@@ -576,28 +576,25 @@ public:
           SmallVector<Value, 2> parameters = {id};
           executeBuilder.create<KrnlCallOp>(
               executeLoc, "threadAffine", 1, parameters);
-          Value sm = executeCreate.onnx.matmul(unrankedType, a, b, false);
-          Value smMemref = executeCreate.onnx.toMemref(sm);
-          executeBuilder.create<async::YieldOp>(
-              executeLoc, ValueRange{smMemref});
+          Value sm = executeCreate.onnx.matmul(unrankedType,
+              /* a */ executeArgs[0], /*b */ executeArgs[1], false);
+          executeBuilder.create<ONNXYieldOp>(executeLoc, ValueRange{sm});
         };
         // Dummy op to get result type
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
-        Value smDummyMemref = create.onnx.toMemref(smDummy);
-        auto execute = rewriter.create<async::ExecuteOp>(loc,
-            TypeRange{smDummyMemref.getType()}, ValueRange(), ValueRange(),
-            executeBodyBuilder);
-        subMatrices.emplace_back(execute.getBodyResults()[0]);
+        auto execute = rewriter.create<zhigh::ZHighExecuteOp>(loc,
+            TypeRange{smDummy.getType()}, ValueRange{a, b}, executeBodyBuilder);
+        subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
-        rewriter.eraseOp(smDummyMemref.getDefiningOp());
       }
-      SmallVector<Value> waitOps;
-      for (Value subMatrix : subMatrices) {
-        Value asyncAwaitOut =
-            rewriter.create<async::AwaitOp>(loc, subMatrix).getResult();
-        Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
-        waitOps.emplace_back(asyncAwaitOutTensor);
-      }
+      //      SmallVector<Value> waitOps;
+      //      for (Value subMatrix : subMatrices) {
+      //        Value asyncAwaitOut =
+      //            rewriter.create<async::AwaitOp>(loc, subMatrix).getResult();
+      //        Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
+      //        waitOps.emplace_back(asyncAwaitOutTensor);
+      //      }
+      SmallVector<Value> waitOps = subMatrices;
       Value res = waitOps[0];
       if (waitOps.size() > 1) {
         // Concat sub results along dimension M of B.
@@ -649,7 +646,7 @@ public:
 
     // Expect matmulOp has not split yet.
     if (auto executeOp =
-            llvm::dyn_cast<async::ExecuteOp>(matmulOp->getParentOp()))
+            llvm::dyn_cast<zhigh::ZHighExecuteOp>(matmulOp->getParentOp()))
       return false;
 
     return true;
