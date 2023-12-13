@@ -582,7 +582,7 @@ public:
         };
         // Dummy op to get result type
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
-        auto execute = rewriter.create<zhigh::ZHighExecuteOp>(loc,
+        auto execute = rewriter.create<zhigh::ZHighForkOp>(loc,
             TypeRange{smDummy.getType()}, ValueRange{a, b}, executeBodyBuilder);
         subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
@@ -648,7 +648,7 @@ public:
 
     // Expect matmulOp has not split yet.
     if (auto executeOp =
-            llvm::dyn_cast<zhigh::ZHighExecuteOp>(matmulOp->getParentOp()))
+            llvm::dyn_cast<zhigh::ZHighForkOp>(matmulOp->getParentOp()))
       return false;
 
     return true;

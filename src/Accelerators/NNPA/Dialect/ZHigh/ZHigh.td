@@ -926,7 +926,7 @@ def ZHighFixGRUYhOp:ZHigh_Op<"FixGRUYh", [Pure,
   }];
 }
 
-def ZHighExecuteOp:ZHigh_Op<"Execute",
+def ZHighForkOp:ZHigh_Op<"Fork",
     [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
     DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>,
@@ -950,9 +950,9 @@ def ZHighExecuteOp:ZHigh_Op<"Execute",
           llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>;
   }];
   let extraClassDefinition = [{
-      onnx_mlir::ONNXOpShapeHelper * ZHighExecuteOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+      onnx_mlir::ONNXOpShapeHelper * ZHighForkOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
           onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new ZHighExecuteOpShapeHelper(op, oper, ieb, scope);
+        onnx_mlir::ONNXOpShapeHelper *sh = new ZHighForkOpShapeHelper(op, oper, ieb, scope);
         assert(sh && "failed to allocate shape helper");
         return sh;
       }

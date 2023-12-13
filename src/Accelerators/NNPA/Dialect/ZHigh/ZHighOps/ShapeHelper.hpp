@@ -145,15 +145,15 @@ struct ZHighPoolingOpShapeHelper : public ONNXOpShapeHelper {
 };
 
 //===----------------------------------------------------------------------===//
-// Shape helper for ExecuteOp.
+// Shape helper for ForkOp.
 //===----------------------------------------------------------------------===//
 
-struct ZHighExecuteOpShapeHelper : public ONNXOpShapeHelper {
-  ZHighExecuteOpShapeHelper(mlir::Operation *op,
+struct ZHighForkOpShapeHelper : public ONNXOpShapeHelper {
+  ZHighForkOpShapeHelper(mlir::Operation *op,
       mlir::ArrayRef<mlir::Value> operands = {},
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
-  virtual ~ZHighExecuteOpShapeHelper() {}
+  virtual ~ZHighForkOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 
   DimsExpr allOriginalDims;
