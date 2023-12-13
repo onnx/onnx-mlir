@@ -192,8 +192,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     OMTensor *inputOMTensor = NULL;
     if (dtype == ONNX_TYPE_STRING) {
       void *tensorBuffer = generateOMTensorBufferForStringData(inputPyArray);
-      inputOMTensor = omTensorCreateWithOwnership(tensorBuffer, shape,
-          static_cast<int64_t>(shapePyArray.ndim()), dtype, /*own_data=*/true);
+      inputOMTensor = omTensorCreateWithOwnership(
+          tensorBuffer, shape, ndim, dtype, /*own_data=*/true);
+
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
       // omTensorPrint("PyExecutionSessionBase::pyRun: %t %d", inputOMTensor);
     } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
