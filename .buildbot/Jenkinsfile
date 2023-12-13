@@ -46,10 +46,17 @@ def call() {
       /* Docker related env vars */
       DOCKER_PUSHPULL_RWLOCK = "/var/lock/jenkins-pipeline-${GITHUB_REPO_NAME}-${GITHUB_PR_BASEREF}.lock"
       DOCKER_DAEMON_SOCKET = 'unix://var/run/docker.sock'
-      DOCKER_REGISTRY_HOST_NAME = 'ghcr.io'   /* change to '' for docker.io             */
-      DOCKER_REGISTRY_USER_NAME = 'onnxmlir'  /* change to 'onnxmlirczar' for docker.io */
-      DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlir' /* change to 'onnxmlirczar' for docker.io */
       DOCKER_REGISTRY_TOKEN_ACCESS = 'true'
+      /* Settings for docker.io */
+      DOCKER_REGISTRY_HOST_NAME = ''
+      DOCKER_REGISTRY_USER_NAME = 'onnxmlirczar'
+      DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlirczar'
+      /* Settings for ghcr.io */
+      /*
+      DOCKER_REGISTRY_HOST_NAME = 'ghcr.io'
+      DOCKER_REGISTRY_USER_NAME = 'onnxmlir'
+      DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlir'
+      */
 
       /* Credentials defined in Jenkins */
       DOCKER_REGISTRY_LOGIN_TOKEN = credentials('GITHUB-ONNXMLIR-TOKEN')
