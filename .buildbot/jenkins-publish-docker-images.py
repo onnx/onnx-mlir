@@ -247,7 +247,9 @@ def publish_arch_image(
                 logging.info("pushed %s [%s/%s]", image_arch, i, RETRY_LIMIT)
                 break
             except Exception as e:
-                logging.exception(e)
+                logging.warning(
+                    "pushing %s [%s/%s] failed: %s", image_arch, i, RETRY_LIMIT, e
+                )
                 continue
     # Remove arch image and release lock regardless of exception or not
     finally:
