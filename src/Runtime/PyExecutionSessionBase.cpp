@@ -146,7 +146,7 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
         reinterpret_cast<const int64_t *>(stridePyArray.mutable_data());
 
     // Prepare ndim
-    auto ndim = shapePyArray.ndim();
+    auto ndim = shapePyArray.size();
 
     // Borrowed from:
     // https://github.com/pybind/pybind11/issues/563#issuecomment-267835542
