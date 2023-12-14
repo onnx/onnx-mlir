@@ -59,7 +59,6 @@ def call() {
       */
 
       /* Credentials defined in Jenkins */
-      DOCKER_REGISTRY_LOGIN_TOKEN = credentials('GITHUB-ONNXMLIR-TOKEN')
       JENKINS_REST_API_TOKEN = credentials('Jenkins-REST-API-Token')
       GITHUB_REPO_ACCESS_TOKEN = credentials('jenkins-buildbot-access-token')
       /* Settings for docker.io */
