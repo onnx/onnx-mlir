@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-##################### common.py ################################################
+############# py_om_execution_session.py #######################################
 #
-# Copyright 2021-2022 The IBM Research Authors.
+# Copyright 2021-2023 The IBM Research Authors.
 #
 ################################################################################
 # commom class `PyOMExecutionSession` called by python scripts
