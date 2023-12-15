@@ -297,3 +297,25 @@ func.func @test_div_decomposed_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tens
 // CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.reshape"([[VAR_0_]]) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
 // CHECK-NEXT:      [[VAR_2_:%.+]] = "tosa.mul"([[PARAM_0_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
 }
+
+// -----
+
+func.func @test_abs_i32(%arg0: tensor<3xi32>) -> tensor<3xi32> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<3xi32>) -> tensor<3xi32>
+  return %0 : tensor<3xi32>
+// CHECK-LABEL:  func @test_abs_i32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xi32>) -> tensor<3xi32>
+// CHECK-NEXT:     [[VAR_0_:%.+]] = "tosa.abs"([[PARAM_0_]]) : (tensor<3xi32>) -> tensor<3xi32>
+// CHECK-NEXT:     return [[VAR_0_]] : tensor<3xi32>
+// CHECK-NEXT:   }
+}
+
+func.func @test_abs_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<3xbf16>) -> tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+// CHECK-LABEL:  func @test_abs_bf16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xbf16>) -> tensor<3xbf16>
+// CHECK-NEXT:     [[VAR_0_:%.+]] = "tosa.abs"([[PARAM_0_]]) : (tensor<3xbf16>) -> tensor<3xbf16>
+// CHECK-NEXT:     return [[VAR_0_]] : tensor<3xbf16>
+// CHECK-NEXT:   }
+}
