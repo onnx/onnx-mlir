@@ -63,7 +63,12 @@ ONNX_MODEL_ZOO_DOWNLOAD = ONNX_MODEL_ZOO_URL + "/raw/main"
 
 """Commands will be called in this script.
 """
-FIND_MODEL_PATHS_CMD = ["find", ".", "-type", "f", "-name", "*.tar.gz"]
+
+# modelzoo has been completely restructured and the original models are now under
+# the "archive" directory. We could check all the new models as well but that
+# would take very long (about 6 hours on the Jenkins CI) so we still only check
+# the original models under "archive".
+FIND_MODEL_PATHS_CMD = ["find", "archive", "-type", "f", "-name", "*.tar.gz"]
 GIT_CMD = ["git"]
 # Use curl instead of wget since most systems have curl preinstalled
 # and curl is more flexible than wget
@@ -293,8 +298,10 @@ def clone_modelzoo_source(repo_url, work_dir):
 def obtain_all_model_paths(repo_dir):
     _, model_paths = execute_commands(FIND_MODEL_PATHS_CMD, cwd=repo_dir)
     model_paths = model_paths.split("\n")
-    # Remove empty paths and prune '._' in a path.
-    model_paths = [path[2:] for path in model_paths if path]
+    # Remove empty paths and prune './' in a path.
+    model_paths = [
+        (path[2:] if path.startswith("./") else path) for path in model_paths if path
+    ]
     model_names = [
         path.split("/")[-1][: -len(".tar.gz")] for path in model_paths
     ]  # remove .tar.gz
