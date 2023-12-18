@@ -28,7 +28,7 @@ class LoopType
 public:
   using Base::Base;
 
-  static constexpr const char * name = "loop.type";
+  static constexpr const char *name = "loop.type";
 
   // Support type inquiry through isa, cast and dyn_cast.
 
@@ -43,7 +43,7 @@ class StringType
 public:
   using Base::Base;
 
-  static constexpr const char * name = "string.type";
+  static constexpr const char *name = "string.type";
 
   // Get a unique instance of StringType.
   static StringType get(mlir::MLIRContext *context) {
