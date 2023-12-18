@@ -4,7 +4,7 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2022
+// Copyright 2022, 2023
 //
 // =============================================================================
 //
@@ -47,10 +47,10 @@ struct ONNXGemmOpLoweringToStableHlo : public ConversionPattern {
     Value transB = B;
     if (gemmOp.getTransA() == 1)
       transA = rewriter.create<stablehlo::TransposeOp>(
-          loc, A, rewriter.getI64VectorAttr({1, 0}));
+          loc, A, rewriter.getI64TensorAttr({1, 0}));
     if (gemmOp.getTransB() == 1)
       transB = rewriter.create<stablehlo::TransposeOp>(
-          loc, B, rewriter.getI64VectorAttr({1, 0}));
+          loc, B, rewriter.getI64TensorAttr({1, 0}));
     ShapedType resultType = gemmOp.getType().dyn_cast_or_null<ShapedType>();
     Value dot = rewriter.create<stablehlo::DotOp>(
         loc, gemmOp.getType(), transA, transB, nullptr);
