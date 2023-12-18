@@ -319,3 +319,25 @@ func.func @test_abs_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<3xbf16>
 // CHECK-NEXT:   }
 }
+
+// -----
+
+func.func @test_erf_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>
+  return %0 : tensor<3xf32>
+// CHECK-LABEL:  func @test_erf_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf32>) -> tensor<3xf32>
+// CHECK-NEXT:     [[VAR_0_:%.+]] = "tosa.erf"([[PARAM_0_]]) : (tensor<3xf32>) -> tensor<3xf32>
+// CHECK-NEXT:     return [[VAR_0_]] : tensor<3xf32>
+// CHECK-NEXT:   }
+}
+
+func.func @test_erf_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<3xbf16>) -> tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+// CHECK-LABEL:  func @test_erf_bf16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xbf16>) -> tensor<3xbf16>
+// CHECK-NEXT:     [[VAR_0_:%.+]] = "tosa.erf"([[PARAM_0_]]) : (tensor<3xbf16>) -> tensor<3xbf16>
+// CHECK-NEXT:     return [[VAR_0_]] : tensor<3xbf16>
+// CHECK-NEXT:   }
+}
