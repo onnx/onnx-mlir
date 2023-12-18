@@ -103,6 +103,8 @@ public:
   // construct new instances with new metadata around the same underlying data.
   friend class onnx_mlir::ElementsAttrBuilder;
 
+  static constexpr const char * name = "disposable.attr";
+
   //===--------------------------------------------------------------------===//
   // Instantiation:
   //===--------------------------------------------------------------------===//
