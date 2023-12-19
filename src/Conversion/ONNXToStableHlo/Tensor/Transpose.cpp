@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2022
+// Copyright 2022-2023
 //
 // =============================================================================
 //
@@ -32,6 +32,7 @@ struct ONNXTransposeOpLoweringToStableHlo : public ConversionPattern {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
     ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
     Location loc = op->getLoc();
+    MLIRContext *context = rewriter.getContext();
 
     // Operands
     Value data = operandAdaptor.getData();
@@ -44,18 +45,16 @@ struct ONNXTransposeOpLoweringToStableHlo : public ConversionPattern {
 
     // Attributes
     std::optional<ArrayAttr> permAttr = transposeOp.getPerm();
-    DenseIntElementsAttr permAxis;
-    RankedTensorType permAxisType =
-        RankedTensorType::get({rank}, rewriter.getI64Type());
+    DenseI64ArrayAttr permAxis;
     SmallVector<int64_t, 4> permAxisList;
     if (permAttr.has_value()) {
       for (int64_t i = 0; i < rank; ++i)
         permAxisList.push_back(ArrayAttrIntVal(permAttr, i));
-      permAxis = DenseIntElementsAttr::get(permAxisType, permAxisList);
+      permAxis = DenseI64ArrayAttr::get(context, permAxisList);
     } else {
       for (int64_t i = 0; i < rank; ++i)
         permAxisList.push_back(rank - 1 - i);
-      permAxis = DenseIntElementsAttr::get(permAxisType, permAxisList);
+      permAxis = DenseI64ArrayAttr::get(context, permAxisList);
     }
 
     // Get a shape helper: unused, needed?

@@ -4,7 +4,7 @@
 
 //===---------------- Split.cpp - Lowering Split Op -----------------------===//
 //
-// Copyright 2022
+// Copyright 2022-2023
 //
 // =============================================================================
 //
@@ -37,7 +37,7 @@ struct ONNXSplitOpLoweringToStableHlo : public ConversionPattern {
     assert(isRankedShapedType(input.getType()) &&
            "data must be ranked Shaped Type");
     ShapedType inputType = input.getType().cast<ShapedType>();
-    Type indiceType = rewriter.getI64Type();
+    MLIRContext *context = rewriter.getContext();
     Location loc = op->getLoc();
     uint64_t rank = inputType.getRank();
     uint64_t outputNum = splitOp.getNumResults();
@@ -86,18 +86,9 @@ struct ONNXSplitOpLoweringToStableHlo : public ConversionPattern {
       endIndices[dimIndex] = endIndice;
       slices.push_back(
           rewriter.create<stablehlo::SliceOp>(loc, sliceType, input,
-              DenseIntElementsAttr::get(
-                  RankedTensorType::get(
-                      {static_cast<int64_t>(beginIndices.size())}, indiceType),
-                  beginIndices),
-              DenseIntElementsAttr::get(
-                  RankedTensorType::get(
-                      {static_cast<int64_t>(endIndices.size())}, indiceType),
-                  endIndices),
-              DenseIntElementsAttr::get(
-                  RankedTensorType::get(
-                      {static_cast<int64_t>(strides.size())}, indiceType),
-                  strides)));
+              DenseI64ArrayAttr::get(context, beginIndices),
+              DenseI64ArrayAttr::get(context, endIndices),
+              DenseI64ArrayAttr::get(context, strides)));
       beginIndice = endIndice;
     }
     rewriter.replaceOp(op, slices);
