@@ -61,8 +61,8 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
             loc, RankedTensorType::get({1}, indexType), dimSizeExtent);
         inputShapeValues.push_back(dimSizeValue);
       } else {
-        inputShapeValues.push_back(rewriter.create<stablehlo::ConstantOp>(loc,
-            DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_size})));
+        inputShapeValues.push_back(rewriter.create<stablehlo::ConstantOp>(
+            loc, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_size})));
       }
     }
 
@@ -92,7 +92,7 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
     broadcastDimensions.reserve(inputRank);
     for (int64_t dim_idx = 0; dim_idx < inputRank; ++dim_idx) {
       broadcastDimensions.push_back(1 + 2 * dim_idx);
-    } 
+    }
     DenseIntElementsAttr broadcast_dims_attr =
         rewriter.getI64VectorAttr(broadcastDimensions);
 
