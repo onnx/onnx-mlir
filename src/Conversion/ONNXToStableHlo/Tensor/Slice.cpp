@@ -47,10 +47,10 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
     ShapedType dataType = data.getType().cast<ShapedType>();
     int64_t rank = dataType.getRank();
     Type indexElementType = rewriter.getI64Type();
-    Value zero = rewriter.create<stablehlo::ConstantOp>(loc,
-        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{0}));
-    Value one = rewriter.create<stablehlo::ConstantOp>(loc,
-        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
+    Value zero = rewriter.create<stablehlo::ConstantOp>(
+        loc, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{0}));
+    Value one = rewriter.create<stablehlo::ConstantOp>(
+        loc, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
     SmallVector<Value, 4> stepValues;
     SmallVector<Value, 4> beginValues;
     SmallVector<Value, 4> endValues;
@@ -82,8 +82,8 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
       Value dimValue;
       if (dataType.getShape()[i] != ShapedType::kDynamic)
         dimValue = rewriter.create<stablehlo::ConstantOp>(
-            loc, DenseI64ArrayAttr::get(context,
-                     ArrayRef<int64_t>{dataType.getShape()[i]}));
+            loc, DenseI64ArrayAttr::get(
+                     context, ArrayRef<int64_t>{dataType.getShape()[i]}));
       else {
         Value dimIndexValue =
             rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
@@ -101,36 +101,24 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
         Value beginValue = rewriter.create<stablehlo::SliceOp>(loc,
             RankedTensorType::get({1}, indexElementType), starts,
             DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{axesIntLitToIdx[i]}),
+                context, ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
-            DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{1}));
+                context, ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
+            DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
         Value stepValue = rewriter.create<stablehlo::SliceOp>(loc,
             RankedTensorType::get({1}, indexElementType), steps,
             DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{axesIntLitToIdx[i]}),
+                context, ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
-            DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{1}));
+                context, ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
+            DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
         Value endValue = rewriter.create<stablehlo::SliceOp>(loc,
             RankedTensorType::get({1}, indexElementType), ends,
             DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{axesIntLitToIdx[i]}),
+                context, ArrayRef<int64_t>{axesIntLitToIdx[i]}),
             DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
-            DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{1}));
+                context, ArrayRef<int64_t>{axesIntLitToIdx[i] + 1}),
+            DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
         Value isNegativeStepValue = rewriter.create<stablehlo::CompareOp>(
             loc, stepValue, zero, stablehlo::ComparisonDirection::LT);
         Value broadcastedIsNegativeValue =
@@ -145,10 +133,8 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
             rewriter.create<stablehlo::AddOp>(loc, endValue, one);
         Value negatedEndValue =
             rewriter.create<stablehlo::AddOp>(loc, beginValue, one);
-        Value reversedData = rewriter.create<stablehlo::ReverseOp>(loc, data,
-            DenseI64ArrayAttr::get(
-                context,
-                ArrayRef<int64_t>{i}));
+        Value reversedData = rewriter.create<stablehlo::ReverseOp>(
+            loc, data, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{i}));
         beginValue = rewriter.create<stablehlo::SelectOp>(
             loc, isNegativeStepValue, negatedStartValue, beginValue);
         endValue = rewriter.create<stablehlo::SelectOp>(
