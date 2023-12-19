@@ -39,6 +39,7 @@
 using namespace mlir;
 
 namespace {
+func::FuncOp functionBeingDebugged;
 
 struct ProcessAffineParallelWithoutScopePattern
     : public OpRewritePattern<affine::AffineParallelOp> {
@@ -51,11 +52,9 @@ struct ProcessAffineParallelWithoutScopePattern
     if (!isa<memref::AllocaScopeOp>(&firstOp)) {
       fprintf(
           stderr, "hi alex, found a parallel region without an alloca scope\n");
-      parForOp->dump();
       return false;
     }
     fprintf(stderr, "hi alex, found a parallel region WITH an alloca scope\n");
-    parForOp->dump();
     return true;
   }
 
@@ -65,16 +64,25 @@ struct ProcessAffineParallelWithoutScopePattern
     Location loc = parForOp.getLoc();
     assert(!matchParallelForWithAllocScope(parForOp) &&
            "expected par for without alloca here");
-#if 1
+#if 0
+    // seems generally bad to clone the op as it has a hard time removing stuff later.
     auto newOp = rewriter.clone(*parForOp.getOperation());
     auto newParForOp = cast<affine::AffineParallelOp>(newOp);
 #else
+    SmallVector<Type, 4> resultTypes;
+    for (auto t : parForOp.getResults()) {
+      resultTypes.emplace_back(t.getType());
+    }
     auto newParForOp = rewriter.create<affine::AffineParallelOp>(loc,
-        parForOp.getReductionsAttr(), parForOp.getLowerBoundsMapAttr(),
-        parForOp.getLowerBoundsGroupsAttr(), parForOp.getUpperBoundsMapAttr(),
-        parForOp.getUpperBoundsGroupsAttr(), parForOp.getSteps());
+        resultTypes, parForOp.getReductionsAttr(), parForOp.getLowerBoundsMap(),
+        parForOp.getLowerBoundsGroupsAttr(), parForOp.getUpperBoundsMap(),
+        parForOp.getUpperBoundsGroupsAttr(), parForOp.getSteps(),
+        parForOp.getMapOperands());
     newParForOp.getRegion().takeBody(parForOp.getRegion());
 #endif
+#if 1
+    // Code inspired from SCFToOpenMP.cpp, in ParallelOpLowering struct, line
+    // 399.
     {
       OpBuilder::InsertionGuard allocaGuard(rewriter);
       // Create a block containing the ops in the loop body.
@@ -94,15 +102,19 @@ struct ProcessAffineParallelWithoutScopePattern
       auto oldYield = cast<affine::AffineYieldOp>(scopeBlock->getTerminator());
       // parForYieldOp.setOperand(oldYield->getOperand());
       rewriter.setInsertionPointToEnd(&*scope.getBodyRegion().begin());
-      fprintf(stderr, "hi alex before replace op\n");
-      //rewriter.replaceOpWithNewOp<memref::AllocaScopeReturnOp>(
-      //    oldYield, oldYield->getOperands());
-      //fprintf(stderr, "hi alex after replace op\n");
+      rewriter.replaceOpWithNewOp<memref::AllocaScopeReturnOp>(
+          oldYield, oldYield->getOperands());
+      fprintf(stderr, "\n\nhi alex after yield replace op\n");
+      fprintf(stderr, "in function\n");
+      functionBeingDebugged.dump();
     }
+#endif
     rewriter.replaceOp(parForOp, newParForOp);
 
-    fprintf(stderr, "hi alex after replace parallel for op\n");
+    fprintf(stderr, "\n\nhi alex after replace parallel for op\n");
     newParForOp.dump();
+    fprintf(stderr, "in function\n");
+    functionBeingDebugged.dump();
     return success();
   }
 };
@@ -134,6 +146,9 @@ void ProcessAffineParallelPrivatePass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
 
+  // hi alex
+  functionBeingDebugged = function;
+
   fprintf(stderr, "hi alex, run process affine parallel private\n");
 
   ConversionTarget target(getContext());
@@ -146,12 +161,12 @@ void ProcessAffineParallelPrivatePass::runOnOperation() {
         return ProcessAffineParallelWithoutScopePattern::
             matchParallelForWithAllocScope(op);
       });
-
   RewritePatternSet patterns(context);
   onnx_mlir::getParallelPrivateAffineToAffinePatterns(patterns);
 
   if (failed(applyPartialConversion(function, target, std::move(patterns))))
     signalPassFailure();
+  fprintf(stderr, "hi alex, done with parallel for alloca scope\n");
 #endif
 }
 
