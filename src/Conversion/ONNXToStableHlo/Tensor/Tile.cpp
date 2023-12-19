@@ -21,8 +21,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-namespace {
-
 // ONNXTileOp(A) is mainly implemented using StableHlo broadcastOp & reshapeOp
 struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
   ONNXTileOpLoweringToStableHlo(MLIRContext *ctx)
@@ -31,8 +29,7 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
-    MLIRContext *context = op->getContext();
+    ONNXTileOp tileOp = cast<ONNXTileOp>(op);
     Location loc = op->getLoc();
 
     // I believe it is not currently used.
@@ -85,9 +82,9 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
     for (int64_t dim_idx = 0; dim_idx < inputRank; ++dim_idx) {
       Value multiples_size = rewriter.create<stablehlo::SliceOp>(loc,
           RankedTensorType::get({1}, multiplesElementType), multiples,
-          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx}),
-          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx + 1}),
-          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
+          DenseI64ArrayAttr::get(op->getContext(), ArrayRef<int64_t>{dim_idx}),
+          DenseI64ArrayAttr::get(op->getContext(), ArrayRef<int64_t>{dim_idx + 1}),
+          DenseI64ArrayAttr::get(op->getContext(), ArrayRef<int64_t>{1}));
       outDimSize.push_back(multiples_size);
       outDimSize.push_back(inputShapeValues[dim_idx]);
     }
@@ -128,8 +125,6 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
     return success();
   }
 };
-
-} // namespace
 
 void populateLoweringONNXTileOpToStableHloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
