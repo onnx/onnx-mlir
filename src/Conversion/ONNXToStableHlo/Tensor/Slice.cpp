@@ -47,10 +47,12 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
     ShapedType dataType = data.getType().cast<ShapedType>();
     int64_t rank = dataType.getRank();
     Type indexElementType = rewriter.getI64Type();
-    Value zero = rewriter.create<stablehlo::ConstantOp>(
-        loc, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{0}));
-    Value one = rewriter.create<stablehlo::ConstantOp>(
-        loc, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
+    Value zero = rewriter.create<stablehlo::ConstantOp>(loc,
+        DenseElementsAttr::get(RankedTensorType::get({1}, indexElementType),
+            ArrayRef<int64_t>{0}));
+    Value one = rewriter.create<stablehlo::ConstantOp>(loc,
+        DenseElementsAttr::get(RankedTensorType::get({1}, indexElementType),
+            ArrayRef<int64_t>{1}));
     SmallVector<Value, 4> stepValues;
     SmallVector<Value, 4> beginValues;
     SmallVector<Value, 4> endValues;
@@ -81,9 +83,9 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
     for (int64_t i = 0; i < rank; ++i) {
       Value dimValue;
       if (dataType.getShape()[i] != ShapedType::kDynamic)
-        dimValue = rewriter.create<stablehlo::ConstantOp>(
-            loc, DenseI64ArrayAttr::get(
-                     context, ArrayRef<int64_t>{dataType.getShape()[i]}));
+        dimValue = rewriter.create<stablehlo::ConstantOp>(loc,
+            DenseElementsAttr::get(RankedTensorType::get({1}, indexElementType),
+                ArrayRef<int64_t>{dataType.getShape()[i]}));
       else {
         Value dimIndexValue =
             rewriter.create<shape::GetExtentOp>(loc, inputShape, i);

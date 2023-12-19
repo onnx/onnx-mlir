@@ -62,7 +62,8 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
         inputShapeValues.push_back(dimSizeValue);
       } else {
         inputShapeValues.push_back(rewriter.create<stablehlo::ConstantOp>(
-            loc, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_size})));
+            loc, DenseElementsAttr::get(RankedTensorType::get({1}, indexType),
+                     ArrayRef<int64_t>{dim_size})));
       }
     }
 
