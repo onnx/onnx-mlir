@@ -47,6 +47,15 @@ struct ProcessAffineParallelWithoutScopePattern
 
   static bool matchParallelForWithAllocScope(
       affine::AffineParallelOp parForOp) {
+    fprintf(
+        stderr, "\nhi alex, look for parallel for with/without alloca scope\n");
+    parForOp.dump();
+    // auto blockList = parForOp.getRegion().getBlocks();
+    // if (!blockList || blockList->size() == 0) {
+    if (parForOp.getRegion().empty()) {
+      fprintf(stderr, "hi alex, ignore empty parallel region\n");
+      return true;
+    }
     Block *loopBody = parForOp.getBody();
     Operation &firstOp = loopBody->front();
     if (!isa<memref::AllocaScopeOp>(&firstOp)) {
