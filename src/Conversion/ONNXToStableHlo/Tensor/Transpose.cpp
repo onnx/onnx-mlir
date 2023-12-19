@@ -31,8 +31,8 @@ struct ONNXTransposeOpLoweringToStableHlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTransposeOpAdaptor operandAdaptor(operands);
     ONNXTransposeOp transposeOp = llvm::cast<ONNXTransposeOp>(op);
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
-    MLIRContext *context = rewriter.getContext();
 
     // Operands
     Value data = operandAdaptor.getData();

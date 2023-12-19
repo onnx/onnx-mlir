@@ -21,6 +21,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+namespace {
+
 // ONNXTileOp(A) is mainly implemented using StableHlo broadcastOp & reshapeOp
 struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
   ONNXTileOpLoweringToStableHlo(MLIRContext *ctx)
@@ -29,8 +31,8 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
-    ONNXTileOp tileOp = cast<ONNXTileOp>(op);
-    MLIRContext *context = rewriter.getContext();
+    ONNXTileOp tileOp = llvm::cast<ONNXTileOp>(op);
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
 
     // I believe it is not currently used.
@@ -126,6 +128,8 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
     return success();
   }
 };
+
+} // namespace
 
 void populateLoweringONNXTileOpToStableHloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
