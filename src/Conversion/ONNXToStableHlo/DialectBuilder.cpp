@@ -14,8 +14,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
-#include "llvm/ADT/TypeSwitch.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #include "src/Conversion/ONNXToStableHlo/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -50,15 +50,17 @@ Value StablehloBuilder::constant(mlir::Type type, double val) const {
         unsigned width = elementType.getWidth();
 
         if (width == 1)
-          constant =
-              b().create<stablehlo::ConstantOp>(loc(), b().getBoolAttr(val != 0));
+          constant = b().create<stablehlo::ConstantOp>(
+              loc(), b().getBoolAttr(val != 0));
         else {
           if (elementType.isUnsignedInteger()) {
-            constant = b().create<stablehlo::ConstantOp>(loc(),
-                b().getIntegerAttr(elementType, APInt(width, (uint64_t)val, false)));
+            constant = b().create<stablehlo::ConstantOp>(
+                loc(), b().getIntegerAttr(
+                           elementType, APInt(width, (uint64_t)val, false)));
           } else {
-            constant = b().create<stablehlo::ConstantOp>(loc(),
-                b().getIntegerAttr(elementType, APInt(width, (int64_t)val, true)));
+            constant = b().create<stablehlo::ConstantOp>(
+                loc(), b().getIntegerAttr(
+                           elementType, APInt(width, (int64_t)val, true)));
           }
         }
       })
