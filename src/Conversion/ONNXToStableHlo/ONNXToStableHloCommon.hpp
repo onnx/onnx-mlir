@@ -30,6 +30,8 @@
 
 #include "stablehlo/dialect/StablehloOps.h"
 
+#include "src/Conversion/ONNXToStableHlo/DialectBuilder.hpp"
+#include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
@@ -116,7 +118,39 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
     llvm::SmallVector<Value, 4> &operands, Type outputType,
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank);
 
-mlir::ElementsAttr getElementAttributeFromStablehloValue(mlir::Value value);
+mlir::ElementsAttr getElementAttributeFromConstValue(mlir::Value value);
+
+DenseIntElementsAttr GetI64ElementsAttr(
+    ArrayRef<int64_t> values, Builder *builder);
+
+//===----------------------------------------------------------------------===//
+// Fold and emit support.
+//===----------------------------------------------------------------------===//
+
+/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
+mlir::Value foldOrEmitONNXSqueezeOpStableHlo(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Type resultType, mlir::Value input, int64_t axis);
+
+/// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
+/// return a constant.
+mlir::Value foldOrEmitONNXUnsqueezeOpStableHlo(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Type resultType, mlir::Value input, int64_t axis);
+
+/// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
+std::vector<mlir::Value> foldOrEmitONNXSplitOpStableHlo(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    llvm::ArrayRef<mlir::Type> resultTypes, mlir::Value input, int64_t axis);
+
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
+/// return a constant.
+mlir::Value foldOrEmitONNXTransposeOpStableHlo(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr);
 
 // `Math` directory methods:
 void populateLoweringONNXClipOpToStableHloPattern(
@@ -138,6 +172,9 @@ void populateLoweringONNXNormalizationOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXPoolingOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
+// `RNN` directory methods:
+void populateLoweringONNXLSTMOpToStableHloPattern(
+    RewritePatternSet &, MLIRContext *, bool);
 // `Tensor` directory methods:
 void populateLoweringONNXArgMaxOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
@@ -157,9 +194,13 @@ void populateLoweringONNXGatherElementsOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXIdentityOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXOneHotOpToStableHloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXPadOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXReshapeOpToStableHloPattern(
+    RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXScatterNDOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXShapeOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);

@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 #include "src/Conversion/ONNXToStableHlo/DialectBuilder.hpp"
@@ -23,6 +24,62 @@
 using namespace mlir;
 
 namespace onnx_mlir {
+
+Value StablehloBuilder::constant(mlir::Type type, double val) const {
+  Value constant = nullptr;
+  // Could be a vector type; look at the element type.
+  Type elementType = type;
+  VectorType vectorType = type.dyn_cast<VectorType>();
+  if (vectorType)
+    elementType = vectorType.getElementType();
+  TypeSwitch<Type>(elementType)
+      .Case<Float16Type>([&](Type) {
+        constant =
+            b().create<stablehlo::ConstantOp>(loc(), b().getF16FloatAttr(val));
+      })
+      .Case<Float32Type>([&](Type) {
+        constant =
+            b().create<stablehlo::ConstantOp>(loc(), b().getF32FloatAttr(val));
+      })
+      .Case<Float64Type>([&](Type) {
+        constant =
+            b().create<stablehlo::ConstantOp>(loc(), b().getF64FloatAttr(val));
+      })
+      .Case<IntegerType>([&](IntegerType elementType) {
+        assert(val == (int64_t)val && "value is ambiguous");
+        unsigned width = elementType.getWidth();
+
+        if (width == 1)
+          constant =
+              b().create<stablehlo::ConstantOp>(loc(), b().getBoolAttr(val != 0));
+        else {
+          if (elementType.isUnsignedInteger()) {
+            constant = b().create<stablehlo::ConstantOp>(loc(),
+                b().getIntegerAttr(elementType, APInt(width, (uint64_t)val, false)));
+          } else {
+            constant = b().create<stablehlo::ConstantOp>(loc(),
+                b().getIntegerAttr(elementType, APInt(width, (int64_t)val, true)));
+          }
+        }
+      })
+      .Case<IndexType>([&](Type elementType) {
+        constant = b().create<stablehlo::ConstantOp>(
+            loc(), b().getIntegerAttr(elementType, val));
+      })
+      .Default([](Type) { llvm_unreachable("unsupported element type"); });
+
+  assert(constant != nullptr && "Expecting valid constant value");
+  return constant;
+}
+
+Value StablehloBuilder::constantIndex(int64_t val) const {
+  IntegerAttr constantAttr = b().getIntegerAttr(b().getIndexType(), val);
+  return b().create<stablehlo::ConstantOp>(loc(), constantAttr);
+}
+
+Value StablehloBuilder::shaped_zero(mlir::Type type) const {
+  return b().create<stablehlo::ConstantOp>(loc(), b().getZeroAttr(type));
+}
 
 // =============================================================================
 // IndexExpr Builder for Lowering using Shape/StableHlo Dialect.

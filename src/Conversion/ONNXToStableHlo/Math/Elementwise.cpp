@@ -67,6 +67,11 @@ struct StableHloDialectOp<ONNXMaxOp> {
 };
 
 template <>
+struct StableHloDialectOp<ONNXMinOp> {
+  using Op = stablehlo::MinOp;
+};
+
+template <>
 struct StableHloDialectOp<ONNXMulOp> {
   using Op = stablehlo::MulOp;
 };
@@ -104,6 +109,11 @@ struct StableHloDialectOp<ONNXSubOp> {
 template <>
 struct StableHloDialectOp<ONNXTanhOp> {
   using Op = stablehlo::TanhOp;
+};
+
+template <>
+struct StableHloDialectOp<ONNXWhereOp> {
+  using Op = stablehlo::SelectOp;
 };
 
 namespace {
@@ -296,6 +306,40 @@ struct ONNXElementwiseBinaryOpLoweringToStableHlo : public ConversionPattern {
   }
 };
 
+// ONNXPReluOp(x) = alpha * x if x < 0 else x.
+template <>
+struct ONNXElementwiseBinaryOpLoweringToStableHlo<ONNXPReluOp>
+    : public ConversionPattern {
+  ONNXElementwiseBinaryOpLoweringToStableHlo(MLIRContext *ctx)
+      : ConversionPattern(ONNXPReluOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    // Prior code here used the "analysis" version that did not generate code.
+    // Since code is actually not needed here at this time, one could use
+    // IndexExprBuilderForAnalysis createIE(loc) instead.
+    IndexExprBuilderForStableHlo createShapeIE(rewriter, loc);
+    ONNXBroadcastOpShapeHelper shapeHelper(op, operands, &createShapeIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    int64_t outputRank = shapeHelper.outputRank;
+    llvm::SmallVector<Value, 4> broadcastedOperands =
+        getBroadcastedOperands(op, rewriter, loc, outputRank);
+    Value inp = broadcastedOperands[0];
+    Value broadcastedSlope = broadcastedOperands[1];
+    Type resultType = *op->result_type_begin();
+    Value PReluActivationVal =
+        rewriter.create<stablehlo::MulOp>(loc, inp, broadcastedSlope);
+    Value broadcastedZero = getShapedZero(loc, rewriter, inp);
+    Value compareGtZero = rewriter.create<stablehlo::CompareOp>(
+        loc, inp, broadcastedZero, stablehlo::ComparisonDirection::GT);
+    Value resultOp = rewriter.create<stablehlo::SelectOp>(
+        loc, resultType, compareGtZero, inp, PReluActivationVal);
+    rewriter.replaceOp(op, resultOp);
+    return success();
+  }
+};
+
 // Element-wise variadic ops lowering to StableHlo dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseVariadicOp>
@@ -346,12 +390,15 @@ void populateLoweringONNXElementwiseOpToStableHloPattern(
       ONNXElementwiseCompareBinaryOpLoweringToStableHlo<ONNXLessOp>,
       ONNXElementwiseCompareBinaryOpLoweringToStableHlo<ONNXLessOrEqualOp>,
       ONNXElementwiseBinaryOpLoweringToStableHlo<ONNXPowOp>,
+      ONNXElementwiseBinaryOpLoweringToStableHlo<ONNXPReluOp>,
       ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXAddOp>,
       ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXAndOp>,
       ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXDivOp>,
       ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXMaxOp>,
+      ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXMinOp>,
       ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXMulOp>,
-      ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXSubOp>>(ctx);
+      ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXSubOp>,
+      ONNXElementwiseVariadicOpLoweringToStableHlo<ONNXWhereOp>>(ctx);
 }
 
 } // namespace onnx_mlir

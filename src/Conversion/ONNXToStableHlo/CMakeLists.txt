@@ -50,6 +50,8 @@ add_onnx_mlir_library(OMONNXToStableHlo
   NN/ConvTranspose.cpp
   NN/Normalization.cpp
   NN/Pooling.cpp
+  RNN/LSTM.cpp
+  RNN/RNNBase.cpp
   Tensor/ArgMax.cpp
   Tensor/Concat.cpp
   Tensor/Constant.cpp
@@ -58,8 +60,10 @@ add_onnx_mlir_library(OMONNXToStableHlo
   Tensor/Gather.cpp
   Tensor/GatherElements.cpp
   Tensor/Identity.cpp
+  Tensor/OneHot.cpp
   Tensor/Pad.cpp
   Tensor/Reshape.cpp
+  Tensor/ScatterND.cpp
   Tensor/Shape.cpp
   Tensor/Slice.cpp
   Tensor/Split.cpp

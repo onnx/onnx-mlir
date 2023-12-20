@@ -23,7 +23,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 void populateONNXToStableHloConversionPattern(
-    RewritePatternSet &patterns, MLIRContext *ctx) {
+    RewritePatternSet &patterns, MLIRContext *ctx, bool enableUnroll) {
   // Math
   populateLoweringONNXClipOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXElementwiseOpToStableHloPattern(patterns, ctx);
@@ -35,6 +35,8 @@ void populateONNXToStableHloConversionPattern(
   populateLoweringONNXConvTransposeOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXNormalizationOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXPoolingOpToStableHloPattern(patterns, ctx);
+  // Recurrent neural network
+  populateLoweringONNXLSTMOpToStableHloPattern(patterns, ctx, enableUnroll);
   // Tensor
   populateLoweringONNXArgMaxOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXConcatOpToStableHloPattern(patterns, ctx);
@@ -44,8 +46,10 @@ void populateONNXToStableHloConversionPattern(
   populateLoweringONNXGatherOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXGatherElementsOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXIdentityOpToStableHloPattern(patterns, ctx);
+  populateLoweringONNXOneHotOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXPadOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXReshapeOpToStableHloPattern(patterns, ctx);
+  populateLoweringONNXScatterNDOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXShapeOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXSliceOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXSplitOpToStableHloPattern(patterns, ctx);
@@ -75,12 +79,27 @@ struct FrontendToStableHloLoweringPass
   FrontendToStableHloLoweringPass(const FrontendToStableHloLoweringPass &pass)
       : PassWrapper<FrontendToStableHloLoweringPass,
             OperationPass<ModuleOp>>() {}
+  FrontendToStableHloLoweringPass(bool enableUnroll) {
+    // Below, need explicit assignment to enable implicit conversion of bool
+    // to Option<bool>.
+    this->enableUnroll = enableUnroll;
+  }
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<mlir::stablehlo::StablehloDialect>();
+    registry.insert<shape::ShapeDialect>();
   }
 
   void runOnOperation() final;
+
+public:
+  // Some ops (RNN ops for example) will have loops inside them. We can
+  // choose to unroll the loop, which means to expand the loops completely
+  // so there are no loops left, or to rewrite the loop into stablehlo::WhileOp
+  Option<bool> enableUnroll{*this, "enable-unroll",
+      llvm::cl::desc(
+          "Enable unroll rather than lowering to stablehlo::WhileOp."),
+      llvm::cl::init(true)};
 };
 
 void FrontendToStableHloLoweringPass::runOnOperation() {
@@ -96,16 +115,14 @@ void FrontendToStableHloLoweringPass::runOnOperation() {
   target.addLegalDialect<stablehlo::StablehloDialect, func::FuncDialect,
       arith::ArithDialect, shape::ShapeDialect, mlir::affine::AffineDialect,
       tensor::TensorDialect>();
-  // Needed to support unsigned int computations. To be removed if we use a
-  // scheme that does not rely on the UnrealizedConversionCastOp.
-  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the frontend operations.
   RewritePatternSet patterns(&getContext());
 
   // Define patterns.
-  populateONNXToStableHloConversionPattern(patterns, &getContext());
+  populateONNXToStableHloConversionPattern(
+      patterns, &getContext(), enableUnroll);
 
   // add illegal op
   target.addIllegalOp<ONNXSoftmaxOp>();
@@ -120,6 +137,10 @@ void FrontendToStableHloLoweringPass::runOnOperation() {
 
 std::unique_ptr<Pass> createLowerToStableHloPass() {
   return std::make_unique<FrontendToStableHloLoweringPass>();
+}
+
+std::unique_ptr<Pass> createLowerToStableHloPass(bool enableUnroll) {
+  return std::make_unique<FrontendToStableHloLoweringPass>(enableUnroll);
 }
 
 } // namespace onnx_mlir

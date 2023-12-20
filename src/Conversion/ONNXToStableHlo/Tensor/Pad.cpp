@@ -60,7 +60,7 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t> edgePaddingLowVec(rank, 0);
     SmallVector<int64_t> edgePaddingHighVec(rank, 0);
     SmallVector<int64_t> interiorPaddingVec(rank, 0);
-    if (auto valueAttribute = getElementAttributeFromStablehloValue(pads)) {
+    if (auto valueAttribute = getElementAttributeFromConstValue(pads)) {
       // If `pads` are constants, read them."
       int64_t idx = 0;
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
