@@ -49,8 +49,8 @@ def call() {
       DOCKER_REGISTRY_TOKEN_ACCESS = 'true'
       /* Settings for docker.io */
       DOCKER_REGISTRY_HOST_NAME = ''
-      DOCKER_REGISTRY_USER_NAME = 'onnxmlirczar'
-      DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlirczar'
+      DOCKER_REGISTRY_USER_NAME = 'onnxmlir'
+      DOCKER_REGISTRY_LOGIN_NAME = 'onnxmlir'
       /* Settings for ghcr.io */
       /*
       DOCKER_REGISTRY_HOST_NAME = 'ghcr.io'
@@ -62,7 +62,7 @@ def call() {
       JENKINS_REST_API_TOKEN = credentials('Jenkins-REST-API-Token')
       GITHUB_REPO_ACCESS_TOKEN = credentials('jenkins-buildbot-access-token')
       /* Settings for docker.io */
-      DOCKER_REGISTRY_LOGIN_TOKEN = credentials('DOCKERHUB-TOKEN')
+      DOCKER_REGISTRY_LOGIN_TOKEN = credentials('DOCKERHUB-ONNXMLIR-TOKEN')
       /* Settings for ghcr.io */
       /*
       DOCKER_REGISTRY_LOGIN_TOKEN = credentials('GITHUB-ONNXMLIR-TOKEN')
