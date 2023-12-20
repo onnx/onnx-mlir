@@ -49,11 +49,11 @@ struct ONNXTransposeOpLoweringToStableHlo : public ConversionPattern {
     if (permAttr.has_value()) {
       for (int64_t i = 0; i < rank; ++i)
         permAxisList.push_back(ArrayAttrIntVal(permAttr, i));
-      permAxis = DenseI64ArrayAttr::get(transposeOp.getContext(), permAxisList);
+      permAxis = DenseI64ArrayAttr::get(op->getContext(), permAxisList);
     } else {
       for (int64_t i = 0; i < rank; ++i)
         permAxisList.push_back(rank - 1 - i);
-      permAxis = DenseI64ArrayAttr::get(transposeOp.getContext(), permAxisList);
+      permAxis = DenseI64ArrayAttr::get(op->getContext(), permAxisList);
     }
 
     // Get a shape helper: unused, needed?
