@@ -10,8 +10,11 @@ set(STABLEHLO_LIBS
   StablehloBroadcastUtils
   StablehloOps
   StablehloPasses
+  StablehloReferenceConfiguration
+  StablehloReferenceErrors
   StablehloReferenceNumPy
   StablehloReferenceOps
+  StablehloReferenceProcess
   StablehloReferenceProcessGrid
   StablehloReferenceScope
   StablehloReferenceValue
