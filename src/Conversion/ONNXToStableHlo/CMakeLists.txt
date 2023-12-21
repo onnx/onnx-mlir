@@ -4,6 +4,7 @@
 
 set(STABLEHLO_LIBS
   ChloOps
+  InterpreterOps
   StablehloAssemblyFormat
   StablehloBase
   StablehloBroadcastUtils
