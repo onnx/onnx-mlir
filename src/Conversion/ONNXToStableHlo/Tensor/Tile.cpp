@@ -84,8 +84,7 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
       Value multiples_size = rewriter.create<stablehlo::SliceOp>(loc,
           RankedTensorType::get({1}, multiplesElementType), multiples,
           DenseI64ArrayAttr::get(contxt, ArrayRef<int64_t>{dim_idx}),
-          DenseI64ArrayAttr::get(
-              context, ArrayRef<int64_t>{dim_idx + 1}),
+          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx + 1}),
           DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
       outDimSize.push_back(multiples_size);
       outDimSize.push_back(inputShapeValues[dim_idx]);

@@ -135,8 +135,8 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
             rewriter.create<stablehlo::AddOp>(loc, endValue, one);
         Value negatedEndValue =
             rewriter.create<stablehlo::AddOp>(loc, beginValue, one);
-        Value reversedData = rewriter.create<stablehlo::ReverseOp>(loc, data,
-            DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{i}));
+        Value reversedData = rewriter.create<stablehlo::ReverseOp>(
+            loc, data, DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{i}));
         beginValue = rewriter.create<stablehlo::SelectOp>(
             loc, isNegativeStepValue, negatedStartValue, beginValue);
         endValue = rewriter.create<stablehlo::SelectOp>(
