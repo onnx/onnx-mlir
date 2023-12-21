@@ -30,6 +30,7 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
     ONNXTileOp tileOp = cast<ONNXTileOp>(op);
+    MLIR *context = op->getContext();
     Location loc = op->getLoc();
 
     // I believe it is not currently used.
@@ -82,10 +83,10 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
     for (int64_t dim_idx = 0; dim_idx < inputRank; ++dim_idx) {
       Value multiples_size = rewriter.create<stablehlo::SliceOp>(loc,
           RankedTensorType::get({1}, multiplesElementType), multiples,
-          DenseI64ArrayAttr::get(op->getContext(), ArrayRef<int64_t>{dim_idx}),
+          DenseI64ArrayAttr::get(contxt, ArrayRef<int64_t>{dim_idx}),
           DenseI64ArrayAttr::get(
-              op->getContext(), ArrayRef<int64_t>{dim_idx + 1}),
-          DenseI64ArrayAttr::get(op->getContext(), ArrayRef<int64_t>{1}));
+              context, ArrayRef<int64_t>{dim_idx + 1}),
+          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
       outDimSize.push_back(multiples_size);
       outDimSize.push_back(inputShapeValues[dim_idx]);
     }

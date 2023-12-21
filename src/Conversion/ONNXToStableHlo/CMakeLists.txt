@@ -10,13 +10,19 @@ set(STABLEHLO_LIBS
   StablehloBroadcastUtils
   StablehloOps
   StablehloPasses
+  StablehloReferenceAxes
   StablehloReferenceConfiguration
+  StablehloReferenceElement
   StablehloReferenceErrors
+  StablehloReferenceIndex
   StablehloReferenceNumPy
   StablehloReferenceOps
   StablehloReferenceProcess
   StablehloReferenceProcessGrid
   StablehloReferenceScope
+  StablehloReferenceTensor
+  StablehloReferenceToken
+  StablehloReferenceTypes
   StablehloReferenceValue
   StablehloRegister
   StablehloTypeInference
