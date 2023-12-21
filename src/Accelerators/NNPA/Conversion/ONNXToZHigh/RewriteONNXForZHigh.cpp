@@ -587,7 +587,8 @@ public:
         subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
       }
-      rewriter.create<zhigh::ZHighJoinOp>(loc, subMatrices);
+      for (auto subMatrix : subMatrices)
+        rewriter.create<zhigh::ZHighJoinOp>(loc, subMatrix);
       Value res = subMatrices[0];
       if (subMatrices.size() > 1) {
         // Concat sub results along dimension M of B.
