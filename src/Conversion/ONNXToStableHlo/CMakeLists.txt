@@ -11,7 +11,10 @@ set(STABLEHLO_LIBS
   StablehloOps
   StablehloPasses
   StablehloReferenceNumPy
+  StablehloReferenceOps
+  StablehloReferenceProcessGrid
   StablehloReferenceScope
+  StablehloReferenceValue
   StablehloRegister
   StablehloTypeInference
   VhloOps
