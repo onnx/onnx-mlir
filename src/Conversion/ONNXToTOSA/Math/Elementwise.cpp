@@ -179,8 +179,9 @@ public:
     Value lhs = adaptor.getA();
     Value rhs = adaptor.getB();
 
-    rewriter.replaceOpWithNewOp<mlir::tosa::MulOp>(
-        op, op.getType(), lhs, rhs, /*shift =*/0);
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value mulOp = tosaBuilder.mul(lhs, rhs);
+    rewriter.replaceOp(op, {mulOp});
 
     return success();
   }

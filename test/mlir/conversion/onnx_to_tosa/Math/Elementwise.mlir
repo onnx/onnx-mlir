@@ -99,6 +99,28 @@ func.func @test_mul(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> t
 
 // -----
 
+func.func @test_mul_rank_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<21x1xf32>) -> tensor<13x21x1xf32> {
+  %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<21x1xf32>) -> tensor<13x21x1xf32>
+  "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
+// CHECK-LABEL:  func @test_mul_rank_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<21x1xf32>) -> tensor<13x21x1xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reshape"([[PARAM_1_]]) <{new_shape = array<i64: 1, 21, 1>}> : (tensor<21x1xf32>) -> tensor<1x21x1xf32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.mul"([[PARAM_0_]], [[VAR_0_]]) <{shift = 0 : i32}> : (tensor<13x21x1xf32>, tensor<1x21x1xf32>) -> tensor<13x21x1xf32>
+}
+
+// -----
+
+func.func @test_mul_rank_broadcast2(%arg0: tensor<21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
+  %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+  "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
+// CHECK-LABEL:  func @test_mul_rank_broadcast2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<21x1xf32>, [[PARAM_1_:%.+]]: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reshape"([[PARAM_0_]]) <{new_shape = array<i64: 1, 21, 1>}> : (tensor<21x1xf32>) -> tensor<1x21x1xf32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.mul"([[VAR_0_]], [[PARAM_1_]]) <{shift = 0 : i32}> : (tensor<1x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+}
+
+// -----
+
 func.func @test_div(%arg0: tensor<13x21x1xi32>, %arg1: tensor<13x21x1xi32>) -> tensor<13x21x1xi32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xi32>, tensor<13x21x1xi32>) -> tensor<13x21x1xi32>
   "func.return"(%0) : (tensor<13x21x1xi32>) -> ()
