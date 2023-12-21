@@ -30,7 +30,7 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
     ONNXTileOp tileOp = cast<ONNXTileOp>(op);
-    MLIR *context = op->getContext();
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
 
     // I believe it is not currently used.

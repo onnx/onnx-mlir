@@ -33,7 +33,7 @@ struct ONNXSliceOpLoweringToStableHlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXSliceOpAdaptor operandAdaptor(operands);
     ONNXSliceOp sliceOp = llvm::cast<ONNXSliceOp>(op);
-    MLIR *context = op->getContext();
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
 
     Value data = sliceOp.getData();

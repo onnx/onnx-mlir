@@ -37,7 +37,7 @@ struct ONNXSplitOpLoweringToStableHlo : public ConversionPattern {
     assert(isRankedShapedType(input.getType()) &&
            "data must be ranked Shaped Type");
     ShapedType inputType = input.getType().cast<ShapedType>();
-    MLIR *context = op->getContext();
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     uint64_t rank = inputType.getRank();
     uint64_t outputNum = splitOp.getNumResults();
