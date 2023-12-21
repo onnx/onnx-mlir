@@ -587,23 +587,14 @@ public:
         subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
       }
-      SmallVector<Value> waitOps;
-      for (Value subMatrix : subMatrices) {
-        Value asyncAwaitOut =
-            rewriter
-                .create<zhigh::ZHighJoinOp>(loc, subMatrix.getType(), subMatrix)
-                .getResult();
-        Value asyncAwaitOutTensor = create.onnx.toTensor(asyncAwaitOut);
-        waitOps.emplace_back(asyncAwaitOutTensor);
-      }
-      // SmallVector<Value> waitOps = subMatrices;
-      Value res = waitOps[0];
-      if (waitOps.size() > 1) {
+      rewriter.create<zhigh::ZHighJoinOp>(loc, subMatrices);
+      Value res = subMatrices[0];
+      if (subMatrices.size() > 1) {
         // Concat sub results along dimension M of B.
         SmallVector<int64_t> concatShape(outputShape);
         concatShape[outputRank - 2] = subAShape[aRank - 2];
         Type concatTy = RankedTensorType::get(concatShape, elementType);
-        res = create.onnx.concat(concatTy, waitOps, outputRank - 1);
+        res = create.onnx.concat(concatTy, subMatrices, outputRank - 1);
       }
       resSubAs.emplace_back(res);
     }
