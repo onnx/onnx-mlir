@@ -87,7 +87,12 @@ struct ProcessAffineParallelWithoutScopePattern
         parForOp.getLowerBoundsGroupsAttr(), parForOp.getUpperBoundsMap(),
         parForOp.getUpperBoundsGroupsAttr(), parForOp.getSteps(),
         parForOp.getMapOperands());
+#if 0
+    rewriter.inlineRegionBefore(parForOp.getRegion(), newParForOp.getRegion(),
+        newParForOp.getRegion().begin());
+#else
     newParForOp.getRegion().takeBody(parForOp.getRegion());
+#endif
 #endif
 #if 1
     // Code inspired from SCFToOpenMP.cpp, in ParallelOpLowering struct, line
@@ -111,8 +116,14 @@ struct ProcessAffineParallelWithoutScopePattern
       auto oldYield = cast<affine::AffineYieldOp>(scopeBlock->getTerminator());
       // parForYieldOp.setOperand(oldYield->getOperand());
       rewriter.setInsertionPointToEnd(&*scope.getBodyRegion().begin());
+#if 0
+      auto newYield = rewriter.create<memref::AllocaScopeReturnOp>(
+          loc, oldYield->getOperands());
+      rewriter.replaceOp(oldYield, newYield);
+#else
       rewriter.replaceOpWithNewOp<memref::AllocaScopeReturnOp>(
           oldYield, oldYield->getOperands());
+#endif
       fprintf(stderr, "\n\nhi alex after yield replace op\n");
       fprintf(stderr, "in function\n");
       functionBeingDebugged.dump();
