@@ -4,7 +4,7 @@
 
 //===----------- ConvTranspose.cpp - Lowering ConvTranspose Op ------------===//
 //
-// Copyright 2022
+// Copyright 2022-2023
 //
 // =============================================================================
 //
@@ -49,7 +49,7 @@ struct ONNXConvTransposeOpLoweringToStableHlo : public ConversionPattern {
       transposeDims[i] = i;
     std::swap(transposeDims[1], transposeDims[2]);
     filterOperand = rewriter.create<stablehlo::TransposeOp>(
-        loc, filterOperand, rewriter.getI64TensorAttr(transposeDims));
+        loc, filterOperand, rewriter.getDenseI64ArrayAttr(transposeDims));
 
     // 3. [G, OC//G, IC//G, H, W, ...] => [OC, IC//G, H, W, ...]
     std::swap(newFilterShape[1], newFilterShape[2]);
@@ -145,7 +145,7 @@ struct ONNXConvTransposeOpLoweringToStableHlo : public ConversionPattern {
 
     // Reverse and transpose filterOperand
     filterOperand = rewriter.create<stablehlo::ReverseOp>(
-        loc, filterOperand, rewriter.getI64TensorAttr(spatialDimensions));
+        loc, filterOperand, rewriter.getDenseI64ArrayAttr(spatialDimensions));
     if (groupNum > 1)
       filterOperand =
           reshapeFilter(rewriter, loc, filterOperand, groupNum, rank);
@@ -156,7 +156,7 @@ struct ONNXConvTransposeOpLoweringToStableHlo : public ConversionPattern {
         transposeDims[i] = i;
       std::swap(transposeDims[0], transposeDims[1]);
       filterOperand = rewriter.create<stablehlo::TransposeOp>(
-          loc, filterOperand, rewriter.getI64TensorAttr(transposeDims));
+          loc, filterOperand, rewriter.getDenseI64ArrayAttr(transposeDims));
     }
 
     Value convResult = rewriter.create<stablehlo::ConvolutionOp>(loc,
@@ -187,12 +187,12 @@ struct ONNXConvTransposeOpLoweringToStableHlo : public ConversionPattern {
       Value zeroPaddingValue = rewriter.create<stablehlo::ConstantOp>(
           loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
                    rewriter.getZeroAttr(elemType)));
-      mlir::DenseIntElementsAttr edgePaddingLow =
-          rewriter.getI64VectorAttr(edgePaddingLowVec);
-      mlir::DenseIntElementsAttr edgePaddingHigh =
-          rewriter.getI64VectorAttr(edgePaddingHighVec);
-      mlir::DenseIntElementsAttr interiorPadding =
-          rewriter.getI64VectorAttr(interiorPaddingVec);
+      mlir::DenseI64ArrayAttr edgePaddingLow =
+          rewriter.getDenseI64ArrayAttr(edgePaddingLowVec);
+      mlir::DenseI64ArrayAttr edgePaddingHigh =
+          rewriter.getDenseI64ArrayAttr(edgePaddingHighVec);
+      mlir::DenseI64ArrayAttr interiorPadding =
+          rewriter.getDenseI64ArrayAttr(interiorPaddingVec);
       padResult = rewriter.create<stablehlo::PadOp>(loc, outputType, convResult,
           zeroPaddingValue, edgePaddingLow, edgePaddingHigh, interiorPadding);
     }

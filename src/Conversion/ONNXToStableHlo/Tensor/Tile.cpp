@@ -4,7 +4,7 @@
 
 //===----------------Tile.cpp - Lowering Tile Op----------------------=== //
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,6 +30,7 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     ONNXTileOpAdaptor operandAdaptor(operands);
     ONNXTileOp tileOp = cast<ONNXTileOp>(op);
+    MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
 
     // I believe it is not currently used.
@@ -60,9 +61,9 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
             loc, RankedTensorType::get({1}, indexType), dimSizeExtent);
         inputShapeValues.push_back(dimSizeValue);
       } else {
-        inputShapeValues.push_back(rewriter.create<stablehlo::ConstantOp>(loc,
-            DenseIntElementsAttr::get(RankedTensorType::get({1}, indexType),
-                ArrayRef<int64_t>{dim_size})));
+        inputShapeValues.push_back(rewriter.create<stablehlo::ConstantOp>(
+            loc, DenseElementsAttr::get(RankedTensorType::get({1}, indexType),
+                     ArrayRef<int64_t>{dim_size})));
       }
     }
 
@@ -82,15 +83,9 @@ struct ONNXTileOpLoweringToStableHlo : public ConversionPattern {
     for (int64_t dim_idx = 0; dim_idx < inputRank; ++dim_idx) {
       Value multiples_size = rewriter.create<stablehlo::SliceOp>(loc,
           RankedTensorType::get({1}, multiplesElementType), multiples,
-          DenseIntElementsAttr::get(
-              RankedTensorType::get({1}, multiplesElementType),
-              ArrayRef<int64_t>{dim_idx}),
-          DenseIntElementsAttr::get(
-              RankedTensorType::get({1}, multiplesElementType),
-              ArrayRef<int64_t>{dim_idx + 1}),
-          DenseIntElementsAttr::get(
-              RankedTensorType::get({1}, multiplesElementType),
-              ArrayRef<int64_t>{1}));
+          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx}),
+          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{dim_idx + 1}),
+          DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
       outDimSize.push_back(multiples_size);
       outDimSize.push_back(inputShapeValues[dim_idx]);
     }
