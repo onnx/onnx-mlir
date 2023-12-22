@@ -268,7 +268,8 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
   const int64_t *indicesShape = omTensorGetShape(indices);
   const int64_t count = indicesShape[0];
   int64_t *indicesPtr = (int64_t *)omTensorGetDataPtr(indices);
-  assert(count > 0 && "count should be greater than 0");
+  if (count == 0)
+    return;
   void *YPtr = omTensorGetDataPtr(Y);
 
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
