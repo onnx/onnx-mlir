@@ -4,11 +4,26 @@
 
 set(STABLEHLO_LIBS
   ChloOps
+  InterpreterOps
   StablehloAssemblyFormat
   StablehloBase
   StablehloBroadcastUtils
   StablehloOps
   StablehloPasses
+  StablehloReferenceAxes
+  StablehloReferenceConfiguration
+  StablehloReferenceElement
+  StablehloReferenceErrors
+  StablehloReferenceIndex
+  StablehloReferenceNumPy
+  StablehloReferenceOps
+  StablehloReferenceProcess
+  StablehloReferenceProcessGrid
+  StablehloReferenceScope
+  StablehloReferenceTensor
+  StablehloReferenceToken
+  StablehloReferenceTypes
+  StablehloReferenceValue
   StablehloRegister
   StablehloTypeInference
   VhloOps
