@@ -74,13 +74,50 @@ Value StablehloBuilder::constant(mlir::Type type, double val) const {
   return constant;
 }
 
-Value StablehloBuilder::constantIndex(int64_t val) const {
-  IntegerAttr constantAttr = b().getIntegerAttr(b().getIndexType(), val);
+Value StablehloBuilder::constantI64(int64_t val) const {
+  IntegerAttr constantAttr = b().getIntegerAttr(b().getI64Type(), val);
   return b().create<stablehlo::ConstantOp>(loc(), constantAttr);
 }
 
 Value StablehloBuilder::shaped_zero(mlir::Type type) const {
   return b().create<stablehlo::ConstantOp>(loc(), b().getZeroAttr(type));
+}
+
+Value StablehloBuilder::reshape(Type resultType, Value operand) const {
+  return b().create<stablehlo::ReshapeOp>(loc(), resultType, operand);
+}
+
+mlir::Value StablehloBuilder::real_dynamic_slice(mlir::Type type,
+    mlir::Value operand, mlir::Value startIndices, mlir::Value limitIndices,
+    mlir::Value strides) const {
+  return b().create<stablehlo::RealDynamicSliceOp>(
+      loc(), type, operand, startIndices, limitIndices, strides);
+}
+
+mlir::Value StablehloBuilder::dynamic_slice(mlir::Value operand,
+    SmallVector<Value> startIndices, SmallVector<int64_t> sliceSizes) const {
+  return b().create<stablehlo::DynamicSliceOp>(
+      loc(), operand, startIndices, sliceSizes);
+}
+
+mlir::Value StablehloBuilder::dynamic_slice(mlir::Value operand,
+    SmallVector<Value> startIndices, DenseI64ArrayAttr sliceSizes) const {
+  return b().create<stablehlo::DynamicSliceOp>(
+      loc(), operand, startIndices, sliceSizes);
+}
+
+mlir::Value StablehloBuilder::slice(mlir::Value operand,
+    SmallVector<int64_t> startIndices, SmallVector<int64_t> limitIndices,
+    SmallVector<int64_t> strides) const {
+  return b().create<stablehlo::SliceOp>(
+      loc(), operand, startIndices, limitIndices, strides);
+}
+
+mlir::Value StablehloBuilder::slice(mlir::Value operand,
+    DenseI64ArrayAttr startIndices, DenseI64ArrayAttr limitIndices,
+    DenseI64ArrayAttr strides) const {
+  return b().create<stablehlo::SliceOp>(
+      loc(), operand, startIndices, limitIndices, strides);
 }
 
 // =============================================================================

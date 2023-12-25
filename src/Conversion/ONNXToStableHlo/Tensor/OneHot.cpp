@@ -31,6 +31,7 @@ struct ONNXOneHotOpLoweringToStableHlo
       ONNXOneHotOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     Operation *op = onehotOp.getOperation();
+    MLIRContext *context = op->getContext();
     Location loc = ONNXLoc<ONNXOneHotOp>(op);
     ValueRange operands = adaptor.getOperands();
     Value indices = adaptor.getIndices();
@@ -92,24 +93,17 @@ struct ONNXOneHotOpLoweringToStableHlo
         loc, indexType, compareGeZero, broadcastIndices, positiveIndices);
     Value compare = rewriter.create<stablehlo::CompareOp>(
         loc, normalizedIndices, iota, stablehlo::ComparisonDirection::EQ);
-    Type indexElementType = rewriter.getI64Type();
     Type valueType = values.getType().cast<ShapedType>().getElementType();
     Value offValue = rewriter.create<stablehlo::SliceOp>(loc,
         RankedTensorType::get({1}, valueType), values,
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({1}, indexElementType), ArrayRef<int64_t>{0}),
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({1}, indexElementType), ArrayRef<int64_t>{1}),
-        DenseIntElementsAttr::get(RankedTensorType::get({1}, indexElementType),
-            ArrayRef<int64_t>{1}));
+        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{0}),
+        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}),
+        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
     Value onValue = rewriter.create<stablehlo::SliceOp>(loc,
         RankedTensorType::get({1}, valueType), values,
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({1}, indexElementType), ArrayRef<int64_t>{1}),
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({1}, indexElementType), ArrayRef<int64_t>{2}),
-        DenseIntElementsAttr::get(RankedTensorType::get({1}, indexElementType),
-            ArrayRef<int64_t>{1}));
+        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}),
+        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{2}),
+        DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{1}));
     Value offValueBroadcast = rewriter.create<stablehlo::BroadcastInDimOp>(
         loc, outputType, offValue, rewriter.getI64TensorAttr({0}));
     Value onValueBroadcast = rewriter.create<stablehlo::BroadcastInDimOp>(

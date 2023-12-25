@@ -40,8 +40,27 @@ struct StablehloBuilder : DialectBuilder {
 
   // ConstantOp
   mlir::Value constant(mlir::Type type, double val) const;
-  mlir::Value constantIndex(int64_t val) const;
+  mlir::Value constantI64(int64_t val) const;
   mlir::Value shaped_zero(mlir::Type type) const;
+  // ReshapeOp
+  mlir::Value reshape(mlir::Type resultType, mlir::Value operand) const;
+  // SliceOp
+  mlir::Value real_dynamic_slice(mlir::Type type, mlir::Value operand,
+      mlir::Value startIndices, mlir::Value limitIndices,
+      mlir::Value strides) const;
+  mlir::Value dynamic_slice(mlir::Value operand,
+      mlir::SmallVector<mlir::Value> startIndices,
+      mlir::SmallVector<int64_t> sliceSizes) const;
+  mlir::Value dynamic_slice(mlir::Value operand,
+      mlir::SmallVector<mlir::Value> startIndices,
+      mlir::DenseI64ArrayAttr sliceSizes) const;
+  mlir::Value slice(mlir::Value operand,
+      mlir::SmallVector<int64_t> startIndices,
+      mlir::SmallVector<int64_t> limitIndices,
+      mlir::SmallVector<int64_t> strides) const;
+  mlir::Value slice(mlir::Value operand, mlir::DenseI64ArrayAttr startIndices,
+      mlir::DenseI64ArrayAttr limitIndices,
+      mlir::DenseI64ArrayAttr strides) const;
 
 protected:
   // Private getters of builder (concise version).

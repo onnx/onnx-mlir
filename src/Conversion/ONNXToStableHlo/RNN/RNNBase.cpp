@@ -15,10 +15,6 @@
 #include "src/Conversion/ONNXToStableHlo/RNN/RNNBase.hpp"
 #include "src/Conversion/ONNXToStableHlo/ONNXToStableHloCommon.hpp"
 
-#include "llvm/Support/Debug.h"
-
-#define DEBUG_TYPE "lstm"
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -34,7 +30,6 @@ int64_t dimAt(Value val, int index) {
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  LLVM_DEBUG(llvm::dbgs() << "allocAllHidden\n");
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   RankedTensorType zeroType =
       RankedTensorType::get({dimAt(X, 0), 1, dimAt(X, 1), dimAt(R, 2)},
@@ -46,7 +41,6 @@ Value allocAllHidden(
 /// Allocate the hidden or cell output.
 mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value X, mlir::Value W, mlir::Value R) {
-  LLVM_DEBUG(llvm::dbgs() << "allocHiddenOrCell\n");
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   RankedTensorType zeroType = RankedTensorType::get(
       {/*num_directions=*/dimAt(W, 0), /*batch_size=*/dimAt(X, 1),
@@ -60,7 +54,6 @@ mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
 /// Shape :: [batch_size, hidden_size]
 Value allocIntermediateState(
     ConversionPatternRewriter &rewriter, Location loc, Value X, Value R) {
-  LLVM_DEBUG(llvm::dbgs() << "allocIntermediateState\n");
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   RankedTensorType zeroType =
       RankedTensorType::get({/*batch_size=*/dimAt(X, 1),
@@ -76,54 +69,54 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
     Location loc, Value &forwardHt, Value &reverseHt, Value &forwardCt,
     Value &reverseCt, Value initialH, Value initialC, Type elementType,
     StringRef direction, bool onlyHidden) {
-  LLVM_DEBUG(llvm::dbgs() << "initializeIntermediateStates\n");
-  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  MultiDialectBuilder<OnnxBuilder, StablehloBuilder> create(rewriter, loc);
 
-  Value zeroIndex = create.onnx.constantInt64({0});
-  Value oneIndex = create.onnx.constantInt64({1});
-  Value twoIndex = create.onnx.constantInt64({2});
+  Value zeroIndex = create.stablehlo.constantI64(0);
+  Value zeroIndex1D = create.onnx.constantInt64({0});
+  Value oneIndex = create.stablehlo.constantI64(1);
 
   Value boundVal = (direction == FORWARD || direction == BIDIRECTIONAL)
                        ? forwardHt
                        : reverseHt;
   auto valShape = boundVal.getType().cast<ShapedType>().getShape();
-  RankedTensorType sliceType =
-      RankedTensorType::get({1, valShape[0], valShape[1]},
-          boundVal.getType().cast<RankedTensorType>().getElementType());
+  SmallVector<int64_t> sliceSizes = {1, valShape[0], valShape[1]};
+  SmallVector<Value> firstStartIndices = {zeroIndex, zeroIndex, zeroIndex};
+  SmallVector<Value> secondStartIndices = {oneIndex, zeroIndex, zeroIndex};
+
   RankedTensorType valType = boundVal.getType().cast<RankedTensorType>();
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     if (!isNoneValue(initialH)) {
-      forwardHt = create.onnx.slice(
-          sliceType, initialH, zeroIndex, oneIndex, zeroIndex, oneIndex);
-      forwardHt = create.onnx.squeeze(valType, forwardHt, zeroIndex);
+      forwardHt = create.stablehlo.dynamic_slice(
+          initialH, firstStartIndices, sliceSizes);
+      forwardHt = create.onnx.squeeze(valType, forwardHt, zeroIndex1D);
     }
     if (!onlyHidden && !isNoneValue(initialC)) {
-      forwardCt = create.onnx.slice(
-          sliceType, initialC, zeroIndex, oneIndex, zeroIndex, oneIndex);
-      forwardCt = create.onnx.squeeze(valType, forwardCt, zeroIndex);
+      forwardCt = create.stablehlo.dynamic_slice(
+          initialC, firstStartIndices, sliceSizes);
+      forwardCt = create.onnx.squeeze(valType, forwardCt, zeroIndex1D);
     }
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
     if (!isNoneValue(initialH)) {
       if (direction == REVERSE) {
-        reverseHt = create.onnx.slice(
-            sliceType, initialH, zeroIndex, oneIndex, zeroIndex, oneIndex);
-        reverseHt = create.onnx.squeeze(valType, reverseHt, zeroIndex);
+        reverseHt = create.stablehlo.dynamic_slice(
+            initialH, firstStartIndices, sliceSizes);
+        reverseHt = create.onnx.squeeze(valType, reverseHt, zeroIndex1D);
       } else {
-        reverseHt = create.onnx.slice(
-            sliceType, initialH, oneIndex, twoIndex, zeroIndex, oneIndex);
-        reverseHt = create.onnx.squeeze(valType, reverseHt, zeroIndex);
+        reverseHt = create.stablehlo.dynamic_slice(
+            initialH, secondStartIndices, sliceSizes);
+        reverseHt = create.onnx.squeeze(valType, reverseHt, zeroIndex1D);
       }
     }
     if (!onlyHidden and !isNoneValue(initialC)) {
       if (direction == REVERSE) {
-        reverseCt = create.onnx.slice(
-            sliceType, initialC, zeroIndex, oneIndex, zeroIndex, oneIndex);
-        reverseCt = create.onnx.squeeze(valType, reverseCt, zeroIndex);
+        reverseCt = create.stablehlo.dynamic_slice(
+            initialC, firstStartIndices, sliceSizes);
+        reverseCt = create.onnx.squeeze(valType, reverseCt, zeroIndex1D);
       } else {
-        reverseCt = create.onnx.slice(
-            sliceType, initialC, oneIndex, twoIndex, zeroIndex, oneIndex);
-        reverseCt = create.onnx.squeeze(valType, reverseCt, zeroIndex);
+        reverseCt = create.stablehlo.dynamic_slice(
+            initialC, secondStartIndices, sliceSizes);
+        reverseCt = create.onnx.squeeze(valType, reverseCt, zeroIndex1D);
       }
     }
   }
@@ -213,17 +206,18 @@ Value applyActivation(OpBuilder &rewriter, Location loc,
 /// Create a copy of a slice of X at a specific timestep.
 Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
     Value timestepIV) {
-  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  MultiDialectBuilder<OnnxBuilder, StablehloBuilder> create(rewriter, loc);
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
   Type elementType = X.getType().cast<ShapedType>().getElementType();
-  RankedTensorType sliceXType =
-      RankedTensorType::get({1, batchSize, inputSize}, elementType);
   RankedTensorType squeezedXType =
       RankedTensorType::get({batchSize, inputSize}, elementType);
-  Value sliceX = create.onnx.slice(sliceXType, X, timestepIV,
-      create.onnx.add(timestepIV, create.onnx.constantInt64({1})),
-      create.onnx.constantInt64({0}), create.onnx.constantInt64({1}));
+  SmallVector<int64_t> sliceSizes = {1, batchSize, inputSize};
+  Value zeroIndex = create.stablehlo.constantI64(0);
+  Value timestepIV0D = create.stablehlo.reshape(
+      RankedTensorType::get({}, rewriter.getI64Type()), timestepIV);
+  SmallVector<Value> startIndices = {timestepIV0D, zeroIndex, zeroIndex};
+  Value sliceX = create.stablehlo.dynamic_slice(X, startIndices, sliceSizes);
   sliceX = create.onnx.squeeze(
       squeezedXType, sliceX, create.onnx.constantInt64({0}));
   return sliceX;

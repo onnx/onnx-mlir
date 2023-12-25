@@ -476,7 +476,7 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   // ot = f(Xt*(Wo^T) + Ht-1*(Ro^T) + Po (.) Ct + Wbo + Rbo)
   // Ht = ot (.) h(Ct)
 
-  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  MultiDialectBuilder<OnnxBuilder, StablehloBuilder> create(rewriter, loc);
 
   ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
   int64_t batchSize = xtShape[0];
@@ -502,22 +502,23 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   Value XtWT = create.onnx.matmul(matrixAllGatesType, Xt, weightPack.WT);
   Value HtRT = create.onnx.matmul(matrixAllGatesType, Ht, weightPack.RT);
   Value commonSum = create.onnx.add(XtWT, HtRT);
-  RankedTensorType matrixSingleGateType =
-      RankedTensorType::get({batchSize, hiddenSize}, elementType);
-  Value zeroIndex = create.onnx.constantInt64({0});
-  Value oneIndex = create.onnx.constantInt64({1});
-  Value oneHiddenIndex = create.onnx.constantInt64({hiddenSize});
-  Value twoHiddenIndex = create.onnx.constantInt64({2 * hiddenSize});
-  Value threeHiddenIndex = create.onnx.constantInt64({3 * hiddenSize});
-  Value fourHiddenIndex = create.onnx.constantInt64({4 * hiddenSize});
-  Value it = create.onnx.slice(matrixSingleGateType, commonSum, zeroIndex,
-      oneHiddenIndex, oneIndex, oneIndex);
-  Value ot = create.onnx.slice(matrixSingleGateType, commonSum, oneHiddenIndex,
-      twoHiddenIndex, oneIndex, oneIndex);
-  Value ft = create.onnx.slice(matrixSingleGateType, commonSum, twoHiddenIndex,
-      threeHiddenIndex, oneIndex, oneIndex);
-  Value ct = create.onnx.slice(matrixSingleGateType, commonSum,
-      threeHiddenIndex, fourHiddenIndex, oneIndex, oneIndex);
+  Value zeroIndex = create.stablehlo.constantI64(0);
+  Value oneHiddenIndex = create.stablehlo.constantI64(hiddenSize);
+  Value twoHiddenIndex = create.stablehlo.constantI64(2 * hiddenSize);
+  Value threeHiddenIndex = create.stablehlo.constantI64(3 * hiddenSize);
+  SmallVector<int64_t> sliceSizes = {batchSize, hiddenSize};
+  SmallVector<Value> iStartIndices = {zeroIndex, zeroIndex};
+  SmallVector<Value> oStartIndices = {zeroIndex, oneHiddenIndex};
+  SmallVector<Value> fStartIndices = {zeroIndex, twoHiddenIndex};
+  SmallVector<Value> cStartIndices = {zeroIndex, threeHiddenIndex};
+  Value it =
+      create.stablehlo.dynamic_slice(commonSum, iStartIndices, sliceSizes);
+  Value ot =
+      create.stablehlo.dynamic_slice(commonSum, oStartIndices, sliceSizes);
+  Value ft =
+      create.stablehlo.dynamic_slice(commonSum, fStartIndices, sliceSizes);
+  Value ct =
+      create.stablehlo.dynamic_slice(commonSum, cStartIndices, sliceSizes);
   if (biasPack.hasBias) {
     it = create.onnx.add(it, biasPack.Wbi);
     it = create.onnx.add(it, biasPack.Rbi);
