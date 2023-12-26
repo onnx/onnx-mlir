@@ -783,7 +783,7 @@ public:
     patterns.insert<StickViewUnstickRemovalPattern>(&getContext());
     patterns.insert<UnstickLoadStoreStickRemovalPattern>(
         &getContext(), removableStickOps);
-    patterns.insert<InsertDeallocForAsyncExecRegionPattern>(&getContext());
+    // patterns.insert<InsertDeallocForAsyncExecRegionPattern>(&getContext());
 
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();

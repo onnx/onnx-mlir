@@ -577,13 +577,16 @@ public:
           executeBuilder.create<KrnlCallOp>(
               executeLoc, "threadAffine", 1, parameters);
           Value sm = executeCreate.onnx.matmul(unrankedType,
-              /* a */ executeArgs[0], /*b */ executeArgs[1], false);
+              a /* executeArgs[0] */, b /*executeArgs[1]*/, false);
           executeBuilder.create<ONNXYieldOp>(executeLoc, ValueRange{sm});
         };
         // Dummy op to get result type
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
         auto execute = rewriter.create<zhigh::ZHighForkOp>(loc,
-            TypeRange{smDummy.getType()}, ValueRange{a, b}, executeBodyBuilder);
+            TypeRange{smDummy.getType()}, ValueRange(), executeBodyBuilder);
+        //        auto execute = rewriter.create<zhigh::ZHighForkOp>(loc,
+        //            TypeRange{smDummy.getType()}, ValueRange{a, b},
+        //            executeBodyBuilder);
         subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
       }
@@ -901,9 +904,7 @@ void RewriteONNXForZHighPass::runOnOperation() {
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
   target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
-      func::FuncDialect, arith::ArithDialect, mlir::async::AsyncDialect,
-      math::MathDialect>();
-  target.addLegalOp<::mlir::UnrealizedConversionCastOp>();
+      func::FuncDialect, arith::ArithDialect, math::MathDialect>();
 
   onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(
       &target, &dimAnalysis, nnpaParallelOpt);

@@ -21,8 +21,6 @@
 #include "src/Accelerators/NNPA/Support/NNPALimit.h"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
-#include "mlir/Dialect/Async/IR/Async.h"
-
 namespace onnx_mlir {
 
 const std::string DEVICE_ATTRIBUTE = "device";

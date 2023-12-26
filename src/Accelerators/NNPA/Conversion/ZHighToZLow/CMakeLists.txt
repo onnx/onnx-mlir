@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMZHighToZLow
   OMStickify
   OMZHighOps
   OMZLowOps
+  MLIRAsyncDialect
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}

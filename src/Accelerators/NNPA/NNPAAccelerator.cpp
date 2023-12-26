@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/Support/Debug.h"
@@ -150,7 +151,7 @@ int64_t NNPAAccelerator::getDefaultAllocAlignment(
 
 void NNPAAccelerator::conversionTargetONNXToKrnl(
     mlir::ConversionTarget &target) const {
-  target.addLegalDialect<zlow::ZLowDialect>();
+  target.addLegalDialect<zlow::ZLowDialect, mlir::async::AsyncDialect>();
 }
 
 void NNPAAccelerator::rewritePatternONNXToKrnl(
