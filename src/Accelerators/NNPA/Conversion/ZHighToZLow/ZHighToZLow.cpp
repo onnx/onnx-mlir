@@ -1867,11 +1867,13 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     LLVM_DEBUG(llvm::dbgs() << "asyncExecuteOp " << asyncExecuteOp << "\n");
     // 5. Create AsyncAwaitOp using token of AsyncExecute, and replace
     // ZHighJoinOp with the AsyncAwaitOp.
+    rewriter.setInsertionPointAfter(joinOps[0]);
     auto asyncAwaitOp =
         rewriter.create<async::AwaitOp>(loc, asyncExecuteOp.getToken());
     // LLVM_DEBUG(llvm::dbgs() << "asyncAwaitOp " << asyncAwaitOp << "\n");
-    for (auto jop : joinOps)
+    for (auto jop : joinOps) {
       rewriter.replaceOp(jop, asyncAwaitOp);
+    }
     rewriter.replaceOp(op, rAllocOp);
 
     return success();
