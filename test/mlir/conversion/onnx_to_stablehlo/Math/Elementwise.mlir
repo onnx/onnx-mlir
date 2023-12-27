@@ -116,6 +116,23 @@ func.func @test_dynamic_sigmoid(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
 
 // -----
 
+func.func @test_hard_sigmoid(%arg0 : tensor<20x40xf32>) -> tensor<20x40xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 5.000000e-01 : f32, beta = 5.000000e-01 : f32} : (tensor<20x40xf32>) -> tensor<20x40xf32>
+  "func.return"(%0) : (tensor<20x40xf32>) -> ()
+// CHECK-LABEL:  func.func @test_hard_sigmoid
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x40xf32>) -> tensor<20x40xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<5.000000e-01> : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<20x40xf32>
+// CHECK:           [[VAR_3_:%.+]] = stablehlo.multiply [[PARAM_0_]], [[VAR_0_]] : tensor<20x40xf32>
+// CHECK:           [[VAR_4_:%.+]] = stablehlo.add [[VAR_3_]], [[VAR_0_]] : tensor<20x40xf32>
+// CHECK:           [[VAR_5_:%.+]] = stablehlo.clamp [[VAR_1_]], [[VAR_4_]], [[VAR_2_]] : tensor<20x40xf32>
+// CHECK:           return [[VAR_5_]] : tensor<20x40xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_abs(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<10x10xf32>) -> tensor<10x10xf32>
   "func.return"(%0) : (tensor<10x10xf32>) -> ()

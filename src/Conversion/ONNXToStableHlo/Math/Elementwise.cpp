@@ -173,6 +173,36 @@ struct ONNXElementwiseUnaryOpLoweringToStableHlo : public ConversionPattern {
   }
 };
 
+// ONNXHardSigmoid(x) = max(0, min(1, alpha * x + beta))
+template <>
+struct ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXHardSigmoidOp>
+    : public ConversionPattern {
+  ONNXElementwiseUnaryOpLoweringToStableHlo(MLIRContext *ctx)
+      : ConversionPattern(ONNXHardSigmoidOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ONNXHardSigmoidOpAdaptor operandAdaptor(operands);
+    ONNXHardSigmoidOp HardSigmoidOp = llvm::cast<ONNXHardSigmoidOp>(op);
+    double alpha = HardSigmoidOp.getAlpha().convertToDouble();
+    double beta = HardSigmoidOp.getBeta().convertToDouble();
+    Value inp = operandAdaptor.getX();
+    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    if (inpType == nullptr)
+      return failure();
+    Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
+    Value betaVal = getShapedFloat(loc, rewriter, beta, inp);
+    Value zeroVal = getShapedFloat(loc, rewriter, 0.0f, inp);
+    Value oneVal = getShapedFloat(loc, rewriter, 1.0f, inp);
+    Value productVal = rewriter.create<stablehlo::MulOp>(loc, inp, alphaVal);
+    Value sumVal = rewriter.create<stablehlo::AddOp>(loc, productVal, betaVal);
+    Value resultOp =
+        rewriter.create<stablehlo::ClampOp>(loc, zeroVal, sumVal, oneVal);
+    rewriter.replaceOp(op, resultOp);
+    return success();
+  }
+};
+
 // ONNXReluOp(x) is implemented using StableHlo Max(x, 0)
 template <>
 struct ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXReluOp>
@@ -376,6 +406,7 @@ void populateLoweringONNXElementwiseOpToStableHloPattern(
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXCeilOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXCosOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXExpOp>,
+      ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXLeakyReluOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXLogOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXNegOp>,
