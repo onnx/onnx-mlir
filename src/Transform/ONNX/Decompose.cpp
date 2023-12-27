@@ -556,6 +556,26 @@ struct ConcatFusePattern : public ConversionPattern {
   }
 };
 
+// ONNXHardSwishOp(input) can be decomposed as:
+//   input * ONNXHardSigmoid input, with alpha = 1/6 and beta = 0.5.
+struct DecomposeHardSwishPattern : public ConversionPattern {
+  DecomposeHardSwishPattern(MLIRContext *context)
+      : ConversionPattern(ONNXHardSwishOp::getOperationName(), 4, context) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+
+    ONNXHardSwishOp hardSwishOp = ::llvm::dyn_cast<ONNXHardSwishOp>(op);
+
+    auto input = hardSwishOp.getX();
+    auto hardSigmoid = rewriter.create<ONNXHardSigmoidOp>(op->getLoc(),
+        hardSwishOp.getType(), input, rewriter.getF32FloatAttr(1.0 / 6.0),
+        rewriter.getF32FloatAttr(0.5));
+    rewriter.replaceOpWithNewOp<ONNXMulOp>(
+        op, hardSwishOp.getType(), input, hardSigmoid);
+    return success();
+  }
+};
+
 // Decompose the custom op FusedMatMul that is produced by ONNXRuntime.
 // According to FusedMatMul specification, it is the result of fusing MatMul and
 // Transpose:
@@ -788,6 +808,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXUpsampleOp>();
   target.addIllegalOp<ONNXUpsampleV7Op>();
   target.addIllegalOp<ONNXUnsqueezeV11Op>();
+  target.addIllegalOp<ONNXHardSwishOp>();
   target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
     ONNXShapeOp shapeOp = NULL;
     ONNXTransposeOp transposeOp = NULL;
@@ -827,6 +848,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   populateWithGenerated(patterns);
   patterns.insert<onnx_mlir::DecomposeEinsumPattern>(&getContext());
   patterns.insert<ConcatFusePattern>(&getContext());
+  patterns.insert<DecomposeHardSwishPattern>(&getContext());
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   patterns.insert<CustomOpFuseMatMulPattern>(&getContext());
