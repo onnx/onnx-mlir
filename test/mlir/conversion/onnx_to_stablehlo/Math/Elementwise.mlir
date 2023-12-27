@@ -48,6 +48,25 @@ func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 
 // -----
 
+func.func @test_elu(%arg0 : tensor<20x40xf32>) -> tensor<20x40xf32> {
+  %0 = "onnx.Elu"(%arg0) {alpha = 1.500000e+00 : f32} : (tensor<20x40xf32>) -> tensor<20x40xf32>
+  "func.return"(%0) : (tensor<20x40xf32>) -> ()
+// CHECK-LABEL:  func.func @test_elu
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<20x40xf32>) -> tensor<20x40xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<1.500000e+00> : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.exponential [[PARAM_0_]] : tensor<20x40xf32>
+// CHECK:           [[VAR_4_:%.+]] = stablehlo.subtract [[VAR_3_]], [[VAR_2_]] : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.multiply [[VAR_1_]], [[VAR_4_]] : tensor<20x40xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.compare  GE, [[PARAM_0_]], [[VAR_0_]],  NOTYPE : (tensor<20x40xf32>, tensor<20x40xf32>) -> tensor<20x40xi1>
+// CHECK:           [[VAR_7_:%.+]] = stablehlo.select [[VAR_6_]], [[PARAM_0_]], [[VAR_5_]] : tensor<20x40xi1>, tensor<20x40xf32>
+// CHECK:           return [[VAR_7_]] : tensor<20x40xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_relu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> {
   %0 = "onnx.Relu"(%arg0) : (tensor<?x10xf32>) -> tensor<?x10xf32>
   "func.return"(%0) : (tensor<?x10xf32>) -> ()

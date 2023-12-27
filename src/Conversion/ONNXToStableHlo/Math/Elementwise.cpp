@@ -173,6 +173,39 @@ struct ONNXElementwiseUnaryOpLoweringToStableHlo : public ConversionPattern {
   }
 };
 
+// ONNXElu(x) = alpha * (exp(x) - 1.) for x < 0, f(x) = x for x >= 0.
+template <>
+struct ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXEluOp>
+    : public ConversionPattern {
+  ONNXElementwiseUnaryOpLoweringToStableHlo(MLIRContext *ctx)
+      : ConversionPattern(ONNXEluOp::getOperationName(), 1, ctx) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ONNXEluOpAdaptor operandAdaptor(operands);
+    ONNXEluOp EluOp = llvm::cast<ONNXEluOp>(op);
+    double alpha = EluOp.getAlpha().convertToDouble();
+
+    Type resultType = *op->result_type_begin();
+    Value inp = operandAdaptor.getX();
+    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    if (inpType == nullptr)
+      return failure();
+    Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
+    Value oneVal = getShapedFloat(loc, rewriter, 1.0f, inp);
+    Value expVal = rewriter.create<stablehlo::ExpOp>(loc, inp);
+    Value subVal = rewriter.create<stablehlo::SubtractOp>(loc, expVal, oneVal);
+    Value mulVal = rewriter.create<stablehlo::MulOp>(loc, alphaVal, subVal);
+    Value broadcastedZero = getShapedZero(loc, rewriter, inp);
+    Value compareGeZero = rewriter.create<stablehlo::CompareOp>(
+        loc, inp, broadcastedZero, stablehlo::ComparisonDirection::GE);
+    Value resultOp = rewriter.create<stablehlo::SelectOp>(
+        loc, resultType, compareGeZero, inp, mulVal);
+    rewriter.replaceOp(op, resultOp);
+    return success();
+  }
+};
+
 // ONNXHardSigmoid(x) = max(0, min(1, alpha * x + beta))
 template <>
 struct ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXHardSigmoidOp>
@@ -405,6 +438,7 @@ void populateLoweringONNXElementwiseOpToStableHloPattern(
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXCastOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXCeilOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXCosOp>,
+      ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXEluOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXExpOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXHardSigmoidOp>,
       ONNXElementwiseUnaryOpLoweringToStableHlo<ONNXLeakyReluOp>,
