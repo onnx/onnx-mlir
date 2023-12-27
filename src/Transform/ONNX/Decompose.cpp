@@ -522,7 +522,7 @@ struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   }
 };
 
-void populateDecomposingONNXBeforeStableHloPatterns(
+void populateDecomposingONNXBeforeStablehloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<SoftmaxPattern>(ctx);
 }
@@ -975,7 +975,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
-  // ONNXtoStableHlo pass has own rewriting for ConvTranspose Op using
+  // ONNXtoStablehlo pass has own rewriting for ConvTranspose Op using
   // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
   // is disabled when the target is stablehlo.
   if (this->target != "stablehlo") {
@@ -993,7 +993,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
-    populateDecomposingONNXBeforeStableHloPatterns(patterns, context);
+    populateDecomposingONNXBeforeStablehloPatterns(patterns, context);
     target.addIllegalOp<ONNXSoftmaxOp>();
   }
 #endif

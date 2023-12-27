@@ -15,10 +15,10 @@
 // The IndexExprBuilder class has virtual functions that needs to be
 // instantiated by specialized sub-classes, defined to work in a specific
 // dialect. There are currently 3 sub-classes, one for ONNX, KRNL, and
-// StableHlo.
+// Stablehlo.
 //
 // Namely: IndexExprBuilderForAnalysis, IndexExprBuilderForKrnl, and
-// IndexExprBuilderForStableHlo
+// IndexExprBuilderForStablehlo
 //
 //===----------------------------------------------------------------------===//
 
@@ -63,8 +63,8 @@ namespace onnx_mlir {
   analysis phase; runtime values are described by questionmark index
   expressions.
 
-  Other subclasses (e.g. IndexExprBuilderForKrnl/IndexExprBuilderForStableHlo )
-  generate dialect operations (e.g. Krnl/StableHlo ops) to generate code that
+  Other subclasses (e.g. IndexExprBuilderForKrnl/IndexExprBuilderForStablehlo )
+  generate dialect operations (e.g. Krnl/Stablehlo ops) to generate code that
   compute runtime values.
 */
 

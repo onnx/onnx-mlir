@@ -7,5 +7,5 @@ add_subdirectory(KrnlSeqToMemref)
 add_subdirectory(ONNXToTOSA)
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
-  add_subdirectory(ONNXToStableHlo)
+  add_subdirectory(ONNXToStablehlo)
 endif()
