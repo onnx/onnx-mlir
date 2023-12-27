@@ -129,12 +129,17 @@ Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
+Value TosaBuilder::getSplattedConst(
+    float val, llvm::ArrayRef<int64_t> shape, std::optional<Type> dtype) {
   auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp =
       rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+
+  if (dtype)
+    return rewriter().createOrFold<mlir::tosa::CastOp>(
+        loc(), RankedTensorType::get(shape, *dtype), constOp);
   return constOp;
 }
 

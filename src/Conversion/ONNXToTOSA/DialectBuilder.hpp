@@ -71,10 +71,12 @@ struct TosaBuilder : DialectBuilder {
       llvm::ArrayRef<int8_t> vec, llvm::ArrayRef<int64_t> shape);
   mlir::Value getConst(
       llvm::ArrayRef<float> vec, llvm::ArrayRef<int64_t> shape);
-  // Create a 32-bit float constant operator from a float
+  // Create a floating-point constant operator from a float
   // The tensor will have the same rank as shape but all dimensions will
   // have size 1 (differs from tensorflow impl.)
-  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {});
+  // If dtype is provided, it also cast the value to the appropriate dtype.
+  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {},
+      std::optional<mlir::Type> dtype = {});
 
   // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set
   // to `value`.
