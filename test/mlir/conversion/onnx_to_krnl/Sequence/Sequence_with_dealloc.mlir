@@ -2,6 +2,7 @@
 
 // -----
 
+
 func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3xi64>  {
   %0 = onnx.Constant {value = dense<0> : tensor<i64>} : tensor<i64>
   %7 = "onnx.SequenceErase"(%arg0, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> !onnx.Seq<tensor<?x4x5xf32>>
@@ -62,3 +63,4 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK:           return [[RES_]] : memref<3xi64>
 // CHECK:         }
 }
+

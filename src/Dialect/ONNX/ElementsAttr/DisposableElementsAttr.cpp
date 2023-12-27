@@ -160,7 +160,7 @@ namespace {
 // Perform byte swap if system endianness is BE and elements are multi-byte.
 bool shouldSwapLEBytes(unsigned elementByteWidth) {
   return elementByteWidth > 1 &&
-         llvm::endianness::native != llvm::support::endianness::little;
+         llvm::endianness::native != llvm::endianness::little;
 }
 } // namespace
 

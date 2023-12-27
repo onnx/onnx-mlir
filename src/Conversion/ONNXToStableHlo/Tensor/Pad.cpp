@@ -4,7 +4,7 @@
 
 //===----------- Pad.cpp - Lowering Pad Op ------------===//
 //
-// Copyright 2022
+// Copyright 2022-2023
 //
 // =============================================================================
 //
@@ -77,12 +77,12 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
       assert(false && "Pads must be known at compile time");
     }
 
-    mlir::DenseIntElementsAttr edgePaddingLow =
-        rewriter.getI64VectorAttr(edgePaddingLowVec);
-    mlir::DenseIntElementsAttr edgePaddingHigh =
-        rewriter.getI64VectorAttr(edgePaddingHighVec);
-    mlir::DenseIntElementsAttr interiorPadding =
-        rewriter.getI64VectorAttr(interiorPaddingVec);
+    mlir::DenseI64ArrayAttr edgePaddingLow =
+        rewriter.getDenseI64ArrayAttr(edgePaddingLowVec);
+    mlir::DenseI64ArrayAttr edgePaddingHigh =
+        rewriter.getDenseI64ArrayAttr(edgePaddingHighVec);
+    mlir::DenseI64ArrayAttr interiorPadding =
+        rewriter.getDenseI64ArrayAttr(interiorPaddingVec);
     Value padResult = rewriter.create<stablehlo::PadOp>(loc, outputType, data,
         constantValue, edgePaddingLow, edgePaddingHigh, interiorPadding);
 
