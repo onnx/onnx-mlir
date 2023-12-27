@@ -24,6 +24,7 @@
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 namespace onnx_mlir {
 
@@ -44,6 +45,8 @@ struct StablehloBuilder : DialectBuilder {
   mlir::Value shaped_zero(mlir::Type type) const;
   // ReshapeOp
   mlir::Value reshape(mlir::Type resultType, mlir::Value operand) const;
+  mlir::Value dynamic_reshape(
+      mlir::Type type, mlir::Value input, mlir::Value shape) const;
   // SliceOp
   mlir::Value real_dynamic_slice(mlir::Type type, mlir::Value operand,
       mlir::Value startIndices, mlir::Value limitIndices,
@@ -71,6 +74,30 @@ protected:
 
 private:
   mlir::OpBuilder *patternRewriter;
+};
+
+//===----------------------------------------------------------------------===//
+// Extends OnnxBuilder with member functions that might generate Stablehlo
+// related dialect operations.
+//===----------------------------------------------------------------------===//
+
+struct OnnxToStablehloBuilder : public OnnxBuilder {
+  OnnxToStablehloBuilder(mlir::Location loc) : OnnxBuilder(loc) {}
+  OnnxToStablehloBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : OnnxBuilder(b, loc) {}
+  OnnxToStablehloBuilder(const DialectBuilder &db) : OnnxBuilder(db) {}
+  virtual ~OnnxToStablehloBuilder() {}
+
+  // Generate an 'onnx.reshape' operation on the 'input' tensor, the new shape
+  // is provided by 'shapeDims'.
+  mlir::Value reshape(const mlir::Value input,
+      const llvm::ArrayRef<DimIndexExpr> shapeDims) const;
+
+  // Generate a 'onnx.Transpose' operation on the 'input' tensor given the
+  // permutation array 'perm' and the operator output dimensions 'outputDims'.
+  mlir::Value transpose(const mlir::Value input,
+      const llvm::ArrayRef<int64_t> perm,
+      const llvm::ArrayRef<DimIndexExpr> outputDims) const;
 };
 
 // =============================================================================
@@ -107,7 +134,20 @@ struct MultiDialectBuilder<StablehloBuilder, Ts...>
   StablehloBuilder stablehlo;
 };
 
-// Recursive class specialized for AffineBuilder refereed to as affine.
+// Recursive class specialized for OnnxToStablehloBuilder referred to as
+// stablehloOnnx.
+template <class... Ts>
+struct MultiDialectBuilder<OnnxToStablehloBuilder, Ts...>
+    : MultiDialectBuilder<Ts...> {
+  MultiDialectBuilder(mlir::OpBuilder &b, mlir::Location loc)
+      : MultiDialectBuilder<Ts...>(b, loc), stablehloOnnx(b, loc) {}
+  MultiDialectBuilder(const DialectBuilder &db)
+      : MultiDialectBuilder<Ts...>(db), stablehloOnnx(db) {}
+  OnnxToStablehloBuilder stablehloOnnx;
+};
+
+// Recursive class specialized for IndexExprBuilderForStableHlo referred to as
+// stableHloIE.
 template <class... Ts>
 struct MultiDialectBuilder<IndexExprBuilderForStableHlo, Ts...>
     : MultiDialectBuilder<Ts...> {

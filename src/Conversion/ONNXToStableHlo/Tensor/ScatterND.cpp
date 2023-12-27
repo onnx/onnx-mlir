@@ -19,6 +19,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+namespace {
+
 struct ONNXScatterNDOpLoweringToStableHlo
     : public OpConversionPattern<ONNXScatterNDOp> {
   ONNXScatterNDOpLoweringToStableHlo(MLIRContext *ctx)
@@ -83,6 +85,8 @@ struct ONNXScatterNDOpLoweringToStableHlo
     return success();
   }
 };
+
+} // namespace
 
 void populateLoweringONNXScatterNDOpToStableHloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {

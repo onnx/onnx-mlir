@@ -22,6 +22,8 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+namespace {
+
 struct ONNXOneHotOpLoweringToStableHlo
     : public OpConversionPattern<ONNXOneHotOp> {
   ONNXOneHotOpLoweringToStableHlo(MLIRContext *ctx)
@@ -114,6 +116,8 @@ struct ONNXOneHotOpLoweringToStableHlo
     return success();
   }
 };
+
+} // namespace
 
 void populateLoweringONNXOneHotOpToStableHloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {

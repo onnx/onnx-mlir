@@ -69,11 +69,9 @@ struct ONNXExpandOpLoweringToStableHlo : public ConversionPattern {
       RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
       broadcastedOnes = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
           loc, onesType, ones, shape, rewriter.getI64TensorAttr({}));
-    } else if (ONNXConstantOp shapeOp =
-                   dyn_cast_or_null<ONNXConstantOp>(shapeDefOp)) {
+    } else if (mlir::ElementsAttr constShape =
+                   getElementAttributeFromConstValue(shape)) {
       llvm::SmallVector<int64_t, 4> shapeValues;
-      mlir::ElementsAttr constShape =
-          shapeOp.getValueAttr().cast<ElementsAttr>();
       for (mlir::IntegerAttr element : constShape.getValues<IntegerAttr>())
         shapeValues.push_back(element.getInt());
       RankedTensorType broadcastedType =

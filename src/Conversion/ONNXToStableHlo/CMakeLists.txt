@@ -55,6 +55,7 @@ add_onnx_mlir_library(OMONNXToStableHlo
   Tensor/ArgMax.cpp
   Tensor/Concat.cpp
   Tensor/Constant.cpp
+  Tensor/DepthToSpace.cpp
   Tensor/Expand.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp

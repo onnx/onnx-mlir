@@ -24,12 +24,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/TypeSwitch.h"
-
-#include "stablehlo/dialect/StablehloOps.h"
-
 #include "src/Conversion/ONNXToStableHlo/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
 #include "src/Dialect/Mlir/IndexExpr.hpp"
@@ -37,6 +31,10 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Pass/Passes.hpp"
+#include "stablehlo/dialect/StablehloOps.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 
@@ -182,7 +180,7 @@ void populateLoweringONNXConcatOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXConstantOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
-void populateLoweringONNXReshapeOpToStableHloPattern(
+void populateLoweringONNXDepthToSpaceOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXExpandOpToStableHloPattern(
     RewritePatternSet &, MLIRContext *);

@@ -41,6 +41,7 @@ void populateONNXToStableHloConversionPattern(
   populateLoweringONNXArgMaxOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXConcatOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXConstantOpToStableHloPattern(patterns, ctx);
+  populateLoweringONNXDepthToSpaceOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXExpandOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXFlattenOpToStableHloPattern(patterns, ctx);
   populateLoweringONNXGatherOpToStableHloPattern(patterns, ctx);
