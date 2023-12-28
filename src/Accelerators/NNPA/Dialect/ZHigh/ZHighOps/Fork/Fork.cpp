@@ -41,17 +41,6 @@ std::vector<Type> ZHighForkOp::resultTypeInference() {
 }
 
 //===----------------------------------------------------------------------===//
-// ShapeHelper
-//===----------------------------------------------------------------------===//
-
-LogicalResult ZHighForkOpShapeHelper::computeShape() {
-  ZHighForkOp forkOp = llvm::dyn_cast<ZHighForkOp>(op);
-  ZHighForkOp::Adaptor operandAdaptor(operands);
-  // TODO: implement
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
