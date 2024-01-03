@@ -73,7 +73,7 @@ struct IsInt {
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
     if (!isTOSASignedInt(scalarType)) {
       return rewriter.notifyMatchFailure(
-          op, "this operation only supports float types");
+          op, "this operation only supports int types");
     }
     return success();
   }
