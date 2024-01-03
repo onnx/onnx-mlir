@@ -4,7 +4,7 @@
 
 //===---------------- Elementwise.cpp - Elementwise Ops -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -330,6 +330,73 @@ struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
 };
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXGeluOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXGeluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+double analyzeSimdFor<ONNXGeluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
+}
+
+template <>
+Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
+
+  CheckIfCustomScalarOpIsSupported<ONNXGeluOp>(elementType);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+
+  // Approximate is a required attribute and should have a default value of "none".
+  // "approximate = none" simply implies no approximation will take place. However, 
+  // "approximate" can also have a string value of "tanh" which indicates the use of 
+  // tanh approximation.
+  StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
+
+  // Value strlen = create.krnl.strlen(operand);
+  // Value noneRes = create.krnl.strncmp(approximate, "none", strlen);
+  // Value tanhRes = create.krnl.strncmp(approximate, "tanh", strlen);
+
+  // Confirm the strncmp is indeed valid. strncmp returns a value of 0 if the
+  // strings are equal. So we need to verify the returned results is equal to
+  // 0.
+  // Value zeroVal = create.math.constant(noneRes.getType(), 0);
+  // Value isApproxNone = create.math.eq(noneRes, zeroVal);
+  // Value isApproxTanh = create.math.eq(tanhRes, zeroVal);
+
+  // Create constants 
+  Value half = create.math.constant(elementType, 0.5);
+  Value one = create.math.constant(elementType, 1);
+  Value two = create.math.constant(elementType, 2);
+  // Value three = create.math.constant(elementType, 3);
+  Value pi = create.math.constant(elementType, M_PI);
+  Value decimal = create.math.constant(elementType, 0.044715);
+
+  // Calculations  
+  Value div = create.math.div(operand, create.math.sqrt(two));
+  Value erfApprox = create.math.erf(div);
+  Value add = create.math.add(one, erfApprox);
+  Value tanhApprox = create.math.tanh(create.math.sqrt(create.math.div(two, pi)));
+  // HOW TO DO x^3? Since I only see x^1 and x^2
+  Value dec = create.math.add(operand, create.math.mul(decimal, create.math.exp(operand)));
+  Value mul = create.math.mul(create.math.add(one, tanhApprox), dec);
+
+  // Approximate = none returns an output of y = 0.5 * x * (1 + erf(x/sqrt(2)))
+  if (approximate == "none")
+    return create.math.mul(create.math.mul(half, operand), add);
+  // Approximate = tanh returns an output of y = 0.5 * x * (1 + Tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+  if (approximate == "tanh")
+    return create.math.mul(create.math.mul(half, operand), mul);
+  llvm_unreachable("unsupported case for this particular op.");
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXIsInfOp
@@ -1686,13 +1753,13 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
       mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
       mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
-      mlir::ONNXFloorOp, mlir::ONNXHardSigmoidOp, mlir::ONNXIsInfOp,
-      mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
-      mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
-      mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
-      mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
-      mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
-      mlir::ONNXTanOp, mlir::ONNXTanhOp,
+      mlir::ONNXFloorOp, mlir::ONNXGeluOp, mlir::ONNXHardSigmoidOp, 
+      mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, 
+      mlir::ONNXLogOp, mlir::ONNXNegOp, mlir::ONNXNotOp, 
+      mlir::ONNXReciprocalOp, mlir::ONNXReluOp, mlir::ONNXRoundOp, 
+      mlir::ONNXSeluOp, mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, 
+      mlir::ONNXSinhOp, mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp,
+      mlir::ONNXSqrtOp, mlir::ONNXTanOp, mlir::ONNXTanhOp,
       // Binary Op
       mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
       mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
@@ -2576,6 +2643,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXGeluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,

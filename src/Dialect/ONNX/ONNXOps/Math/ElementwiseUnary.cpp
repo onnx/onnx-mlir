@@ -258,6 +258,16 @@ LogicalResult ONNXFloorOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Gelu
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXGeluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
 // HardSigmoid
 //===----------------------------------------------------------------------===//
 

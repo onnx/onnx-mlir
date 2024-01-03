@@ -79,6 +79,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **Gather** |6 - * | | |
 | **GatherElements** |11 - * | | |
 | **GatherND** |11 - * | | |
+| **Gelu** |20 - * | | |
 | **Gemm** |6 - * | | |
 | **GlobalAveragePool** |6 - * | | |
 | **GlobalLpPool** |none | | | |

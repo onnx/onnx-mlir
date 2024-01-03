@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021, 2023 The IBM Research Authors.
+# Copyright 2021, 2024 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -1038,6 +1038,48 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== Gelu
+        # ==MIN== 20
+        "test_gelu_default_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_default_1_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_default_2_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_default_2_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        #  "test_gelu_tanh_1_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_gelu_tanh_1_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_gelu_tanh_2_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_gelu_tanh_2_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
         # ==OP== Gemm
         # ==MIN== 6
         "test_gemm_all_attributes_cpu": {

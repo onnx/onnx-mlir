@@ -152,6 +152,7 @@ version_dict = {
     "Gather": [13],
     "GatherElements": [13],
     "GatherND": [13],
+    "Gelu": [20],
     "Gemm": [13],
     "GlobalAveragePool": [1],
     "GlobalLpPool": [2],

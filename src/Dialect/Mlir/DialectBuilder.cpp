@@ -4,7 +4,7 @@
 
 //===------ DialectBuilder.cpp - Helper functions for MLIR dialects -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -218,6 +218,10 @@ Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
   return add(mul(lhs, rhs), acc);
 }
 
+Value MathBuilder::erf(Value val) const {
+  return b().create<math::ErfOp>(loc(), val);
+}
+
 Value MathBuilder::exp(Value val) const {
   if (isFloatWithVector(val.getType()))
     return b().create<math::ExpOp>(loc(), val);
@@ -272,6 +276,12 @@ Value MathBuilder::ceil(Value val) const {
 Value MathBuilder::floor(Value val) const {
   if (isFloatWithVector(val.getType()))
     return b().create<math::FloorOp>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
+Value MathBuilder::tanh(Value val) const {
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::TanhOp>(loc(), val);
   llvm_unreachable("expected float");
 }
 
