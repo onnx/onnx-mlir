@@ -2,21 +2,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------- ONNXRecompose.cpp - ONNX High Level Rewriting ------------===//
+//===-- ProcessAffineParallelPrivate.cpp - handle parallel private data ---===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-24 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a set of rewriters to Recompose an ONNX operation into
-// composition of other ONNX operations.
-//
-// This pass is applied before any other pass so that there is no need to
-// implement shape inference for the Recomposed operation. Hence, it is expected
-// that there is no knowledge about tensor shape at this point.
-//
-// TODO: This file is quite busy as the number of decomposing op is increasing.
-// It is better to move decomposition of each operation into a separate file.
 //
 //===----------------------------------------------------------------------===//
 
@@ -26,6 +17,8 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -38,6 +31,7 @@
 
 using namespace mlir;
 
+void hi_super_alex() { fprintf(stderr, "hi super alex\n"); }
 namespace {
 func::FuncOp functionBeingDebugged;
 
@@ -82,6 +76,7 @@ struct ProcessAffineParallelWithoutScopePattern
     for (auto t : parForOp.getResults()) {
       resultTypes.emplace_back(t.getType());
     }
+    fprintf(stderr, "hi alex, there are %d results\n", (int)resultTypes.size());
     auto newParForOp = rewriter.create<affine::AffineParallelOp>(loc,
         resultTypes, parForOp.getReductionsAttr(), parForOp.getLowerBoundsMap(),
         parForOp.getLowerBoundsGroupsAttr(), parForOp.getUpperBoundsMap(),
@@ -116,9 +111,11 @@ struct ProcessAffineParallelWithoutScopePattern
       auto oldYield = cast<affine::AffineYieldOp>(scopeBlock->getTerminator());
       // parForYieldOp.setOperand(oldYield->getOperand());
       rewriter.setInsertionPointToEnd(&*scope.getBodyRegion().begin());
-#if 0
+      fprintf(stderr, "\n\nhi alex before yield replace op\n");
+#if 1 || 1
       auto newYield = rewriter.create<memref::AllocaScopeReturnOp>(
           loc, oldYield->getOperands());
+      hi_super_alex();
       rewriter.replaceOp(oldYield, newYield);
 #else
       rewriter.replaceOpWithNewOp<memref::AllocaScopeReturnOp>(
@@ -172,7 +169,9 @@ void ProcessAffineParallelPrivatePass::runOnOperation() {
   fprintf(stderr, "hi alex, run process affine parallel private\n");
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<arith::ArithDialect, func::FuncDialect>();
+  target.addLegalDialect<mlir::affine::AffineDialect, mlir::arith::ArithDialect,
+      mlir::memref::MemRefDialect, mlir::func::FuncDialect,
+      mlir::vector::VectorDialect, mlir::scf::SCFDialect>();
 
 #if 1
   // Locate parallel for without scope
