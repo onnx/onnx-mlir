@@ -333,6 +333,51 @@ public:
   }
 };
 
+class ONNXHardSigmoidOpLoweringToTOSA
+    : public OpConversionPattern<ONNXHardSigmoidOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXHardSigmoidOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    // ONNXHardSigmoid -> TOSA:
+    // - tosa.add(input, beta/alpha)
+    // - tosa.clamp(add) with min = 0, and max = 1/alpha
+    // - tosa.mul(clamp, alpha)
+    Value input = adaptor.getX();
+
+    auto resultType = op.getResult().getType().template cast<TensorType>();
+    auto resultElementType = resultType.getElementType();
+
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+
+    auto alpha = adaptor.getAlpha();
+
+    auto betaOverAlpha = adaptor.getBeta();
+    betaOverAlpha.divide(alpha, APFloat::rmNearestTiesToEven);
+
+    APFloat oneOverAlpha(alpha.getSemantics(), 1);
+    oneOverAlpha.divide(alpha, APFloat::rmNearestTiesToEven);
+
+    Value constBetaOverAlpha =
+        tosaBuilder.getSplattedConst(betaOverAlpha.convertToDouble(),
+            resultType.getShape(), resultElementType);
+    Value constAlpha = tosaBuilder.getSplattedConst(
+        alpha.convertToDouble(), resultType.getShape(), resultElementType);
+
+    auto addOp =
+        tosaBuilder.binaryOp<mlir::tosa::AddOp>(input, constBetaOverAlpha);
+    Value clampOp = tosa::CreateOpAndInfer<mlir::tosa::ClampOp>(rewriter,
+        op->getLoc(), resultType, addOp, rewriter.getI64IntegerAttr(0),
+        rewriter.getI64IntegerAttr(oneOverAlpha.convertToDouble()),
+        rewriter.getF32FloatAttr(0),
+        rewriter.getF32FloatAttr(oneOverAlpha.convertToDouble()));
+    auto mulOp = tosaBuilder.mul(clampOp, constAlpha);
+
+    rewriter.replaceOp(op, {mulOp});
+    return success();
+  }
+};
+
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
@@ -372,7 +417,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
       ONNXMulOpLoweringToTosa, ONNXClipOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA>(
+      typeConverter, ctx);
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);

@@ -363,3 +363,59 @@ func.func @test_erf_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<3xbf16>
 // CHECK-NEXT:   }
 }
+
+// -----
+
+// Default values: alpha = 0.2, beta = 0.5
+func.func @test_hardsigmoid_default_values_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>
+  return %0 : tensor<3xf32>
+// CHECK-LABEL:  func.func @test_hardsigmoid_default_values_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf32>) -> tensor<3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<2.500000e+00> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<2.000000e-01> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           [[VAR_3_:%.+]] = "tosa.clamp"([[VAR_2_]]) <{max_fp = 5.000000e+00 : f32, max_int = 5 : i64, min_fp = 0.000000e+00 : f32, min_int = 0 : i64}> : (tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           return [[VAR_4_]] : tensor<3xf32>
+}
+
+func.func @test_hardsigmoid_default_values_f16(%arg0: tensor<3xf16>) -> tensor<3xf16> {
+  %0 = "onnx.HardSigmoid"(%arg0) : (tensor<3xf16>) -> tensor<3xf16>
+  return %0 : tensor<3xf16>
+// CHECK-LABEL:  func @test_hardsigmoid_default_values_f16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf16>) -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<2.500000e+00> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<1.999510e-01> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           [[VAR_3_:%.+]] = "tosa.clamp"([[VAR_2_]]) <{max_fp = 5.000000e+00 : f32, max_int = 5 : i64, min_fp = 0.000000e+00 : f32, min_int = 0 : i64}> : (tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           return [[VAR_4_]] : tensor<3xf16>
+}
+
+// alpha = 0.166666672, beta = 5.000000e-01
+func.func @test_hardsigmoid_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<3xf32>) -> tensor<3xf32>
+  return %0 : tensor<3xf32>
+// CHECK-LABEL:  func @test_hardsigmoid_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf32>) -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<3.000000e+00> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<0.166666672> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           [[VAR_3_:%.+]] = "tosa.clamp"([[VAR_2_]]) <{max_fp = 6.000000e+00 : f32, max_int = 6 : i64, min_fp = 0.000000e+00 : f32, min_int = 0 : i64}> : (tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           return [[VAR_4_]] : tensor<3xf32>
+}
+
+func.func @test_hardsigmoid_f16(%arg0: tensor<3xf16>) -> tensor<3xf16> {
+  %0 = "onnx.HardSigmoid"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<3xf16>) -> tensor<3xf16>
+  return %0 : tensor<3xf16>
+// CHECK-LABEL:  func @test_hardsigmoid_f16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf16>) -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<3.000000e+00> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<1.666260e-01> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.add"([[PARAM_0_]], [[VAR_0_]]) : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           [[VAR_3_:%.+]] = "tosa.clamp"([[VAR_2_]]) <{max_fp = 6.000000e+00 : f32, max_int = 6 : i64, min_fp = 0.000000e+00 : f32, min_int = 0 : i64}> : (tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           return [[VAR_4_]] : tensor<3xf16>
+}
