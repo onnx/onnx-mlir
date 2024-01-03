@@ -366,6 +366,30 @@ func.func @test_erf_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 
 // -----
 
+func.func @test_bitwise_not(%arg0 : tensor<10x10xi32>) -> tensor<10x10xi32> {
+  %0 = "onnx.BitwiseNot"(%arg0) : (tensor<10x10xi32>) -> tensor<10x10xi32>
+  "func.return"(%0) : (tensor<10x10xi32>) -> ()
+// CHECK-LABEL:  func @test_bitwise_not
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xi32>) -> tensor<10x10xi32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.bitwise_not"([[PARAM_0_]]) : (tensor<10x10xi32>) -> tensor<10x10xi32>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xi32>
+// CHECK-NEXT:    }
+}
+
+// -----
+
+func.func @test_not(%arg0 : tensor<10x10xi1>) -> tensor<10x10xi1> {
+  %0 = "onnx.Not"(%arg0) : (tensor<10x10xi1>) -> tensor<10x10xi1>
+  "func.return"(%0) : (tensor<10x10xi1>) -> ()
+// CHECK-LABEL:  func @test_not
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xi1>) -> tensor<10x10xi1> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.logical_not"([[PARAM_0_]]) : (tensor<10x10xi1>) -> tensor<10x10xi1>
+// CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xi1>
+// CHECK-NEXT:    }
+}
+
+// -----
+
 // Default values: alpha = 0.2, beta = 0.5
 func.func @test_hardsigmoid_default_values_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.HardSigmoid"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>

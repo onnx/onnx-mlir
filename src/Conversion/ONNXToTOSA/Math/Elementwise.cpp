@@ -63,7 +63,29 @@ struct IsIntOrFloat {
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
     if (!isTOSAFloat(scalarType) && !isTOSASignedInt(scalarType)) {
       return rewriter.notifyMatchFailure(
-          op, "this operation only support signed integer or float types");
+          op, "this operation only supports signed integer or float types");
+    }
+    return success();
+  }
+};
+
+struct IsInt {
+  static LogicalResult checkType(
+      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
+    if (!isTOSASignedInt(scalarType)) {
+      return rewriter.notifyMatchFailure(
+          op, "this operation only supports float types");
+    }
+    return success();
+  }
+};
+
+struct IsBool {
+  static LogicalResult checkType(
+      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
+    if (!isTOSABool(scalarType)) {
+      return rewriter.notifyMatchFailure(
+          op, "this operation only supports bool type");
     }
     return success();
   }
@@ -413,6 +435,10 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
           IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXSigmoidOp, mlir::tosa::SigmoidOp,
           IsIntOrFloat, IsIntOrFloat>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXBitwiseNotOp,
+          mlir::tosa::BitwiseNotOp, IsInt, IsInt>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNotOp, mlir::tosa::LogicalNotOp,
+          IsBool, IsBool>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXAbsOp, mlir::tosa::AbsOp,
           AbsIOSupportedTypes, AbsIOSupportedTypes>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXErfOp, mlir::tosa::ErfOp,
