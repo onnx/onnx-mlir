@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Matchers.h"
@@ -337,6 +338,10 @@ static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAndOp, mlir::tosa::LogicalAndOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseAndOp, mlir::tosa::BitwiseAndOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXOrOp, mlir::tosa::LogicalOrOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseOrOp, mlir::tosa::BitwiseOrOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>>(
       typeConverter, ctx);
