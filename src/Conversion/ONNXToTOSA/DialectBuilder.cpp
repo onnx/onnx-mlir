@@ -256,6 +256,13 @@ template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
 template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
     mlir::Value &lhs, mlir::Value &rhs);
 
+Value TosaBuilder::sqrt(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  auto oneHalf = this->getSplattedConst(
+      0.5, inputType.getShape(), inputType.getElementType());
+  return this->binaryOp<mlir::tosa::PowOp>(input, oneHalf);
+}
+
 static bool containsNonZero(llvm::SmallVectorImpl<int64_t> &values) {
   return llvm::any_of(values, [](int64_t value) { return value != 0; });
 }

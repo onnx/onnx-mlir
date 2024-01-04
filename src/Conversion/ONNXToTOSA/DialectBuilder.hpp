@@ -50,6 +50,7 @@ struct TosaBuilder : DialectBuilder {
       llvm::ArrayRef<int64_t> start);
   mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
   mlir::Value reciprocal(mlir::Value &input);
+  mlir::Value sqrt(mlir::Value &input);
 
   /// When using window based ops like maxpool or conv2d, we sometimes have
   /// unused values at the end of a spatial dimension. TOSA does not allow that,
