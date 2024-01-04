@@ -403,7 +403,13 @@ public:
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<
+  patterns.insert<ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAndOp,
+                      mlir::tosa::LogicalAndOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseAndOp,
+          mlir::tosa::BitwiseAndOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXOrOp, mlir::tosa::LogicalOrOp>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseOrOp,
+          mlir::tosa::BitwiseOrOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>>(
       typeConverter, ctx);
