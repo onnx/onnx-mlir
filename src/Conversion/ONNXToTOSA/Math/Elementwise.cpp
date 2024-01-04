@@ -366,6 +366,26 @@ public:
   }
 };
 
+class ONNXSqrtOpLoweringToTOSA : public OpConversionPattern<ONNXSqrtOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXSqrtOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto resultTensorType = op.getResult().getType().cast<TensorType>();
+    if (failed(IsFloat::checkType(
+            rewriter, resultTensorType.getElementType(), op))) {
+      return failure();
+    }
+
+    Value input = op.getX();
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value sqrtOp = tosaBuilder.sqrt(input);
+    rewriter.replaceOp(op, {sqrtOp});
+    return success();
+  }
+};
+
 class ONNXHardSigmoidOpLoweringToTOSA
     : public OpConversionPattern<ONNXHardSigmoidOp> {
 public:
@@ -456,8 +476,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
       ONNXMulOpLoweringToTosa, ONNXClipOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA>(
-      typeConverter, ctx);
+      ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA,
+      ONNXSqrtOpLoweringToTOSA>(typeConverter, ctx);
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);
