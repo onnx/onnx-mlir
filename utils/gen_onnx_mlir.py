@@ -390,6 +390,7 @@ OpsWithVerifier = [
     "Gather",
     "GatherElements",
     "GatherND",
+    "Gelu",
     "Greater",
     "GreaterOrEqual",
     "Hardmax",
