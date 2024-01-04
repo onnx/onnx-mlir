@@ -79,6 +79,17 @@ struct IsInt {
   }
 };
 
+struct IsFloat {
+  static LogicalResult checkType(
+      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
+    if (!isTOSAFloat(scalarType)) {
+      return rewriter.notifyMatchFailure(
+          op, "this operation only supports float types");
+    }
+    return success();
+  }
+};
+
 struct IsBool {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
@@ -90,14 +101,14 @@ struct IsBool {
   }
 };
 
-template <typename OpAdaptorT>
+template <typename OpAdaptorT, typename TypeChecker>
 LogicalResult checkBasicTosaRequirementsForBinaryOps(
     ConversionPatternRewriter &rewriter, Operation *op, OpAdaptorT adaptor,
     Type resultType) {
-  Value lhs = adaptor.getA();
+  Value lhs = adaptor.getOperands()[0];
   auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
-  Value rhs = adaptor.getB();
+  Value rhs = adaptor.getOperands()[1];
   auto rhsType = rhs.getType().dyn_cast<TensorType>();
 
   auto resultTensorType = resultType.dyn_cast<TensorType>();
@@ -107,8 +118,8 @@ LogicalResult checkBasicTosaRequirementsForBinaryOps(
 
   Type resultElementType = resultTensorType.getElementType();
 
-  if (!resultElementType.isIntOrFloat()) {
-    return rewriter.notifyMatchFailure(op, "only int and float are supported");
+  if (failed(TypeChecker::checkType(rewriter, resultElementType, op))) {
+    return failure();
   }
 
   return success();
@@ -150,7 +161,7 @@ public:
   }
 };
 
-template <typename ONNXOpT, typename TosaOpT>
+template <typename ONNXOpT, typename TosaOpT, typename TypeChecker>
 class ONNXBinaryElementwiseOpLoweringToTOSA
     : public OpConversionPattern<ONNXOpT> {
 public:
@@ -159,13 +170,13 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor>(
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, TypeChecker>(
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
     auto loc = op.getLoc();
-    Value lhs = adaptor.getA();
-    Value rhs = adaptor.getB();
+    Value lhs = adaptor.getOperands()[0];
+    Value rhs = adaptor.getOperands()[1];
 
     if (TosaOpT::template hasTrait<
             mlir::OpTrait::ResultsBroadcastableShape>()) {
@@ -194,7 +205,7 @@ public:
   using OpConversionPattern::OpConversionPattern;
   LogicalResult matchAndRewrite(ONNXMulOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor>(
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, IsIntOrFloat>(
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
@@ -355,6 +366,26 @@ public:
   }
 };
 
+class ONNXSqrtOpLoweringToTOSA : public OpConversionPattern<ONNXSqrtOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXSqrtOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    auto resultTensorType = op.getResult().getType().cast<TensorType>();
+    if (failed(IsFloat::checkType(
+            rewriter, resultTensorType.getElementType(), op))) {
+      return failure();
+    }
+
+    Value input = op.getX();
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    Value sqrtOp = tosaBuilder.sqrt(input);
+    rewriter.replaceOp(op, {sqrtOp});
+    return success();
+  }
+};
+
 class ONNXHardSigmoidOpLoweringToTOSA
     : public OpConversionPattern<ONNXHardSigmoidOp> {
 public:
@@ -404,15 +435,19 @@ static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
   patterns.insert<ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAndOp,
-                      mlir::tosa::LogicalAndOp>,
+                      mlir::tosa::LogicalAndOp, IsBool>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseAndOp,
-          mlir::tosa::BitwiseAndOp>,
-      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXOrOp, mlir::tosa::LogicalOrOp>,
+          mlir::tosa::BitwiseAndOp, IsInt>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXOrOp, mlir::tosa::LogicalOrOp,
+          IsBool>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseOrOp,
-          mlir::tosa::BitwiseOrOp>,
-      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp>,
-      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp>>(
-      typeConverter, ctx);
+          mlir::tosa::BitwiseOrOp, IsInt>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp,
+          IsIntOrFloat>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp,
+          IsIntOrFloat>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXPowOp, mlir::tosa::PowOp,
+          IsFloat>>(typeConverter, ctx);
 }
 
 static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
@@ -449,8 +484,8 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
     MLIRContext *ctx) {
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
       ONNXMulOpLoweringToTosa, ONNXClipOpLoweringToTOSA,
-      ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA>(
-      typeConverter, ctx);
+      ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA,
+      ONNXSqrtOpLoweringToTOSA>(typeConverter, ctx);
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);
