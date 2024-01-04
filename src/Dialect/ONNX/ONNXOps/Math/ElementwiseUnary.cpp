@@ -260,6 +260,18 @@ LogicalResult ONNXFloorOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // Gelu
 //===----------------------------------------------------------------------===//
+LogicalResult ONNXGeluOp::verify() {
+  ONNXGeluOpAdaptor operandAdaptor(*this);
+  // Approximate should only be a string value of "none" or "tanh".
+  // If not, then this will result in an error.
+  StringRef approximate = getApproximate();
+  if (approximate != "none" && approximate != "tanh")
+    return emitOpError(
+        "This value is unsupported. The approximate attribute "
+        "should be a value of none or tanh. "
+        "The value received was approximate = " + approximate);
+  return success();
+}
 
 LogicalResult ONNXGeluOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {

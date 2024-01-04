@@ -12,6 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 #include "llvm/Support/Debug.h"
 
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -360,18 +363,7 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   // place. However, "approximate" can also have a string value of "tanh" which
   // indicates the use of tanh approximation.
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
-
-  // Value strlen = create.krnl.strlen(operand);
-  // Value noneRes = create.krnl.strncmp(approximate, "none", strlen);
-  // Value tanhRes = create.krnl.strncmp(approximate, "tanh", strlen);
-
-  // Confirm the strncmp is indeed valid. strncmp returns a value of 0 if the
-  // strings are equal. So we need to verify the returned results is equal to
-  // 0.
-  // Value zeroVal = create.math.constant(noneRes.getType(), 0);
-  // Value isApproxNone = create.math.eq(noneRes, zeroVal);
-  // Value isApproxTanh = create.math.eq(tanhRes, zeroVal);
-
+  
   // Create constants
   Value half = create.math.constant(elementType, 0.5);
   Value one = create.math.constant(elementType, 1);

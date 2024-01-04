@@ -2753,6 +2753,7 @@ def ONNXGeluOp:ONNX_Op<"Gelu",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGemmOp:ONNX_Op<"Gemm",
