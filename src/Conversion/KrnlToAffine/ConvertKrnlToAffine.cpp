@@ -654,36 +654,9 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
           ValueRange(reducedValues).getTypes(), reductionKinds,
           ArrayRef(lbsMap), lbsOperands, ArrayRef(ubsMap), ubsOperands,
           ArrayRef(loopToParallel.getStepAsInt()));
-#if 1
       parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
       Operation *yieldOp = &parallelLoop.getBody()->back();
       yieldOp->setOperands(reducedValues);
-#else
-      // hi alex: issue, the block is not inside because of the movable...
-      {
-        OpBuilder::InsertionGuard allocaGuard(opBuilder);
-        // Create a memref region with an affine yield.
-        opBuilder.setInsertionPointToStart(&*parallelLoop.getRegion().begin());
-        fprintf(stderr, "hi alex before create alloc scope\n");
-        auto scope = opBuilder.create<memref::AllocaScopeOp>(loc, TypeRange());
-        fprintf(stderr, "hi alex before create affine yield\n");
-        auto affineYieldOp = opBuilder.create<AffineYieldOp>(loc, ValueRange());
-        fprintf(stderr, "hi alex before take body\n");
-        scope.getRegion().takeBody(loopToParallel.getRegion());
-        fprintf(stderr, "hi alex after take body\n");
-        Operation *loopToParallelYieldOp = &scope.getBody()->back();
-        fprintf(stderr, "hi alex before scope return\n");
-        opBuilder.create<memref::AllocaScopeReturnOp>(
-            loc, loopToParallelYieldOp->getOperands());
-        fprintf(stderr, "hi alex after scope return\n");
-        affineYieldOp->setOperands(loopToParallelYieldOp->getOperands());
-        // Remove loopToParallelYieldOp
-        fprintf(stderr, "hi alex before erasing\n");
-        // llvm::SmallPtrSet<Operation *, 4> opsToErase;
-        // opsToErase.insert(loopToParallelYieldOp);
-        // removeOps(opsToErase);
-      }
-#endif
 
       // Replace the affine.forOp with affine.parallelOp in loopRefToTop
       loopRefToOp[loopRef] = parallelLoop;

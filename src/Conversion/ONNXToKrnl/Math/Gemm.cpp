@@ -194,11 +194,14 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     MemRefType bTileType =
         MemRefType::get({kCacheTile, jCacheTile}, elementType);
     SmallVector<IndexExpr, 1> empty;
-    Value aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
-    Value bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
-    Value rBuff;
-    if (mustTileR)
-      rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
+    // Allocate here on heap, only when no parallelism.
+    Value aBuff, bBuff, rBuff;
+    if (!enableParallel) {
+      aBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
+      bBuff = create.mem.alignedAlloc(bTileType, BUFFER_ALIGN);
+      if (mustTileR)
+        rBuff = create.mem.alignedAlloc(aTileType, BUFFER_ALIGN);
+    }
 
     // 3) introduce the loops and permute them
     // I, J, K loop.
@@ -233,6 +236,13 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
           {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange i1_j1_indices) {
             Value i1(i1_j1_indices[0]), j1(i1_j1_indices[1]);
+            // If parallel, allocate on stack inside the parallel region.
+            if (enableParallel) {
+              aBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
+              bBuff = create.mem.alignedAlloca(bTileType, BUFFER_ALIGN);
+              if (mustTileR)
+                rBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
+            }
             createKrnl.copyToBuffer(rBuff, R, {i1, j1}, zeroVal, false);
             createKrnl.iterateIE({}, {kk1}, {}, {},
                 [&](KrnlBuilder &createKrnl, ValueRange k1_index) {
@@ -285,6 +295,13 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       create.krnl.iterateIE({jj, kk, ii}, {jj1, kk1}, {zeroIE, zeroIE, zeroIE},
           {J, K, I}, [&](KrnlBuilder &createKrnl, ValueRange j1_k1_indices) {
             Value j1(j1_k1_indices[0]), k1(j1_k1_indices[1]);
+            // If parallel, allocate on stack inside the parallel region.
+            if (enableParallel) {
+              aBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
+              bBuff = create.mem.alignedAlloca(bTileType, BUFFER_ALIGN);
+              if (mustTileR)
+                rBuff = create.mem.alignedAlloca(aTileType, BUFFER_ALIGN);
+            }
             if (bTrans)
               createKrnl.copyToBuffer(bBuff, B, {j1, k1}, zeroVal, true);
             else
@@ -432,7 +449,7 @@ void populateLoweringONNXGemmOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, bool enableTiling,
     bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXGemmOpLowering<ONNXGemmOp>>(
-      typeConverter, ctx, enableTiling, enableSIMD, false && enableParallel);
+      typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

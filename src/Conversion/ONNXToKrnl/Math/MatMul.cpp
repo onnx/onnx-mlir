@@ -66,11 +66,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
-    // Single scalar, no need for default alignment.
-    Value reductionVal =
-        create.mem.alignedAlloca(MemRefType::get({}, elementType));
     if (enableParallel) {
       create.krnl.parallel(outerLoops[0]);
+      onnxToKrnlParallelReport(op, true, 0, loopLbs[0], loopUbs[0], "matmul");
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
     }
 
@@ -79,6 +77,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
+          // Single scalar, no need for default alignment.
+          Value reductionVal =
+              create.mem.alignedAlloca(MemRefType::get({}, elementType));
           create.krnl.store(fZero, reductionVal);
           // Inner loop for reduction.
           create.krnl.iterate({}, innerLoop, {}, {},
@@ -519,7 +520,7 @@ void populateLoweringONNXMatMulOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
     bool enableTiling, bool enableSIMD, bool enableParallel) {
   patterns.insert<ONNXMatMulOpLowering>(typeConverter, ctx, dimAnalysis,
-      enableTiling, enableSIMD, false && enableParallel);
+      enableTiling, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

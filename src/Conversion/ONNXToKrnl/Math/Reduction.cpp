@@ -603,11 +603,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         // When axes is dynamic, generate a Krnl loop
         KrnlBuilder createKrnl(rewriter, loc);
         ValueRange loopDef = createKrnl.defineLoops(1);
-        if (enableParallel) {
-          create.krnl.parallel(loopDef[0]);
-          LLVM_DEBUG(
-              llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
-        }
         createKrnl.iterateIE(loopDef, loopDef, {LiteralIndexExpr(0)},
             {axisShape0}, [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
               Value axe = createKrnl.load(axesVal, loopInd[0]);
@@ -789,6 +784,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
       if (enableParallel) {
         create.krnl.parallel(loop3Def[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
         LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
       }
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
@@ -881,19 +878,22 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
-    // Alloca a small temp vector.
+    // Compute type of alloca a small temp vector.
     MemRefType tmpType = MemRefType::get({1, VL}, elementType);
-    Value tmpAlloca = create.mem.alignedAlloca(tmpType);
     // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
       create.krnl.parallel(outLoopDef[0]);
+      onnxToKrnlParallelReport(
+          op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
     }
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange outLoopInd) {
           MDBuilder create(ck);
+          // Allocate temp inside loop (because of parallel).
+          Value tmpAlloca = create.mem.alignedAlloca(tmpType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
@@ -1001,9 +1001,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
-    // Alloca a small temp vector. Should be private if parallel.
+    // Compute type of small temp vector.
     MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
-    Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
     // Define loops for input dimensions, blocking the inner out dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     ValueRange blockedOutLoopDef =
@@ -1016,11 +1015,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
       create.krnl.parallel(optimizedOutLoopDef[0]);
+      onnxToKrnlParallelReport(
+          op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
       LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
           MDBuilder create(ck);
+          // Create temp inside loop (because of parallel).
+          Value tmpBlockedAlloca = create.mem.alignedAlloca(tmpBlockedType);
           Value identity = getIdentityValue<ONNXReductionOp>(
               rewriter, create.getLoc(), elementType);
           Value initVec = create.vec.splat(vecType, identity);
@@ -1080,11 +1083,10 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, false && enableParallel);
+      typeConverter, ctx, enableSIMD, enableParallel);
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, /*computeMean=*/true,
-      false && enableParallel);
+      typeConverter, ctx, enableSIMD, /*computeMean=*/true, enableParallel);
 }
 } // namespace onnx_mlir

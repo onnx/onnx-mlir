@@ -281,7 +281,7 @@ static llvm::cl::opt<std::string, true> customEnvFlagsOpt("customEnvFlags",
     llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
                    "ONNX_MLIR_FLAGS"),
     llvm::cl::value_desc("option env var"), llvm::cl::location(customEnvFlags),
-    llvm::cl::init("ONNX_MLIR_FLAGS"), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(OnnxMlirEnvOptionName), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ModelSize, true> modelSizeOpt("modelSize",
     llvm::cl::desc("Model to generate code"),
@@ -607,6 +607,10 @@ bool parseCustomEnvFlagsCommandLineOption(
     }
     // The envVar is verified, use it.
     setCustomEnvVar(envVar);
+  } else {
+    // For some unexplained reason, need to set it here to default value as
+    // default compiler options may be set too late for where its first used.
+    setCustomEnvVar(OnnxMlirEnvOptionName);
   }
   return true;
 }
