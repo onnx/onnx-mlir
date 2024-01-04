@@ -363,7 +363,7 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   // place. However, "approximate" can also have a string value of "tanh" which
   // indicates the use of tanh approximation.
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
-  
+
   // Create constants
   Value half = create.math.constant(elementType, 0.5);
   Value one = create.math.constant(elementType, 1);

@@ -266,10 +266,10 @@ LogicalResult ONNXGeluOp::verify() {
   // If not, then this will result in an error.
   StringRef approximate = getApproximate();
   if (approximate != "none" && approximate != "tanh")
-    return emitOpError(
-        "This value is unsupported. The approximate attribute "
-        "should be a value of none or tanh. "
-        "The value received was approximate = " + approximate);
+    return emitOpError("This value is unsupported. The approximate attribute "
+                       "should be a value of none or tanh. "
+                       "The value received was approximate = " +
+                       approximate);
   return success();
 }
 
