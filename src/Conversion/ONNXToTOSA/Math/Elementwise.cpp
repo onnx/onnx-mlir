@@ -434,8 +434,16 @@ public:
 static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp,
-                      mlir::tosa::AddOp, IsIntOrFloat>,
+  patterns.insert<ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAndOp,
+                      mlir::tosa::LogicalAndOp, IsBool>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseAndOp,
+          mlir::tosa::BitwiseAndOp, IsInt>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXOrOp, mlir::tosa::LogicalOrOp,
+          IsBool>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXBitwiseOrOp,
+          mlir::tosa::BitwiseOrOp, IsInt>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXAddOp, mlir::tosa::AddOp,
+          IsIntOrFloat>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp,
           IsIntOrFloat>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXPowOp, mlir::tosa::PowOp,
