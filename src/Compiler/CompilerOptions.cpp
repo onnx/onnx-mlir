@@ -21,6 +21,7 @@
 
 #define DEBUG_TYPE "compiler_options"
 
+// Default env var where to find default options, when defined.
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
