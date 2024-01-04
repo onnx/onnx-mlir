@@ -21,6 +21,8 @@
 
 #define DEBUG_TYPE "compiler_options"
 
+const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
+
 namespace onnx_mlir {
 
 // Use external storage for the options so that they are globally accessible
@@ -608,8 +610,8 @@ bool parseCustomEnvFlagsCommandLineOption(
     // The envVar is verified, use it.
     setCustomEnvVar(envVar);
   } else {
-    // For some unexplained reason, need to set it here to default value as
-    // default compiler options may be set too late for where its first used.
+    // It appears that the default value of this compiler options may be set too
+    // late for where its first used. So set it explicitly here.
     setCustomEnvVar(OnnxMlirEnvOptionName);
   }
   return true;
