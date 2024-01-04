@@ -657,7 +657,6 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
       parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
       Operation *yieldOp = &parallelLoop.getBody()->back();
       yieldOp->setOperands(reducedValues);
-
       // Replace the affine.forOp with affine.parallelOp in loopRefToTop
       loopRefToOp[loopRef] = parallelLoop;
       loopToParallel.erase();
