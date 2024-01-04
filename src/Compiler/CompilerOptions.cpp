@@ -279,11 +279,16 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
     llvm::cl::cat(OnnxMlirOptions));
 
+// Default value is defined by the OnnxMlirEnvOptionName constant string
+// variable, but the default setting mechanism here cannot be used here as we
+// need to evaluate this value prior to the compiler options being set. Proper
+// handling of the value of this compiler option is set by the calling the
+// parseCustomEnvFlagsCommandLineOption(...) function.
 static llvm::cl::opt<std::string, true> customEnvFlagsOpt("customEnvFlags",
     llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
                    "ONNX_MLIR_FLAGS"),
     llvm::cl::value_desc("option env var"), llvm::cl::location(customEnvFlags),
-    llvm::cl::init(OnnxMlirEnvOptionName), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ModelSize, true> modelSizeOpt("modelSize",
     llvm::cl::desc("Model to generate code"),
@@ -581,8 +586,10 @@ std::string customEnvFlags;
 // The customEnvFlags must be scanned before the normal options.
 bool parseCustomEnvFlagsCommandLineOption(
     int argc, const char *const *argv, llvm::raw_ostream *errs) {
-  // Find -customEnvFlags=val and save its value.
-  std::string envVar;
+  // Use the default ONNX MLIR Environment variable, unless specified otherwise
+  // by an argument, see below.
+  std::string envVar = OnnxMlirEnvOptionName;
+  // Customized version? -customEnvFlags=val and save its value.
   for (int i = argc - 1; i > 1; --i) {
     std::string arg(argv[i]);
     if (arg.find("--customEnvFlags") == 0) {
@@ -594,26 +601,19 @@ bool parseCustomEnvFlagsCommandLineOption(
       break;
     }
   }
-  if (!envVar.empty()) {
-    // We have a custom env var, verify that it does not recursively hold
-    // another -customEnvFlags.
-    const char *envValCstr;
-    if ((envValCstr = std::getenv(envVar.c_str()))) {
-      std::string envVal(envValCstr);
-      if (envVal.find("-customEnvFlags") != std::string::npos) {
-        if (errs)
-          *errs << "Warning: recursive use of --customEnvFlags in custom "
-                   "environment flag not permited\n";
-        return false;
-      }
+  // Check that the env var does not recursively hold another -customEnvFlags.
+  const char *envValCstr;
+  if ((envValCstr = std::getenv(envVar.c_str()))) {
+    std::string envVal(envValCstr);
+    if (envVal.find("-customEnvFlags") != std::string::npos) {
+      if (errs)
+        *errs << "Warning: recursive use of --customEnvFlags in "
+                 "environment flag not permited\n";
+      return false;
     }
-    // The envVar is verified, use it.
-    setCustomEnvVar(envVar);
-  } else {
-    // It appears that the default value of this compiler options may be set too
-    // late for where its first used. So set it explicitly here.
-    setCustomEnvVar(OnnxMlirEnvOptionName);
   }
+  // The envVar is verified, use it.
+  setCustomEnvVar(envVar);
   return true;
 }
 
