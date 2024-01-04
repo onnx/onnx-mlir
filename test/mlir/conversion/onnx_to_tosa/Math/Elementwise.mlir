@@ -475,6 +475,42 @@ func.func @test_hardsigmoid_f16(%arg0: tensor<3xf16>) -> tensor<3xf16> {
 // CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
 // CHECK:           return [[VAR_4_]] : tensor<3xf16>
 }
+
+// -----
+
+func.func @test_elu_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
+  %0 = "onnx.Elu"(%arg0) {alpha = 0.166666672 : f32} : (tensor<3xf32>) -> tensor<3xf32>
+  return %0 : tensor<3xf32>
+// CHECK-LABEL:  func.func @test_elu_f32
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf32>) -> tensor<3xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<1.000000e+00> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<0.166666672> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<3xf32>}> : () -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.exp"([[PARAM_0_]]) : (tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.sub"([[VAR_3_]], [[VAR_0_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.mul"([[VAR_4_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.greater_equal"([[PARAM_0_]], [[VAR_2_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xi1>
+// CHECK:           [[VAR_7_:%.+]] = "tosa.select"([[VAR_6_]], [[PARAM_0_]], [[VAR_5_]]) : (tensor<3xi1>, tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
+// CHECK:           return [[VAR_7_]]
+}
+
+func.func @test_elu_f16(%arg0: tensor<3xf16>) -> tensor<3xf16> {
+  %0 = "onnx.Elu"(%arg0) {alpha = 0.166666672 : f32, beta = 5.000000e-01 : f32} : (tensor<3xf16>) -> tensor<3xf16>
+  return %0 : tensor<3xf16>
+// CHECK-LABEL:  func.func @test_elu_f16
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3xf16>) -> tensor<3xf16> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<1.000000e+00> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<1.666260e-01> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<3xf16>}> : () -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.exp"([[PARAM_0_]]) : (tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.sub"([[VAR_3_]], [[VAR_0_]]) : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.mul"([[VAR_4_]], [[VAR_1_]]) <{shift = 0 : i32}> : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.greater_equal"([[PARAM_0_]], [[VAR_2_]]) : (tensor<3xf16>, tensor<3xf16>) -> tensor<3xi1>
+// CHECK:           [[VAR_7_:%.+]] = "tosa.select"([[VAR_6_]], [[PARAM_0_]], [[VAR_5_]]) : (tensor<3xi1>, tensor<3xf16>, tensor<3xf16>) -> tensor<3xf16>
+// CHECK:           return [[VAR_7_]]
+}
+
+// -----
 // -----
 
 func.func @test_and(%arg0: tensor<13x21x1xi1>, %arg1: tensor<13x21x1xi1>) -> tensor<13x21x1xi1> {

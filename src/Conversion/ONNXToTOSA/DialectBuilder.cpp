@@ -25,6 +25,13 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
+Value compareOp(mlir::PatternRewriter &rewriter, mlir::Location loc,
+    mlir::Value &lhs, mlir::Value &rhs) {
+  return tosa::CreateOpAndInfer<mlir::tosa::GreaterEqualOp>(
+      rewriter, loc, UnrankedTensorType::get(rewriter.getI1Type()), lhs, rhs);
+}
+
+template <typename T>
 bool TosaBuilder::testNumberOfElementsMatch(
     ArrayRef<T> vec, ArrayRef<int64_t> shape) {
   uint64_t numTotalElements = 1;
@@ -233,6 +240,15 @@ Value TosaBuilder::reciprocal(mlir::Value &input) {
       rewriter(), loc(), newValueType, input);
 }
 
+Value TosaBuilder::exp(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
 template <typename T>
 Value TosaBuilder::binaryOp(mlir::Value &lhs, mlir::Value &rhs) {
   if (needsRankBroadcast({lhs, rhs})) {
@@ -255,6 +271,26 @@ template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
 
 template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
     mlir::Value &lhs, mlir::Value &rhs);
+
+mlir::Value TosaBuilder::equal(mlir::Value &lhs, mlir::Value &rhs) {
+  return compareOp<mlir::tosa::EqualOp>(rewriter(), loc(), lhs, rhs);
+}
+
+mlir::Value TosaBuilder::greater(mlir::Value &lhs, mlir::Value &rhs) {
+  return compareOp<mlir::tosa::GreaterOp>(rewriter(), loc(), lhs, rhs);
+}
+
+mlir::Value TosaBuilder::greaterEqual(mlir::Value &lhs, mlir::Value &rhs) {
+  return compareOp<mlir::tosa::GreaterEqualOp>(rewriter(), loc(), lhs, rhs);
+}
+
+mlir::Value TosaBuilder::less(mlir::Value &lhs, mlir::Value &rhs) {
+  return this->greater(rhs, lhs);
+}
+
+mlir::Value TosaBuilder::lessEqual(mlir::Value &lhs, mlir::Value &rhs) {
+  return this->greaterEqual(rhs, lhs);
+}
 
 Value TosaBuilder::sqrt(mlir::Value &input) {
   auto inputType = input.getType().cast<ShapedType>();
