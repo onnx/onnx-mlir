@@ -447,7 +447,11 @@ static void populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXSubOp, mlir::tosa::SubOp,
           IsIntOrFloat>,
       ONNXBinaryElementwiseOpLoweringToTOSA<ONNXPowOp, mlir::tosa::PowOp,
-          IsFloat>>(typeConverter, ctx);
+          IsFloat>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXMinOp, mlir::tosa::MinimumOp,
+          IsIntOrFloat>,
+      ONNXBinaryElementwiseOpLoweringToTOSA<ONNXMaxOp, mlir::tosa::MaximumOp,
+          IsIntOrFloat>>(typeConverter, ctx);
 }
 
 static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
