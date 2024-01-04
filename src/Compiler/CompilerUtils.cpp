@@ -49,8 +49,6 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
-const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
-
 namespace onnx_mlir {
 
 // Make a function that forces preserving all files using the runtime arguments
