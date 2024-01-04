@@ -253,6 +253,9 @@ template Value TosaBuilder::binaryOp<mlir::tosa::AddOp>(
 template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
     mlir::Value &lhs, mlir::Value &rhs);
 
+template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
+    mlir::Value &lhs, mlir::Value &rhs);
+
 static bool containsNonZero(llvm::SmallVectorImpl<int64_t> &values) {
   return llvm::any_of(values, [](int64_t value) { return value != 0; });
 }

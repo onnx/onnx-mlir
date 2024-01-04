@@ -322,6 +322,25 @@ func.func @test_div_decomposed_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tens
 
 // -----
 
+func.func @test_pow(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+  "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
+// CHECK-LABEL:  func @test_pow
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.pow"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+}
+
+func.func @test_pow_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xf32> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xf32>
+  "func.return"(%0) : (tensor<13x21x1xf32>) -> ()
+// CHECK-LABEL:  func @test_pow_broadcast
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<13x21x1xf32> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.reshape"([[PARAM_1_]]) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK-NEXT:      [[VAR_1_:%.+]] = "tosa.pow"([[PARAM_0_]], [[VAR_0_]]) : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
+}
+
+// -----
+
 func.func @test_abs_i32(%arg0: tensor<3xi32>) -> tensor<3xi32> {
   %0 = "onnx.Abs"(%arg0) : (tensor<3xi32>) -> tensor<3xi32>
   return %0 : tensor<3xi32>
