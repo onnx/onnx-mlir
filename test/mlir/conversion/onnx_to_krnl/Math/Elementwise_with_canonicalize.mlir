@@ -90,7 +90,7 @@ func.func @test_gelu_none(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_gelu_none
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x3x4xf32>) -> memref<2x3x4xf32> {
-// CHECK-DAG:       [[CST_1_dot_41421354_:%.+]] = arith.constant 1.41421354 : f32
+// CHECK-DAG:       [[CST_0_dot_707106769_:%.+]] = arith.constant 0.707106769 : f32
 // CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
 // CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = arith.constant 5.000000e-01 : f32
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
@@ -99,7 +99,7 @@ func.func @test_gelu_none(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
 // CHECK-DAG:         [[VAR_3_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[CST_5_dot_000000_]] : f32
-// CHECK-DAG:         [[VAR_4_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_]], [[CST_1_dot_41421354_]] : f32
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_707106769_]] : f32
 // CHECK:             [[VAR_5_:%.+]] = math.erf [[VAR_4_]] : f32
 // CHECK:             [[VAR_6_:%.+]] = arith.addf [[VAR_5_]], [[CST_1_dot_000000_]] : f32
 // CHECK:             [[VAR_7_:%.+]] = arith.mulf [[VAR_3_]], [[VAR_6_]] : f32

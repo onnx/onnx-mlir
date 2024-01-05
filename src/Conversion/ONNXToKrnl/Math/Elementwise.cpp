@@ -349,14 +349,12 @@ double analyzeSimdFor<ONNXGeluOp>(
   double results;
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
-    results = simdAnalysis({GenericOps::ArithmeticGop, GenericOps::DivGop,
-                               GenericOps::MulGop, GenericOps::SqrtGop},
-        {1, 1, 2, 1}, t, von, son);
+    results = simdAnalysis(
+        {GenericOps::ArithmeticGop, GenericOps::MulGop}, {1, 3}, t, von, son);
   if (approximate.equals_insensitive("tanh"))
     results = simdAnalysis(
-        {GenericOps::ArithmeticGop, GenericOps::DivGop, GenericOps::MulGop,
-            GenericOps::PowGop, GenericOps::SqrtGop},
-        {2, 1, 4, 1, 1}, t, von, son);
+        {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::PowGop},
+        {2, 4, 1}, t, von, son);
   return results;
 }
 
@@ -384,10 +382,10 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   // erf(x/sqrt(2)))
   if (approximate.equals_insensitive("none")) {
     // Create constant
-    Value sqrtTwo = create.math.constant(elementType, sqrt(2));
+    Value oneOverSqrtTwo = create.math.constant(elementType, 1 / sqrt(2));
     // Calculations
-    Value div = create.math.div(operand, sqrtTwo);
-    Value erfApprox = create.math.erf(div);
+    Value mul = create.math.mul(operand, oneOverSqrtTwo);
+    Value erfApprox = create.math.erf(mul);
     Value add = create.math.add(one, erfApprox);
     return create.math.mul(halfTimesOperand, add);
   }
