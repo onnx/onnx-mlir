@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// #include "mlir/Analysis/DataFlow/LivenessAnalysis.h"
+// #include "mlir/Analysis/Liveness.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -687,23 +689,31 @@ public:
 
   LogicalResult matchAndRewrite(
       async::ExecuteOp executeOp, PatternRewriter &rewriter) const override {
-
-    SmallVector<memref::AllocOp, 4> regionAllocOps;
+    LLVM_DEBUG(llvm::dbgs() << "InsertDeallocForAsyncExec \n");
+    //    SmallVector<memref::AllocOp, 4> regionAllocOps;
     SmallVector<Value, 4> inputValues;
     for (Operation &op : executeOp.getBodyRegion().getOps()) {
-      // Get allocOps in body of async.execute
-      if (auto allocOp = dyn_cast<memref::AllocOp>(op))
-        regionAllocOps.push_back(allocOp);
+//      // Get allocOps in body of async.execute
+//      if (auto allocOp = dyn_cast<memref::AllocOp>(op))
+//        regionAllocOps.push_back(allocOp);
       // Get input values used in async.execute.
       for (unsigned i = 0; i < op.getNumOperands(); ++i) {
         Operation *defOp = op.getOperand(i).getDefiningOp();
         auto allocOp = dyn_cast_or_null<memref::AllocOp>(defOp);
         if (allocOp) {
-          if (allocOp->getBlock() != executeOp.getBody())
-            inputValues.push_back(allocOp.getResult());
+          if (allocOp->getBlock() != executeOp.getBody()) {
+	    Value inVal = allocOp.getResult();
+	    if (llvm::none_of(inVal.getUsers(),
+              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+	      inputValues.push_back(inVal);
+	  }
         }
       }
     }
+
+    if (inputValues.empty())
+      return failure();
+    /*
     // Get the allocOp for the result value of async.execute and move it before
     // async.execute. The allocOp is an operand of async.yeild.
     async::YieldOp yieldOp =
@@ -723,21 +733,29 @@ public:
     } else {
       return failure();
     }
+    */
 
-    // Get users of async.await
-    // Currently support single body result.
-    if (executeOp.getBodyResults().size() > 1)
-      return failure();
-    Value executeOpResult = executeOp.getBodyResults()[0];
-    SmallVector<Operation *, 4> awaitOutUsers;
-    for (Operation *user : executeOpResult.getUsers()) {
-      if (auto awaitOp = llvm::dyn_cast<async::AwaitOp>(user)) {
-        Value awaitOpOut = awaitOp.getResult();
-        for (Operation *awaitUser : awaitOpOut.getUsers())
-          awaitOutUsers.push_back(awaitUser);
+    Value executeOpToken = executeOp.getToken();
+    // Operation *insertionPointOp;
+    //    SmallVector<Operation *, 4> awaitOutUsers;
+    SmallVector<Operation *, 4> insertionPointOps;    
+//    Block *currentBlock = executeOpToken.getDefiningOp()->getBlock();
+//    auto &livenessAnalysis = getAnalysis<RunLivenessAnalysis>();
+//    LivenessBlockInfo *blockInfo = livenessAnalysis.getLiveness(currentBlock);
+    for (Value input : inputValues) {
+      Operation *lastUser;
+      for (Operation *user : input.getUsers()) {          
+//      Operation *start = blockInfo->getStartOperation(input);
+//      Operation *end = blockInfo->getEndOperation(input, start);
+	lastUser = user;
       }
+      insertionPointOps.push_back(lastUser);
     }
-
+//    for (Operation *user : executeOpToken.getUsers()) {    
+//      if (auto awaitOp = llvm::dyn_cast<async::AwaitOp>(user))
+//	insertionPointOp = user;
+//    }
+#if 0
     // Insert deallocOp for the result value after it is used. When it is used
     // in different block from allocation (This happens when it is used in the
     // loop), deallocOp is inserted in parent block.
@@ -746,19 +764,22 @@ public:
       insertionPointOp = awaitOutUsers[0]->getParentOp();
     else
       insertionPointOp = awaitOutUsers[0];
-    Location loc = insertionPointOp->getLoc();
+#endif
+    Location loc = executeOp->getLoc();
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointAfter(insertionPointOp);
-    create.mem.dealloc(yAllocOp.getResult());
-
-    // Insert deallocOp for the input values if it is not deallocated yet.
-    for (Value inVal : inputValues) {
-      if (llvm::none_of(inVal.getUsers(),
-              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
-        create.mem.dealloc(inVal);
+    for (auto pair : llvm::zip(inputValues, insertionPointOps)) {
+      auto inVal = std::get<0>(pair);
+      auto insertionPointOp = std::get<1>(pair);
+      rewriter.setInsertionPointAfter(insertionPointOp);
+      create.mem.dealloc(inVal);
     }
-
+    // Insert deallocOp for the input values if it is not deallocated yet.
+//    for (Value inVal : inputValues) {
+//      if (llvm::none_of(inVal.getUsers(),
+//              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+//        create.mem.dealloc(inVal);
+//    }
     return success();
   }
 };

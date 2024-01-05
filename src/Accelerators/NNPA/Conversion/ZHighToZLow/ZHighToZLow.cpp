@@ -1733,8 +1733,6 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "fork op\n");
-
     Location loc = op->getLoc();
     ZHighForkOp forkOp = llvm::dyn_cast<ZHighForkOp>(op);
 
@@ -1755,24 +1753,23 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     if (isa<TensorType>(returnVal.getType()))
       return failure();
 
-    //    for (auto &block : forkOp.getRegion().getBlocks()) {
-    //      LLVM_DEBUG(llvm::dbgs() << "block.getOperations().size() :" <<
-    //      block.getOperations().size() << " \n"); auto &blockOps =
-    //      block.getOperations(); for (auto itr = blockOps.begin(); itr !=
-    //      blockOps.end(); ++itr) {
-    //	auto unstickOp = llvm::dyn_cast<ZLowUnstickOp>(itr);
-    //	if (unstickOp)
-    //	  LLVM_DEBUG(llvm::dbgs() << "unstickOp.getOut() : " <<
-    // unstickOp.getOut() << "\n");
-    //      }
-    //    }
-
     // 1. Move alloc op to outside of ForkOp region
     // 1.1 Get allocOps in body of forkOp
     SmallVector<memref::AllocOp, 4> regionAllocOps;
+    SmallVector<Value, 4> inputValues;
     for (Operation &op : forkOp.getRegion().back().getOperations()) {
       if (auto allocOp = dyn_cast<memref::AllocOp>(op))
         regionAllocOps.push_back(allocOp);
+      // Get allocated input values for ForkOp
+      for (unsigned i = 0; i < op.getNumOperands(); ++i) {
+        Operation *defOp = op.getOperand(i).getDefiningOp();
+        auto allocOp = dyn_cast_or_null<memref::AllocOp>(defOp);
+        if (allocOp) {
+          if (allocOp->getBlock() != op.getBlock()) {
+            inputValues.push_back(allocOp.getResult());
+          }
+        }
+      }
     }
     // 1.2 The allocOp for the return value of forkOp moves before
     // fork op.
@@ -1788,60 +1785,44 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
       return failure();
     }
 
-    // 2. Replace the result of forkOp with alloc result.
+    // 2. Replace the result of forkOp with allocated value.
+    // Replace uses of the results except ZHighJoinOp.
     Value forkOpResult = forkOp.getResults()[0];
     SmallVector<zhigh::ZHighJoinOp, 4> joinOps;
+    Operation *insertionPointOp;
     for (Operation *user : forkOpResult.getUsers()) {
-      if (auto joinOp = llvm::dyn_cast<zhigh::ZHighJoinOp>(user))
+      if (auto joinOp = llvm::dyn_cast<zhigh::ZHighJoinOp>(user)) {
         joinOps.push_back(joinOp);
+        insertionPointOp = user;
+      }
     }
-    // Replace uses of the results of ForkOp except ZHighJoinOp.
+    //
+    auto ip = rewriter.saveInsertionPoint();
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(insertionPointOp);
+    // Insert deallocOp for the input values if it is not deallocated yet.
+    for (Value inVal : inputValues) {
+      if (llvm::none_of(inVal.getUsers(),
+              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+        create.mem.dealloc(inVal);
+    }
+    rewriter.restoreInsertionPoint(ip);
+
     rewriter.replaceUsesWithIf(forkOpResult, rAllocOp, [&](OpOperand &use) {
       return !isa<zhigh::ZHighJoinOp>(use.get().getDefiningOp());
     });
 
     // 3. Replace ONNXYieldOp with AsyncYieldOp
-#if 0
-    Region tmpRegion;
-    IRMapping mapper0;
-    forkOp.getRegion().cloneInto(&tmpRegion, tmpRegion.begin(), mapper0);
-    Block &clonedBlock = tmpRegion.front();
-    auto onnxYieldOp0 = llvm::dyn_cast<ONNXYieldOp>(clonedBlock.getTerminator());
-    LLVM_DEBUG(llvm::dbgs() << "onnxYieldOp0 " << onnxYieldOp0 << "\n");
-    // rewriter.setInsertionPoint(onnxYieldOp0);
-    // auto b = mlir::OpBuilder::atBlockTerminator(&clonedBlock);    
-    // mlir::IRRewriter r(b);
-    // rewriter.replaceOpWithNewOp<async::YieldOp>(onnxYieldOp0, ValueRange());    
-    rewriter.eraseOp(clonedBlock.getTerminator());
-#endif
     auto b = mlir::OpBuilder::atBlockTerminator(&forkOp.getRegion().back());
     mlir::IRRewriter r(b);
     r.eraseOp(onnxYieldOp);
-//    rewriter.setInsertionPointToEnd(&forkOp.getRegion().back());
-//    r.replaceOpWithNewOp<async::YieldOp>(onnxYieldOp, ValueRange());
 
-//    Operation *yieldOp = forkOp.getRegion().back().getTerminator();
-//    rewriter.replaceOpWithNewOp<async::YieldOp>(yieldOp, ValueRange());
-//    LLVM_DEBUG(llvm::dbgs() << "forkOp.getResults()[0]" <<
-//    forkOp.getResults()[0] << "\n");
-// 4. Create AsyncExecuteOp
-#if 0    
-    auto asyncExecuteOp = rewriter.create<async::ExecuteOp>(loc, TypeRange(), ValueRange(), ValueRange());
-    rewriter.createBlock(&asyncExecuteOp.getRegion());
-    LLVM_DEBUG(llvm::dbgs() << "asyncExecuteOp 0: " << asyncExecuteOp << "\n");    
-
-    OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.inlineRegionBefore(forkOp.getRegion(), asyncExecuteOp.getRegion(),
-				asyncExecuteOp.getRegion().begin());
-      Operation *oldYield = forkOp.getRegion().back().getTerminator();
-      rewriter.setInsertionPointToEnd(&*asyncExecuteOp.getRegion().begin());
-      rewriter.replaceOpWithNewOp<async::YieldOp>(oldYield, ValueRange());      
-    }
-#endif
+    // 4. Create Asyncexecuteop
 #if 1
     auto asyncExecuteOp = rewriter.create<async::ExecuteOp>(
         loc, TypeRange(), ValueRange(), ValueRange());
-    IRMapping mapper;
+    // IRMapping mapper;
     // asyncExecuteOp.getRegion().getBlocks().clear();
     // forkOp.getRegion().cloneInto(&asyncExecuteOp.getRegion(), mapper);
     // rewriter.inlineRegionBefore(forkOp.getRegion(),
@@ -1870,10 +1851,9 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     rewriter.setInsertionPointAfter(joinOps[0]);
     auto asyncAwaitOp =
         rewriter.create<async::AwaitOp>(loc, asyncExecuteOp.getToken());
-    // LLVM_DEBUG(llvm::dbgs() << "asyncAwaitOp " << asyncAwaitOp << "\n");
-    for (auto jop : joinOps) {
+    for (auto jop : joinOps)
       rewriter.replaceOp(jop, asyncAwaitOp);
-    }
+
     rewriter.replaceOp(op, rAllocOp);
 
     return success();

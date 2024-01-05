@@ -215,10 +215,10 @@ void addKrnlToLLVMPasses(
   pm.addNestedPass<func::FuncOp>(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createLowerAffinePass());
 
-  pm.addPass(mlir::createAsyncToAsyncRuntimePass());
-  pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
-  pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
-  pm.addPass(mlir::createConvertAsyncToLLVMPass());
+  // pm.addPass(mlir::createAsyncToAsyncRuntimePass());
+  // pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
+  // pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
+  //  pm.addPass(mlir::createConvertAsyncToLLVMPass());
 
   // Early introduction of omp causes problems with bufferization, delay for
   // now. May revise this decision later.
@@ -243,6 +243,12 @@ void addKrnlToLLVMPasses(
     pm.addPass(mlir::createBufferizationToMemRefPass());
   }
 
+  pm.addPass(mlir::createAsyncToAsyncRuntimePass());
+  pm.addPass(mlir::createAsyncRuntimeRefCountingPass());
+  pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
+  pm.addPass(mlir::createConvertAsyncToLLVMPass());
+
+  
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
@@ -261,6 +267,7 @@ void addKrnlToLLVMPasses(
       /*storeConstantsToFile=*/storeConstantsToFile,
       constantsToFileSingleThreshold, constantsToFileTotalThreshold,
       outputNameNoExt, enableParallel));
+
   pm.addPass(mlir::createReconcileUnrealizedCastsPass());
   pm.addPass(mlir::createCanonicalizerPass());
 }
