@@ -1060,7 +1060,7 @@ def get_test_models():
         #     DYNAMIC_SHAPE: {-1: {-1}},
         #     CONSTANT_INPUT: {-1},
         # },
-         "test_gelu_tanh_1_cpu": {
+        "test_gelu_tanh_1_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
