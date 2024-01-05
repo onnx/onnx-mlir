@@ -348,11 +348,11 @@ double analyzeSimdFor<ONNXGeluOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
   double results;
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
-  if (approximate == "none")
+  if (approximate.equals_insensitive("none"))
     results = simdAnalysis({GenericOps::ArithmeticGop, GenericOps::DivGop,
                                GenericOps::MulGop, GenericOps::SqrtGop},
         {1, 1, 2, 1}, t, von, son);
-  if (approximate == "tanh")
+  if (approximate.equals_insensitive("tanh"))
     results = simdAnalysis(
         {GenericOps::ArithmeticGop, GenericOps::DivGop, GenericOps::MulGop,
             GenericOps::PowGop, GenericOps::SqrtGop},
@@ -375,31 +375,35 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   // indicates the use of tanh approximation.
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
 
-  // Create constants
+  // Local constants
   Value half = create.math.constant(elementType, 0.5);
   Value one = create.math.constant(elementType, 1);
-  Value three = create.math.constant(elementType, 3);
-  Value decimal = create.math.constant(elementType, 0.044715);
-  Value sqrtTwoOverPi = create.math.constant(elementType, sqrt(2 / M_PI));
-  Value sqrtTwo = create.math.constant(elementType, sqrt(2));
-
-  // Calculations
-  Value div = create.math.div(operand, sqrtTwo);
-  Value erfApprox = create.math.erf(div);
-  Value add = create.math.add(one, erfApprox);
-  Value dec = create.math.add(
-      operand, create.math.mul(decimal, create.math.pow(operand, three)));
-  Value tanhApprox = create.math.tanh(create.math.mul(sqrtTwoOverPi, dec));
   Value halfTimesOperand = create.math.mul(half, operand);
 
   // Approximate = none returns an output of y = 0.5 * x * (1 +
   // erf(x/sqrt(2)))
-  if (approximate == "none")
+  if (approximate.equals_insensitive("none")){
+    // Create constant
+    Value sqrtTwo = create.math.constant(elementType, sqrt(2));
+    // Calculations
+    Value div = create.math.div(operand, sqrtTwo);
+    Value erfApprox = create.math.erf(div);
+    Value add = create.math.add(one, erfApprox);
     return create.math.mul(halfTimesOperand, add);
+  }
   // Approximate = tanh returns an output of y = 0.5 * x * (1 + Tanh(sqrt(2/pi)
   // * (x + 0.044715 * x^3)))
-  if (approximate == "tanh")
+  if (approximate.equals_insensitive("tanh")){
+    // Create constants
+    Value three = create.math.constant(elementType, 3);
+    Value decimal = create.math.constant(elementType, 0.044715);
+    Value sqrtTwoOverPi = create.math.constant(elementType, sqrt(2 / M_PI));
+    // Calculations
+    Value dec = create.math.add(
+      operand, create.math.mul(decimal, create.math.pow(operand, three)));
+    Value tanhApprox = create.math.tanh(create.math.mul(sqrtTwoOverPi, dec));
     return create.math.mul(halfTimesOperand, create.math.add(one, tanhApprox));
+  }
   llvm_unreachable("unsupported case for this particular op.");
 }
 
