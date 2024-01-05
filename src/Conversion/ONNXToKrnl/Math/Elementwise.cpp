@@ -382,7 +382,7 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
 
   // Approximate = none returns an output of y = 0.5 * x * (1 +
   // erf(x/sqrt(2)))
-  if (approximate.equals_insensitive("none")){
+  if (approximate.equals_insensitive("none")) {
     // Create constant
     Value sqrtTwo = create.math.constant(elementType, sqrt(2));
     // Calculations
@@ -393,14 +393,14 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   }
   // Approximate = tanh returns an output of y = 0.5 * x * (1 + Tanh(sqrt(2/pi)
   // * (x + 0.044715 * x^3)))
-  if (approximate.equals_insensitive("tanh")){
+  if (approximate.equals_insensitive("tanh")) {
     // Create constants
     Value three = create.math.constant(elementType, 3);
     Value decimal = create.math.constant(elementType, 0.044715);
     Value sqrtTwoOverPi = create.math.constant(elementType, sqrt(2 / M_PI));
     // Calculations
     Value dec = create.math.add(
-      operand, create.math.mul(decimal, create.math.pow(operand, three)));
+        operand, create.math.mul(decimal, create.math.pow(operand, three)));
     Value tanhApprox = create.math.tanh(create.math.mul(sqrtTwoOverPi, dec));
     return create.math.mul(halfTimesOperand, create.math.add(one, tanhApprox));
   }
