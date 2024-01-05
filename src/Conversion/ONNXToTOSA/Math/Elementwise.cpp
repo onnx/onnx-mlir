@@ -386,6 +386,43 @@ public:
   }
 };
 
+class ONNXEluOpLoweringToTOSA : public OpConversionPattern<ONNXEluOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXEluOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    // ELU(x) = x                     if x >= 0
+    //         alpha * (exp(x) - 1.)  if x <  0
+
+    auto resultTensorType = op.getResult().getType().cast<TensorType>();
+    if (failed(IsFloat::checkType(
+            rewriter, resultTensorType.getElementType(), op))) {
+      return failure();
+    }
+
+    Value input = op.getX();
+
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+
+    Value one = tosaBuilder.getSplattedConst(
+        1.0, resultTensorType.getShape(), resultTensorType.getElementType());
+    Value alpha =
+        tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
+            resultTensorType.getShape(), resultTensorType.getElementType());
+    Value constZero = tosaBuilder.getSplattedConst(
+        0.0, resultTensorType.getShape(), resultTensorType.getElementType());
+
+    Value exp = tosaBuilder.exp(input);
+    Value expMinusOne = tosaBuilder.binaryOp<mlir::tosa::SubOp>(exp, one);
+    Value alphaTimesExpMinusOne = tosaBuilder.mul(expMinusOne, alpha);
+    Value greaterEqual = tosaBuilder.greaterEqual(input, constZero);
+
+    tosa::CreateReplaceOpAndInfer<mlir::tosa::SelectOp>(rewriter, op,
+        resultTensorType, greaterEqual, input, alphaTimesExpMinusOne);
+    return success();
+  }
+};
+
 class ONNXHardSigmoidOpLoweringToTOSA
     : public OpConversionPattern<ONNXHardSigmoidOp> {
 public:
@@ -489,7 +526,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
   patterns.insert<ONNXReluOpLoweringToTOSA, ONNXLeakyReluOpLoweringToTOSA,
       ONNXMulOpLoweringToTosa, ONNXClipOpLoweringToTOSA,
       ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA,
-      ONNXSqrtOpLoweringToTOSA>(typeConverter, ctx);
+      ONNXSqrtOpLoweringToTOSA, ONNXEluOpLoweringToTOSA>(typeConverter, ctx);
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);
