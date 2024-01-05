@@ -380,25 +380,26 @@ Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
   Value one = create.math.constant(elementType, 1);
   Value three = create.math.constant(elementType, 3);
   Value decimal = create.math.constant(elementType, 0.044715);
-  Value sqrt_two_over_pi = create.math.constant(elementType, sqrt(2 / M_PI));
-  Value sqrt_two = create.math.constant(elementType, sqrt(2));
+  Value sqrtTwoOverPi = create.math.constant(elementType, sqrt(2 / M_PI));
+  Value sqrtTwo = create.math.constant(elementType, sqrt(2));
 
   // Calculations
-  Value div = create.math.div(operand, sqrt_two);
+  Value div = create.math.div(operand, sqrtTwo);
   Value erfApprox = create.math.erf(div);
   Value add = create.math.add(one, erfApprox);
   Value dec = create.math.add(
       operand, create.math.mul(decimal, create.math.pow(operand, three)));
-  Value tanhApprox = create.math.tanh(create.math.mul(sqrt_two_over_pi, dec));
+  Value tanhApprox = create.math.tanh(create.math.mul(sqrtTwoOverPi, dec));
+  Value halfTimesOperand = create.math.mul(half, operand);
+
   // Approximate = none returns an output of y = 0.5 * x * (1 +
   // erf(x/sqrt(2)))
   if (approximate == "none")
-    return create.math.mul(create.math.mul(half, operand), add);
+    return create.math.mul(halfTimesOperand, add);
   // Approximate = tanh returns an output of y = 0.5 * x * (1 + Tanh(sqrt(2/pi)
   // * (x + 0.044715 * x^3)))
   if (approximate == "tanh")
-    return create.math.mul(
-        create.math.mul(half, operand), create.math.add(one, tanhApprox));
+    return create.math.mul(halfTimesOperand, create.math.add(one, tanhApprox));
   llvm_unreachable("unsupported case for this particular op.");
 }
 

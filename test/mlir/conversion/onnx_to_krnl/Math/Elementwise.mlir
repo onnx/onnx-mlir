@@ -932,19 +932,17 @@ func.func @test_gelu_none(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 // CHECK:             [[VAR_3_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_]], [[CST_1_dot_41421354_]] : f32
 // CHECK:             [[VAR_4_:%.+]] = math.erf [[VAR_3_]] : f32
 // CHECK-DAG:         [[VAR_5_:%.+]] = arith.addf [[CST_1_dot_000000_]], [[VAR_4_]] : f32
-// CHECK-DAG:         [[VAR_6_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[CST_3_dot_000000_]] : f32
-// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[CST_4_dot_471500_]], [[VAR_6_]] : f32
-// CHECK:             [[VAR_8_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[VAR_7_]] : f32
-// CHECK:             [[VAR_9_:%.+]] = arith.mulf [[CST_0_dot_797884583_]], [[VAR_8_]] : f32
-// CHECK-DAG:         [[VAR_10_:%.+]] = math.tanh [[VAR_9_]] : f32
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.mulf [[CST_5_dot_000000_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             [[VAR_12_:%.+]] = arith.mulf [[VAR_11_]], [[VAR_5_]] : f32
-// CHECK:             krnl.store [[VAR_12_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
+// CHECK-DAG:         [[VAR_6_:%.+]] = arith.mulf [[CST_5_dot_000000_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[VAR_6_]], [[VAR_5_]] : f32
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x3x4xf32>
 // CHECK:         }
 }
 
+
+  // Approximate = none returns an output of y = 0.5 * x * (1 +
+  // erf(x/sqrt(2)))
 // -----
 
 func.func @test_gelu_tanh(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
@@ -975,18 +973,15 @@ func.func @test_gelu_tanh(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 // CHECK-DAG:         [[CST_4_dot_471500_:%.+]] = arith.constant 4.471500e-02 : f32
 // CHECK-DAG:         [[CST_0_dot_797884583_:%.+]] = arith.constant 0.797884583 : f32
 // CHECK-DAG:         [[CST_1_dot_41421354_:%.+]] = arith.constant 1.41421354 : f32
-// CHECK:             [[VAR_3_:%.+]] = arith.divf [[LOAD_PARAM_0_MEM_]], [[CST_1_dot_41421354_]] : f32
-// CHECK:             [[VAR_4_:%.+]] = math.erf [[VAR_3_]] : f32
-// CHECK-DAG:         [[VAR_5_:%.+]] = arith.addf [[CST_1_dot_000000_]], [[VAR_4_]] : f32
-// CHECK-DAG:         [[VAR_6_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[CST_3_dot_000000_]] : f32
-// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[CST_4_dot_471500_]], [[VAR_6_]] : f32
-// CHECK:             [[VAR_8_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[VAR_7_]] : f32
-// CHECK:             [[VAR_9_:%.+]] = arith.mulf [[CST_0_dot_797884583_]], [[VAR_8_]] : f32
-// CHECK-DAG:         [[VAR_10_:%.+]] = math.tanh [[VAR_9_]] : f32
-// CHECK-DAG:         [[VAR_11_:%.+]] = arith.mulf [[CST_5_dot_000000_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             [[VAR_12_:%.+]] = arith.addf [[CST_1_dot_000000_]], [[VAR_10_]] : f32
-// CHECK:             [[VAR_13_:%.+]] = arith.mulf [[VAR_11_]], [[VAR_12_]] : f32
-// CHECK:             krnl.store [[VAR_13_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
+// CHECK-DAG:         [[VAR_3_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[CST_3_dot_000000_]] : f32
+// CHECK:             [[VAR_4_:%.+]] = arith.mulf [[CST_4_dot_471500_]], [[VAR_3_]] : f32
+// CHECK:             [[VAR_5_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[VAR_4_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.mulf [[CST_0_dot_797884583_]], [[VAR_5_]] : f32
+// CHECK-DAG:         [[VAR_7_:%.+]] = math.tanh [[VAR_6_]] : f32
+// CHECK-DAG:         [[VAR_8_:%.+]] = arith.mulf [[CST_5_dot_000000_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             [[VAR_9_:%.+]] = arith.addf [[CST_1_dot_000000_]], [[VAR_7_]] : f32
+// CHECK:             [[VAR_10_:%.+]] = arith.mulf [[VAR_8_]], [[VAR_9_]] : f32
+// CHECK:             krnl.store [[VAR_10_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<2x3x4xf32>
 // CHECK:         }
