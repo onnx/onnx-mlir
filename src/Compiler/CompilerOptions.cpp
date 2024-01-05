@@ -289,7 +289,7 @@ static llvm::cl::opt<std::string, true> customEnvFlagsOpt("customEnvFlags",
     llvm::cl::desc("Override default option env var OnnxMlirEnvOptionName: "
                    "ONNX_MLIR_FLAGS"),
     llvm::cl::value_desc("option env var"), llvm::cl::location(customEnvFlags),
-    lvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<ModelSize, true> modelSizeOpt("modelSize",
     llvm::cl::desc("Model to generate code"),
