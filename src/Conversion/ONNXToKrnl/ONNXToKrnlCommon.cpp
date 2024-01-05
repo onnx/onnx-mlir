@@ -716,7 +716,7 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
   // Print report on this op.
   printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
-      (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
+      (successful ? "-par" : ""), nodeNameStr.c_str(), comment.c_str(),
       (long long int)loopLevel, (long long int)parallelLoopTripCount);
 }
 

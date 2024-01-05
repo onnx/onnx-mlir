@@ -68,8 +68,11 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
     if (enableParallel) {
       create.krnl.parallel(outerLoops[0]);
-      onnxToKrnlParallelReport(op, true, 0, loopLbs[0], loopUbs[0], "matmul");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+      onnxToKrnlParallelReport(
+          op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul generic\n");
+    } else {
+      LLVM_DEBUG(llvm::dbgs() << "[Sequential Op]: onnx.MatMul generic\n");
     }
 
     // Non-reduction loop iterations: output-rank.
@@ -310,7 +313,11 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
     if (enableParallel) {
       create.krnl.parallel(ii1);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+      onnxToKrnlParallelReport(
+          op, true, 0, LiteralIndexExpr(0), dimI, "matmul no broadcast");
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul no broadcast\n");
+    } else {
+      LLVM_DEBUG(llvm::dbgs() << "[Sequential Op]: onnx.MatMul no broadcast\n");
     }
     create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
         {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -380,7 +387,11 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       broadcastUB.emplace_back(create.mem.dim(C, i));
     if (enableParallel) {
       create.krnl.parallel(broadcastLoop[0]);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+      onnxToKrnlParallelReport(op, true, 0, LiteralIndexExpr(0),
+          shapeHelper.getOutputDims()[0], "matmul broadcast");
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul broadcast\n");
+    } else {
+      LLVM_DEBUG(llvm::dbgs() << "[Sequential Op]: onnx.MatMul broadcast\n");
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
@@ -443,7 +454,6 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
     MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>
         create(rewriter, loc);
-
     // Get shape.
     ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
