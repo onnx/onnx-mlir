@@ -350,11 +350,12 @@ double analyzeSimdFor<ONNXGeluOp>(
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
     results = simdAnalysis(
-        {GenericOps::ArithmeticGop, GenericOps::MulGop}, {1, 3}, t, von, son);
+        {GenericOps::ArithmeticGop, GenericOps::ErfGop, GenericOps::MulGop},
+        {1, 1, 3}, t, von, son);
   if (approximate.equals_insensitive("tanh"))
-    results = simdAnalysis(
-        {GenericOps::ArithmeticGop, GenericOps::MulGop, GenericOps::PowGop},
-        {2, 4, 1}, t, von, son);
+    results = simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                               GenericOps::TrigHyperbolicGop},
+        {2, 5, 1}, t, von, son);
   return results;
 }
 
