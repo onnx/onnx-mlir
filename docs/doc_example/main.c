@@ -55,7 +55,7 @@ int main() {
   }
   printf("\n");
 
-  // Destory the list and the tensors inside of it.
+  // Destroy the list and the tensors inside of it.
   // Use omTensorListDestroyShallow if only want to destroy the list themselves.
   omTensorListDestroy(input_list);
   omTensorListDestroy(output_list);
