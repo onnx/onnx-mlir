@@ -71,6 +71,7 @@ op_dialect_version_map_["GRU"] = {14};
 op_dialect_version_map_["Gather"] = {13};
 op_dialect_version_map_["GatherElements"] = {13};
 op_dialect_version_map_["GatherND"] = {13};
+op_dialect_version_map_["Gelu"] = {20};
 op_dialect_version_map_["Gemm"] = {13};
 op_dialect_version_map_["GlobalAveragePool"] = {1};
 op_dialect_version_map_["GlobalLpPool"] = {2};
@@ -337,6 +338,8 @@ import_handler_map_["GatherElements"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherElementsOp>;
 import_handler_map_["GatherND"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherNDOp>;
+import_handler_map_["Gelu"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGeluOp>;
 import_handler_map_["Gemm"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGemmOp>;
 import_handler_map_["GlobalAveragePool"] = 

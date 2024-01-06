@@ -4,7 +4,7 @@
 
 //===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -113,6 +113,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
   mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value erf(mlir::Value val) const;
   mlir::Value exp(mlir::Value val) const;                       // Float only.
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
@@ -127,6 +128,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value sqrt(mlir::Value val) const; // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value tanh(mlir::Value val) const;                  // Float only.
   mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
 
   mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;

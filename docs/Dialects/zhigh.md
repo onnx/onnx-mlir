@@ -128,6 +128,30 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | unranked tensor of 16-bit float values or 4D tensor of 16-bit float values with layout NHWC
 
+### `zhigh.DLF16ToF32` (::onnx_mlir::zhigh::ZHighDLF16ToF32Op)
+
+_ZHigh DLF16ToF32 operation_
+
+ZHigh operation to convert a tensor of dlfloat16 to a tensor of f32.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `In` | tensor of 16-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Out` | tensor of 32-bit float values
+
 ### `zhigh.Div` (::onnx_mlir::zhigh::ZHighDivOp)
 
 _ZHigh Div operation_
@@ -177,6 +201,30 @@ Effects: MemoryEffects::Effect{}
 | Result | Description |
 | :----: | ----------- |
 | `Out` | unranked tensor of 16-bit float values or 1D tensor of 16-bit float values with layout _1D or unranked tensor of 16-bit float values or 2D tensor of 16-bit float values with layout _2D or unranked tensor of 16-bit float values or 3D tensor of 16-bit float values with layout _3D or unranked tensor of 16-bit float values or 4D tensor of 16-bit float values with layout _4D or unranked tensor of 16-bit float values or 2D tensor of 16-bit float values with layout _2DS or unranked tensor of 16-bit float values or 3D tensor of 16-bit float values with layout _3DS or unranked tensor of 16-bit float values or 4D tensor of 16-bit float values with layout _4DS or unranked tensor of 16-bit float values or 4D tensor of 16-bit float values with layout NCHW or unranked tensor of 16-bit float values or 4D tensor of 16-bit float values with layout NHWC or unranked tensor of 16-bit float values or 4D tensor of 16-bit float values with layout HWCK or unranked tensor of 16-bit float values or 2D/3D tensor of 16-bit float values with layout FICO or unranked tensor of 16-bit float values or 2D/3D tensor of 16-bit float values with layout ZRH or unranked tensor of 16-bit float values or 2D/3D tensor of 16-bit float values with layout BFICO or unranked tensor of 16-bit float values or 2D/3D tensor of 16-bit float values with layout BZRH
+
+### `zhigh.F32ToDLF16` (::onnx_mlir::zhigh::ZHighF32ToDLF16Op)
+
+_ZHigh F32ToDLF16 operation_
+
+ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
+
+Traits: AlwaysSpeculatableImplTrait
+
+Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+
+Effects: MemoryEffects::Effect{}
+
+#### Operands:
+
+| Operand | Description |
+| :-----: | ----------- |
+| `In` | tensor of 32-bit float values
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `Out` | tensor of 16-bit float values
 
 ### `zhigh.FixGRUY` (::onnx_mlir::zhigh::ZHighFixGRUYOp)
 
