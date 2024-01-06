@@ -25,6 +25,10 @@
 
 #define DEFAULT_INSTRUMENTSTAGE_CL_ENUM clEnumVal(Onnx, "Profile for onnx ops.")
 
+// Variable contains the name of the default environment variable that is used
+// to find the default onnx-mlir options.
+// Its default value is ONNX_MLIR_FLAGS, as defined in CompilerOptions.cpp.
+// TODO: may want to do this constant set by a variable in CMakeFiles.
 extern const std::string OnnxMlirEnvOptionName;
 
 namespace onnx_mlir {

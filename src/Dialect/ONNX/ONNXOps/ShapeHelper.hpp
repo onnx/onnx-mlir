@@ -364,6 +364,7 @@ using ONNXEluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXErfOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXExpOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXFloorOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXGeluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardSigmoidOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardSwishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardmaxOpShapeHelper = ONNXUnaryOpShapeHelper;
