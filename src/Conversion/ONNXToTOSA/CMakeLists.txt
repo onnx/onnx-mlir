@@ -26,8 +26,9 @@ add_onnx_mlir_library(OMONNXToTOSA
   Tensor/Reshape.cpp
   Tensor/Resize.cpp
   Tensor/Slice.cpp
-  Tensor/Transpose.cpp
   Tensor/Squeeze.cpp
+  Tensor/Tile.cpp
+  Tensor/Transpose.cpp
   Flow/EntryPoint.cpp
 
 
