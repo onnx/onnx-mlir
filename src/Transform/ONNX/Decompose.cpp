@@ -571,7 +571,7 @@ struct DecomposeHardSwishPattern : public ConversionPattern {
         hardSwishOp.getType(), input, rewriter.getF32FloatAttr(1.0 / 6.0),
         rewriter.getF32FloatAttr(0.5));
     rewriter.replaceOpWithNewOp<ONNXMulOp>(
-        op, hardSwishOp.getType(), input, hardSigmoid);
+        op, hardSwishOp.getType(), hardSigmoid, input);
     return success();
   }
 };
