@@ -189,7 +189,7 @@ Interfaces: MemoryEffectOpInterface
 
 | Operand | Description |
 | :-----: | ----------- |
-| `parameters` | any type
+| `parameters` | variadic of any type
 
 ### `krnl.copy_from_tile_buffer` (KrnlCopyFromBufferOp)
 
@@ -227,7 +227,7 @@ Traits: MemRefsNormalizable
 | :-----: | ----------- |
 | `buffer` | memref of any type values
 | `dest` | memref of any type values
-| `starts` | index
+| `starts` | variadic of index
 
 ### `krnl.copy_to_tile_buffer` (KrnlCopyToBufferOp)
 
@@ -296,7 +296,7 @@ Traits: MemRefsNormalizable
 | :-----: | ----------- |
 | `buffer` | memref of any type values
 | `source` | memref of any type values
-| `starts` | index
+| `starts` | variadic of index
 | `padValue` | any type
 
 ### `krnl.define_loops` (KrnlDefineLoopsOp)
@@ -311,7 +311,7 @@ intend to optimize.
 
 | Result | Description |
 | :----: | ----------- |
-&laquo;unnamed&raquo; | any type
+&laquo;unnamed&raquo; | variadic of any type
 
 ### `krnl.dim` (KrnlDimOp)
 
@@ -400,7 +400,7 @@ Effects: MemoryEffects::Effect{}
 
 ### `krnl.get_induction_var_value` (KrnlGetInductionVariableValueOp)
 
-_Krnl _
+_Krnl_
 
 
 Syntax:
@@ -421,13 +421,13 @@ current tile being iterated over.
 
 | Operand | Description |
 | :-----: | ----------- |
-| `loops` | any type
+| `loops` | variadic of any type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `ind_var_vals` | any type
+| `ind_var_vals` | variadic of any type
 
 ### `krnl.getref` (KrnlGetRefOp)
 
@@ -449,7 +449,7 @@ Traits: MemRefsNormalizable
 | :-----: | ----------- |
 | `mempool` | memref of any type values
 | `offset` | integer
-| `value` | index
+| `value` | variadic of index
 
 #### Results:
 
@@ -577,7 +577,7 @@ Interfaces: LoopLikeOpInterface
 
 | Operand | Description |
 | :-----: | ----------- |
-&laquo;unnamed&raquo; | any type
+&laquo;unnamed&raquo; | variadic of any type
 
 ### `krnl.load` (KrnlLoadOp)
 
@@ -603,7 +603,7 @@ Traits: MemRefsNormalizable
 | Operand | Description |
 | :-----: | ----------- |
 | `memref` | memref of any type values
-| `indices` | index
+| `indices` | variadic of index
 
 #### Results:
 
@@ -811,12 +811,12 @@ Interfaces: SpecializedKernelOpInterface
 | Operand | Description |
 | :-----: | ----------- |
 | `A` | memref of any type values
-| `aGlobalIndexMemStart` | index
+| `aGlobalIndexMemStart` | variadic of index
 | `B` | memref of any type values
-| `bGlobalIndexMemStart` | index
+| `bGlobalIndexMemStart` | variadic of index
 | `C` | memref of any type values
-| `cGlobalIndexMemStart` | index
-| `loops` | any type
+| `cGlobalIndexMemStart` | variadic of index
+| `loops` | variadic of any type
 | `iGlobalIndexComputeStart` | index
 | `jGlobalIndexComputeStart` | index
 | `kGlobalIndexComputeStart` | index
@@ -941,7 +941,7 @@ krnl.parallel (%i0, %i1) : !Krnl.loop, !Krnl.loop
 
 | Operand | Description |
 | :-----: | ----------- |
-| `loops` | any type
+| `loops` | variadic of any type
 
 ### `krnl.permute` (KrnlPermuteOp)
 
@@ -1020,7 +1020,7 @@ affine.for %arg0 = 0 to 1024 step 4 {
 
 | Operand | Description |
 | :-----: | ----------- |
-| `loops` | any type
+| `loops` | variadic of any type
 
 ### `krnl.print` (KrnlPrintOp)
 
@@ -1126,7 +1126,7 @@ Interfaces: AllocationOpInterface, MemoryEffectOpInterface
 
 | Operand | Description |
 | :-----: | ----------- |
-| `length` | index
+| `length` | variadic of index
 
 #### Results:
 
@@ -1255,7 +1255,7 @@ Interfaces: SpecializedKernelOpInterface
 
 | Operand | Description |
 | :-----: | ----------- |
-| `loops` | any type
+| `loops` | variadic of any type
 
 ### `krnl.store` (KrnlStoreOp)
 
@@ -1281,7 +1281,7 @@ Traits: MemRefsNormalizable
 | :-----: | ----------- |
 | `value` | any type
 | `memref` | memref of any type values
-| `indices` | index
+| `indices` | variadic of index
 
 ### `krnl.strlen` (KrnlStrlenOp)
 
