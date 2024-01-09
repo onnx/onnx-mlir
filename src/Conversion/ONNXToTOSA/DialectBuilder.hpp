@@ -49,14 +49,21 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value slice(mlir::Value &inputConst, llvm::ArrayRef<int64_t> size,
       llvm::ArrayRef<int64_t> start);
   mlir::Value reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape);
-  mlir::Value reciprocal(mlir::Value &input);
+
+  template <typename T>
+  mlir::Value unaryOp(mlir::Value &input);
   mlir::Value sqrt(mlir::Value &input);
-  mlir::Value exp(mlir::Value &input);
+
+  template <typename T>
+  mlir::Value compareOp(mlir::PatternRewriter &rewriter, mlir::Location loc,
+      mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value equal(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value greater(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value greaterEqual(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value less(mlir::Value &lhs, mlir::Value &rhs);
   mlir::Value lessEqual(mlir::Value &lhs, mlir::Value &rhs);
+
+  mlir::Value select(mlir::Value &cond, mlir::Value &lhs, mlir::Value &rhs);
 
   /// When using window based ops like maxpool or conv2d, we sometimes have
   /// unused values at the end of a spatial dimension. TOSA does not allow that,
