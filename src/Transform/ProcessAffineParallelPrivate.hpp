@@ -8,8 +8,8 @@
 //
 // =============================================================================
 //
-// This file adds alloca scope to affine parallel for loop for proper handling of
-// parallel for private data structures.
+// This file adds alloca scope to affine parallel for loop for proper handling
+// of parallel for private data structures.
 //
 //===----------------------------------------------------------------------===//
 
