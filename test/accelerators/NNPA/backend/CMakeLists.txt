@@ -378,6 +378,7 @@ add_custom_target(check-onnx-backend-nnpa
 
 add_custom_target(check-onnx-backend-dynamic-nnpa
   COMMAND
+    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-dynamic-nnpa
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -391,6 +392,7 @@ add_custom_target(check-onnx-backend-constant-nnpa
     # In some test cases such as `test_add_cpu`, operations are removed by optimization and
     # instruction check fails. So, currently instruction check is disabled in constant test.
     # TEST_INSTRUCTION_CHECK=true
+    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-constant-nnpa
     TEST_CONSTANT=true
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
@@ -442,6 +444,7 @@ if (ONNX_MLIR_ENABLE_JNI)
 
   add_custom_target(check-onnx-backend-dynamic-jni-nnpa
     COMMAND
+      ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-dynamic-jni-nnpa
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
@@ -451,6 +454,7 @@ if (ONNX_MLIR_ENABLE_JNI)
 
   add_custom_target(check-onnx-backend-constant-jni-nnpa
     COMMAND
+      ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-constant-jni-nnpa
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
