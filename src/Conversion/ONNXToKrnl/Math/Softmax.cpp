@@ -293,7 +293,6 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
 
-    // hi alex, fix this
     int64_t rank = memRefType.getRank();
     int64_t axis = adaptor.getAxis();
     axis = axis >= 0 ? axis : rank + axis;

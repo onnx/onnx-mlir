@@ -685,7 +685,7 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Support functions for parallel region.
 //===----------------------------------------------------------------------===//
 
-// Return the outermost loop within (firstDim, lastDim] for which (lb-Ub) >
+// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >
 // minSize. Runtime dimensions are assumed to satisfy the size requirement by
 // definition. If found one, it is parDim and the function returns true.
 

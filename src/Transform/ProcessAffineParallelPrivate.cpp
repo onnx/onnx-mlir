@@ -4,10 +4,10 @@
 
 //===-- ProcessAffineParallelPrivate.cpp - handle parallel private data ---===//
 //
-// Copyright 2023-24 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
-// This pass add alloca_scope to parallel bodies to contain the memory
+// This pass adds alloca_scope to parallel bodies to contain the memory
 // allocated within its parallel body. Otherwise, temporary buffers would be
 // shared among all threads.
 //
@@ -23,6 +23,8 @@
 //     }
 //   }
 //
+// TODO: if we use scf.parallel, then the same optimization should be added as
+// for the affine.parallel construct.
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ProcessAffineParallelPrivate.hpp"
@@ -46,7 +48,6 @@
 using namespace mlir;
 
 namespace {
-func::FuncOp functionBeingDebugged;
 
 struct ProcessAffineParallelWithoutScopePattern
     : public OpRewritePattern<affine::AffineParallelOp> {

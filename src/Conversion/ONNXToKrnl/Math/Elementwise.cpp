@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-//hi alex, removed? #include <algorithm>
 #define _USE_MATH_DEFINES
 #include <cmath>
 
