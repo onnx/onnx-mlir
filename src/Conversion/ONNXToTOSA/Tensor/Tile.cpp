@@ -19,6 +19,7 @@
 #include <mlir/Dialect/Tosa/IR/TosaOps.h>
 #include <mlir/IR/BuiltinAttributes.h>
 #include <mlir/IR/BuiltinTypeInterfaces.h>
+#include <mlir/IR/BuiltinTypes.h>
 #include <mlir/Transforms/DialectConversion.h>
 
 #include <llvm/ADT/SmallVector.h>
@@ -33,9 +34,11 @@ namespace onnx_mlir {
 namespace {
 
 class ONNXTileLoweringToTOSA : public OpConversionPattern<ONNXTileOp> {
+
 public:
   using OpConversionPattern::OpConversionPattern;
   using OpAdaptor = typename ONNXTileOp::Adaptor;
+
   LogicalResult matchAndRewrite(ONNXTileOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
@@ -45,39 +48,53 @@ public:
           op, "input is not a ranked shaped tensor");
     }
 
+    auto resultElementType = cast<ShapedType>(inputType).getElementType();
+    auto newResultElementType =
+        getTypeConverter()->convertType(resultElementType);
+
+    if (!isSupportedElementType(newResultElementType)) {
+      return rewriter.notifyMatchFailure(
+          op, "input/output type is invalid for tosa.tile");
+    }
+
     int64_t inputRank = onnx_mlir::getRank(inputType);
-    auto newResultElementType = cast<ShapedType>(inputType).getElementType();
     Type newOutputType = RankedTensorType::get(
         llvm::SmallVector<int64_t>(inputRank, ShapedType::kDynamic),
         newResultElementType);
 
     // Create the attribute for the repetitions
-    Value reps = adaptor.getRepeats();
-    auto repsConstant =
-        dyn_cast_or_null<mlir::tosa::ConstOp>(reps.getDefiningOp());
-    if (!repsConstant) {
+    DenseIntElementsAttr denseReps;
+    if (!matchPattern(op.getRepeats(), m_Constant(&denseReps))) {
       return rewriter.notifyMatchFailure(
           op, "onnx.tile can only be lowered with constant repetitions");
     }
-    auto denseReps = repsConstant->getAttrOfType<DenseElementsAttr>("value");
-    llvm::SmallVector<int64_t> vals;
-    for (auto val : denseReps.getValues<int64_t>()) {
-      vals.push_back(val);
-    }
-    auto newReps = rewriter.getDenseI64ArrayAttr(vals);
+    auto newReps = rewriter.getDenseI64ArrayAttr(
+        llvm::to_vector(denseReps.getValues<int64_t>()));
 
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(
+    onnx_mlir::tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(
         rewriter, op, newOutputType, adaptor.getInput(), newReps);
     return success();
+  }
+
+private:
+  static bool isSupportedElementType(Type type) {
+    if (auto intTy = dyn_cast_or_null<IntegerType>(type)) {
+      // Supported integer bit widths
+      std::set<unsigned> intWidth({8, 16, 32});
+      return isTOSABool(type) ||
+             (intTy.isSignless() &&
+                 (intWidth.find(intTy.getWidth()) != intWidth.end()));
+    }
+    return type.isBF16() || type.isF16() || type.isF32();
   }
 };
 
 } // namespace
 
 void populateLoweringONNXTileOpToTOSAPattern(ConversionTarget & /*target*/,
-    RewritePatternSet &patterns, TypeConverter & /*typeConverter*/,
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXTileLoweringToTOSA>(ctx);
+  patterns.insert<ONNXTileLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
