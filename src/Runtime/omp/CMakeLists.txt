@@ -16,7 +16,7 @@ if(TARGET omp)
     DOWNLOAD_COMMAND ""
     # Build with LIBOMP_ENABLE_SHARED=OFF so that libomp.a can be embedded
     # into model.so
-    CONFIGURE_COMMAND sh -c "CC=clang CXX=clang++ \
+    CONFIGURE_COMMAND sh -c "CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} \
                              cmake -G Ninja ${LLVM_BUILD_MAIN_SRC_DIR} \
                                    -DLLVM_ENABLE_PROJECTS=\"clang$<SEMICOLON>openmp\" \
                                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
