@@ -29,6 +29,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
   void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
       ONNXConvOpAdaptor &operandAdaptor, ONNXConvOpShapeHelper &shapeHelper,
       MemRefType &memRefType, Value alloc) const {
+    Operation *op = convOp.getOperation();
     Location loc = convOp.getLoc();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, SCFBuilder,
         MathBuilder, MemRefBuilder>
@@ -86,9 +87,9 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
 
     // Create a local reduction value.
     MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
-    // Single scalar, no need for default alignment.
-    Value reductionVal = create.mem.alloca(tmpType);
     auto bodyFunction = [&](ValueRange outerIndices) {
+      // Single scalar, no need for default alignment.
+      Value reductionVal = create.mem.alloca(tmpType);
       // Compute the Channel In Indices.
       IndexExprScope outerScope(create.krnl);
       // Compute the channel out index "co".
@@ -212,18 +213,15 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
           }); // Output spacial loops.
     };
 
+    ValueRange outerLoops = create.krnl.defineLoops(3);
     if (enableParallel) {
-      create.scf.parallelLoop(parLbs, parUbs, steps,
-          [&](SCFBuilder &create, ValueRange outerIndices) {
-            bodyFunction(outerIndices);
-          });
-    } else {
-      ValueRange outerLoops = create.krnl.defineLoops(3);
-      create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
-          [&](KrnlBuilder &create, ValueRange outerIndices) {
-            bodyFunction(outerIndices);
-          });
+      create.krnl.parallel(outerLoops[0]);
+      onnxToKrnlParallelReport(op, true, 0, outerLbs[0], outerUbs[0], "conv");
     }
+    create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
+        [&](KrnlBuilder &create, ValueRange outerIndices) {
+          bodyFunction(outerIndices);
+        });
   }
 
   LogicalResult matchAndRewrite(ONNXConvOp convOp, ONNXConvOpAdaptor adaptor,

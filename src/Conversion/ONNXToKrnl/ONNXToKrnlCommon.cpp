@@ -682,6 +682,28 @@ bool hasNonIdentityLayout(ValueRange operands) {
 }
 
 //===----------------------------------------------------------------------===//
+// Support functions for parallel region.
+//===----------------------------------------------------------------------===//
+
+// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >
+// minSize. Runtime dimensions are assumed to satisfy the size requirement by
+// definition. If found one, it is parDim and the function returns true.
+
+bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim, int64_t lastDim,
+    int64_t &parDim, int64_t minSize) {
+  for (int64_t i = firstDim; i < lastDim; ++i) {
+    IndexExpr tripCount = ub[i] - lb[i];
+    if (!tripCount.isLiteral() || tripCount.getLiteral() > minSize) {
+      // Got one
+      parDim = i;
+      return true;
+    }
+  }
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
@@ -694,7 +716,7 @@ void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
   std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
   // Print report on this op.
   printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
-      (successful ? "-parallel" : ""), nodeNameStr.c_str(), comment.c_str(),
+      (successful ? "-par" : ""), nodeNameStr.c_str(), comment.c_str(),
       (long long int)loopLevel, (long long int)parallelLoopTripCount);
 }
 
