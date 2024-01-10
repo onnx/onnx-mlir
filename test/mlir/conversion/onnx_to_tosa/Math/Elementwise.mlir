@@ -216,7 +216,7 @@ func.func @test_selu_default_value(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3
 }
 
 func.func @test_selu(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
-  %0 = "onnx.Selu"(%arg0) {alpha = 1.5  : f32, gamma = 2.0 : f32} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  %0 = "onnx.Selu"(%arg0) {alpha = 1.5 : f32, gamma = 2.0 : f32} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
   func.return %0 : tensor<13x21x3xf32>
 // CHECK-LABEL: test_selu
 // CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<1.500000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
