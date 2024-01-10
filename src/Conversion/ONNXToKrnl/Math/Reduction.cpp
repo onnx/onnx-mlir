@@ -337,7 +337,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder>;
 
   ONNXReductionOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableSIMD, bool computeMean = false, bool enableParallel = false)
+      bool enableSIMD, bool enableParallel, bool computeMean = false)
       : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx),
         enableSIMD(enableSIMD), computeMean(computeMean),
         enableParallel(enableParallel) {}
@@ -1087,6 +1087,6 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, /*computeMean=*/true, enableParallel);
+      typeConverter, ctx, enableSIMD, enableParallel, /*computeMean=*/true);
 }
 } // namespace onnx_mlir
