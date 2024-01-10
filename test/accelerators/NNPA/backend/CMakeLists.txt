@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(ONNX_BACKENDTEST_SRC_DIR ${ONNX_MLIR_SRC_ROOT}/test/backend)
-set(ONNX_BACKENDTEST_BIN_DIR ${ONNX_MLIR_BIN_ROOT}/test/backend)
 
 file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conftest.py
@@ -45,24 +44,24 @@ file(GENERATE
 
 configure_file(
  ${ONNX_BACKENDTEST_SRC_DIR}/test_config.py.in
- ${ONNX_BACKENDTEST_BIN_DIR}/test_config.py.cfg
+ ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
  @ONLY
  )
 
 file(GENERATE
  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config.py
- INPUT ${ONNX_BACKENDTEST_BIN_DIR}/test_config.py.cfg
+ INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
  )
 
 configure_file(
   ${ONNX_BACKENDTEST_SRC_DIR}/test_config_compilerlib.py.in
-  ${ONNX_BACKENDTEST_BIN_DIR}/test_config_compilerlib.py.cfg
+  ${CMAKE_CURRENT_BINARY_DIR}/test_config_compilerlib.py.cfg
   @ONLY
   )
 
 file(GENERATE
  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config_compilerlib.py
- INPUT ${ONNX_BACKENDTEST_BIN_DIR}/test_config_compilerlib.py.cfg
+ INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config_compilerlib.py.cfg
  )
 
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
@@ -369,7 +368,7 @@ set(NNPA_TESTS_ENVS TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_
 add_custom_target(check-onnx-backend-nnpa
   COMMAND
     TEST_INSTRUCTION_CHECK=true
-    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-nnpa
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-nnpa
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -378,7 +377,7 @@ add_custom_target(check-onnx-backend-nnpa
 
 add_custom_target(check-onnx-backend-dynamic-nnpa
   COMMAND
-    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-dynamic-nnpa
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-nnpa
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
@@ -392,7 +391,7 @@ add_custom_target(check-onnx-backend-constant-nnpa
     # In some test cases such as `test_add_cpu`, operations are removed by optimization and
     # instruction check fails. So, currently instruction check is disabled in constant test.
     # TEST_INSTRUCTION_CHECK=true
-    ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-constant-nnpa
+    ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant-nnpa
     TEST_CONSTANT=true
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
@@ -434,7 +433,7 @@ if (ONNX_MLIR_ENABLE_JNI)
   message(STATUS "JSONITER_JAR             : ${JSONITER_JAR}")
   add_custom_target(check-onnx-backend-jni-nnpa
     COMMAND
-      ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-jni-nnpa
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-jni-nnpa
       TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
@@ -444,7 +443,7 @@ if (ONNX_MLIR_ENABLE_JNI)
 
   add_custom_target(check-onnx-backend-dynamic-jni-nnpa
     COMMAND
-      ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-dynamic-jni-nnpa
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-jni-nnpa
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
@@ -454,7 +453,7 @@ if (ONNX_MLIR_ENABLE_JNI)
 
   add_custom_target(check-onnx-backend-constant-jni-nnpa
     COMMAND
-      ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}/check-onnx-backend-constant-jni-nnpa
+      ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant-jni-nnpa
       TEST_CONSTANT=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
       ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
