@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt -O3 --march=x86-64 --shape-inference --convert-onnx-to-krnl=enable-parallel --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // With enable-parallel, a krnl.parallel should be created, which takes a loop (to be parallelized) 
 // as input. The krnl.parallel should be the last operator before krnl.iterate, since the lowering
 // needs to interpret krnl.block, krnl.permute, krnl.unroll first.
