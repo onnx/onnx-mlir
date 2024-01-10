@@ -25,13 +25,6 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
-Value compareOp(mlir::PatternRewriter &rewriter, mlir::Location loc,
-    mlir::Value &lhs, mlir::Value &rhs) {
-  return tosa::CreateOpAndInfer<mlir::tosa::GreaterEqualOp>(
-      rewriter, loc, UnrankedTensorType::get(rewriter.getI1Type()), lhs, rhs);
-}
-
-template <typename T>
 bool TosaBuilder::testNumberOfElementsMatch(
     ArrayRef<T> vec, ArrayRef<int64_t> shape) {
   uint64_t numTotalElements = 1;
@@ -231,24 +224,6 @@ Value TosaBuilder::intdiv(mlir::Value &lhs, mlir::Value &rhs) {
       rewriter(), loc(), newValueType, lhs, rhs);
 }
 
-Value TosaBuilder::reciprocal(mlir::Value &input) {
-  auto inputType = input.getType().cast<ShapedType>();
-  Type newValueType = RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
-      inputType.getElementType());
-  return tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
-      rewriter(), loc(), newValueType, input);
-}
-
-Value TosaBuilder::exp(mlir::Value &input) {
-  auto inputType = input.getType().cast<ShapedType>();
-  Type newValueType = RankedTensorType::get(
-      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
-      inputType.getElementType());
-  return tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
-      rewriter(), loc(), newValueType, input);
-}
-
 template <typename T>
 Value TosaBuilder::binaryOp(mlir::Value &lhs, mlir::Value &rhs) {
   if (needsRankBroadcast({lhs, rhs})) {
@@ -272,6 +247,34 @@ template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
 template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
     mlir::Value &lhs, mlir::Value &rhs);
 
+template <typename T>
+Value TosaBuilder::unaryOp(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<T>(rewriter(), loc(), newValueType, input);
+}
+
+template Value TosaBuilder::unaryOp<mlir::tosa::ExpOp>(mlir::Value &input);
+
+template Value TosaBuilder::unaryOp<mlir::tosa::ReciprocalOp>(
+    mlir::Value &input);
+
+template Value TosaBuilder::unaryOp<mlir::tosa::LogOp>(mlir::Value &input);
+
+template <typename T>
+Value TosaBuilder::compareOp(mlir::PatternRewriter &rewriter,
+    mlir::Location loc, mlir::Value &lhs, mlir::Value &rhs) {
+  if (needsRankBroadcast({lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
+    lhs = valueVec[0];
+    rhs = valueVec[1];
+  }
+  return tosa::CreateOpAndInfer<T>(
+      rewriter, loc, UnrankedTensorType::get(rewriter.getI1Type()), lhs, rhs);
+}
+
 mlir::Value TosaBuilder::equal(mlir::Value &lhs, mlir::Value &rhs) {
   return compareOp<mlir::tosa::EqualOp>(rewriter(), loc(), lhs, rhs);
 }
@@ -290,6 +293,22 @@ mlir::Value TosaBuilder::less(mlir::Value &lhs, mlir::Value &rhs) {
 
 mlir::Value TosaBuilder::lessEqual(mlir::Value &lhs, mlir::Value &rhs) {
   return this->greaterEqual(rhs, lhs);
+}
+
+Value TosaBuilder::select(
+    mlir::Value &cond, mlir::Value &lhs, mlir::Value &rhs) {
+  if (needsRankBroadcast({cond, lhs, rhs})) {
+    llvm::SmallVector<Value, 4> valueVec = equalizeRanks({cond, lhs, rhs});
+    cond = valueVec[0];
+    lhs = valueVec[1];
+    rhs = valueVec[2];
+  }
+  auto lhsType = lhs.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
+      lhsType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::SelectOp>(
+      rewriter(), loc(), newValueType, cond, lhs, rhs);
 }
 
 Value TosaBuilder::sqrt(mlir::Value &input) {

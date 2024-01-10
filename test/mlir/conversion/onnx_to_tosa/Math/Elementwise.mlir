@@ -157,11 +157,117 @@ func.func @test_leaky_relu(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
   %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.707330704  : f32} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
   func.return %0 : tensor<13x21x3xf32>
 // CHECK-LABEL: test_leaky_relu
-// CHECK-DAG: %[[VAR0:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1x1x1xf32>}>
-// CHECK-DAG: %[[VAR1:.*]] = "tosa.const"() <{value = dense<0.707330704> : tensor<1x1x1xf32>}>
+// CHECK-DAG: %[[VAR0:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xf32>}>
+// CHECK-DAG: %[[VAR1:.*]] = "tosa.const"() <{value = dense<0.707330704> : tensor<13x21x3xf32>}>
 // CHECK-DAG: %[[VAR2:.*]] = "tosa.mul"(%arg0, %[[VAR1]]) <{shift = 0 : i32}>
 // CHECK-DAG: %[[VAR3:.*]] = "tosa.greater_equal"(%arg0, %[[VAR0]])
 // CHECK: %[[VAR6:.*]] = "tosa.select"(%[[VAR3]], %arg0, %[[VAR2]])
+}
+
+func.func @test_leaky_relu_bf16(%arg0: tensor<13x21x3xbf16>) -> tensor<13x21x3xbf16> {
+  %0 = "onnx.LeakyRelu"(%arg0) {alpha = 0.707330704  : f32} : (tensor<13x21x3xbf16>) -> tensor<13x21x3xbf16>
+  func.return %0 : tensor<13x21x3xbf16>
+// CHECK-LABEL: test_leaky_relu_bf16
+// CHECK-DAG: %[[VAR0:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xbf16>}>
+// CHECK-DAG: %[[VAR1:.*]] = "tosa.const"() <{value = dense<7.070310e-01> : tensor<13x21x3xbf16>}>
+// CHECK-DAG: %[[VAR2:.*]] = "tosa.mul"(%arg0, %[[VAR1]]) <{shift = 0 : i32}>
+// CHECK-DAG: %[[VAR3:.*]] = "tosa.greater_equal"(%arg0, %[[VAR0]])
+// CHECK: %[[VAR6:.*]] = "tosa.select"(%[[VAR3]], %arg0, %[[VAR2]])
+}
+
+// -----
+
+func.func @test_prelu(%arg0: tensor<13x21x3xf32>, %arg1: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<13x21x3xf32>, tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %0 : tensor<13x21x3xf32>
+// CHECK-LABEL: test_prelu
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xf32>}>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.mul"(%arg0, %arg1) <{shift = 0 : i32}>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.greater_equal"(%arg0, [[VAR_0_]])
+// CHECK:           [[VAR_3_:%.+]] = "tosa.select"([[VAR_2_]], %arg0, [[VAR_1_]])
+}
+
+func.func @test_prelu_bf16(%arg0: tensor<13x21x3xbf16>, %arg1: tensor<13x21x3xbf16>) -> tensor<13x21x3xbf16> {
+  %0 = "onnx.PRelu"(%arg0, %arg1) : (tensor<13x21x3xbf16>, tensor<13x21x3xbf16>) -> tensor<13x21x3xbf16>
+  func.return %0 : tensor<13x21x3xbf16>
+// CHECK-LABEL: test_prelu_bf16
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xbf16>}> : () -> tensor<13x21x3xbf16>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.mul"(%arg0, %arg1) <{shift = 0 : i32}>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.greater_equal"(%arg0, [[VAR_0_]])
+// CHECK:           [[VAR_3_:%.+]] = "tosa.select"([[VAR_2_]], %arg0, [[VAR_1_]])
+}
+
+// -----
+
+func.func @test_selu_default_value(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %0 = "onnx.Selu"(%arg0) : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %0 : tensor<13x21x3xf32>
+// CHECK-LABEL: test_selu_default_value
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<1.673260e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<1.050700e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.exp"(%arg0)
+// CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_0_]]) <{shift = 0 : i32}>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.sub"([[VAR_4_]], [[VAR_0_]])
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.greater"(%arg0, [[VAR_2_]])
+// CHECK:           [[VAR_7_:%.+]] = "tosa.select"([[VAR_6_]], %arg0, [[VAR_5_]])
+// CHECK:           [[VAR_8_:%.+]] = "tosa.mul"([[VAR_7_]], [[VAR_1_]]) <{shift = 0 : i32}>
+// CHECK:           return [[VAR_8_]] : tensor<13x21x3xf32>
+}
+
+func.func @test_selu(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %0 = "onnx.Selu"(%arg0) {alpha = 1.5 : f32, gamma = 2.0 : f32} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %0 : tensor<13x21x3xf32>
+// CHECK-LABEL: test_selu
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<1.500000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<2.000000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "tosa.exp"(%arg0) : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+// CHECK:           [[VAR_4_:%.+]] = "tosa.mul"([[VAR_3_]], [[VAR_0_]]) <{shift = 0 : i32}>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "tosa.sub"([[VAR_4_]], [[VAR_0_]])
+// CHECK-DAG:       [[VAR_6_:%.+]] = "tosa.greater"(%arg0, [[VAR_2_]])
+// CHECK:           [[VAR_7_:%.+]] = "tosa.select"([[VAR_6_]], %arg0, [[VAR_5_]])
+// CHECK:           [[VAR_8_:%.+]] = "tosa.mul"([[VAR_7_]], [[VAR_1_]]) <{shift = 0 : i32}>
+// CHECK:           return [[VAR_8_]] : tensor<13x21x3xf32>
+}
+
+// -----
+
+func.func @test_softplus(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %0 = "onnx.Softplus"(%arg0) : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %0 : tensor<13x21x3xf32>
+// CHECK-LABEL:  test_softplus
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.exp"(%arg0)
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<1.000000e+00> : tensor<13x21x3xf32>}>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.add"([[VAR_0_]], [[VAR_1_]])
+// CHECK:           [[VAR_3_:%.+]] = "tosa.log"([[VAR_2_]])
+// CHECK:           return [[VAR_3_]] : tensor<13x21x3xf32>
+}
+
+// -----
+
+func.func @test_thresholdedrelu(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %0 = "onnx.ThresholdedRelu"(%arg0) {alpha = 0.5 : f32} : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %0 : tensor<13x21x3xf32>
+// CHECK-LABEL: test_thresholdedrelu
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<5.000000e-01>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.greater"(%arg0, [[VAR_0_]])
+// CHECK:           [[VAR_3_:%.+]] = "tosa.select"([[VAR_2_]], %arg0, [[VAR_1_]])
+// CHECK:           return [[VAR_3_]] : tensor<13x21x3xf32>
+}
+
+
+
+func.func @test_thresholdedrelu_default_value(%arg0: tensor<13x21x3xf32>) -> tensor<13x21x3xf32> {
+  %0 = "onnx.ThresholdedRelu"(%arg0) : (tensor<13x21x3xf32>) -> tensor<13x21x3xf32>
+  func.return %0 : tensor<13x21x3xf32>
+// CHECK-LABEL: test_thresholdedrelu_default_value
+// CHECK-DAG:       [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<1.000000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<13x21x3xf32>}> : () -> tensor<13x21x3xf32>
+// CHECK:           [[VAR_2_:%.+]] = "tosa.greater"(%arg0, [[VAR_0_]])
+// CHECK:           [[VAR_3_:%.+]] = "tosa.select"([[VAR_2_]], %arg0, [[VAR_1_]])
+// CHECK:           return [[VAR_3_]] : tensor<13x21x3xf32>
 }
 
 // -----
