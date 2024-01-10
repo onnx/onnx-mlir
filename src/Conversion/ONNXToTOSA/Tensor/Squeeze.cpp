@@ -26,18 +26,19 @@ namespace onnx_mlir {
 
 namespace {
 
-class ONNXUnsqueezeLoweringToTOSA
-    : public OpConversionPattern<ONNXUnsqueezeOp> {
+template <typename SqueezeOp, typename ShapeHelper>
+class ONNXUnsqueezeSqueezeLoweringToTOSA
+    : public OpConversionPattern<SqueezeOp> {
 public:
-  using OpConversionPattern::OpConversionPattern;
-  using OpAdaptor = typename ONNXUnsqueezeOp::Adaptor;
-  LogicalResult matchAndRewrite(ONNXUnsqueezeOp op, OpAdaptor adaptor,
+  using OpConversionPattern<SqueezeOp>::OpConversionPattern;
+  using OpAdaptor = typename SqueezeOp::Adaptor;
+  LogicalResult matchAndRewrite(SqueezeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op->getLoc();
     // Get shape.
     IndexExprBuilderForTosa createTosaIE(rewriter, loc);
-    ONNXUnsqueezeOpShapeHelper shapeHelper(op, {}, &createTosaIE);
+    ShapeHelper shapeHelper(op, {}, &createTosaIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     TosaBuilder tosaBuilder(rewriter, loc);
@@ -57,10 +58,13 @@ public:
 
 } // namespace
 
-void populateLoweringONNXUnsqueezeOpToTOSAPattern(ConversionTarget &target,
+void populateLoweringONNXSqueezeOpToTOSAPattern(ConversionTarget &target,
     RewritePatternSet &patterns, TypeConverter &typeConverter,
     MLIRContext *ctx) {
-  patterns.insert<ONNXUnsqueezeLoweringToTOSA>(ctx);
+  patterns.insert<ONNXUnsqueezeSqueezeLoweringToTOSA<ONNXUnsqueezeOp,
+                      ONNXUnsqueezeOpShapeHelper>,
+      ONNXUnsqueezeSqueezeLoweringToTOSA<ONNXSqueezeOp,
+          ONNXSqueezeOpShapeHelper>>(ctx);
 }
 
 } // namespace onnx_mlir

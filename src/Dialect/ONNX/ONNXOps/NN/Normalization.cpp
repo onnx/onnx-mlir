@@ -149,3 +149,57 @@ LogicalResult ONNXInstanceNormalizationOp::verify() {
 }
 
 // TODO: should there be a shape inference for this one?
+
+namespace onnx_mlir {
+
+mlir::LogicalResult ONNXLayerNormalizationOpShapeHelper::computeShape() {
+
+  ONNXLayerNormalizationOpAdaptor operandAdaptor(operands);
+  ONNXLayerNormalizationOp lnOp = llvm::cast<ONNXLayerNormalizationOp>(op);
+
+  // Get rank and axis attribute.
+  int64_t axis = lnOp.getAxis();
+  Value X = operandAdaptor.getX();
+  int64_t XRank = X.getType().cast<ShapedType>().getRank();
+  if (axis < 0)
+    axis += XRank;
+
+  // Compute the shape of the first output and all the inputs.
+  llvm::SmallVector<Value, 3> operandsForBroadcast;
+  operandsForBroadcast.emplace_back(X);
+  operandsForBroadcast.emplace_back(operandAdaptor.getScale());
+  if (!isNoneValue(operandAdaptor.getB()))
+    operandsForBroadcast.emplace_back(operandAdaptor.getB());
+  if (failed(ONNXBroadcastOpShapeHelper::customComputeShape(
+          operandsForBroadcast, nullptr)))
+    return failure();
+
+  // Compute mean output shape if requested.
+  if (!isNoneValue(lnOp.getMean())) {
+    DimsExpr meanShape(getOutputDims(0));
+    for (int64_t r = axis; r < XRank; ++r)
+      meanShape[r] = LiteralIndexExpr(1);
+    setOutputDims(meanShape, 1, false);
+  }
+  // Compute invStdDev output shape if requested.
+  if (!isNoneValue(lnOp.getInvStdDev())) {
+    DimsExpr invStdDevShape(getOutputDims(0));
+    for (int64_t r = axis; r < XRank; ++r)
+      invStdDevShape[r] = LiteralIndexExpr(1);
+    setOutputDims(invStdDevShape, 2, false);
+  }
+  return success();
+}
+} // namespace onnx_mlir
+
+LogicalResult ONNXLayerNormalizationOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  // If any input is not ranked tensor, do nothing. Account for possibly null
+  // inputs (B).
+  if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getScale()) ||
+      (!isNoneValue(getB()) && !hasShapeAndRank(getB())))
+    return success();
+  Type commonType = getX().getType().cast<RankedTensorType>().getElementType();
+  ONNXLayerNormalizationOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(commonType);
+}

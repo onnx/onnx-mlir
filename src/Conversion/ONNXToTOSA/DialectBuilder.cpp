@@ -25,6 +25,13 @@ using namespace mlir;
 namespace onnx_mlir {
 
 template <typename T>
+Value compareOp(mlir::PatternRewriter &rewriter, mlir::Location loc,
+    mlir::Value &lhs, mlir::Value &rhs) {
+  return tosa::CreateOpAndInfer<mlir::tosa::GreaterEqualOp>(
+      rewriter, loc, UnrankedTensorType::get(rewriter.getI1Type()), lhs, rhs);
+}
+
+template <typename T>
 bool TosaBuilder::testNumberOfElementsMatch(
     ArrayRef<T> vec, ArrayRef<int64_t> shape) {
   uint64_t numTotalElements = 1;
@@ -129,12 +136,17 @@ Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
   return constOp;
 }
 
-Value TosaBuilder::getSplattedConst(float val, llvm::ArrayRef<int64_t> shape) {
+Value TosaBuilder::getSplattedConst(
+    float val, llvm::ArrayRef<int64_t> shape, std::optional<Type> dtype) {
   auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp =
       rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
+
+  if (dtype)
+    return rewriter().createOrFold<mlir::tosa::CastOp>(
+        loc(), RankedTensorType::get(shape, *dtype), constOp);
   return constOp;
 }
 
@@ -228,6 +240,15 @@ Value TosaBuilder::reciprocal(mlir::Value &input) {
       rewriter(), loc(), newValueType, input);
 }
 
+Value TosaBuilder::exp(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  Type newValueType = RankedTensorType::get(
+      llvm::SmallVector<int64_t, 4>(inputType.getRank(), ShapedType::kDynamic),
+      inputType.getElementType());
+  return tosa::CreateOpAndInfer<mlir::tosa::ExpOp>(
+      rewriter(), loc(), newValueType, input);
+}
+
 template <typename T>
 Value TosaBuilder::binaryOp(mlir::Value &lhs, mlir::Value &rhs) {
   if (needsRankBroadcast({lhs, rhs})) {
@@ -247,6 +268,36 @@ template Value TosaBuilder::binaryOp<mlir::tosa::AddOp>(
 
 template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
     mlir::Value &lhs, mlir::Value &rhs);
+
+template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
+    mlir::Value &lhs, mlir::Value &rhs);
+
+mlir::Value TosaBuilder::equal(mlir::Value &lhs, mlir::Value &rhs) {
+  return compareOp<mlir::tosa::EqualOp>(rewriter(), loc(), lhs, rhs);
+}
+
+mlir::Value TosaBuilder::greater(mlir::Value &lhs, mlir::Value &rhs) {
+  return compareOp<mlir::tosa::GreaterOp>(rewriter(), loc(), lhs, rhs);
+}
+
+mlir::Value TosaBuilder::greaterEqual(mlir::Value &lhs, mlir::Value &rhs) {
+  return compareOp<mlir::tosa::GreaterEqualOp>(rewriter(), loc(), lhs, rhs);
+}
+
+mlir::Value TosaBuilder::less(mlir::Value &lhs, mlir::Value &rhs) {
+  return this->greater(rhs, lhs);
+}
+
+mlir::Value TosaBuilder::lessEqual(mlir::Value &lhs, mlir::Value &rhs) {
+  return this->greaterEqual(rhs, lhs);
+}
+
+Value TosaBuilder::sqrt(mlir::Value &input) {
+  auto inputType = input.getType().cast<ShapedType>();
+  auto oneHalf = this->getSplattedConst(
+      0.5, inputType.getShape(), inputType.getElementType());
+  return this->binaryOp<mlir::tosa::PowOp>(input, oneHalf);
+}
 
 static bool containsNonZero(llvm::SmallVectorImpl<int64_t> &values) {
   return llvm::any_of(values, [](int64_t value) { return value != 0; });

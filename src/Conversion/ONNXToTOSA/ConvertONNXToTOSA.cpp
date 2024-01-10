@@ -57,9 +57,10 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   populateLoweringONNXPadOpToTOSAPattern(target, patterns, typeConverter, ctx);
   populateLoweringONNXSliceOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-  populateLoweringONNXTransposeOpToTOSAPattern(
+  populateLoweringONNXSqueezeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-  populateLoweringONNXUnsqueezeOpToTOSAPattern(
+  populateLoweringONNXTileOpToTOSAPattern(target, patterns, typeConverter, ctx);
+  populateLoweringONNXTransposeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   // NN
   populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
@@ -115,7 +116,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> std::optional<Type> {
-    if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>())
+    if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>() ||
+        isTOSABool(type))
       return type;
     return std::nullopt;
   });

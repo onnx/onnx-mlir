@@ -181,6 +181,12 @@ def IsStaticShapeTensor:
       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
     "hasStaticShape">;
 
+def HasRank:
+  Constraint<
+    CPred<
+      "$_self.getType().cast<::mlir::ShapedType>().hasRank()">,
+    "is a tensor of static rank">;
+
 def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
           "Has the specified constant shape">;
@@ -867,7 +873,8 @@ def SizeToConstantPattern: Pat<
 // Rewrite GlobalAveragePool using ReduceMean.
 def GlobalAveragePoolPattern: Pat<
   (ONNXGlobalAveragePoolOp $x),
-  (ONNXReduceMeanV13Op $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr))
+  (ONNXReduceMeanV13Op $x, (createArrayAttrOfTwoToRankOf $x), (GetNullAttr)),
+  [(HasRank:$x)]
 >;
 
 // Rewrite GlobalMaxPool using ReduceMax.

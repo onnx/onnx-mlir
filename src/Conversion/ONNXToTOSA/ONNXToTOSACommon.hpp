@@ -93,6 +93,11 @@ namespace onnx_mlir {
 // Check for valid TOSA types.
 //===----------------------------------------------------------------------===//
 
+inline bool isTOSABool(mlir::Type type) {
+  mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
+  return intType && intType.isSignless() && intType.getWidth() == 1;
+}
+
 inline bool isTOSASignedInt(mlir::Type type) {
   mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
   std::set<unsigned> intWidth{8, 16, 32, 48, 64};
@@ -157,9 +162,11 @@ void populateLoweringONNXFlattenOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSliceOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXTransposeOpToTOSAPattern(mlir::ConversionTarget &,
+void populateLoweringONNXSqueezeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXUnsqueezeOpToTOSAPattern(mlir::ConversionTarget &,
+void populateLoweringONNXTileOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXTransposeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // 'Flow' directory methods:
 void populateLoweringONNXEntryPointOpToTOSAPattern(mlir::ConversionTarget &,
