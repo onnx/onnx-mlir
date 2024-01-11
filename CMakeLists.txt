@@ -137,11 +137,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_SILENCE_NONFLOATING_COMPLEX_DEPRECATION_WARNING")
 
-  # TODO: remove this once LLVM in onnx-mlir includes
-  # https://github.com/llvm/llvm-project/pull/74002
-  # Disable warning C4293.
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4293")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4293")
 endif()
 
 # Suppress warnings in third party code if requested.
