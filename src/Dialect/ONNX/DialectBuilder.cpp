@@ -502,6 +502,204 @@ Value OnnxBuilder::reshapeToNDim(
 }
 
 // =============================================================================
+// Fold and emit support.
+// =============================================================================
+
+/// Emit an ONNXSqueezeOp. If the input is constant, do const propagation,
+/// and return a constant.
+Value OnnxBuilder::foldOrEmitONNXSqueezeOp(ConversionPatternRewriter &rewriter,
+    Location loc, Type resultType, Value input, int64_t axis,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  TensorType tensorType = create.onnx.toTensor(resultType);
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
+    return create.onnx.constant(squeezedElements);
+  } else {
+    return rewriter
+        .create<ONNXSqueezeOp>(loc, tensorType, create.onnx.toTensor(input),
+            create.onnx.constantInt64({axis}))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+/// and return a constant.
+Value OnnxBuilder::foldOrEmitONNXSqueezeV11Op(
+    ConversionPatternRewriter &rewriter, Location loc, Type resultType,
+    Value input, int64_t axis,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  TensorType tensorType = create.onnx.toTensor(resultType);
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
+    return create.onnx.constant(squeezedElements);
+  } else {
+    return rewriter
+        .create<ONNXSqueezeV11Op>(loc, tensorType, create.onnx.toTensor(input),
+            rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXUnsqueezeOp. If the input is constant, do const
+/// propagation, and return a constant.
+Value OnnxBuilder::foldOrEmitONNXUnsqueezeOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type resultType,
+    Value input, int64_t axis,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  TensorType tensorType = create.onnx.toTensor(resultType);
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
+    return create.onnx.constant(unsqueezedElements);
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeOp>(loc, tensorType, create.onnx.toTensor(input),
+            create.onnx.constantInt64({axis}))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const
+/// propagation, and return a constant.
+Value OnnxBuilder::foldOrEmitONNXUnsqueezeV11Op(
+    ConversionPatternRewriter &rewriter, Location loc, Type resultType,
+    Value input, int64_t axis,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  TensorType tensorType = create.onnx.toTensor(resultType);
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
+    return create.onnx.constant(unsqueezedElements);
+  } else {
+    return rewriter
+        .create<ONNXUnsqueezeV11Op>(loc, tensorType,
+            create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
+        .getResult();
+  }
+}
+
+/// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
+std::vector<Value> OnnxBuilder::foldOrEmitONNXSplitOp(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  std::vector<Value> resVals;
+  int outputNum = resultTypes.size();
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    auto inputShape = inputElements.getType().getShape();
+    assert(outputNum == 0 || inputShape[axis] % outputNum == 0);
+    int64_t sizeOfEachSplit = outputNum != 0 ? inputShape[axis] / outputNum : 0;
+    SmallVector<int64_t, 4> sizes(outputNum, sizeOfEachSplit);
+
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    std::vector<ElementsAttr> splits =
+        elementsBuilder.split(inputElements, axis, sizes);
+    for (ElementsAttr splitElements : splits) {
+      // Avoid DisposableElementsAttr during conversion.
+      DenseElementsAttr denseSplitElements =
+          elementsBuilder.toDenseElementsAttr(splitElements);
+      Value constVal = create.onnx.constant(denseSplitElements);
+      resVals.emplace_back(constVal);
+    }
+  } else {
+    SmallVector<Type, 4> convertedTypes;
+    SmallVector<int64_t> splitSizesI64;
+    for (auto t : resultTypes) {
+      convertedTypes.emplace_back(create.onnx.toTensor(t));
+      splitSizesI64.emplace_back(t.cast<ShapedType>().getShape()[axis]);
+    }
+    Value splitSizes = create.onnx.constantInt64(splitSizesI64);
+    ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, convertedTypes,
+        create.onnx.toTensor(input), splitSizes,
+        /*axis=*/axis, nullptr);
+    for (int i = 0; i < outputNum; ++i)
+      resVals.emplace_back(split.getOutputs()[i]);
+  }
+  return resVals;
+}
+
+/// Emit an ONNXSplitV11Op. If the input is constant, do const propagation, and
+/// return constants.
+/// Only support evenly splitting.
+std::vector<Value> OnnxBuilder::foldOrEmitONNXSplitV11Op(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+  std::vector<Value> resVals;
+  int outputNum = resultTypes.size();
+
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    auto inputShape = inputElements.getType().getShape();
+    assert(outputNum == 0 || inputShape[axis] % outputNum == 0);
+    int64_t sizeOfEachSplit = outputNum != 0 ? inputShape[axis] / outputNum : 0;
+    SmallVector<int64_t, 4> sizes(outputNum, sizeOfEachSplit);
+
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    std::vector<ElementsAttr> splits =
+        elementsBuilder.split(inputElements, axis, sizes);
+    for (ElementsAttr splitElements : splits) {
+      // Avoid DisposableElementsAttr during conversion.
+      DenseElementsAttr denseSplitElements =
+          elementsBuilder.toDenseElementsAttr(splitElements);
+      resVals.emplace_back(create.onnx.constant(denseSplitElements));
+    }
+  } else {
+    SmallVector<Type, 4> convertedTypes;
+    for (auto t : resultTypes) {
+      convertedTypes.emplace_back(create.onnx.toTensor(t));
+    }
+    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
+        create.onnx.toTensor(input),
+        /*axis=*/axis, nullptr);
+    for (int i = 0; i < outputNum; ++i)
+      resVals.emplace_back(split.getOutputs()[i]);
+  }
+  return resVals;
+}
+
+/// Emit an ONNXTransposeOp. If the input is constant, do const propagation,
+/// and return a constant.
+Value OnnxBuilder::foldOrEmitONNXTransposeOp(
+    ConversionPatternRewriter &rewriter, Location loc, Type resultType,
+    Value input, ArrayAttr permAttr,
+    DenseElementsAttrGetter getDenseElementAttrFromConstValue) {
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  if (DenseElementsAttr inputElements =
+          getDenseElementAttrFromConstValue(input)) {
+    SmallVector<uint64_t, 4> perm;
+    for (auto permVal : permAttr.getValue())
+      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+
+    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
+    ElementsAttr transposedElements =
+        elementsBuilder.transpose(inputElements, perm);
+    // Avoid DisposableElementsAttr during conversion.
+    DenseElementsAttr denseTransposedElements =
+        elementsBuilder.toDenseElementsAttr(transposedElements);
+    return create.onnx.constant(denseTransposedElements);
+  } else {
+    return rewriter
+        .create<ONNXTransposeOp>(loc, create.onnx.toTensor(resultType),
+            create.onnx.toTensor(input), permAttr)
+        .getResult();
+  }
+}
+
+// =============================================================================
 // IndexExpr Builder for Analysis
 // =============================================================================
 

@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ DialectBuilder.cpp - Stablehlo dialect builder
-//--------------------===//
+//====---------- DialectBuilder.cpp - Stablehlo dialect builder -----------===//
 //
-// Copyright 2022
+// Copyright 2022-2024
 //
 // =============================================================================
 //

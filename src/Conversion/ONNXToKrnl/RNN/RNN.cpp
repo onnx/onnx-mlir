@@ -162,36 +162,40 @@ getWeightPack<ONNXRNNOp, RnnWeightPack>(
   // Unsqueeze the direction axis from W and R.
   Value fW, bW, fR, bR;
   if (direction == FORWARD) {
-    fW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, W, /*axis=*/0);
-    fR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, R, /*axis=*/0);
+    fW = foldOrEmitONNXSqueezeV11OpKrnl(rewriter, loc, w2DTy, W, /*axis=*/0);
+    fR = foldOrEmitONNXSqueezeV11OpKrnl(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else if (direction == REVERSE) {
-    bW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, W, /*axis=*/0);
-    bR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, R, /*axis=*/0);
+    bW = foldOrEmitONNXSqueezeV11OpKrnl(rewriter, loc, w2DTy, W, /*axis=*/0);
+    bR = foldOrEmitONNXSqueezeV11OpKrnl(rewriter, loc, r2DTy, R, /*axis=*/0);
   } else { // BIDIRECTIONAL
     // W
     std::vector<Value> vals =
-        foldOrEmitONNXSplitOp(rewriter, loc, w3D2Ty, W, 0);
-    fW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, vals[0], /*axis=*/0);
-    bW = foldOrEmitONNXSqueezeV11Op(rewriter, loc, w2DTy, vals[1], /*axis=*/0);
+        foldOrEmitONNXSplitV11OpKrnl(rewriter, loc, w3D2Ty, W, 0);
+    fW = foldOrEmitONNXSqueezeV11OpKrnl(
+        rewriter, loc, w2DTy, vals[0], /*axis=*/0);
+    bW = foldOrEmitONNXSqueezeV11OpKrnl(
+        rewriter, loc, w2DTy, vals[1], /*axis=*/0);
     // R
     vals.clear();
-    vals = foldOrEmitONNXSplitOp(rewriter, loc, r3D2Ty, R, 0);
-    fR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, vals[0], /*axis=*/0);
-    bR = foldOrEmitONNXSqueezeV11Op(rewriter, loc, r2DTy, vals[1], /*axis=*/0);
+    vals = foldOrEmitONNXSplitV11OpKrnl(rewriter, loc, r3D2Ty, R, 0);
+    fR = foldOrEmitONNXSqueezeV11OpKrnl(
+        rewriter, loc, r2DTy, vals[0], /*axis=*/0);
+    bR = foldOrEmitONNXSqueezeV11OpKrnl(
+        rewriter, loc, r2DTy, vals[1], /*axis=*/0);
   }
 
   // Split W and R into individual weight tensors, and transpose them.
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
-    weightForward.Wi =
-        foldOrEmitONNXTransposeOp(rewriter, loc, wTranspose2DTy, fW, permAttr);
-    weightForward.Ri =
-        foldOrEmitONNXTransposeOp(rewriter, loc, rTranspose2DTy, fR, permAttr);
+    weightForward.Wi = foldOrEmitONNXTransposeOpKrnl(
+        rewriter, loc, wTranspose2DTy, fW, permAttr);
+    weightForward.Ri = foldOrEmitONNXTransposeOpKrnl(
+        rewriter, loc, rTranspose2DTy, fR, permAttr);
   }
   if (direction == REVERSE || direction == BIDIRECTIONAL) {
-    weightReverse.Wi =
-        foldOrEmitONNXTransposeOp(rewriter, loc, wTranspose2DTy, bW, permAttr);
-    weightReverse.Ri =
-        foldOrEmitONNXTransposeOp(rewriter, loc, rTranspose2DTy, bR, permAttr);
+    weightReverse.Wi = foldOrEmitONNXTransposeOpKrnl(
+        rewriter, loc, wTranspose2DTy, bW, permAttr);
+    weightReverse.Ri = foldOrEmitONNXTransposeOpKrnl(
+        rewriter, loc, rTranspose2DTy, bR, permAttr);
   }
   return std::make_tuple(weightForward, weightReverse);
 }
@@ -224,29 +228,31 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
     // Unsqueeze the direction axis from B.
     Value fB, bB;
     if (direction == FORWARD) {
-      fB = foldOrEmitONNXSqueezeV11Op(rewriter, loc, bType1D, B, /*axis=*/0);
+      fB =
+          foldOrEmitONNXSqueezeV11OpKrnl(rewriter, loc, bType1D, B, /*axis=*/0);
     } else if (direction == REVERSE) {
-      bB = foldOrEmitONNXSqueezeV11Op(rewriter, loc, bType1D, B, /*axis=*/0);
+      bB =
+          foldOrEmitONNXSqueezeV11OpKrnl(rewriter, loc, bType1D, B, /*axis=*/0);
     } else { // BIDIRECTIONAL
       std::vector<Value> vals;
-      vals = foldOrEmitONNXSplitOp(rewriter, loc, split2D2Ty, B, 0);
-      fB = foldOrEmitONNXSqueezeV11Op(
+      vals = foldOrEmitONNXSplitV11OpKrnl(rewriter, loc, split2D2Ty, B, 0);
+      fB = foldOrEmitONNXSqueezeV11OpKrnl(
           rewriter, loc, bType1D, vals[0], /*axis=*/0);
-      bB = foldOrEmitONNXSqueezeV11Op(
+      bB = foldOrEmitONNXSqueezeV11OpKrnl(
           rewriter, loc, bType1D, vals[1], /*axis=*/0);
     }
 
     // Split B into individual bias tensors.
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       std::vector<Value> vals =
-          foldOrEmitONNXSplitOp(rewriter, loc, split1D2Ty, fB, 0);
+          foldOrEmitONNXSplitV11OpKrnl(rewriter, loc, split1D2Ty, fB, 0);
       biasForward.Wbi = vals[0];
       biasForward.Rbi = vals[1];
       biasForward.hasBias = true;
     }
     if (direction == REVERSE || direction == BIDIRECTIONAL) {
       std::vector<Value> vals =
-          foldOrEmitONNXSplitOp(rewriter, loc, split1D2Ty, bB, 0);
+          foldOrEmitONNXSplitV11OpKrnl(rewriter, loc, split1D2Ty, bB, 0);
       biasReverse.Wbi = vals[0];
       biasReverse.Rbi = vals[1];
       biasReverse.hasBias = true;

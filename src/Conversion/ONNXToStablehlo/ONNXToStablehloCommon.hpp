@@ -2,10 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//====------ ONNXToStablehloCommon.hpp - ONNX dialects to Stablehlo lowering
-//--------===//
+//====-- ONNXToStablehloCommon.hpp - ONNX dialects to Stablehlo lowering--===//
 //
-// Copyright 2022
+// Copyright 2022-2024
 //
 // =============================================================================
 //
