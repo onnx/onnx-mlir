@@ -65,10 +65,10 @@ ONNX_MODEL_ZOO_DOWNLOAD = ONNX_MODEL_ZOO_URL + "/raw/main"
 """
 
 # modelzoo has been completely restructured and the original models are now under
-# the "archive" directory. We could check all the new models as well but that
+# the "validated" directory. We could check all the new models as well but that
 # would take very long (about 6 hours on the Jenkins CI) so we still only check
-# the original models under "archive".
-FIND_MODEL_PATHS_CMD = ["find", "archive", "-type", "f", "-name", "*.tar.gz"]
+# the original models under "validated".
+FIND_MODEL_PATHS_CMD = ["find", "validated", "-type", "f", "-name", "*.tar.gz"]
 GIT_CMD = ["git"]
 # Use curl instead of wget since most systems have curl preinstalled
 # and curl is more flexible than wget
