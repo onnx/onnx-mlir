@@ -268,8 +268,6 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
   const int64_t *indicesShape = omTensorGetShape(indices);
   const int64_t count = indicesShape[0];
   int64_t *indicesPtr = (int64_t *)omTensorGetDataPtr(indices);
-  if (count == 0) // do nothing for empty imputTensor
-    return;
   void *YPtr = omTensorGetDataPtr(Y);
 
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
@@ -398,7 +396,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         count++;
       }
     }
-    if (!isEmptyTensor(Y)) {
+    if ((count > 0) && !isEmptyTensor(Y)) {
       produceY(inputTensor, indices, sliceAxis, Y);
     }
   }
