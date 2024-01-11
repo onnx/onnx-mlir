@@ -139,7 +139,7 @@ Value TosaBuilder::getSplattedConst(
 
   if (dtype)
     return rewriter().createOrFold<mlir::tosa::CastOp>(
-        loc(), RankedTensorType::get(shape, *dtype), constOp);
+        loc(), RankedTensorType::get(constType.getShape(), *dtype), constOp);
   return constOp;
 }
 
