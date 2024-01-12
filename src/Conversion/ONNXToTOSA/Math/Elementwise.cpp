@@ -60,7 +60,8 @@ struct ErfIOSupportedTypes {
 struct IsAnyLegalType {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType) && !isTOSASignedInt(scalarType) && !isTOSABool(scalarType)) {
+    if (!isTOSAFloat(scalarType) && !isTOSASignedInt(scalarType) &&
+        !isTOSABool(scalarType)) {
       return rewriter.notifyMatchFailure(
           op, "this operation only supports signed integer or float types");
     }
