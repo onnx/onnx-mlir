@@ -125,6 +125,43 @@ LogicalResult checkBasicTosaRequirementsForBinaryOps(
   return success();
 }
 
+// Element-wise unary ops lowering to custom op of TOSA dialect.
+//===----------------------------------------------------------------------===//
+template <typename ONNXOp>
+class ConvertONNXUnaryOpToTosaCustomOp : public OpConversionPattern<ONNXOp> {
+public:
+  using OpConversionPattern<ONNXOp>::OpConversionPattern;
+  using OpAdaptor = typename ONNXOp::Adaptor;
+
+  ConvertONNXUnaryOpToTosaCustomOp(TypeConverter &typeConverter,
+      MLIRContext *context, std::string opName,
+      std::string implementedWithOpAttr = "UNDEF")
+      : OpConversionPattern<ONNXOp>(typeConverter, context),
+        opName(std::move(opName)),
+        implementedWithOpAttr(std::move(implementedWithOpAttr)) {}
+
+  LogicalResult matchAndRewrite(ONNXOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    // Set tosa.custom_op attributes.
+    // Only identifier needs to be known. Other attributes are not used.
+    auto *ctx = op->getContext();
+    auto identifier = StringAttr::get(ctx, opName);
+    auto implementAttr = StringAttr::get(ctx, implementedWithOpAttr);
+    auto config = StringAttr::get(ctx, "UNDEF");
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::CustomOp>(op,
+        TypeRange{OpConversionPattern<ONNXOp>::getTypeConverter()->convertType(
+            op.getType())},
+        identifier, config, implementAttr, adaptor.getOperands());
+    return success();
+  }
+
+private:
+  std::string opName;
+  std::string implementedWithOpAttr;
+};
+
 // Element-wise unary ops lowering to TOSA dialect.
 //===----------------------------------------------------------------------===//
 template <typename ElementwiseUnaryOpONNX, typename ElementwiseUnaryOpTOSA,
@@ -633,6 +670,18 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
           AbsIOSupportedTypes, AbsIOSupportedTypes>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXErfOp, mlir::tosa::ErfOp,
           ErfIOSupportedTypes, ErfIOSupportedTypes>>(typeConverter, ctx);
+
+// Tosa custom ops
+#define INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(                            \
+    ONNXOp, opName, implementedWith)                                           \
+  patterns.add<ConvertONNXUnaryOpToTosaCustomOp<ONNXOp>>(                      \
+      typeConverter, ctx, opName, implementedWith);
+
+  INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(
+      ONNXSinOp, "math.sin", "linalg.generic");
+  INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(
+      ONNXCosOp, "math.cos", "linalg.generic");
+#undef INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
