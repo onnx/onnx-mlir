@@ -57,6 +57,17 @@ struct ErfIOSupportedTypes {
   }
 };
 
+struct IsAnyLegalType {
+  static LogicalResult checkType(
+      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
+    if (!isTOSAFloat(scalarType) && !isTOSASignedInt(scalarType) && !isTOSABool(scalarType)) {
+      return rewriter.notifyMatchFailure(
+          op, "this operation only supports signed integer or float types");
+    }
+    return success();
+  }
+};
+
 struct IsIntOrFloat {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
@@ -508,6 +519,8 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
           IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXLogOp, mlir::tosa::LogOp,
           IsIntOrFloat, IsIntOrFloat>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCastOp, mlir::tosa::CastOp,
+          IsAnyLegalType, IsAnyLegalType>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXReciprocalOp,
           mlir::tosa::ReciprocalOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXTanhOp, mlir::tosa::TanhOp,
