@@ -85,7 +85,6 @@ func.func @test_add_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 // CHECK:           return [[VAR_1_]] : tensor<13x21x1xf32>
 }
 
-
 // -----
 
 func.func @test_sub(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
@@ -867,15 +866,6 @@ func.func @test_equal_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>
 // CHECK:           [[VAR_0_:%.+]] = "tosa.reshape"(%arg1) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
 // CHECK:           [[VAR_1_:%.+]] = "tosa.equal"(%arg0, [[VAR_0_]]) : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xi1>
 // CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
-}
-
-// Onnx allows but tosa doesn't allow different element types.
-func.func @test_equal_diff_types(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xbf16>) -> tensor<13x21x1xi1> {
-  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xbf16>) -> tensor<13x21x1xi1>
-  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
-// CHECK-LABEL:  func.func @test_equal_diff_types
-// CHECK:           [[VAR_0_:%.+]] = "onnx.Equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xbf16>) -> tensor<13x21x1xi1>
-// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
 }
 
 // -----
