@@ -656,7 +656,6 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
           ArrayRef(loopToParallel.getStepAsInt()));
       parallelLoop.getRegion().takeBody(loopToParallel.getRegion());
       Operation *yieldOp = &parallelLoop.getBody()->back();
-
       yieldOp->setOperands(reducedValues);
       // Replace the affine.forOp with affine.parallelOp in loopRefToTop
       loopRefToOp[loopRef] = parallelLoop;
@@ -693,6 +692,7 @@ AffineTypeConverter::AffineTypeConverter() {
   });
 }
 
+//
 //===----------------------------------------------------------------------===//
 // ConvertKrnlToAffinePass
 //===----------------------------------------------------------------------===//
@@ -751,7 +751,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     signalPassFailure();
     return;
   }
-
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
             dyn_cast<SpecializedKernelOpInterface>(op)) {

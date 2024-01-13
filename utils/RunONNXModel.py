@@ -539,7 +539,9 @@ def verify_outs(actual_outs, ref_outs):
         print("  correct.\n")
     else:
         raise AssertionError(
-            "  mismatched elements {}/{}.\n".format(mismatched_elements, total_elements)
+            "  got mismatched elements {}/{}, abort.\n".format(
+                mismatched_elements, total_elements
+            )
         )
 
 
