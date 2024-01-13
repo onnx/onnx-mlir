@@ -336,6 +336,46 @@ public:
   }
 };
 
+template <typename OnnxCompOp>
+class ONNXComparisonOpLoweringToTOSA : public OpConversionPattern<OnnxCompOp> {
+public:
+  using OpConversionPattern<OnnxCompOp>::OpConversionPattern;
+  using OpAdaptor = typename OnnxCompOp::Adaptor;
+  LogicalResult matchAndRewrite(OnnxCompOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    Value input1 = adaptor.getA();
+    auto input1ElemType =
+        input1.getType().template cast<TensorType>().getElementType();
+    if (failed(IsIntOrFloat::checkType(rewriter, input1ElemType, op))) {
+      return failure();
+    }
+
+    Value input2 = adaptor.getB();
+    auto input2ElemType =
+        input2.getType().template cast<TensorType>().getElementType();
+    if (input1ElemType != input2ElemType) {
+      return failure();
+    }
+
+    Value res;
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    if constexpr (std::is_same_v<OnnxCompOp, ONNXEqualOp>) {
+      res = tosaBuilder.equal(input1, input2);
+    } else if constexpr (std::is_same_v<OnnxCompOp, ONNXGreaterOrEqualOp>) {
+      res = tosaBuilder.greaterEqual(input1, input2);
+    } else if constexpr (std::is_same_v<OnnxCompOp, ONNXGreaterOp>) {
+      res = tosaBuilder.greater(input1, input2);
+    } else if constexpr (std::is_same_v<OnnxCompOp, ONNXLessOrEqualOp>) {
+      res = tosaBuilder.lessEqual(input1, input2);
+    } else if constexpr (std::is_same_v<OnnxCompOp, ONNXLessOp>) {
+      res = tosaBuilder.less(input1, input2);
+    }
+    rewriter.replaceOp(op, {res});
+    return success();
+  }
+};
+
 class ONNXClipOpLoweringToTOSA : public OpConversionPattern<ONNXClipOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -706,8 +746,12 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXDivOpLoweringToTOSA, ONNXHardSigmoidOpLoweringToTOSA,
       ONNXSqrtOpLoweringToTOSA, ONNXEluOpLoweringToTOSA,
       ONNXPReluOpLoweringToTOSA, ONNXThresholdedReluOpLoweringToTOSA,
-      ONNXSoftplusOpLoweringToTOSA, ONNXSeluOpLoweringToTOSA>(
-      typeConverter, ctx);
+      ONNXSoftplusOpLoweringToTOSA, ONNXSeluOpLoweringToTOSA,
+      ONNXComparisonOpLoweringToTOSA<ONNXEqualOp>,
+      ONNXComparisonOpLoweringToTOSA<ONNXGreaterOrEqualOp>,
+      ONNXComparisonOpLoweringToTOSA<ONNXGreaterOp>,
+      ONNXComparisonOpLoweringToTOSA<ONNXLessOrEqualOp>,
+      ONNXComparisonOpLoweringToTOSA<ONNXLessOp>>(typeConverter, ctx);
 
   populateLoweringONNXElementwiseBinaryTemplateOpToTOSAPattern(
       patterns, typeConverter, ctx);

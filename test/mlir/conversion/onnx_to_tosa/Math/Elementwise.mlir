@@ -849,3 +849,107 @@ func.func @test_cos_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
 // CHECK-NEXT:      return [[VAR_0_]] : tensor<?x10xf32>
 // CHECK-NEXT:    }
 }
+
+// -----
+
+func.func @test_equal(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func @test_equal
+// CHECK:           [[VAR_0_:%.+]] = "tosa.equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
+}
+
+func.func @test_equal_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func.func @test_equal_broadcast
+// CHECK:           [[VAR_0_:%.+]] = "tosa.reshape"(%arg1) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "tosa.equal"(%arg0, [[VAR_0_]]) : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
+}
+
+// Onnx allows but tosa doesn't allow different element types.
+func.func @test_equal_diff_types(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xbf16>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xbf16>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func.func @test_equal_diff_types
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xbf16>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
+}
+
+// -----
+
+func.func @test_greaterequal(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.GreaterOrEqual"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func @test_greaterequal
+// CHECK:           [[VAR_0_:%.+]] = "tosa.greater_equal"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
+}
+
+func.func @test_greaterequal_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.GreaterOrEqual"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func.func @test_greaterequal_broadcast
+// CHECK:           [[VAR_0_:%.+]] = "tosa.reshape"(%arg1) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "tosa.greater_equal"(%arg0, [[VAR_0_]]) : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
+}
+
+// -----
+
+func.func @test_greater(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Greater"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func @test_greater
+// CHECK:           [[VAR_0_:%.+]] = "tosa.greater"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
+}
+
+func.func @test_greater_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Greater"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func.func @test_greater_broadcast
+// CHECK:           [[VAR_0_:%.+]] = "tosa.reshape"(%arg1) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "tosa.greater"(%arg0, [[VAR_0_]]) : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
+}
+
+// -----
+
+func.func @test_lessequal(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func @test_lessequal
+// CHECK:           [[VAR_0_:%.+]] = "tosa.greater_equal"(%arg1, %arg0) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
+}
+
+func.func @test_lessequal_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func.func @test_lessequal_broadcast
+// CHECK:           [[VAR_0_:%.+]] = "tosa.reshape"(%arg1) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "tosa.greater_equal"([[VAR_0_]], %arg0) : (tensor<1x1x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
+}
+
+// -----
+
+func.func @test_less(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func @test_less
+// CHECK:           [[VAR_0_:%.+]] = "tosa.greater"(%arg1, %arg0) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_0_]] : tensor<13x21x1xi1>
+}
+
+func.func @test_less_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+// CHECK-LABEL:  func.func @test_less_broadcast
+// CHECK:           [[VAR_0_:%.+]] = "tosa.reshape"(%arg1) <{new_shape = array<i64: 1, 1, 1>}> : (tensor<1xf32>) -> tensor<1x1x1xf32>
+// CHECK:           [[VAR_1_:%.+]] = "tosa.greater"([[VAR_0_]], %arg0) : (tensor<1x1x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           return [[VAR_1_]] : tensor<13x21x1xi1>
+}
