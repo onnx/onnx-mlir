@@ -259,7 +259,6 @@ void addKrnlToLLVMPasses(
   pm.addPass(mlir::createAsyncRuntimeRefCountingOptPass());
   pm.addPass(mlir::createConvertAsyncToLLVMPass());
 
-  
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
