@@ -3531,6 +3531,31 @@ func.func @test_isnan(%arg0 : tensor<2x3x4xf32>) -> tensor<*xi1> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for GeluOp.
+//===----------------------------------------------------------------------===//
+func.func @test_gelu_none (%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %0 = "onnx.Gelu"(%arg0) {approximate = "none"} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  onnx.Return %0 : tensor<2x3x4xf32>
+
+  // CHECK-LABEL: func @test_gelu_none
+  // CHECK: [[RES:%.+]] = "onnx.Gelu"(%arg0) {approximate = "none"} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+func.func @test_gelu_tanh(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %0 = "onnx.Gelu"(%arg0) {approximate = "tanh"} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  onnx.Return %0 : tensor<2x3x4xf32>
+
+  // CHECK-LABEL: func @test_gelu_tanh
+  // CHECK: [[RES:%.+]] = "onnx.Gelu"(%arg0) {approximate = "tanh"} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf32>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test shape inference for Celu.
 //===----------------------------------------------------------------------===//
 

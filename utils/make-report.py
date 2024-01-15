@@ -62,7 +62,7 @@ Parameters:
                            or runtime signature statistics.
   -r/--runtime <file_log>: File name containing the runtime time statistics.
 
-  -a/--stats <name>:   Print specific statistics:
+  -s/--stats <name>:   Print specific statistics:
                        simd: Print simd optimization stats.
                              Default if a compile time file is given.
                        par:  Print parallel optimization stats.
@@ -75,6 +75,7 @@ Parameters:
                        2: Also list metrics.
                        3: Also list node name.
   -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+  -m/--min <num>:      Focus on operations with at least <num>% of exec time.
   -supported:          Focus only on ops that are supported. Namely, the report
                        will skip ops for which compile-time statistics list
                        the 'unsupported' keyword in its printout.
@@ -112,8 +113,9 @@ supported_only = False
 has_timing = False
 verbose = False
 sorting_preference = ""
-report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names
-time_unit = 1  # seconds
+report_level = 0  # 0: none; 1: details; 2: extra info; 3: plus node names.
+time_unit = 1  # seconds.
+min_percent_reporting = 0.0  # percentage.
 
 
 # Basic pattern for reports: "==" <stat name> "==," <op name> "," <node name> ","
@@ -130,6 +132,9 @@ simd_legend = (
     "message, SIMD vector length (in elements), SIMD loop trip count (-1 is runtime)"
 )
 sig_legend = "comma separated list of shapes with inputs followed by results"
+
+# ==PAR-REPORT==, onnx.Mul-par, Mul_28, elementwise variadic not simdized, 0, -1
+par_legend = "message, loop nest (0 outermost), loop trip count (-1 runtime)"
 
 # ==PERF-REPORT==, ..., "before" | "after", time since last call, absolute time
 perf_legend = "(after|before), time for op(s), time since start(s)"
@@ -443,7 +448,7 @@ def make_report(stat_message):
     global op_count_dict, op_detail_count_dict
     global op_time_dict, op_detail_time_dict, tot_time
     global has_timing, time_unit, error_missing_time
-    global report_level, supported_only, verbose
+    global report_level, supported_only, verbose, min_percent_reporting
     global sorting_preference
 
     # Gather statistics in a dictionary so that we may sort the entries.
@@ -457,6 +462,8 @@ def make_report(stat_message):
             count_time_str += ", {:.7f}".format(time * time_unit / count)
             count_time_str += ", {:.7f}".format(time * time_unit)
             count_time_str += ", {:.1f}%".format(get_percent(time, tot_time))
+        if get_percent(time, tot_time) < min_percent_reporting:
+            continue
         output = "  " + op + ", " + count_time_str
         if report_level:
             det_dict = op_detail_count_dict[op]
@@ -520,6 +527,8 @@ def make_report(stat_message):
         stat_details = ", supported ops"
     else:
         stat_details = ", all ops"
+    if min_percent_reporting > 0:
+        stat_details += ", " + str(min_percent_reporting) + "%+ exec time"
     stat_details += ", ordered_by " + sorting_preference
     if has_timing:
         stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
@@ -540,7 +549,7 @@ def make_report(stat_message):
 
 def main(argv):
     global report_level, focus_on_op_with_pattern, supported_only, time_unit
-    global verbose
+    global min_percent_reporting, verbose
     global sorting_preference
 
     compile_file_name = ""
@@ -551,12 +560,13 @@ def main(argv):
     try:
         opts, args = getopt.getopt(
             argv,
-            "c:f:hl:r:s:u:vw:",
+            "c:f:hl:m:r:s:u:vw:",
             [
                 "compile=",
                 "focus=",
                 "help",
                 "level=",
+                "min=",
                 "runtime=",
                 "stats=",
                 "sort=",
@@ -581,12 +591,14 @@ def main(argv):
             report_level = int(arg)
             if report_level < 0 or report_level > 3:
                 print_usage("detail levels are 0, 1, 2, or 3")
+        elif opt in ("-m", "--min"):
+            min_percent_reporting = float(arg)
         elif opt in ("-r", "--runtime"):
             runtime_file_name = arg
         elif opt in ("-s", "--stats"):
             if re.match(r"\s*par\s*", arg):
                 make_stats = "PAR"
-                make_legend = "none"
+                make_legend = par_legend
             elif re.match(r"\s*perf\s*", arg):
                 make_stats = "PERF"
                 make_legend = perf_legend

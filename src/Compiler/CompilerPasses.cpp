@@ -186,12 +186,13 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
+
   for (unsigned i = 0; i < 2; i++) {
     pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
-        /*enableSIMD*/ optLevel >= 3 && !disableSimdOption,
-        /*enableParallel*/ enableParallel,
+        /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
         /*opsToCall*/ opsForCall));
   }
+
   // An additional pass of canonicalization is helpful because lowering
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
@@ -204,6 +205,16 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::krnl::createConvertKrnlToAffinePass());
+  if (enableParallel) {
+    // Pass to ensure that memory allocated by parallel loops stay inside the
+    // parallel region (privatization of memory). Otherwise, all threads would
+    // end up sharing the same temporary data. This pass works on affine
+    // parallel operations, and must be executed (in presence of OMP
+    // parallelism) before bufferization. In practical terms, this pass add
+    // memref.alloca_scope inside each parallel for.
+    pm.addPass(mlir::createCanonicalizerPass());
+    pm.addPass(onnx_mlir::createProcessAffineParallelPrivatePass());
+  }
 }
 
 void addKrnlToLLVMPasses(

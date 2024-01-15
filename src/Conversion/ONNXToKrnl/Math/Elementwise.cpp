@@ -4,13 +4,16 @@
 
 //===---------------- Elementwise.cpp - Elementwise Ops -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
 // This file lowers ONNX element-wise operators to Krnl dialect.
 //
 //===----------------------------------------------------------------------===//
+
+#define _USE_MATH_DEFINES
+#include <cmath>
 
 #include "llvm/Support/Debug.h"
 
@@ -55,12 +58,12 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 // Template for SIMD analysis
 
 // Helper for function that support SIMD.
-static double simdAnalysis(ArrayRef<GenericOps> Gops, ArrayRef<int64_t> GopsNum,
+static double simdAnalysis(ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   return vms->getAvgVectorLength(
-      Gops, GopsNum, elementType, vectorizedOpNum, scalarOpNum);
+      GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
 }
 
 // Default template for ops that do not support SIMD. For the ones that support
@@ -330,6 +333,78 @@ struct ScalarOp<ONNXTanOp> {
   using FOp = KrnlTanOp;
   using IOp = NotSuportedScalarOp;
 };
+
+//===----------------------------------------------------------------------===//
+// Scalar unary ops for lowering ONNXGeluOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXGeluOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+double analyzeSimdFor<ONNXGeluOp>(
+    Type t, Operation *op, int64_t &von, int64_t &son) {
+  double results;
+  StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
+  if (approximate.equals_insensitive("none"))
+    results = simdAnalysis(
+        {GenericOps::ArithmeticGop, GenericOps::ErfGop, GenericOps::MulGop},
+        {1, 1, 3}, t, von, son);
+  if (approximate.equals_insensitive("tanh"))
+    results = simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                               GenericOps::TrigHyperbolicGop},
+        {2, 5, 1}, t, von, son);
+  return results;
+}
+
+template <>
+Value emitScalarOpFor<ONNXGeluOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+  Value operand = scalarOperands[0];
+
+  CheckIfCustomScalarOpIsSupported<ONNXGeluOp>(elementType);
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+
+  // Approximate is a required attribute and should have a default value of
+  // "none". "approximate = none" simply implies no approximation will take
+  // place. However, "approximate" can also have a string value of "tanh" which
+  // indicates the use of tanh approximation.
+  StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
+
+  // Local constants
+  Value half = create.math.constant(elementType, 0.5);
+  Value one = create.math.constant(elementType, 1);
+  Value halfTimesOperand = create.math.mul(half, operand);
+
+  // Approximate = none returns an output of y = 0.5 * x * (1 +
+  // erf(x/sqrt(2)))
+  if (approximate.equals_insensitive("none")) {
+    // Create constant
+    Value oneOverSqrtTwo = create.math.constant(elementType, 1 / sqrt(2));
+    // Calculations
+    Value mul = create.math.mul(operand, oneOverSqrtTwo);
+    Value erfApprox = create.math.erf(mul);
+    Value add = create.math.add(one, erfApprox);
+    return create.math.mul(halfTimesOperand, add);
+  }
+  // Approximate = tanh returns an output of y = 0.5 * x * (1 + Tanh(sqrt(2/pi)
+  // * (x + 0.044715 * x^3)))
+  if (approximate.equals_insensitive("tanh")) {
+    // Create constants
+    Value three = create.math.constant(elementType, 3);
+    Value decimal = create.math.constant(elementType, 0.044715);
+    Value sqrtTwoOverPi = create.math.constant(elementType, sqrt(2 / M_PI));
+    // Calculations
+    Value dec = create.math.add(
+        operand, create.math.mul(decimal, create.math.pow(operand, three)));
+    Value tanhApprox = create.math.tanh(create.math.mul(sqrtTwoOverPi, dec));
+    return create.math.mul(halfTimesOperand, create.math.add(one, tanhApprox));
+  }
+  llvm_unreachable("unsupported case for this particular op.");
+}
 
 //===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXIsInfOp
@@ -1059,7 +1134,7 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
   Type inputElemType = getElementType(lhs.getType());
 
-  // If the two input values are a string then we want to use the krnlstrncmp.
+  // If the two input values are a string then we want to use the krnlStrnCmp.
   // However, if the input values are a float or an int we can simply use the
   // equal function.
   if (inputElemType.isa<krnl::StringType>()) {
@@ -1137,10 +1212,10 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
   }
   if (create.math.isIntegerWithVector(elementType)) {
     // "math.rem" returns "minus" for minus dividend and "plus or zero" for plus
-    // dividend. We call the math.rem's return value "mathRemaider". However
+    // dividend. We call the math.rem's return value "mathRemainder". However
     // onnx.ModOp should return "minus" for minus divisor and "plus or zero" for
     // plus divisor. we call the value that onnx.Mod op should return "onnxMod".
-    // The following table shows mathRemainder, onnxMod and their diference
+    // The following table shows mathRemainder, onnxMod and their difference
     // (=onnxMod-mathRemainder) for some inputs.
     //
     // dividend                |  7  |  7 | -7 | -7 |  6 |  6 | -6 | -6 |
@@ -1153,7 +1228,7 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
     // The following code shows logic to get onnxMod from mathRemainder
     //
     // int dividend, divisor;
-    // int mathRemainder = diviend % divisor;
+    // int mathRemainder = dividend % divisor;
     // int adjustedRemainder = mathRemainder + divisor;
     //
     // if ((mathRemainder != 0) && ((dividend < 0) ^ (divisor < 0))) # c.f. "^"
@@ -1177,7 +1252,7 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
         create.math.select(needAdjust, adjustedRemainder, mathRemainder);
 
 #ifdef DEBUG_ONNX_MOD
-    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: diviend=", dividend,
+    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: dividend=", dividend,
         dividend.getType());
     create.krnl.printf(", divisor=", divisor, divisor.getType());
     create.krnl.printf(
@@ -1476,8 +1551,19 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // Iterate only over the blocks.
   SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
   if (enableParallel) {
-    create.krnl.parallel(optimizedLoopDef[0]);
-    LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+    int64_t parId;
+    if (findSuitableParallelDimension(
+            lbs, flattenedOutputDims, 0, std::min((int64_t)2, rank), parId)) {
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
+                              << " at level " << parId << "\n");
+      create.krnl.parallel(optimizedLoopDef[parId]);
+      onnxToKrnlParallelReport(op, true, parId, lbs[parId],
+          flattenedOutputDims[parId], "elementwise simd partially flattened");
+    } else {
+      onnxToKrnlParallelReport(op, false, -1, -1,
+          "no parallel as no dim with enough elements in elementwise simd "
+          "partially flattened");
+    }
   }
   create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
       [&](KrnlBuilder &ck, ValueRange loopInd) {
@@ -1686,9 +1772,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXCosOp, mlir::ONNXCoshOp, mlir::ONNXDequantizeLinearOp,
       mlir::ONNXEluOp, mlir::ONNXErfOp, mlir::ONNXAcosOp, mlir::ONNXAcoshOp,
       mlir::ONNXAsinOp, mlir::ONNXAsinhOp, mlir::ONNXAtanhOp, mlir::ONNXExpOp,
-      mlir::ONNXFloorOp, mlir::ONNXHardSigmoidOp, mlir::ONNXIsInfOp,
-      mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp, mlir::ONNXLogOp,
-      mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
+      mlir::ONNXFloorOp, mlir::ONNXGeluOp, mlir::ONNXHardSigmoidOp,
+      mlir::ONNXIsInfOp, mlir::ONNXIsNaNOp, mlir::ONNXLeakyReluOp,
+      mlir::ONNXLogOp, mlir::ONNXNegOp, mlir::ONNXNotOp, mlir::ONNXReciprocalOp,
       mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
@@ -1867,7 +1953,7 @@ Value OpFusionHelper::emitFuseOps(
         // oper, but only the scalar result from defOp.
         // This scalar value cannot be used to initialize ShapeHelper.
         // Instead, alloc is used because it has the same shape as the oper.
-        // This is one of the prerequisits for fusion.
+        // This is one of the prerequisites for fusion.
         // However, they may have different element type for some ops, such as
         // comparison and cast.
         // ONNXBroadcastOpShapeHelper cares only the shape of the operands,
@@ -2041,8 +2127,19 @@ struct ONNXElementwiseUnaryOpLowering
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(X, ubs);
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+        int64_t parId;
+        if (findSuitableParallelDimension(
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
+          LLVM_DEBUG(
+              llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+          create.krnl.parallel(loopDef[parId]);
+          onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+              "elementwise unary not simdized");
+        } else {
+          onnxToKrnlParallelReport(op, false, -1, -1,
+              "no parallel as no dim with enough elements in elementwise unary "
+              "not simdized");
+        }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -2210,8 +2307,19 @@ struct ONNXElementwiseBinaryOpLowering
       create.krnlIE.getShapeAsDims(alloc, ubs);
       // TODO adjust in the future
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+        int64_t parId;
+        if (findSuitableParallelDimension(
+                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
+                                  << " at level " << parId << "\n");
+          create.krnl.parallel(loopDef[parId]);
+          onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+              "elementwise binary not simdized");
+        } else {
+          onnxToKrnlParallelReport(op, false, -1, -1,
+              "no parallel as no dim with enough elements in elementwise "
+              "binary not simdized");
+        }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -2373,8 +2481,19 @@ struct ONNXElementwiseVariadicOpLowering
       create.krnlIE.getShapeAsDims(alloc, ubs);
 
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+        int64_t parId;
+        if (findSuitableParallelDimension(
+                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
+                                  << " at level " << parId << "\n");
+          create.krnl.parallel(loopDef[parId]);
+          onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+              "elementwise variadic not simdized");
+        } else {
+          onnxToKrnlParallelReport(op, false, -1, -1,
+              "no parallel as no dim with enough elements in elementwise "
+              "variadic not simdized");
+        }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -2484,8 +2603,19 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       SmallVector<IndexExpr, 4> ubs;
       create.krnlIE.getShapeAsDims(alloc, ubs);
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+        int64_t parId;
+        if (findSuitableParallelDimension(
+                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
+                                  << " at level " << parId << "\n");
+          create.krnl.parallel(loopDef[parId]);
+          onnxToKrnlParallelReport(
+              op, true, parId, lbs[parId], ubs[parId], "where op not simdized");
+        } else {
+          onnxToKrnlParallelReport(op, false, -1, -1,
+              "no parallel as no dim with enough elements in where op not "
+              "simdized");
+        }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -2576,6 +2706,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXExpOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXFloorOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXGeluOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXGreaterOrEqualOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXHardSigmoidOp>,
