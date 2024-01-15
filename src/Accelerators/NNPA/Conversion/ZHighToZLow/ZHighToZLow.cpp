@@ -1793,7 +1793,7 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     // Need comment out when using new buferization.
     auto ip = rewriter.saveInsertionPoint();
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-    // OpBuilder::InsertionGuard guard(rewriter);    
+    // OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointAfter(insertionPointOp);
     // Insert deallocOp for the input values if it is not deallocated yet.
     for (Value inVal : inputValues) {
