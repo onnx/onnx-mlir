@@ -500,7 +500,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
-    LLVM_DEBUG(llvm::dbgs() << "stick op\n");
     ZHighStickOpAdaptor operandAdaptor(operands);
     StringAttr layout = cast<ZHighStickOp>(op).getLayoutAttr();
 
@@ -612,7 +611,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "unstick op\n");
     Location loc = op->getLoc();
 
     ZHighUnstickOpAdaptor operandAdaptor(operands);
@@ -661,7 +659,6 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "stick const op\n");
     Location loc = op->getLoc();
     ZHighStickifiedConstantOp stickifiedConstOp =
         llvm::dyn_cast<ZHighStickifiedConstantOp>(op);
@@ -760,7 +757,6 @@ struct ZHighToZLowBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "binar op\n");
 
     Location loc = op->getLoc();
     Value inputA = operands[0];
@@ -997,7 +993,6 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "matmul op\n");
 
     Location loc = op->getLoc();
     ZHighMatMulOpAdaptor operandAdaptor(operands);
@@ -1525,7 +1520,6 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
             ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "stick constantOfShape op\n");
     Location loc = op->getLoc();
     MDBuilder create(rewriter, loc);
 
@@ -1612,7 +1606,6 @@ struct ZHighToZLowDataConversionLowering
 
   LogicalResult matchAndRewrite(CONVERT_OP convertOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    LLVM_DEBUG(llvm::dbgs() << "conversion\n");
 
     Location loc = convertOp.getLoc();
     MDBuilder create(rewriter, loc);
@@ -1745,22 +1738,22 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
 
     // Check the return value of the block to check if operations in the block
     // is already lowered to Zlow IR. Assume the block is still not lowered if
-    // the value is still Tensor type. Actual return value of ONNXYieldOp is
-    // conveted into tensor by unrealized_conversion_cast. So, check the operand
-    // of previous operation.
+    // the return value is still Tensor type. Actual return value of ONNXYieldOp
+    // is conveted into tensor by unrealized_conversion_cast. So, check the
+    // operand of previous operation.
     Value returnVal =
         onnxYieldOp.getOperands()[0].getDefiningOp()->getOperands()[0];
     if (isa<TensorType>(returnVal.getType()))
       return failure();
 
-    // 1. Move alloc op to outside of ForkOp region
+    // 1. Move alloc op to outside of ForkOp region to deallocate correctly.
     // 1.1 Get allocOps in body of forkOp
     SmallVector<memref::AllocOp, 4> regionAllocOps;
     SmallVector<Value, 4> inputValues;
     for (Operation &op : forkOp.getRegion().back().getOperations()) {
       if (auto allocOp = dyn_cast<memref::AllocOp>(op))
         regionAllocOps.push_back(allocOp);
-      // Get allocated input values for ForkOp
+      // Get allocOps for input values of ForkOp region.
       for (unsigned i = 0; i < op.getNumOperands(); ++i) {
         Operation *defOp = op.getOperand(i).getDefiningOp();
         auto allocOp = dyn_cast_or_null<memref::AllocOp>(defOp);
@@ -1786,7 +1779,6 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     }
 
     // 2. Replace the result of forkOp with allocated value.
-    // Replace uses of the results except ZHighJoinOp.
     Value forkOpResult = forkOp.getResults()[0];
     SmallVector<zhigh::ZHighJoinOp, 4> joinOps;
     Operation *insertionPointOp;
@@ -1796,10 +1788,12 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
         insertionPointOp = user;
       }
     }
-    //
+
+#if 1
+    // Need comment out when using new buferization.
     auto ip = rewriter.saveInsertionPoint();
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-    OpBuilder::InsertionGuard guard(rewriter);
+    // OpBuilder::InsertionGuard guard(rewriter);    
     rewriter.setInsertionPointAfter(insertionPointOp);
     // Insert deallocOp for the input values if it is not deallocated yet.
     for (Value inVal : inputValues) {
@@ -1808,53 +1802,32 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
         create.mem.dealloc(inVal);
     }
     rewriter.restoreInsertionPoint(ip);
+#endif
+    rewriter.replaceAllUsesWith(forkOpResult, rAllocOp);
 
-    rewriter.replaceUsesWithIf(forkOpResult, rAllocOp, [&](OpOperand &use) {
-      return !isa<zhigh::ZHighJoinOp>(use.get().getDefiningOp());
-    });
-
-    // 3. Replace ONNXYieldOp with AsyncYieldOp
+    // 3. Remove ONNXYieldOp from ForkOp region to copy into newly created Async
+    // ExecuteOp
     auto b = mlir::OpBuilder::atBlockTerminator(&forkOp.getRegion().back());
     mlir::IRRewriter r(b);
     r.eraseOp(onnxYieldOp);
 
-    // 4. Create Asyncexecuteop
-#if 1
+    // 4. Create Async ExecuteOp and copy ForkOp region into it.
+    // OpBuilder::InsertionGuard guard0(rewriter);
+    // rewriter.setInsertionPointAfter(forkOp);
     auto asyncExecuteOp = rewriter.create<async::ExecuteOp>(
         loc, TypeRange(), ValueRange(), ValueRange());
-    // IRMapping mapper;
-    // asyncExecuteOp.getRegion().getBlocks().clear();
-    // forkOp.getRegion().cloneInto(&asyncExecuteOp.getRegion(), mapper);
-    // rewriter.inlineRegionBefore(forkOp.getRegion(),
-    // asyncExecuteOp.getRegion(), asyncExecuteOp.getRegion().begin());
     Operation *terminator = asyncExecuteOp.getRegion().back().getTerminator();
-    Location terminatorLoc = terminator->getLoc();
     rewriter.inlineBlockBefore(&forkOp.getRegion().back(), terminator);
+    rewriter.replaceOp(op, asyncExecuteOp.getToken());
 
-    // rewriter.setInsertionPointToEnd(&asyncExecuteOp.getRegion().back());
-    // rewriter.create<async::YieldOp>(terminatorLoc, ValueRange());
-    // rewriter.eraseBlock(&asyncExecuteOp.getRegion().back());
-
-    // auto bb =
-    // mlir::OpBuilder::atBlockTerminator(&asyncExecuteOp.getRegion().back());
-    // auto bb =
-    // mlir::OpBuilder::atBlockEnd(&asyncExecuteOp.getRegion().back());
-    // mlir::IRRewriter rr(bb);
-    // rewriter.setInsertionPointToEnd(&asyncExecuteOp.getRegion().back());
-    // Location ll = asyncExecuteOp.getRegion().getOps().begin()->getLoc();
-    //  rr.create<async::YieldOp>(loc, ValueRange());
-    //  tmpRegion.cloneInto(&asyncExecuteOp.getRegion(), mapper);
-#endif
-    LLVM_DEBUG(llvm::dbgs() << "asyncExecuteOp " << asyncExecuteOp << "\n");
-    // 5. Create AsyncAwaitOp using token of AsyncExecute, and replace
-    // ZHighJoinOp with the AsyncAwaitOp.
-    rewriter.setInsertionPointAfter(joinOps[0]);
+    // 5. Create AsyncAwaitOp and replace ZHighJoinOp with it
+    // OpBuilder::InsertionGuard insertionGuard(rewriter);
+    rewriter.setInsertionPoint(insertionPointOp);
     auto asyncAwaitOp =
         rewriter.create<async::AwaitOp>(loc, asyncExecuteOp.getToken());
     for (auto jop : joinOps)
-      rewriter.replaceOp(jop, asyncAwaitOp);
-
-    rewriter.replaceOp(op, rAllocOp);
+      rewriter.eraseOp(jop);
+    // rewriter.replaceOp(jop, asyncAwaitOp);
 
     return success();
   }
