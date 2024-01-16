@@ -593,18 +593,15 @@ bool parseCustomEnvFlagsCommandLineOption(
   // VerboseOutput is not yet set, so scan ourselves.
   bool verbose = false;
   // Customized version? -customEnvFlags=val and save its value.
-  for (int i = argc - 1; i > 1; --i) {
+  for (int i = argc - 1; i > 0; --i) {
     std::string arg(argv[i]);
     if (arg.find("--customEnvFlags") == 0) {
       envVar = arg.substr(sizeof("--customEnvFlags"));
-      break;
-    }
-    if (arg.find("-customEnvFlags") == 0) {
+    } else if (arg.find("-customEnvFlags") == 0) {
       envVar = arg.substr(sizeof("-customEnvFlags"));
-      break;
-    }
-    if (arg.compare("-v") == 0)
+    } else if (arg.compare("-v") == 0) {
       verbose = true;
+    }
   }
   // Check that the env var does not recursively hold another -customEnvFlags.
   const char *envValCstr;
@@ -616,7 +613,7 @@ bool parseCustomEnvFlagsCommandLineOption(
                  "environment flag not permited\n";
       return false;
     }
-    if (envVal.find("-v") != std::string::npos)
+    if (envVal.find("-v") != std::string::npos) 
       verbose = true;
     if (verbose)
       printf("Onnx-mlir default options from '%s' are '%s'.\n", envVar.c_str(),
