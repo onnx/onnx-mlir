@@ -613,7 +613,7 @@ bool parseCustomEnvFlagsCommandLineOption(
                  "environment flag not permited\n";
       return false;
     }
-    if (envVal.find("-v") != std::string::npos) 
+    if (envVal.find("-v") != std::string::npos)
       verbose = true;
     if (verbose)
       printf("Onnx-mlir default options from '%s' are '%s'.\n", envVar.c_str(),
