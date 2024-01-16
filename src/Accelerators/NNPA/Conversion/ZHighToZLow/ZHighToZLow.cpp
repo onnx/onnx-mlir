@@ -500,6 +500,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
+
     ZHighStickOpAdaptor operandAdaptor(operands);
     StringAttr layout = cast<ZHighStickOp>(op).getLayoutAttr();
 
@@ -757,7 +758,6 @@ struct ZHighToZLowBinaryOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-
     Location loc = op->getLoc();
     Value inputA = operands[0];
     Value inputB = operands[1];
@@ -993,7 +993,6 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
-
     Location loc = op->getLoc();
     ZHighMatMulOpAdaptor operandAdaptor(operands);
 
@@ -1606,7 +1605,6 @@ struct ZHighToZLowDataConversionLowering
 
   LogicalResult matchAndRewrite(CONVERT_OP convertOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-
     Location loc = convertOp.getLoc();
     MDBuilder create(rewriter, loc);
 
@@ -1789,20 +1787,20 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
       }
     }
 
-#if 1
-    // Need comment out when using new buferization.
-    auto ip = rewriter.saveInsertionPoint();
-    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-    // OpBuilder::InsertionGuard guard(rewriter);
-    rewriter.setInsertionPointAfter(insertionPointOp);
-    // Insert deallocOp for the input values if it is not deallocated yet.
-    for (Value inVal : inputValues) {
-      if (llvm::none_of(inVal.getUsers(),
-              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
-        create.mem.dealloc(inVal);
-    }
-    rewriter.restoreInsertionPoint(ip);
-#endif
+// #if 1
+//     // Need comment out when using new buferization.
+//     auto ip = rewriter.saveInsertionPoint();
+//     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+//     // OpBuilder::InsertionGuard guard(rewriter);
+//     rewriter.setInsertionPointAfter(insertionPointOp);
+//     // Insert deallocOp for the input values if it is not deallocated yet.
+//     for (Value inVal : inputValues) {
+//       if (llvm::none_of(inVal.getUsers(),
+//               [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+//         create.mem.dealloc(inVal);
+//     }
+//     rewriter.restoreInsertionPoint(ip);
+// #endif
     rewriter.replaceAllUsesWith(forkOpResult, rAllocOp);
 
     // 3. Remove ONNXYieldOp from ForkOp region to copy into newly created Async
@@ -1818,7 +1816,8 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
         loc, TypeRange(), ValueRange(), ValueRange());
     Operation *terminator = asyncExecuteOp.getRegion().back().getTerminator();
     rewriter.inlineBlockBefore(&forkOp.getRegion().back(), terminator);
-    rewriter.replaceOp(op, asyncExecuteOp.getToken());
+    // rewriter.replaceOp(op, rAllocOp);
+    rewriter.replaceOp(op, asyncExecuteOp.getToken());    
 
     // 5. Create AsyncAwaitOp and replace ZHighJoinOp with it
     // OpBuilder::InsertionGuard insertionGuard(rewriter);
@@ -1826,9 +1825,22 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     auto asyncAwaitOp =
         rewriter.create<async::AwaitOp>(loc, asyncExecuteOp.getToken());
     for (auto jop : joinOps)
-      rewriter.eraseOp(jop);
-    // rewriter.replaceOp(jop, asyncAwaitOp);
-
+      rewriter.replaceOp(jop, asyncAwaitOp);
+//      rewriter.eraseOp(jop);
+#if 1
+    // Need comment out when using new buferization.
+    //    auto ip = rewriter.saveInsertionPoint();
+    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+    // OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointAfter(insertionPointOp);
+    // Insert deallocOp for the input values if it is not deallocated yet.
+    for (Value inVal : inputValues) {
+      if (llvm::none_of(inVal.getUsers(),
+              [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
+        create.mem.dealloc(inVal);
+    }
+    //    rewriter.restoreInsertionPoint(ip);
+#endif
     return success();
   }
 };
