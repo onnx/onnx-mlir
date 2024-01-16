@@ -666,3 +666,99 @@ func.func @test_matmulinteger_wrong_B_broadcast(%arg0: tensor<16x32xui8>, %arg1:
   %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<16x32xui8>, tensor<5x32x64xui8>, tensor<16xui8>, tensor<5x1x2xui8>) -> tensor<5x16x64xi32>
   onnx.Return %0 : tensor<5x16x64xi32>
 }
+
+// -----
+
+func.func @test_add_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
+
+// -----
+
+func.func @test_sub_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
+
+// -----
+
+func.func @test_mul_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Mul"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
+
+// -----
+
+func.func @test_div_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
+
+// -----
+
+func.func @test_equal_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xi1> {
+  // expected-error @+1 {{op requires the same element type for all operands}}
+  %0 = "onnx.Equal"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xi1>
+  onnx.Return %0 : tensor<5x16xi1>
+}
+
+// -----
+
+func.func @test_greater_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xi1> {
+  // expected-error @+1 {{op requires the same element type for all operands}}
+  %0 = "onnx.Greater"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xi1>
+  onnx.Return %0 : tensor<5x16xi1>
+}
+
+// -----
+
+func.func @test_greater_or_equal_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xi1> {
+  // expected-error @+1 {{op requires the same element type for all operands}}
+  %0 = "onnx.GreaterOrEqual"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xi1>
+  onnx.Return %0 : tensor<5x16xi1>
+}
+
+// -----
+
+func.func @test_less_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xi1> {
+  // expected-error @+1 {{op requires the same element type for all operands}}
+  %0 = "onnx.Less"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xi1>
+  onnx.Return %0 : tensor<5x16xi1>
+}
+
+// -----
+
+func.func @test_less_or_equal_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xi1> {
+  // expected-error @+1 {{op requires the same element type for all operands}}
+  %0 = "onnx.LessOrEqual"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xi1>
+  onnx.Return %0 : tensor<5x16xi1>
+}
+
+// -----
+
+func.func @test_min_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Min"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
+
+// -----
+
+func.func @test_max_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Max"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
+
+// -----
+
+func.func @test_mod_diff_element_type(%arg0: tensor<16x32xf32>, %arg1: tensor<16x32xbf16>) -> tensor<5x16xf32> {
+  // expected-error @+1 {{op requires the same element type for all operands and results}}
+  %0 = "onnx.Mod"(%arg0, %arg1) : (tensor<16x32xf32>, tensor<16x32xbf16>) -> tensor<5x16xf32>
+  onnx.Return %0 : tensor<5x16xf32>
+}
