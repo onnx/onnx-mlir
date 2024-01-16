@@ -77,12 +77,12 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
             "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
-llvm::cl::opt<std::string> nnpaParallelOpt{"nnpa-parallel",
+llvm::cl::opt<std::string> nnpaMatMulParallelOpt{"nnpa-matmul-parallel",
     llvm::cl::desc(
-        "Enable parallelization with the number of devices and "
+        "Enable parallelization of MatMal ops with the number of devices and "
         "the threshold of dimension size. \"string\" is in the format of "
         "\"#DEVICES\":\"THRESHOLD\".\n"
-        "Currently MatMul ops are supported. Given A(N x K) * B(K x M), M is "
+        "Given A(N x K) * B(K x M), M is "
         "split for the parallelization. The MatMul ops whose M is greater than "
         "or equal to this threshold are parallelized.\n"
         "Disable parallelization if this option is not used. If the threshold "

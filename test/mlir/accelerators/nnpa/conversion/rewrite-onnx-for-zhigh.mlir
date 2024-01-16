@@ -1,6 +1,6 @@
 // RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
 // RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx  --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh=nnpa-parallel=2:256 %s --split-input-file | FileCheck --check-prefix=PARALLEL %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh=nnpa-matmul-parallel=2:256 %s --split-input-file | FileCheck --check-prefix=PARALLEL %s
 
 
 func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
@@ -666,7 +666,7 @@ func.func @test_replace_sub_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?x
 
 // -----
 
-// COM: Rewrite for parallelization for two devices (--nnpa-parallel=2:256)
+// COM: Rewrite for parallelization for two devices (--nnpa-matmul-parallel=2:256)
 
 func.func @test_matmul_parallel(%arg0: tensor<1x64xf32>, %arg1: tensor<64x512xf32>) -> tensor<1x512xf32> {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<1x64xf32>, tensor<64x512xf32>) -> tensor<1x512xf32>

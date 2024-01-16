@@ -57,6 +57,6 @@ extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
 extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
-extern llvm::cl::opt<std::string> nnpaParallelOpt;
+extern llvm::cl::opt<std::string> nnpaMatMulParallelOpt;
 
 } // namespace onnx_mlir

@@ -21,10 +21,10 @@ namespace onnx_mlir {
 
 // Exports RewriteONNXForZHigh patterns.
 void getRewriteONNXForZHighPatterns(mlir::RewritePatternSet &patterns,
-    DimAnalysis *dimAnalysis, std::string nnpaParallelOpt = "");
+    DimAnalysis *dimAnalysis, std::string nnpaMatMulParallelOpt = "");
 
 // Exports RewriteONNXForZHigh dynamically legal checks.
 void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
-    const DimAnalysis *dimAnalysis, std::string nnpaParallelOpt = "");
+    const DimAnalysis *dimAnalysis, std::string nnpaMatMulParallelOpt = "");
 
 } // namespace onnx_mlir
