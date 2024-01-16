@@ -21,11 +21,6 @@ namespace onnx_mlir {
 
 namespace stablehlo {
 
-// Get a dimension of the tensor's shape.
-int64_t dimAt(Value val, int index) {
-  return val.getType().cast<ShapedType>().getShape()[index];
-}
-
 /// Allocate the all hidden output.
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(
@@ -155,52 +150,6 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
         create.onnx.concat(RankedTensorType::get(bValShape, valElementType),
             {bForwardVal, bReverseVal}, 0);
   }
-}
-
-// Apply an activation function on a given scalar operand.
-Value applyActivation(OpBuilder &rewriter, Location loc,
-    RNNActivation activation, Value operand) {
-  Value res;
-
-  std::vector<mlir::NamedAttribute> attributes;
-  if (activation.alpha) {
-    attributes.emplace_back(
-        rewriter.getNamedAttr("alpha", activation.alpha.value()));
-  }
-  if (activation.beta) {
-    attributes.emplace_back(
-        rewriter.getNamedAttr("beta", activation.beta.value()));
-  }
-  Type resType = operand.getType();
-
-  // Change equality to be case insensitive.
-  if (activation.name.equals_insensitive("relu"))
-    res = rewriter.create<ONNXReluOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("tanh"))
-    res = rewriter.create<ONNXTanhOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("sigmoid"))
-    res = rewriter.create<ONNXSigmoidOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("affine"))
-    llvm_unreachable("Unsupported activation");
-  else if (activation.name.equals_insensitive("leakyrelu"))
-    res = rewriter.create<ONNXLeakyReluOp>(loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("thresholdedrelu"))
-    res = rewriter.create<ONNXThresholdedReluOp>(
-        loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("scaledtanh"))
-    llvm_unreachable("Unsupported activation");
-  else if (activation.name.equals_insensitive("hardsigmoid"))
-    res = rewriter.create<ONNXHardSigmoidOp>(loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("elu"))
-    res = rewriter.create<ONNXEluOp>(loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("softsign"))
-    res = rewriter.create<ONNXSoftsignOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("softplus"))
-    res = rewriter.create<ONNXSoftplusOp>(loc, resType, operand);
-  else
-    llvm_unreachable("Unsupported activation");
-
-  return res;
 }
 
 /// Create a copy of a slice of X at a specific timestep.

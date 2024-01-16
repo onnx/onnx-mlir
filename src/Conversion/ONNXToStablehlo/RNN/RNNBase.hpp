@@ -14,24 +14,12 @@
 
 #pragma once
 
+#include "src/Conversion/ONNXConversionCommon/RNN/RNNBase.hpp"
 #include "src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp"
-
-static constexpr llvm::StringRef FORWARD = "forward";
-static constexpr llvm::StringRef REVERSE = "reverse";
-static constexpr llvm::StringRef BIDIRECTIONAL = "bidirectional";
 
 namespace onnx_mlir {
 
 namespace stablehlo {
-
-struct RNNActivation {
-  llvm::StringRef name;
-  std::optional<mlir::FloatAttr> alpha;
-  std::optional<mlir::FloatAttr> beta;
-};
-
-/// Get a dimension of the tensor's shape.
-int64_t dimAt(mlir::Value val, int index);
 
 /// Allocate the all hidden output.
 mlir::Value allocAllHidden(mlir::ConversionPatternRewriter &rewriter,
@@ -59,10 +47,6 @@ void stateToOutputForHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value forwardVal, mlir::Value reverseVal,
     llvm::StringRef direction, mlir::Value &output);
 
-/// Apply an activation function on a given operand.
-mlir::Value applyActivation(mlir::OpBuilder &rewriter, mlir::Location loc,
-    RNNActivation activation, mlir::Value operand);
-
 /// Get a slice of X at a specific timestep.
 mlir::Value emitXSliceAt(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Value X, mlir::Value timestep);
@@ -75,14 +59,6 @@ mlir::Value emitXSliceAt(mlir::ConversionPatternRewriter &rewriter,
 // - allocAndInitializeStates
 // - calculateState
 // - stateToOutput
-
-// Check whether all outputs have NoneType or not.
-template <typename RNNOp>
-bool hasAllNoneOutput(RNNOp *op);
-
-// Obtain activations functions for a specific operation.
-template <typename RNNOp, typename A>
-std::tuple<A, A> getActivationPack(RNNOp *op);
 
 /// Obtain weight tensors in 2D for each gate.
 /// In ONNX, weights for gates and directions are combined in a single tensor.

@@ -78,6 +78,7 @@ add_onnx_mlir_library(OMONNXToStablehlo
   MLIRQuantDialect
   MLIRTransforms
   OMAccelerator
+  OMONNXConversionCommon
   OMONNXRewrite
   OMONNXOps
   OMSupport

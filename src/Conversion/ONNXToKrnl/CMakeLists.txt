@@ -43,7 +43,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Sequence/SequenceInsert.cpp
   Sequence/SequenceLength.cpp
   Tensor/ArgMinMax.cpp
-  Tensor/Compress.cpp  
+  Tensor/Compress.cpp
   Tensor/Concat.cpp
   Tensor/ConcatShapeTranspose.cpp
   Tensor/Constant.cpp
@@ -57,7 +57,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/GatherND.cpp
   Tensor/Identity.cpp
   Tensor/NonZero.cpp
-  Tensor/OneHot.cpp  
+  Tensor/OneHot.cpp
   Tensor/Pad.cpp
   Tensor/PrintSignature.cpp
   Tensor/Range.cpp
@@ -65,9 +65,9 @@ add_onnx_mlir_library(OMONNXToKrnl
   Tensor/Resize.cpp
   Tensor/ReverseSequence.cpp
   Tensor/ScatterElements.cpp
-  Tensor/ScatterND.cpp  
+  Tensor/ScatterND.cpp
   Tensor/Shape.cpp
-  Tensor/Size.cpp 
+  Tensor/Size.cpp
   Tensor/Slice.cpp
   Tensor/SpaceToDepth.cpp
   Tensor/Split.cpp
@@ -79,6 +79,7 @@ add_onnx_mlir_library(OMONNXToKrnl
 
   LINK_LIBS PUBLIC
   OMAccelerator
+  OMONNXConversionCommon
   OMONNXOps
   OMSupport
   MLIRFuncDialect
