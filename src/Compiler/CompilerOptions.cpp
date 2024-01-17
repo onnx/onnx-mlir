@@ -593,7 +593,7 @@ bool parseCustomEnvFlagsCommandLineOption(
   // VerboseOutput is not yet set, so scan ourselves.
   bool verbose = false;
   // Customized version? -customEnvFlags=val and save its value.
-  for (int i = argc - 1; i > 0; --i) {
+  for (int i = 1; i < argc; ++i) {
     std::string arg(argv[i]);
     if (arg.find("--customEnvFlags") == 0) {
       envVar = arg.substr(sizeof("--customEnvFlags"));
