@@ -1,29 +1,6 @@
 #!/usr/bin/env python3
 
-import docker
-import glob
-import logging
-import os
-import sys
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-docker_daemon_socket = os.getenv("DOCKER_DAEMON_SOCKET")
-docker_registry_host_name = os.getenv("DOCKER_REGISTRY_HOST_NAME")
-docker_registry_user_name = os.getenv("DOCKER_REGISTRY_USER_NAME")
-github_repo_name = os.getenv("GITHUB_REPO_NAME")
-github_repo_name2 = os.getenv("GITHUB_REPO_NAME").replace("-", "_")
-github_pr_baseref = os.getenv("GITHUB_PR_BASEREF")
-github_pr_baseref2 = os.getenv("GITHUB_PR_BASEREF").lower()
-github_pr_number = os.getenv("GITHUB_PR_NUMBER")
-github_pr_number2 = os.getenv("GITHUB_PR_NUMBER2")
-github_pr_action = os.getenv("GITHUB_PR_ACTION")
-github_pr_merged = os.getenv("GITHUB_PR_MERGED")
-jenkins_build_result = os.getenv("JENKINS_BUILD_RESULT")
+from jenkins_common import *
 
 IMAGE_NAMES = [
     github_repo_name + "-llvm-static",
@@ -36,30 +13,7 @@ LOG_PULL_PUSH = (
     "pull request: #" if github_pr_number == github_pr_number2 else "merge branch: "
 )
 
-docker_api = docker.APIClient(base_url=docker_daemon_socket)
 
-
-# Remove all the containers depending on an (dangling) image.
-def remove_dependent_containers(image):
-    containers = docker_api.containers(
-        filters={"ancestor": image}, all=True, quiet=True
-    )
-    for container in containers:
-        try:
-            container_info = docker_api.inspect_container(container["Id"])
-            logging.info("Removing     Id:%s", container["Id"])
-            logging.info("   Image %s", container_info["Image"])
-            logging.info("     Cmd %s", str(container_info["Config"]["Cmd"]))
-            logging.info("  Labels %s", str(container_info["Config"]["Labels"]))
-            docker_api.remove_container(container["Id"], v=True, force=True)
-        except:
-            logging.info(sys.exc_info()[1])
-            logging.info("errors ignored while removing dependent containers")
-
-
-# Cleanup docker images and containers associated with a pull request number.
-# For action open/reopen/synchronize, only dangling images and containers are
-# removed. For action close, non-dangling images and containers are removed.
 def cleanup_docker_images(
     host_name,
     user_name,
@@ -71,6 +25,10 @@ def cleanup_docker_images(
     pr_number2,
     dangling,
 ):
+    """Cleanup docker images and containers associated with a pull request number.
+    For action open/reopen/synchronize, only dangling images and containers are
+    removed. For action close, non-dangling images and containers are removed."""
+
     # First find all the dangling docker images associated with the
     # pull request number
     filters = {"dangling": True, "label": [repo_name2 + "_pr_number=" + pr_number]}
@@ -118,8 +76,8 @@ def cleanup_docker_images(
             logging.info("     Cmd %s", str(image_info["Config"]["Cmd"]))
             logging.info("  Labels %s", str(image_info["Config"]["Labels"]))
             docker_api.remove_image(image, force=True)
-        except:
-            logging.info(sys.exc_info()[1])
+        except Exception as e:
+            logging.exception(e)
 
 
 def main():
