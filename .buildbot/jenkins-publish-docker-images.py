@@ -1,54 +1,6 @@
 #!/usr/bin/env python3
 
-import docker
-import fasteners
-import json
-import logging
-import os
-import requests
-import sys
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-
-cpu_arch = os.getenv("CPU_ARCH")
-docker_pushpull_rwlock = os.getenv("DOCKER_PUSHPULL_RWLOCK")
-docker_daemon_socket = os.getenv("DOCKER_DAEMON_SOCKET")
-docker_registry_host_name = os.getenv("DOCKER_REGISTRY_HOST_NAME")
-docker_registry_user_name = os.getenv("DOCKER_REGISTRY_USER_NAME")
-docker_registry_login_name = os.getenv("DOCKER_REGISTRY_LOGIN_NAME")
-docker_registry_login_token = os.getenv("DOCKER_REGISTRY_LOGIN_TOKEN")
-github_repo_access_token = os.getenv("GITHUB_REPO_ACCESS_TOKEN")
-github_repo_name = os.getenv("GITHUB_REPO_NAME")
-github_repo_name2 = os.getenv("GITHUB_REPO_NAME").replace("-", "_")
-github_pr_baseref = os.getenv("GITHUB_PR_BASEREF")
-github_pr_baseref2 = os.getenv("GITHUB_PR_BASEREF").lower()
-github_pr_number = os.getenv("GITHUB_PR_NUMBER")
-github_pr_phrase = os.getenv("GITHUB_PR_PHRASE")
-github_pr_request_url = os.getenv("GITHUB_PR_REQUEST_URL")
-
-# dot can be used in docker image name
-docker_static_image_name = (
-    github_repo_name
-    + "-llvm-static"
-    + ("." + github_pr_baseref2 if github_pr_baseref != "main" else "")
-)
-docker_shared_image_name = (
-    github_repo_name
-    + "-llvm-shared"
-    + ("." + github_pr_baseref2 if github_pr_baseref != "main" else "")
-)
-docker_dev_image_name = (
-    github_repo_name
-    + "-dev"
-    + ("." + github_pr_baseref2 if github_pr_baseref != "main" else "")
-)
-docker_usr_image_name = github_repo_name + (
-    "." + github_pr_baseref2 if github_pr_baseref != "main" else ""
-)
+from jenkins_common import *
 
 # dot cannot be used in python dict key so we use dash
 python_static_image_name = docker_static_image_name.replace(".", "-")
@@ -56,16 +8,6 @@ python_shared_image_name = docker_shared_image_name.replace(".", "-")
 python_dev_image_name = docker_dev_image_name.replace(".", "-")
 python_usr_image_name = docker_usr_image_name.replace(".", "-")
 
-LLVM_PROJECT_LABELS = [
-    "llvm_project_sha1",
-    "llvm_project_sha1_date",
-    "llvm_project_dockerfile_sha1",
-]
-PROJECT_LABELS = [
-    github_repo_name2 + "_sha1",
-    github_repo_name2 + "_sha1_date",
-    github_repo_name2 + "_dockerfile_sha1",
-]
 DOCKER_IMAGE_NAME = {
     "static": docker_static_image_name,
     "shared": docker_shared_image_name,
@@ -78,12 +20,11 @@ PYTHON_IMAGE_NAME = {
     "dev": python_dev_image_name,
     "usr": python_usr_image_name,
 }
-IMAGE_TAG = github_pr_number.lower()
 IMAGE_LABELS = {
     python_static_image_name: LLVM_PROJECT_LABELS,
     python_shared_image_name: LLVM_PROJECT_LABELS,
-    python_dev_image_name: PROJECT_LABELS,
-    python_usr_image_name: PROJECT_LABELS,
+    python_dev_image_name: ONNX_MLIR_LABELS,
+    python_usr_image_name: ONNX_MLIR_LABELS,
 }
 IMAGE_ARCHS = {"s390x", "amd64", "ppc64le"}
 commit_sha1_date_label = {
@@ -116,264 +57,51 @@ pr_mergeable_state = {
     "unstable": {"mergeable": True, "desc": "mergeable with non-passing commit status"},
 }
 
-DOCKER_DIST_MANIFESTS = {
-    "v1": "application/vnd.docker.distribution.manifest.v1+json",
-    "v2": "application/vnd.docker.distribution.manifest.v2+json",
-}
-DOCKER_DIST_MANIFEST_LIST = "application/vnd.docker.distribution.manifest.list.v2+json"
 
-docker_rwlock = fasteners.InterProcessReaderWriterLock(docker_pushpull_rwlock)
-docker_api = docker.APIClient(base_url=docker_daemon_socket)
-
-
-# Get the labels of a local docker image, raise exception
-# if image doesn't exist or has invalid labels.
-def get_local_image_labels(host_name, user_name, image_name, image_tag, image_labels):
-    image_full = (
-        (host_name + "/" if host_name else "")
-        + (user_name + "/" if user_name else "")
-        + image_name
-        + ":"
-        + image_tag
-    )
-    info = docker_api.inspect_image(image_full)
-    logging.info("local image %s labels: %s", image_full, info["Config"]["Labels"])
-    labels = info["Config"]["Labels"]
-    if labels:
-        labels_ok = True
-        for label in image_labels:
-            if not labels[label]:
-                labels_ok = False
-                break
-        if labels_ok:
-            return labels
-    raise Exception(
-        "local image " + image_full + " does not exist or has invalid labels"
-    )
-
-
-# Make REST call to get the v1 or v2 manifest of an image from
-# private docker registry
-def get_image_manifest_private(
-    host_name, user_name, image_name, image_tag, schema_version, login_name, login_token
-):
-    resp = requests.get(
-        url=(
-            "https://"
-            + host_name
-            + "/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={"Accept": DOCKER_DIST_MANIFESTS[schema_version]},
-        auth=(login_name, login_token),
-    )
-    resp.raise_for_status()
-    return resp
-
-
-# Make REST call to put multiarch manfiest list of an image in
-# private docker registry
-def put_image_manifest_private(
-    host_name, user_name, image_name, image_tag, manifest_list, login_name, login_token
-):
-    resp = requests.put(
-        url=(
-            "https://"
-            + host_name
-            + "/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={"Content-Type": DOCKER_DIST_MANIFEST_LIST},
-        auth=(login_name, login_token),
-        json={
-            "schemaVersion": 2,
-            "mediaType": DOCKER_DIST_MANIFEST_LIST,
-            "manifests": manifest_list,
-        },
-    )
-    resp.raise_for_status()
-    return resp
-
-
-# Make REST call to get the access token to operate on an image in
-# public docker registry
-def get_access_token(user_name, image_name, action, login_name, login_token):
-    resp = requests.get(
-        url=(
-            "https://auth.docker.io/token"
-            + "?service=registry.docker.io"
-            + "&scope=repository:"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + ":"
-            + action
-        ),
-        auth=(login_name, login_token),
-    )
-    resp.raise_for_status()
-    return resp.json()["token"]
-
-
-# Make REST call to get the v1 or v2 manifest of an image from
-# public docker registry
-def get_image_manifest_public(
-    user_name,
-    image_name,
-    image_tag,
-    schema_version,
-    login_name,
-    login_token,
-    access_token=None,
-):
-    # Get access token if not passed in
-    if not access_token:
-        access_token = get_access_token(
-            user_name, image_name, "pull", login_name, login_token
-        )
-    # Get manifest
-    resp = requests.get(
-        url=(
-            "https://registry-1.docker.io/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={
-            "Accept": DOCKER_DIST_MANIFESTS[schema_version],
-            "Authorization": "Bearer " + access_token,
-        },
-    )
-    resp.raise_for_status()
-    return resp
-
-
-# Make REST call to put multiarch manfiest list of an image in
-# private docker registry
-def put_image_manifest_public(
+def put_image_manifest(
+    host_name,
     user_name,
     image_name,
     image_tag,
     manifest_list,
     login_name,
     login_token,
-    access_token=None,
+    access_token,
 ):
-    # Get access token if not passed in
-    if not access_token:
-        access_token = get_access_token(
-            user_name, image_name, "push", login_name, login_token
-        )
+    """Make REST call to put multiarch manfiest list of an image in
+    public docker registry."""
+
     # Put manifest
-    resp = requests.put(
-        url=(
-            "https://registry-1.docker.io/v2/"
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + "/manifests/"
-            + image_tag
-        ),
-        headers={
-            "Content-Type": DOCKER_DIST_MANIFEST_LIST,
-            "Authorization": "Bearer " + access_token,
-        },
-        json={
-            "schemaVersion": 2,
-            "mediaType": DOCKER_DIST_MANIFEST_LIST,
-            "manifests": manifest_list,
-        },
+    url = (
+        "https://"
+        + (host_name if host_name else "registry-1.docker.io")
+        + "/v2/"
+        + (user_name + "/" if user_name else "")
+        + image_name
+        + "/manifests/"
+        + image_tag
     )
+    json = {
+        "schemaVersion": 2,
+        "mediaType": DOCKER_DIST_MANIFEST_LIST,
+        "manifests": manifest_list,
+    }
+    headers = {}
+    headers["Content-Type"] = DOCKER_DIST_MANIFEST_LIST
+    if access_token:
+        headers["Authorization"] = "Bearer " + access_token
+        auth = None
+    else:
+        auth = (login_name, login_token)
+
+    resp = requests.put(url=url, json=json, headers=headers, auth=auth)
     resp.raise_for_status()
     return resp
 
 
-# Get the labels of a docker image in the docker registry.
-# python docker SDK does not support this so we have to make
-# our own REST calls.
-def get_remote_image_labels(
-    host_name, user_name, image_name, image_tag, image_labels, login_name, login_token
-):
-    try:
-        # Get manifest, only v1 schema has labels so accept v1 only
-        resp = (
-            # private docker registry
-            get_image_manifest_private(
-                host_name,
-                user_name,
-                image_name,
-                image_tag,
-                "v1",
-                login_name,
-                login_token,
-            )
-            if host_name
-            else
-            # public docker registry
-            get_image_manifest_public(
-                user_name, image_name, image_tag, "v1", login_name, login_token
-            )
-        )
-
-        image_full = (
-            (host_name + "/" if host_name else "")
-            + (user_name + "/" if user_name else "")
-            + image_name
-            + ":"
-            + image_tag
-        )
-
-        # v1Compatibility is a quoted JSON string, not a JSON object
-        manifest = json.loads(resp.json()["history"][0]["v1Compatibility"])
-        logging.info(
-            "remote image %s labels: %s", image_full, manifest["config"]["Labels"]
-        )
-        labels = manifest["config"]["Labels"]
-        if labels:
-            labels_ok = True
-            for label in image_labels:
-                if not labels[label]:
-                    labels_ok = False
-                    break
-            if labels_ok:
-                return labels
-        raise Exception(
-            "remote image " + image_full + " does not exist or has invalid labels"
-        )
-    except:
-        logging.info(sys.exc_info()[1])
-        return ""
-
-
-# Post a comment on the pull request issue page when the pull request
-# source is outdated and publish is rejected.
-def post_pr_comment(url, msg, token):
-    try:
-        resp = requests.post(
-            url=url,
-            headers={"Accept": "application/json", "Authorization": "token " + token},
-            data={"body": msg},
-        )
-        resp.raise_for_status()
-        logging.info(
-            '{ "url": "%s", "created_at": "%s", '
-            + '"updated_at": "%s", "body": "%s" }',
-            resp.json()["url"],
-            resp.json()["created_at"],
-            resp.json()["updated_at"],
-            resp.json()["body"],
-        )
-    except:
-        logging.info(sys.exc_info()[1])
-
-
-# Get pull request source mergeable state
 def get_pr_mergeable_state(url, token):
+    """Get pull request source mergeable state."""
+
     try:
         resp = requests.get(
             url=url,
@@ -381,12 +109,11 @@ def get_pr_mergeable_state(url, token):
         )
         resp.raise_for_status()
         return resp.json()["mergeable_state"]
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
         return "unknown"
 
 
-# Decide whether we should publish the local images or not
 def image_publishable(
     host_name,
     user_name,
@@ -397,6 +124,8 @@ def image_publishable(
     login_name,
     login_token,
 ):
+    """Decide whether we should publish the local images or not."""
+
     # If local image is missing or has invalid labels, exception
     # will be raised to fail the build.
     local_labels = get_local_image_labels(
@@ -468,6 +197,8 @@ def image_publishable(
 def publish_arch_image(
     host_name, user_name, image_name, image_tag, login_name, login_token
 ):
+    """Publish an arch specific image."""
+
     image_repo = (
         (host_name + "/" if host_name else "")
         + (user_name + "/" if user_name else "")
@@ -489,24 +220,37 @@ def publish_arch_image(
 
         # Push the image tagged with arch then remove it, regardless of
         # whether the push worked or not.
-        logging.info("pushing %s", image_arch)
-        for line in docker_api.push(
-            repository=image_repo,
-            tag=cpu_arch,
-            auth_config={"username": login_name, "password": login_token},
-            stream=True,
-            decode=True,
-        ):
-            print(
-                (line["id"] + ": " if "id" in line and "progress" not in line else "")
-                + (
-                    line["status"] + "\n"
-                    if "status" in line and "progress" not in line
-                    else ""
-                ),
-                end="",
-                flush=True,
-            )
+        for i in range(0, RETRY_LIMIT):
+            try:
+                logging.info("pushing %s [%s/%s]", image_arch, i, RETRY_LIMIT)
+                for line in docker_api.push(
+                    repository=image_repo,
+                    tag=cpu_arch,
+                    auth_config={"username": login_name, "password": login_token},
+                    stream=True,
+                    decode=True,
+                ):
+                    print(
+                        (
+                            line["id"] + ": "
+                            if "id" in line and "progress" not in line
+                            else ""
+                        )
+                        + (
+                            line["status"] + "\n"
+                            if "status" in line and "progress" not in line
+                            else ""
+                        ),
+                        end="",
+                        flush=True,
+                    )
+                logging.info("pushed %s [%s/%s]", image_arch, i, RETRY_LIMIT)
+                break
+            except Exception as e:
+                logging.warning(
+                    "pushing %s [%s/%s] failed: %s", image_arch, i, RETRY_LIMIT, e
+                )
+                continue
     # Remove arch image and release lock regardless of exception or not
     finally:
         docker_api.remove_image(image_arch, force=True)
@@ -514,108 +258,67 @@ def publish_arch_image(
         logging.info("released write lock for tagging and pushing %s", image_arch)
 
 
-# Publish multiarch manifest for an image
 def publish_multiarch_manifest(
     host_name, user_name, image_name, manifest_tag, login_name, login_token
 ):
-    try:
-        if not host_name:
-            access_token = get_access_token(
-                user_name, image_name, "pull,push", login_name, login_token
-            )
+    """Publish multiarch manifest for an image."""
 
-        # For each arch, construct the manifest element needed for the
-        # manifest list by extracting fields from v1 and v2 image manifests.
-        # We get platform from v1 image manifest, and mediaType, size, and
-        # digest from v2 image manifest.
+    try:
+        access_token = (
+            get_access_token(
+                host_name, user_name, image_name, login_name, login_token, "pull,push"
+            )
+            if strtobool(docker_registry_token_access)
+            else None
+        )
+
+        # For each arch, construct the manifest element needed for the manifest
+        # list by extracting fields from v2 image manifest and config.
         manifest_list = []
         for image_tag in IMAGE_ARCHS:
             m = {}
-            resp = (
-                get_image_manifest_private(
-                    host_name,
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v2",
-                    login_name,
-                    login_token,
-                )
-                if host_name
-                else get_image_manifest_public(
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v2",
-                    login_name,
-                    login_token,
-                    access_token,
-                )
-            )
-            m["mediaType"] = resp.headers["Content-Type"]
-            m["size"] = len(resp.text)
-            m["digest"] = resp.headers["Docker-Content-Digest"]
-
-            resp = (
-                get_image_manifest_private(
-                    host_name,
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v1",
-                    login_name,
-                    login_token,
-                )
-                if host_name
-                else get_image_manifest_public(
-                    user_name,
-                    image_name,
-                    image_tag,
-                    "v1",
-                    login_name,
-                    login_token,
-                    access_token,
-                )
-            )
-            m["platform"] = {}
-            v1Compatibility = json.loads(resp.json()["history"][0]["v1Compatibility"])
-            m["platform"]["architecture"] = v1Compatibility["architecture"]
-            m["platform"]["os"] = v1Compatibility["os"]
-
-            manifest_list.append(m)
-
-        # Make the REST call to PUT the multiarch manifest list.
-        resp = (
-            put_image_manifest_private(
+            manifest, config = get_image_manifest_config(
                 host_name,
                 user_name,
                 image_name,
-                manifest_tag,
-                manifest_list,
-                login_name,
-                login_token,
-            )
-            if host_name
-            else put_image_manifest_public(
-                user_name,
-                image_name,
-                manifest_tag,
-                manifest_list,
+                image_tag,
                 login_name,
                 login_token,
                 access_token,
             )
+            m["mediaType"] = manifest.headers["Content-Type"]
+            m["size"] = len(manifest.text)
+            m["digest"] = manifest.headers["Docker-Content-Digest"]
+
+            m["platform"] = {}
+            m["platform"]["architecture"] = config.json()["architecture"]
+            m["platform"]["os"] = config.json()["os"]
+
+            manifest_list.append(m)
+        logging.info("manifests: %s", manifest_list)
+
+        # Make the REST call to PUT the multiarch manifest list.
+        resp = put_image_manifest(
+            host_name,
+            user_name,
+            image_name,
+            manifest_tag,
+            manifest_list,
+            login_name,
+            login_token,
+            access_token,
         )
 
         logging.info("publish %s/%s:%s", user_name, image_name, manifest_tag)
         logging.info("        %s", resp.headers["Docker-Content-Digest"])
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
 
 
-# Publish an image if it should be published and publish multiarch manifest
-# for developer and user images if necessary.
 def publish_image(image_type):
+    """Publish an image if it should be published and publish multiarch manifest
+    for developer and user images if necessary."""
+
     host_name = docker_registry_host_name
     user_name = docker_registry_user_name
     login_name = docker_registry_login_name
@@ -623,7 +326,7 @@ def publish_image(image_type):
 
     docker_image_name = DOCKER_IMAGE_NAME[image_type]
     python_image_name = PYTHON_IMAGE_NAME[image_type]
-    image_tag = IMAGE_TAG
+    image_tag = pr_image_tag
     image_labels = IMAGE_LABELS[python_image_name]
 
     # Decide if the image should be published or not
