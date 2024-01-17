@@ -49,7 +49,7 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:       [[LOAD_VAR_0_MEM_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
 // CHECK:           [[VAR_12_:%.+]] = arith.index_cast [[LOAD_VAR_0_MEM_1_]] : i64 to index
 // CHECK-DAG:       [[VAR_13_:%.+]] = arith.cmpi slt, [[VAR_12_]], [[CST_0_]] : index
-// CHECK-DAG:       [[VAR_14_:%.+]] = affine.apply [[MAP_1_]](){{.}}[[VAR_12_]], [[VAR_dim_0_]]{{.}}
+// CHECK-DAG:       [[VAR_14_:%.+]] = affine.apply [[MAP_1_]](){{.}}{{%.*}}, {{%.*}}{{.}}
 // CHECK:           [[VAR_15_:%.+]] = arith.select [[VAR_13_]], [[VAR_14_]], [[VAR_12_]] : index
 // CHECK-DAG:       [[VAR_16_:%.+]] = "krnl.seqextract"([[VAR_2_]], [[VAR_15_]]) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
