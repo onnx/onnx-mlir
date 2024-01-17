@@ -12,7 +12,7 @@ There are three ways to use ONNX-MLIR with Docker.
 An easy way to get started with ONNX-MLIR is to use a prebuilt Docker image.
 These images are created as a result of a successful merge build on the trunk.
 This means that the latest image represents the tip of the trunk.
-Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlirczar/onnx-mlir](https://hub.docker.com/r/onnxmlirczar/onnx-mlir) and [onnxmlirczar/onnx-mlir-dev](https://hub.docker.com/r/onnxmlirczar/onnx-mlir-dev).
+Currently there are both Release and Debug mode images for `amd64`, `ppc64le` and `s390x` saved in Docker Hub as, respectively, [onnxmlir/onnx-mlir](https://hub.docker.com/r/onnxmlir/onnx-mlir) and [onnxmlir/onnx-mlir-dev](https://hub.docker.com/r/onnxmlir/onnx-mlir-dev).
 To use one of these images either pull it directly from Docker Hub, launch a container and run an interactive bash shell in it, or use it as the base image in a Dockerfile.
 
 Here are the differences between the two Docker images.
@@ -53,7 +53,7 @@ The Dockerfile is shown here, and should be modified according to one's need. Th
 
 [same-as-file]: <> (docs/docker-example/Dockerfile)
 ```
-FROM onnxmlirczar/onnx-mlir-dev
+FROM onnxmlir/onnx-mlir-dev
 WORKDIR /workdir
 ENV HOME=/workdir
 
@@ -135,7 +135,7 @@ cd ~/DockerOnnxMlir
 # Edit the Dockerfile.
 vi Dockerfile
 # Pull the Docker image with the specified platform
-docker pull --platform linux/amd64 onnxmlirczar/onnx-mlir-dev
+docker pull --platform linux/amd64 onnxmlir/onnx-mlir-dev
 # Build the Docker image.
 docker build --platform linux/amd64 --tag onnx-mlir-dev .
 # Start a container using the Docker dashboard or a docker run command.
