@@ -12,10 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// #include "mlir/Analysis/DataFlow/LivenessAnalysis.h"
-// #include "mlir/Analysis/Liveness.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/IRMapping.h"
@@ -27,11 +24,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
-
-#include <llvm/Support/Debug.h>
-#define DEBUG_TYPE "zlow-rewrite"
 
 #include <map>
 
