@@ -1714,7 +1714,7 @@ struct ZHighToZLowDataConversionLowering
 };
 
 //===----------------------------------------------------------------------===//
-// Lower ZHigh Fork to Async op
+// Lower ZHigh Fork and Join to Async Execute and Await
 //===----------------------------------------------------------------------===//
 
 struct ZHighToZLowForkOpLowering : public ConversionPattern {
@@ -1786,52 +1786,28 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
         insertionPointOp = user;
       }
     }
-
-// #if 1
-//     // Need comment out when using new buferization.
-//     auto ip = rewriter.saveInsertionPoint();
-//     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-//     // OpBuilder::InsertionGuard guard(rewriter);
-//     rewriter.setInsertionPointAfter(insertionPointOp);
-//     // Insert deallocOp for the input values if it is not deallocated yet.
-//     for (Value inVal : inputValues) {
-//       if (llvm::none_of(inVal.getUsers(),
-//               [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
-//         create.mem.dealloc(inVal);
-//     }
-//     rewriter.restoreInsertionPoint(ip);
-// #endif
     rewriter.replaceAllUsesWith(forkOpResult, rAllocOp);
 
-    // 3. Remove ONNXYieldOp from ForkOp region to copy into newly created Async
-    // ExecuteOp
-    auto b = mlir::OpBuilder::atBlockTerminator(&forkOp.getRegion().back());
-    mlir::IRRewriter r(b);
-    r.eraseOp(onnxYieldOp);
-
     // 4. Create Async ExecuteOp and copy ForkOp region into it.
-    // OpBuilder::InsertionGuard guard0(rewriter);
-    // rewriter.setInsertionPointAfter(forkOp);
+    // Remove ONNXYieldOp from ForkOp region before copying into newly created
+    // Async ExecuteOp
+    rewriter.eraseOp(onnxYieldOp);
     auto asyncExecuteOp = rewriter.create<async::ExecuteOp>(
         loc, TypeRange(), ValueRange(), ValueRange());
     Operation *terminator = asyncExecuteOp.getRegion().back().getTerminator();
     rewriter.inlineBlockBefore(&forkOp.getRegion().back(), terminator);
-    // rewriter.replaceOp(op, rAllocOp);
-    rewriter.replaceOp(op, asyncExecuteOp.getToken());    
+    rewriter.replaceOp(op, asyncExecuteOp.getToken());
 
     // 5. Create AsyncAwaitOp and replace ZHighJoinOp with it
-    // OpBuilder::InsertionGuard insertionGuard(rewriter);
     rewriter.setInsertionPoint(insertionPointOp);
     auto asyncAwaitOp =
         rewriter.create<async::AwaitOp>(loc, asyncExecuteOp.getToken());
     for (auto jop : joinOps)
-      rewriter.replaceOp(jop, asyncAwaitOp);
-//      rewriter.eraseOp(jop);
+      rewriter.eraseOp(jop);
+
 #if 1
     // Need comment out when using new buferization.
-    //    auto ip = rewriter.saveInsertionPoint();
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
-    // OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointAfter(insertionPointOp);
     // Insert deallocOp for the input values if it is not deallocated yet.
     for (Value inVal : inputValues) {
@@ -1839,7 +1815,6 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
               [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
         create.mem.dealloc(inVal);
     }
-    //    rewriter.restoreInsertionPoint(ip);
 #endif
     return success();
   }
