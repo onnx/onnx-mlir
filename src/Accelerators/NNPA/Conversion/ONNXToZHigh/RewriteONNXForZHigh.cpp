@@ -861,7 +861,7 @@ void getRewriteONNXForZHighDynamicallyLegal(mlir::ConversionTarget *target,
 struct RewriteONNXForZHighPass
     : public PassWrapper<RewriteONNXForZHighPass, OperationPass<ModuleOp>> {
 
-  Option<std::string> nnpaMatMulParallelOpt{*this, "nnpa-parallel",
+  Option<std::string> nnpaMatMulParallelOpt{*this, "nnpa-matmul-parallel",
       llvm::cl::desc(
           "Enable parallelization with the number of devices and "
           "the threshold of dimension size. \"string\" is in the format of "
