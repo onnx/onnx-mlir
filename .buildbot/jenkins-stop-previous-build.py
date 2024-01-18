@@ -1,45 +1,30 @@
 #!/usr/bin/env python3
 
-import jenkins
-import logging
-import os
 import time
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(lineno)03d] %(levelname)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from jenkins_common import *
 
 JENKINS_STOP_BUILD_TIMEOUT = 60  # seconds
-
-jenkins_rest_api_url = os.getenv("JENKINS_REST_API_URL")
-jenkins_rest_api_user = os.getenv("JENKINS_REST_API_USER")
-jenkins_rest_api_token = os.getenv("JENKINS_REST_API_TOKEN")
-jenkins_job_name = os.getenv("JOB_NAME")
-jenkins_build_number = os.getenv("BUILD_NUMBER")
-
-github_pr_number = os.getenv("GITHUB_PR_NUMBER")
-github_pr_number2 = os.getenv("GITHUB_PR_NUMBER2")
 
 LOG_PULL_PUSH = (
     "pull request: #" if github_pr_number == github_pr_number2 else "merge branch: "
 )
 
 
-# We allow concurrent builds for different pull request numbers
-# but for the same pull request number only one build can run. So
-# when a new build starts, a previous build with the same pull
-# request number needs to be stopped.
-#
-# One complication is that a pull request may be built by different
-# jobs. For example, it can be built by a push triggered job, or by
-# a comment triggered job. And there is no correlation between the
-# build numbers of the two jobs.
-#
-# So we simple look for any running build with the same pull request
-# number, which is set by the job parameter.
 def stop_previous_build(job_name, build_number, pr_number):
+    """We allow concurrent builds for different pull request numbers
+    but for the same pull request number only one build can run. So
+    when a new build starts, a previous build with the same pull
+    request number needs to be stopped.
+
+    One complication is that a pull request may be built by different
+    jobs. For example, it can be built by a push triggered job, or by
+    a comment triggered job. And there is no correlation between the
+    build numbers of the two jobs.
+
+    So we simple look for any running build with the same pull request
+    number, which is set by the job parameter."""
+
     jenkins_server = jenkins.Jenkins(
         url=jenkins_rest_api_url,
         username=jenkins_rest_api_user,

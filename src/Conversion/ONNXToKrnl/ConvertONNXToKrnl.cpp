@@ -478,6 +478,7 @@ int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
 std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
 std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
 
+// Function to set default reporting messages, if any.
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
   OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
