@@ -1,4 +1,4 @@
-FROM onnxmlirczar/onnx-mlir-dev
+FROM onnxmlir/onnx-mlir-dev
 WORKDIR /workdir
 ENV HOME=/workdir
 
