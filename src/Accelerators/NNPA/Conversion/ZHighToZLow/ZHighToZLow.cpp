@@ -1729,6 +1729,8 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
 
     ZHighForkOpAdaptor operandAdaptor(operands);
 
+    MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
+
     auto onnxYieldOp =
         llvm::dyn_cast<ONNXYieldOp>(forkOp.getRegion().back().getTerminator());
     if (!onnxYieldOp)
@@ -1789,13 +1791,23 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     rewriter.replaceAllUsesWith(forkOpResult, rAllocOp);
 
     // 4. Create Async ExecuteOp and copy ForkOp region into it.
-    // Remove ONNXYieldOp from ForkOp region before copying into newly created
-    // Async ExecuteOp
+    // 4.1 Remove ONNXYieldOp from ForkOp region before copying into newly
+    // created Async ExecuteOp
     rewriter.eraseOp(onnxYieldOp);
+    // 4.2 Insert function call for setting affinity
+    auto ip = rewriter.saveInsertionPoint();
+    Block &forkBlock = forkOp.getRegion().back();
+    rewriter.setInsertionPointToStart(&forkBlock);
+    Type intType = rewriter.getIntegerType(64);
+    Value id = create.math.constant(intType, forkOp.getId());
+    SmallVector<Value, 2> parameters = {id};
+    rewriter.create<KrnlCallOp>(loc, "threadAffine", 1, parameters);
+    rewriter.restoreInsertionPoint(ip);
+    // 4.3 Create Async ExecuteOp
     auto asyncExecuteOp = rewriter.create<async::ExecuteOp>(
         loc, TypeRange(), ValueRange(), ValueRange());
     Operation *terminator = asyncExecuteOp.getRegion().back().getTerminator();
-    rewriter.inlineBlockBefore(&forkOp.getRegion().back(), terminator);
+    rewriter.inlineBlockBefore(&forkBlock, terminator);
     rewriter.replaceOp(op, asyncExecuteOp.getToken());
 
     // 5. Create AsyncAwaitOp and replace ZHighJoinOp with it
@@ -1807,7 +1819,6 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
 
 #if 1
     // Need comment out when using new buferization.
-    MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
     rewriter.setInsertionPointAfter(insertionPointOp);
     // Insert deallocOp for the input values if it is not deallocated yet.
     for (Value inVal : inputValues) {

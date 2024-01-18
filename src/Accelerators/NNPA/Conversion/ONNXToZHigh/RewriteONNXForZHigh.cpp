@@ -32,7 +32,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/NNPALimit.h"
-#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
@@ -571,12 +570,6 @@ public:
                                       ValueRange executeArgs) {
           MultiDialectBuilder<OnnxBuilder, MathBuilder> executeCreate(
               executeBuilder, executeLoc);
-          // Set affinity
-          Type intType = rewriter.getIntegerType(64);
-          Value id = executeCreate.math.constant(intType, submId);
-          SmallVector<Value, 2> parameters = {id};
-          executeBuilder.create<KrnlCallOp>(
-              executeLoc, "threadAffine", 1, parameters);
           Value sm = executeCreate.onnx.matmul(unrankedType,
               a /* executeArgs[0] */, b /*executeArgs[1]*/, false);
           executeBuilder.create<ONNXYieldOp>(executeLoc, ValueRange{sm});
@@ -585,9 +578,7 @@ public:
         Value smDummy = create.onnx.matmul(unrankedType, a, b, false);
         auto execute = rewriter.create<zhigh::ZHighForkOp>(loc,
             TypeRange{smDummy.getType()}, ValueRange(), executeBodyBuilder);
-        //        auto execute = rewriter.create<zhigh::ZHighForkOp>(loc,
-        //            TypeRange{smDummy.getType()}, ValueRange{a, b},
-        //            executeBodyBuilder);
+        execute.setId(submId);
         subMatrices.emplace_back(execute.getResults()[0]);
         rewriter.eraseOp(smDummy.getDefiningOp());
       }
@@ -906,8 +897,8 @@ void RewriteONNXForZHighPass::runOnOperation() {
 
   // We define the specific operations, or dialects, that are legal targets for
   // this lowering.
-  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, KrnlDialect,
-      func::FuncDialect, arith::ArithDialect, math::MathDialect>();
+  target.addLegalDialect<ONNXDialect, zhigh::ZHighDialect, func::FuncDialect,
+      arith::ArithDialect, math::MathDialect>();
 
   onnx_mlir::getRewriteONNXForZHighDynamicallyLegal(
       &target, &dimAnalysis, nnpaMatMulParallelOpt);

@@ -936,7 +936,8 @@ def ZHighForkOp:ZHigh_Op<"Fork",
     
   }];
   let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
-                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$inputs);
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$inputs,
+                  DefaultValuedAttr<SI64Attr, "0">:$id);
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
                   TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
   let regions = (region SizedRegion<1>:$body);

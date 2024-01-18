@@ -677,17 +677,13 @@ func.func @test_matmul_parallel(%arg0: tensor<1x64xf32>, %arg1: tensor<64x512xf3
 // PARALLEL:           [[VAR_0_:%.+]] = onnx.Constant dense<256> : tensor<2xi64>
 // PARALLEL-DAG:       [[VAR_1_:%.+]]:2 = "onnx.Split"([[PARAM_1_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<64x512xf32>, tensor<2xi64>) -> (tensor<64x256xf32>, tensor<64x256xf32>)
 // PARALLEL-DAG:       [[VAR_2_:%.+]] = "zhigh.Fork"() ({
-// PARALLEL-DAG:         [[CST_0_:%.+]] = arith.constant 0 : i64
-// PARALLEL:             "krnl.call"([[CST_0_]]) {funcName = "threadAffine", numOfOutput = 1 : si64} : (i64) -> ()
 // PARALLEL:             [[VAR_5_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]#0) : (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
 // PARALLEL:             onnx.Yield [[VAR_5_]] : tensor<1x256xf32>
-// PARALLEL:           }) : () -> tensor<1x256xf32>
+// PARALLEL:           }) {id = 0 : si64} : () -> tensor<1x256xf32>
 // PARALLEL-DAG:       [[VAR_3_:%.+]] = "zhigh.Fork"() ({
-// PARALLEL-DAG:         [[CST_1_:%.+]] = arith.constant 1 : i64
-// PARALLEL:             "krnl.call"([[CST_1_]]) {funcName = "threadAffine", numOfOutput = 1 : si64} : (i64) -> ()
-// PARALLEL:             [[VAR_5_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]#1) : (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
+// PARALLEL-DAG:         [[VAR_5_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]#1) : (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
 // PARALLEL:             onnx.Yield [[VAR_5_1_]] : tensor<1x256xf32>
-// PARALLEL:           }) : () -> tensor<1x256xf32>
+// PARALLEL:           }) {id = 1 : si64} : () -> tensor<1x256xf32>
 // PARALLEL:           "zhigh.Join"([[VAR_2_]]) : (tensor<1x256xf32>) -> ()
 // PARALLEL:           "zhigh.Join"([[VAR_3_]]) : (tensor<1x256xf32>) -> ()
 // PARALLEL:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 1 : si64} : (tensor<1x256xf32>, tensor<1x256xf32>) -> tensor<1x512xf32>
