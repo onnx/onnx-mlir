@@ -14,46 +14,69 @@
 
 #define _GNU_SOURCE
 
+#include <assert.h>
 #include <pthread.h>
 #include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
-#include "onnx-mlir/Runtime/OMTensor.h"
+#undef TEST
 
-// todo: parse /proc/cpuinfo at runtime
-static const int thread_affinity[] = {
-    0, 1, 2, 3, 4, 5, 6, 7}; // id-to-zaiu mapping
+#define MAX_CPU_NUMBER 1024
+#define MAX_LINE_LENGTH 1024
+#define LSCPU_COMMAND "lscpu -e"
 
-static const int zaiu_cpuid_from[] = {
-    0, 7, 14, 21, 27, 33, 39, 45}; // zaiu-to-cpuid mapping(from)
-static const int zaiu_cpuid_to[] = {
-    6, 13, 20, 26, 32, 38, 44, 50}; // zaiu-to-cpuid mapping(to)
+static int OMThreadAffnity_cpu_number = -1;
+static int OMThreadAffnity_cpu_to_socket_table[MAX_CPU_NUMBER];
 
 void threadAffine(int64_t id) {
-  // std::cout << "XXX threadAffine #" << id << "\n" << std::flush;
-  // printf("XXX threadAffine start #%d\n", id);
-  // fflush(stdout);
+  // if OMThreadAffnity_cpu_number is not initialized, initialize it.
+  if (OMThreadAffnity_cpu_number < 0) {
+    FILE *fp = popen(LSCPU_COMMAND, "r");
+    assert(fp != NULL && "cannot execute lscpu command");
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, sizeof(line), fp) != NULL) {
+      if (OMThreadAffnity_cpu_number < 0) { // skip the first line
+        OMThreadAffnity_cpu_number = 0;
+        continue;
+      }
+      int cpu, node, drawer, book, socket;
+      sscanf(line, "%d %d %d %d %d", &cpu, &node, &drawer, &book, &socket);
+      OMThreadAffnity_cpu_to_socket_table[cpu] = socket;
+      OMThreadAffnity_cpu_number++;
+    }
+    assert(
+        OMThreadAffnity_cpu_number < MAX_CPU_NUMBER && "too large cpu number");
+  }
+  // prepare cpuset for the specified id
   cpu_set_t cpuset;
   CPU_ZERO(&cpuset);
-
-  const int zaiu_id = thread_affinity[id & 7];
-  for (int i = zaiu_cpuid_from[zaiu_id]; i <= zaiu_cpuid_to[zaiu_id]; i++)
-    CPU_SET(i, &cpuset);
+  for (int i = 0; i < OMThreadAffnity_cpu_number; i++) {
+    if (OMThreadAffnity_cpu_to_socket_table[i] == id) {
+      CPU_SET(i, &cpuset);
+#ifdef TEST
+      printf("XXX CPU_SET threadId=%ld, cpuId=%d\n", id, i);
+#endif
+    }
+  }
+  // set thread affnity
   pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
-  /*
-  int cpu_base = (8 * id) % 16;
-  for (int i = cpu_base; i < (cpu_base + 8); i++)
-    CPU_SET(i, &cpuset);
-  pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset);
-  */
-  // sleep(1);
-  // printf("XXX threadAffine finish #%d\n", id);
-  // fflush(stdout);
 }
 
-void dummyFuncForKeepParam(OMTensor *A, OMTensor *B) {
-  // printf("XXXX dummYFuncForKeepParamt(%p, %p): called\n", A, B);
-  // fflush(stdout);
+#ifndef TEST
+#include "onnx-mlir/Runtime/OMTensor.h"
+void dummyFuncForKeepParam(OMTensor *A, OMTensor *B) {}
+#endif
+
+#ifdef TEST
+#define NUM_ZAIU 8
+int main() {
+  // system("lscpu -e");
+  for (int64_t id = 0; id < NUM_ZAIU; id++) {
+    threadAffine(id);
+  }
+  return 0;
 }
+#endif
