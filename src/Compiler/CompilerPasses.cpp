@@ -249,7 +249,6 @@ void addKrnlToLLVMPasses(
   // Late introduction of OpenMP, after bufferization.
   if (enableParallel) {
     pm.addPass(mlir::createConvertSCFToOpenMPPass());
-    // pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
     //  The alloca_scope ops are somewhat fragile; canonicalize remove them when
     //  redundant, which helps reliability of the compilation of these ops.
     pm.addPass(mlir::createCanonicalizerPass());
