@@ -23,8 +23,6 @@
 //     }
 //   }
 //
-// TODO: if we use scf.parallel, then the same optimization should be added as
-// for the scf.parallel construct.
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ProcessScfParallelPrivate.hpp"
@@ -53,12 +51,12 @@ struct ProcessScfParallelWithoutScopePattern
   using OpRewritePattern<scf::ParallelOp>::OpRewritePattern;
 
   static bool matchParallelForWithAllocScope(scf::ParallelOp parForOp) {
-    if (parForOp.getRegion().empty()) 
+    if (parForOp.getRegion().empty())
       // Ignore empty parallel regions (side effects of optimization).
       return true;
     Block *loopBody = parForOp.getBody();
     Operation &firstOp = loopBody->front();
-    if (!isa<memref::AllocaScopeOp>(&firstOp)) 
+    if (!isa<memref::AllocaScopeOp>(&firstOp))
       // Found a parallel region without an alloca scope, need to add one
       return false;
     // Found a parallel region WITH an alloca scope, we are good.

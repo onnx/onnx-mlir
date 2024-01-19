@@ -23,8 +23,7 @@
 //     }
 //   }
 //
-// TODO: if we use scf.parallel, then the same optimization should be added as
-// for the affine.parallel construct.
+// TODO: remove once scf pass well established.
 //===----------------------------------------------------------------------===//
 
 #include "src/Transform/ProcessAffineParallelPrivate.hpp"
