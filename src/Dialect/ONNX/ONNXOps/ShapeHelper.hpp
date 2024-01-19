@@ -248,6 +248,7 @@ using ONNXLessOrEqualOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXMaxOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXMeanOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXMinOpShapeHelper = ONNXBroadcastOpShapeHelper;
+using ONNXMishOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXModOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXMulOpShapeHelper = ONNXBroadcastOpShapeHelper;
 using ONNXOrOpShapeHelper = ONNXBroadcastOpShapeHelper;
