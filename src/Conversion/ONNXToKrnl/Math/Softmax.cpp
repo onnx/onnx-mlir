@@ -171,6 +171,7 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     for (int i = 0; i < axis; ++i)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
     if (useParallel) {
+      assert(axis > 0 && "bad assumption");
       create.krnl.parallel(outerLoops[0]);
       onnxToKrnlParallelReport(
           op, true, 0, outerLbs[0], outerUbs[0], "softmax v11");
@@ -221,6 +222,10 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
       rewriter, loc);
   IndexExprScope ieScope(create.krnl);
   LiteralIndexExpr zeroIE(0);
+
+  // Parallel only if output is not a scalar.
+  if (rank - 1 == 0)
+    useParallel = false;
 
   // Outer loops iterate over all dimensions except axis.
   ValueRange outerLoops = create.krnl.defineLoops(rank - 1);
