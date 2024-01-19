@@ -4356,7 +4356,7 @@ def ONNXMinOp:ONNX_Op<"Min",
 }
 
 def ONNXMishOp:ONNX_Op<"Mish",
-  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, SameOperandsAndResultElementType]> {
   let summary = "ONNX Mish operation";
   let description = [{
   Mish: A Self Regularized Non-Monotonic Neural Activation Function.
