@@ -93,10 +93,6 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createProcessAffineParallelPrivatePass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createProcessScfParallelPrivatePass();
   });
 

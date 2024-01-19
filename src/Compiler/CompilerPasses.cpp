@@ -200,19 +200,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
   pm.addNestedPass<func::FuncOp>(
       onnx_mlir::krnl::createConvertKrnlToAffinePass());
-#if 0
-  // hi alex, remove
-  if (enableParallel) {
-    // Pass to ensure that memory allocated by parallel loops stay inside the
-    // parallel region (privatization of memory). Otherwise, all threads would
-    // end up sharing the same temporary data. This pass works on affine
-    // parallel operations, and must be executed (in presence of OMP
-    // parallelism) before bufferization. In practical terms, this pass add
-    // memref.alloca_scope inside each parallel for.
-    pm.addPass(mlir::createCanonicalizerPass());
-    pm.addPass(onnx_mlir::createProcessAffineParallelPrivatePass());
-  }
-#endif
 }
 
 void addKrnlToLLVMPasses(

@@ -34,14 +34,6 @@ add_onnx_mlir_library(OMLowerKrnlRegion
   MLIRTransformUtils
   )
 
-  add_onnx_mlir_library(OMAffineParallelPrivateRegion
-  ProcessAffineParallelPrivate.cpp
-
-  LINK_LIBS PUBLIC
-  OMSupport
-  MLIRTransformUtils
-  )
-
   add_onnx_mlir_library(OMScfParallelPrivateRegion
   ProcessScfParallelPrivate.cpp
 
