@@ -474,8 +474,7 @@ public:
 /// This pattern is to split a MatMul op into smaller ones to run it in
 /// parallel using mutiple threads.
 /// Given (N x K) * (K * M), the pattern considers dimensions M to
-/// split if M is greater than threshold specified by option. The default value
-/// is ? (TODO: Create the option)
+/// split if M is greater than threshold specified by option.
 /// For example, given A(N x K) * B(K x M), we will split A and B as follows.
 // clang-format off
 ///
@@ -500,6 +499,36 @@ public:
 /// chunk.
 /// Currently splitting A is not supported. The code is partially included, but
 /// not well tested.
+///
+/// ZHighForkOp and ZHighJoinOp are generated in this rewriting as shown in
+/// following example. ZHighForkOps create threads to run sub matrix, and
+/// ZHighJoinOp is used to wait for finishing the thread execution. After the
+/// exeution of each sub matrix, ONNXConcatOp gathers the output.
+///
+/// -  Example (Two devices with threathold 256, --nnpa-matmul-parallel=2:256):
+///  Input:
+///  %0 = "onnx.MatMul"(%arg0, %arg1) :
+///          (tensor<1x64xf32>, tensor<64x512xf32>) -> tensor<1x512xf32>
+///
+///  Result:
+///    %0 = onnx.Constant dense<256> : tensor<2xi64>
+///    %1:2 = "onnx.Split"(%arg1, %0) {axis = 1 : si64} :
+///            (tensor<64x512xf32>, tensor<2xi64>)
+///                              -> (tensor<64x256xf32>, tensor<64x256xf32>)
+///    %2 = "zhigh.Fork"() ({
+///      %5 = "onnx.MatMul"(%arg0, %1#0) :
+///                 (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
+///      onnx.Yield %5 : tensor<1x256xf32>
+///    }) {id = 0 : si64} : () -> tensor<1x256xf32>
+///    %3 = "zhigh.Fork"() ({
+///      %5 = "onnx.MatMul"(%arg0, %1#1) :
+///                 (tensor<1x64xf32>, tensor<64x256xf32>) -> tensor<1x256xf32>
+///      onnx.Yield %5 : tensor<1x256xf32>
+///    }) {id = 1 : si64} : () -> tensor<1x256xf32>
+///    "zhigh.Join"(%2) : (tensor<1x256xf32>) -> ()
+///    "zhigh.Join"(%3) : (tensor<1x256xf32>) -> ()
+///    %4 = "onnx.Concat"(%2, %3) {axis = 1 : si64} :
+///               (tensor<1x256xf32>, tensor<1x256xf32>) -> tensor<1x512xf32>
 class ParallelMatMulPattern : public OpRewritePattern<ONNXMatMulOp> {
 public:
   using OpRewritePattern<ONNXMatMulOp>::OpRewritePattern;
