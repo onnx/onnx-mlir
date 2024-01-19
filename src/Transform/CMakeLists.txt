@@ -41,3 +41,11 @@ add_onnx_mlir_library(OMLowerKrnlRegion
   OMSupport
   MLIRTransformUtils
   )
+
+  add_onnx_mlir_library(OMScfParallelPrivateRegion
+  ProcessScfParallelPrivate.cpp
+
+  LINK_LIBS PUBLIC
+  OMSupport
+  MLIRTransformUtils
+  )
