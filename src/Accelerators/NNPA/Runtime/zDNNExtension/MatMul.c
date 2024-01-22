@@ -67,10 +67,10 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
         descO->dim2, descO->dim1, descO->layout);
   }
 
-  uint32_t numOfChunks = CEIL(descA->dim2, CHUNK_SIZE);
+  uint32_t numOfChunks = CEIL(descA->dim2, getZTensorSplitSizeFromEnv());
 
-  // Small tensor, there is no partition.
-  if (numOfChunks == 1) {
+  // Dim is small or ztensor split is disabled.
+  if (numOfChunks == 1 || !getZTensorSplitEnabledFromEnv()) {
     printf("No partition\n");
     mmStruct_t args = {
         .A = inputA, .B = inputB, .C = inputC, .opType = op_type, .O = output};
@@ -90,7 +90,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     createZTensorInDim2(inputA, i, isLast, zaTensor);
     createZTensorInDim2(output, i, isLast, zoTensor);
     if (i != 0)
-      copyZTensorInDim2(zaTensor, inputA, i, isLast, /*reversed=*/false);
+      copyZTensorInDim2(zaTensor, inputA, i, isLast, /*fromChunk=*/false);
 
     // Call zdnn_matmul_op on the chunk.
     mmStruct_t args = {.A = zaTensor,
@@ -101,7 +101,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     status = (zdnn_status)(__intptr_t)call_zdnn_matmul_op((void *)&args);
     assert(status == ZDNN_OK);
     if (i != 0)
-      copyZTensorInDim2(zoTensor, output, i, isLast, /*reversed=*/true);
+      copyZTensorInDim2(output, zoTensor, i, isLast, /*fromChunk=*/true);
 
     // Free the chunks.
     status = freeZTensorChunk(zaTensor, !isFirst);

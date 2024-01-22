@@ -23,6 +23,27 @@
 extern "C" {
 #endif
 
+uint32_t getZTensorSplitSizeFromEnv() {
+  uint32_t cs = DEFAULT_ZTENSOR_SPLIT_SIZE;
+  const char *s = getenv("OM_ZTENSOR_SPLIT_SIZE");
+  if (s)
+    cs = atoi(s);
+  assert(cs % AIU_STICKS_PER_PAGE == 0);
+  if (DEBUG)
+    printf("OM_ZTENSOR_SPLIT_SIZE: %d\n", cs);
+  return cs;
+}
+
+bool getZTensorSplitEnabledFromEnv() {
+  int enabled = DEFAULT_ZTENSOR_SPLIT_ENABLED;
+  const char *s = getenv("OM_ZTENSOR_SPLIT_ENABLED");
+  if (s)
+    enabled = atoi(s);
+  if (DEBUG)
+    printf("OM_ZTENSOR_SPLIT_ENABLED: %d\n", enabled);
+  return (enabled != 0);
+}
+
 void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape) {
   // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
   const zdnn_tensor_desc *desc = t->transformed_desc;
@@ -56,10 +77,11 @@ void createZTensorInDim2(const zdnn_ztensor *input, uint32_t pos, bool isLast,
   preTransDesc->type = input->pre_transformed_desc->type;
   preTransDesc->dim4 = input->pre_transformed_desc->dim4;
   preTransDesc->dim3 = input->pre_transformed_desc->dim3;
+  uint32_t chunkSize = getZTensorSplitSizeFromEnv();
   if (isLast)
-    preTransDesc->dim2 = input->pre_transformed_desc->dim2 - pos * CHUNK_SIZE;
+    preTransDesc->dim2 = input->pre_transformed_desc->dim2 - pos * chunkSize;
   else
-    preTransDesc->dim2 = CHUNK_SIZE;
+    preTransDesc->dim2 = chunkSize;
   preTransDesc->dim1 = input->pre_transformed_desc->dim1;
   // Copy a transformed desc.
   status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
@@ -87,32 +109,33 @@ zdnn_status freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer) {
   return ZDNN_OK;
 }
 
-void copyZTensorInDim2(zdnn_ztensor *output, zdnn_ztensor *input, uint32_t pos,
-    bool isLast, bool reversed) {
+void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
+    uint32_t pos, bool isLast, bool fromChunk) {
   zTensorShape inShape, outShape;
   getZTensorShape(input, &inShape);
   getZTensorShape(output, &outShape);
-  uint32_t startD3 = CEIL(pos * CHUNK_SIZE, AIU_STICKS_PER_PAGE);
-  for (uint32_t d6 = 0; d6 < outShape.dim6; ++d6) {
-    for (uint32_t d5 = 0; d5 < outShape.dim5; ++d5) {
-      for (uint32_t d4 = 0; d4 < outShape.dim4; ++d4) {
-        for (uint32_t d3 = 0; d3 < outShape.dim3; ++d3) {
+  zTensorShape origShape = fromChunk ? outShape : inShape;
+  zTensorShape chunkShape = fromChunk ? inShape : outShape;
+  uint32_t startD3 =
+      CEIL(pos * getZTensorSplitSizeFromEnv(), AIU_STICKS_PER_PAGE);
+  for (uint32_t d6 = 0; d6 < chunkShape.dim6; ++d6) {
+    for (uint32_t d5 = 0; d5 < chunkShape.dim5; ++d5) {
+      for (uint32_t d4 = 0; d4 < chunkShape.dim4; ++d4) {
+        for (uint32_t d3 = 0; d3 < chunkShape.dim3; ++d3) {
           // Copy 4K bytes.
           void *source =
               input->buffer +
               AIU_PAGESIZE_IN_BYTES *
-                  ((startD3 + d3) +
-                      inShape.dim3 *
-                          (d4 + outShape.dim4 * (d5 + outShape.dim5 * d6)));
+                  ((fromChunk ? d3 : (startD3 + d3)) +
+                      (fromChunk ? chunkShape.dim3 : origShape.dim3) *
+                          (d4 + chunkShape.dim4 * (d5 + chunkShape.dim5 * d6)));
           void *target =
               output->buffer +
               AIU_PAGESIZE_IN_BYTES *
-                  (d3 + outShape.dim3 *
-                            (d4 + outShape.dim4 * (d5 + outShape.dim5 * d6)));
-          if (!reversed)
-            memcpy(target, source, AIU_PAGESIZE_IN_BYTES);
-          else
-            memcpy(source, target, AIU_PAGESIZE_IN_BYTES);
+                  ((fromChunk ? (startD3 + d3) : d3) +
+                      (fromChunk ? origShape.dim3 : chunkShape.dim3) *
+                          (d4 + chunkShape.dim4 * (d5 + chunkShape.dim5 * d6)));
+          memcpy(target, source, AIU_PAGESIZE_IN_BYTES);
         }
       }
     }
