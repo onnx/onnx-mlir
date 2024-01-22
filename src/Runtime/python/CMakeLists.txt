@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
+file(GENERATE
+  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/py_om_execution_session.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/py_om_execution_session.py
+  )
+
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
 add_onnx_mlir_library(OMPyExecutionSessionBase
   PyExecutionSessionBase.cpp

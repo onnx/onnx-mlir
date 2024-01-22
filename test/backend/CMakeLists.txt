@@ -40,11 +40,6 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_SOURCE_DIR}/common.py
   )
 
-file(GENERATE
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/py_om_execution_session.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/py_om_execution_session.py
-  )
-
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/test_config.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/test_config.py.cfg
@@ -65,6 +60,11 @@ configure_file(
 file(GENERATE
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/test_config_compilerlib.py
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config_compilerlib.py.cfg
+  )
+
+file(GENERATE
+  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/py_om_execution_session.py
+  INPUT ${CMAKE_SOURCE_DIR}/src/Runtime/python/py_om_execution_session.py
   )
 
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
