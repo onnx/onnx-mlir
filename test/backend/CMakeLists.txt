@@ -62,11 +62,6 @@ file(GENERATE
   INPUT ${CMAKE_CURRENT_BINARY_DIR}/test_config_compilerlib.py.cfg
   )
 
-file(GENERATE
-  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/py_om_execution_session.py
-  INPUT ${CMAKE_SOURCE_DIR}/src/Runtime/python/py_om_execution_session.py
-  )
-
 # CMAKE_CFG_INTDIR is . for single-config generators such as make, and
 # it has a value (e.g. $(Configuration)) otherwise, so we can use it to
 # determine whether we are dealing with a multi-config generator.
