@@ -80,19 +80,17 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
   }
 
   // Split input A and do matmul.
-  zdnn_ztensor *zoTensors = malloc(numOfChunks * sizeof(struct zdnn_ztensor));
   for (uint32_t i = 0; i < numOfChunks; ++i) {
+    bool isFirst = (i == 0);
     bool isLast = (i == numOfChunks - 1);
 
-    // Prepare a chunk of input A.
+    // Prepare input and output chunks.
+    zdnn_ztensor *zoTensor = malloc(sizeof(struct zdnn_ztensor));
     zdnn_ztensor *zaTensor = malloc(sizeof(struct zdnn_ztensor));
     createZTensorInDim2(inputA, i, isLast, zaTensor);
+    createZTensorInDim2(output, i, isLast, zoTensor);
     if (i != 0)
       copyZTensorInDim2(zaTensor, inputA, i, isLast, /*reversed=*/false);
-
-    // Prepare a chunk of output 0.
-    zdnn_ztensor *zoTensor = zoTensors + i;
-    createZTensorInDim2(output, i, isLast, zoTensor);
 
     // Call zdnn_matmul_op on the chunk.
     mmStruct_t args = {.A = zaTensor,
@@ -101,19 +99,16 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
         .opType = op_type,
         .O = zoTensor};
     status = (zdnn_status)(__intptr_t)call_zdnn_matmul_op((void *)&args);
+    assert(status == ZDNN_OK);
     if (i != 0)
       copyZTensorInDim2(zoTensor, output, i, isLast, /*reversed=*/true);
 
-    // Free the chunk of A.
-    freeZTensorChunk(zaTensor, i != 0);
+    // Free the chunks.
+    status = freeZTensorChunk(zaTensor, !isFirst);
+    assert(status == ZDNN_OK);
+    status = freeZTensorChunk(zoTensor, !isFirst);
+    assert(status == ZDNN_OK);
   }
-
-  // Free the output chunks.
-  for (uint32_t i = 0; i < numOfChunks; ++i) {
-    zdnn_ztensor *t = zoTensors + i;
-    freeZTensorChunk(t, i != 0);
-  }
-  free(zoTensors);
 
   // struct mmStruct_t args = {
   //     .A = inputA, .B = inputB, .C = inputC, .opType = op_type, .O = output};
