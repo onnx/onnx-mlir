@@ -66,8 +66,8 @@ struct ONNXOpShapeHelper {
    for values unknown at compile time. Example of such subclasses are
    IndexExprBuilderForKrnl (generates Krnl ops, in
    src/Dialect/Krnl/DialectBuilder.hpp, ) or IndexExprBuilderForStableHhlo
-   (generates Shape/StableHlo ops, in
-   src/Conversion/ONNXToStableHlo/DialectBuilder.hpp).
+   (generates Shape/Stablehlo ops, in
+   src/Conversion/ONNXToStablehlo/DialectBuilder.hpp).
 
    @param scope Index expression scope to be used. If none is provided, a new
    scope is created and stored internally. This scope will then be destructed
