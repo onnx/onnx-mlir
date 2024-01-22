@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// Include pthreads (need special treatment on Zos).
+// Include pthreads (need special treatment on z/OS).
 #ifdef __MVS__
 #define _OPEN_THREADS
 #endif
@@ -30,19 +30,16 @@
 extern "C" {
 #endif
 
-#define DEBUG 1
-#define USE_PTHREAD 1
-
-typedef struct mmStruct {
+typedef struct mmStruct_t {
   const zdnn_ztensor *A;
   const zdnn_ztensor *B;
   const zdnn_ztensor *C;
   zdnn_matmul_ops opType;
   zdnn_ztensor *O;
-} mmStruct;
+} mmStruct_t;
 
 void *call_zdnn_matmul_op(void *args) {
-  struct mmStruct *p = (struct mmStruct *)args;
+  struct mmStruct_t *p = (struct mmStruct_t *)args;
   zdnn_status status = zdnn_matmul_op(p->A, p->B, p->C, p->opType, p->O);
   return (void *)(__intptr_t)status;
 }
@@ -51,8 +48,6 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC,
     zdnn_matmul_ops op_type, zdnn_ztensor *output) {
   zdnn_status status;
-  // inputA->transformed_desc->dim2 = 8;
-  // output->transformed_desc->dim2 = 8;
   const zdnn_tensor_desc *descA = inputA->transformed_desc;
   const zdnn_tensor_desc *descB = inputB->transformed_desc;
   const zdnn_tensor_desc *descC = inputC->transformed_desc;
@@ -72,16 +67,12 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
         descO->dim2, descO->dim1, descO->layout);
   }
 
-  // Split along dim2 of A.
-  zTensorShape zaShape;
-  getZTensorShape(inputA, &zaShape);
-
   uint32_t numOfChunks = CEIL(descA->dim2, CHUNK_SIZE);
 
   // Small tensor, there is no partition.
   if (numOfChunks == 1) {
     printf("No partition\n");
-    struct mmStruct args = {
+    mmStruct_t args = {
         .A = inputA, .B = inputB, .C = inputC, .opType = op_type, .O = output};
     zdnn_status status =
         (zdnn_status)(__intptr_t)call_zdnn_matmul_op((void *)&args);
@@ -89,32 +80,29 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
   }
 
   // Split input A and do matmul.
-  struct zdnn_ztensor *zoTensors =
-      malloc(numOfChunks * sizeof(struct zdnn_ztensor));
+  zdnn_ztensor *zoTensors = malloc(numOfChunks * sizeof(struct zdnn_ztensor));
   for (uint32_t i = 0; i < numOfChunks; ++i) {
-    printf("chunk %d\n", i);
     bool isLast = (i == numOfChunks - 1);
 
     // Prepare a chunk of input A.
     zdnn_ztensor *zaTensor = malloc(sizeof(struct zdnn_ztensor));
     createZTensorInDim2(inputA, i, isLast, zaTensor);
+    if (i != 0)
+      copyZTensorInDim2(zaTensor, inputA, i, isLast, /*reversed=*/false);
 
     // Prepare a chunk of output 0.
     zdnn_ztensor *zoTensor = zoTensors + i;
     createZTensorInDim2(output, i, isLast, zoTensor);
 
     // Call zdnn_matmul_op on the chunk.
-    struct mmStruct args = {.A = zaTensor,
+    mmStruct_t args = {.A = zaTensor,
         .B = inputB,
         .C = inputC,
         .opType = op_type,
         .O = zoTensor};
     status = (zdnn_status)(__intptr_t)call_zdnn_matmul_op((void *)&args);
-
-    // just for test.
-    // todo: remove this.
-    zTensorShape zShape;
-    getZTensorShape(zaTensor, &zShape);
+    if (i != 0)
+      copyZTensorInDim2(zoTensor, output, i, isLast, /*reversed=*/true);
 
     // Free the chunk of A.
     freeZTensorChunk(zaTensor, i != 0);
@@ -127,7 +115,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
   }
   free(zoTensors);
 
-  // struct mmStruct args = {
+  // struct mmStruct_t args = {
   //     .A = inputA, .B = inputB, .C = inputC, .opType = op_type, .O = output};
   // if (USE_PTHREAD) {
   //   printf("Using pthread\n");

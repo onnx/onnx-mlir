@@ -18,13 +18,18 @@
 extern "C" {
 #endif
 
+#define DEBUG 0
+#define USE_PTHREAD 1
+
 // AIU parameters getting from zdnn_private.h.
 #define AIU_2BYTE_CELLS_PER_STICK 64
+#define AIU_2BYTE_CELL_SIZE 2
 #define AIU_STICKS_PER_PAGE 32
+#define AIU_PAGESIZE_IN_BYTES 4096
 
 // Chunk size used when spliting a big tensor.
 // Must be divisible by AIU_STICKS_PER_PAGE.
-#define CHUNK_SIZE 4096
+#define CHUNK_SIZE 2048
 
 // -----------------------------------------------------------------------------
 // Misc Macros
@@ -53,8 +58,8 @@ void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape);
 void createZTensorInDim2(
     const zdnn_ztensor *input, uint32_t pos, bool isLast, zdnn_ztensor *output);
 zdnn_status freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer);
-void copyZTensorInDim2(
-    const zdnn_ztensor *input, uint32_t pos, bool isLast, zdnn_ztensor *output);
+void copyZTensorInDim2(zdnn_ztensor *output, zdnn_ztensor *input, uint32_t pos,
+    bool isLast, bool reversed);
 
 // -----------------------------------------------------------------------------
 // Extension Functions

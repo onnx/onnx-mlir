@@ -14,6 +14,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "src/Accelerators/NNPA/Runtime/zDNNExtension/zDNNExtension.h"
 
@@ -30,11 +31,13 @@ void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape) {
   shape->dim3 = CEIL(desc->dim2, AIU_STICKS_PER_PAGE);
   shape->dim2 = AIU_STICKS_PER_PAGE;
   shape->dim1 = AIU_2BYTE_CELLS_PER_STICK;
-  printf("zTensor shape: [%d, %d, %d, %d, %d, %d]\n", shape->dim6, shape->dim5,
-      shape->dim4, shape->dim3, shape->dim2, shape->dim1);
-  printf("zTensor buffer size: %lu\n", t->buffer_size);
+  if (DEBUG) {
+    printf("zTensor shape: [%d, %d, %d, %d, %d, %d]\n", shape->dim6,
+        shape->dim5, shape->dim4, shape->dim3, shape->dim2, shape->dim1);
+    printf("zTensor buffer size: %lu\n", t->buffer_size);
+  }
   assert(shape->dim6 * shape->dim5 * shape->dim4 * shape->dim3 * shape->dim2 *
-                 shape->dim1 * 2 ==
+                 shape->dim1 * AIU_2BYTE_CELL_SIZE ==
              t->buffer_size &&
          "buffer size mismatched");
 }
@@ -55,7 +58,7 @@ void createZTensorInDim2(const zdnn_ztensor *input, uint32_t pos, bool isLast,
   if (isLast)
     preTransDesc->dim2 = input->pre_transformed_desc->dim2 - pos * CHUNK_SIZE;
   else
-    preTransDesc->dim2 = (pos + 1) * CHUNK_SIZE;
+    preTransDesc->dim2 = CHUNK_SIZE;
   preTransDesc->dim1 = input->pre_transformed_desc->dim1;
   // Copy a transformed desc.
   status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
@@ -83,8 +86,36 @@ zdnn_status freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer) {
   return ZDNN_OK;
 }
 
-void copyZTensorInDim2(const zdnn_ztensor *input, uint32_t pos, bool isLast,
-    zdnn_ztensor *output) {
+void copyZTensorInDim2(zdnn_ztensor *output, zdnn_ztensor *input, uint32_t pos,
+    bool isLast, bool reversed) {
+  zTensorShape inShape, outShape;
+  getZTensorShape(input, &inShape);
+  getZTensorShape(output, &outShape);
+  uint32_t startD3 = CEIL(pos * CHUNK_SIZE, AIU_STICKS_PER_PAGE);
+  for (uint32_t d6 = 0; d6 < outShape.dim6; ++d6) {
+    for (uint32_t d5 = 0; d5 < outShape.dim5; ++d5) {
+      for (uint32_t d4 = 0; d4 < outShape.dim4; ++d4) {
+        for (uint32_t d3 = 0; d3 < outShape.dim3; ++d3) {
+          // Copy 4K bytes.
+          void *source =
+              input->buffer +
+              AIU_PAGESIZE_IN_BYTES *
+                  ((startD3 + d3) +
+                      inShape.dim3 *
+                          (d4 + outShape.dim4 * (d5 + outShape.dim5 * d6)));
+          void *target =
+              output->buffer +
+              AIU_PAGESIZE_IN_BYTES *
+                  (d3 + outShape.dim3 *
+                            (d4 + outShape.dim4 * (d5 + outShape.dim5 * d6)));
+          if (!reversed)
+            memcpy(target, source, AIU_PAGESIZE_IN_BYTES);
+          else
+            memcpy(source, target, AIU_PAGESIZE_IN_BYTES);
+        }
+      }
+    }
+  }
   return;
 }
 
