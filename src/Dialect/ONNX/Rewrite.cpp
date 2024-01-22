@@ -1060,7 +1060,8 @@ void ONNXUnsqueezeV11Op::getCanonicalizationPatterns(
 void ONNXPowOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   // Is 64 necessary? Maybe too high?
-  result.insert<PowToMulRewritePattern>(context, 64);
+  // Changed from upstream 64 to 2.
+  result.insert<PowToMulRewritePattern>(context, 2);
   result.insert<BinaryOpBroadcastAxisPattern<ONNXPowOp>>(context);
 }
 
