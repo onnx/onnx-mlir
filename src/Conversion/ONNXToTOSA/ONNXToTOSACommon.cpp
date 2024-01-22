@@ -420,10 +420,9 @@ std::optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
     return std::nullopt;
 
   if (!input_is_qtype) {
-    Value div_const = tosaBuilder.getSplattedConst(div_scale);
-    return CreateOpAndInfer<mlir::tosa::MulOp>(
-        rewriter, op->getLoc(), output_type, val.value(), div_const, 0)
-        .getResult();
+    Value div_const = tosaBuilder.getSplattedConst(
+        div_scale, output_type.getShape(), output_type.getElementType());
+    return tosaBuilder.mul(val.value(), div_const);
   }
 
   return val;

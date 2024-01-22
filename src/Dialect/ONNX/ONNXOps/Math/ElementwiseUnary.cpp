@@ -376,6 +376,15 @@ LogicalResult ONNXMeanVarianceNormalizationOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// MishOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXMishOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
 // NegOp
 //===----------------------------------------------------------------------===//
 

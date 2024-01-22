@@ -92,7 +92,8 @@ public:
       return rewriter.notifyMatchFailure(
           op, "could not convert generic reduce op.");
 
-    Value divConst = tosaBuilder.getSplattedConst(divScale);
+    Value divConst = tosaBuilder.getSplattedConst(
+        divScale, outputType.getShape(), outputType.getElementType());
     auto output = tosaBuilder.mul(val.value(), divConst);
 
     if (!output) {
