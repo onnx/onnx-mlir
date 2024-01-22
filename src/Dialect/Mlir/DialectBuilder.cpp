@@ -850,6 +850,14 @@ Value ShapeBuilder::shapeOf(Value val) const {
   return b().create<shape::ShapeOfOp>(loc(), val);
 }
 
+Value ShapeBuilder::fromExtents(ValueRange extents) const {
+  return b().create<shape::FromExtentsOp>(loc(), extents);
+}
+
+Value ShapeBuilder::toExtentTensor(Type type, Value shape) const {
+  return b().create<shape::ToExtentTensorOp>(loc(), type, shape);
+}
+
 Value ShapeBuilder::getExtent(Value val, int64_t index) const {
   return b().create<shape::GetExtentOp>(loc(), val, index);
 }
