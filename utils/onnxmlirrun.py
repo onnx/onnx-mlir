@@ -78,7 +78,7 @@ class InferenceSession:
         )
         self.RUNTIME_DIR = os.path.join(self.ONNX_MLIR_HOME, "lib")
         sys.path.append(self.RUNTIME_DIR)
-        from py_om_execution_session import PyOMExecutionSession
+        from PyOMExecutionSession import PyOMExecutionSession
 
         # Initialize status
         self.compiled = False
@@ -113,7 +113,7 @@ class InferenceSession:
         self.compiled = True
 
     def loadSession(self):
-        from py_om_execution_session import PyOMExecutionSession
+        from PyOMExecutionSession import PyOMExecutionSession
 
         # Use the generated shared library to create an execution session.
 

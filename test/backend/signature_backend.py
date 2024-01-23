@@ -175,7 +175,7 @@ class SignatureExecutionSession(object):
 
     def run(self, **kwargs):
         sys.path.append(RUNTIME_DIR)
-        from py_om_execution_session import PyOMExecutionSession
+        from PyOMExecutionSession import PyOMExecutionSession
 
         session = PyOMExecutionSession(self.exec_name)
         output = session.input_signature()

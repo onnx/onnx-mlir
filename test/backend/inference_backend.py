@@ -3671,7 +3671,7 @@ class EndiannessAwareExecutionSession(object):
 
     def run(self, inputs, **kwargs):
         sys.path.append(RUNTIME_DIR)
-        from py_om_execution_session import PyOMExecutionSession
+        from PyOMExecutionSession import PyOMExecutionSession
 
         # If constant is set, recompile the model so inputs are model constants
         if args.constant:

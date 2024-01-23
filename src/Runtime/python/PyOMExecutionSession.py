@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-############# py_om_execution_session.py #######################################
+############# PyOMExecutionSession.py #######################################
 #
 # Copyright 2021-2023 The IBM Research Authors.
 #

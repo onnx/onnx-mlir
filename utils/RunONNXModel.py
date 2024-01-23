@@ -233,7 +233,7 @@ ONNX_MLIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "bin", ONNX_MLIR_EXENAME)
 RUNTIME_DIR = os.path.join(os.environ["ONNX_MLIR_HOME"], "lib")
 sys.path.append(RUNTIME_DIR)
 
-from py_om_execution_session import PyOMExecutionSession
+from PyOMExecutionSession import PyOMExecutionSession
 
 
 # A type mapping from MLIR to Numpy.
