@@ -73,6 +73,21 @@ public:
   int32_t getElementSize() const { return 64; }
 };
 
+#if 1
+class NoneType
+    : public mlir::Type::TypeBase<NoneType, mlir::Type, mlir::TypeStorage,
+          mlir::MemRefElementTypeInterface::Trait> {
+
+public:
+  using Base::Base;
+
+  static constexpr const char *name = "none.type";
+
+  // Get a unique instance of None type.
+  static NoneType get(mlir::MLIRContext *context) { return Base::get(context); }
+};
+#endif
+
 /// Add custom type conversions to convert krnl types to the given \p
 /// typeConverter.
 void customizeTypeConverter(mlir::LLVMTypeConverter &typeConverter);

@@ -33,6 +33,7 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
+    llvm::dbgs() << "XXX KrnlCallOpLowering: op=" << *op << "\n";
     KrnlCallOpAdaptor krnlCallAdaptor(operands);
     Location loc = op->getLoc();
     KrnlCallOp krnlCallOp = llvm::cast<KrnlCallOp>(op);
@@ -91,6 +92,7 @@ private:
       llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList,
       llvm::SmallVector<Value, 4> &omTensors) const {
+    printf("XXX handleOneParameter called\n"); fflush(stdout);
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();

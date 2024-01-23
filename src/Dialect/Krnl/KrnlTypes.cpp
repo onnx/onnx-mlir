@@ -35,6 +35,13 @@ void customizeTypeConverter(LLVMTypeConverter &typeConverter) {
   typeConverter.addConversion([&](krnl::StringType type) -> Type {
     return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
+
+#if 1
+  typeConverter.addConversion([&](krnl::NoneType type) -> Type {
+    return typeConverter.convertType(MemRefType::get({0},
+        mlir::IntegerType::get(type.getContext(), 64)));
+  });
+#endif
 }
 
 } // namespace krnl
