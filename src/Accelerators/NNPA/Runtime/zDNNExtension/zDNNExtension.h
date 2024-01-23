@@ -18,7 +18,6 @@
 extern "C" {
 #endif
 
-#define DEBUG 0
 #define USE_PTHREAD 1
 
 // AIU parameters getting from zdnn_private.h.
@@ -29,8 +28,9 @@ extern "C" {
 
 // Default chunk size used when spliting a big tensor.
 // Must be divisible by AIU_STICKS_PER_PAGE.
-#define DEFAULT_ZTENSOR_SPLIT_SIZE 2048
+#define DEFAULT_ZTENSOR_SPLIT_SIZE 4096
 #define DEFAULT_ZTENSOR_SPLIT_ENABLED 0
+#define DEFAULT_ZTENSOR_SPLIT_DEBUG 0
 
 // -----------------------------------------------------------------------------
 // Misc Macros
@@ -55,24 +55,31 @@ typedef struct zTensorShape {
 // Helper Functions
 // -----------------------------------------------------------------------------
 
-uint32_t getZTensorSplitSizeFromEnv();
-bool getZTensorSplitEnabledFromEnv();
+uint32_t ZTensorSplitSizeFromEnv();
+bool ZTensorSplitEnabledFromEnv();
+bool ZTensorSplitDebugFromEnv();
 
 void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape);
-void createZTensorInDim2(
-    const zdnn_ztensor *input, uint32_t pos, bool isLast, zdnn_ztensor *output);
-zdnn_status freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer);
+zdnn_status allocZTensorInDim2(
+    const zdnn_ztensor *input, uint32_t chunkSize, zdnn_ztensor *output);
+zdnn_status freeZTensorChunk(zdnn_ztensor *t);
 void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
-    uint32_t pos, bool isLast, bool fromChunk);
+    uint32_t offset, bool fromChunk);
+void copyZTensorInDim2Scalar(zdnn_ztensor *output, const zdnn_ztensor *input,
+    uint32_t offset, bool fromChunk);
 
 // -----------------------------------------------------------------------------
 // Extension Functions
 // Same name as zdnn functions but with the `_ext` postfix.
 // -----------------------------------------------------------------------------
 
-zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *input_a,
-    const zdnn_ztensor *input_b, const zdnn_ztensor *input_c,
-    zdnn_matmul_ops op_type, zdnn_ztensor *output);
+zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
+    const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
+    zdnn_ztensor *output);
+
+zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
+    const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
+    zdnn_ztensor *output);
 
 #ifdef __cplusplus
 }
