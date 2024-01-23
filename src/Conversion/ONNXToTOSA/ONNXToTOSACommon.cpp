@@ -316,10 +316,13 @@ std::optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
     }
 
     for (int i = 0; i < axes_elems.getNumElements(); i++) {
-      int64_t axis_val = axes_elems.getValues<IntegerAttr>()[i].getInt();
-      if (axis_val < 0)
+      auto axis_val =
+          axes_elems.getValues<IntegerAttr>()[i].getValue().getSExtValue();
+      if (axis_val < 0) {
         axis_val += input_rank;
-      auto axis_attr = rewriter.getI64IntegerAttr(axis_val);
+      }
+
+      auto axis_attr = rewriter.getI32IntegerAttr((int32_t)axis_val);
 
       shape_vec[axis_val] = 1;
       RankedTensorType reduce_type =
