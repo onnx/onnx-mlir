@@ -21,6 +21,7 @@ extern "C" {
 #define USE_PTHREAD 1
 
 // AIU parameters getting from zdnn_private.h.
+#define AIU_BYTES_PER_STICK 128
 #define AIU_2BYTE_CELLS_PER_STICK 64
 #define AIU_2BYTE_CELL_SIZE 2
 #define AIU_STICKS_PER_PAGE 32

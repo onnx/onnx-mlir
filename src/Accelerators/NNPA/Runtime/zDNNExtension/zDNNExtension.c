@@ -124,15 +124,21 @@ void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
     for (uint64_t d5 = 0; d5 < chunkShape.dim5; ++d5) {
       for (uint64_t d4 = 0; d4 < chunkShape.dim4; ++d4) {
         for (uint64_t d3 = 0; d3 < chunkShape.dim3; ++d3) {
-          uint64_t SD3Size = d4 + SD4 * (d5 + SD5 * d6);
-          uint64_t TD3Size = d4 + TD4 * (d5 + TD5 * d6);
-          // Copy one page at a time.
+          // Do not copy one page at a time since it may cause wrong result if
+          // batchsize > 1 (chunkShape.dim6 > 1).
           uint64_t sd3 = (fromChunk ? d3 : offset);
           uint64_t td3 = (fromChunk ? offset : d3);
-          uint64_t offsetSrc = AIU_PAGESIZE_IN_BYTES * (sd3 + SD3 * SD3Size);
-          uint64_t offsetDest = AIU_PAGESIZE_IN_BYTES * (td3 + TD3 * TD3Size);
-          memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
-              AIU_PAGESIZE_IN_BYTES);
+          uint64_t SD3Size = sd3 + SD3 * (d4 + SD4 * (d5 + SD5 * d6));
+          uint64_t TD3Size = td3 + TD3 * (d4 + TD4 * (d5 + TD5 * d6));
+          for (uint64_t d2 = 0; d2 < chunkShape.dim2; ++d2) {
+            // Copy one stick at a time.
+            uint64_t offsetSrc =
+                AIU_BYTES_PER_STICK * (d2 + chunkShape.dim2 * SD3Size);
+            uint64_t offsetDest =
+                AIU_BYTES_PER_STICK * (d2 + chunkShape.dim2 * TD3Size);
+            memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
+                AIU_BYTES_PER_STICK);
+          }
         }
       }
     }
