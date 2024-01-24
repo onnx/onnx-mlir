@@ -110,14 +110,15 @@ void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
   assert(origShape.dim6 == chunkShape.dim6);
   assert(origShape.dim5 == chunkShape.dim5);
   assert(origShape.dim4 == chunkShape.dim4);
+  assert(origShape.dim2 == chunkShape.dim2);
+  assert(origShape.dim1 == chunkShape.dim1);
   // Ensure that each element is 2 bytes.
   assert(input->transformed_desc->type == ZDNN_DLFLOAT16);
 
-  uint64_t SD5 = chunkShape.dim5;
-  uint64_t SD4 = chunkShape.dim4;
+  uint64_t D5 = chunkShape.dim5;
+  uint64_t D4 = chunkShape.dim4;
+  uint64_t D2 = chunkShape.dim2;
   uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
-  uint64_t TD5 = chunkShape.dim5;
-  uint64_t TD4 = chunkShape.dim4;
   uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
 
   for (uint64_t d6 = 0; d6 < chunkShape.dim6; ++d6) {
@@ -128,14 +129,12 @@ void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
           // batchsize > 1 (chunkShape.dim6 > 1).
           uint64_t sd3 = (fromChunk ? d3 : offset);
           uint64_t td3 = (fromChunk ? offset : d3);
-          uint64_t SD3Size = sd3 + SD3 * (d4 + SD4 * (d5 + SD5 * d6));
-          uint64_t TD3Size = td3 + TD3 * (d4 + TD4 * (d5 + TD5 * d6));
+          uint64_t SD3Size = sd3 + SD3 * (d4 + D4 * (d5 + D5 * d6));
+          uint64_t TD3Size = td3 + TD3 * (d4 + D4 * (d5 + D5 * d6));
           for (uint64_t d2 = 0; d2 < chunkShape.dim2; ++d2) {
             // Copy one stick at a time.
-            uint64_t offsetSrc =
-                AIU_BYTES_PER_STICK * (d2 + chunkShape.dim2 * SD3Size);
-            uint64_t offsetDest =
-                AIU_BYTES_PER_STICK * (d2 + chunkShape.dim2 * TD3Size);
+            uint64_t offsetSrc = AIU_BYTES_PER_STICK * (d2 + D2 * SD3Size);
+            uint64_t offsetDest = AIU_BYTES_PER_STICK * (d2 + D2 * TD3Size);
             memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
                 AIU_BYTES_PER_STICK);
           }
