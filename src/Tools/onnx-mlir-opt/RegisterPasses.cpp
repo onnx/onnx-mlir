@@ -93,7 +93,7 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createProcessAffineParallelPrivatePass();
+    return createProcessScfParallelPrivatePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
@@ -125,6 +125,10 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return createStandardFuncReturnPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return createONNXDimAnalysisPass();
   });
 
@@ -134,7 +138,7 @@ void registerOMPasses(int optLevel) {
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerToStableHloPass();
+    return createLowerToStablehloPass();
   });
 #endif
 }

@@ -205,7 +205,10 @@ struct ShapeBuilder final : DialectBuilder {
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value shapeOf(mlir::Value val) const;
+
+  mlir::Value fromExtents(mlir::ValueRange extents) const;
   mlir::Value getExtent(mlir::Value val, int64_t index) const;
+  mlir::Value toExtentTensor(mlir::Type type, mlir::Value shape) const;
 };
 
 //===----------------------------------------------------------------------===//
