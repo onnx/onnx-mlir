@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+
 # TODO: statically link to libcruntime.a
 
 add_onnx_mlir_library(RuntimeNNPA STATIC

@@ -103,32 +103,32 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     printf("Split zTensor A ...\n");
 
   // Split input A and do matmul.
-  double splitTime = 0;
-  double mmTime = 0;
-  double mergeTime = 0;
+  double splitTime = 0.;
+  double mmTime = 0.;
+  double mergeTime = 0.;
+  clock_t start_time, end_time;
   for (uint32_t i = 0; i < numOfChunks; ++i) {
-    if (isDebug)
-      printf("Processing chunk %d\n", i);
-    struct timeval start1, stop1;
-    struct timeval start2, stop2;
-    struct timeval start3, stop3;
     uint32_t offset = i * chunkSizeInStick;
     // Adjust chunkSize for the last chunk.
     if (i == numOfChunks - 1)
       chunkSize = dimSize - i * chunkSize;
+
     if (isDebug)
-      printf("Chunk size %d\n", chunkSize);
+      printf("Processing chunk %d of size %d \n", i, chunkSize);
 
     // Prepare input and output chunks.
-    clock_t start_time = clock();
+    if (isDebug)
+      start_time = clock();
     zdnn_ztensor *zaTensor = malloc(sizeof(struct zdnn_ztensor));
     zdnn_ztensor *zoTensor = malloc(sizeof(struct zdnn_ztensor));
     allocZTensorInDim2(inputA, chunkSize, zaTensor);
     allocZTensorInDim2(output, chunkSize, zoTensor);
     copyZTensorInDim2(zaTensor, inputA, offset, /*fromChunk=*/false);
-    clock_t end_time = clock();
-    splitTime +=
-        ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    if (isDebug) {
+      end_time = clock();
+      splitTime +=
+          ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    }
 
     if (isDebug) {
       zTensorShape shape;
@@ -140,13 +140,11 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       printf("zTensor output chunk %d: [%d, %d, %d, %d, %d, %d]\n", i,
           shape.dim6, shape.dim5, shape.dim4, shape.dim3, shape.dim2,
           shape.dim1);
-      getZTensorShape(output, &shape);
-      printf("zTensor output %d: [%d, %d, %d, %d, %d, %d]\n", i, shape.dim6,
-          shape.dim5, shape.dim4, shape.dim3, shape.dim2, shape.dim1);
     }
 
     // Call zdnn_matmul_op on the chunk.
-    start_time = clock();
+    if (isDebug)
+      start_time = clock();
     mmStruct_t args = {.A = zaTensor,
         .B = inputB,
         .C = inputC,
@@ -158,14 +156,19 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     else
       status = (zdnn_status)(__intptr_t)call_zdnn_matmul_op((void *)&args);
     assert(status == ZDNN_OK);
-    end_time = clock();
-    mmTime += ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    if (isDebug) {
+      end_time = clock();
+      mmTime += ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    }
 
-    start_time = clock();
+    if (isDebug)
+      start_time = clock();
     copyZTensorInDim2(output, zoTensor, offset, /*fromChunk=*/true);
-    end_time = clock();
-    mergeTime +=
-        ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    if (isDebug) {
+      end_time = clock();
+      mergeTime +=
+          ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    }
 
     // Free the chunks.
     status = freeZTensorChunk(zaTensor);
@@ -174,7 +177,10 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     assert(status == ZDNN_OK);
   }
 
-  printf("split: %f, mm: %f, merge: %f\n", splitTime, mmTime, mergeTime);
+  if (isDebug)
+    printf("split: %f, mm: %f, merge: %f (milliseconds)\n", splitTime, mmTime,
+        mergeTime);
+
   // struct mmStruct_t args = {
   //     .A = inputA, .B = inputB, .C = inputC, .opType = opType, .O = output};
   // if (USE_PTHREAD) {

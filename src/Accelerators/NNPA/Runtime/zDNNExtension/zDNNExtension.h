@@ -28,7 +28,7 @@ extern "C" {
 
 // Default chunk size used when spliting a big tensor.
 // Must be divisible by AIU_STICKS_PER_PAGE.
-#define DEFAULT_ZTENSOR_SPLIT_SIZE 4096
+#define DEFAULT_ZTENSOR_SPLIT_SIZE 1024
 #define DEFAULT_ZTENSOR_SPLIT_ENABLED 0
 #define DEFAULT_ZTENSOR_SPLIT_DEBUG 0
 
