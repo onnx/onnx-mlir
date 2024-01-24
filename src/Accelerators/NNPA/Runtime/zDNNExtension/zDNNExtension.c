@@ -115,29 +115,29 @@ void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
   // Ensure that each element is 2 bytes.
   assert(input->transformed_desc->type == ZDNN_DLFLOAT16);
 
+  uint64_t D6 = chunkShape.dim6;
   uint64_t D5 = chunkShape.dim5;
   uint64_t D4 = chunkShape.dim4;
+  uint64_t D3 = chunkShape.dim3;
   uint64_t D2 = chunkShape.dim2;
   uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
   uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
 
-  for (uint64_t d6 = 0; d6 < chunkShape.dim6; ++d6) {
-    for (uint64_t d5 = 0; d5 < chunkShape.dim5; ++d5) {
-      for (uint64_t d4 = 0; d4 < chunkShape.dim4; ++d4) {
-        for (uint64_t d3 = 0; d3 < chunkShape.dim3; ++d3) {
-          // Do not copy one page at a time since it may cause wrong result if
-          // batchsize > 1 (chunkShape.dim6 > 1).
-          uint64_t sd3 = (fromChunk ? d3 : offset);
-          uint64_t td3 = (fromChunk ? offset : d3);
-          uint64_t SD3Size = sd3 + SD3 * (d4 + D4 * (d5 + D5 * d6));
-          uint64_t TD3Size = td3 + TD3 * (d4 + D4 * (d5 + D5 * d6));
-          for (uint64_t d2 = 0; d2 < chunkShape.dim2; ++d2) {
-            // Copy one stick at a time.
-            uint64_t offsetSrc = AIU_BYTES_PER_STICK * (d2 + D2 * SD3Size);
-            uint64_t offsetDest = AIU_BYTES_PER_STICK * (d2 + D2 * TD3Size);
-            memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
-                AIU_BYTES_PER_STICK);
-          }
+  for (uint64_t d6 = 0; d6 < D6; ++d6) {
+    for (uint64_t d5 = 0; d5 < D5; ++d5) {
+      for (uint64_t d4 = 0; d4 < D4; ++d4) {
+        uint64_t SD4Offset = d4 + D4 * (d5 + D5 * d6);
+        uint64_t TD4Offset = d4 + D4 * (d5 + D5 * d6);
+        for (uint64_t d3 = 0; d3 < D3; ++d3) {
+          uint64_t sd3 = (fromChunk ? d3 : (offset + d3));
+          uint64_t td3 = (fromChunk ? (offset + d3) : d3);
+          uint64_t SD3Offset = sd3 + SD3 * SD4Offset;
+          uint64_t TD3Offset = td3 + TD3 * TD4Offset;
+          // Copy one page at a time.
+          uint64_t offsetSrc = AIU_PAGESIZE_IN_BYTES * SD3Offset;
+          uint64_t offsetDest = AIU_PAGESIZE_IN_BYTES * TD3Offset;
+          memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
+              AIU_PAGESIZE_IN_BYTES);
         }
       }
     }
@@ -157,50 +157,34 @@ void copyZTensorInDim2Scalar(zdnn_ztensor *output, const zdnn_ztensor *input,
   assert(origShape.dim4 == chunkShape.dim4);
   assert(origShape.dim2 == chunkShape.dim2);
   assert(origShape.dim1 == chunkShape.dim1);
-  for (uint32_t d6 = 0; d6 < chunkShape.dim6; ++d6) {
-    for (uint32_t d5 = 0; d5 < chunkShape.dim5; ++d5) {
-      for (uint32_t d4 = 0; d4 < chunkShape.dim4; ++d4) {
-        for (uint32_t d3 = 0; d3 < chunkShape.dim3; ++d3) {
-          for (uint32_t d2 = 0; d2 < chunkShape.dim2; ++d2) {
-            for (uint32_t d1 = 0; d1 < chunkShape.dim1; ++d1) {
-              uint32_t sd6 = d6;
-              uint32_t sd5 = d5;
-              uint32_t sd4 = d4;
-              uint32_t sd3 = (fromChunk ? d3 : (d3 + offset));
-              uint32_t sd2 = d2;
-              uint32_t sd1 = d1;
 
-              uint32_t SD5 = chunkShape.dim5;
-              uint32_t SD4 = chunkShape.dim4;
-              uint32_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
-              uint32_t SD2 = chunkShape.dim2;
-              uint32_t SD1 = chunkShape.dim1;
+  uint64_t D6 = chunkShape.dim6;
+  uint64_t D5 = chunkShape.dim5;
+  uint64_t D4 = chunkShape.dim4;
+  uint64_t D3 = chunkShape.dim3;
+  uint64_t D2 = chunkShape.dim2;
+  uint64_t D1 = chunkShape.dim1;
 
-              uint32_t td6 = d6;
-              uint32_t td5 = d5;
-              uint32_t td4 = d4;
-              uint32_t td3 = (fromChunk ? (d3 + offset) : d3);
-              uint32_t td2 = d2;
-              uint32_t td1 = d1;
+  uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
+  uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
 
-              uint32_t TD5 = chunkShape.dim5;
-              uint32_t TD4 = chunkShape.dim4;
-              uint32_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
-              uint32_t TD2 = chunkShape.dim2;
-              uint32_t TD1 = chunkShape.dim1;
-
+  for (uint64_t d6 = 0; d6 < D6; ++d6) {
+    for (uint64_t d5 = 0; d5 < D5; ++d5) {
+      for (uint64_t d4 = 0; d4 < D4; ++d4) {
+        for (uint64_t d3 = 0; d3 < D3; ++d3) {
+          uint64_t sd3 = (fromChunk ? d3 : (d3 + offset));
+          uint64_t td3 = (fromChunk ? (d3 + offset) : d3);
+          uint64_t SD3Offset = sd3 + SD3 * (d4 + D4 * (d5 + D5 * d6));
+          uint64_t TD3Offset = td3 + TD3 * (d4 + D4 * (d5 + D5 * d6));
+          for (uint64_t d2 = 0; d2 < D2; ++d2) {
+            for (uint64_t d1 = 0; d1 < D1; ++d1) {
+              // Copy 2 bytes at a time.
               uint64_t offsetSrc =
-                  sd1 +
-                  SD1 *
-                      (sd2 +
-                          SD2 * (sd3 + SD3 * (sd4 + SD4 * (sd5 + SD5 * sd6))));
+                  AIU_2BYTE_CELL_SIZE * (d1 + D1 * (d2 + D2 * SD3Offset));
               uint64_t offsetDest =
-                  td1 +
-                  TD1 *
-                      (td2 +
-                          TD2 * (td3 + TD3 * (td4 + TD4 * (td5 + TD5 * td6))));
-              memcpy(output->buffer + 2 * offsetDest,
-                  input->buffer + 2 * offsetSrc, 2);
+                  AIU_2BYTE_CELL_SIZE * (d1 + D1 * (d2 + D2 * TD3Offset));
+              memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
+                  AIU_2BYTE_CELL_SIZE);
             }
           }
         }

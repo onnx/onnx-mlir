@@ -77,12 +77,11 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
         descO->dim2, descO->dim1, descO->layout);
   }
 
+  // Split axis is dimension 2 in the original tensor.
   uint32_t dimSize = descA->dim2;
   uint32_t chunkSize = ZTensorSplitSizeFromEnv();
   uint32_t chunkSizeInStick = CEIL(chunkSize, AIU_STICKS_PER_PAGE);
   uint32_t numOfChunks = CEIL(dimSize, chunkSize);
-  if (isDebug)
-    printf("The number of chunks: %d\n", numOfChunks);
 
   // Dim is small or ztensor split is disabled.
   if (numOfChunks == 1 || !ZTensorSplitEnabledFromEnv()) {
@@ -100,7 +99,8 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   }
 
   if (isDebug)
-    printf("Split zTensor A ...\n");
+    printf("Split zTensor A along dim2 into %d chunks of %d elements \n",
+        numOfChunks, chunkSize);
 
   // Split input A and do matmul.
   double splitTime = 0.;
@@ -112,9 +112,6 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     // Adjust chunkSize for the last chunk.
     if (i == numOfChunks - 1)
       chunkSize = dimSize - i * chunkSize;
-
-    if (isDebug)
-      printf("Processing chunk %d of size %d \n", i, chunkSize);
 
     // Prepare input and output chunks.
     if (isDebug)
@@ -128,18 +125,6 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       end_time = clock();
       splitTime +=
           ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
-    }
-
-    if (isDebug) {
-      zTensorShape shape;
-      getZTensorShape(zaTensor, &shape);
-      printf("zTensor input chunk %d: [%d, %d, %d, %d, %d, %d]\n", i,
-          shape.dim6, shape.dim5, shape.dim4, shape.dim3, shape.dim2,
-          shape.dim1);
-      getZTensorShape(zoTensor, &shape);
-      printf("zTensor output chunk %d: [%d, %d, %d, %d, %d, %d]\n", i,
-          shape.dim6, shape.dim5, shape.dim4, shape.dim3, shape.dim2,
-          shape.dim1);
     }
 
     // Call zdnn_matmul_op on the chunk.
