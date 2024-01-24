@@ -67,12 +67,6 @@ void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape) {
                          (uint64_t)shape->dim2 * (uint64_t)shape->dim1 *
                          (uint64_t)AIU_2BYTE_CELL_SIZE;
   uint64_t sizeFromBuffer = t->buffer_size;
-  if (ZTensorSplitDebugFromEnv()) {
-    printf("shape: [%d, %d, %d, %d, %d, %d]\n", shape->dim6, shape->dim5,
-        shape->dim4, shape->dim3, shape->dim2, shape->dim1);
-    printf("sizeFromDim %lu\n", sizeFromDim);
-    printf("sizeFromBuffer %lu\n", sizeFromBuffer);
-  }
   assert(sizeFromDim == sizeFromBuffer && "buffer size mismatched");
 }
 
@@ -116,6 +110,8 @@ void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
   assert(origShape.dim6 == chunkShape.dim6);
   assert(origShape.dim5 == chunkShape.dim5);
   assert(origShape.dim4 == chunkShape.dim4);
+  // Ensure that each element is 2 bytes.
+  assert(input->transformed_desc->type == ZDNN_DLFLOAT16);
 
   uint64_t SD5 = chunkShape.dim5;
   uint64_t SD4 = chunkShape.dim4;
