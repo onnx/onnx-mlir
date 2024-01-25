@@ -55,12 +55,11 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // We split M that is the third one in the original 4D tensor.
   uint32_t axis = 2;
   uint32_t chunkSize = ZTensorSplitSizeFromEnv();
-  uint32_t chunkSizeInStick;
-  uint32_t numOfChunks;
-  getSplitInfo(inputA, axis, chunkSize, &numOfChunks, &chunkSizeInStick);
+  SplitInfo splitInfoA, splitInfoY;
 
   // Dim is small or ztensor split is disabled.
-  if (numOfChunks == 1 || !ZTensorSplitEnabledFromEnv()) {
+  if (!ZTensorSplitEnabledFromEnv() ||
+      !initSplitInfo(inputA, axis, chunkSize, &splitInfoA)) {
     if (isDebug)
       printf("Not split zTensor ...\n");
     status =
@@ -72,7 +71,9 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Split input A.
   if (isDebug)
     printf("Split zTensor A along axis %d into %d chunks of %d elements \n",
-        axis, numOfChunks, chunkSize);
+        axis, splitInfoA.numOfChunks, splitInfoA.chunkSize);
+  initSplitInfo(output, axis, chunkSize, &splitInfoY);
+
   double splitTime = 0.;
   double mmTime = 0.;
   double mergeTime = 0.;
@@ -81,12 +82,8 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Split input A along the second innermost axis into chunks.
   if (isDebug)
     start_time = clock();
-  zdnn_ztensor *zaTensors = malloc(numOfChunks * sizeof(struct zdnn_ztensor));
-  zdnn_ztensor *zoTensors = malloc(numOfChunks * sizeof(struct zdnn_ztensor));
-  splitZTensor(
-      inputA, axis, chunkSize, numOfChunks, chunkSizeInStick, true, zaTensors);
-  splitZTensor(
-      output, axis, chunkSize, numOfChunks, chunkSizeInStick, false, zoTensors);
+  splitZTensor(inputA, &splitInfoA, /*copyData=*/true);
+  splitZTensor(output, &splitInfoY, /*copyData=*/false);
   if (isDebug) {
     end_time = clock();
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
@@ -95,9 +92,9 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Call zdnn_matmul_op on each chunk.
   if (isDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < numOfChunks; ++i) {
-    status = call_zdnn_matmul_op(
-        zaTensors + i, inputB, inputC, opType, zoTensors + i, isBcast);
+  for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
+    status = call_zdnn_matmul_op(splitInfoA.tensors + i, inputB, inputC, opType,
+        splitInfoY.tensors + i, isBcast);
     assert(status == ZDNN_OK);
   }
   if (isDebug) {
@@ -108,24 +105,17 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Merging the chunks into the output.
   if (isDebug)
     start_time = clock();
-  mergeZTensors(zoTensors, axis, numOfChunks, chunkSizeInStick, output);
+  mergeZTensors(&splitInfoY, output);
   if (isDebug) {
     end_time = clock();
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Free the chunks.
-  for (uint32_t i = 0; i < numOfChunks; ++i) {
-    status = freeZTensorChunk(zaTensors + i);
-    assert(status == ZDNN_OK && "Failed to freeZTensorChunk");
-    status = freeZTensorChunk(zoTensors + i);
-    assert(status == ZDNN_OK && "Failed to freeZTensorChunk");
-  }
-  free(zaTensors);
-  free(zoTensors);
+  freeSplitInfoBuffer(&splitInfoA);
+  freeSplitInfoBuffer(&splitInfoY);
 
   if (isDebug)
-    printf("split: %f, mm: %f, merge: %f (milliseconds)\n", splitTime, mmTime,
+    printf("split, %f, mm, %f, merge, %f (milliseconds)\n", splitTime, mmTime,
         mergeTime);
 
   assert(status == ZDNN_OK && "Failed to call zdnn_matmul_op");
