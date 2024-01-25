@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 
-############# PyOMExecutionSession.py #######################################
+############# PyOMRuntime.py #######################################
 #
 # Copyright 2021-2023 The IBM Research Authors.
 #
 ################################################################################
-# commom class `PyOMExecutionSession` called by python scripts
+# commom class `PyOMRuntime` called by python scripts
 ################################################################################
 import numpy as np
 
 try:
-    from PyRuntime import OMExecutionSession
+    from PyRuntimeC import OMExecutionSession as OMExecutionSession_
 except ImportError:
     raise ImportError(
-        "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`."
-        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
+        "Looks like you did not build the PyRuntimeC target, build it by running `make PyRuntimeC`."
+        "You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntimeC` outputs to `build/Debug` by default"
     )
 
 
-class PyOMExecutionSession(OMExecutionSession):
+class OMExecutionSession(OMExecutionSession_):
     def run(self, inputs):
         # Prepare arguments to call sess.run
         pyrun_inputs = []
@@ -28,6 +28,6 @@ class PyOMExecutionSession(OMExecutionSession):
             pyrun_inputs.append(inp.ravel())
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
-        return super(PyOMExecutionSession, self).run(
+        return super(OMExecutionSession, self).run(
             pyrun_inputs, pyrun_shapes, pyrun_strides
         )

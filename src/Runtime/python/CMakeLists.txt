@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 file(GENERATE
-  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/PyOMExecutionSession.py
-  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyOMExecutionSession.py
+  OUTPUT ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/PyRuntime.py
+  INPUT ${CMAKE_CURRENT_SOURCE_DIR}/PyRuntime.py
   )
 
 # TODO: Remove pybind11::python_link_helper after cmake version bumped to 3.16+
@@ -49,41 +49,41 @@ target_include_directories(OMPyExecutionSessionBase
 #
 #   - onnx_cpp2py_export.cpython-39-s390x-linux-gnu.so
 #     (import onnx)
-#   - PyRuntime.cpython-39-s390x-linux-gnu.so
-#     (from PyRuntime import OMExecutionSession)
+#   - PyRuntimeC.cpython-39-s390x-linux-gnu.so
+#     (from PyRuntimeC import OMExecutionSession)
 #
 # Both libs share the same libprotobuf.so when loaded by test.py.
 # However, they were both built with the same onnx-ml.pb.cc generated
 # from onnx-ml.proto and the protobuf runtime requires all compiled-in
 # .proto files have unique names. Hence the error.
 #
-# PyRuntime doesn't really need onnx beyond the onnx::TensorProto::*
+# PyRuntimeC doesn't really need onnx beyond the onnx::TensorProto::*
 # types so we remove onnx from its target_link_libraries. But that
 # also removes some of the compile definitions and include directories
 # which we add back through target_compile_definitions and
 # target_include_directories.
-pybind11_add_module(PyRuntime PyExecutionSession.cpp)
-add_dependencies(PyRuntime onnx_proto)
-target_compile_options(PyRuntime
+pybind11_add_module(PyRuntimeC PyExecutionSession.cpp)
+add_dependencies(PyRuntimeC onnx_proto)
+target_compile_options(PyRuntimeC
   PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-frtti -fexceptions>
   $<$<CXX_COMPILER_ID:MSVC>:/EHsc /GR>
   )
-target_compile_definitions(PyRuntime
+target_compile_definitions(PyRuntimeC
   PRIVATE
   $<TARGET_PROPERTY:onnx,COMPILE_DEFINITIONS>
   )
-target_include_directories(PyRuntime
+target_include_directories(PyRuntimeC
   PRIVATE
   $<TARGET_PROPERTY:onnx,INCLUDE_DIRECTORIES>
   )
-target_link_libraries(PyRuntime
+target_link_libraries(PyRuntimeC
   PRIVATE
   OMPyExecutionSessionBase
   )
-llvm_update_compile_flags(PyRuntime)
+llvm_update_compile_flags(PyRuntimeC)
 
-install(TARGETS PyRuntime
+install(TARGETS PyRuntimeC
   DESTINATION lib
   )
 

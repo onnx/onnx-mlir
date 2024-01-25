@@ -78,8 +78,12 @@ class InferenceSession:
         )
         self.RUNTIME_DIR = os.path.join(self.ONNX_MLIR_HOME, "lib")
         sys.path.append(self.RUNTIME_DIR)
-        from PyOMExecutionSession import PyOMExecutionSession
-
+        try:
+            from PyRuntime import OMExecutionSession
+        except ImportError:
+            raise ImportError(
+                "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`.You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
+            )
         # Initialize status
         self.compiled = False
         self.loaded = False
@@ -113,14 +117,19 @@ class InferenceSession:
         self.compiled = True
 
     def loadSession(self):
-        from PyOMExecutionSession import PyOMExecutionSession
+        try:
+            from PyRuntime import OMExecutionSession
+        except ImportError:
+            raise ImportError(
+                "Looks like you did not build the PyRuntime target, build it by running `make PyRuntime`.You may need to set ONNX_MLIR_HOME to `onnx-mlir/build/Debug` since `make PyRuntime` outputs to `build/Debug` by default"
+            )
 
         # Use the generated shared library to create an execution session.
 
         print("Loading the compiled model ...")
         start = time.perf_counter()
         shared_lib_path = os.path.join(self.temp_dir.name, self.temp_lib_name + ".so")
-        self.sess = PyOMExecutionSession(shared_lib_path)
+        self.sess = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("load took ", end - start, " seconds.\n")
         self.loaded = True
