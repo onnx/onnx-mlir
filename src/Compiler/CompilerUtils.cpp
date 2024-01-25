@@ -134,7 +134,7 @@ int Command::exec(std::string wdir) const {
   }
 
   if (VerboseOutput)
-    llvm::errs() << "[" << llvm::StringRef(new_wdir).str() << "]" << _path
+    llvm::outs() << "[" << llvm::StringRef(new_wdir).str() << "] " << _path
                  << ": " << llvm::join(argsRef, " ") << "\n";
 
   std::string errMsg;
@@ -705,7 +705,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
     if (VerboseOutput)
       printf(
-          "Object file %s has been compiled.\n", modelObjNameWithExt.c_str());
+          "Object file '%s' has been compiled.\n", modelObjNameWithExt.c_str());
   } break;
   case EmitLib: {
     std::string sharedLibNameWithExt;
@@ -719,7 +719,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
         return rc;
     }
     if (VerboseOutput)
-      printf("Shared library %s has been compiled.\n",
+      printf("Shared library '%s' has been compiled.\n",
           sharedLibNameWithExt.c_str());
   } break;
   case EmitJNI: {
@@ -733,7 +733,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
     if (VerboseOutput)
       printf(
-          "JNI archive %s.jar has been compiled.\n", outputNameNoExt.c_str());
+          "JNI archive '%s.jar' has been compiled.\n", outputNameNoExt.c_str());
   } break;
   default: {
     // Emit the version with all constants included.

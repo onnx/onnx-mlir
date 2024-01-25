@@ -720,6 +720,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // - One to do reduction, and
     // - One to compute mean (optional).
 
+    // Parallelism only if output is not a scalar.
+    if (outRank == 0)
+      enableParallel = false;
+
     // 1. Define loops to initialize the result.
     // Todo: consider using a krnl.memset
     ValueRange loop1Def = create.krnl.defineLoops(outRank);
@@ -878,6 +882,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
 
+    // Parallelism only if output is not a scalar.
+    if (flatOutRank == 0)
+      enableParallel = false;
+
     // Compute type of alloca a small temp vector.
     MemRefType tmpType = MemRefType::get({1, VL}, elementType);
     // Define loops for input dimensions, blocking the inner dim by VL
@@ -1000,6 +1008,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Flat output should have all but the flattened SIMD loop, so there should
     // only be a 1 rank difference between the two.
     assert(flatOutRank == flatInRank - 1 && "wrong assumptions about dims");
+
+    // Parallelism only if output is not a scalar.
+    if (flatOutRank == 0)
+      enableParallel = false;
 
     // Compute type of small temp vector.
     MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
