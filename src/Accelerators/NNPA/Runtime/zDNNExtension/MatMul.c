@@ -79,7 +79,7 @@ zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   double mergeTime = 0.;
   clock_t start_time, end_time;
 
-  // Split input A along the second innermost axis into chunks.
+  // Split input A into chunks.
   if (isDebug)
     start_time = clock();
   splitZTensor(inputA, &splitInfoA, /*copyData=*/true);

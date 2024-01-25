@@ -28,7 +28,7 @@ uint32_t ZTensorSplitSizeFromEnv() {
   const char *s = getenv("OM_ZTENSOR_SPLIT_SIZE");
   if (s)
     cs = atoi(s);
-  assert(cs % AIU_STICKS_PER_PAGE == 0);
+  assert(cs % AIU_STICKS_PER_PAGE == 0 && "Chunk size is not multiple of 32");
   if (ZTensorSplitDebugFromEnv())
     printf("OM_ZTENSOR_SPLIT_SIZE: %d\n", cs);
   return cs;
