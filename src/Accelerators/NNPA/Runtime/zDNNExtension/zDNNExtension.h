@@ -52,6 +52,12 @@ typedef struct zTensorShape {
   uint32_t dim1;
 } zTensorShape;
 
+typedef struct ChunkInfo {
+  uint32_t axis;
+  uint32_t size;
+  uint32_t sizeInStick;
+} ChunkInfo;
+
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
@@ -60,14 +66,17 @@ uint32_t ZTensorSplitSizeFromEnv();
 bool ZTensorSplitEnabledFromEnv();
 bool ZTensorSplitDebugFromEnv();
 
-void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape);
-zdnn_status allocZTensorInDim2(
-    const zdnn_ztensor *input, uint32_t chunkSize, zdnn_ztensor *output);
+zdnn_status allocZTensorChunk(const zdnn_ztensor *input, uint32_t axis,
+    uint32_t chunkSize, zdnn_ztensor *output);
 zdnn_status freeZTensorChunk(zdnn_ztensor *t);
-void copyZTensorInDim2(zdnn_ztensor *output, const zdnn_ztensor *input,
-    uint32_t offset, bool fromChunk);
-void copyZTensorInDim2Scalar(zdnn_ztensor *output, const zdnn_ztensor *input,
-    uint32_t offset, bool fromChunk);
+
+void getSplitInfo(const zdnn_ztensor *input, uint32_t axis, uint32_t chunkSize,
+    uint32_t *numOfChunks, uint32_t *chunkSizeInStick);
+bool splitZTensor(const zdnn_ztensor *input, uint32_t axis, uint32_t chunkSize,
+    uint32_t numOfChunks, uint32_t chunkSizeInStick, bool copyData,
+    zdnn_ztensor *chunks);
+void mergeZTensors(const zdnn_ztensor *chunks, uint32_t axis,
+    uint32_t numOfChunks, uint32_t chunkSizeInStick, zdnn_ztensor *output);
 
 // -----------------------------------------------------------------------------
 // Extension Functions
