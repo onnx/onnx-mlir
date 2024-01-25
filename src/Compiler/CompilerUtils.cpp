@@ -4,7 +4,7 @@
 
 //===-------------------------- CompilerUtils.cpp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompilerUtils.hpp"
+
+#include <regex>
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -60,7 +62,7 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {
-  // When wanting to preserve all files, do it regardles of isBitcode.
+  // When wanting to preserve all files, do it regardless of isBitcode.
   if (overridePreserveFiles == KeepFilesOfType::All)
     return true;
   // When file is bitcode, check the runtime flag preserveBitcode.
@@ -269,7 +271,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
     exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
   }
-  // Entry point funtions.
+  // Entry point fuctions.
   if (llvm::GlobalVariable *GV =
           llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
@@ -907,4 +909,57 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     return CompilerFailure;
   return emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
 }
+
+// =============================================================================
+// Support for enabled ops by regexp option
+// =============================================================================
+
+void EnableByRegexpOption::setRegexpString(std::string regexpString) {
+  // Empty string indicates that all ops are allowed (nothing was specified).
+  if (regexpString.empty()) {
+    allEnabled = true;
+    return;
+  }
+  assert(nameCache.empty() && "can set regexp string only before any queries");
+
+  // We have a finite list of regexp, preprocess them now.
+  allEnabled = false;
+  // Lifted from the InstrumentPass.cpp original implementation.
+  // Separate multiple expressions with space.
+  regexpString = std::regex_replace(regexpString, std::regex(","), " ");
+  // The '.' character in regexp string is recognized as normal character, not
+  // regular expression.
+  regexpString = std::regex_replace(regexpString, std::regex("\\."), "\\.");
+  // The '*' character in regexp string is recognized as '.*' pattern.
+  regexpString = std::regex_replace(regexpString, std::regex("\\*"), ".*");
+  std::stringstream ss(regexpString);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  // Create the set of regexp defined by the original regexpString.
+  regexpOfAllowedNames = std::set<std::string>(begin, end);
+}
+
+bool EnableByRegexpOption::isEnabled(const std::string &name) {
+  if (allEnabled)
+    return true;
+  // Now check if we have already seen this op.
+  std::map<std::string, bool>::iterator it = nameCache.find(name);
+  if (it != nameCache.end())
+    return it->second;
+
+  // We have not seen this op, then test using the regexp and cache answer.
+  for (auto itr = regexpOfAllowedNames.begin();
+       itr != regexpOfAllowedNames.end(); ++itr) {
+    std::regex re(*itr);
+    if (std::regex_match(name, re)) {
+      // We have a match, cache and return true.
+      nameCache[name] = true;
+      return true;
+    }
+  }
+  // We did not find a match; cache and return false.
+  nameCache[name] = false;
+  return false;
+}
+
 } // namespace onnx_mlir

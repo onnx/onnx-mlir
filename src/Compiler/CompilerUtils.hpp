@@ -4,7 +4,7 @@
 
 //===-------------------------- CompilerUtils.hpp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -21,7 +21,9 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 
+#include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -78,4 +80,34 @@ int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
 // depending on the underlying machine and/or operating system.
 std::string getTargetFilename(
     const std::string filenameNoExt, EmissionTargetType target);
+
+// Class that takes a list of comma separated regexp expression to define a set
+// of names that are "enabled" or not by a given compiler option. The
+// "isEnabled(name)" function let a user determine if that name satisfies any of
+// the regexps or not. Class uses caching to reduce overheads.
+class EnableByRegexpOption {
+public:
+  // Constructor provides a string that is comma separated list of regexps.
+  // These regexps will determine which names are enabled or disabled by the
+  // option. Empty regexpString signify all names are enabled. The '.' char is
+  // treated as a regular char (aka "\."); and the  '*' char is treated as a any
+  // string sequence (aka ".*").
+  EnableByRegexpOption(std::string regexpString = std::string()) {
+    setRegexpString(regexpString);
+  }
+
+  // Delayed initialization of the list of regexps, permissible prior a first
+  // "isEnabled" query.
+  void setRegexpString(std::string regexpString);
+
+  // Returns true/false depending on wether that name matches any of the
+  // regexps.
+  bool isEnabled(const std::string &name);
+
+private:
+  bool allEnabled; // Short-circuit test when all names are enabled.
+  std::set<std::string> regexpOfAllowedNames; // List of regexps.
+  std::map<std::string, bool> nameCache; // Map of name -> enabled/disabled.
+};
+
 } // namespace onnx_mlir
