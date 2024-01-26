@@ -366,7 +366,8 @@ static llvm::cl::opt<std::string, true> mllvmOpt("mllvm",
 
 static llvm::cl::opt<std::string, true> instrumentOpsOpt("instrument-ops",
     llvm::cl::desc("Specify operations to be instrumented:\n"
-                   "\"NONE\" or \"\" for no instrument,\n"
+                   "\"NONE\" or \"\" for no instrument (default),\n"
+                   "\"ALL\" for instrument of all ops,\n"
                    "\"ops1,ops2, ...\" for the multiple ops.\n"
                    "e.g. \"onnx.Conv,onnx.Add\" for Conv and Add ops.\n"
                    "Asterisk is also available.\n"
@@ -388,7 +389,8 @@ static llvm::cl::bits<InstrumentActions, unsigned> instrumentControlBitsOpt(
 
 static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
     llvm::cl::desc("Specify explicitly which operations to parallelize:\n"
-                   "\"\" for all available operations (default),\n"
+                   "\"ALL\" or \"\" for all available operations (default),\n"
+                   "\"NONE\" for no instrument,\n"
                    "\"ops1,ops2, ...\" for the multiple ops.\n"
                    "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
                    "Asterisk is also available.\n"

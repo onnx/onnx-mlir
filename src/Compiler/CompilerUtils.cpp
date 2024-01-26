@@ -914,21 +914,33 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 // Support for enabled ops by regexp option
 // =============================================================================
 
-EnableByRegexpOption::EnableByRegexpOption(std::string regexpString) {
+EnableByRegexpOption::EnableByRegexpOption(
+    bool emptyIsNone, std::string regexpString)
+    : emptyIsNone(emptyIsNone) {
   setRegexpString(regexpString);
 }
 
 void EnableByRegexpOption::setRegexpString(std::string regexpString) {
-  // Empty string indicates that all ops are allowed (nothing was specified).
-  if (regexpString.empty()) {
-    allEnabled = true;
-    return;
-  }
   assert(nameCache.empty() && "can set regexp string only before any queries");
+  allEnabled = allDisabled = false;
+  if (regexpString.empty()) {
+    if (emptyIsNone)
+      allDisabled = true;
+    else
+      allEnabled = true;
+  } else {
+    if (regexpString.find("NONE") != std::string::npos)
+      allDisabled = true;
+    if (regexpString.find("ALL") != std::string::npos)
+      allEnabled = true;
+  }
+  assert(!(allDisabled && allEnabled) && "cannot have both ALL and NONE");
+  if (allDisabled || allEnabled)
+    // No need to scan regexps.
+    return;
 
-  // We have a finite list of regexp, preprocess them now.
-  allEnabled = false;
-  // Lifted from the InstrumentPass.cpp original implementation.
+  // We have a finite list of regexp, preprocess them now. Lifted from the
+  // InstrumentPass.cpp original implementation.
   // Separate multiple expressions with space.
   regexpString = std::regex_replace(regexpString, std::regex(","), " ");
   // The '.' character in regexp string is recognized as normal character, not
@@ -946,6 +958,8 @@ void EnableByRegexpOption::setRegexpString(std::string regexpString) {
 bool EnableByRegexpOption::isEnabled(const std::string &name) {
   if (allEnabled)
     return true;
+  if (allDisabled)
+    return false;
   // Now check if we have already seen this op.
   std::map<std::string, bool>::iterator it = nameCache.find(name);
   if (it != nameCache.end()) {

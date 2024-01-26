@@ -67,10 +67,12 @@ public:
       llvm::cl::desc("instrument runtime reports memory usage"),
       llvm::cl::init(false)};
 
-  InstrumentPass() = default;
+  InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
-      : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(const std::string &ops, unsigned actions) {
+      : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>(),
+        allowedOps(/*emptyIsNone*/ true) {}
+  InstrumentPass(const std::string &ops, unsigned actions)
+      : allowedOps(/*emptyIsNone*/ true) {
     this->instrumentOps = ops;
     unsigned long long tag = actions;
     this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);

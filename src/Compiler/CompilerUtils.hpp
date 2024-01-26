@@ -85,14 +85,21 @@ std::string getTargetFilename(
 // of names that are "enabled" or not by a given compiler option. The
 // "isEnabled(name)" function let a user determine if that name satisfies any of
 // the regexps or not. Class uses caching to reduce overheads.
+//
+// List of regexp have the following properties.
+// The presence of presence of "NONE" signifies that all names are disabled. The
+// presence of "ALL" signifies that all names are enabled. A '.' char is treated
+// as a regular char (aka "\."); and a '*' char is treated as a any string
+// sequence (aka ".*").
 class EnableByRegexpOption {
 public:
-  // Constructor provides a string that is comma separated list of regexps.
+  EnableByRegexpOption() = delete;
+  // Constructor provides a string that is a comma separated list of regexps.
   // These regexps will determine which names are enabled or disabled by the
-  // option. Empty regexpString signify all names are enabled. The '.' char is
-  // treated as a regular char (aka "\."); and the  '*' char is treated as a any
-  // string sequence (aka ".*").
-  EnableByRegexpOption(std::string regexpString = std::string());
+  // option. The emptyIsNone defines what to do when the provided string is
+  // empty.
+  EnableByRegexpOption(
+      bool emptyIsNone, std::string regexpString = std::string());
   // Delayed initialization of the list of regexps, permissible prior to a first
   // "isEnabled" query.
   void setRegexpString(std::string regexpString);
@@ -100,13 +107,12 @@ public:
   // Returns true/false depending on wether that name matches any of the
   // regexps.
   bool isEnabled(const std::string &name);
-  bool isEnabled(const llvm::StringRef &name) {
-    // Use the actual name only when it is actually needed.
-    return allEnabled || isEnabled(name.str());
-  }
+  bool isEnabled(const llvm::StringRef &name) { return isEnabled(name.str()); }
 
 private:
-  bool allEnabled; // Short-circuit test when all names are enabled.
+  bool emptyIsNone; // If true, empty string is NONE; otherwise empty is ALL.
+  bool allEnabled;  // Short-circuit test when all names are enabled.
+  bool allDisabled; // Short-circuit test when all names are disabled.
   std::set<std::string> regexpOfAllowedNames; // List of regexps.
   std::map<std::string, bool> nameCache; // Map of name -> enabled/disabled.
 };
