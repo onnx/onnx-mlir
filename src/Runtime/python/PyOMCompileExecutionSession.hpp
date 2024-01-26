@@ -42,7 +42,7 @@ private:
 };
 } // namespace onnx_mlir
 
-PYBIND11_MODULE(PyCompileAndRuntime, m) {
+PYBIND11_MODULE(PyCompileAndRuntimeC, m) {
   m.doc() = "OMCompileExecutionSession enables users to compile and run an "
             "ONNX model in a python script.";
   py::class_<onnx_mlir::PyOMCompileExecutionSession>(
