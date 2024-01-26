@@ -353,7 +353,7 @@ double analyzeSimdFor<ONNXGeluOp>(
         {1, 1, 3}, t, von, son);
   if (approximate.equals_insensitive("tanh"))
     return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
-                               GenericOps::TrigHyperbolicGop},
+                            GenericOps::TrigHyperbolicGop},
         {2, 5, 1}, t, von, son);
   llvm_unreachable("approximate should be only none or tanh");
 }
