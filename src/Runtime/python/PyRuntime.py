@@ -11,6 +11,7 @@ import numpy as np
 
 try:
     from PyRuntimeC import OMExecutionSession as OMExecutionSession_
+    from PyRuntimeC import OMCompileExecutionSession as OMCompileExecutionSession_
 except ImportError:
     raise ImportError(
         "Looks like you did not build the PyRuntimeC target, build it by running `make PyRuntimeC`."
@@ -29,5 +30,20 @@ class OMExecutionSession(OMExecutionSession_):
             pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
             pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
         return super(OMExecutionSession, self).run(
+            pyrun_inputs, pyrun_shapes, pyrun_strides
+        )
+
+
+class OMCompileExecutionSession(OMCompileExecutionSession_):
+    def run(self, inputs):
+        # Prepare arguments to call sess.run
+        pyrun_inputs = []
+        pyrun_shapes = []
+        pyrun_strides = []
+        for inp in inputs:
+            pyrun_inputs.append(inp.ravel())
+            pyrun_shapes.append(np.array(inp.shape, dtype=np.int64))
+            pyrun_strides.append(np.array(inp.strides, dtype=np.int64))
+        return super(OMCompileExecutionSession, self).run(
             pyrun_inputs, pyrun_shapes, pyrun_strides
         )
