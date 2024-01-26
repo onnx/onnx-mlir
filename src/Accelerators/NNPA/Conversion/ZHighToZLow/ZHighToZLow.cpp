@@ -1598,8 +1598,7 @@ struct ZHighToZLowDataConversionLowering
 
   ZHighToZLowDataConversionLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, bool fromF32, bool enableParallel)
-      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32),
-        enableParallel(enableParallel) {
+      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(

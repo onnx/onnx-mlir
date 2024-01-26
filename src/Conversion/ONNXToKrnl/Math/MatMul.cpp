@@ -33,8 +33,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD,
       bool enableParallel)
       : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
-        enableTiling(enableTiling), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {
+        enableTiling(enableTiling), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(

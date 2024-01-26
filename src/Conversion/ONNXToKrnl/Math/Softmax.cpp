@@ -275,8 +275,7 @@ template <typename SoftmaxOp>
 struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
   ONNXSoftmaxLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx),
-        enableParallel(enableParallel) {
+      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(

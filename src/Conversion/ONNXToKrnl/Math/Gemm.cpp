@@ -36,8 +36,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
   ONNXGemmOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableTiling, bool enableSIMD, bool enableParallel)
       : OpConversionPattern<GemmOp>(typeConverter, ctx),
-        enableTiling(enableTiling), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {
+        enableTiling(enableTiling), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(

@@ -97,7 +97,7 @@ public:
   // Constructor provides a string that is a comma separated list of regex.
   // These regex will determine which names are enabled or disabled by the
   // option. The emptyIsNone defines what to do when the provided string is
-  // empty.
+  // empty. If true, empty string means NONE; if false, empty string means ALL.
   EnableByRegexOption(
       bool emptyIsNone, std::string regexString = std::string());
   // Delayed initialization of the list of regex, permissible prior to a first
@@ -114,7 +114,7 @@ private:
   bool allEnabled;  // Short-circuit test when all names are enabled.
   bool allDisabled; // Short-circuit test when all names are disabled.
   std::set<std::string> regexOfAllowedNames; // List of regex.
-  std::map<std::string, bool> nameCache; // Map of name -> enabled/disabled.
+  std::map<std::string, bool> nameCache;     // Map of name -> enabled/disabled.
 };
 
 } // namespace onnx_mlir

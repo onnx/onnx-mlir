@@ -339,8 +339,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   ONNXReductionOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableSIMD, bool enableParallel, bool computeMean = false)
       : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD), computeMean(computeMean),
-        enableParallel(enableParallel) {
+        enableSIMD(enableSIMD), computeMean(computeMean) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(

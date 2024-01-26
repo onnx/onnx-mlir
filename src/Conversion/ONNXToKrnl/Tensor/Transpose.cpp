@@ -28,8 +28,7 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
 
   ONNXTransposeOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {
+      : OpConversionPattern(typeConverter, ctx) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(

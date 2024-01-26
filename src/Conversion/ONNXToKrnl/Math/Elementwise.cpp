@@ -2034,8 +2034,7 @@ struct ONNXElementwiseUnaryOpLowering
   ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2217,7 +2216,7 @@ struct ONNXElementwiseBinaryOpLowering
       bool isUniBroadcasting = false, bool enableParallel = false)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
         dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        isUniBroadcasting(isUniBroadcasting), enableParallel(enableParallel) {
+        isUniBroadcasting(isUniBroadcasting) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2396,8 +2395,7 @@ struct ONNXElementwiseVariadicOpLowering
       MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
       bool enableParallel)
       : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -2583,8 +2581,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
       : ConversionPattern(
             typeConverter, ONNXWhereOp::getOperationName(), 1, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
