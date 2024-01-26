@@ -10,7 +10,9 @@
 import numpy as np
 
 try:
-    from PyCompileAndRuntimeC import OMCompileExecutionSession as OMCompileExecutionSession_
+    from PyCompileAndRuntimeC import (
+        OMCompileExecutionSession as OMCompileExecutionSession_,
+    )
 except ImportError:
     raise ImportError(
         "Looks like you did not build the PyCompileAndRuntimeC target, build it by running `make PyCompileAndRuntimeC`."
