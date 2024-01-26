@@ -337,7 +337,7 @@ func.func @test_matmul_no_bcast_unstacked(%x: memref<2048xf16>,%y: memref<2048xf
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = 0 : si64, is_stacked = 0 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_no_bcast_unstacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -348,7 +348,7 @@ func.func @test_matmul_no_bcast_stacked(%x: memref<2048xf16>,%y: memref<2048xf16
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = 0 : si64, is_stacked = -1 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_no_bcast_stacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -359,7 +359,7 @@ func.func @test_matmul_bcast_stacked(%x: memref<2048xf16>,%y: memref<2048xf16>,%
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = -1 : si64, is_stacked = -1 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_bcast_stacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
@@ -370,7 +370,7 @@ func.func @test_matmul_bcast_unstacked(%x: memref<2048xf16>,%y: memref<2048xf16>
   "zlow.matmul"(%x, %y, %bias, %shape, %res) {is_bcast = -1 : si64, is_stacked = 0 : si64} : (memref<2048xf16>, memref<2048xf16>, memref<2048xf16>, memref<3xi64>, memref<2048xf16>) -> ()
   return %res : memref<2048xf16>
   // CHECK-LABEL: test_matmul_bcast_unstacked
-  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: %{{.*}} = llvm.call @zdnn_matmul_bcast_op_ext(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
