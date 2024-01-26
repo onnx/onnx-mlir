@@ -12,13 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#pragma once
+
 #include "zdnn.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define USE_PTHREAD 1
 
 // AIU parameters getting from zdnn_private.h.
 #define AIU_BYTES_PER_STICK 128
@@ -35,6 +35,10 @@ extern "C" {
 // zTensor splitting debug is off by default.
 #define DEFAULT_ZTENSOR_SPLIT_DEBUG 0
 
+extern bool OMZTensorSplitEnabled;
+extern bool OMZTensorSplitDebug;
+extern uint32_t OMZTensorSplitSize;
+
 // -----------------------------------------------------------------------------
 // Misc Macros
 // -----------------------------------------------------------------------------
@@ -44,6 +48,13 @@ extern "C" {
 // -----------------------------------------------------------------------------
 // Common structures
 // -----------------------------------------------------------------------------
+
+typedef struct OrigShape {
+  uint32_t e4;
+  uint32_t e3;
+  uint32_t e2;
+  uint32_t e1;
+} OrigShape;
 
 typedef struct zTensorShape {
   uint32_t dim6;
@@ -77,37 +88,34 @@ typedef struct SplitInfo {
 } SplitInfo;
 
 // -----------------------------------------------------------------------------
-// Query variable environments
+// Initialiation for zDNN extension
 // -----------------------------------------------------------------------------
 
 /**
- * \brief Get a value set by the variable environment OM_ZTENSOR_SPLIT_ENABLED.
+ * \brief Initialization for zDNN extension.
  */
-bool ZTensorSplitEnabledFromEnv();
-/**
- * \brief Get a value set by the variable environment OM_ZTENSOR_SPLIT_SIZE.
- */
-uint32_t ZTensorSplitSizeFromEnv();
-/**
- * \brief Get a value set by the variable environment OM_ZTENSOR_SPLIT_DEBUG.
- */
-bool ZTensorSplitDebugFromEnv();
+void zDNNExtensionInit();
 
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
 
 /**
+ * \brief Get the original shape of ztensor.
+ *
+ * @param input input ztensor
+ * @param shape shape information
+ */
+void getOrigShape(const zdnn_ztensor *t, OrigShape *shape);
+
+/**
  * \brief Initialize a SplitInfo struct.
  *
- * @param input input ztensor to split.
- * @param axis axis to split the input
- * @param chunkSize size of each chunk
- * @param splitInfo information of all chunks
- * @return true if the ztensor is splitable. Otherwise, false.
+ * @param input input ztensor to split
+ * @param splitInfo information for splitting
+ * @return true if the ztensor is splitable. Otherwise, false
  */
-bool initSplitInfo(const zdnn_ztensor *input, uint32_t axis, uint32_t chunkSize,
-    SplitInfo *splitInfo);
+bool initSplitInfo(const zdnn_ztensor *input, SplitInfo *splitInfo);
 
 /**
  * \brief Free buffers related to a SplitInfo struct.
