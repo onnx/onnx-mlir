@@ -4,7 +4,7 @@
 
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -276,7 +276,13 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
   ONNXSoftmaxLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern<SoftmaxOp>(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXSoftmaxOp::getOperationName());
+  }
+
   using OpAdaptor = typename SoftmaxOp::Adaptor;
   bool enableParallel = false;
 

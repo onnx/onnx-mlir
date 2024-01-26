@@ -914,6 +914,10 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 // Support for enabled ops by regexp option
 // =============================================================================
 
+EnableByRegexpOption::EnableByRegexpOption(std::string regexpString) {
+  setRegexpString(regexpString);
+}
+
 void EnableByRegexpOption::setRegexpString(std::string regexpString) {
   // Empty string indicates that all ops are allowed (nothing was specified).
   if (regexpString.empty()) {
@@ -944,8 +948,9 @@ bool EnableByRegexpOption::isEnabled(const std::string &name) {
     return true;
   // Now check if we have already seen this op.
   std::map<std::string, bool>::iterator it = nameCache.find(name);
-  if (it != nameCache.end())
+  if (it != nameCache.end()) {
     return it->second;
+  }
 
   // We have not seen this op, then test using the regexp and cache answer.
   for (auto itr = regexpOfAllowedNames.begin();

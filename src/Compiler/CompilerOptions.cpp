@@ -61,6 +61,7 @@ std::vector<std::string> Xllc;                         // onnx-mlir only
 std::string mllvm;                                     // onnx-mlir only
 std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
+std::string parallelizeOps;                            // onnx-mlir only
 bool instrumentONNXSignature;                          // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
@@ -364,7 +365,7 @@ static llvm::cl::opt<std::string, true> mllvmOpt("mllvm",
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string, true> instrumentOpsOpt("instrument-ops",
-    llvm::cl::desc("Specify operations operations to be instrumented:\n"
+    llvm::cl::desc("Specify operations to be instrumented:\n"
                    "\"NONE\" or \"\" for no instrument,\n"
                    "\"ops1,ops2, ...\" for the multiple ops.\n"
                    "e.g. \"onnx.Conv,onnx.Add\" for Conv and Add ops.\n"
@@ -383,6 +384,16 @@ static llvm::cl::bits<InstrumentActions, unsigned> instrumentControlBitsOpt(
             InstrumentReportTime, "instrument runtime reports time usage,"),
         clEnumVal(InstrumentReportMemory,
             "instrument runtime reports memory usage.")),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
+    llvm::cl::desc("Specify explicitly which operations to parallelize:\n"
+                   "\"\" for all available operations (default),\n"
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
+    llvm::cl::location(parallelizeOps), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> instrumentONNXSignatureOpt(

@@ -4,7 +4,7 @@
 
 //===-------------- Reduction.cpp - Lowering Reduction Ops ----------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -340,7 +340,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       bool enableSIMD, bool enableParallel, bool computeMean = false)
       : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx),
         enableSIMD(enableSIMD), computeMean(computeMean),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXReductionOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ONNXReductionOp reduceOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {

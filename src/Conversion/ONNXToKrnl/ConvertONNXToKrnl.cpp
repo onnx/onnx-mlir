@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -477,10 +477,12 @@ int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
 int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
 std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
 std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
+EnableByRegexpOption OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps;
 
 // Function to set default reporting messages, if any.
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
-    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
+    bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
+    bool simdIsEnabled) {
   OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
   OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
   if (reportOnParallel && !parallelIsEnabled)
@@ -497,6 +499,10 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
             "cpu with unspecified simd ISA";
     }
   }
+  if (parallelIsEnabled)
+    // We have parallelism, enable specific parallel ops if available.
+    OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexpString(
+        specificParallelOps);
 }
 
 } // namespace onnx_mlir

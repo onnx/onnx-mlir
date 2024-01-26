@@ -403,7 +403,12 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
       : OpConversionPattern<OP_TYPE>(typeConverter, ctx),
         dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            OP_TYPE::getOperationName());
+  }
 
   DimAnalysis *dimAnalysis;
   bool enableSIMD, enableParallel;

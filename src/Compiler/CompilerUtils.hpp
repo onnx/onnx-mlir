@@ -92,17 +92,18 @@ public:
   // option. Empty regexpString signify all names are enabled. The '.' char is
   // treated as a regular char (aka "\."); and the  '*' char is treated as a any
   // string sequence (aka ".*").
-  EnableByRegexpOption(std::string regexpString = std::string()) {
-    setRegexpString(regexpString);
-  }
-
-  // Delayed initialization of the list of regexps, permissible prior a first
+  EnableByRegexpOption(std::string regexpString = std::string());
+  // Delayed initialization of the list of regexps, permissible prior to a first
   // "isEnabled" query.
   void setRegexpString(std::string regexpString);
 
   // Returns true/false depending on wether that name matches any of the
   // regexps.
   bool isEnabled(const std::string &name);
+  bool isEnabled(const llvm::StringRef &name) {
+    // Use the actual name only when it is actually needed.
+    return allEnabled || isEnabled(name.str());
+  }
 
 private:
   bool allEnabled; // Short-circuit test when all names are enabled.

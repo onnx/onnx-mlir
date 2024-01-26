@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,7 +26,13 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
   ONNXConcatOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXConcatOp::getOperationName());
+  }
+
   bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXConcatOp concatOp,

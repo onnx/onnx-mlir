@@ -4,7 +4,7 @@
 
 //===----------------- Gemm.cpp - Lowering Gemm Op ------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -37,7 +37,12 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       bool enableTiling, bool enableSIMD, bool enableParallel)
       : OpConversionPattern<GemmOp>(typeConverter, ctx),
         enableTiling(enableTiling), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXGemmOp::getOperationName());
+  }
 
   using OpAdaptor = typename GemmOp::Adaptor;
   bool enableTiling;

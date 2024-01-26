@@ -4,7 +4,7 @@
 
 //===--------------- Conv.cpp - Lowering Convolution Op -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -23,7 +23,13 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
   ONNXConvOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+        enableParallel(enableParallel) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXConvOp::getOperationName());
+  }
+
   bool enableParallel;
 
   void convUnoptimized(ConversionPatternRewriter &rewriter, ONNXConvOp &convOp,
