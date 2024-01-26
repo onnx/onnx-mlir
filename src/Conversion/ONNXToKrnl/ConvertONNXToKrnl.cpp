@@ -19,6 +19,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 

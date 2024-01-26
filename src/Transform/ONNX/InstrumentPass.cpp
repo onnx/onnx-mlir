@@ -26,7 +26,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"

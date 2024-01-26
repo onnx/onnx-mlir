@@ -346,17 +346,16 @@ struct ScalarOp<ONNXGeluOp> {
 template <>
 double analyzeSimdFor<ONNXGeluOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  double results;
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
-    results = simdAnalysis(
+    return simdAnalysis(
         {GenericOps::ArithmeticGop, GenericOps::ErfGop, GenericOps::MulGop},
         {1, 1, 3}, t, von, son);
   if (approximate.equals_insensitive("tanh"))
-    results = simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+    return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
                                GenericOps::TrigHyperbolicGop},
         {2, 5, 1}, t, von, son);
-  return results;
+  llvm_unreachable("approximate should be only none or tanh");
 }
 
 template <>

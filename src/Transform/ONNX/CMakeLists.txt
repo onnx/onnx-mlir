@@ -54,7 +54,7 @@ add_onnx_mlir_library(OMInstrumentONNX
   OMONNXOps
   OMKrnlOps
   MLIRPass
-  OMCompilerUtils
+  OMOptionUtils
   )
 
 add_onnx_mlir_library(OMOpTransform
