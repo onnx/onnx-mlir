@@ -4,7 +4,7 @@
 
 //===------- InstrumentPass.cpp - Instrumentation ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -26,6 +26,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
@@ -66,10 +67,12 @@ public:
       llvm::cl::desc("instrument runtime reports memory usage"),
       llvm::cl::init(false)};
 
-  InstrumentPass() = default;
+  InstrumentPass() : allowedOps(/*emptyIsNone*/ true){};
   InstrumentPass(const InstrumentPass &pass)
-      : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>() {}
-  InstrumentPass(const std::string &ops, unsigned actions) {
+      : mlir::PassWrapper<InstrumentPass, OperationPass<func::FuncOp>>(),
+        allowedOps(/*emptyIsNone*/ true) {}
+  InstrumentPass(const std::string &ops, unsigned actions)
+      : allowedOps(/*emptyIsNone*/ true) {
     this->instrumentOps = ops;
     unsigned long long tag = actions;
     this->instrumentBefore = IS_INSTRUMENT_BEFORE_OP(tag);
@@ -79,25 +82,12 @@ public:
   }
 
 private:
-  std::set<std::string> allowedOps;
+  EnableByRegexOption allowedOps;
 
 public:
   StringRef getArgument() const override { return "instrument"; }
 
   StringRef getDescription() const override { return "instrument on ops."; }
-
-  void init(std::string allowedOps_) {
-    // Separate multiple expressions with space
-    allowedOps_ = std::regex_replace(allowedOps_, std::regex(","), " ");
-    // '.' in `--instrument-ops` is recognized as normal character, not regular
-    // expression
-    allowedOps_ = std::regex_replace(allowedOps_, std::regex("\\."), "\\.");
-    allowedOps_ = std::regex_replace(allowedOps_, std::regex("\\*"), ".*");
-    std::stringstream ss(allowedOps_);
-    std::istream_iterator<std::string> begin(ss);
-    std::istream_iterator<std::string> end;
-    allowedOps = std::set<std::string>(begin, end);
-  }
 
   // merge all action options into a bitset
   // used to create tags for instrumentation ops
@@ -131,7 +121,7 @@ public:
   void runOnOperation() override {
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
-    init(instrumentOps);
+    allowedOps.setRegexString(instrumentOps);
     bool hasInitializedRuntime = false;
 
     // Iterate on the operations nested in this function
@@ -150,30 +140,27 @@ public:
       if (op->getNumResults() == 1 && isa<NoneType>(op->getResult(0).getType()))
         return WalkResult::advance();
       std::string opName = op->getName().getStringRef().str();
-      for (auto itr = allowedOps.begin(); itr != allowedOps.end(); ++itr) {
-        std::regex re(*itr);
-        if (std::regex_match(opName, re)) {
-          Location loc = op->getLoc();
-          OpBuilder opBuilder(op);
-          if (instrumentBefore) {
-            uint64_t tag = beforeTag();
-            if (!hasInitializedRuntime) {
-              SET_INSTRUMENT_INIT(tag);
-              hasInitializedRuntime = true;
-            }
-            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+      if (allowedOps.isEnabled(opName)) {
+        Location loc = op->getLoc();
+        OpBuilder opBuilder(op);
+        if (instrumentBefore) {
+          uint64_t tag = beforeTag();
+          if (!hasInitializedRuntime) {
+            SET_INSTRUMENT_INIT(tag);
+            hasInitializedRuntime = true;
           }
+          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+        }
 
-          // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
-          if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
-            opBuilder.setInsertionPointAfter(op);
-            uint64_t tag = afterTag();
-            if (!hasInitializedRuntime) {
-              SET_INSTRUMENT_INIT(tag);
-              hasInitializedRuntime = true;
-            }
-            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+        // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
+        if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
+          opBuilder.setInsertionPointAfter(op);
+          uint64_t tag = afterTag();
+          if (!hasInitializedRuntime) {
+            SET_INSTRUMENT_INIT(tag);
+            hasInitializedRuntime = true;
           }
+          opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
         }
       }
       return WalkResult::advance();

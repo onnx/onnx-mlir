@@ -4,7 +4,7 @@
 
 //===----------------- Softmax.cpp - Softmax Op ---------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -126,7 +126,7 @@ template <typename T>
 void emitInstForSoftmax(ConversionPatternRewriter &rewriter, Operation *op,
     Location loc, Value alloc, Value input, MemRefType scalarMemRefType,
     Value sumOp, Value maxOp, Value zero, Value negInfinity, int64_t axis,
-    bool useParallel) = delete;
+    bool enableParallel) = delete;
 
 // For Softmax opset < 13, `axis` is the coerced point. All dimensions
 // after `axis` will be logically coerced into a single dimension.
@@ -134,7 +134,7 @@ template <>
 void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     Operation *op, Location loc, Value alloc, Value input,
     MemRefType scalarMemRefType, Value sumOp, Value maxOp, Value zero,
-    Value negInfinity, int64_t axis, bool useParallel) {
+    Value negInfinity, int64_t axis, bool enableParallel) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
@@ -149,7 +149,7 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
   // dimensions. The outer loop is only created once `axis` is not
   // zero.
   if (axis == 0) {
-    assert(!useParallel && "only outer loop parallelism at this time");
+    assert(!enableParallel && "only outer loop parallelism at this time");
     // There is no need having outer loops.
     // Reset accumulators.
     create.krnl.store(zero, sumOp, ArrayRef<Value>{});
@@ -170,7 +170,7 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
     SmallVector<IndexExpr, 4> outerUbs;
     for (int i = 0; i < axis; ++i)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
-    if (useParallel) {
+    if (enableParallel) {
       assert(axis > 0 && "bad assumption");
       create.krnl.parallel(outerLoops[0]);
       onnxToKrnlParallelReport(
@@ -184,7 +184,7 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
               create(ck);
           IndexExprScope ieScope(ck);
 
-          if (useParallel) {
+          if (enableParallel) {
             // Temporary results must be private when parallel. Use alloca here
             // as scalars are small.
             sumOp = create.mem.alignedAlloca(scalarMemRefType);
@@ -215,7 +215,7 @@ template <>
 void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     Operation *op, Location loc, Value alloc, Value input,
     MemRefType scalarMemRefType, Value sumOp, Value maxOp, Value zero,
-    Value negInfinity, int64_t axis, bool useParallel) {
+    Value negInfinity, int64_t axis, bool enableParallel) {
   int64_t rank = alloc.getType().cast<MemRefType>().getRank();
 
   MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
@@ -225,7 +225,7 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
 
   // Parallel only if output is not a scalar.
   if (rank - 1 == 0)
-    useParallel = false;
+    enableParallel = false;
 
   // Outer loops iterate over all dimensions except axis.
   ValueRange outerLoops = create.krnl.defineLoops(rank - 1);
@@ -235,7 +235,7 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
     if (i != axis)
       outerUbs.emplace_back(create.krnlIE.getShapeAsDim(input, i));
 
-  if (useParallel) {
+  if (enableParallel) {
     create.krnl.parallel(outerLoops[0]);
     onnxToKrnlParallelReport(op, true, 0, outerLbs[0], outerUbs[0], "softmax");
     LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Softmax \n");
@@ -248,7 +248,7 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
             create(ck);
         IndexExprScope ieScope(ck);
 
-        if (useParallel) {
+        if (enableParallel) {
           // Temporary results must be private when parallel. Use alloca here as
           // scalars are small.
           sumOp = create.mem.alignedAlloca(scalarMemRefType);
@@ -275,8 +275,13 @@ template <typename SoftmaxOp>
 struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
   ONNXSoftmaxLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+      : OpConversionPattern<SoftmaxOp>(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXSoftmaxOp::getOperationName());
+  }
+
   using OpAdaptor = typename SoftmaxOp::Adaptor;
   bool enableParallel = false;
 
@@ -304,7 +309,9 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
     assert(axis >= -rank && axis <= rank - 1);
     // Since we parallelize the outer loops only at this time, disable the case
     // where there is no outer loops at all.
-    bool useParallel = enableParallel && (axis > 0);
+    bool enableParallelLocal = enableParallel;
+    if (axis <= 0)
+      enableParallelLocal = false;
 
     // Insert an allocation and deallocation for the result of this operation.
     Type elementType = memRefType.getElementType();
@@ -314,7 +321,7 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
     // Insert allocations and deallocations for sum and max.
     MemRefType scalarMemRefType = MemRefType::get({}, elementType, {}, 0);
     Value sumOp, maxOp;
-    if (!useParallel) {
+    if (!enableParallelLocal) {
       // Temporary results must be private when parallel.
       sumOp = create.mem.alignedAlloc(scalarMemRefType);
       maxOp = create.mem.alignedAlloc(scalarMemRefType);
@@ -325,7 +332,8 @@ struct ONNXSoftmaxLowering : public OpConversionPattern<SoftmaxOp> {
         elementType, -std::numeric_limits<float>::infinity());
 
     emitInstForSoftmax<SoftmaxOp>(rewriter, op, loc, alloc, input,
-        scalarMemRefType, sumOp, maxOp, zero, negInfinity, axis, useParallel);
+        scalarMemRefType, sumOp, maxOp, zero, negInfinity, axis,
+        enableParallelLocal);
 
     rewriter.replaceOp(op, alloc);
     onnxToKrnlSimdReport(op);
