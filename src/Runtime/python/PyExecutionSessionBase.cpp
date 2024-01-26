@@ -77,7 +77,8 @@ void *generateOMTensorBufferForStringData(py::array pyArray) {
   for (int64_t i = 0; i < shape[0]; ++i)
     strLenTotal += strlen(vec[i].data()) + 1;
   dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
-  assert(dataBuffer && "fail to alloc bufferData for string data");
+  if (dataBuffer == NULL)
+    return NULL;
   char **strArray = (char **)dataBuffer;
   char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
   for (int64_t i = 0; i < shape[0]; ++i) {
@@ -106,10 +107,12 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
 
   // 1. Process inputs.
   std::vector<OMTensor *> omts;
-  assert((inputsPyArray.size() == shapesPyArray.size()) &&
-         "numbers of inputs and shapes should be the same");
-  assert((inputsPyArray.size() == stridesPyArray.size()) &&
-         "numbers of inputs and strides should be the same");
+  if (inputsPyArray.size() != shapesPyArray.size())
+    throw std::runtime_error(
+        reportPythonError("numbers of inputs and shapes should be the same"));
+  if (inputsPyArray.size() != stridesPyArray.size())
+    throw std::runtime_error(
+        reportPythonError("numbers of inputs and strides should be the same"));
   for (size_t argId = 0; argId < inputsPyArray.size(); argId++) {
     auto inputPyArray = inputsPyArray[argId];
     auto shapePyArray = shapesPyArray[argId];
@@ -192,6 +195,9 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
     OMTensor *inputOMTensor = NULL;
     if (dtype == ONNX_TYPE_STRING) {
       void *tensorBuffer = generateOMTensorBufferForStringData(inputPyArray);
+      if (tensorBuffer == NULL)
+        throw std::runtime_error(reportPythonError(
+            "fail to allocate Tensor buffer for string data"));
       inputOMTensor = omTensorCreateWithOwnership(
           tensorBuffer, shape, ndim, dtype, /*own_data=*/true);
 

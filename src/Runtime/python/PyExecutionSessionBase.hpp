@@ -36,6 +36,10 @@ public:
       bool defaultEntryPoint = true);
   std::vector<std::string> pyQueryEntryPoints();
   void pySetEntryPoint(std::string entryPointName);
+  // pyRun expects a vector of "numpy.ndarray" objects as the first argument,
+  // a vector of shapes of the objects as the second argument, and a vector of
+  // strides of the object as the third argument. All pyRun arguments should
+  // have the same length, otherwise python exceptions occur.
   std::vector<py::array> pyRun(const std::vector<py::array> &inputsPyArray,
       const std::vector<py::array> &shapesPyArray,
       const std::vector<py::array> &stridesPyArray);
