@@ -40,7 +40,7 @@ def print_usage(msg=""):
     dprint("  -o | --overhead: search for vector overhead patterns.")
     dprint("")
     dprint("  -f | --function pattern: investigate only functions whose name match")
-    dprint('                           the regexp pattern (default "^main_graph$").')
+    dprint('                           the regex pattern (default "^main_graph$").')
     dprint(
         "  -n | --num num:          investigate only that one occurrence num(default all)"
     )

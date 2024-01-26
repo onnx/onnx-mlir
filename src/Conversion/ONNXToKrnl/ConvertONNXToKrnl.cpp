@@ -477,7 +477,7 @@ int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
 int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
 std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
 std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
-EnableByRegexpOption OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps(
+EnableByRegexOption OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps(
     /*emptyIsNone*/ false);
 
 // Function to set default reporting messages, if any.
@@ -502,7 +502,7 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
   }
   if (parallelIsEnabled)
     // We have parallelism, enable specific parallel ops if available.
-    OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexpString(
+    OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexString(
         specificParallelOps);
 }
 

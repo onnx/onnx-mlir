@@ -82,7 +82,7 @@ public:
   }
 
 private:
-  EnableByRegexpOption allowedOps;
+  EnableByRegexOption allowedOps;
 
 public:
   StringRef getArgument() const override { return "instrument"; }
@@ -121,7 +121,7 @@ public:
   void runOnOperation() override {
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
-    allowedOps.setRegexpString(instrumentOps);
+    allowedOps.setRegexString(instrumentOps);
     bool hasInitializedRuntime = false;
 
     // Iterate on the operations nested in this function

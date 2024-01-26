@@ -911,51 +911,51 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
 }
 
 // =============================================================================
-// Support for enabled ops by regexp option
+// Support for enabled ops by regex option
 // =============================================================================
 
-EnableByRegexpOption::EnableByRegexpOption(
-    bool emptyIsNone, std::string regexpString)
+EnableByRegexOption::EnableByRegexOption(
+    bool emptyIsNone, std::string regexString)
     : emptyIsNone(emptyIsNone) {
-  setRegexpString(regexpString);
+  setRegexString(regexString);
 }
 
-void EnableByRegexpOption::setRegexpString(std::string regexpString) {
-  assert(nameCache.empty() && "can set regexp string only before any queries");
+void EnableByRegexOption::setRegexString(std::string regexString) {
+  assert(nameCache.empty() && "can set regex string only before any queries");
   allEnabled = allDisabled = false;
-  if (regexpString.empty()) {
+  if (regexString.empty()) {
     if (emptyIsNone)
       allDisabled = true;
     else
       allEnabled = true;
   } else {
-    if (regexpString.find("NONE") != std::string::npos)
+    if (regexString.find("NONE") != std::string::npos)
       allDisabled = true;
-    if (regexpString.find("ALL") != std::string::npos)
+    if (regexString.find("ALL") != std::string::npos)
       allEnabled = true;
   }
   assert(!(allDisabled && allEnabled) && "cannot have both ALL and NONE");
   if (allDisabled || allEnabled)
-    // No need to scan regexps.
+    // No need to scan regexs.
     return;
 
-  // We have a finite list of regexp, preprocess them now. Lifted from the
+  // We have a finite list of regex, preprocess them now. Lifted from the
   // InstrumentPass.cpp original implementation.
   // Separate multiple expressions with space.
-  regexpString = std::regex_replace(regexpString, std::regex(","), " ");
-  // The '.' character in regexp string is recognized as normal character, not
+  regexString = std::regex_replace(regexString, std::regex(","), " ");
+  // The '.' character in regex string is recognized as normal character, not
   // regular expression.
-  regexpString = std::regex_replace(regexpString, std::regex("\\."), "\\.");
-  // The '*' character in regexp string is recognized as '.*' pattern.
-  regexpString = std::regex_replace(regexpString, std::regex("\\*"), ".*");
-  std::stringstream ss(regexpString);
+  regexString = std::regex_replace(regexString, std::regex("\\."), "\\.");
+  // The '*' character in regex string is recognized as '.*' pattern.
+  regexString = std::regex_replace(regexString, std::regex("\\*"), ".*");
+  std::stringstream ss(regexString);
   std::istream_iterator<std::string> begin(ss);
   std::istream_iterator<std::string> end;
-  // Create the set of regexp defined by the original regexpString.
-  regexpOfAllowedNames = std::set<std::string>(begin, end);
+  // Create the set of regex defined by the original regexString.
+  regexOfAllowedNames = std::set<std::string>(begin, end);
 }
 
-bool EnableByRegexpOption::isEnabled(const std::string &name) {
+bool EnableByRegexOption::isEnabled(const std::string &name) {
   if (allEnabled)
     return true;
   if (allDisabled)
@@ -966,9 +966,9 @@ bool EnableByRegexpOption::isEnabled(const std::string &name) {
     return it->second;
   }
 
-  // We have not seen this op, then test using the regexp and cache answer.
-  for (auto itr = regexpOfAllowedNames.begin();
-       itr != regexpOfAllowedNames.end(); ++itr) {
+  // We have not seen this op, then test using the regex and cache answer.
+  for (auto itr = regexOfAllowedNames.begin();
+       itr != regexOfAllowedNames.end(); ++itr) {
     std::regex re(*itr);
     if (std::regex_match(name, re)) {
       // We have a match, cache and return true.

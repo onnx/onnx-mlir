@@ -40,7 +40,7 @@ def print_usage(msg=""):
         """
 Usage: Report statistics on compiler and runtime characteristics of ONNX ops.
 make-report.py -[vh] [-c <compile_log>] [-r <run_log>] [-l <num>]
-      [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regexp>]
+      [-s <stats>] [--sort <val>] [--supported] [-u <val>] [-p <op regex>]
       [-w <num>]
           
 Compile-time statistics are collected from a `onnx-mlir` compiler output
@@ -74,7 +74,7 @@ Parameters:
                        1: Also count reasons for success/failure.
                        2: Also list metrics.
                        3: Also list node name.
-  -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
+  -f/--focus <regex>:  Focus only on ops that match the regex pattern.
   -m/--min <num>:      Focus on operations with at least <num>% of exec time.
   -supported:          Focus only on ops that are supported. Namely, the report
                        will skip ops for which compile-time statistics list

@@ -453,7 +453,7 @@ llvm::cl::opt<std::string, true> opsForCallOpt("ops-for-call",
                    "krnl loops. op name are used to check against this option."
                    "Names of opa are separated with space."
                    "Example: ops-for-call=Conv MatMul"
-                   "The regexp match will be used to check against op name"),
+                   "The regex match will be used to check against op name"),
     llvm::cl::location(opsForCall), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
