@@ -94,31 +94,43 @@ static void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape) {
   assert(sizeFromDim == sizeFromBuffer && "buffer size mismatched");
 }
 
-static zdnn_status allocZTensorChunk(const zdnn_ztensor *input, uint32_t axis,
-    uint32_t chunkSize, zdnn_ztensor *output) {
+static zdnn_status allocZTensorChunk(
+    const SplitInfo *splitInfo, uint32_t chunkID) {
+  const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
+
+  uint32_t axis = splitInfo->axis;
+  ChunkInfo *chunk = splitInfo->chunks + chunkID;
+  uint32_t chunkSize = chunk->dimSize;
+
+  // Allocate one ztensor struct.
+  chunk->ztensor = malloc(sizeof(zdnn_ztensor));
+  if (!chunk->ztensor)
+    return ZDNN_ALLOCATION_FAILURE;
+  zdnn_ztensor *chunkZTensor = chunk->ztensor;
+
   zdnn_tensor_desc *descriptors = malloc(2 * sizeof(zdnn_tensor_desc));
   if (!descriptors)
     return ZDNN_ALLOCATION_FAILURE;
   zdnn_tensor_desc *preTransDesc = descriptors;
   zdnn_tensor_desc *transDesc = descriptors + 1;
-  // Copy pre_transform_desc from the input.
-  preTransDesc->layout = input->pre_transformed_desc->layout;
-  preTransDesc->format = input->pre_transformed_desc->format;
-  preTransDesc->type = input->pre_transformed_desc->type;
+  // Copy pre_transform_desc from the origZTensor.
+  preTransDesc->layout = origZTensor->pre_transformed_desc->layout;
+  preTransDesc->format = origZTensor->pre_transformed_desc->format;
+  preTransDesc->type = origZTensor->pre_transformed_desc->type;
   preTransDesc->dim4 =
-      (axis == 0) ? chunkSize : input->pre_transformed_desc->dim4;
+      (axis == 0) ? chunkSize : origZTensor->pre_transformed_desc->dim4;
   preTransDesc->dim3 =
-      (axis == 1) ? chunkSize : input->pre_transformed_desc->dim3;
+      (axis == 1) ? chunkSize : origZTensor->pre_transformed_desc->dim3;
   preTransDesc->dim2 =
-      (axis == 2) ? chunkSize : input->pre_transformed_desc->dim2;
+      (axis == 2) ? chunkSize : origZTensor->pre_transformed_desc->dim2;
   preTransDesc->dim1 =
-      (axis == 3) ? chunkSize : input->pre_transformed_desc->dim1;
+      (axis == 3) ? chunkSize : origZTensor->pre_transformed_desc->dim1;
   // Copy a transformed desc.
   zdnn_status status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
   if (status != ZDNN_OK)
     return status;
   // Init a zTensor with malloc.
-  return zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, output);
+  return zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, chunkZTensor);
 }
 
 static void freeZTensorChunk(zdnn_ztensor *t) {
@@ -141,7 +153,7 @@ static void copyZTensorChunk(
   ChunkInfo *chunk = splitInfo->chunks + chunkID;
   uint32_t offset = chunk->offsetInStick;
 
-  // Buffers pointers.
+  // Buffer pointers.
   void *src, *dst;
   if (fromChunk) {
     src = chunk->ztensor->buffer;
@@ -150,6 +162,8 @@ static void copyZTensorChunk(
     src = splitInfo->origZTensor->buffer;
     dst = chunk->ztensor->buffer;
   }
+  assert(src && "Source buffer is NULL");
+  assert(dst && "Destination buffer is NULL");
 
   // Shape information.
   zTensorShape origShape;
@@ -213,6 +227,8 @@ static void copyZTensorChunkScalar(
     src = splitInfo->origZTensor->buffer;
     dst = chunk->ztensor->buffer;
   }
+  assert(src && "Source buffer is NULL");
+  assert(dst && "Destination buffer is NULL");
 
   // Shape information.
   zTensorShape origShape;
@@ -315,16 +331,9 @@ void freeSplitInfoBuffer(SplitInfo *splitInfo) {
 }
 
 void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
-  const zdnn_ztensor *input = splitInfo->origZTensor;
-  uint32_t axis = splitInfo->axis;
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    ChunkInfo *chunk = splitInfo->chunks + i;
-    // Allocate one ztensor struct.
-    chunk->ztensor = malloc(sizeof(zdnn_ztensor));
-    assert(chunk->ztensor && "Failed to allocate zTensor struct");
     // Allocate ztensor buffer and descriptors.
-    zdnn_status status =
-        allocZTensorChunk(input, /*axis=*/axis, chunk->dimSize, chunk->ztensor);
+    zdnn_status status = allocZTensorChunk(splitInfo, i);
     assert(status == ZDNN_OK && "Failed to allocate zTensor chunk");
     if (copyData) {
       // Copy data from the input to the chunk.
