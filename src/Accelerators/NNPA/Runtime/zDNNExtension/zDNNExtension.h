@@ -155,6 +155,9 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output);
 
+zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
+    zdnn_softmax_act act_func, zdnn_ztensor *output);
+
 #ifdef __cplusplus
 }
 #endif

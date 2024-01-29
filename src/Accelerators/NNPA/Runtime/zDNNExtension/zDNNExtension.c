@@ -318,13 +318,13 @@ void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
   const zdnn_ztensor *input = splitInfo->origZTensor;
   uint32_t axis = splitInfo->axis;
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    ChunkInfo *chunkInfo = splitInfo->chunks + i;
-    chunkInfo->ztensor = malloc(sizeof(zdnn_ztensor));
-    assert(chunkInfo->ztensor && "Failed to allocate zTensor struct");
-    zdnn_ztensor *chunk = chunkInfo->ztensor;
-    // Allocate ztensor struct for the chunk.
+    ChunkInfo *chunk = splitInfo->chunks + i;
+    // Allocate one ztensor struct.
+    chunk->ztensor = malloc(sizeof(zdnn_ztensor));
+    assert(chunk->ztensor && "Failed to allocate zTensor struct");
+    // Allocate ztensor buffer and descriptors.
     zdnn_status status =
-        allocZTensorChunk(input, /*axis=*/axis, chunkInfo->dimSize, chunk);
+        allocZTensorChunk(input, /*axis=*/axis, chunk->dimSize, chunk->ztensor);
     assert(status == ZDNN_OK && "Failed to allocate zTensor chunk");
     if (copyData) {
       // Copy data from the input to the chunk.
