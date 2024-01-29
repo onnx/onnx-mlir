@@ -3,7 +3,7 @@
 // -----
 
 func.func @test_cast_f32_i8(%arg0: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
-  %0 = "onnx.Cast"(%arg0) {to = i8} : (tensor<13x21x1xf32>) -> tensor<13x21x1xi8> 
+  %0 = "onnx.Cast"(%arg0) {to = i8} : (tensor<13x21x1xf32>) -> tensor<13x21x1xi8>
   "func.return"(%0) : (tensor<13x21x1xi8>) -> ()
 // CHECK-LABEL:  func @test_cast_f32_i8
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
@@ -13,7 +13,7 @@ func.func @test_cast_f32_i8(%arg0: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
 // -----
 
 func.func @test_cast_i8_i1(%arg0: tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1> {
-  %0 = "onnx.Cast"(%arg0) {to = i1} : (tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1> 
+  %0 = "onnx.Cast"(%arg0) {to = i1} : (tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1>
   "func.return"(%0) : (tensor<1x21x1x1xi1>) -> ()
 // CHECK-LABEL:  func @test_cast_i8_i1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1> {
@@ -300,6 +300,7 @@ func.func @test_sigmoid(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = "tosa.sigmoid"([[PARAM_0_]]) : (tensor<10x10xf32>) -> tensor<10x10xf32>
 // CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
 // CHECK-NEXT:    }
+}
 
 // -----
 
