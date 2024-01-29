@@ -52,6 +52,9 @@ RESULT_TYPE getScalarValue(ElementsAttr &elementsAttr, Type type, uint64_t i) {
   } else if (elementaryType.isF64()) {
     auto value = elementsAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
     return (RESULT_TYPE)value.convertToDouble();
+  } else if (elementaryType.isBF16()) {
+    auto value = elementsAttr.getValues<APFloat>()[ArrayRef<uint64_t>({i})];
+    return (RESULT_TYPE)value.convertToFloat();
   }
   llvm_unreachable("Unexpected type.");
   return 0;

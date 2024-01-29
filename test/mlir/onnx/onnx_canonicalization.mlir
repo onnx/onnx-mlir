@@ -1053,6 +1053,21 @@ func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
 
 // -----
 
+// COM: Expand a bfloat16 Pow into multiple Mul if exponent is an integer and <= 2.
+func.func @expand_pow_bf16_into_mul(%arg0: tensor<3x4x5xbf16>) -> tensor<3x4x5xbf16> {
+    %cst = onnx.Constant dense<2.0> : tensor<bf16>
+    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xbf16>, tensor<bf16>) -> tensor<3x4x5xbf16>
+    onnx.Return %0 : tensor<3x4x5xbf16>
+
+// CHECK-LABEL:  func.func @expand_pow_bf16_into_mul
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xbf16>) -> tensor<3x4x5xbf16> {
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xbf16>, tensor<3x4x5xbf16>) -> tensor<3x4x5xbf16>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<3x4x5xbf16>
+// CHECK:        }
+}
+
+// -----
+
 func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
     %cst = onnx.Constant dense<0.0> : tensor<f32>
     %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
