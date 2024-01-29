@@ -4,7 +4,7 @@
 
 //===-------------------------- CompilerUtils.cpp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompilerUtils.hpp"
+
+#include <fstream>
+#include <regex>
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -43,9 +46,6 @@
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Version/Version.hpp"
 
-#include <fstream>
-#include <regex>
-
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -60,7 +60,7 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {
-  // When wanting to preserve all files, do it regardles of isBitcode.
+  // When wanting to preserve all files, do it regardless of isBitcode.
   if (overridePreserveFiles == KeepFilesOfType::All)
     return true;
   // When file is bitcode, check the runtime flag preserveBitcode.
@@ -134,7 +134,7 @@ int Command::exec(std::string wdir) const {
   }
 
   if (VerboseOutput)
-    llvm::errs() << "[" << llvm::StringRef(new_wdir).str() << "]" << _path
+    llvm::outs() << "[" << llvm::StringRef(new_wdir).str() << "] " << _path
                  << ": " << llvm::join(argsRef, " ") << "\n";
 
   std::string errMsg;
@@ -269,7 +269,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
     exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
   }
-  // Entry point funtions.
+  // Entry point fuctions.
   if (llvm::GlobalVariable *GV =
           llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
@@ -705,7 +705,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
     if (VerboseOutput)
       printf(
-          "Object file %s has been compiled.\n", modelObjNameWithExt.c_str());
+          "Object file '%s' has been compiled.\n", modelObjNameWithExt.c_str());
   } break;
   case EmitLib: {
     std::string sharedLibNameWithExt;
@@ -719,7 +719,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
         return rc;
     }
     if (VerboseOutput)
-      printf("Shared library %s has been compiled.\n",
+      printf("Shared library '%s' has been compiled.\n",
           sharedLibNameWithExt.c_str());
   } break;
   case EmitJNI: {
@@ -733,7 +733,7 @@ static int emitOutputFiles(std::string outputNameNoExt,
     }
     if (VerboseOutput)
       printf(
-          "JNI archive %s.jar has been compiled.\n", outputNameNoExt.c_str());
+          "JNI archive '%s.jar' has been compiled.\n", outputNameNoExt.c_str());
   } break;
   default: {
     // Emit the version with all constants included.
@@ -907,4 +907,5 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     return CompilerFailure;
   return emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
 }
+
 } // namespace onnx_mlir

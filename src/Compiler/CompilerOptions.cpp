@@ -61,6 +61,7 @@ std::vector<std::string> Xllc;                         // onnx-mlir only
 std::string mllvm;                                     // onnx-mlir only
 std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
+std::string parallelizeOps;                            // onnx-mlir only
 bool instrumentONNXSignature;                          // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
@@ -364,8 +365,9 @@ static llvm::cl::opt<std::string, true> mllvmOpt("mllvm",
     llvm::cl::ValueRequired);
 
 static llvm::cl::opt<std::string, true> instrumentOpsOpt("instrument-ops",
-    llvm::cl::desc("Specify operations operations to be instrumented:\n"
-                   "\"NONE\" or \"\" for no instrument,\n"
+    llvm::cl::desc("Specify operations to be instrumented:\n"
+                   "\"NONE\" or \"\" for no instrument (default),\n"
+                   "\"ALL\" for instrument of all ops,\n"
                    "\"ops1,ops2, ...\" for the multiple ops.\n"
                    "e.g. \"onnx.Conv,onnx.Add\" for Conv and Add ops.\n"
                    "Asterisk is also available.\n"
@@ -383,6 +385,17 @@ static llvm::cl::bits<InstrumentActions, unsigned> instrumentControlBitsOpt(
             InstrumentReportTime, "instrument runtime reports time usage,"),
         clEnumVal(InstrumentReportMemory,
             "instrument runtime reports memory usage.")),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
+    llvm::cl::desc("Specify explicitly which operations to parallelize:\n"
+                   "\"ALL\" or \"\" for all available operations (default),\n"
+                   "\"NONE\" for no instrument,\n"
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
+    llvm::cl::location(parallelizeOps), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> instrumentONNXSignatureOpt(
@@ -440,7 +453,7 @@ llvm::cl::opt<std::string, true> opsForCallOpt("ops-for-call",
                    "krnl loops. op name are used to check against this option."
                    "Names of opa are separated with space."
                    "Example: ops-for-call=Conv MatMul"
-                   "The regexp match will be used to check against op name"),
+                   "The regex match will be used to check against op name"),
     llvm::cl::location(opsForCall), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -590,16 +603,17 @@ bool parseCustomEnvFlagsCommandLineOption(
   // Use the default ONNX MLIR Environment variable, unless specified otherwise
   // by an argument, see below.
   std::string envVar = OnnxMlirEnvOptionName;
+  // VerboseOutput is not yet set, so scan ourselves.
+  bool verbose = false;
   // Customized version? -customEnvFlags=val and save its value.
-  for (int i = argc - 1; i > 1; --i) {
+  for (int i = 1; i < argc; ++i) {
     std::string arg(argv[i]);
     if (arg.find("--customEnvFlags") == 0) {
       envVar = arg.substr(sizeof("--customEnvFlags"));
-      break;
-    }
-    if (arg.find("-customEnvFlags") == 0) {
+    } else if (arg.find("-customEnvFlags") == 0) {
       envVar = arg.substr(sizeof("-customEnvFlags"));
-      break;
+    } else if (arg.compare("-v") == 0) {
+      verbose = true;
     }
   }
   // Check that the env var does not recursively hold another -customEnvFlags.
@@ -612,6 +626,19 @@ bool parseCustomEnvFlagsCommandLineOption(
                  "environment flag not permited\n";
       return false;
     }
+    if (envVal.find("-v") != std::string::npos)
+      verbose = true;
+    if (verbose)
+      printf("Onnx-mlir default options from '%s' are '%s'.\n", envVar.c_str(),
+          envValCstr);
+  }
+  if (verbose && argc > 0) {
+    printf("Onnx-mlir command: %s", argv[0]);
+    if (envValCstr)
+      printf(" %s", envValCstr);
+    for (int i = 1; i < argc; ++i)
+      printf(" %s", argv[i]);
+    printf("\n");
   }
   // The envVar is verified, use it.
   setCustomEnvVar(envVar);

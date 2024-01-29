@@ -229,9 +229,6 @@ mlir::LogicalResult ONNXLNOpShapeHelper<OP_TYPE>::computeShape() {
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
   int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
 
-  // Get Scale
-  Value scale = operandAdaptor.getScale();
-
   // Check optional outputs, with specialization for ONNXLayerNormalizationOp
   // and ONNXRMSLayerNormalizationOp.
   bool hasMean, hasInvStdDev;

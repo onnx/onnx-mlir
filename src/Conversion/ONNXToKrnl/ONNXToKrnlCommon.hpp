@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,6 +31,7 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -133,28 +134,28 @@ bool checkOpToCall(mlir::Operation *op, std::string opsForCall);
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-mlir::Value foldOrEmitONNXSqueezeV11Op(
+mlir::Value foldOrEmitONNXSqueezeV11OpKrnl(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::Type resultType, mlir::Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-mlir::Value foldOrEmitONNXUnsqueezeV11Op(
+mlir::Value foldOrEmitONNXUnsqueezeV11OpKrnl(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::Type resultType, mlir::Value input, int64_t axis);
 
 /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
 /// return constants.
 /// Only support evenly splitting.
-std::vector<mlir::Value> foldOrEmitONNXSplitOp(
+std::vector<mlir::Value> foldOrEmitONNXSplitV11OpKrnl(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     llvm::ArrayRef<mlir::Type> resultTypes, mlir::Value input, int64_t axis);
 
 /// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
 /// return a constant.
-mlir::Value foldOrEmitONNXTransposeOp(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Type resultType, mlir::Value input,
-    mlir::ArrayAttr permAttr);
+mlir::Value foldOrEmitONNXTransposeOpKrnl(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr);
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
@@ -603,6 +604,7 @@ struct OnnxToKrnlLoweringConfiguration {
   static std::string defaultParallelComment;
   static int reportOnSimd;
   static std::string defaultSimdComment;
+  static EnableByRegexOption enableSpecificParallelOps;
 };
 
 namespace impl {
