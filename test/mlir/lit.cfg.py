@@ -26,7 +26,7 @@ config.test_exec_root = os.path.join(config.onnx_mlir_obj_root, "test", "mlir")
 
 llvm_config.use_default_substitutions()
 
-config.excludes = ['onnx_to_mhlo']
+config.excludes = ["onnx_to_mhlo"]
 
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment("PATH", config.llvm_tools_dir, append_path=True)
