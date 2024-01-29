@@ -252,16 +252,11 @@ namespace tosa {
 // Common function for lowering reduce operations to TOSA ops.
 // Modified from TensorFlow
 template <typename T>
-std::optional<mlir::Value> convertReduceOpCommon(
-    mlir::PatternRewriter &rewriter, mlir::Operation *op,
-    mlir::RankedTensorType outputType, mlir::Value inputValue,
-    mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {
+mlir::Value convertReduceOpCommon(mlir::PatternRewriter &rewriter,
+    mlir::Operation *op, mlir::RankedTensorType outputType,
+    mlir::Value inputValue, mlir::RankedTensorType inputType,
+    mlir::ElementsAttr axesElems, bool keepDims) {
   TosaBuilder tosaBuilder(rewriter, op->getLoc());
-  mlir::RankedTensorType inputType =
-      inputValue.getType().dyn_cast<mlir::RankedTensorType>();
-  if (!inputType)
-    return std::nullopt;
-
   llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
   llvm::ArrayRef<int64_t> outputShape = outputType.getShape();
   auto inputRank = inputShape.size();
@@ -283,7 +278,7 @@ std::optional<mlir::Value> convertReduceOpCommon(
 
     shapeVec[axisVal] = 1;
     mlir::RankedTensorType reduceType =
-        mlir::RankedTensorType::get(shapeVec, reduceElementType);
+        mlir::RankedTensorType::get(shapeVec, inputType.getElementType());
 
     auto reduceOp = CreateOpAndInfer<T>(
         rewriter, op->getLoc(), reduceType, newValue, axisAttr);

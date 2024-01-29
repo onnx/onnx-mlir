@@ -82,19 +82,13 @@ public:
       numElemsOnReducedAxis *= inputType.getShape()[axisVal];
     }
     double divScale = 1.0 / static_cast<double>(numElemsOnReducedAxis);
-    mlir::Type reduceElementType = inputType.getElementType();
 
-    auto val = onnx_mlir::tosa::convertReduceOpCommon<mlir::tosa::ReduceSumOp>(
-        rewriter, op, outputType, input, newAxesAttr, keepDims,
-        reduceElementType);
-
-    if (!val.has_value())
-      return rewriter.notifyMatchFailure(
-          op, "could not convert generic reduce op.");
+    Value val = onnx_mlir::tosa::convertReduceOpCommon<mlir::tosa::ReduceSumOp>(
+        rewriter, op, outputType, input, inputType, newAxesAttr, keepDims);
 
     Value divConst = tosaBuilder.getSplattedConst(
         divScale, outputType.getShape(), outputType.getElementType());
-    auto output = tosaBuilder.mul(val.value(), divConst);
+    auto output = tosaBuilder.mul(val, divConst);
 
     if (!output) {
       return rewriter.notifyMatchFailure(op, "could not be converted");
