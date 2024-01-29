@@ -9,11 +9,10 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Softmax.cpp
-  Math/ReduceMean.cpp
+  Math/Reduce.cpp
   Math/Conv2D.cpp
   Math/Softmax.cpp
   Math/Gemm.cpp
-  Math/ReduceMean.cpp
   NN/MaxPoolSingleOut.cpp
   NN/AveragePool.cpp
   NN/QuantizeLinear.cpp
