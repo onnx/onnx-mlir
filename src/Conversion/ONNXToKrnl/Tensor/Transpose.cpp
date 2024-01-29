@@ -4,7 +4,7 @@
 
 //===---------------- Transpose.cpp - Lowering Transpose Op ---------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -28,8 +28,12 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
 
   ONNXTransposeOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXTransposeOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,
       ONNXTransposeOpAdaptor adaptor,

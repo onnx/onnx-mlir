@@ -4,7 +4,7 @@
 
 //===-------------------------- CompilerUtils.hpp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -78,4 +78,5 @@ int compileModule(mlir::OwningOpRef<mlir::ModuleOp> &module,
 // depending on the underlying machine and/or operating system.
 std::string getTargetFilename(
     const std::string filenameNoExt, EmissionTargetType target);
+
 } // namespace onnx_mlir

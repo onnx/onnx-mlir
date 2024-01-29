@@ -4,7 +4,7 @@
 
 //===-------------------------- CompilerUtils.cpp -------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,6 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CompilerUtils.hpp"
+
+#include <fstream>
+#include <regex>
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -43,9 +46,6 @@
 #include "src/Compiler/HeapReporter.hpp"
 #include "src/Version/Version.hpp"
 
-#include <fstream>
-#include <regex>
-
 using namespace mlir;
 using namespace onnx_mlir;
 
@@ -60,7 +60,7 @@ enum class KeepFilesOfType { All, MLIR, LLVMIR, Bitcode, Object, None };
 static constexpr KeepFilesOfType overridePreserveFiles = KeepFilesOfType::None;
 
 static bool keepFiles(KeepFilesOfType preserve) {
-  // When wanting to preserve all files, do it regardles of isBitcode.
+  // When wanting to preserve all files, do it regardless of isBitcode.
   if (overridePreserveFiles == KeepFilesOfType::All)
     return true;
   // When file is bitcode, check the runtime flag preserveBitcode.
@@ -269,7 +269,7 @@ static void tailorLLVMIR(llvm::Module &llvmModule) {
     exportedFuncs.emplace_back(StringRef("omOutputSignature" + tag));
     exportedFuncs.emplace_back(StringRef("omQueryEntryPoints" + tag));
   }
-  // Entry point funtions.
+  // Entry point fuctions.
   if (llvm::GlobalVariable *GV =
           llvmModule.getNamedGlobal(StringRef("_entry_point_arrays" + tag))) {
     if (GV->isConstant() && GV->hasDefinitiveInitializer()) {
@@ -907,4 +907,5 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     return CompilerFailure;
   return emitOutput(module, context, outputNameNoExt, pm, emissionTarget);
 }
+
 } // namespace onnx_mlir

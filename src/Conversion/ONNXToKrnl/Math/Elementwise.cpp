@@ -346,17 +346,16 @@ struct ScalarOp<ONNXGeluOp> {
 template <>
 double analyzeSimdFor<ONNXGeluOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  double results;
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
-    results = simdAnalysis(
+    return simdAnalysis(
         {GenericOps::ArithmeticGop, GenericOps::ErfGop, GenericOps::MulGop},
         {1, 1, 3}, t, von, son);
   if (approximate.equals_insensitive("tanh"))
-    results = simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
-                               GenericOps::TrigHyperbolicGop},
+    return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                            GenericOps::TrigHyperbolicGop},
         {2, 5, 1}, t, von, son);
-  return results;
+  llvm_unreachable("approximate should be only none or tanh");
 }
 
 template <>
@@ -2034,8 +2033,12 @@ struct ONNXElementwiseUnaryOpLowering
   ONNXElementwiseUnaryOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
       : OpConversionPattern<ElementwiseUnaryOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ElementwiseUnaryOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ElementwiseUnaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -2212,7 +2215,12 @@ struct ONNXElementwiseBinaryOpLowering
       bool isUniBroadcasting = false, bool enableParallel = false)
       : OpConversionPattern<ElementwiseBinaryOp>(typeConverter, ctx),
         dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        isUniBroadcasting(isUniBroadcasting), enableParallel(enableParallel) {}
+        isUniBroadcasting(isUniBroadcasting) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ElementwiseBinaryOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ElementwiseBinaryOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -2386,8 +2394,12 @@ struct ONNXElementwiseVariadicOpLowering
       MLIRContext *ctx, DimAnalysis *dimAnalysis, bool enableSIMD,
       bool enableParallel)
       : OpConversionPattern<ElementwiseVariadicOp>(typeConverter, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ElementwiseVariadicOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ElementwiseVariadicOp elmsOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
@@ -2568,8 +2580,12 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       DimAnalysis *dimAnalysis, bool enableSIMD, bool enableParallel)
       : ConversionPattern(
             typeConverter, ONNXWhereOp::getOperationName(), 1, ctx),
-        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        dimAnalysis(dimAnalysis), enableSIMD(enableSIMD) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXWhereOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {

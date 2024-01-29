@@ -19,5 +19,6 @@ add_onnx_mlir_executable(onnx-mlir
   MLIROpenMPToLLVMIRTranslation
   OMCompilerOptions
   OMCompilerUtils
+  OMOptionUtils
   )
   
