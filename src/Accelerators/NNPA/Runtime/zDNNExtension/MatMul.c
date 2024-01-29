@@ -65,8 +65,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
 
   // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled ||
-      !(initSplitInfo(&splitInfoA) && initSplitInfo(&splitInfoY))) {
+  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoA) ||
+      !initSplitInfo(&splitInfoY)) {
     if (OMZTensorSplitDebug)
       printf("[MatMul] Not split zTensor ...\n");
     return call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);

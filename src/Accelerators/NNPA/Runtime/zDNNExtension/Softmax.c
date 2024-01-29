@@ -54,8 +54,8 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
 
   // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled ||
-      !(initSplitInfo(&splitInfoX) && initSplitInfo(&splitInfoY))) {
+  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoX) ||
+      !initSplitInfo(&splitInfoY)) {
     if (OMZTensorSplitDebug)
       printf("[Softmax] Not split zTensor ...\n");
     return zdnn_softmax(input, save_area, act_func, output);
