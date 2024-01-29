@@ -235,7 +235,7 @@ func.func @test_call_zdnn_softmax() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_softmax
-  // CHECK: {{.*}} = llvm.call @zdnn_softmax({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_softmax_ext({{.*}}, {{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, !llvm.ptr) -> i32
 }
 
 // -----
