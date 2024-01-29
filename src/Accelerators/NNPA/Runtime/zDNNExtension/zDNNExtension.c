@@ -108,11 +108,13 @@ static zdnn_status allocZTensorChunk(
     return ZDNN_ALLOCATION_FAILURE;
   zdnn_ztensor *chunkZTensor = chunk->ztensor;
 
+  // Allocate one buffer for two descriptors.
   zdnn_tensor_desc *descriptors = malloc(2 * sizeof(zdnn_tensor_desc));
   if (!descriptors)
     return ZDNN_ALLOCATION_FAILURE;
   zdnn_tensor_desc *preTransDesc = descriptors;
   zdnn_tensor_desc *transDesc = descriptors + 1;
+
   // Copy pre_transform_desc from the origZTensor.
   preTransDesc->layout = origZTensor->pre_transformed_desc->layout;
   preTransDesc->format = origZTensor->pre_transformed_desc->format;
@@ -125,10 +127,12 @@ static zdnn_status allocZTensorChunk(
       (axis == 2) ? chunkSize : origZTensor->pre_transformed_desc->dim2;
   preTransDesc->dim1 =
       (axis == 3) ? chunkSize : origZTensor->pre_transformed_desc->dim1;
+
   // Copy a transformed desc.
   zdnn_status status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
   if (status != ZDNN_OK)
     return status;
+
   // Init a zTensor with malloc.
   return zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, chunkZTensor);
 }
@@ -283,10 +287,12 @@ bool initSplitInfo(SplitInfo *splitInfo) {
   if (splitInfo->axis != 2)
     return false;
 
-  const zdnn_ztensor *input = splitInfo->origZTensor;
-  splitInfo->totalSize = input->transformed_desc->dim2;
+  // Init general split information.
+  const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
+  splitInfo->totalSize = origZTensor->transformed_desc->dim2;
   splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
 
+  // No split benefit.
   if (splitInfo->numOfChunks == 1)
     return false;
 
@@ -303,6 +309,7 @@ bool initSplitInfo(SplitInfo *splitInfo) {
   else
     return false;
 
+  // Init chunk information.
   splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(ChunkInfo));
   assert(splitInfo->chunks && "Failed to allocate ChunkInfo struct");
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
@@ -332,19 +339,21 @@ void freeSplitInfoBuffer(SplitInfo *splitInfo) {
 
 void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    // Allocate ztensor buffer and descriptors.
+    // Allocate a chunk ztensor.
     zdnn_status status = allocZTensorChunk(splitInfo, i);
     assert(status == ZDNN_OK && "Failed to allocate zTensor chunk");
     if (copyData) {
-      // Copy data from the input to the chunk.
+      // Copy data from the original ztensor to the chunk ztensor.
       copyZTensorChunk(splitInfo, i, /*fromChunk=*/false);
     }
   }
 }
 
 void mergeZTensors(const SplitInfo *splitInfo) {
-  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i)
+  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
+    // Copy data from the chunk ztensor back to the original ztensor.
     copyZTensorChunk(splitInfo, i, /*fromChunk=*/true);
+  }
 }
 
 #ifdef __cplusplus
