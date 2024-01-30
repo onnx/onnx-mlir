@@ -240,15 +240,17 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
     zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
     zdnn_status status;
     if (opType == ZDNN_ADD_EXT)
-      status = zdnn_add(zaTensor, zbTensor, output);
+      status = zdnn_add(zaTensor, zbTensor, zyTensor);
     else if (opType == ZDNN_SUB_EXT)
-      status = zdnn_sub(zaTensor, zbTensor, output);
+      status = zdnn_sub(zaTensor, zbTensor, zyTensor);
     else if (opType == ZDNN_MUL_EXT)
-      status = zdnn_mul(zaTensor, zbTensor, output);
+      status = zdnn_mul(zaTensor, zbTensor, zyTensor);
+    else if (opType == ZDNN_DIV_EXT)
+      status = zdnn_div(zaTensor, zbTensor, zyTensor);
     else if (opType == ZDNN_MAX_EXT)
-      status = zdnn_max(zaTensor, zbTensor, output);
+      status = zdnn_max(zaTensor, zbTensor, zyTensor);
     else if (opType == ZDNN_MIN_EXT)
-      status = zdnn_min(zaTensor, zbTensor, output);
+      status = zdnn_min(zaTensor, zbTensor, zyTensor);
     else
       status = ZDNN_UNAVAILABLE_FUNCTION;
     assert(status == ZDNN_OK);
