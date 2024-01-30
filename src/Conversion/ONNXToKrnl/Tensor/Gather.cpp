@@ -91,16 +91,6 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     DimsExpr lbs(outputRank, zeroIE);
     DimsExpr ubs = shapeHelper.getOutputDims();
     if (enableParallel) {
-#if 0
-      int64_t parId =
-          create.krnl.parallelForSuitableOutermost(loopDef, lbs, ubs, 0, -1);
-      if (parId >= 0)
-        onnxToKrnlParallelReport(
-            op, true, parId, lbs[parId], ubs[parId], "gather");
-      else
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no parallel as no dim with enough elements in gather");
-#else
       int64_t parId;
       if (findSuitableParallelDimension(lbs, ubs, 0, outputRank, parId)) {
         create.krnl.parallel(loopDef[parId]);
@@ -110,7 +100,6 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
         onnxToKrnlParallelReport(op, false, -1, -1,
             "no parallel as no dim with enough elements in gather");
       }
-#endif
     }
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {

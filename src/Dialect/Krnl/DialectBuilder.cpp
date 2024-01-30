@@ -130,35 +130,6 @@ void KrnlBuilder::parallel(ValueRange loops) const {
   b().template create<KrnlParallelOp>(loc(), loops);
 }
 
-int64_t KrnlBuilder::parallelForSuitableOutermost(mlir::ValueRange loops,
-    mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
-    int64_t firstParallelIndex, int64_t lastParallelIndex,
-    int64_t minTripCountForParallel) {
-  int64_t L = loops.size();
-  assert((int64_t) lbs.size() == L && "expected identical sizes for loops and lbs");
-  assert((int64_t) ubs.size() == L && "expected identical sizes for loops and ubs");
-  if (firstParallelIndex < 0)
-    firstParallelIndex += L;
-  if (lastParallelIndex < 0)
-    lastParallelIndex += L;
-  assert(firstParallelIndex >= 0 && firstParallelIndex < L &&
-         "out of bound first parallel index");
-  assert(lastParallelIndex >= 0 && lastParallelIndex < L &&
-         "out of bound last parallel index");
-  for (int64_t i = firstParallelIndex; i <= lastParallelIndex; ++i) {
-    IndexExpr tripCount = ubs[i] - lbs[i];
-    if (tripCount.isLiteralAndSmallerThan(minTripCountForParallel + 1))
-      // Trip count is too small; skip this candidate loop.
-      continue;
-    // Make this candidate loop the parallel loop.
-    parallel(loops[i]);
-    return i;
-  }
-  // All candidate loops had too small trip counts; loops are better in
-  // sequential mode.
-  return -1;
-}
-
 void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
     function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
