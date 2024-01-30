@@ -31,6 +31,11 @@
 extern "C" {
 #endif
 
+// -----------------------------------------------------------------------------
+// Extension Functions
+// Same name as zdnn functions but with the `_ext` postfix.
+// -----------------------------------------------------------------------------
+
 zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
   // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
@@ -82,7 +87,7 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Call zdnn_matmul_op on each chunk. Not use save_area.
+  // Call zdnn_softmax on each chunk. Not use save_area.
   // TODO: could we reuse save_area in particular in the parallel scenario?
   if (OMZTensorSplitDebug)
     start_time = clock();

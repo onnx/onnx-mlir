@@ -155,8 +155,27 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output);
 
+// Elementwise Operations
+zdnn_status zdnn_add_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_sub_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_mul_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_div_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_min_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_max_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_exp_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+zdnn_status zdnn_log_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+zdnn_status zdnn_relu_ext(
+    const zdnn_ztensor *input, const void *clippingValue, zdnn_ztensor *output);
+zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
 zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output);
+zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
 
 #ifdef __cplusplus
 }

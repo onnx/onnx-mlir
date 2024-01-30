@@ -132,7 +132,7 @@ func.func @test_call_zdnn_relu() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_relu
-  // CHECK: {{.*}} = llvm.call @zdnn_relu({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_relu_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -146,7 +146,7 @@ func.func @test_call_zdnn_tanh() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_tanh
-  // CHECK: {{.*}} = llvm.call @zdnn_tanh({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_tanh_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -160,7 +160,7 @@ func.func @test_call_zdnn_sigmoid() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sigmoid
-  // CHECK: {{.*}} = llvm.call @zdnn_sigmoid({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_sigmoid_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -175,7 +175,7 @@ func.func @test_call_zdnn_add() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_add
-  // CHECK: {{.*}} = llvm.call @zdnn_add({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_add_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -190,7 +190,7 @@ func.func @test_call_zdnn_sub() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_sub
-  // CHECK: {{.*}} = llvm.call @zdnn_sub({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_sub_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -205,7 +205,7 @@ func.func @test_call_zdnn_mul() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_mul
-  // CHECK: {{.*}} = llvm.call @zdnn_mul({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_mul_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -220,7 +220,7 @@ func.func @test_call_zdnn_div() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_div
-  // CHECK: {{.*}} = llvm.call @zdnn_div({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_div_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -283,7 +283,7 @@ func.func @test_call_zdnn_min() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_min
-  // CHECK: {{.*}} = llvm.call @zdnn_min({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_min_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -298,7 +298,7 @@ func.func @test_call_zdnn_max() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_max
-  // CHECK: {{.*}} = llvm.call @zdnn_max({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_max_ext({{.*}}, {{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -312,7 +312,7 @@ func.func @test_call_zdnn_exp() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_exp
-  // CHECK: {{.*}} = llvm.call @zdnn_exp({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_exp_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----
@@ -326,7 +326,7 @@ func.func @test_call_zdnn_log() -> () {
   return
 
   // CHECK-LABEL: test_call_zdnn_log
-  // CHECK: {{.*}} = llvm.call @zdnn_log({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_log_ext({{.*}}, {{.*}}) : (!llvm.ptr, !llvm.ptr) -> i32
 }
 
 // -----

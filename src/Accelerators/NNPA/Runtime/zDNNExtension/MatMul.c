@@ -127,6 +127,11 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   return ZDNN_OK;
 }
 
+// -----------------------------------------------------------------------------
+// Extension Functions
+// Same name as zdnn functions but with the `_ext` postfix.
+// -----------------------------------------------------------------------------
+
 zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output) {
