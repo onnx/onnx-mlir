@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------------------------- Softmax.c ---------------------------------===//
+//===------------------------ Elementwise.c -------------------------------===//
 //
 // Copyright 2024 The IBM Research Authors.
 //
@@ -109,8 +109,7 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Call zdnn op on each chunk. Not use save_area.
-  // TODO: could we reuse save_area in particular in the parallel scenario?
+  // Call zdnn op on each chunk.
   if (OMZTensorSplitDebug)
     start_time = clock();
   for (uint32_t i = 0; i < splitInfoX.numOfChunks; ++i) {
@@ -230,8 +229,7 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Call zdnn op on each chunk. Not use save_area.
-  // TODO: could we reuse save_area in particular in the parallel scenario?
+  // Call zdnn op on each chunk.
   if (OMZTensorSplitDebug)
     start_time = clock();
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
