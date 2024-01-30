@@ -117,15 +117,15 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
     zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
     zdnn_status status;
     if (opType == ZDNN_EXP_EXT)
-      status = zdnn_exp(input, output);
+      status = zdnn_exp(zxTensor, zyTensor);
     else if (opType == ZDNN_LOG_EXT)
-      status = zdnn_log(input, output);
+      status = zdnn_log(zxTensor, zyTensor);
     else if (opType == ZDNN_RELU_EXT)
-      status = zdnn_relu(input, clippingValue, output);
+      status = zdnn_relu(zxTensor, clippingValue, zyTensor);
     else if (opType == ZDNN_SIGMOID_EXT)
-      status = zdnn_sigmoid(input, output);
+      status = zdnn_sigmoid(zxTensor, zyTensor);
     else if (opType == ZDNN_TANH_EXT)
-      status = zdnn_tanh(input, output);
+      status = zdnn_tanh(zxTensor, zyTensor);
     else
       status = ZDNN_UNAVAILABLE_FUNCTION;
     assert(status == ZDNN_OK);
