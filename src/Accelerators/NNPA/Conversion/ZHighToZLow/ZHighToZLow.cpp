@@ -1511,10 +1511,18 @@ struct ZHighToZLowBatchNormOpLowering : public ConversionPattern {
 
 struct ZHighToZLowStickifiedConstantOfShapeOpLowering
     : public ConversionPattern {
+  bool enableParallel;
+
   ZHighToZLowStickifiedConstantOfShapeOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
       : ConversionPattern(typeConverter,
-            ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {}
+            ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ZHighStickifiedConstantOfShapeOp::getOperationName());
+  }
+
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
@@ -1573,6 +1581,17 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
     ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> ubs = shapeHelper.getOutputDims();
+    if (enableParallel) {
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId)) {
+        create.krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "stickified constant of shape");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no non-unit dim in stickified constant of shape");
+      }
+    }
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           // Keep this load inside the loop to tweak LLVM.
@@ -1724,7 +1743,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
-      typeConverter, ctx);
+      typeConverter, ctx, enableParallel);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
       typeConverter, ctx, /*fromF32=*/false, enableParallel);
