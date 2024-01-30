@@ -4,7 +4,7 @@
 
 //===---------------- Gather.cpp - Lowering Gather Op ---------------------===//
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -20,8 +20,15 @@ using namespace mlir;
 namespace onnx_mlir {
 
 struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
-  ONNXGatherOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXGatherOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXGatherOp::getOperationName());
+  }
+  bool enableParallel;
 
   LogicalResult matchAndRewrite(ONNXGatherOp gatherOp,
       ONNXGatherOpAdaptor adaptor,
@@ -82,6 +89,29 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     // Define loops and iteration trip counts (equivalent to size of output)
     ValueRange loopDef = create.krnl.defineLoops(outputRank);
     DimsExpr lbs(outputRank, zeroIE);
+    DimsExpr ubs = shapeHelper.getOutputDims();
+    if (enableParallel) {
+#if 0
+      int64_t parId =
+          create.krnl.parallelForSuitableOutermost(loopDef, lbs, ubs, 0, -1);
+      if (parId >= 0)
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], ubs[parId], "gather");
+      else
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no parallel as no dim with enough elements in gather");
+#else
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, outputRank, parId)) {
+        create.krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], ubs[parId], "gather");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no parallel as no dim with enough elements in gather");
+      }
+#endif
+    }
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
           // Insert code inside the loop.
@@ -125,8 +155,8 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
 };
 
 void populateLoweringONNXGatherOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXGatherOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXGatherOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

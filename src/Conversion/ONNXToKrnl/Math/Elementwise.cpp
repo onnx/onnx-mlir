@@ -1550,6 +1550,20 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // Iterate only over the blocks.
   SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
   if (enableParallel) {
+#if 0
+    int64_t parId = create.krnl.parallelForSuitableOutermost(optimizedLoopDef,
+        lbs, flattenedOutputDims, 0, std::min((int64_t)1, rank-1));
+    if (parId >= 0) {
+      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
+                              << " at level " << parId << "\n");
+      onnxToKrnlParallelReport(op, true, parId, lbs[parId],
+          flattenedOutputDims[parId], "elementwise simd partially flattened");
+    } else {
+      onnxToKrnlParallelReport(op, false, -1, -1,
+          "no parallel as no dim with enough elements in elementwise simd "
+          "partially flattened");
+    }
+#else
     int64_t parId;
     if (findSuitableParallelDimension(
             lbs, flattenedOutputDims, 0, std::min((int64_t)2, rank), parId)) {
@@ -1563,84 +1577,84 @@ static LogicalResult getPartiallyFlattenedSimdCode(
           "no parallel as no dim with enough elements in elementwise simd "
           "partially flattened");
     }
-  }
-  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
-      [&](KrnlBuilder &ck, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-        SmallVector<IndexExpr, 4> outputAccessExprs;
-        getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
+#endif
+}
+create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
+    [&](KrnlBuilder &ck, ValueRange loopInd) {
+      MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+      SmallVector<IndexExpr, 4> outputAccessExprs;
+      getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
 
-        llvm::SmallVector<Value, 4> loadedVals;
-        // Load all the values
-        for (int64_t i = 0; i < (int64_t)flatOperands.size(); ++i) {
-          Value flatOper = flatOperands[i];
-          if (isNoneValue(flatOper)) {
-            // None, just pass it on unmodified.
-            loadedVals.emplace_back(flatOper);
-            continue;
-          }
-          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
-          assert(memRefType && "expected memref");
-          VectorType vecType =
-              VectorType::get({VL}, memRefType.getElementType());
-          if (hasOneElementInInnermostDims(flatOper, 1)) {
-            // If its a scalar, do a scalar load and splat.
-            llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
-            if (hasOneElement(flatOper)) {
-              // Not flattened, with only 1 dims, just put zeros as needed.
-              int64_t scalarRank =
-                  flatOper.getType().dyn_cast<ShapedType>().getRank();
-              for (int r = 0; r < scalarRank; ++r)
-                scalarAccessFct.emplace_back(LiteralIndexExpr(0));
+      llvm::SmallVector<Value, 4> loadedVals;
+      // Load all the values
+      for (int64_t i = 0; i < (int64_t)flatOperands.size(); ++i) {
+        Value flatOper = flatOperands[i];
+        if (isNoneValue(flatOper)) {
+          // None, just pass it on unmodified.
+          loadedVals.emplace_back(flatOper);
+          continue;
+        }
+        MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
+        assert(memRefType && "expected memref");
+        VectorType vecType = VectorType::get({VL}, memRefType.getElementType());
+        if (hasOneElementInInnermostDims(flatOper, 1)) {
+          // If its a scalar, do a scalar load and splat.
+          llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
+          if (hasOneElement(flatOper)) {
+            // Not flattened, with only 1 dims, just put zeros as needed.
+            int64_t scalarRank =
+                flatOper.getType().dyn_cast<ShapedType>().getRank();
+            for (int r = 0; r < scalarRank; ++r)
+              scalarAccessFct.emplace_back(LiteralIndexExpr(0));
 
-            } else {
-              // Was flattened, with non 1 dims, use get access expr.
-              LogicalResult res =
-                  shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
-                      scalarAccessFct, /*flattened*/ true, ruledOutBroadcast);
-              assert(succeeded(res) && "Could not compute access indices");
-            }
-            Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
-            Value splatValue = create.vec.splat(vecType, loadedVal);
-            loadedVals.emplace_back(splatValue);
           } else {
-            llvm::SmallVector<IndexExpr, 4> loadAccessFct;
+            // Was flattened, with non 1 dims, use get access expr.
             LogicalResult res =
                 shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
-                    loadAccessFct, /*flattened*/ true, ruledOutBroadcast);
+                    scalarAccessFct, /*flattened*/ true, ruledOutBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
-            Value loadedVal =
-                create.vec.loadIE(vecType, flatOper, loadAccessFct, {});
-            loadedVals.emplace_back(loadedVal);
           }
-        }
-        Value finalResult;
-        if (isUnaryOp) {
-          // For unary op, we through all operands at once as the other ones are
-          // scalars / none values.
-          finalResult = emitScalarOpFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, loadedVals);
+          Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
+          Value splatValue = create.vec.splat(vecType, loadedVal);
+          loadedVals.emplace_back(splatValue);
         } else {
-          // For non-unary ops, each op is a flattened array that need to be
-          // processed; process the two first ones, and then "accumulate" one
-          // value at a time. Use the first operand as temporary result.
-          Value accumulated = loadedVals[0];
-          // Iterate over the remaining operands.
-          for (unsigned i = 1; i < numArgs; ++i) {
-            Value next = loadedVals[i];
-            // Fold.
-            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
-                op, vecElementType, {accumulated, next});
-          }
-          // Postprocessing (dummy op if none).
-          finalResult = emitPostProcessingFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, accumulated);
+          llvm::SmallVector<IndexExpr, 4> loadAccessFct;
+          LogicalResult res =
+              shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
+                  loadAccessFct, /*flattened*/ true, ruledOutBroadcast);
+          assert(succeeded(res) && "Could not compute access indices");
+          Value loadedVal =
+              create.vec.loadIE(vecType, flatOper, loadAccessFct, {});
+          loadedVals.emplace_back(loadedVal);
         }
-        // Store result in the resulting array.
-        create.vec.store(finalResult, flatAlloc, loopInd);
-      });
-  rewriter.replaceOp(op, alloc);
-  return success();
+      }
+      Value finalResult;
+      if (isUnaryOp) {
+        // For unary op, we through all operands at once as the other ones are
+        // scalars / none values.
+        finalResult = emitScalarOpFor<OP_TYPE>(
+            rewriter, create.getLoc(), op, vecElementType, loadedVals);
+      } else {
+        // For non-unary ops, each op is a flattened array that need to be
+        // processed; process the two first ones, and then "accumulate" one
+        // value at a time. Use the first operand as temporary result.
+        Value accumulated = loadedVals[0];
+        // Iterate over the remaining operands.
+        for (unsigned i = 1; i < numArgs; ++i) {
+          Value next = loadedVals[i];
+          // Fold.
+          accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(), op,
+              vecElementType, {accumulated, next});
+        }
+        // Postprocessing (dummy op if none).
+        finalResult = emitPostProcessingFor<OP_TYPE>(
+            rewriter, create.getLoc(), op, vecElementType, accumulated);
+      }
+      // Store result in the resulting array.
+      create.vec.store(finalResult, flatAlloc, loopInd);
+    });
+rewriter.replaceOp(op, alloc);
+return success();
 }
 
 //===----------------------------------------------------------------------===//

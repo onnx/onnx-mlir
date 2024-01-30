@@ -53,6 +53,16 @@ struct KrnlBuilder : public DialectBuilder {
   void permute(mlir::ValueRange loops, mlir::ArrayRef<int64_t> map) const;
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops) const;
+  // Consider the candidate parallel loops `loops[firstParallelIndex]` to
+  // `loops[lastParallelIndex]` inclusively. Among these candidate loops, select
+  // the outermost loop for which the trip count is not known to be 1. If any,
+  // make that candidate loop a parallel loop and return the index of that loop.
+  // If all candidate loops have a trip count of 1, return -1. Parallel indices
+  // are in the range -L...L-1 inclusively with L=size(loops).
+  int64_t parallelForSuitableOutermost(mlir::ValueRange loops,
+      mlir::ArrayRef<IndexExpr> lbs, mlir::ArrayRef<IndexExpr> ubs,
+      int64_t firstParallelIndex, int64_t lastParallelIndex,
+      int64_t minTripCountForParallel = 1);
 
   // Lambda passes loop indices as 2nd parameter.
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
