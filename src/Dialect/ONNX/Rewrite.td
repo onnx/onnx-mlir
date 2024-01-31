@@ -2,7 +2,7 @@
 
 //===---- ONNXRewrite.td - Pattern Match Rewriting for ONNX --*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -141,6 +141,10 @@ def HaveSameStaticShape: Constraint<
   CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
   "Two tensors have the same static shape">;
 
+def HaveSameShape: Constraint<
+  CPred<"onnx_mlir::haveSameShape($0, $1)">,
+  "Two tensors have the same value">;
+
 // Create a unit constant that will be used as none input.
 def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
@@ -180,6 +184,10 @@ def IsStaticShapeTensor:
     CPred<
       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
     "hasStaticShape">;
+
+def IsNoneValue: Constraint<
+   CPred<"onnx_mlir::isNoneValue($_self)">,
+          "Is the value none">;
 
 def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
@@ -432,6 +440,18 @@ def CastEliminationPattern : Pat<
 //  (ONNXCastOp $arg, $type)>;
 
 //===----------------------------------------------------------------------===//
+// Canonicalization for ONNXCastLikeOp
+//===----------------------------------------------------------------------===//
+
+def CastLikeEliminationPattern:  Pat<
+  // Remove a CastLike pattern if the first input tensor and second input tensor are the same. 
+  (ONNXCastLikeOp $val, $castTo, $saturate),
+  // Remove the castlike.
+  (replaceWithValue $val),
+  // Check that the first input tensor and second input tensor are the same
+  [(HaveSameShape $val, $castTo)]>;
+
+//===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp
 //===----------------------------------------------------------------------===//
 
@@ -598,8 +618,9 @@ def RemoveIdentityReshapePattern1:  Pat<
   (ONNXReshapeOp $val, $shape, $az),
   // Remove the reshape.
   (replaceWithValue $val),
-  // Check that val has the specified shape.
-  [(HasSpecifiedConstantShape $val, $shape)]>;
+  // Check if shape has no value and that val has the specified shape.
+  [(IsNoneValue:$shape), (HasSpecifiedConstantShape $val, $shape)]
+  >;
 
 def RemoveIdentityReshapePattern2:  Pat<
   // Remove an identity pattern. Output and input shapes are static and the same. 

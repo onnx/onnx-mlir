@@ -154,20 +154,6 @@ LogicalResult ONNXCastOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// CastLike
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType = getElementType(getTargetType().getType());
-  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-//===----------------------------------------------------------------------===//
 // Ceil
 //===----------------------------------------------------------------------===//
 
@@ -332,6 +318,16 @@ LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation(),
       this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// IsNaN
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsNaNOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  return inferShapeForUnaryOps(getOperation(), i1Type);
 }
 
 //===----------------------------------------------------------------------===//

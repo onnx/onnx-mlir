@@ -474,6 +474,33 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// Scalar binary ops for lowering ONNXCastLikeOp
+//===----------------------------------------------------------------------===//
+template <>
+struct ScalarOp<ONNXCastLikeOp> {
+  using FOp = CustomScalarOp;
+  using IOp = CustomScalarOp;
+};
+
+template <>
+Value emitScalarOpFor<ONNXCastLikeOp>(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Type elementType,
+    ArrayRef<Value> scalarOperands) {
+
+  Value input = scalarOperands[0];
+  Value target = scalarOperands[1];
+
+  Type targetType = target.getType();
+
+  CheckIfCustomScalarOpIsSupported<ONNXCastOp>(targetType);
+
+  MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+  // Tensor produced by casting the first input tensor 
+  // to have the same type as the second input tensor.
+  return create.math.cast(targetType, input);
+}
+
+//===----------------------------------------------------------------------===//
 // Scalar unary ops for lowering ONNXSinhOp
 //===----------------------------------------------------------------------===//
 template <>
@@ -1779,9 +1806,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
       mlir::ONNXTanOp, mlir::ONNXTanhOp,
       // Binary Op
-      mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
-      mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
-      mlir::ONNXPowOp,
+      mlir::ONNXCastLikeOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp, 
+      mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, 
+      mlir::ONNXModOp, mlir::ONNXPowOp,
       // Variadic Op
       mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
       mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
@@ -2707,6 +2734,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXCastLikeOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
