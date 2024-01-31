@@ -223,13 +223,13 @@ static void copyZTensorChunkScalar(
   uint32_t offset = chunk->offsetInStick;
 
   // Buffers pointers.
-  void *src, *dst;
+  uint16_t *src, *dst;
   if (fromChunk) {
-    src = chunk->ztensor->buffer;
-    dst = splitInfo->origZTensor->buffer;
+    src = (uint16_t *)chunk->ztensor->buffer;
+    dst = (uint16_t *)splitInfo->origZTensor->buffer;
   } else {
-    src = splitInfo->origZTensor->buffer;
-    dst = chunk->ztensor->buffer;
+    src = (uint16_t *)splitInfo->origZTensor->buffer;
+    dst = (uint16_t *)chunk->ztensor->buffer;
   }
   assert(src && "Source buffer is NULL");
   assert(dst && "Destination buffer is NULL");
@@ -267,12 +267,9 @@ static void copyZTensorChunkScalar(
           uint64_t TD3Offset = td3 + TD3 * (d4 + D4 * (d5 + D5 * d6));
           for (uint64_t d2 = 0; d2 < D2; ++d2) {
             for (uint64_t d1 = 0; d1 < D1; ++d1) {
-              // Copy 2 bytes at a time.
-              uint64_t offsetSrc =
-                  AIU_2BYTE_CELL_SIZE * (d1 + D1 * (d2 + D2 * SD3Offset));
-              uint64_t offsetDst =
-                  AIU_2BYTE_CELL_SIZE * (d1 + D1 * (d2 + D2 * TD3Offset));
-              memcpy(dst + offsetDst, src + offsetSrc, AIU_2BYTE_CELL_SIZE);
+              uint64_t offsetSrc = d1 + D1 * (d2 + D2 * SD3Offset);
+              uint64_t offsetDst = d1 + D1 * (d2 + D2 * TD3Offset);
+              *(dst + offsetDst) = *(src + offsetSrc);
             }
           }
         }
