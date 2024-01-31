@@ -169,10 +169,11 @@ LogicalResult ONNXCastLikeOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = getTargetType().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      getTargetType().getType().cast<ShapedType>().getElementType();
   ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
-  }
+}
 
 //===----------------------------------------------------------------------===//
 // DivOp
