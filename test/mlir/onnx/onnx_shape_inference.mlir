@@ -1746,7 +1746,7 @@ func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
 
 
 func.func @test_castlike_1(%arg0 : tensor<2x3x4xf32>, %arg1 : tensor<2xf16>) -> tensor<*xf16> {
-  %1 = "onnx.CastLike"(%arg0, %arg1) : (tensor<2x3x4xf32>, tensor<2xf16>) -> tensor<*xf16>
+  %1 = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<2x3x4xf32>, tensor<2xf16>) -> tensor<*xf16> 
   "onnx.Return"(%1) : (tensor<*xf16>) -> ()
 
   // CHECK-LABEL: test_castlike_1
