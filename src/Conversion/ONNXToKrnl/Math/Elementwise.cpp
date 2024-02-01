@@ -1805,9 +1805,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
       mlir::ONNXTanOp, mlir::ONNXTanhOp,
-      mlir::ONNXCastLikeOp
+      mlir::ONNXCastLikeOp,
           // Binary Op
-          mlir::ONNXEqualOp,
+      mlir::ONNXEqualOp,
       mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp,
       mlir::ONNXLessOrEqualOp, mlir::ONNXModOp, mlir::ONNXPowOp,
       // Variadic Op
