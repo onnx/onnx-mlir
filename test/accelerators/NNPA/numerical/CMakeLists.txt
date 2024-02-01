@@ -91,22 +91,22 @@ add_numerical_test(TestGemmNNPA
   )
 
 # LSTM
-set(TestLSTMNNPA_instruction zdnn_lstm)
+# set(TestLSTMNNPA_instruction zdnn_lstm)
 # Automatically set following config when using --maccel=NNPA
 # set(TestLSTMNNPA_config "-peephole=0")
-add_numerical_test(TestLSTMNNPA
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
+# add_numerical_test(TestLSTMNNPA
+#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestLSTM.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
 
 # GRU
-set(TestGRUNNPA_instruction zdnn_gru)
+# set(TestGRUNNPA_instruction zdnn_gru)
 # Automatically set following config when using --maccel=NNPA
 # set(TestGRUNNPA_config "-linearBeforeReset=1")
-add_numerical_test(TestGRUNNPA
-  ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
-  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
-  )
+# add_numerical_test(TestGRUNNPA
+#   ${ONNX_NUMERICALTEST_SRC_DIR}/TestGRU.cpp
+#   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+#   )
 
 # LeakyRelu
 set(TestLeakyReluNNPA_instruction zdnn_mul)

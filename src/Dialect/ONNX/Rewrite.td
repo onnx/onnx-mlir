@@ -449,7 +449,7 @@ def CastLikeEliminationPattern:  Pat<
   // Remove the castlike.
   (replaceWithValue $val),
   // Check that the first input tensor and second input tensor are the same
-  [(Equal $val, $castTo), (HaveSameShape $val, $castTo)]>;
+  [(HaveSameShape $val, $castTo)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp
