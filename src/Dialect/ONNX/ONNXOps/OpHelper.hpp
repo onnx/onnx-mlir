@@ -176,6 +176,12 @@ inline bool isNoneValue(mlir::Value value) {
 }
 
 //===----------------------------------------------------------------------===//
+// Support for BatchNorm
+
+mlir::ONNXConstantOp createConstantOp(mlir::PatternRewriter &rewriter,
+    mlir::Location loc, mlir::ArrayAttr values);
+
+//===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
 
@@ -202,6 +208,9 @@ bool hasShapeAndRank(mlir::Operation *op);
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
+
+mlir::ONNXCastOp castTo(
+    mlir::PatternRewriter &rewriter, mlir::Value val, mlir::Type newElementTy);
 
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
