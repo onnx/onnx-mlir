@@ -198,6 +198,8 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
       return zdnn_sub(inputA, inputB, output);
     else if (opType == ZDNN_MUL_EXT)
       return zdnn_mul(inputA, inputB, output);
+    else if (opType == ZDNN_DIV_EXT)
+      return zdnn_div(inputA, inputB, output);
     else if (opType == ZDNN_MAX_EXT)
       return zdnn_max(inputA, inputB, output);
     else if (opType == ZDNN_MIN_EXT)
