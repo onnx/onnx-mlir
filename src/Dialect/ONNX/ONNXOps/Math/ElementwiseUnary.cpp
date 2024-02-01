@@ -154,24 +154,6 @@ LogicalResult ONNXCastOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// CastLike
-//===----------------------------------------------------------------------===//
-
-// Although CastLike requries two inputs, we will use the unary shape helper
-// to bypass errors of the tensor inputs not being the exact size (broadcastable
-// error).
-LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType =
-      getTargetType().getType().cast<ShapedType>().getElementType();
-  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-//===----------------------------------------------------------------------===//
 // Ceil
 //===----------------------------------------------------------------------===//
 

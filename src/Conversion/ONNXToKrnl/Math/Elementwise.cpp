@@ -474,7 +474,7 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar unary ops for lowering ONNXCastLikeOp
+// Scalar binary ops for lowering ONNXCastLikeOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXCastLikeOp> {
@@ -495,7 +495,7 @@ Value emitScalarOpFor<ONNXCastLikeOp>(ConversionPatternRewriter &rewriter,
   CheckIfCustomScalarOpIsSupported<ONNXCastLikeOp>(targetType);
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  // Tensor produced by casting the first input tensor
+  // Tensor produced by casting the first input tensor 
   // to have the same type as the second input tensor.
   return create.math.cast(targetType, input);
 }
@@ -1804,9 +1804,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
-      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXCastLikeOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp,
       // Binary Op
-      mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
+      mlir::ONNXCastLikeOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
       mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
       mlir::ONNXPowOp,
       // Variadic Op
@@ -2734,7 +2734,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
-      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastLikeOp>,
+      ONNXElementwiseBinaryOpLowering<mlir::ONNXCastLikeOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
