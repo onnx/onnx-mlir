@@ -474,7 +474,7 @@ Value emitScalarOpFor<ONNXCastOp>(ConversionPatternRewriter &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
-// Scalar binary ops for lowering ONNXCastLikeOp
+// Scalar unary ops for lowering ONNXCastLikeOp
 //===----------------------------------------------------------------------===//
 template <>
 struct ScalarOp<ONNXCastLikeOp> {
@@ -1804,9 +1804,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXReluOp, mlir::ONNXRoundOp, mlir::ONNXSeluOp,
       mlir::ONNXSigmoidOp, mlir::ONNXSignOp, mlir::ONNXSinOp, mlir::ONNXSinhOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
-      mlir::ONNXTanOp, mlir::ONNXTanhOp,
+      mlir::ONNXTanOp, mlir::ONNXTanhOp, mlir::ONNXCastLikeOp
       // Binary Op
-      mlir::ONNXCastLikeOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
+      mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
       mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp,
       mlir::ONNXModOp, mlir::ONNXPowOp,
       // Variadic Op
@@ -2734,7 +2734,7 @@ void populateLoweringONNXElementwiseOpPattern(RewritePatternSet &patterns,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseOrOp>,
       ONNXElementwiseBinaryOpLowering<mlir::ONNXBitwiseXorOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCastOp>,
-      ONNXElementwiseBinaryOpLowering<mlir::ONNXCastLikeOp>,
+      ONNXElementwiseUnaryOpLowering<mlir::ONNXCastLikeOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCeilOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCosOp>,
       ONNXElementwiseUnaryOpLowering<mlir::ONNXCoshOp>,
