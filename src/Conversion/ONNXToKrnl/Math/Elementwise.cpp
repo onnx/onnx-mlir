@@ -495,7 +495,7 @@ Value emitScalarOpFor<ONNXCastLikeOp>(ConversionPatternRewriter &rewriter,
   CheckIfCustomScalarOpIsSupported<ONNXCastLikeOp>(targetType);
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  // Tensor produced by casting the first input tensor 
+  // Tensor produced by casting the first input tensor
   // to have the same type as the second input tensor.
   return create.math.cast(targetType, input);
 }
@@ -1806,9 +1806,9 @@ bool OpFusionHelper::checkFusibleOp(Operation *useOp, Operation *defOp,
       mlir::ONNXSoftplusOp, mlir::ONNXSoftsignOp, mlir::ONNXSqrtOp,
       mlir::ONNXTanOp, mlir::ONNXTanhOp,
       // Binary Op
-      mlir::ONNXCastLikeOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp, mlir::ONNXGreaterOrEqualOp,
-      mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp, mlir::ONNXModOp,
-      mlir::ONNXPowOp,
+      mlir::ONNXCastLikeOp, mlir::ONNXEqualOp, mlir::ONNXGreaterOp,
+      mlir::ONNXGreaterOrEqualOp, mlir::ONNXLessOp, mlir::ONNXLessOrEqualOp,
+      mlir::ONNXModOp, mlir::ONNXPowOp,
       // Variadic Op
       mlir::ONNXAddOp, mlir::ONNXAndOp, mlir::ONNXDivOp, mlir::ONNXMaxOp,
       mlir::ONNXMeanOp, mlir::ONNXMinOp, mlir::ONNXMulOp, mlir::ONNXOrOp,
