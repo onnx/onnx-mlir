@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZDNNEXTENSION_H
+#define ONNX_MLIR_ZDNNEXTENSION_H
 
 #include "zdnn.h"
 
@@ -180,3 +181,5 @@ zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // ONNX_MLIR_ZDNNEXTENSION_H
