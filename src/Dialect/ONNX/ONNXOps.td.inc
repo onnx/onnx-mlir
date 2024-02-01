@@ -936,7 +936,7 @@ def ONNXCeluOp:ONNX_Op<"Celu",
   max(0,x) + min(0,alpha*(exp(x/alpha)-1))
   ```
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs AnyTypeOf<[TensorOf<[F32]>, TensorOf<[BF16]>]>:$Y);
@@ -1991,7 +1991,7 @@ def ONNXEluOp:ONNX_Op<"Elu",
   0`, `f(x) = x for x >= 0`., is applied to the tensor elementwise.
   
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.0">:$alpha);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
@@ -3049,7 +3049,7 @@ def ONNXHardSigmoidOp:ONNX_Op<"HardSigmoid",
   (Tensor<T>) where the HardSigmoid function, y = max(0, min(1, alpha * x + beta)),
   is applied to the tensor elementwise.
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
     DefaultValuedAttr<F32Attr, "0.2">:$alpha,
     DefaultValuedAttr<F32Attr, "0.5">:$beta);
@@ -7112,7 +7112,7 @@ def ONNXRoundOp:ONNX_Op<"Round",
   round([-4.5]) = [-4.0]
   ```
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
@@ -7628,7 +7628,7 @@ def ONNXSeluOp:ONNX_Op<"Selu",
   `y = gamma * (alpha * e^x - alpha) for x <= 0`, `y = gamma * x for x > 0`,
   is applied to the tensor elementwise.
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X,
     DefaultValuedAttr<F32Attr, "1.67326">:$alpha,
     DefaultValuedAttr<F32Attr, "1.0507">:$gamma);
@@ -8063,7 +8063,7 @@ def ONNXSinOp:ONNX_Op<"Sin",
   let description = [{
   Calculates the sine of the given input tensor, element-wise.
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$input);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$output);
   let extraClassDeclaration = [{
@@ -8411,7 +8411,7 @@ def ONNXSoftplusOp:ONNX_Op<"Softplus",
   (Tensor<T>) where the softplus function, y = ln(exp(x) + 1), is applied to
   the tensor elementwise.
   }];
-  // FIXME(CR-1188709): Remove manual modification of BF16 support when the operation definition is updated upstream
+  // FIXME(FXML-4138): Remove manual modification of BF16 support when the operation definition is updated upstream
   let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
   let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$Y);
   let extraClassDeclaration = [{
