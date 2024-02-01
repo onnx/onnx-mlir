@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseUnary.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -150,6 +150,20 @@ LogicalResult ONNXCastOp::inferShapes(
 
   Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
   ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
+// CastLikeOp
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXCastLikeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getInput()))
+    return success();
+
+  Type elementType =
+      getTargetType().getType().cast<ShapedType>().getElementType();
+  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

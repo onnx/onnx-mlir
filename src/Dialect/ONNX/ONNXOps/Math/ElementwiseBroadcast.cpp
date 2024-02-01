@@ -162,20 +162,6 @@ LogicalResult ONNXBitShiftOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// CastLikeOp
-//===----------------------------------------------------------------------===//
-LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType =
-      getTargetType().getType().cast<ShapedType>().getElementType();
-  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-//===----------------------------------------------------------------------===//
 // DivOp
 //===----------------------------------------------------------------------===//
 
