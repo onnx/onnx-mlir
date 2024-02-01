@@ -430,8 +430,8 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
-        "test_castlike_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
-        "test_castlike_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
+        "test_cast_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
+        "test_cast_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
         # ==OP== CastLike
         # ==MIN== 19
         # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
@@ -469,8 +469,8 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
-        "test_cast_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
-        "test_cast_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
+        "test_castlike_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
+        "test_castlike_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
         # ==OP== Ceil
         # ==MIN== 6
         "test_ceil_example_cpu": {
