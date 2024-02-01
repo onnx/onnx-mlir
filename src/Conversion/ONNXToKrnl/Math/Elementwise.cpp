@@ -492,7 +492,7 @@ Value emitScalarOpFor<ONNXCastLikeOp>(ConversionPatternRewriter &rewriter,
 
   Type targetType = target.getType();
 
-  CheckIfCustomScalarOpIsSupported<ONNXCastOp>(targetType);
+  CheckIfCustomScalarOpIsSupported<ONNXCastLikeOp>(targetType);
 
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   // Tensor produced by casting the first input tensor
