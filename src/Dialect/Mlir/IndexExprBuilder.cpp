@@ -47,6 +47,8 @@ APFloat getFloatValue(ElementsAttr elementsAttr, Type elType, uint64_t i) {
       return APFloat(onnx_mlir::castArrayRef<float>(array)[i]);
     if (elType.isF64())
       return APFloat(onnx_mlir::castArrayRef<double>(array)[i]);
+    if (elType.isBF16())
+      return APFloat(onnx_mlir::castArrayRef<float>(array)[i]);
     llvm_unreachable("Unexpected float type");
   }
   return elementsAttr.getValues<APFloat>()[i];

@@ -539,6 +539,9 @@ RESULT_TYPE getScalarValue(ElementsAttr denseAttr, Type type) {
   } else if (elementaryType.isa<FloatType>()) {
     auto valueIt = denseAttr.getValues<APFloat>().begin();
     return (RESULT_TYPE)(*valueIt).convertToDouble();
+  } else if (elementaryType.isBF16()) {
+    auto valueIt = denseAttr.getValues<APFloat>().begin();
+    return (RESULT_TYPE)(*valueIt).convertToFloat();
   }
   llvm_unreachable("Unexpected type.");
   return 0;
