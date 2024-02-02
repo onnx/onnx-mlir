@@ -54,6 +54,41 @@ struct npy_format_descriptor<onnx_mlir::float_16> {
 
 namespace onnx_mlir {
 
+//
+// Generate OMTensor's buffer for string input in pyArray
+//
+// For numerical array, pybind11 can convert multi-dimensional array into
+// one-dimensional array without manual conversion, but pybind11 cannot
+// convert multi-dimentional string array into one-dimentional array
+// automatically.
+// This function will be rewritten when pybind fixes the issue, or
+// better way for fixing it is found.
+//
+void *generateOMTensorBufferForStringData(py::array pyArray) {
+  auto shape = pyArray.shape();
+  uint64_t numElem = 1;
+  for (size_t i = 0; i < (size_t)pyArray.ndim(); ++i)
+    numElem *= shape[i];
+  uint64_t strLenTotal = 0;
+  uint64_t off = 0;
+  void *dataBuffer = NULL;
+  assert(pyArray.ndim() == 1 && "input pyArray should be flatten");
+  auto vec = pyArray.cast<std::vector<std::string>>();
+  for (int64_t i = 0; i < shape[0]; ++i)
+    strLenTotal += strlen(vec[i].data()) + 1;
+  dataBuffer = malloc(sizeof(char *) * numElem + strLenTotal);
+  if (dataBuffer == NULL)
+    return NULL;
+  char **strArray = (char **)dataBuffer;
+  char *strPos = (char *)(((char *)dataBuffer) + sizeof(char *) * numElem);
+  for (int64_t i = 0; i < shape[0]; ++i) {
+    strcpy(strPos, vec[i].data());
+    strArray[off++] = strPos;
+    strPos += strlen(vec[i].data()) + 1;
+  }
+  return dataBuffer;
+}
+
 PyExecutionSessionBase::PyExecutionSessionBase(
     std::string sharedLibPath, std::string tag, bool defaultEntryPoint)
     : onnx_mlir::ExecutionSession(sharedLibPath, tag, defaultEntryPoint) {}
@@ -62,7 +97,9 @@ PyExecutionSessionBase::PyExecutionSessionBase(
 // Run.
 
 std::vector<py::array> PyExecutionSessionBase::pyRun(
-    const std::vector<py::array> &inputsPyArray) {
+    const std::vector<py::array> &inputsPyArray,
+    const std::vector<py::array> &shapesPyArray,
+    const std::vector<py::array> &stridesPyArray) {
   if (!isInitialized)
     throw std::runtime_error(reportInitError());
   if (!_entryPointFunc)
@@ -70,7 +107,16 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
 
   // 1. Process inputs.
   std::vector<OMTensor *> omts;
-  for (auto inputPyArray : inputsPyArray) {
+  if (inputsPyArray.size() != shapesPyArray.size())
+    throw std::runtime_error(
+        reportPythonError("numbers of inputs and shapes should be the same"));
+  if (inputsPyArray.size() != stridesPyArray.size())
+    throw std::runtime_error(
+        reportPythonError("numbers of inputs and strides should be the same"));
+  for (size_t argId = 0; argId < inputsPyArray.size(); argId++) {
+    auto inputPyArray = inputsPyArray[argId];
+    auto shapePyArray = shapesPyArray[argId];
+    auto stridePyArray = stridesPyArray[argId];
     if (!inputPyArray.flags() || !py::array::c_style)
       throw std::runtime_error(
           reportPythonError("Expect contiguous python array."));
@@ -87,6 +133,23 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       // We want OMTensor to free up the memory space upon destruction.
       ownData = 1;
     }
+
+    // Prepare shape
+    assert(py::isinstance<py::array_t<std::int64_t>>(shapePyArray) &&
+           shapePyArray.writeable() &&
+           "shape should be writable py::array_t<std::int64_t>");
+    const int64_t *shape =
+        reinterpret_cast<const int64_t *>(shapePyArray.mutable_data());
+
+    // Prepare stride
+    assert(py::isinstance<py::array_t<std::int64_t>>(stridePyArray) &&
+           stridePyArray.writeable() &&
+           "stride should be writable py::array_t<std::int64_t>");
+    const int64_t *stride =
+        reinterpret_cast<const int64_t *>(stridePyArray.mutable_data());
+
+    // Prepare ndim
+    auto ndim = shapePyArray.size();
 
     // Borrowed from:
     // https://github.com/pybind/pybind11/issues/563#issuecomment-267835542
@@ -120,6 +183,8 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
       dtype = ONNX_TYPE_COMPLEX64;
     else if (py::isinstance<py::array_t<std::complex<double>>>(inputPyArray))
       dtype = ONNX_TYPE_COMPLEX128;
+    else if (inputPyArray.dtype().kind() == 'O') // case of py::object type
+      dtype = ONNX_TYPE_STRING;
     // Missing bfloat16 support
     else {
       std::stringstream errStr;
@@ -127,22 +192,26 @@ std::vector<py::array> PyExecutionSessionBase::pyRun(
              << std::endl;
       throw std::runtime_error(reportPythonError(errStr.str()));
     }
+    OMTensor *inputOMTensor = NULL;
+    if (dtype == ONNX_TYPE_STRING) {
+      void *tensorBuffer = generateOMTensorBufferForStringData(inputPyArray);
+      if (tensorBuffer == NULL)
+        throw std::runtime_error(reportPythonError(
+            "fail to allocate Tensor buffer for string data"));
+      inputOMTensor = omTensorCreateWithOwnership(
+          tensorBuffer, shape, ndim, dtype, /*own_data=*/true);
 
-    // Convert Py_ssize_t to int64_t if necessary
-    OMTensor *inputOMTensor = nullptr;
-    if (std::is_same<int64_t, pybind11::ssize_t>::value) {
-      inputOMTensor = omTensorCreateWithOwnership(dataPtr,
-          reinterpret_cast<const int64_t *>(inputPyArray.shape()),
-          static_cast<int64_t>(inputPyArray.ndim()), dtype, ownData);
-      omTensorSetStridesWithPyArrayStrides(inputOMTensor,
-          reinterpret_cast<const int64_t *>(inputPyArray.strides()));
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
+      // omTensorPrint("PyExecutionSessionBase::pyRun: %t %d", inputOMTensor);
+    } else if (std::is_same<int64_t, pybind11::ssize_t>::value) {
+      inputOMTensor =
+          omTensorCreateWithOwnership(dataPtr, shape, ndim, dtype, ownData);
+      omTensorSetStridesWithPyArrayStrides(inputOMTensor, stride);
     } else {
-      std::vector<int64_t> safeShape(
-          inputPyArray.shape(), inputPyArray.shape() + inputPyArray.ndim());
-      std::vector<int64_t> safeStrides(
-          inputPyArray.strides(), inputPyArray.strides() + inputPyArray.ndim());
-      inputOMTensor = omTensorCreateWithOwnership(dataPtr, safeShape.data(),
-          (int64_t)inputPyArray.ndim(), dtype, ownData);
+      std::vector<int64_t> safeShape(shape, shape + ndim);
+      std::vector<int64_t> safeStrides(stride, stride + ndim);
+      inputOMTensor = omTensorCreateWithOwnership(
+          dataPtr, safeShape.data(), ndim, dtype, ownData);
       omTensorSetStridesWithPyArrayStrides(inputOMTensor, safeStrides.data());
     }
     omts.emplace_back(inputOMTensor);

@@ -27,3 +27,6 @@ add_custom_target(check-multiple-models
     ${Python3_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/add_sub_onnx.py --run-models
   DEPENDS ${OMRuntimeTestMultiModelONNXFiles}
 )
+
+add_dependencies(check-onnx-backend onnx-mlir)
+add_dependencies(check-multiple-models PyRuntimeC)

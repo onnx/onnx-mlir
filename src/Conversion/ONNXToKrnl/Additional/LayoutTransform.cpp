@@ -30,8 +30,12 @@ struct ONNXLayoutTransformOpLowering
 
   ONNXLayoutTransformOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXLayoutTransformOp::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutOp,
       ONNXLayoutTransformOpAdaptor adaptor,

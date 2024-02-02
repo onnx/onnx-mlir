@@ -4,7 +4,7 @@
 
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -33,8 +33,13 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD,
       bool enableParallel)
       : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
-        enableTiling(enableTiling), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableTiling(enableTiling), enableSIMD(enableSIMD) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXMatMulOp::getOperationName());
+  }
+
   DimAnalysis *dimAnalysis;
   bool enableTiling;
   bool enableSIMD;

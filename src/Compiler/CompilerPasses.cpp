@@ -4,7 +4,7 @@
 
 //===------------------------- CompilerPasses.cpp -------------------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -51,7 +51,8 @@ void configurePasses() {
       onnxConstPropExpansionBound, onnxConstPropDisablePatterns,
       disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
-      enableParallel, optReport == OptReport::Simd, !disableSimdOption);
+      enableParallel, parallelizeOps, optReport == OptReport::Simd,
+      !disableSimdOption);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {

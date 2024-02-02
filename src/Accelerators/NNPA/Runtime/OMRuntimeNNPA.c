@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "zDNNExtension/zDNNExtension.h"
 #include "zdnn.h"
 
 #ifdef __cplusplus
@@ -104,6 +105,8 @@ void OMInitAccelNNPA() {
     if (!OMIsInitAccelNNPA) {
       /* Still uninitialized, actual init. */
       zdnn_init();
+      /* Initialize settings for ztensor splitting. */
+      zDNNExtensionInit();
       /* No need for a fence due to strong consistency. */
       OMIsInitAccelNNPA = 1;
     } /* Release mutex. */
@@ -143,6 +146,8 @@ uint64_t OMInitCompatibleAccelNNPA(uint64_t versionNum) {
     if (!OMIsInitAccelNNPA) {
       /* Still uninitialized, actual init. */
       zdnn_init();
+      /* Initialize settings for ztensor splitting. */
+      zDNNExtensionInit();
       /* Check if version is compatible */
       if (zdnn_is_version_runnable((uint32_t)versionNum))
         isCompatible = 1;

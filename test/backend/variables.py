@@ -274,8 +274,11 @@ def get_runtime_vars():
 
 ### CONSTANT ###
 STATIC_SHAPE = "static"
+STATIC_SHAPE_STRING = "static_string"
 DYNAMIC_SHAPE = "dynamic"
+DYNAMIC_SHAPE_STRING = "dynamic_string"
 CONSTANT_INPUT = "constant"
+CONSTANT_INPUT_STRING = "constant_string"
 CONSTANTS_TO_FILE = "constants_to_file"
 FLOAT16 = "float16"
 

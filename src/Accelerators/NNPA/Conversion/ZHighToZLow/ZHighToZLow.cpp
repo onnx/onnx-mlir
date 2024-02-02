@@ -4,7 +4,7 @@
 
 //====------ ZHighToZLow.cpp - ZHigh dialect to ZLow lowering -------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -1618,8 +1618,12 @@ struct ZHighToZLowDataConversionLowering
 
   ZHighToZLowDataConversionLowering(TypeConverter &typeConverter,
       MLIRContext *ctx, bool fromF32, bool enableParallel)
-      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32),
-        enableParallel(enableParallel) {}
+      : OpConversionPattern<CONVERT_OP>(typeConverter, ctx), fromF32(fromF32) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            CONVERT_OP::getOperationName());
+  }
 
   LogicalResult matchAndRewrite(CONVERT_OP convertOp, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
