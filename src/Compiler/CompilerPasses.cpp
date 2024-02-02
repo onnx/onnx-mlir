@@ -70,10 +70,10 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
       std::make_unique<DisposableGarbageCollector>(pm.getContext()));
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
-  if (!disableRecomposeOption)
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   // Add canonicalizer pass to access ConstantOpNormalizationPattern
   pm.addPass(mlir::createCanonicalizerPass());
+  if (!disableRecomposeOption)
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createRecomposeONNXToONNXPass());
   if (enableONNXHybridPass) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
