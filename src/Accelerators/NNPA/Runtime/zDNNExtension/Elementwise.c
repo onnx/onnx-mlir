@@ -68,36 +68,18 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
       .origZTensor = input, .axis = 2, .chunkSize = OMZTensorSplitSize};
   SplitInfo splitInfoY = {
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
-
-  // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoX) ||
-      !initSplitInfo(&splitInfoY)) {
-    if (OMZTensorSplitDebug)
-      printf("[UnaryElementwise] Not split zTensor ...\n");
-    if (opType == ZDNN_EXP_EXT)
-      return zdnn_exp(input, output);
-    else if (opType == ZDNN_LOG_EXT)
-      return zdnn_log(input, output);
-    else if (opType == ZDNN_RELU_EXT)
-      return zdnn_relu(input, clippingValue, output);
-    else if (opType == ZDNN_SIGMOID_EXT)
-      return zdnn_sigmoid(input, output);
-    else if (opType == ZDNN_TANH_EXT)
-      return zdnn_tanh(input, output);
-    else
-      return ZDNN_UNAVAILABLE_FUNCTION;
-  }
+  initSplitInfo(&splitInfoX);
+  initSplitInfo(&splitInfoY);
 
   // Split input.
   if (OMZTensorSplitDebug)
     printf("[UnaryElementwise] Split the input ztensor along e2 into %d chunks "
-           "of %d elements \n",
-        splitInfoX.numOfChunks, splitInfoX.chunkSize);
+           "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
+        splitInfoX.numOfChunks, splitInfoX.chunkSize,
+        splitInfoX.reuseOrigZTensor, splitInfoX.reuseOrigBuffer);
 
-  double splitTime = 0.;
-  double mmTime = 0.;
-  double mergeTime = 0.;
-  clock_t start_time, end_time;
+  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
 
   // Split input into chunks.
   if (OMZTensorSplitDebug)
@@ -186,39 +168,20 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
       .origZTensor = inputB, .axis = 2, .chunkSize = OMZTensorSplitSize};
   SplitInfo splitInfoY = {
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
-
-  // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoA) ||
-      !initSplitInfo(&splitInfoB) || !initSplitInfo(&splitInfoY)) {
-    if (OMZTensorSplitDebug)
-      printf("[BinaryElementwise] Not split zTensor ...\n");
-    if (opType == ZDNN_ADD_EXT)
-      return zdnn_add(inputA, inputB, output);
-    else if (opType == ZDNN_SUB_EXT)
-      return zdnn_sub(inputA, inputB, output);
-    else if (opType == ZDNN_MUL_EXT)
-      return zdnn_mul(inputA, inputB, output);
-    else if (opType == ZDNN_DIV_EXT)
-      return zdnn_div(inputA, inputB, output);
-    else if (opType == ZDNN_MAX_EXT)
-      return zdnn_max(inputA, inputB, output);
-    else if (opType == ZDNN_MIN_EXT)
-      return zdnn_min(inputA, inputB, output);
-    else
-      return ZDNN_UNAVAILABLE_FUNCTION;
-  }
+  initSplitInfo(&splitInfoA);
+  initSplitInfo(&splitInfoB);
+  initSplitInfo(&splitInfoY);
 
   // Split input.
   if (OMZTensorSplitDebug)
     printf(
         "[BinaryElementwise] Split the input ztensors along e2 into %d chunks "
-        "of %d elements \n",
-        splitInfoA.numOfChunks, splitInfoA.chunkSize);
+        "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
+        splitInfoA.numOfChunks, splitInfoA.chunkSize,
+        splitInfoA.reuseOrigZTensor, splitInfoA.reuseOrigBuffer);
 
-  double splitTime = 0.;
-  double mmTime = 0.;
-  double mergeTime = 0.;
-  clock_t start_time, end_time;
+  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
 
   // Split input into chunks.
   if (OMZTensorSplitDebug)

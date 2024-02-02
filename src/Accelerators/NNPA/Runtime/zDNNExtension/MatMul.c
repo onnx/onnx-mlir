@@ -45,7 +45,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output, bool isBcast) {
   double totalTime = 0.;
-  clock_t start_time, end_time;
+  clock_t start_time = 0, end_time = 0;
 
   if (OMZTensorSplitDebug)
     start_time = clock();
@@ -80,85 +80,62 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   SplitInfo splitInfoY = {
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
 
-  bool isSplitA = initSplitInfo(&splitInfoA);
-  bool isSplitB = initSplitInfo(&splitInfoB);
-  bool isSplitC = initSplitInfo(&splitInfoC);
-  bool isSplitY = initSplitInfo(&splitInfoY);
-
-  // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled || !(isSplitA || isSplitB)) {
-    if (OMZTensorSplitDebug)
-      printf("[MatMul] Not split zTensor ...\n");
-    return call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
-  }
+  initSplitInfo(&splitInfoA);
+  initSplitInfo(&splitInfoB);
+  initSplitInfo(&splitInfoC);
+  initSplitInfo(&splitInfoY);
 
   // Split input A into chunks.
-  if (isSplitA) {
-    if (OMZTensorSplitDebug)
-      printf("[MatMul] Split the 1st ztensor (A) along e2 into %d chunks of %d "
-             "elements. ReuseBuffer: %d \n",
-          splitInfoA.numOfChunks, splitInfoA.chunkSize,
-          splitInfoA.reuseOrigBuffer);
-    splitZTensor(&splitInfoA, /*copyData=*/true);
-    splitZTensor(&splitInfoY, /*copyData=*/false);
-  }
+  if (OMZTensorSplitDebug)
+    printf("[MatMul] Split the 1st ztensor (A) along e2 into %d chunks of %d "
+           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
+        splitInfoA.numOfChunks, splitInfoA.chunkSize,
+        splitInfoA.reuseOrigZTensor, splitInfoA.reuseOrigBuffer);
+  splitZTensor(&splitInfoA, /*copyData=*/true);
+  splitZTensor(&splitInfoY, /*copyData=*/false);
   // Split input B and C into chunks.
-  if (isSplitB) {
-    if (OMZTensorSplitDebug) {
-      printf("[MatMul] Split the 2nd ztensor (B) along e1 into %d chunks of %d "
-             "elements ReuseBuffer: %d \n",
-          splitInfoB.numOfChunks, splitInfoB.chunkSize,
-          splitInfoB.reuseOrigBuffer);
-      printf("[MatMul] Split the 3rd ztensor (C) along e1 into %d chunks of %d "
-             "elements ReuseBuffer: %d \n",
-          splitInfoC.numOfChunks, splitInfoC.chunkSize,
-          splitInfoC.reuseOrigBuffer);
-    }
-    splitZTensor(&splitInfoB, /*copyData=*/true);
-    splitZTensor(&splitInfoC, /*copyData=*/true);
+  if (OMZTensorSplitDebug) {
+    printf("[MatMul] Split the 2nd ztensor (B) along e1 into %d chunks of %d "
+           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
+        splitInfoB.numOfChunks, splitInfoB.chunkSize,
+        splitInfoB.reuseOrigZTensor, splitInfoB.reuseOrigBuffer);
+    printf("[MatMul] Split the 3rd ztensor (C) along e1 into %d chunks of %d "
+           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
+        splitInfoC.numOfChunks, splitInfoC.chunkSize,
+        splitInfoC.reuseOrigZTensor, splitInfoC.reuseOrigBuffer);
   }
+  splitZTensor(&splitInfoB, /*copyData=*/true);
+  splitZTensor(&splitInfoC, /*copyData=*/true);
 
   // Call zdnn_matmul_op on each chunk.
   // Iterate over the chunks along the first dim of A.
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
-    zdnn_ztensor *zaTensor =
-        (isSplitA) ? (splitInfoA.chunks + i)->ztensor : inputA;
-    zdnn_ztensor *zyTensor =
-        (isSplitY) ? (splitInfoY.chunks + i)->ztensor : output;
-    if (isSplitB) {
-      SplitInfo splitInfoYB = {
-          .origZTensor = zyTensor, .axis = 3, .chunkSize = OMZTensorSplitSize};
-      initSplitInfo(&splitInfoYB);
-      splitZTensor(&splitInfoYB, /*copyData=*/false);
-      // Iterate over the chunks along the second dim of B.
-      for (uint32_t j = 0; j < splitInfoB.numOfChunks; ++j) {
-        zdnn_ztensor *zbTensor = (splitInfoB.chunks + j)->ztensor;
-        zdnn_ztensor *zcTensor = (splitInfoC.chunks + j)->ztensor;
-        zdnn_ztensor *zybTensor = (splitInfoYB.chunks + j)->ztensor;
-        zdnn_status status = call_zdnn_matmul_op(
-            zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
-        assert(status == ZDNN_OK);
-      }
-      mergeZTensors(&splitInfoYB);
-      freeSplitInfoBuffer(&splitInfoYB);
-    } else {
-      // Only A is splitted.
+    zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
+    zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
+
+    SplitInfo splitInfoYB = {
+        .origZTensor = zyTensor, .axis = 3, .chunkSize = OMZTensorSplitSize};
+    initSplitInfo(&splitInfoYB);
+    splitZTensor(&splitInfoYB, /*copyData=*/false);
+    // Iterate over the chunks along the second dim of B.
+    for (uint32_t j = 0; j < splitInfoB.numOfChunks; ++j) {
+      zdnn_ztensor *zbTensor = (splitInfoB.chunks + j)->ztensor;
+      zdnn_ztensor *zcTensor = (splitInfoC.chunks + j)->ztensor;
+      zdnn_ztensor *zybTensor = (splitInfoYB.chunks + j)->ztensor;
       zdnn_status status = call_zdnn_matmul_op(
-          zaTensor, inputB, inputC, opType, zyTensor, isBcast);
+          zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
       assert(status == ZDNN_OK);
     }
+    mergeZTensors(&splitInfoYB);
+    freeSplitInfoBuffer(&splitInfoYB);
   }
 
   // Merging the chunks into the output.
-  if (isSplitA) {
-    mergeZTensors(&splitInfoY);
-    freeSplitInfoBuffer(&splitInfoA);
-    freeSplitInfoBuffer(&splitInfoY);
-  }
-  if (isSplitB) {
-    freeSplitInfoBuffer(&splitInfoB);
-    freeSplitInfoBuffer(&splitInfoC);
-  }
+  mergeZTensors(&splitInfoY);
+  freeSplitInfoBuffer(&splitInfoA);
+  freeSplitInfoBuffer(&splitInfoB);
+  freeSplitInfoBuffer(&splitInfoC);
+  freeSplitInfoBuffer(&splitInfoY);
 
   if (OMZTensorSplitDebug) {
     end_time = clock();

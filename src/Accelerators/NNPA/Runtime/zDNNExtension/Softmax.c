@@ -57,25 +57,18 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
       .origZTensor = input, .axis = 2, .chunkSize = OMZTensorSplitSize};
   SplitInfo splitInfoY = {
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
-
-  // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoX) ||
-      !initSplitInfo(&splitInfoY)) {
-    if (OMZTensorSplitDebug)
-      printf("[Softmax] Not split zTensor ...\n");
-    return zdnn_softmax(input, save_area, act_func, output);
-  }
+  initSplitInfo(&splitInfoX);
+  initSplitInfo(&splitInfoY);
 
   // Split input.
   if (OMZTensorSplitDebug)
     printf("[Softmax] Split the input ztensor along e2 into %d chunks of %d "
-           "elements \n",
-        splitInfoX.numOfChunks, splitInfoX.chunkSize);
+           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
+        splitInfoX.numOfChunks, splitInfoX.chunkSize,
+        splitInfoX.reuseOrigZTensor, splitInfoX.reuseOrigBuffer);
 
-  double splitTime = 0.;
-  double mmTime = 0.;
-  double mergeTime = 0.;
-  clock_t start_time, end_time;
+  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
 
   // Split input into chunks.
   if (OMZTensorSplitDebug)

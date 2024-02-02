@@ -90,6 +90,9 @@ typedef struct SplitInfo {
   // If yes, there is no need to allocate buffers for chunks, and chunk ztensors
   // will use the original ztensor's buffer.
   bool reuseOrigBuffer;
+  // If reuse the original ztensor. This is true when there is only one chunk.
+  // This is used to simplify iteration over chunks.
+  bool reuseOrigZTensor;
   // Information for each chunk.
   ChunkInfo *chunks;
 } SplitInfo;

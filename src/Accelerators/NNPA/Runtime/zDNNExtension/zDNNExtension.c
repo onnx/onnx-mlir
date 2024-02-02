@@ -214,7 +214,6 @@ static void copyZTensorChunk(
   uint64_t D3 = chunkShape.dim3;
 
   // Axis = 3. For splitting e1.
-  // TODO: if D6 = 1, there is no need to copy, just reuse the input buffer.
   if (splitInfo->axis == 3) {
     uint64_t SD5 = (fromChunk ? chunkShape.dim5 : origShape.dim5);
     uint64_t TD5 = (fromChunk ? origShape.dim5 : chunkShape.dim5);
@@ -331,26 +330,41 @@ static void copyZTensorChunkScalar(
 }
 
 bool initSplitInfo(SplitInfo *splitInfo) {
-  // Only support the first and second innermost axis in the CPU tensor at this
-  // moment.
+  // Only support the following axes in the CPU tensor at this moment.
+  // axis = 0 in the CPU tensor corresponds to dim4 in zTensor.
   // axis = 2 in the CPU tensor corresponds to dim2 in zTensor.
   // axis = 3 in the CPU tensor corresponds to dim1 in zTensor.
-  if (!(splitInfo->axis == 2 || splitInfo->axis == 3))
-    return false;
+  assert(
+      (splitInfo->axis == 0 || splitInfo->axis == 2 || splitInfo->axis == 3) &&
+      "Unsupported axis");
 
   // Init general split information.
+  // origZTensor.
   const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
+  // totalSize.
+  if (splitInfo->axis == 0)
+    splitInfo->totalSize = origZTensor->transformed_desc->dim4;
   if (splitInfo->axis == 2)
     splitInfo->totalSize = origZTensor->transformed_desc->dim2;
   else if (splitInfo->axis == 3)
     splitInfo->totalSize = origZTensor->transformed_desc->dim1;
+  // numOfChunks
+  if (!OMZTensorSplitEnabled)
+    splitInfo->numOfChunks = 1;
   else
+    splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
+  // Allocate ChunkInfo struct.
+  splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(ChunkInfo));
+  assert(splitInfo->chunks && "Failed to allocate ChunkInfo struct");
+  // reuseOrigZTensor.
+  if (splitInfo->numOfChunks == 1) {
+    // No split benefit.
+    splitInfo->reuseOrigZTensor = true;
+    splitInfo->reuseOrigBuffer = true;
+    splitInfo->chunks->ztensor = origZTensor;
     return false;
-  splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
-
-  // No split benefit.
-  if (splitInfo->numOfChunks == 1)
-    return false;
+  }
+  splitInfo->reuseOrigZTensor = false;
 
   // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
   uint32_t chunkSizeInStick;
@@ -362,12 +376,8 @@ bool initSplitInfo(SplitInfo *splitInfo) {
     chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_STICKS_PER_PAGE);
   else if (splitInfo->axis == 3) // e1
     chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_2BYTE_CELLS_PER_STICK);
-  else
-    return false;
 
   // Init chunk information.
-  splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(ChunkInfo));
-  assert(splitInfo->chunks && "Failed to allocate ChunkInfo struct");
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
     ChunkInfo *chunkInfo = splitInfo->chunks + i;
     if (i == splitInfo->numOfChunks - 1)
@@ -376,8 +386,8 @@ bool initSplitInfo(SplitInfo *splitInfo) {
       chunkInfo->dimSize = splitInfo->chunkSize;
     chunkInfo->offsetInStick = i * chunkSizeInStick;
   }
-  // Check if we can reuse the original ztensor buffer instead of allocating ne
-  // buffers for the chunks.
+
+  // reuseOrigBuffer.
   // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
   splitInfo->reuseOrigBuffer = false;
   if (splitInfo->axis == 0) {
@@ -409,13 +419,15 @@ bool initSplitInfo(SplitInfo *splitInfo) {
 }
 
 void freeSplitInfoBuffer(SplitInfo *splitInfo) {
-  // Free the sub tensors.
-  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    zdnn_ztensor *t = (splitInfo->chunks + i)->ztensor;
-    // Free the ztensor buffer and descriptors.
-    freeZTensorChunk(t, !splitInfo->reuseOrigBuffer);
-    // Free ztensor struct.
-    free(t);
+  if (!splitInfo->reuseOrigZTensor) {
+    // Free the sub tensors.
+    for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
+      zdnn_ztensor *t = (splitInfo->chunks + i)->ztensor;
+      // Free the ztensor buffer and descriptors.
+      freeZTensorChunk(t, !splitInfo->reuseOrigBuffer);
+      // Free ztensor struct.
+      free(t);
+    }
   }
   // Free chunk info.
   if (splitInfo->chunks)
@@ -423,6 +435,8 @@ void freeSplitInfoBuffer(SplitInfo *splitInfo) {
 }
 
 void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
+  if (splitInfo->reuseOrigZTensor)
+    return;
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
     // Allocate a chunk ztensor.
     zdnn_status status = allocZTensorChunk(splitInfo, i);
@@ -435,6 +449,8 @@ void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
 }
 
 void mergeZTensors(const SplitInfo *splitInfo) {
+  if (splitInfo->reuseOrigZTensor || splitInfo->reuseOrigBuffer)
+    return;
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
     // Copy data from the chunk ztensor back to the original ztensor.
     copyZTensorChunk(splitInfo, i, /*fromChunk=*/true);
