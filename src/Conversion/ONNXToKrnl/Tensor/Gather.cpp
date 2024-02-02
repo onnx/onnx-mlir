@@ -97,8 +97,8 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
         onnxToKrnlParallelReport(
             op, true, parId, lbs[parId], ubs[parId], "gather");
       } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no parallel as no dim with enough elements in gather");
+        onnxToKrnlParallelReport(
+            op, false, -1, -1, "dim with not enough work in gather");
       }
     }
     create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(),
