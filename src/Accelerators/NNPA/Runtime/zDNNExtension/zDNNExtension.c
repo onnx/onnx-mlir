@@ -147,10 +147,13 @@ static void freeZTensorChunk(zdnn_ztensor *t) {
 
 static void copyZTensorChunk(
     const SplitInfo *splitInfo, uint32_t chunkID, bool fromChunk) {
-  // Only support the second innermost axis in the CPU tensor at this moment.
-  // axis = 2 in the CPU tensor corresponds to dim3 in zTensor.
-  if (splitInfo->axis != 2) {
-    printf("Only support the second innermost dimension at this moment.");
+  // Only support the first and second innermost axis in the CPU tensor at this
+  // moment.
+  // axis = 2 in the CPU tensor corresponds to dim2 in zTensor.
+  // axis = 3 in the CPU tensor corresponds to dim1 in zTensor.
+  if (!(splitInfo->axis == 2 || splitInfo->axis == 3)) {
+    printf("Only support the first and second innermost dimension at this "
+           "moment.");
     return;
   }
 
@@ -170,13 +173,17 @@ static void copyZTensorChunk(
   assert(dst && "Destination buffer is NULL");
 
   // Shape information.
+  // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
   zTensorShape origShape;
   getZTensorShape(splitInfo->origZTensor, &origShape);
   zTensorShape chunkShape;
   getZTensorShape(chunk->ztensor, &chunkShape);
   assert(origShape.dim6 == chunkShape.dim6);
-  assert(origShape.dim5 == chunkShape.dim5);
+  if (splitInfo->axis != 3) // e1
+    assert(origShape.dim5 == chunkShape.dim5);
   assert(origShape.dim4 == chunkShape.dim4);
+  if (splitInfo->axis != 2) // e2
+    assert(origShape.dim3 == chunkShape.dim3);
   assert(origShape.dim2 == chunkShape.dim2);
   assert(origShape.dim1 == chunkShape.dim1);
   // Ensure that each element is 2 bytes.
@@ -186,28 +193,53 @@ static void copyZTensorChunk(
   uint64_t D5 = chunkShape.dim5;
   uint64_t D4 = chunkShape.dim4;
   uint64_t D3 = chunkShape.dim3;
-  uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
-  uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
 
-  for (uint64_t d6 = 0; d6 < D6; ++d6) {
-    for (uint64_t d5 = 0; d5 < D5; ++d5) {
-      for (uint64_t d4 = 0; d4 < D4; ++d4) {
-        uint64_t SD4Offset = d4 + D4 * (d5 + D5 * d6);
-        uint64_t TD4Offset = d4 + D4 * (d5 + D5 * d6);
-        for (uint64_t d3 = 0; d3 < D3; ++d3) {
-          uint64_t sd3 = (fromChunk ? d3 : (offset + d3));
-          uint64_t td3 = (fromChunk ? (offset + d3) : d3);
-          uint64_t SD3Offset = sd3 + SD3 * SD4Offset;
-          uint64_t TD3Offset = td3 + TD3 * TD4Offset;
-          // Copy one page at a time.
-          uint64_t offsetSrc = AIU_PAGESIZE_IN_BYTES * SD3Offset;
-          uint64_t offsetDst = AIU_PAGESIZE_IN_BYTES * TD3Offset;
-          memcpy(dst + offsetDst, src + offsetSrc, AIU_PAGESIZE_IN_BYTES);
+  // Axis = 3. For splitting e1.
+  // TODO: if D6 = 1, there is no need to copy, just reuse the input buffer.
+  if (splitInfo->axis == 3) {
+    uint64_t SD5 = (fromChunk ? chunkShape.dim5 : origShape.dim5);
+    uint64_t TD5 = (fromChunk ? origShape.dim5 : chunkShape.dim5);
+    for (uint64_t d6 = 0; d6 < D6; ++d6) {
+      for (uint64_t d5 = 0; d5 < D5; ++d5) {
+        uint64_t sd5 = (fromChunk ? d5 : (offset + d5));
+        uint64_t td5 = (fromChunk ? (offset + d5) : d5);
+        uint64_t SD5Offset = sd5 + SD5 * d6;
+        uint64_t TD5Offset = td5 + TD5 * d6;
+        uint64_t copyInBytes = D4 * D3 * AIU_PAGESIZE_IN_BYTES;
+        uint64_t offsetSrc = copyInBytes * SD5Offset;
+        uint64_t offsetDst = copyInBytes * TD5Offset;
+        memcpy(dst + offsetDst, src + offsetSrc, copyInBytes);
+      }
+    }
+    return;
+  }
+
+  // Axis = 2. For splitting e2.
+  if (splitInfo->axis == 2) {
+    uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
+    uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
+    for (uint64_t d6 = 0; d6 < D6; ++d6) {
+      for (uint64_t d5 = 0; d5 < D5; ++d5) {
+        for (uint64_t d4 = 0; d4 < D4; ++d4) {
+          uint64_t SD4Offset = d4 + D4 * (d5 + D5 * d6);
+          uint64_t TD4Offset = d4 + D4 * (d5 + D5 * d6);
+          if (splitInfo->axis != 2)
+            continue;
+          for (uint64_t d3 = 0; d3 < D3; ++d3) {
+            uint64_t sd3 = (fromChunk ? d3 : (offset + d3));
+            uint64_t td3 = (fromChunk ? (offset + d3) : d3);
+            uint64_t SD3Offset = sd3 + SD3 * SD4Offset;
+            uint64_t TD3Offset = td3 + TD3 * TD4Offset;
+            // Copy one page at a time.
+            uint64_t offsetSrc = AIU_PAGESIZE_IN_BYTES * SD3Offset;
+            uint64_t offsetDst = AIU_PAGESIZE_IN_BYTES * TD3Offset;
+            memcpy(dst + offsetDst, src + offsetSrc, AIU_PAGESIZE_IN_BYTES);
+          }
         }
       }
     }
+    return;
   }
-  return;
 }
 
 static void copyZTensorChunkScalar(
@@ -280,13 +312,21 @@ static void copyZTensorChunkScalar(
 }
 
 bool initSplitInfo(SplitInfo *splitInfo) {
-  // Only support the second innermost dimension at this moment.
-  if (splitInfo->axis != 2)
+  // Only support the first and second innermost axis in the CPU tensor at this
+  // moment.
+  // axis = 2 in the CPU tensor corresponds to dim2 in zTensor.
+  // axis = 3 in the CPU tensor corresponds to dim1 in zTensor.
+  if (!(splitInfo->axis == 2 || splitInfo->axis == 3))
     return false;
 
   // Init general split information.
   const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
-  splitInfo->totalSize = origZTensor->transformed_desc->dim2;
+  if (splitInfo->axis == 2)
+    splitInfo->totalSize = origZTensor->transformed_desc->dim2;
+  else if (splitInfo->axis == 3)
+    splitInfo->totalSize = origZTensor->transformed_desc->dim1;
+  else
+    return false;
   splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
 
   // No split benefit.
