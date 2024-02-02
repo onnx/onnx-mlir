@@ -4,7 +4,7 @@
 
 //===------------- jniwrapper.c - JNI wrapper Implementation -------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -620,19 +620,35 @@ jobject omtl_native_to_java(
     JNI_TYPE_VAR_CALL(env, jlongArray, jomt_shape,
         (*env)->NewLongArray(env, jomt_rank), jomt_shape != NULL,
         japi->jecpt_cls, "omt[%d]:jomt_shape=%p", i, jomt_shape);
+    /* On z/OS, remove const specification for jni_shape */
+#ifdef __MVS__
+    JNI_CALL(env,
+        (*env)->SetLongArrayRegion(
+            env, jomt_shape, 0, jomt_rank, (jlong *)jni_shape),
+        1, NULL, "");
+#else
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(
             env, jomt_shape, 0, jomt_rank, (const jlong *)jni_shape),
         1, NULL, "");
+#endif
 
     /* Create data strides array Java object, fill in from native array */
     JNI_TYPE_VAR_CALL(env, jlongArray, jomt_strides,
         (*env)->NewLongArray(env, jomt_rank), jomt_strides != NULL,
         japi->jecpt_cls, "omt[%d]:jomt_strides=%p", i, jomt_strides);
+    /* On z/OS, remove const specification for jni_strides */
+#ifdef __MVS__
+    JNI_CALL(env,
+        (*env)->SetLongArrayRegion(
+            env, jomt_strides, 0, jomt_rank, (jlong *)jni_strides),
+        1, NULL, "");
+#else
     JNI_CALL(env,
         (*env)->SetLongArrayRegion(
             env, jomt_strides, 0, jomt_rank, (const jlong *)jni_strides),
         1, NULL, "");
+#endif
 
     /* Create the OMTensor Java object */
     JNI_TYPE_VAR_CALL(env, jobject, jobj_omt,

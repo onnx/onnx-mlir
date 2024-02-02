@@ -93,18 +93,18 @@ def define_arch_op_names(arch):
     elif arch == "x86":  # generic x86
         op_name["vload"] = "(v?mov[au]p[sd]|mov(h|hl|lh|l)ps)"
         op_name["vload-splat"] = "nothingtosee"
-        op_name[
-            "vstore"
-        ] = "v?movntp[sd]"  # non temporal... other store may be just mov too
+        op_name["vstore"] = (
+            "v?movntp[sd]"  # non temporal... other store may be just mov too
+        )
         # perm | merge | shift left | replicate | permute | gen mask | gen mask
         op_name["vshuffle"] = "(v?shufp[sd]|v?unpck[lh]p)"
         op_name["vfma"] = "v?fmadd[123]+p[ds]"
         op_name["vmul"] = "v?mulp[ds]"
         op_name["vdiv"] = "v?divp[sd]"
         # add | sub| max | min | compare | and
-        op_name[
-            "vadd"
-        ] = "(v?addp[ds]|v?subp[ds]|v?maxp[ds]|v?min[dp]|cmp..p[sd]|andp|andnp|orp|xorp|pand|pandn|por|pxor)"
+        op_name["vadd"] = (
+            "(v?addp[ds]|v?subp[ds]|v?maxp[ds]|v?min[dp]|cmp..p[sd]|andp|andnp|orp|xorp|pand|pandn|por|pxor)"
+        )
         op_name["load"] = "mov"
         op_name["store"] = "mov"
     else:

@@ -59,14 +59,14 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // For a MatMul of (M,N)*(N,P),
   // We split M that is e2 in (e4, e3, e2, e1).
-  SplitInfo splitInfoA, splitInfoY;
-  splitInfoA.axis = 2;
-  splitInfoY.axis = 2;
-  splitInfoA.chunkSize = OMZTensorSplitSize;
-  splitInfoY.chunkSize = OMZTensorSplitSize;
+  SplitInfo splitInfoA = {
+      .origZTensor = inputA, .axis = 2, .chunkSize = OMZTensorSplitSize};
+  SplitInfo splitInfoY = {
+      .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
 
   // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled || !initSplitInfo(inputA, &splitInfoA)) {
+  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoA) ||
+      !initSplitInfo(&splitInfoY)) {
     if (OMZTensorSplitDebug)
       printf("[MatMul] Not split zTensor ...\n");
     return call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
@@ -77,7 +77,6 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     printf("[MatMul] Split the 1st ztensor along e2 into %d chunks of %d "
            "elements \n",
         splitInfoA.numOfChunks, splitInfoA.chunkSize);
-  initSplitInfo(output, &splitInfoY);
 
   double splitTime = 0.;
   double mmTime = 0.;
@@ -87,8 +86,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Split input A into chunks.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  splitZTensor(inputA, &splitInfoA, /*copyData=*/true);
-  splitZTensor(output, &splitInfoY, /*copyData=*/false);
+  splitZTensor(&splitInfoA, /*copyData=*/true);
+  splitZTensor(&splitInfoY, /*copyData=*/false);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
@@ -98,8 +97,10 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   if (OMZTensorSplitDebug)
     start_time = clock();
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
-    zdnn_status status = call_zdnn_matmul_op(splitInfoA.tensors + i, inputB,
-        inputC, opType, splitInfoY.tensors + i, isBcast);
+    zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
+    zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
+    zdnn_status status = call_zdnn_matmul_op(
+        zaTensor, inputB, inputC, opType, zyTensor, isBcast);
     assert(status == ZDNN_OK);
   }
   if (OMZTensorSplitDebug) {
@@ -110,7 +111,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Merging the chunks into the output.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  mergeZTensors(&splitInfoY, output);
+  mergeZTensors(&splitInfoY);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
@@ -125,6 +126,11 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   return ZDNN_OK;
 }
+
+// -----------------------------------------------------------------------------
+// Extension Functions
+// Same name as zdnn functions but with the `_ext` postfix.
+// -----------------------------------------------------------------------------
 
 zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,

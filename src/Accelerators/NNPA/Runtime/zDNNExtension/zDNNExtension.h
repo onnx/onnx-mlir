@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZDNNEXTENSION_H
+#define ONNX_MLIR_ZDNNEXTENSION_H
 
 #include "zdnn.h"
 
@@ -66,25 +67,27 @@ typedef struct zTensorShape {
 } zTensorShape;
 
 typedef struct ChunkInfo {
-  uint32_t size;
+  // Dim size for this chunk along the original axis.
+  uint32_t dimSize;
+  // Offset of the split point of this chunk in the stickified axis.
+  uint32_t offsetInStick;
+  // ztensor of this chunk.
+  zdnn_ztensor *ztensor;
 } ChunkInfo;
 
 typedef struct SplitInfo {
-  // Axis to split the tensor. Used to refer to an axis in (e4, e3, e2, e1)
+  // Original ztensor.
+  const zdnn_ztensor *origZTensor;
+  // Axis to split the tensor. Used to refer to an axis in (e4, e3, e2, e1).
   uint32_t axis;
-  // Size of the dimension at axis
+  // Size of the dimension at axis.
   uint32_t totalSize;
-  // Size of each chunk. The last chunk may be smaller
+  // Size of each chunk. The last chunk may be smaller.
   uint32_t chunkSize;
-  // Size of each chunk in the stickifified tensor. The last chunk may be
-  // smaller
-  uint32_t chunkSizeInStick;
-  // The number of chunks
+  // The number of chunks.
   uint32_t numOfChunks;
-  // Information for each chunk
+  // Information for each chunk.
   ChunkInfo *chunks;
-  // Sub zTensors
-  zdnn_ztensor *tensors;
 } SplitInfo;
 
 // -----------------------------------------------------------------------------
@@ -111,11 +114,10 @@ void getOrigShape(const zdnn_ztensor *t, OrigShape *shape);
 /**
  * \brief Initialize a SplitInfo struct.
  *
- * @param input input ztensor to split
  * @param splitInfo information for splitting
  * @return true if the ztensor is splitable. Otherwise, false
  */
-bool initSplitInfo(const zdnn_ztensor *input, SplitInfo *splitInfo);
+bool initSplitInfo(SplitInfo *splitInfo);
 
 /**
  * \brief Free buffers related to a SplitInfo struct.
@@ -129,19 +131,17 @@ void freeSplitInfoBuffer(SplitInfo *splitInfo);
 /**
  * \brief Split a ztensor into multiple chunks.
  *
- * @param input a ztensor to split
- * @param splitInfo information of all chunks
+ * @param splitInfo information for splitting
  * @param copyData whether or not copy data from ztensor to each chunk
  */
-void splitZTensor(
-    const zdnn_ztensor *input, SplitInfo *splitInfo, bool copyData);
+void splitZTensor(const SplitInfo *splitInfo, bool copyData);
 /**
  * \brief Merge chunks into a ztensor.
  *
- * @param splitInfo information of all chunks
+ * @param splitInfo information for splitting
  * @param output a ztensor obtained by merging the chunks
  */
-void mergeZTensors(const SplitInfo *splitInfo, zdnn_ztensor *output);
+void mergeZTensors(const SplitInfo *splitInfo);
 
 // -----------------------------------------------------------------------------
 // Extension Functions
@@ -156,6 +156,30 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output);
 
+// Elementwise Operations
+zdnn_status zdnn_add_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_sub_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_mul_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_div_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_min_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_max_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
+    zdnn_ztensor *output);
+zdnn_status zdnn_exp_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+zdnn_status zdnn_log_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+zdnn_status zdnn_relu_ext(
+    const zdnn_ztensor *input, const void *clippingValue, zdnn_ztensor *output);
+zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
+    zdnn_softmax_act act_func, zdnn_ztensor *output);
+zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+
 #ifdef __cplusplus
 }
 #endif
+
+#endif // ONNX_MLIR_ZDNNEXTENSION_H

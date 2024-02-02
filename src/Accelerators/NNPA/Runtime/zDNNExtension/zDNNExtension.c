@@ -94,31 +94,47 @@ static void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape) {
   assert(sizeFromDim == sizeFromBuffer && "buffer size mismatched");
 }
 
-static zdnn_status allocZTensorChunk(const zdnn_ztensor *input, uint32_t axis,
-    uint32_t chunkSize, zdnn_ztensor *output) {
+static zdnn_status allocZTensorChunk(
+    const SplitInfo *splitInfo, uint32_t chunkID) {
+  const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
+
+  uint32_t axis = splitInfo->axis;
+  ChunkInfo *chunk = splitInfo->chunks + chunkID;
+  uint32_t chunkSize = chunk->dimSize;
+
+  // Allocate one ztensor struct.
+  chunk->ztensor = malloc(sizeof(zdnn_ztensor));
+  if (!chunk->ztensor)
+    return ZDNN_ALLOCATION_FAILURE;
+  zdnn_ztensor *chunkZTensor = chunk->ztensor;
+
+  // Allocate one buffer for two descriptors.
   zdnn_tensor_desc *descriptors = malloc(2 * sizeof(zdnn_tensor_desc));
   if (!descriptors)
     return ZDNN_ALLOCATION_FAILURE;
   zdnn_tensor_desc *preTransDesc = descriptors;
   zdnn_tensor_desc *transDesc = descriptors + 1;
-  // Copy pre_transform_desc from the input.
-  preTransDesc->layout = input->pre_transformed_desc->layout;
-  preTransDesc->format = input->pre_transformed_desc->format;
-  preTransDesc->type = input->pre_transformed_desc->type;
+
+  // Copy pre_transform_desc from the origZTensor.
+  preTransDesc->layout = origZTensor->pre_transformed_desc->layout;
+  preTransDesc->format = origZTensor->pre_transformed_desc->format;
+  preTransDesc->type = origZTensor->pre_transformed_desc->type;
   preTransDesc->dim4 =
-      (axis == 0) ? chunkSize : input->pre_transformed_desc->dim4;
+      (axis == 0) ? chunkSize : origZTensor->pre_transformed_desc->dim4;
   preTransDesc->dim3 =
-      (axis == 1) ? chunkSize : input->pre_transformed_desc->dim3;
+      (axis == 1) ? chunkSize : origZTensor->pre_transformed_desc->dim3;
   preTransDesc->dim2 =
-      (axis == 2) ? chunkSize : input->pre_transformed_desc->dim2;
+      (axis == 2) ? chunkSize : origZTensor->pre_transformed_desc->dim2;
   preTransDesc->dim1 =
-      (axis == 3) ? chunkSize : input->pre_transformed_desc->dim1;
+      (axis == 3) ? chunkSize : origZTensor->pre_transformed_desc->dim1;
+
   // Copy a transformed desc.
   zdnn_status status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
   if (status != ZDNN_OK)
     return status;
+
   // Init a zTensor with malloc.
-  return zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, output);
+  return zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, chunkZTensor);
 }
 
 static void freeZTensorChunk(zdnn_ztensor *t) {
@@ -129,27 +145,42 @@ static void freeZTensorChunk(zdnn_ztensor *t) {
     free(t->pre_transformed_desc);
 }
 
-static void copyZTensorChunk(zdnn_ztensor *output, const zdnn_ztensor *input,
-    uint32_t axis, uint32_t offset, bool fromChunk) {
+static void copyZTensorChunk(
+    const SplitInfo *splitInfo, uint32_t chunkID, bool fromChunk) {
   // Only support the second innermost axis in the CPU tensor at this moment.
   // axis = 2 in the CPU tensor corresponds to dim3 in zTensor.
-  if (axis != 2) {
+  if (splitInfo->axis != 2) {
     printf("Only support the second innermost dimension at this moment.");
     return;
   }
 
-  zTensorShape inShape, outShape;
-  getZTensorShape(input, &inShape);
-  getZTensorShape(output, &outShape);
-  zTensorShape origShape = fromChunk ? outShape : inShape;
-  zTensorShape chunkShape = fromChunk ? inShape : outShape;
+  ChunkInfo *chunk = splitInfo->chunks + chunkID;
+  uint32_t offset = chunk->offsetInStick;
+
+  // Buffer pointers.
+  void *src, *dst;
+  if (fromChunk) {
+    src = chunk->ztensor->buffer;
+    dst = splitInfo->origZTensor->buffer;
+  } else {
+    src = splitInfo->origZTensor->buffer;
+    dst = chunk->ztensor->buffer;
+  }
+  assert(src && "Source buffer is NULL");
+  assert(dst && "Destination buffer is NULL");
+
+  // Shape information.
+  zTensorShape origShape;
+  getZTensorShape(splitInfo->origZTensor, &origShape);
+  zTensorShape chunkShape;
+  getZTensorShape(chunk->ztensor, &chunkShape);
   assert(origShape.dim6 == chunkShape.dim6);
   assert(origShape.dim5 == chunkShape.dim5);
   assert(origShape.dim4 == chunkShape.dim4);
   assert(origShape.dim2 == chunkShape.dim2);
   assert(origShape.dim1 == chunkShape.dim1);
   // Ensure that each element is 2 bytes.
-  assert(input->transformed_desc->type == ZDNN_DLFLOAT16);
+  assert(splitInfo->origZTensor->transformed_desc->type == ZDNN_DLFLOAT16);
 
   uint64_t D6 = chunkShape.dim6;
   uint64_t D5 = chunkShape.dim5;
@@ -170,9 +201,8 @@ static void copyZTensorChunk(zdnn_ztensor *output, const zdnn_ztensor *input,
           uint64_t TD3Offset = td3 + TD3 * TD4Offset;
           // Copy one page at a time.
           uint64_t offsetSrc = AIU_PAGESIZE_IN_BYTES * SD3Offset;
-          uint64_t offsetDest = AIU_PAGESIZE_IN_BYTES * TD3Offset;
-          memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
-              AIU_PAGESIZE_IN_BYTES);
+          uint64_t offsetDst = AIU_PAGESIZE_IN_BYTES * TD3Offset;
+          memcpy(dst + offsetDst, src + offsetSrc, AIU_PAGESIZE_IN_BYTES);
         }
       }
     }
@@ -180,25 +210,42 @@ static void copyZTensorChunk(zdnn_ztensor *output, const zdnn_ztensor *input,
   return;
 }
 
-static void copyZTensorChunkScalar(zdnn_ztensor *output,
-    const zdnn_ztensor *input, uint32_t axis, uint32_t offset, bool fromChunk) {
+static void copyZTensorChunkScalar(
+    const SplitInfo *splitInfo, uint32_t chunkID, bool fromChunk) {
   // Only support the second innermost axis in the CPU tensor at this moment.
   // axis = 2 in the CPU tensor corresponds to dim3 in zTensor.
-  if (axis != 2) {
+  if (splitInfo->axis != 2) {
     printf("Only support the second innermost dimension at this moment.");
     return;
   }
 
-  zTensorShape inShape, outShape;
-  getZTensorShape(input, &inShape);
-  getZTensorShape(output, &outShape);
-  zTensorShape origShape = fromChunk ? outShape : inShape;
-  zTensorShape chunkShape = fromChunk ? inShape : outShape;
+  ChunkInfo *chunk = splitInfo->chunks + chunkID;
+  uint32_t offset = chunk->offsetInStick;
+
+  // Buffers pointers.
+  uint16_t *src, *dst;
+  if (fromChunk) {
+    src = (uint16_t *)chunk->ztensor->buffer;
+    dst = (uint16_t *)splitInfo->origZTensor->buffer;
+  } else {
+    src = (uint16_t *)splitInfo->origZTensor->buffer;
+    dst = (uint16_t *)chunk->ztensor->buffer;
+  }
+  assert(src && "Source buffer is NULL");
+  assert(dst && "Destination buffer is NULL");
+
+  // Shape information.
+  zTensorShape origShape;
+  getZTensorShape(splitInfo->origZTensor, &origShape);
+  zTensorShape chunkShape;
+  getZTensorShape(chunk->ztensor, &chunkShape);
   assert(origShape.dim6 == chunkShape.dim6);
   assert(origShape.dim5 == chunkShape.dim5);
   assert(origShape.dim4 == chunkShape.dim4);
   assert(origShape.dim2 == chunkShape.dim2);
   assert(origShape.dim1 == chunkShape.dim1);
+  // Ensure that each element is 2 bytes.
+  assert(splitInfo->origZTensor->transformed_desc->type == ZDNN_DLFLOAT16);
 
   uint64_t D6 = chunkShape.dim6;
   uint64_t D5 = chunkShape.dim5;
@@ -220,13 +267,9 @@ static void copyZTensorChunkScalar(zdnn_ztensor *output,
           uint64_t TD3Offset = td3 + TD3 * (d4 + D4 * (d5 + D5 * d6));
           for (uint64_t d2 = 0; d2 < D2; ++d2) {
             for (uint64_t d1 = 0; d1 < D1; ++d1) {
-              // Copy 2 bytes at a time.
-              uint64_t offsetSrc =
-                  AIU_2BYTE_CELL_SIZE * (d1 + D1 * (d2 + D2 * SD3Offset));
-              uint64_t offsetDest =
-                  AIU_2BYTE_CELL_SIZE * (d1 + D1 * (d2 + D2 * TD3Offset));
-              memcpy(output->buffer + offsetDest, input->buffer + offsetSrc,
-                  AIU_2BYTE_CELL_SIZE);
+              uint64_t offsetSrc = d1 + D1 * (d2 + D2 * SD3Offset);
+              uint64_t offsetDst = d1 + D1 * (d2 + D2 * TD3Offset);
+              *(dst + offsetDst) = *(src + offsetSrc);
             }
           }
         }
@@ -236,66 +279,77 @@ static void copyZTensorChunkScalar(zdnn_ztensor *output,
   return;
 }
 
-bool initSplitInfo(const zdnn_ztensor *input, SplitInfo *splitInfo) {
+bool initSplitInfo(SplitInfo *splitInfo) {
   // Only support the second innermost dimension at this moment.
   if (splitInfo->axis != 2)
     return false;
 
-  splitInfo->totalSize = input->transformed_desc->dim2;
-  splitInfo->chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_STICKS_PER_PAGE);
+  // Init general split information.
+  const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
+  splitInfo->totalSize = origZTensor->transformed_desc->dim2;
   splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
 
+  // No split benefit.
   if (splitInfo->numOfChunks == 1)
     return false;
 
+  // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
+  uint32_t chunkSizeInStick;
+  if (splitInfo->axis == 0) // e4
+    chunkSizeInStick = splitInfo->chunkSize;
+  else if (splitInfo->axis == 1) // e3
+    chunkSizeInStick = splitInfo->chunkSize;
+  else if (splitInfo->axis == 2) // e2
+    chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_STICKS_PER_PAGE);
+  else if (splitInfo->axis == 3) // e1
+    chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_2BYTE_CELLS_PER_STICK);
+  else
+    return false;
+
+  // Init chunk information.
   splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(ChunkInfo));
+  assert(splitInfo->chunks && "Failed to allocate ChunkInfo struct");
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
     ChunkInfo *chunkInfo = splitInfo->chunks + i;
     if (i == splitInfo->numOfChunks - 1)
-      chunkInfo->size = splitInfo->totalSize - i * splitInfo->chunkSize;
+      chunkInfo->dimSize = splitInfo->totalSize - i * splitInfo->chunkSize;
     else
-      chunkInfo->size = splitInfo->chunkSize;
+      chunkInfo->dimSize = splitInfo->chunkSize;
+    chunkInfo->offsetInStick = i * chunkSizeInStick;
   }
   return true;
 }
 
 void freeSplitInfoBuffer(SplitInfo *splitInfo) {
+  // Free the sub tensors.
+  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
+    zdnn_ztensor *t = (splitInfo->chunks + i)->ztensor;
+    // Free the ztensor buffer and descriptors.
+    freeZTensorChunk(t);
+    // Free ztensor struct.
+    free(t);
+  }
   // Free chunk info.
   if (splitInfo->chunks)
     free(splitInfo->chunks);
-  // Free the sub tensors.
-  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i)
-    freeZTensorChunk(splitInfo->tensors + i);
-  if (splitInfo->tensors)
-    free(splitInfo->tensors);
 }
 
-void splitZTensor(
-    const zdnn_ztensor *input, SplitInfo *splitInfo, bool copyData) {
-  splitInfo->tensors =
-      malloc(splitInfo->numOfChunks * sizeof(struct zdnn_ztensor));
-  assert(splitInfo->tensors && "Failed to allocate a buffer");
-  uint32_t axis = splitInfo->axis;
+void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    zdnn_ztensor *chunk = splitInfo->tensors + i;
-    ChunkInfo *chunkInfo = splitInfo->chunks + i;
-    // Allocate ztensor struct for the chunk.
-    zdnn_status status =
-        allocZTensorChunk(input, /*axis=*/axis, chunkInfo->size, chunk);
+    // Allocate a chunk ztensor.
+    zdnn_status status = allocZTensorChunk(splitInfo, i);
     assert(status == ZDNN_OK && "Failed to allocate zTensor chunk");
     if (copyData) {
-      // Copy data from the input to the chunk.
-      uint32_t offset = i * splitInfo->chunkSizeInStick;
-      copyZTensorChunk(chunk, input, axis, offset, /*fromChunk=*/false);
+      // Copy data from the original ztensor to the chunk ztensor.
+      copyZTensorChunk(splitInfo, i, /*fromChunk=*/false);
     }
   }
 }
 
-void mergeZTensors(const SplitInfo *splitInfo, zdnn_ztensor *output) {
+void mergeZTensors(const SplitInfo *splitInfo) {
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    uint32_t offset = i * splitInfo->chunkSizeInStick;
-    copyZTensorChunk(output, splitInfo->tensors + i, splitInfo->axis, offset,
-        /*fromChunk=*/true);
+    // Copy data from the chunk ztensor back to the original ztensor.
+    copyZTensorChunk(splitInfo, i, /*fromChunk=*/true);
   }
 }
 
