@@ -209,15 +209,6 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
   return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
 }
 
-// Check to see if two input tensors have the same shape or not.
-bool haveSameShape(Value lhs, Value rhs) {
-  if (!hasShapeAndRank(lhs) || !hasShapeAndRank(rhs))
-    return false;
-  Type lhsT = lhs.getType();
-  Type rhsT = rhs.getType();
-  return (getShape(lhsT) == getShape(rhsT));
-}
-
 // Match v = shape_transform(X*A + B).
 // shape_transform is a sequence of operations like Reshape, Transpose,
 // Squeeze, Unsqueeze, etc. that do not change the numerical values by data
