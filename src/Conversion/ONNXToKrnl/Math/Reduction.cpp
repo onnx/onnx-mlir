@@ -455,9 +455,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Get axes dims
     IndexExprScope mainScope(&rewriter, loc);
     DimsExpr axesDims;
-    if (isNoneValue(axesVal) && !isNoop) {
-      // The default is to reduce over all the dimensions of the input tensor if
-      // 'noop_with_empty_axes' is false
+    if (isNoneValue(axesVal)) {
+      if (isNoop) {
+        // Axes is none and 'noop_with_empty_axes' is true. This behaves as a
+        // noop, replace op with its input
+        rewriter.replaceOp(op, adaptor.getData());
+        return success();
+      }
+      // The default is to reduce over all the dimensions of the input tensor
+      // if 'noop_with_empty_axes' is false
       for (int64_t i = 0; i < inRank; ++i)
         axesDims.emplace_back(LiteralIndexExpr(i));
     } else
