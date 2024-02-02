@@ -133,12 +133,31 @@ static zdnn_status allocZTensorChunk(
   if (status != ZDNN_OK)
     return status;
 
-  // Init a zTensor with malloc.
-  return zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, chunkZTensor);
+  if (splitInfo->reuseOrigBuffer) {
+    zdnn_init_ztensor(preTransDesc, transDesc, chunkZTensor);
+    // Make sure offset is 4K-alignment.
+    uint64_t reuseBufferOffset =
+        CEIL(CEIL(origZTensor->buffer_size, AIU_PAGESIZE_IN_BYTES),
+            splitInfo->numOfChunks) *
+        AIU_PAGESIZE_IN_BYTES * chunkID;
+    // Set a buffer for the chunk.
+    chunkZTensor->buffer = origZTensor->buffer + reuseBufferOffset;
+    // Set a buffer size for the chunk.
+    chunkZTensor->buffer_size = zdnn_getsize_ztensor(transDesc);
+    status = ZDNN_OK;
+  } else {
+    // Init a zTensor with malloc.
+    status =
+        zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, chunkZTensor);
+  }
+  chunkZTensor->is_transformed = true;
+
+  return status;
 }
 
-static void freeZTensorChunk(zdnn_ztensor *t) {
-  zdnn_free_ztensor_buffer(t);
+static void freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer) {
+  if (freeBuffer)
+    zdnn_free_ztensor_buffer(t);
   // We allocated one buffer for both two descriptors, so just one free is
   // enought.
   if (t->pre_transformed_desc)
@@ -357,6 +376,35 @@ bool initSplitInfo(SplitInfo *splitInfo) {
       chunkInfo->dimSize = splitInfo->chunkSize;
     chunkInfo->offsetInStick = i * chunkSizeInStick;
   }
+  // Check if we can reuse the original ztensor buffer instead of allocating ne
+  // buffers for the chunks.
+  // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
+  splitInfo->reuseOrigBuffer = false;
+  if (splitInfo->axis == 0) {
+    // Always reuse if splitting on e4 (batchsize).
+    splitInfo->reuseOrigBuffer = true;
+  } else {
+    // Reuse if the outer loops' bounds are one.
+    zTensorShape origZShape;
+    getZTensorShape(splitInfo->origZTensor, &origZShape);
+    if (origZShape.dim6 == 1) {
+      if (splitInfo->axis == 3) { // e1
+        splitInfo->reuseOrigBuffer = true;
+      } else {
+        if (origZShape.dim5 == 1) {
+          if (splitInfo->axis == 1) { // e3
+            splitInfo->reuseOrigBuffer = true;
+          } else {
+            if (origZShape.dim4 == 1) {
+              if (splitInfo->axis == 2) // e2
+                splitInfo->reuseOrigBuffer = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
   return true;
 }
 
@@ -365,7 +413,7 @@ void freeSplitInfoBuffer(SplitInfo *splitInfo) {
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
     zdnn_ztensor *t = (splitInfo->chunks + i)->ztensor;
     // Free the ztensor buffer and descriptors.
-    freeZTensorChunk(t);
+    freeZTensorChunk(t, !splitInfo->reuseOrigBuffer);
     // Free ztensor struct.
     free(t);
   }
@@ -379,7 +427,7 @@ void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
     // Allocate a chunk ztensor.
     zdnn_status status = allocZTensorChunk(splitInfo, i);
     assert(status == ZDNN_OK && "Failed to allocate zTensor chunk");
-    if (copyData) {
+    if (copyData && !splitInfo->reuseOrigBuffer) {
       // Copy data from the original ztensor to the chunk ztensor.
       copyZTensorChunk(splitInfo, i, /*fromChunk=*/false);
     }

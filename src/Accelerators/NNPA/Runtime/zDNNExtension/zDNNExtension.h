@@ -86,6 +86,10 @@ typedef struct SplitInfo {
   uint32_t chunkSize;
   // The number of chunks.
   uint32_t numOfChunks;
+  // If reuse the original ztensor's buffer or not.
+  // If yes, there is no need to allocate buffers for chunks, and chunk ztensors
+  // will use the original ztensor's buffer.
+  bool reuseOrigBuffer;
   // Information for each chunk.
   ChunkInfo *chunks;
 } SplitInfo;
