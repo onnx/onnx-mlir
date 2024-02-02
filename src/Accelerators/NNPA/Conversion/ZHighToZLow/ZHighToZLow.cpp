@@ -87,6 +87,24 @@ Value insertAllocForZMemRef(ZMemRefType zType, ArrayRef<IndexExpr> dims,
   return create.mem.alignedAlloc(resType, dimList, alignment);
 }
 
+//===----------------------------------------------------------------------===//
+// Helper function of Zhigh to Zlow lowering
+// Return true if `a` happens before `b`, i.e., `a` or one of its ancestors
+// properly dominates `b` and `b` is not inside `a`.
+// Reference: llvm-project/mlir/lib/Dialect/Transform/IR/TransformInterfaces.cpp
+//===----------------------------------------------------------------------===//
+
+static bool happensBefore(Operation *a, Operation *b) {
+  do {
+    if (a->isProperAncestor(b))
+      return false;
+    if (Operation *bAncestor = a->getBlock()->findAncestorOpInBlock(*b)) {
+      return a->isBeforeInBlock(bAncestor);
+    }
+  } while ((a = a->getParentOp()));
+  return false;
+}
+
 /// Insert allocation for a 4K-aligned buffer of type
 /// <sizexi8> to be used as work_area in LSTM/GRU, where size is computed as
 /// follows.
@@ -1819,9 +1837,17 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
 
 #if 1
     // Need comment out when using new buferization.
+    // Insert deallocOp for the input values
     rewriter.setInsertionPointAfter(insertionPointOp);
-    // Insert deallocOp for the input values if it is not deallocated yet.
     for (Value inVal : inputValues) {
+      // DeallocOp not inserted if the input value is used after JoinOp.
+      // Instead, automatically inserted by bufferization pass after used.
+      if (llvm::any_of(inVal.getUsers(), [&](Operation *user) {
+            return happensBefore(insertionPointOp, user);
+          }))
+        continue;
+
+      // Insert deallocOp for the input values if it is not deallocated yet.
       if (llvm::none_of(inVal.getUsers(),
               [&](Operation *user) { return isa<memref::DeallocOp>(user); }))
         create.mem.dealloc(inVal);
