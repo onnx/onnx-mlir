@@ -33,7 +33,7 @@ if(TARGET omp)
     BYPRODUCTS ${OMP_TOPDIR}/lib/libomp.a
     )
 
-  install(FILES ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a DESTINATION lib)
+  install(FILES ${ONNX_MLIR_LIBRARY_PATH}/libompruntime.a DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
   message(STATUS "OpenMP support           : ON")
 else()

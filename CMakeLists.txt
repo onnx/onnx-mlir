@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 3.20.0)
 project(onnx-mlir)
 
 option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
+option(ONNX_MLIR_BUILD_SHARED "Enable ONNX-MLIR additional shared library object." OFF)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE "Enable ONNXConvTransposeOp decomposition." ON)
@@ -21,9 +22,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # etc.), by default some components (e.g., cmake) install into lib while
 # others (e.g., python) install into lib64.
 # This causes trouble when we try to figure out the runtime directory in
-# CompilerUtils.cpp::getLibraryPath(). So we explicitly set CMAKE_INSTALL_LIBDIR
+# CompilerUtils.cpp::getLibraryPath(). So we set a default CMAKE_INSTALL_LIBDIR
 # to install into lib on all systems so we don't have to deal with lib64.
-set(CMAKE_INSTALL_LIBDIR lib)
+if(NOT CMAKE_INSTALL_LIBDIR)
+  set(CMAKE_INSTALL_LIBDIR lib)
+endif()
 
 if (NOT CMAKE_BUILD_TYPE)
   message(STATUS "No build type selected, default to Debug")

@@ -89,7 +89,7 @@ target_link_libraries(PyRuntimeC
 llvm_update_compile_flags(PyRuntimeC)
 
 install(TARGETS PyRuntimeC
-  DESTINATION lib
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
 
 pybind11_add_module(PyCompileAndRuntimeC PyOMCompileExecutionSession.cpp)
@@ -116,5 +116,5 @@ target_link_libraries(PyCompileAndRuntimeC
 llvm_update_compile_flags(PyCompileAndRuntimeC)
 
 install(TARGETS PyCompileAndRuntimeC
-  DESTINATION lib
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )

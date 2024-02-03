@@ -26,7 +26,7 @@ if (ONNX_MLIR_ENABLE_JNI)
   if (TARGET jsoniter)
     add_dependencies(javaruntime jsoniter)
   endif()
-  install_jar(javaruntime DESTINATION lib)
+  install_jar(javaruntime DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
   # ONNX_MLIR_LIBRARY_PATH is a generator expression which is not supported by
   # add_jar as the output directory. Instead, we let add_jar place the jar file

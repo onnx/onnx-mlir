@@ -1019,12 +1019,12 @@ std::string getLibraryPath() {
   std::string execDir = llvm::sys::path::parent_path(getExecPath()).str();
   if (llvm::sys::path::stem(execDir).str().compare("bin") == 0) {
     std::string p = execDir.substr(0, execDir.size() - 3);
-    if (llvm::sys::fs::exists(p + "lib"))
-      return p + "lib";
+    if (llvm::sys::fs::exists(p + LibPath))
+      return p + LibPath;
   }
 
   llvm::SmallString<8> instDir(kInstPath);
-  llvm::sys::path::append(instDir, "lib");
+  llvm::sys::path::append(instDir, LibPath);
   return llvm::StringRef(instDir).str();
 }
 

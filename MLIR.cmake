@@ -28,8 +28,9 @@ include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
 
 add_definitions(${LLVM_DEFINITIONS})
-
-set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
+if (NOT BUILD_SHARED_LIBS)
+  set(BUILD_SHARED_LIBS ${LLVM_ENABLE_SHARED_LIBS} CACHE BOOL "" FORCE)
+endif()
 message(STATUS "BUILD_SHARED_LIBS        : " ${BUILD_SHARED_LIBS})
 
 # onnx uses exceptions, so we need to make sure that LLVM_REQUIRES_EH is set to ON, so that
@@ -203,8 +204,8 @@ function(add_onnx_mlir_library name)
 
   if (NOT ARG_NO_INSTALL)
     install(TARGETS ${name}
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION bin
       )
   endif()

@@ -33,7 +33,7 @@ set(STABLEHLO_LIBS
 
 install(TARGETS
   ${STABLEHLO_LIBS}
-  DESTINATION lib
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
 
 add_onnx_mlir_library(OMONNXToStablehlo

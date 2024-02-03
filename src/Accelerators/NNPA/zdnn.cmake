@@ -50,7 +50,7 @@ function(setup_zdnn version)
       # BYPRODUCTS ${NNPA_LIBRARY_PATH}/libzdnn.a ${NNPA_INCLUDE_PATH}/zdnn.h
       )
 
-    install(FILES ${NNPA_LIBRARY_PATH}/libzdnn.a DESTINATION lib)
+    install(FILES ${NNPA_LIBRARY_PATH}/libzdnn.a DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
   # On other archs, just copy zdnn.h so NNPA code can be compiled
   else()

@@ -57,13 +57,15 @@ add_onnx_mlir_library(OMCompilerOptions
   MLIRIR
   OMAccelerator
   )
-
+list(APPEND DEFINITIONS "LIBDIR_PATH=\"${CMAKE_INSTALL_LIBDIR}\"")
+target_compile_definitions(OMCompilerOptions PUBLIC ${DEFINITIONS})
 
 add_onnx_mlir_library(OMCompilerDialects
   CompilerDialects.cpp
 
   LINK_LIBS PUBLIC
   OMAccelerator
+  OMCompilerOptions
   OMInitAccelerators
   OMKrnlOps
   OMONNXOps
@@ -252,5 +254,5 @@ target_link_libraries(PyCompile
   )
 
 install(TARGETS PyCompile
-  DESTINATION lib
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
