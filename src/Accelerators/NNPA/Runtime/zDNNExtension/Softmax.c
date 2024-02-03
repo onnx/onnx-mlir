@@ -38,31 +38,31 @@ extern "C" {
 
 zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
-  // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
-  // will split e2 safely.
+  // Verify that e3, e2, e1 do not exceed the maximum dimension size. Thus, we
+  // will split e4 safely.
   OrigShape origShapeOfX;
   getOrigShape(input, &origShapeOfX);
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((origShapeOfX.e4 > maxDimSize) || (origShapeOfX.e3 > maxDimSize) ||
+  if ((origShapeOfX.e3 > maxDimSize) || (origShapeOfX.e2 > maxDimSize) ||
       (origShapeOfX.e1 > maxDimSize)) {
     printf(
         "[Softmax] The input tensor dimension exceeds maximum dimension index "
-        "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, origShapeOfX.e4, origShapeOfX.e3, origShapeOfX.e1);
+        "size (MDIS) of %d: e3 = %d, e2 = %d, e1 = %d.\n",
+        maxDimSize, origShapeOfX.e3, origShapeOfX.e2, origShapeOfX.e1);
     return ZDNN_EXCEEDS_MDIS;
   }
 
-  // We split e2 in (e4, e3, e2, e1).
+  // We split e4 in (e4, e3, e2, e1) to reuse the orignal buffer.
   SplitInfo splitInfoX = {
-      .origZTensor = input, .axis = 2, .chunkSize = OMZTensorSplitSize};
+      .origZTensor = input, .axis = 0, .chunkSize = OMZTensorSplitSize};
   SplitInfo splitInfoY = {
-      .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
+      .origZTensor = output, .axis = 0, .chunkSize = OMZTensorSplitSize};
   initSplitInfo(&splitInfoX);
   initSplitInfo(&splitInfoY);
 
   // Split input.
   if (OMZTensorSplitDebug)
-    printf("[Softmax] Split the input ztensor along e2 into %d chunks of %d "
+    printf("[Softmax] Split the input ztensor along e4 into %d chunks of %d "
            "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
         splitInfoX.numOfChunks, splitInfoX.chunkSize,
         splitInfoX.reuseOrigZTensor, splitInfoX.reuseOrigBuffer);

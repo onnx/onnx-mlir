@@ -116,17 +116,87 @@ static zdnn_status allocZTensorChunk(
   zdnn_tensor_desc *transDesc = descriptors + 1;
 
   // Copy pre_transform_desc from the origZTensor.
-  preTransDesc->layout = origZTensor->pre_transformed_desc->layout;
-  preTransDesc->format = origZTensor->pre_transformed_desc->format;
-  preTransDesc->type = origZTensor->pre_transformed_desc->type;
-  preTransDesc->dim4 =
-      (axis == 0) ? chunkSize : origZTensor->pre_transformed_desc->dim4;
-  preTransDesc->dim3 =
-      (axis == 1) ? chunkSize : origZTensor->pre_transformed_desc->dim3;
-  preTransDesc->dim2 =
-      (axis == 2) ? chunkSize : origZTensor->pre_transformed_desc->dim2;
-  preTransDesc->dim1 =
-      (axis == 3) ? chunkSize : origZTensor->pre_transformed_desc->dim1;
+  // See zDNN/src/zdnn/zdnn/tensor_desc.c for the mapping between dimensions in
+  // pre_transform_desc and transform_desc. Here we use the inverse mapping.
+  *preTransDesc = *origZTensor->pre_transformed_desc;
+  switch (preTransDesc->layout) {
+  case (ZDNN_1D):
+    // shape (a) <- dims4-1 (1, 1, 1, a)
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_2D):
+    // shape (a, b) -> dims4-1 (1, 1, a, b)
+    if (axis == 2)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_2DS):
+    // shape (a, b) -> dims4-1 (a, 1, 1, b)
+    if (axis == 0)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_3D):
+    // shape (a, b, c) -> dims4-1 (1, a, b, c)
+    if (axis == 1)
+      preTransDesc->dim3 = chunkSize;
+    if (axis == 2)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_3DS):
+    // shape (a, b, c) -> dims4-1 (a, 1, b, c)
+    if (axis == 0)
+      preTransDesc->dim3 = chunkSize;
+    if (axis == 2)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_4D):
+  case (ZDNN_NHWC):
+  case (ZDNN_HWCK):
+    // shape (a, b, c, d) -> dims4-1 (a, b, c, d)
+    // shape (n, h, w, c) -> dims4-1 (n, h, w, c)
+    if (axis == 0)
+      preTransDesc->dim4 = chunkSize;
+    if (axis == 1)
+      preTransDesc->dim3 = chunkSize;
+    if (axis == 2)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_4DS):
+    // ZDNN_4DS is used exclusively as RNN output
+    // shape (a, b, c, d)  -> ZDNN_NHWC
+    //   when b = 1 (uni-dir)     -> dims4-1 (a, 1, c, d)
+    //   otherwise (bi-dir, etc.) -> dims4-1 (a, 1, c, b * PADDED(d))
+    if (axis == 0)
+      preTransDesc->dim4 = chunkSize;
+    if (axis == 2)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim1 = chunkSize;
+    break;
+  case (ZDNN_NCHW):
+    // shape (n, c, h, w) -> dims4-1 (n, h, w, c)
+    if (axis == 0)
+      preTransDesc->dim4 = chunkSize;
+    if (axis == 1)
+      preTransDesc->dim2 = chunkSize;
+    if (axis == 2)
+      preTransDesc->dim1 = chunkSize;
+    if (axis == 3)
+      preTransDesc->dim3 = chunkSize;
+    break;
+  default:
+    break;
+  }
 
   // Copy a transformed desc.
   zdnn_status status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
@@ -139,7 +209,7 @@ static zdnn_status allocZTensorChunk(
     uint64_t reuseBufferOffset =
         CEIL(CEIL(origZTensor->buffer_size, AIU_PAGESIZE_IN_BYTES),
             splitInfo->numOfChunks) *
-        AIU_PAGESIZE_IN_BYTES * chunkID;
+        AIU_PAGESIZE_IN_BYTES * (uint64_t)chunkID;
     // Set a buffer for the chunk.
     chunkZTensor->buffer = origZTensor->buffer + reuseBufferOffset;
     // Set a buffer size for the chunk.
@@ -342,12 +412,19 @@ bool initSplitInfo(SplitInfo *splitInfo) {
   // origZTensor.
   const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
   // totalSize.
-  if (splitInfo->axis == 0)
+  switch (splitInfo->axis) {
+  case 0:
     splitInfo->totalSize = origZTensor->transformed_desc->dim4;
-  if (splitInfo->axis == 2)
+    break;
+  case 2:
     splitInfo->totalSize = origZTensor->transformed_desc->dim2;
-  else if (splitInfo->axis == 3)
+    break;
+  case 3:
     splitInfo->totalSize = origZTensor->transformed_desc->dim1;
+    break;
+  default:
+    break;
+  }
   // numOfChunks
   if (!OMZTensorSplitEnabled)
     splitInfo->numOfChunks = 1;
@@ -368,14 +445,22 @@ bool initSplitInfo(SplitInfo *splitInfo) {
 
   // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
   uint32_t chunkSizeInStick;
-  if (splitInfo->axis == 0) // e4
+  switch (splitInfo->axis) {
+  case 0: // e4
     chunkSizeInStick = splitInfo->chunkSize;
-  else if (splitInfo->axis == 1) // e3
+    break;
+  case 1: // e3
     chunkSizeInStick = splitInfo->chunkSize;
-  else if (splitInfo->axis == 2) // e2
+    break;
+  case 2: // e2
     chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_STICKS_PER_PAGE);
-  else if (splitInfo->axis == 3) // e1
+    break;
+  case 3: // e1
     chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_2BYTE_CELLS_PER_STICK);
+    break;
+  default:
+    break;
+  }
 
   // Init chunk information.
   for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
