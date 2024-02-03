@@ -5,13 +5,21 @@ cmake_minimum_required(VERSION 3.20.0)
 
 project(onnx-mlir)
 
-option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables. If OFF, just generate build targets." ON)
+option(ONNX_MLIR_BUILD_TESTS "Build ONNX-MLIR test executables." ON)
+option(ONNX_MLIR_BUILD_BENCHMARKS "Build ONNX-MLIR benchmarks." ON)
+option(ONNX_MLIR_BUILD_RAPIDCHECKS "Build ONNX-MLIR rapidchecks." ON)
 option(ONNX_MLIR_CCACHE_BUILD "Set to ON for a ccache enabled build." OFF)
 option(ONNX_MLIR_ENABLE_STABLEHLO "Enable StableHLO support." ON)
 option(ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE "Enable ONNXConvTransposeOp decomposition." ON)
 option(ONNX_MLIR_ENABLE_WERROR "Enable warnings as errors." OFF)
 option(ONNX_MLIR_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warning in third_party code." ON)
 option(ONNX_MLIR_ENABLE_JAVA "Set to ON for building the Java runtime, tools, and tests" ON)
+
+set(BENCHMARK_REQUIRED_VERSION 1.8.0)
+set(ONNX_REQUIRED_VERSION 1.15.0)
+set(PYBIND11_REQUIRED_VERSION 2.10.4)
+set(RAPIDCHECK_REQUIRED_VERSION 1c91f40e64d87869250cfb610376c629307bf77d)
+set(STABLEHLO_REQUIRED_VERSION cb42882825af722cc108e0051f760ec670321ce7)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -161,31 +169,68 @@ set(CMAKE_MESSAGE_LOG_LEVEL NOTICE)
 
 # Add third party subdirectories and define options appropriate to run their cmakes.
 set(pybind11_FIND_QUIETLY ON)
-add_subdirectory(third_party/onnx)
-add_subdirectory(third_party/pybind11)
-add_subdirectory(third_party/rapidcheck)
+
+
+include(FetchContent)
+
+FetchContent_Declare(ONNX
+  GIT_REPOSITORY https://github.com/onnx/onnx.git
+  GIT_TAG "v${ONNX_REQUIRED_VERSION}"
+  FIND_PACKAGE_ARGS NAMES "ONNX ${ONNX_REQUIRED_VERSION} EXACT"
+)
+FetchContent_MakeAvailable(ONNX)
+if (ONNX_FOUND)
+  add_library(onnx ALIAS ONNX::onnx)
+  add_library(onnx_proto ALIAS ONNX::onnx_proto)
+endif()
+
+FetchContent_Declare(pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG "v${PYBIND11_REQUIRED_VERSION}"
+  FIND_PACKAGE_ARGS NAMES "pybind11 ${PYBIND11_REQUIRED_VERSION} EXACT"
+)
+FetchContent_MakeAvailable(pybind11)
+
+if (ONNX_MLIR_BUILD_RAPIDCHECKS)
+  FetchContent_Declare(rapidcheck
+    GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
+    GIT_TAG "${RAPIDCHECK_REQUIRED_VERSION}"
+  )
+  FetchContent_MakeAvailable(rapidcheck)
+endif()
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
-  add_subdirectory(third_party/stablehlo EXCLUDE_FROM_ALL)
+  FetchContent_Declare(stablehlo
+    GIT_REPOSITORY https://github.com/openxla/stablehlo.git
+    GIT_TAG "${STABLEHLO_REQUIRED_VERSION}"
+    EXCLUDE_FROM_ALL
+  )
+  FetchContent_MakeAvailable(stablehlo)
 endif()
 
-if (NOT TARGET benchmark)
-  set(BENCHMARK_USE_BUNDLED_GTEST OFF)
-  set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
-  set(BENCHMARK_ENABLE_TESTING OFF)
-  set(BENCHMARK_ENABLE_WERROR OFF)
-  # Since LLVM requires C++11 (or higher) it is safe to assume that std::regex is available.
-  set(HAVE_STD_REGEX ON CACHE BOOL "OK" FORCE)
-  add_subdirectory(third_party/benchmark)
-endif()
+if (ONNX_MLIR_BUILD_BENCHMARKS)
+  if (NOT TARGET benchmark)
+    set(BENCHMARK_USE_BUNDLED_GTEST OFF)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
+    set(BENCHMARK_ENABLE_TESTING OFF)
+    set(BENCHMARK_ENABLE_WERROR OFF)
+    # Since LLVM requires C++11 (or higher) it is safe to assume that std::regex is available.
+    set(HAVE_STD_REGEX ON CACHE BOOL "OK" FORCE)
+    FetchContent_Declare(benchmark
+      GIT_REPOSITORY https://github.com/google/benchmark.git
+      GIT_TAG "v${BENCHMARK_REQUIRED_VERSION}"
+    )
+    FetchContent_MakeAvailable(benchmark)
+  endif()
 
-# All libraries and executables coming from llvm or ONNX-MLIR have had their
-# compile flags updated via llvm_update_compile_flags, so we need to do that to
-# benchmark and rapidcheck as well, so that we can successfully link against them.
-# Otherwise, some of the flags for exceptions (among others) are not set correctly.
-llvm_update_compile_flags(benchmark)
-llvm_update_compile_flags(benchmark_main)
-llvm_update_compile_flags(rapidcheck)
+  # All libraries and executables coming from llvm or ONNX-MLIR have had their
+  # compile flags updated via llvm_update_compile_flags, so we need to do that to
+  # benchmark and rapidcheck as well, so that we can successfully link against them.
+  # Otherwise, some of the flags for exceptions (among others) are not set correctly.
+  llvm_update_compile_flags(benchmark)
+  llvm_update_compile_flags(benchmark_main)
+  llvm_update_compile_flags(rapidcheck)
+endif()
 
 if (ONNX_MLIR_ENABLE_STABLEHLO)
   llvm_update_compile_flags(stablehlo-opt)
@@ -216,4 +261,6 @@ add_subdirectory(utils)
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(docs)
-add_subdirectory(test)
+if (ONNX_MLIR_BUILD_TESTS)
+  add_subdirectory(test)
+endif()

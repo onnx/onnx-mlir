@@ -31,6 +31,12 @@
 // TODO: may want to do this constant set by a variable in CMakeFiles.
 extern const std::string OnnxMlirEnvOptionName;
 
+#ifndef CMAKE_INSTALL_LIBDIR
+const std::string LibPath = "lib";
+#else
+const std::string LibPath = CMAKE_INSTALL_LIBDIR;
+#endif
+
 namespace onnx_mlir {
 
 typedef enum {
