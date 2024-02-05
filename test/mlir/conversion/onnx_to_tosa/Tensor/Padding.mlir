@@ -9,7 +9,7 @@ func.func @test_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<24x22x52x42xf32> 
 // CHECK-LABEL: test_pad
 // CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 4], [1, 5], [2, 6], [3, 7]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
 // CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<4.500000e+00> : tensor<f32>}> : () -> tensor<f32>
-// CHECK: %[[VAR2:.*]] = "tosa.pad"(%arg0, %[[VAR0]], %[[VAR1]])
+// CHECK: %[[VAR2:.*]] = tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
 }
 
 // -----
@@ -32,7 +32,7 @@ func.func @test_novalue_pad(%arg0: tensor<20x16x44x32xf32>) ->  tensor<20x16x45x
 // CHECK-LABEL: test_novalue_pad
 // CHECK: %[[VAR0:.*]] = "tosa.const"() <{value = dense<[{{\[}}0, 0], [0, 0], [1, 0], [1, 0]]> : tensor<4x2xi64>}> : () -> tensor<4x2xi64>
 // CHECK: %[[VAR1:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<f32>}> : () -> tensor<f32>
-// CHECK: "tosa.pad"(%arg0, %[[VAR0]], %[[VAR1]])
+// CHECK: tosa.pad %arg0, %[[VAR0]], %[[VAR1]]
 }
 
 // -----
