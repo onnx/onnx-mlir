@@ -44,12 +44,12 @@ def castWithSameRankDifferentElementType : NativeCodeCall<
 def createConstantOpWithOneToRankOfExclusive: NativeCodeCall<
   [{onnx_mlir::createConstantOp($_builder, $0.getLoc(),
                                // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
-                               onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 2))}]>;
+                               onnx_mlir::createArrayAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 2))}]>;
 
 def createConstantOpWithOneToRankOf : NativeCodeCall<
   [{onnx_mlir::createConstantOp($_builder, $0.getLoc(),
                                 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
-                                onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1))}]>;
+                                onnx_mlir::createArrayAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 1))}]>;
 
 // Create a DenseElementsAttr from the shape of the type of a value.
 def createDenseElementsAttrFromShape : NativeCodeCall<
