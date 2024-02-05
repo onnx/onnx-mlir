@@ -1553,15 +1553,12 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     int64_t parId;
     if (findSuitableParallelDimension(
             lbs, flattenedOutputDims, 0, std::min((int64_t)2, rank), parId)) {
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
-                              << " at level " << parId << "\n");
       create.krnl.parallel(optimizedLoopDef[parId]);
       onnxToKrnlParallelReport(op, true, parId, lbs[parId],
           flattenedOutputDims[parId], "elementwise simd partially flattened");
     } else {
       onnxToKrnlParallelReport(op, false, -1, -1,
-          "no parallel as no dim with enough elements in elementwise simd "
-          "partially flattened");
+          "no dim with enough work in elementwise simd partially flattened");
     }
   }
   create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
@@ -2133,15 +2130,12 @@ struct ONNXElementwiseUnaryOpLowering
         int64_t parId;
         if (findSuitableParallelDimension(
                 lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
-          LLVM_DEBUG(
-              llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise unary not simdized");
         } else {
           onnxToKrnlParallelReport(op, false, -1, -1,
-              "no parallel as no dim with enough elements in elementwise unary "
-              "not simdized");
+              "no dim with enough work in elementwise unary not simdized");
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -2318,15 +2312,12 @@ struct ONNXElementwiseBinaryOpLowering
         int64_t parId;
         if (findSuitableParallelDimension(
                 lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
-          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
-                                  << " at level " << parId << "\n");
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise binary not simdized");
         } else {
           onnxToKrnlParallelReport(op, false, -1, -1,
-              "no parallel as no dim with enough elements in elementwise "
-              "binary not simdized");
+              "no dim with enough work in elementwise binary not simdized");
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -2496,15 +2487,12 @@ struct ONNXElementwiseVariadicOpLowering
         int64_t parId;
         if (findSuitableParallelDimension(
                 lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
-          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
-                                  << " at level " << parId << "\n");
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise variadic not simdized");
         } else {
           onnxToKrnlParallelReport(op, false, -1, -1,
-              "no parallel as no dim with enough elements in elementwise "
-              "variadic not simdized");
+              "no dim with enough work in elementwise variadic not simdized");
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -2622,15 +2610,12 @@ struct ONNXWhereOpLowering : public ConversionPattern {
         int64_t parId;
         if (findSuitableParallelDimension(
                 lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
-          LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName()
-                                  << " at level " << parId << "\n");
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(
               op, true, parId, lbs[parId], ubs[parId], "where op not simdized");
         } else {
           onnxToKrnlParallelReport(op, false, -1, -1,
-              "no parallel as no dim with enough elements in where op not "
-              "simdized");
+              "no dim with enough work in where op not simdized");
         }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,

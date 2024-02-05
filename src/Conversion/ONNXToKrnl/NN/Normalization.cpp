@@ -870,6 +870,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       IndexExpr scaleModFactor, IndexExpr biasModFactor) const {
 
     MDBuilder create(rewriter, loc);
+    Operation *op = lnOp.getOperation();
     Value XMemRef = adaptor.getX();
     MemRefType XMemRefType = XMemRef.getType().cast<MemRefType>();
     Type elementType = XMemRefType.getElementType();
@@ -935,6 +936,9 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     Value blockedLoopDef = blockedLoopDefs[0];
     if (enableParallel) {
       create.krnl.parallel(blockedLoopDef);
+      onnxToKrnlParallelReport(op, true, 0, zero, XFlatDims[0], "layer-norm");
+    } else {
+      onnxToKrnlParallelReport(op, false, -1, -1, "layer norm");
     }
     create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef}, {zero},
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {

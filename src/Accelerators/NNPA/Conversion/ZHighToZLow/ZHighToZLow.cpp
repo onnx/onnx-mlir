@@ -1515,6 +1515,7 @@ struct ZHighToZLowStickifiedConstantOfShapeOpLowering
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
             ZHighStickifiedConstantOfShapeOp::getOperationName(), 1, ctx) {}
+
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
