@@ -43,6 +43,7 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <string>
 
 namespace onnx_mlir {
@@ -221,8 +222,8 @@ mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
 
-mlir::ONNXCastOp castTo(
-    mlir::PatternRewriter &rewriter, mlir::Value val, mlir::Type newElementTy);
+mlir::ONNXCastOp castTo(mlir::PatternRewriter &rewriter, mlir::Value val,
+    mlir::Type newElementTy, int64_t saturate);
 
 mlir::Value normalizeConstantOp(
     mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);

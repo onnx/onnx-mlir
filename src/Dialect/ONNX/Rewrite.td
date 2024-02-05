@@ -38,8 +38,10 @@ include "src/Dialect/ONNX/ONNX.td"
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
   "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
 
+// TODO: Currently this will not saturate. We might need/want this for float8
+// types.
 def castWithSameRankDifferentElementType : NativeCodeCall<
-  "onnx_mlir::castTo($_builder, $0, $1.getType().cast<ShapedType>().getElementType())">;
+  "onnx_mlir::castTo($_builder, $0, $1.getType().cast<ShapedType>().getElementType(), /*saturate=*/ 0)">;
 
 def createConstantOpWithOneToRankOfExclusive: NativeCodeCall<
   [{onnx_mlir::createConstantOp($_builder, $0.getLoc(),

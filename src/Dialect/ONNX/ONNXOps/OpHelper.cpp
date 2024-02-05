@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Path.h"
@@ -430,9 +432,11 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   return DenseElementsAttr::get(tensorType, {f});
 }
 
-ONNXCastOp castTo(PatternRewriter &rewriter, Value val, Type newElementTy) {
+ONNXCastOp castTo(
+    PatternRewriter &rewriter, Value val, Type newElementTy, int64_t saturate) {
   return rewriter.create<ONNXCastOp>(val.getLoc(),
       val.getType().cast<RankedTensorType>().clone(newElementTy), val,
+      rewriter.getIntegerAttr(rewriter.getIntegerType(64, true), saturate),
       TypeAttr::get(newElementTy));
 }
 
