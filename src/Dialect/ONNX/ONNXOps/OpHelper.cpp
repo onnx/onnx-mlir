@@ -318,6 +318,18 @@ ONNXConstantOp getONNXConstantOp(Value value) {
 }
 
 //===----------------------------------------------------------------------===//
+// Support for BatchNorm
+
+ONNXConstantOp createConstantOp(
+    PatternRewriter &rewriter, Location loc, ArrayAttr values) {
+  return rewriter.create<ONNXConstantOp>(loc, Attribute(),
+      DenseElementsAttr::get(
+          RankedTensorType::get(
+              {static_cast<long>(values.size())}, rewriter.getI64Type()),
+          llvm::ArrayRef(values.getValue())));
+}
+
+//===----------------------------------------------------------------------===//
 // Support for transpose patterns.
 //===----------------------------------------------------------------------===//
 
@@ -416,6 +428,12 @@ DenseElementsAttr createDenseElementsAttrFromFloatAttr(
   bool ignored;
   f.convert(ftype.getFloatSemantics(), APFloat::rmNearestTiesToEven, &ignored);
   return DenseElementsAttr::get(tensorType, {f});
+}
+
+ONNXCastOp castTo(PatternRewriter &rewriter, Value val, Type newElementTy) {
+  return rewriter.create<ONNXCastOp>(val.getLoc(),
+      val.getType().cast<RankedTensorType>().clone(newElementTy), val,
+      TypeAttr::get(newElementTy));
 }
 
 //===----------------------------------------------------------------------===//

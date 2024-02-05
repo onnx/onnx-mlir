@@ -29,17 +29,13 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
-  populateLoweringONNXReduceMeanOpToTOSAPattern(
+  populateLoweringONNXReduceOpsToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXGemmOpToTOSAPattern(target, patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXConvOpToTOSAPattern(
       target, patterns, typeConverter, ctx, groupedConvThreshold);
-  populateLoweringONNXReduceMeanOpToTOSAPattern(
-      target, patterns, typeConverter, ctx);
-  populateLoweringONNXAveragePoolOpToTOSAPattern(
-      target, patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXConcatOpToTOSAPattern(
       target, patterns, typeConverter, ctx);

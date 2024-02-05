@@ -127,6 +127,7 @@ func.func @test_conv_batchnormtestmode_fusion_nobias(%arg0: tensor<1x3x224x224xf
     // CHECK:           [[VAR_8_:%.+]] = "onnx.Mul"([[VAR_4_]], [[VAR_7_]]) : (tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK:           [[VAR_9_:%.+]] = "onnx.Add"([[PARAM_3_]], [[VAR_8_]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK:           [[VAR_10_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_6_]], [[VAR_9_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
+    // CHECK-NOT: {{.*}} = "onnx.BatchNormalizationInferenceMode"{{.*}}
     // CHECK:           onnx.Return [[VAR_10_]] : tensor<1x64x112x112xf32>
 }
 
@@ -151,6 +152,7 @@ func.func @test_conv_batchnormtestmode_fusion(%arg0 : tensor<1x3x224x224xf32>, %
     // CHECK:           [[VAR_8_:%.+]] = "onnx.Mul"([[VAR_4_]], [[VAR_7_]]) : (tensor<*xf32>, tensor<64xf32>) -> tensor<*xf32>
     // CHECK:           [[VAR_9_:%.+]] = "onnx.Add"([[PARAM_4_]], [[VAR_8_]]) : (tensor<64xf32>, tensor<*xf32>) -> tensor<*xf32>
     // CHECK:           [[VAR_10_:%.+]] = "onnx.Conv"([[PARAM_0_]], [[VAR_6_]], [[VAR_9_]]) {auto_pad = "NOTSET", dilations = [1, 1], group = 1 : si64, kernel_shape = [7, 7], pads = [3, 3, 3, 3], strides = [2, 2]} : (tensor<1x3x224x224xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<1x64x112x112xf32>
+    // CHECK-NOT: {{.*}} = "onnx.BatchNormalizationInferenceMode"{{.*}}
     // CHECK:           onnx.Return [[VAR_10_]] : tensor<1x64x112x112xf32>
 }
 

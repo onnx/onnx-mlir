@@ -38,6 +38,19 @@ include "src/Dialect/ONNX/ONNX.td"
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
   "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
 
+def castWithSameRankDifferentElementType : NativeCodeCall<
+  "onnx_mlir::castTo($_builder, $0, $1.getType().cast<ShapedType>().getElementType())">;
+
+def createConstantOpWithOneToRankOfExclusive: NativeCodeCall<
+  [{onnx_mlir::createConstantOp($_builder, $0.getLoc(),
+                               // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
+                               onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 2))}]>;
+
+def createConstantOpWithOneToRankOf : NativeCodeCall<
+  [{onnx_mlir::createConstantOp($_builder, $0.getLoc(),
+                                // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
+                                onnx_mlir::createArrayAttrOfOneToN($_builder, $0.getType().cast<ShapedType>().getRank() - 1))}]>;
+
 // Create a DenseElementsAttr from the shape of the type of a value.
 def createDenseElementsAttrFromShape : NativeCodeCall<
   "onnx_mlir::createDenseElementsAttrFromShape($_builder, $0)">;
@@ -70,10 +83,6 @@ def createDenseElementsAttrOf : NativeCodeCall<
 def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
   "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
-// Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
-def createDenseElementsAttrOfOneToRankOfExclusive : NativeCodeCall<
-  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 2)">;
-
 // Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "onnx_mlir::createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
@@ -85,7 +94,7 @@ def AttributeIsNotNull :
   Constraint<CPred<" ($_self) ">, "Attribute is null">;
 
 def IsDenseElementsAttr :
-  Constraint<And<[CPred<" ($_self) ">, 
+  Constraint<And<[CPred<" ($_self) ">,
                   CPred<" ($_self).isa<DenseElementsAttr>()">
                  ]>, "Attribute is not a DenseElementsAttr">;
 
@@ -385,16 +394,16 @@ def FuseMulConvNullBiasPattern: Pat<
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
    (IsDenseElementsAttr:$denseAttr),
-   (IsFromONNXConstantOpWithDenseElementsAttr:$w),    
-   (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.      
-   (HasRankGT<1> $w),                  // rank of $w must be at least 2.  
+   (IsFromONNXConstantOpWithDenseElementsAttr:$w),
+   (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.
+   (HasRankGT<1> $w),                  // rank of $w must be at least 2.
    (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
    (HaveSameDim<0> $w, $y),            // the first dimension of $w and $y must be equal.
    (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
 >;
 
 // TODO add pattern for non-null bias with contraints:
-// - bias must be have rank equal to 1 and 
+// - bias must be have rank equal to 1 and
 // - bias element data type must be the same as mul constant
 // - bias dimension (0) must be equal to mul constant dim(0)
 // codegen is different too (look it up in onnx-runtime)
@@ -597,7 +606,7 @@ def RemoveIdentityReshapePattern1:  Pat<
   [(HasSpecifiedConstantShape $val, $shape)]>;
 
 def RemoveIdentityReshapePattern2:  Pat<
-  // Remove an identity pattern. Output and input shapes are static and the same. 
+  // Remove an identity pattern. Output and input shapes are static and the same.
   (ONNXReshapeOp:$out $val, $_, $_),
   // Remove the reshape.
   (replaceWithValue $val),
@@ -615,7 +624,7 @@ def SwapReshapeMatMulPattern: Pattern<
  // TODO: Support dynamic dimensions.
  (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_, $az), $B),
  [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
-                 (ONNXConstantOpFromDenseAttr 
+                 (ONNXConstantOpFromDenseAttr
                     (createDenseElementsAttrFromShape $res2)
                  ), $az)],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.
@@ -757,19 +766,19 @@ def FuseBatchNormInferenceModeConvPattern: Pat<
         $w,
         (ONNXUnsqueezeOp
            (ONNXDivOp:$coefficientW
-              $scale,
+              (castWithSameRankDifferentElementType $scale, $x),
               (ONNXSqrtOp
                  (ONNXAddOp
-                    $var,
+                    (castWithSameRankDifferentElementType $var, $x),
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOf $w)))),
+           (createConstantOpWithOneToRankOf $w))),
      // b_
      (ONNXAddOp
         $B,
         (ONNXMulOp
            $coefficientW,
-           (subtractOrNeg $res, $b, $mean))),
+           (subtractOrNeg $res, $b, (castWithSameRankDifferentElementType $mean, $x)))),
 
      $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
      [], [], (addBenefit 1)
@@ -800,17 +809,21 @@ def RewriteBatchNormInferenceModeConvPattern1: Pat<
         $x,
         (ONNXUnsqueezeOp
            (ONNXDivOp:$a
-              $scale,
+              (castWithSameRankDifferentElementType $scale, $x),
               (ONNXSqrtOp
                  (ONNXAddOp
-                    $var,
+                    (castWithSameRankDifferentElementType $var, $x),
                     (ONNXConstantOpFromDenseAttr
                        (createDenseElementsAttrFromFloatAttr $res, $epsilon))))),
-           (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOfExclusive $x)))),
+           (createConstantOpWithOneToRankOfExclusive $x))),
      // b
      (ONNXUnsqueezeOp
-       (ONNXSubOp $bias, (ONNXMulOp $mean, $a)),
-       (ONNXConstantOpFromDenseAttr (createDenseElementsAttrOfOneToRankOfExclusive $x)))),
+       (ONNXSubOp
+          (castWithSameRankDifferentElementType $bias, $x),
+          (ONNXMulOp
+            (castWithSameRankDifferentElementType $mean, $x),
+            $a)),
+       (createConstantOpWithOneToRankOfExclusive $x))),
   [(HasRankGT<2> $x)], [], (addBenefit 0)
 >;
 
@@ -826,14 +839,15 @@ def RewriteBatchNormInferenceModeConvPattern2: Pat<
      (ONNXMulOp
         $x,
         (ONNXDivOp:$a
-           $scale,
+           (castWithSameRankDifferentElementType $scale, $x),
            (ONNXSqrtOp
               (ONNXAddOp
-                 $var,
+                 (castWithSameRankDifferentElementType $var, $x),
                  (ONNXConstantOpFromDenseAttr
                     (createDenseElementsAttrFromFloatAttr $res, $epsilon)))))),
      // b
-     (ONNXSubOp $bias, (ONNXMulOp $mean, $a))),
+     (ONNXSubOp (castWithSameRankDifferentElementType $bias, $x),
+                (ONNXMulOp (castWithSameRankDifferentElementType $mean, $x), $a))),
   [(HasRankOf<1> $x)], [], (addBenefit 0)
 >;
 
