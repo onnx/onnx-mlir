@@ -160,6 +160,7 @@ struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
       create.krnl.store(inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

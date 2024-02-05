@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --constprop-onnx %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --decompose-onnx --constprop-onnx %s -split-input-file | FileCheck %s
 
 //===----------------------------------------------------------------------===//
 /// Split tests

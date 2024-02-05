@@ -33,7 +33,7 @@ void populateAffineAndKrnlToLLVMConversion(mlir::RewritePatternSet &patterns,
         &inputMemRefTypes,
     std::map<std::string, llvm::SmallVector<mlir::MemRefType, 4>>
         &outputMemRefTypes,
-    bool verifyInputTensors);
+    bool verifyInputTensors, bool enableParallel);
 
 void populateKrnlToLLVMConversion(mlir::LLVMTypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,

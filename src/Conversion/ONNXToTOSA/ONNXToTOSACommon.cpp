@@ -319,7 +319,7 @@ std::optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
       int64_t axis_val = axes_elems.getValues<IntegerAttr>()[i].getInt();
       if (axis_val < 0)
         axis_val += input_rank;
-      auto axis_attr = rewriter.getI64IntegerAttr(axis_val);
+      auto axis_attr = rewriter.getI32IntegerAttr(axis_val);
 
       shape_vec[axis_val] = 1;
       RankedTensorType reduce_type =

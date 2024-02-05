@@ -35,10 +35,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "onnx-mlir/Runtime/OMInstrument.h"
+
+#ifdef __cplusplus
+using namespace onnx_mlir;
+#endif
 
 #ifdef _WIN32
 #include "windows.h"
+// The windows.h include must go first.
 #include "psapi.h"
 
 static LARGE_INTEGER globalTime, initTime;
@@ -50,13 +56,16 @@ static LARGE_INTEGER perfFrequency;
 
 static struct timeval globalTimeVal, initTimeVal;
 static pid_t mypid;
-static int psErrorCount = 0;
 #endif
 
 static bool instrumentReportDisabled = false;
 static bool instrumentReportTimeDisabled = false;
 static bool instrumentReportMemoryDisabled = false;
 static int instrumentCounter = 0;
+static int psErrorCount = 0;
+static char instrumentReportOpName[INSTRUMENT_OP_NAME_MASK + 1];
+static char instrumentReportNodeName[INSTRUMENT_NODE_NAME_MASK + 1];
+static FILE *fout = 0;
 
 #ifdef __MVS__
 #define timersub(a, b, result)                                                 \
@@ -71,60 +80,60 @@ static int instrumentCounter = 0;
 #endif
 
 #ifdef _WIN32
-void TimeInit() {
+static void TimeInit() {
   QueryPerformanceFrequency(&perfFrequency);
   QueryPerformanceCounter(&globalTime);
   initTime = globalTime;
 }
 #else
-void TimeInit() {
+static void TimeInit() {
   gettimeofday(&globalTimeVal, NULL);
   initTimeVal = globalTimeVal;
 }
 #endif
 
 #ifdef _WIN32
-inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
+static inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
     LONGLONG *resultSeconds, LONGLONG *resultMicroseconds) {
   LONGLONG elapsed = newTime.QuadPart - prevTime.QuadPart;
   *resultSeconds = elapsed / perfFrequency.QuadPart;
   *resultMicroseconds =
       ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
 }
-void ReportTime() {
+static void ReportTime() {
   LARGE_INTEGER newTime;
   LONGLONG resultSeconds, resultMicroseconds;
   QueryPerformanceCounter(&newTime);
   WinTimerSub(newTime, globalTime, &resultSeconds, &resultMicroseconds);
-  printf(" Time elapsed: %lld.%06lld", resultSeconds, resultMicroseconds);
+  fprintf(fout, ", %lld.%06lld", resultSeconds, resultMicroseconds);
   WinTimerSub(newTime, initTime, &resultSeconds, &resultMicroseconds);
-  printf(" accumulated: %lld.%06lld", resultSeconds, resultMicroseconds);
+  fprintf(fout, ", %lld.%06lld\n", resultSeconds, resultMicroseconds);
   globalTime = newTime;
 }
 #else
-void ReportTime() {
+static void ReportTime() {
   struct timeval newTimeValue, result;
   gettimeofday(&newTimeValue, NULL);
   timersub(&newTimeValue, &globalTimeVal, &result);
-  printf(" Time elapsed: %ld.%06ld", (long int)result.tv_sec,
-      (long int)result.tv_usec);
+  fprintf(
+      fout, ", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
   timersub(&newTimeValue, &initTimeVal, &result);
-  printf(" accumulated: %ld.%06ld", (long int)result.tv_sec,
-      (long int)result.tv_usec);
+  fprintf(
+      fout, ", %ld.%06ld\n", (long int)result.tv_sec, (long int)result.tv_usec);
   globalTimeVal = newTimeValue;
 }
 #endif
 
 #ifdef _WIN32
-void ReportMemory() {
+static void ReportMemory() {
   PROCESS_MEMORY_COUNTERS_EX pmc;
   GetProcessMemoryInfo(
       GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
   SIZE_T vMemSizeKB = pmc.PrivateUsage / 1024;
-  printf(" VMem: %zu", vMemSizeKB);
+  fprintf(fout, "%zu\n", vMemSizeKB);
 }
 #else
-void ReportMemory() {
+static void ReportMemory() {
   char memCommand[200];
   char memOutput[200];
   FILE *memPipe;
@@ -132,72 +141,110 @@ void ReportMemory() {
   snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
-    if (psErrorCount > 20)
-      return;
-    fprintf(stderr, "ERROR: Failed to execute ps");
+    fprintf(fout, ", error-failed-to-execute-ps\n");
     psErrorCount++;
+    return;
   }
   (void)fgets(memOutput, 200, memPipe);
   (void)fgetc(memPipe);
   memOutput[strcspn(memOutput, "\n")] = 0;
-  printf(" VMem:%s", memOutput);
   if (!feof(memPipe)) {
-    if (psErrorCount > 20) {
-      pclose(memPipe);
-      return;
-    }
-    fprintf(stderr, "ERROR: Unexpected output from ps");
+    fprintf(fout, ", error-unexpected-output-from-pipe\n");
     psErrorCount++;
+  } else {
+    // No error, print data.
+    fprintf(fout, ", %s\n", memOutput);
   }
   pclose(memPipe);
 }
 #endif
 
-enum InstrumentActions {
-  InstrumentBeforeOp,
-  InstrumentAfterOp,
-  InstrumentReportTime,
-  InstrumentReportMemory
-};
+FILE *getInstrumentFile() {
+  if (fout)
+    return fout;
+  fout = stdout;
+  if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
+    char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
+    FILE *newFileHandle = fopen(fileName, "w");
+    if (newFileHandle) {
+      fout = newFileHandle;
+    }
+  }
+  assert(fout);
+  return fout;
+}
 
 void OMInstrumentInit() {
-  if (getenv("NOOMINSTRUMENTTIME")) {
+  // Read environment variables.
+  if (getenv("ONNX_MLIR_NO_INSTRUMENT_TIME")) {
     instrumentReportTimeDisabled = true;
+    return;
   }
-  if (getenv("NOOMINSTRUMENTMEMORY")) {
+  if (getenv("ONNX_MLIR_NO_INSTRUMENT_MEMORY")) {
     instrumentReportMemoryDisabled = true;
   }
-  if (getenv("NOOMINSTRUMENT")) {
+  if (getenv("ONNX_MLIR_NO_INSTRUMENT")) {
     instrumentReportDisabled = true;
   }
+  // Handle redirection to file if requested.
+  getInstrumentFile();
 
+  // Init as appropriate.
   if (!instrumentReportDisabled) {
     TimeInit();
   }
 }
 
-void OMInstrumentPoint(const char *opName, int64_t tag, const char *nodeName) {
+void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   if (instrumentReportDisabled)
     return;
 
-  // Print header
-  printf("#%3d) %s %s", instrumentCounter,
-      tag & (1 << (int)InstrumentBeforeOp) ? "before" : "after ", opName);
-  instrumentCounter++;
+  // Initialize on first call. Would prefer to call explicitly, but there is
+  // currently no support for that.
+  static bool firstTime = true;
+  if (firstTime) {
+    OMInstrumentInit();
+    firstTime = false;
+  }
 
-  bool localReportTime =
-      tag & (1 << (int)InstrumentReportTime) && !instrumentReportTimeDisabled;
+  // Detect which reporting we have to do here.
+  uint64_t tag = iTag;
+  bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
+  bool reportTime =
+      !instrumentReportTimeDisabled && IS_INSTRUMENT_REPORT_TIME(tag);
+  bool reportMem =
+      !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
 
-  if (localReportTime) {
+  if (!reportTime && !reportMem) {
+    fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);
+    return;
+  }
+
+  // Unfortunately, the op and node names passed at runtime have sometimes an
+  // incorrect length, and as a result, garbage is printed. To avoid this, a
+  // (possibly temporary) fix is to encode the string lengths in the tag
+  // (which are correct at compile time) so that we only print the intended
+  // info here.
+  uint64_t opNameLen = GET_INSTRUMENT_OP_NAME_LEN(tag);
+  uint64_t nodeNameLen = GET_INSTRUMENT_NODE_NAME_LEN(tag);
+  assert(opNameLen <= INSTRUMENT_OP_NAME_MASK &&
+         nodeNameLen <= INSTRUMENT_NODE_NAME_MASK);
+  // Safe copy of op and node names.
+  strncpy(instrumentReportOpName, opName, opNameLen);
+  instrumentReportOpName[opNameLen] = '\0';
+  strncpy(instrumentReportNodeName, nodeName, nodeNameLen);
+  instrumentReportNodeName[nodeNameLen] = '\0';
+
+  if (reportTime) {
+    // Print header and data for time.
+    fprintf(fout, "==PERF-REPORT==, %s, %s, %s", instrumentReportOpName,
+        instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportTime();
   }
-
-  bool localReportMemory = tag & (1 << (int)InstrumentReportMemory) &&
-                           !instrumentReportMemoryDisabled;
-  if (localReportMemory) {
+  if (reportMem && psErrorCount < 20) {
+    // Print header and data for memory.
+    fprintf(fout, "==MEM-REPORT==, %s, %s, %s", instrumentReportOpName,
+        instrumentReportNodeName, (isBefore ? "before" : "after"));
     ReportMemory();
   }
-  if (strncmp(nodeName, "NOTSET", 6) != 0)
-    printf(" (%s)", nodeName);
-  printf("\n");
 }

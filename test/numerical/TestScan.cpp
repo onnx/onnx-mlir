@@ -82,9 +82,10 @@ int main(int argc, char *argv[]) {
       onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
-  setCompilerOption(OptionKind::CompilerOptLevel, "3");
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestScan\n", nullptr, "TEST_ARGS");
+  initCompilerConfig();
   std::cout << "Target options: \""
             << getCompilerOption(OptionKind::TargetAccel) << "\"\n";
 

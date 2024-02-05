@@ -1,4 +1,4 @@
-// RUN: onnx-mlir -v %s -o %t 2>&1 | FileCheck %s
+// RUN: onnx-mlir -tag="test" -v %s -o %t 2>&1 | FileCheck %s
 
 // REQUIRES: system-windows
 // CHECK:      opt{{(\.exe)?}} {{.*}} -o {{.*}}check_verbosity{{.*}}.bc

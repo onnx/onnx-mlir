@@ -169,6 +169,7 @@ struct ONNXConcatShapeTransposeOpLowering
     }
     SmallVector<Value, 2> outputs;
     rewriter.replaceOp(op, {shapeAlloc, alloc});
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

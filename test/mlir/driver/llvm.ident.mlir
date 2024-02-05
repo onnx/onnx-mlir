@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --preserveBitcode %s -o %t
+// RUN: onnx-mlir --preserveBitcode -tag="test" %s -o %t
 // RUN: llvm-dis %t.bc -o %t.ll
 
 module {

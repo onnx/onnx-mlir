@@ -12,14 +12,13 @@
 // Krnl IR and standard operations.
 //
 //===----------------------------------------------------------------------===//
-
+#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
@@ -52,8 +51,11 @@ public:
         rewriter.getI32IntegerAttr(entryPointFunc.getArgumentTypes().size());
     IntegerAttr numOutputsAttr =
         rewriter.getI32IntegerAttr(entryPointFunc.getResultTypes().size());
-    std::string sig =
-        getSignature(entryPointFunc.getFunctionType(), entryPointOp);
+    bool sigParsingError;
+    std::string sig = getSignature(
+        entryPointFunc.getFunctionType(), entryPointOp, sigParsingError);
+    if (sigParsingError)
+      return failure();
     StringAttr sigAttr = rewriter.getStringAttr(sig);
 
     rewriter.replaceOpWithNewOp<KrnlEntryPointOp>(
@@ -68,7 +70,7 @@ private:
   // data type list:
   //     "i1" / "i8" / "i16" / "i32" / "i64"
   //     "ui8" / "ui16" / "ui32" / "ui64"
-  //     "f32" / "f64"
+  //     "f16" / "f32" / "f64"
   void concatTypeString(
       Type argType, Attribute attr, llvm::raw_ostream &dstream) const {
     std::string comma = std::string("");
@@ -82,7 +84,14 @@ private:
         .Case<ShapedType>([&](ShapedType tensorTy) {
           auto et = tensorTy.getElementType();
           dstream << "   { \"type\" : ";
-          et.print(dstream);
+          if (et.isa<krnl::StringType>()) {
+            // If use "et.print(dstream)", the output is !krnl.StringType.
+            // The missing of quotation will fail the jason parser.
+            // Use just "string" for brief
+            dstream << "\"string\"";
+          } else {
+            et.print(dstream);
+          }
           dstream << " , \"dims\" : [";
           if (tensorTy.hasRank()) {
             int64_t rank = tensorTy.getRank();
@@ -103,8 +112,10 @@ private:
     dstream << " }\n";
   }
 
-  std::string getSignature(FunctionType funcType, Operation *op) const {
+  std::string getSignature(
+      FunctionType funcType, Operation *op, bool &parsingFailure) const {
     OpBuilder b(op);
+    parsingFailure = false;
     auto inputs = funcType.getInputs();
     auto outputs = funcType.getResults();
 
@@ -114,6 +125,12 @@ private:
       for (uint64_t i = 0; i < inputs.size(); ++i)
         names.emplace_back(StringRef("input_" + std::to_string(i)));
       inputNames = b.getStrArrayAttr(names);
+    } else if (inputNames.size() != inputs.size()) {
+      llvm::errs()
+          << "Please ensure that the 'input_name' function attribute has "
+             "the same number of names as function parameters.";
+      parsingFailure = true;
+      return "";
     }
     ArrayAttr outputNames = op->getAttrOfType<ArrayAttr>("output_names");
     if (!outputNames) {
@@ -121,10 +138,16 @@ private:
       for (uint64_t i = 0; i < outputs.size(); ++i)
         names.emplace_back(StringRef("output_" + std::to_string(i)));
       outputNames = b.getStrArrayAttr(names);
+    } else if (outputNames.size() != outputs.size()) {
+      llvm::errs()
+          << "Please ensure that the 'output_name' function attribute has "
+             "the same number of names as function results.";
+      parsingFailure = true;
+      return "";
     }
 
-    std::string dstring;
-    llvm::raw_string_ostream dstream(dstring);
+    std::string dString;
+    llvm::raw_string_ostream dstream(dString);
     dstream << "[ ";
     std::string comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
@@ -134,7 +157,7 @@ private:
     }
     dstream << "\n]";
     dstream.flush();
-    dstring.push_back('\0'); // null terminate the input signature string
+    dString.push_back('\0'); // null terminate the input signature string
     dstream << "@[";
     comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
@@ -144,21 +167,22 @@ private:
     }
     dstream << "\n]";
     dstream.flush();
-    dstring.push_back('\0'); // null terminate the output signature string
+    dString.push_back('\0'); // null terminate the output signature string
     for (auto const &x : typeMap) {
       size_t start_pos = 0;
       while (
-          (start_pos = dstring.find(x.first, start_pos)) != std::string::npos) {
-        dstring.replace(start_pos, x.first.length(), x.second);
+          (start_pos = dString.find(x.first, start_pos)) != std::string::npos) {
+        dString.replace(start_pos, x.first.length(), x.second);
         start_pos += x.first.length();
       }
     }
 
-    return dstring;
+    return dString;
   }
 };
 
 std::map<std::string, std::string> ONNXEntryPointLowering::typeMap = {
+    {std::string(" f16 "), std::string(" \"f16\" ")},
     {std::string(" f32 "), std::string(" \"f32\" ")},
     {std::string(" f64 "), std::string(" \"f64\" ")},
     {std::string(" i32 "), std::string(" \"i32\" ")},
@@ -188,14 +212,14 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXScanOpPattern(patterns, typeConverter, ctx);
   // Math
   populateLoweringONNXCumSumOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
-  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling);
+  populateLoweringONNXElementwiseOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
+  populateLoweringONNXGemmOpPattern(patterns, typeConverter, ctx, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXHardmaxOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReductionOpPattern(patterns, typeConverter, ctx, enableSIMD, enableParallel);
+  populateLoweringONNXSoftmaxOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXTopKOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTriluOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling);
+  populateLoweringONNXMatMulOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableTiling, enableSIMD, enableParallel);
   populateLoweringONNXMatMulIntegerOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXRandomNormalLikeOpPattern(patterns, typeConverter, ctx);
@@ -210,18 +234,18 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Tensor
   populateLoweringONNXArgMinMaxOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx, dimAnalysis);
   populateLoweringONNXPadOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
-  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXConcatShapeTransposeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXDepthToSpaceOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXScatterElementsOpPattern(patterns, typeConverter, ctx);
@@ -245,6 +269,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx);
@@ -263,6 +288,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
   populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
   // clang-format on
 }
 
@@ -289,8 +315,8 @@ struct FrontendToKrnlLoweringPass
       : PassWrapper<FrontendToKrnlLoweringPass, OperationPass<ModuleOp>>() {}
   FrontendToKrnlLoweringPass(
       bool enableTiling, bool enableSIMD, bool enableParallel) {
-    // Below, need explicit assignment to enable implicit conversion of bool to
-    // Option<bool>.
+    // Below, need explicit assignment to enable implicit conversion of bool
+    // to Option<bool>.
     this->enableTiling = enableTiling;
     this->enableSIMD = enableSIMD;
     this->enableParallel = enableParallel;
@@ -304,12 +330,12 @@ public:
   // lowered into krnl ops in this pass.
   //
   // To write LIT tests for operations that are lowered to other ONNX
-  // operations, we do not need to check the final generated krnl code (which is
-  // lengthy). It is more convenient to check the intermediate generated code
-  // including ONNX ops. We trust the lowering of the other ONNX ops.
+  // operations, we do not need to check the final generated krnl code (which
+  // is lengthy). It is more convenient to check the intermediate generated
+  // code including ONNX ops. We trust the lowering of the other ONNX ops.
   //
-  // This flag is used in LIT tests to stop the lowering of the other ONNX ops.
-  // Usage: onnx-mlir-opt --convert-onnx-to-krnl='emit-intermediate-ir'
+  // This flag is used in LIT tests to stop the lowering of the other ONNX
+  // ops. Usage: onnx-mlir-opt --convert-onnx-to-krnl='emit-intermediate-ir'
   Option<bool> emitIntermediateIR{*this, "emit-intermediate-ir",
       llvm::cl::desc(
           "Emit intermediate IR rather than lowering to the krnl dialect."),
@@ -325,8 +351,6 @@ public:
 
 void FrontendToKrnlLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-  // Define vector machine.
-  VectorMachineSupport::setGlobalVectorMachineSupport(march, mcpu, "");
   // Perform dim analysis (useful for SIMD but also to avoid broadcast
   // expressions in index access patterns).
   DimAnalysis *dimAnalysis = new DimAnalysis(module);
@@ -336,8 +360,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // final target for this lowering.
   ConversionTarget target(getContext());
 
-  // We define the specific operations, or dialects, that are legal targets for
-  // this lowering.
+  // We define the specific operations, or dialects, that are legal targets
+  // for this lowering.
   target.addLegalDialect<KrnlDialect, affine::AffineDialect,
       arith::ArithDialect, func::FuncDialect, linalg::LinalgDialect,
       math::MathDialect, vector::VectorDialect, memref::MemRefDialect,
@@ -351,8 +375,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   target.addLegalOp<::mlir::ONNXNoneOp>();
 
   // Use krnl.load/store instead of std.load/store and affine.load/store.
-  // krnl.load/store will be lowered to std.load/store and affine.load/store by
-  // `convert-krnl-to-affine` pass.
+  // krnl.load/store will be lowered to std.load/store and affine.load/store
+  // by `convert-krnl-to-affine` pass.
   target.addIllegalOp<mlir::memref::LoadOp>();
   target.addIllegalOp<mlir::affine::AffineLoadOp>();
   target.addIllegalOp<mlir::memref::StoreOp>();
@@ -366,13 +390,14 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   // Option`emitDealloc` is deprecated and turned off, make sure we don't have
   // buffer deallocation at this level. Will use MLIR buffer-deallocation for
-  // this purpose instead. However, since the SequenceErase needs to emit memref
-  // dealloc, the previous the following statement is commented out (Chentong)
+  // this purpose instead. However, since the SequenceErase needs to emit
+  // memref dealloc, the previous the following statement is commented out
+  // (Chentong)
   target.addIllegalOp<mlir::memref::DeallocOp>();
 
   // TODO: enable this once more ops are supported.
-  // We also define the ONNX dialect as Illegal so that the conversion will fail
-  // if any of these operations are *not* converted.
+  // We also define the ONNX dialect as Illegal so that the conversion will
+  // fail if any of these operations are *not* converted.
   // target.addIllegalDialect<mlir::ONNXOpsDialect>();
 
   // TODO: add any other ops which are considered legal.
@@ -381,8 +406,8 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
 
   if (emitIntermediateIR) {
     // Only used for writing LIT tests for ONNX operations that are lowered to
-    // other ONNX operations. The following operations are prevented from being
-    // lowered further. See the comment in the declaration of
+    // other ONNX operations. The following operations are prevented from
+    // being lowered further. See the comment in the declaration of
     // 'emitIntermediateIR' for more details.
     target.addLegalOp<ONNXMatMulOp>();
     target.addLegalOp<ONNXReshapeOp>();
@@ -431,7 +456,6 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
   }
-  VectorMachineSupport::clearGlobalVectorMachineSupport();
   delete dimAnalysis;
 }
 
@@ -443,6 +467,35 @@ std::unique_ptr<Pass> createLowerToKrnlPass(
     bool enableTiling, bool enableSIMD, bool enableParallel) {
   return std::make_unique<FrontendToKrnlLoweringPass>(
       enableTiling, enableSIMD, enableParallel);
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
+int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
+std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
+std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
+
+void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
+    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
+  OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
+  OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
+  if (reportOnParallel && !parallelIsEnabled)
+    OnnxToKrnlLoweringConfiguration::defaultParallelComment =
+        "parallelism is disabled";
+  if (reportOnSimd) {
+    if (!simdIsEnabled) {
+      OnnxToKrnlLoweringConfiguration::defaultSimdComment = "simd is disabled";
+    } else {
+      VectorMachineSupport *vms =
+          VectorMachineSupport::getGlobalVectorMachineSupport();
+      if (!vms->hasSimd())
+        OnnxToKrnlLoweringConfiguration::defaultSimdComment =
+            "cpu with unspecified simd ISA";
+    }
+  }
 }
 
 } // namespace onnx_mlir

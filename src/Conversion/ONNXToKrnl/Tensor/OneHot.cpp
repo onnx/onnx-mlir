@@ -112,6 +112,7 @@ struct ONNXOneHotOpLowering : public OpConversionPattern<ONNXOneHotOp> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

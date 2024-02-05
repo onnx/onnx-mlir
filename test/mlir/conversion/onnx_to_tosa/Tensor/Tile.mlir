@@ -5,7 +5,7 @@ func.func @test_tile(%arg0 : tensor<5x5x1x32xf32>) -> tensor<5x10x30x32xf32> {
   %tile = "onnx.Tile"(%arg0, %const) : (tensor<5x5x1x32xf32>, tensor<4xi64>) -> tensor<5x10x30x32xf32>
   "func.return"(%tile) : (tensor<5x10x30x32xf32>) -> ()
 // CHECK-LABEL: test_tile
-// CHECK: tosa.tile{{.*}} <{multiples = array<i64: 1, 2, 30, 1>}> : (tensor<5x5x1x32xf32>) -> tensor<5x10x30x32xf32>
+// CHECK: tosa.tile{{.*}} {multiples = array<i64: 1, 2, 30, 1>} : (tensor<5x5x1x32xf32>) -> tensor<5x10x30x32xf32>
 }
 
 // -----
@@ -15,7 +15,7 @@ func.func @test_tile_dynamic_shape(%arg0 : tensor<5x5x?x32xf32>) -> tensor<5x10x
   %tile = "onnx.Tile"(%arg0, %const) : (tensor<5x5x?x32xf32>, tensor<4xi64>) -> tensor<5x10x?x32xf32>
   "func.return"(%tile) : (tensor<5x10x?x32xf32>) -> ()
 // CHECK-LABEL: test_tile_dynamic_shape
-// CHECK: tosa.tile{{.*}} <{multiples = array<i64: 1, 2, 30, 1>}> : (tensor<5x5x?x32xf32>) -> tensor<5x10x?x32xf32>
+// CHECK: tosa.tile{{.*}} {multiples = array<i64: 1, 2, 30, 1>} : (tensor<5x5x?x32xf32>) -> tensor<5x10x?x32xf32>
 }
 
 // -----

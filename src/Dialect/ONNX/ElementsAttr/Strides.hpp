@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
+#include "src/Support/Arrays.hpp"
 
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"

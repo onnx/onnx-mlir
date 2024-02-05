@@ -3,7 +3,7 @@
 // fp16_nonraw_data.json is an onnx model that outputs 2 constant tensors
 // with float16 and bfloat16 data types
 
-// json is generated with utils/testing/floatingpoint16_data.py nonraw
+// json is generated with utils/testing/fp16_data.py nonraw
 {
   "irVersion": "8",
   "graph": {

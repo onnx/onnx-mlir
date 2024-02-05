@@ -80,6 +80,7 @@ struct ONNXRandomNormalLikeOpLowering
         alloc, numberOfRandomValues, meanValue, scaleValue, seedValue);
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

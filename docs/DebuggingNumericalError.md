@@ -62,6 +62,12 @@ optional arguments:
   --upper-bound UPPER_BOUND   Upper bound values for each data type. Used to generate random inputs. E.g. --upper-bound=int64:10,float32:0.2,uint8:9. Supported types are bool, uint8, int8, uint16, int16, uint32, int32, uint64, int64, float16, float32, float64
 ```
 
+## Helper script to compare a model under two distinct compile option.
+
+Based on the above `utils/runONNXModel.py`, the `utils/checkONNXModel.py` allows a user to run a given model twice, under two distinct compile options, and compare its results.
+This let a user simply test a new option, comparing the safe version of the compiler (e.g. `-O0` or `-O3`) with a more advanced version (e.g. `-O3` or `-O3 -march=x86-64`). Simply specify the compile options using the `--ref-compile-args` and `--test-compile-args` flags, a model using the `--model` flag, and possibly a `--shape-info` in presence of dynamic shape inputs.
+Full options are listed under the `--help` flag.
+
 ## Debugging the Code Generated for an Operator.
 
 If you know, or suspect, that a particular ONNX MLIR operator produces an incorrect result, and want to narrow down the problem, we provide a couple of useful Krnl operators that allow printing (at runtime) the value of a tensor, or a value that has a primitive data type. 

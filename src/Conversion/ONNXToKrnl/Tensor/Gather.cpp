@@ -119,6 +119,7 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
           createKrnl.storeIE(dataVal, alloc, outputAccessFct);
         });
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

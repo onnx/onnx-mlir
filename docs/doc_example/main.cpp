@@ -18,10 +18,10 @@ std::string readArgs(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   // Read compiler options from command line and compile the doc example into a
   // model library.
-  const char *errorMessage = NULL;
-  const char *compiledFilename;
+  char *errorMessage = nullptr;
+  char *compiledFilename = nullptr;
   std::string flags = readArgs(argc, argv);
-  flags += "-o add-cpp-interface";
+  flags += "-o add_cpp_interface";
   std::cout << "Compile with options \"" << flags << "\"\n";
   int rc = onnx_mlir::omCompileFromFile(
       "add.onnx", flags.c_str(), &compiledFilename, &errorMessage);
@@ -30,11 +30,15 @@ int main(int argc, char *argv[]) {
     if (errorMessage)
       std::cerr << " and message \"" << errorMessage << "\"";
     std::cerr << "." << std::endl;
+    free(compiledFilename);
+    free(errorMessage);
     return rc;
   }
   std::string libFilename(compiledFilename);
   std::cout << "Compiled succeeded with results in file: " << libFilename
             << std::endl;
+  free(compiledFilename);
+  free(errorMessage);
 
   // Prepare the execution session.
   onnx_mlir::ExecutionSession *session;

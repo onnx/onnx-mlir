@@ -93,9 +93,12 @@ struct IndexExprBuilder : DialectBuilder {
   // Get rank of the type defined by value. Expect ranked shaped type.
   uint64_t getShapedTypeRank(mlir::Value value);
   // Get size of 1D array attribute. Expect 1D ranked shaped type.
-  uint64_t getArraySize(mlir::ArrayAttr arrayAttr);
+  int64_t getArraySize(mlir::ArrayAttr arrayAttr);
   // Get size of 1D array defined by arrayVal. Expect 1D ranked shaped type.
-  uint64_t getArraySize(mlir::Value arrayVal);
+  // When staticSizeOnly is false, it may return ShapedType::kDynamic. When
+  // staticSizeOnly is true, it will assert if the shape of the array is
+  // dynamic.
+  int64_t getArraySize(mlir::Value arrayVal, bool staticSizeOnly = false);
 
   //===--------------------------------------------------------------------===//
   // Get literal index expressions from an array of integer attributes.
@@ -135,19 +138,25 @@ struct IndexExprBuilder : DialectBuilder {
   IndexExpr getIntAsSymbol(mlir::Value value);
   IndexExpr getIntAsDim(mlir::Value value);
   IndexExpr getFloatAsNonAffine(mlir::Value value);
-  // Get a symbol/dim index expression from the array defined by `array` at
-  // position `i`. When out of bound, return an undefined index expressions.
-  IndexExpr getIntFromArrayAsSymbol(mlir::Value array, uint64_t i);
-  IndexExpr getIntFromArrayAsDim(mlir::Value array, uint64_t i);
-  IndexExpr getFloatFromArrayAsNonAffine(mlir::Value array, uint64_t i);
+  // Get a symbol/dim index expression from the int or float array defined by
+  // `intArray` / `floatArray` at position `i`.
+  // When out of bound, return an undefined index expressions. If array size is
+  // known, it can be passed as the arraySize argument. Otherwise (-1), the call
+  // will determine it from the intArray value.
+  IndexExpr getIntFromArrayAsSymbol(
+      mlir::Value intArray, uint64_t i, int64_t arraySize = -1);
+  IndexExpr getIntFromArrayAsDim(
+      mlir::Value intArray, uint64_t i, int64_t arraySize = -1);
+  IndexExpr getFloatFromArrayAsNonAffine(
+      mlir::Value floatArray, uint64_t i, int64_t arraySize = -1);
   // Same as above; `outOfBoundVal` literal index expression is returned
   // when out of bound.
-  IndexExpr getIntFromArrayAsSymbol(
-      mlir::Value array, uint64_t i, int64_t outOfBoundVal);
-  IndexExpr getIntFromArrayAsDim(
-      mlir::Value array, uint64_t i, int64_t outOfBoundVal);
-  IndexExpr getFloatFromArrayAsNonAffine(
-      mlir::Value array, uint64_t i, double outOfBoundVal);
+  IndexExpr getIntFromArrayAsSymbolWithOutOfBound(
+      mlir::Value intArray, uint64_t i, int64_t outOfBoundVal);
+  IndexExpr getIntFromArrayAsDimWithOutOfBound(
+      mlir::Value intArray, uint64_t i, int64_t outOfBoundVal);
+  IndexExpr getFloatFromArrayAsNonAffineWithOutOfBound(
+      mlir::Value floatArray, uint64_t i, double outOfBoundVal);
   // Same as above, but get a list of up to len values. A length of -1 returns
   // the whole list. Assert when `len` exceed the array bounds.
   void getIntFromArrayAsSymbols(
@@ -181,6 +190,19 @@ struct IndexExprBuilder : DialectBuilder {
   void getShapeAsSymbols(mlir::Value tensorOrMemrefValue, IndexExprList &list);
   void getShapeAsDims(mlir::Value tensorOrMemrefValue, IndexExprList &list);
 
+  //===--------------------------------------------------------------------===//
+  // Index expression helpers for tiled data. In the expressions below:
+  //   i:     the index at the start of the tile
+  //   block: the size of the tile block
+  //   UB:    the upper bound of the index space.
+
+  // Determined if we have a full tile (affine expression compared to >=0)
+  IndexExpr isTileFull(IndexExpr i, IndexExpr block, IndexExpr UB);
+  // Only if tile is not full, the remaining trip count within the tile.
+  IndexExpr partialTileSize(IndexExpr i, IndexExpr block, IndexExpr UB);
+  // The trip count within the tile, regardless of if full or partial
+  IndexExpr tileSize(IndexExpr i, IndexExpr block, IndexExpr UB);
+
 protected:
   //===--------------------------------------------------------------------===//
   // Subclasses must define these pure virtual functions.
@@ -200,8 +222,10 @@ protected:
 
 private:
   // Returns a SymbolIndexExpr/DimIndexExpr when makeSymbol is true/false.
-  IndexExpr getValFromArray(
-      mlir::Value array, uint64_t i, bool makeSymbol, bool isFloat);
+  // 'array' element type must match 'isFloat'. If arraySize >=0, use that size.
+  // Otherwise, get the size from the array value.
+  IndexExpr getValFromArray(mlir::Value array, uint64_t i, bool makeSymbol,
+      bool isFloat, int64_t arraySize);
 };
 
 } // namespace onnx_mlir

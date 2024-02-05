@@ -92,7 +92,10 @@ LogicalResult Diagnostic::emitDimensionHasUnexpectedValueError(Operation &op,
 std::string Diagnostic::getName(Value &v) {
   std::string str;
   llvm::raw_string_ostream os(str);
-  v.print(os);
+  // print without calling verify() on v's defining op to
+  // avoid infinite recursion when getName() is called from an emit
+  // method called from verify()
+  v.print(os, OpPrintingFlags().assumeVerified());
   return str;
 }
 

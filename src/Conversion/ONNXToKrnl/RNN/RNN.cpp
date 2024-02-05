@@ -259,7 +259,7 @@ std::tuple<RnnBiasPack, RnnBiasPack> getBiasPack<ONNXRNNOp, RnnBiasPack>(
 template <>
 RnnState allocAndInitializeStates<ONNXRNNOp, RnnState>(
     ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, ONNXRNNOp *op,
+    const TypeConverter *typeConverter, ONNXRNNOp *op,
     typename ONNXRNNOp::Adaptor operandAdaptor) {
   RnnState state;
 
@@ -300,7 +300,8 @@ template <>
 void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
     ConversionPatternRewriter &rewriter, Location loc, Value Xt, RnnState state,
     RnnActivationPack activationPack, RnnWeightPack weightPack,
-    RnnBiasPack biasPack, Value sequenceIV, Value directionIV, bool isForward) {
+    RnnBiasPack biasPack, Value sequenceIV, Value directionIV,
+    Value sequenceLens, Value initialH, bool isForward) {
   // Equations for RNN.
   // Ht = f(Xt*(Wi^T) + Ht-1*(Ri^T) + Wbi + Rbi)
   // Shape information:
@@ -310,6 +311,9 @@ void calculateState<RnnState, RnnActivationPack, RnnWeightPack, RnnBiasPack>(
   // Ht : [batch_size, hidden_size]
   // Wbi: [hidden_size]
   // Rbi: [hidden_size]
+
+  // ToFix: add support of sequenceLens for RNN
+  assert(isNoneValue(sequenceLens) && "not implemented yet");
 
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);

@@ -1,22 +1,28 @@
 #pragma once
 
+#include <map>
 #include <string>
 
 namespace onnx_mlir {
-const std::string kExecPath =
-    "@CMAKE_INSTALL_PREFIX@/bin/$<TARGET_FILE_NAME:onnx-mlir>"; /* fallback if
-                                                                   not found by
-                                                                   getExecPath
-                                                                 */
-const std::string kInstPath = "@CMAKE_INSTALL_PREFIX@";
-const std::string kOptPath = "$<TARGET_FILE:opt>";
-const std::string kLlcPath = "$<TARGET_FILE:llc>";
-const std::string kOnnxmlirPath = "$<TARGET_FILE:onnx-mlir>";
-const std::string kCxxPath = "@CMAKE_CXX_COMPILER@";
-const std::string kLinkerPath = "@CMAKE_LINKER@";
-const std::string kObjCopyPath = "@CMAKE_OBJCOPY@";
-const std::string kArPath = "@CMAKE_AR@";
-const std::string kJarPath = "@Java_JAR_EXECUTABLE@";
-const std::string kDefaultTriple = "@ONNX_MLIR_DEFAULT_TRIPLE@";
-const std::string kLrodataScript = R"(@ONNX_MLIR_LRODATA_SCRIPT@)";
+static const std::string kExecPath = // fallback if not found by getExecPath
+    "@CMAKE_INSTALL_PREFIX@/bin/$<TARGET_FILE_NAME:onnx-mlir>";
+static const std::string kInstPath = "@CMAKE_INSTALL_PREFIX@";
+static const std::string kOptPath = "$<TARGET_FILE:opt>";
+static const std::string kLlcPath = "$<TARGET_FILE:llc>";
+static const std::string kOnnxmlirPath = "$<TARGET_FILE:onnx-mlir>";
+static const std::string kCPath = "@CMAKE_C_COMPILER@";
+static const std::string kCxxPath = "@CMAKE_CXX_COMPILER@";
+static const std::string kLinkerPath = "@CMAKE_LINKER@";
+static const std::string kObjCopyPath = "@CMAKE_OBJCOPY@";
+static const std::string kArPath = "@CMAKE_AR@";
+static const std::string kJarPath = "@Java_JAR_EXECUTABLE@";
+static const std::string kDefaultTriple = "@ONNX_MLIR_DEFAULT_TRIPLE@";
+static const std::string kLrodataScript = R"(@ONNX_MLIR_LRODATA_SCRIPT@)";
+
+static const std::map<std::string, std::string> toolPathMap = {
+    {"instPath", kInstPath}, {"opt", kOptPath}, {"llc", kLlcPath},
+    {"onnx-mlir", kOnnxmlirPath}, {"c", kCPath}, {"cxx", kCxxPath},
+    {"linker", kLinkerPath}, {"objcopy", kObjCopyPath}, {"ar", kArPath},
+    {"jar", kJarPath}, {"defaultTriple", kDefaultTriple},
+    {"lrodataScript", kLrodataScript}};
 } // namespace onnx_mlir

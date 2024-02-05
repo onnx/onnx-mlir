@@ -46,7 +46,9 @@ class ExecutionSession {
 public:
   // Create an execution session using the model given in sharedLibPath.
   // This path must point to the actual file, local directory is not searched.
-  ExecutionSession(std::string sharedLibPath, bool defaultEntryPoint = true);
+  ExecutionSession(std::string sharedLibPath, std::string tag = "",
+      bool defaultEntryPoint = true);
+  ~ExecutionSession();
 
   // Get a NULL-terminated array of entry point names.
   // For example {"run_addition, "run_subtraction", NULL}
@@ -75,32 +77,45 @@ public:
   const std::string inputSignature() const;
   const std::string outputSignature() const;
 
-  ~ExecutionSession();
-
 protected:
+  // Constructor that build the object without initialization (for use by
+  // subclass only).
+  ExecutionSession() = default;
+
+  // Initialization of library. Called by public constructor, or by subclasses.
+  void Init(std::string sharedLibPath, std::string tag, bool defaultEntryPoint);
+
   // Error reporting processing when throwing runtime errors. Set errno as
   // appropriate.
+  std::string reportInitError() const;
   std::string reportLibraryOpeningError(const std::string &libraryName) const;
   std::string reportSymbolLoadingError(const std::string &symbolName) const;
   std::string reportUndefinedEntryPointIn(
       const std::string &functionName) const;
   std::string reportErrnoError() const;
+  std::string reportCompilerError(const std::string &errorMessage) const;
 
-protected:
+  // Track if Init was called or not.
+  bool isInitialized = false;
+
   // Handler to the shared library file being loaded.
   llvm::sys::DynamicLibrary _sharedLibraryHandle;
+
+  // Tag used to compile the model. By default, it is the model filename without
+  // extension.
+  std::string tag;
 
   // Entry point function.
   std::string _entryPointName;
   entryPointFuncType _entryPointFunc = nullptr;
 
   // Query entry point function.
-  static const std::string _queryEntryPointsName;
+  const std::string _queryEntryPointsName = "omQueryEntryPoints";
   queryEntryPointsFuncType _queryEntryPointsFunc = nullptr;
 
   // Entry point for input/output signatures
-  static const std::string _inputSignatureName;
-  static const std::string _outputSignatureName;
+  const std::string _inputSignatureName = "omInputSignature";
+  const std::string _outputSignatureName = "omOutputSignature";
   signatureFuncType _inputSignatureFunc = nullptr;
   signatureFuncType _outputSignatureFunc = nullptr;
 };

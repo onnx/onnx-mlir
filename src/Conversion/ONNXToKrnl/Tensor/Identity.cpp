@@ -26,6 +26,7 @@ struct ONNXIdentityOpLowering : public OpConversionPattern<ONNXIdentityOp> {
       ONNXIdentityOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     rewriter.replaceOp(identityOp, adaptor.getInput());
+    // No work, no need to report on SIMD.
     return success();
   }
 };

@@ -143,6 +143,7 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

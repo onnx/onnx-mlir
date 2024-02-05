@@ -269,6 +269,7 @@ struct ONNXCompressOpLowering : public OpConversionPattern<ONNXCompressOp> {
           });
     }
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

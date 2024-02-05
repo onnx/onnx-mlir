@@ -150,6 +150,7 @@ struct ONNXArgMinMaxOpLowering : public OpConversionPattern<ARG_OP> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

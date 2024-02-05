@@ -23,6 +23,7 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h"
 
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp" // from @llvm-project
 #include "llvm/ADT/STLExtras.h"

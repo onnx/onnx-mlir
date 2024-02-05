@@ -22,7 +22,9 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/FileUtilities.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Runtime/ExecutionSession.hpp"
@@ -242,10 +244,10 @@ private:
   bool verifyResults(const OMTensor *out, const OMTensor *expected) const;
 
 private:
-  const CMAttributes &attributes;     // CategoryMapper attributes.
-  const llvm::ArrayRef<T1> input;     // model input data.
-  const llvm::ArrayRef<T2> expOutput; // expected result.
-  const int inputRank;                // rank of input
+  const CMAttributes &attributes;              // CategoryMapper attributes.
+  const llvm::ArrayRef<T1> input;              // model input data.
+  const llvm::ArrayRef<T2> expOutput;          // expected result.
+  const int inputRank;                         // rank of input
   int64_t inputShape[MAX_INPUT_RANK_FOR_TEST]; // shape of input
 };
 

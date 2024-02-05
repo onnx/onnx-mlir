@@ -45,7 +45,7 @@ struct StandardFuncReturnPass
     : public PassWrapper<StandardFuncReturnPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(StandardFuncReturnPass)
 
-  StringRef getArgument() const override { return "scrub-disposable"; }
+  StringRef getArgument() const override { return "standard-func-return"; }
 
   void runOnOperation() final {
     func::FuncOp function = getOperation();

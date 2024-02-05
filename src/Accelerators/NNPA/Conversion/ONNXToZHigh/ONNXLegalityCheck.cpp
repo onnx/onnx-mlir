@@ -660,9 +660,6 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   // Check hidden_size.
   if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
     return false;
-  // zDNN does not support sequence_lens.
-  if (!isNoneValue(op.getSequenceLens()))
-    return false;
   // check if B and initial_h have static dimensions if given.
   if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
     return false;
@@ -693,6 +690,10 @@ bool isSuitableForZDNN<ONNXGRUOp>(
     return false;
   // zDNN support the "linear_before_reset==1" case only.
   if (op.getLinearBeforeReset() != 1)
+    return false;
+  // zDNN does not support sequence_lens and we cannot fix the result.
+  // For one direction, we fix the result afterward
+  if (!isNoneValue(op.getSequenceLens()) && direction == BIDIRECTIONAL)
     return false;
   return true;
 }

@@ -42,11 +42,11 @@ Value computeReduceSum<ONNXSoftmaxV11Op>(PatternRewriter &rewriter,
       rsumType.getElementType());
   // Create first reduce with input from function operands
   Value reducedSum = tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter,
-      op->getLoc(), outputType, op1ExpIn, rewriter.getI64IntegerAttr(axis));
+      op->getLoc(), outputType, op1ExpIn, rewriter.getI32IntegerAttr(axis));
   // Loop over all following dimensions with last reduce as input
   for (int i = axis + 1; i < inputRank; i++) {
     reducedSum = tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter,
-        op->getLoc(), outputType, reducedSum, rewriter.getI64IntegerAttr(i));
+        op->getLoc(), outputType, reducedSum, rewriter.getI32IntegerAttr(i));
   }
   return reducedSum;
 }
@@ -56,7 +56,7 @@ template <>
 Value computeReduceSum<ONNXSoftmaxOp>(PatternRewriter &rewriter, Operation *op,
     RankedTensorType rsumType, const Value &op1ExpIn, int axis) {
   return tosa::CreateOpAndInfer<mlir::tosa::ReduceSumOp>(rewriter, op->getLoc(),
-      rsumType, op1ExpIn, rewriter.getI64IntegerAttr(axis));
+      rsumType, op1ExpIn, rewriter.getI32IntegerAttr(axis));
 }
 
 template <typename SoftmaxOp>

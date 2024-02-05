@@ -89,7 +89,7 @@ DenseIntElementsAttr getAxesLegacyVersionAttr(ONNXReduceOp op) {
         llvm::iota_range<int64_t>(0, numberOfAxes, /*Inclusive=*/false);
     targetAxes = SmallVector<int64_t>(iotaRange.begin(), iotaRange.end());
   } else {
-    targetAxes = extractFromI64ArrayAttr(axes.value());
+    targetAxes = extractFromIntegerArrayAttr<int64_t>(axes.value());
   }
 
   const int64_t numTargetAxes = targetAxes.size();

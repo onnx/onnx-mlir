@@ -29,7 +29,7 @@ ModelLibBuilder::ModelLibBuilder(const std::string &name)
     : sharedLibBaseName(name), ctx(), loc(UnknownLoc::get(&ctx)), builder(&ctx),
       module(ModuleOp::create(loc)), inputs(nullptr), outputs(nullptr),
       exec(nullptr) {
-  registerDialects(ctx);
+  loadDialects(ctx);
 }
 
 ModelLibBuilder::~ModelLibBuilder() {
@@ -46,7 +46,8 @@ bool ModelLibBuilder::compileAndLoad() {
     return false;
   std::string libFilename =
       getTargetFilename(sharedLibBaseName, onnx_mlir::EmitLib);
-  exec = new ExecutionSession(libFilename);
+  std::string modelTag = getCompilerOption(OptionKind::ModelTag);
+  exec = new ExecutionSession(libFilename, modelTag);
   return exec != nullptr;
 }
 

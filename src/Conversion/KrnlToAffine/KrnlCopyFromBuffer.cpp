@@ -78,7 +78,8 @@ public:
       }
       IndexExpr startGI =
           starts[destIndex]; // Global index in dest memref of tile.
-      IndexExpr bufferWrite = trip(destBound, blockSize, startGI);
+      IndexExpr bufferWrite =
+          create.krnlIE.tileSize(startGI, blockSize, destBound);
       bufferWrite.debugPrint("buffer wrote");
       bufferWriteUBs.emplace_back(bufferWrite);
     }

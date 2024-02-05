@@ -34,9 +34,10 @@ LogicalResult ONNXTileOpShapeHelper::computeShape() {
   // Compute outputDims
   DimsExpr outputDims;
   outputDims.resize(inputRank);
-  for (auto i = 0; i < inputRank; i++) {
+  for (int64_t i = 0; i < inputRank; i++) {
     IndexExpr dimInput = createIE->getShapeAsDim(input, i);
-    IndexExpr repeatsValue = createIE->getIntFromArrayAsSymbol(repeats, i);
+    IndexExpr repeatsValue =
+        createIE->getIntFromArrayAsSymbol(repeats, i, inputRank);
     outputDims[i] = dimInput * repeatsValue;
   }
   setOutputDims(outputDims);

@@ -37,8 +37,8 @@ public:
     Location loc = op->getLoc();
     KrnlCallOp krnlCallOp = llvm::cast<KrnlCallOp>(op);
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const LLVMTypeConverter *llvmTypeConverter =
+        static_cast<const LLVMTypeConverter *>(getTypeConverter());
 
     // Get a symbol reference to the function, inserting it if necessary.
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -95,8 +95,8 @@ private:
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
-    auto *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const auto *llvmTypeConverter =
+        static_cast<const LLVMTypeConverter *>(getTypeConverter());
     const auto &apiRegistry =
         RuntimeAPIRegistry(module, rewriter, *llvmTypeConverter);
 
@@ -132,8 +132,8 @@ private:
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
     MultiDialectBuilder<KrnlBuilder, LLVMBuilder> create(rewriter, loc);
-    LLVMTypeConverter *llvmTypeConverter =
-        static_cast<LLVMTypeConverter *>(getTypeConverter());
+    const LLVMTypeConverter *llvmTypeConverter =
+        static_cast<const LLVMTypeConverter *>(getTypeConverter());
     const auto &apiRegistry =
         RuntimeAPIRegistry(module, rewriter, *llvmTypeConverter);
 

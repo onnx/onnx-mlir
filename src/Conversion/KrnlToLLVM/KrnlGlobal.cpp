@@ -12,11 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <fstream>
+
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
 
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -29,6 +32,9 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
+/// This variable is initizalied inside ConvertKrnlToLLVMPass.
+extern std::string EXTERNAL_CONSTANT_PREFIX;
+
 class KrnlGlobalOpLowering : public ConvertToLLVMPattern {
 public:
   explicit KrnlGlobalOpLowering(
@@ -40,7 +46,12 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto krnlGlobalOp = llvm::dyn_cast<KrnlGlobalOp>(op);
     Location loc = krnlGlobalOp.getLoc();
+    MLIRContext *context = krnlGlobalOp.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    // Basic type.
+    Type llvmI8Ty = IntegerType::get(context, 8);
+    Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
 
     // The element type of the array.
     const Type type = op->getResult(0).getType();
@@ -60,21 +71,29 @@ public:
     }
 
     // Create the global at the entry of the module.
-    assert(krnlGlobalOp.getValue().has_value() &&
-           "Krnl Global must always have a value");
-    auto value = krnlGlobalOp.getValue().value();
     LLVM::GlobalOp global;
-    TypeSwitch<Attribute>(value)
-        .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
-          global =
-              lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
-        })
-        .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
-          global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
-        })
-        .Default([&](Attribute attr) {
-          llvm_unreachable("Unsupported attribute type");
-        });
+    // Pointer to the raw data of the global.
+    Value dataPtr;
+
+    if (krnlGlobalOp.getValue().has_value()) {
+      auto value = krnlGlobalOp.getValue().value();
+      TypeSwitch<Attribute>(value)
+          .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+            global =
+                lowerDenseResourceConstant(krnlGlobalOp, globalType, rewriter);
+          })
+          .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+            global = lowerDenseConstant(krnlGlobalOp, globalType, rewriter);
+          })
+          .Default([&](Attribute attr) {
+            llvm_unreachable("Unsupported attribute type");
+          });
+      dataPtr = create.llvm.addressOf(global);
+    } else {
+      // Data are stored on files.
+      global = lowerGlobalOpWithExternalFiles(krnlGlobalOp, rewriter);
+      dataPtr = create.llvm.load(llvmI8PtrTy, create.llvm.addressOf(global));
+    }
 
     // Set the global alignment based on the alignment attribute if it exists,
     // otherwise use the module datalayout info.
@@ -83,9 +102,8 @@ public:
         *getTypeConverter());
 
     // Prepare data to be inserted into a MemRefDescriptor (a struct).
-    Value globalOpAddr = create.llvm.addressOf(global);
     MemRefDescriptor memRefDescr =
-        createMemRefDescriptor(globalOpAddr, memRefTy, loc, rewriter);
+        createMemRefDescriptor(dataPtr, memRefTy, loc, rewriter);
 
     rewriter.replaceOp(op, {memRefDescr});
 
@@ -121,8 +139,8 @@ private:
     ArrayRef<char> rawData = blob->getData();
 
     // Check data size.
-    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
-    assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    assert(((uint64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
     StringRef data(rawData.data(), rawData.size());
     StringAttr llvmStringAttr = StringAttr::get(context, data);
@@ -143,10 +161,12 @@ private:
     assert(krnlGlobalOp.getValue().value().isa<DenseElementsAttr>() &&
            "Expecting a global with an dense elements attribute");
 
-    MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
     ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
+    MLIRContext *context = krnlGlobalOp.getContext();
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    Type llvmI8Ty = IntegerType::get(context, 8);
 
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
@@ -154,17 +174,17 @@ private:
     DenseElementsAttr denseAttr =
         krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
-    int64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
+    uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
     if ((!denseAttr.getElementType().isa<StringType>()) &&
         (!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
-      assert(((int64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
+      assert(
+          ((uint64_t)rawData.size() == sizeInBytes) && "Data size mismatch.");
 
+      auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(llvmI8Ty, sizeInBytes);
       StringRef data(rawData.data(), rawData.size());
       StringAttr llvmStringAttr = StringAttr::get(context, data);
-      auto llvmArrayI8Ty =
-          LLVM::LLVMArrayType::get(IntegerType::get(context, 8), sizeInBytes);
       global = create.llvm.globalOp(llvmArrayI8Ty,
           /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
           llvmStringAttr);
@@ -181,10 +201,53 @@ private:
     return global;
   }
 
-  int64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
+  LLVM::GlobalOp lowerGlobalOpWithExternalFiles(
+      KrnlGlobalOp &krnlGlobalOp, ConversionPatternRewriter &rewriter) const {
+    Location loc = krnlGlobalOp.getLoc();
+    MLIRContext *context = krnlGlobalOp.getContext();
+    ModuleOp module = krnlGlobalOp.getOperation()->getParentOfType<ModuleOp>();
+    MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
+
+    Type llvmI8Ty = IntegerType::get(context, 8);
+    Type llvmI8PtrTy = getPointerType(context, llvmI8Ty);
+    Type llvmI64Ty = IntegerType::get(context, 64);
+
+    auto offset = krnlGlobalOp.getOffset();
+    assert(offset.has_value() && "Missing offset value in KrnlGlobalOp");
+
+    // Data is store in `constants.bin` at offset.
+    std::string constantName = krnlGlobalOp.getName().str();
+
+    // Emit globals at the begining of the module.
+    OpBuilder::InsertionGuard insertGuard(rewriter);
+    rewriter.setInsertionPointToStart(module.getBody());
+
+    // Create an uninitialized global. Data will be loaded at runtime.
+    LLVM::GlobalOp global = create.llvm.globalOp(llvmI8PtrTy,
+        /*isConstant=*/false, LLVM::Linkage::Internal,
+        EXTERNAL_CONSTANT_PREFIX + "data_" + constantName, nullptr);
+    {
+      OpBuilder::InsertionGuard insertGuard(rewriter);
+      Region &region = global.getInitializerRegion();
+      Block *block = rewriter.createBlock(&region);
+      // Initialize an array with the addresses of the global op.
+      rewriter.setInsertionPoint(block, block->begin());
+      create.llvm._return(create.llvm.null(llvmI8PtrTy));
+    }
+
+    // Create a global to store offset.
+    create.llvm.globalOp(llvmI64Ty,
+        /*isConstant=*/true, LLVM::Linkage::Internal,
+        EXTERNAL_CONSTANT_PREFIX + "offset_" + constantName,
+        rewriter.getI64IntegerAttr(offset.value()));
+
+    return global;
+  }
+
+  uint64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
     // Compute total number of elements.
     const auto shape = (krnlGlobalOp.getShape()).dyn_cast<ArrayAttr>();
-    int64_t numElements = 1;
+    uint64_t numElements = 1;
     for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
 
@@ -202,7 +265,7 @@ private:
   MemRefDescriptor createMemRefDescriptor(Value address, MemRefType memRefType,
       Location loc, OpBuilder &builder) const {
     Type elementType = memRefType.getElementType();
-    LLVMTypeConverter &typeConverter = *getTypeConverter();
+    const LLVMTypeConverter &typeConverter = *getTypeConverter();
     Type llvmElemType = typeConverter.convertType(elementType);
     MLIRContext *context = builder.getContext();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);

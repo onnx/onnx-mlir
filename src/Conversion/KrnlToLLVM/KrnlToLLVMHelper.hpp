@@ -17,7 +17,9 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/BuiltinTypes.h"
+
 #include "src/Conversion/KrnlToLLVM/RuntimeAPI.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 
 namespace onnx_mlir {
 namespace krnl {
@@ -37,7 +39,7 @@ void fillOMTensorWithMemRef(mlir::Value &outMemRef, mlir::Type elemTy,
 /// Return the GlobalOp for the given string, creating one if not found.
 mlir::LLVM::GlobalOp getOrCreateGlobalString(llvm::StringRef str,
     mlir::Location loc, mlir::OpBuilder &builder, mlir::ModuleOp module,
-    mlir::LLVMTypeConverter *typeConverter);
+    const mlir::LLVMTypeConverter *typeConverter);
 
 /// Return a pointer to the first character in a global string.
 mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
@@ -47,7 +49,7 @@ mlir::Value getPtrToGlobalString(const mlir::LLVM::GlobalOp &global,
 /// to set the alignment based on the module datalayout (if it exists).
 void setAlignment(mlir::LLVM::GlobalOp &global, mlir::IntegerAttr alignmentAttr,
     mlir::ModuleOp module, mlir::OpBuilder &builder,
-    mlir::LLVMTypeConverter &typeConverter);
+    const mlir::LLVMTypeConverter &typeConverter);
 
 /// Return a symbol reference to the strncmp function, inserting it into the
 /// module if necessary.
@@ -77,6 +79,14 @@ mlir::LLVM::LLVMPointerType getPointerType(mlir::MLIRContext *context,
 
 mlir::LLVM::LLVMPointerType getI8PointerType(
     mlir::MLIRContext *context, unsigned addressSpace = 0);
+
+/// Get the entry point function that locate first among other entry points in
+/// the same block.
+mlir::Operation *getFirstEntryOpInBlock(mlir::ModuleOp &module,
+    const llvm::SmallVectorImpl<mlir::LLVM::GlobalOp> &entryGlobalOps);
+
+/// Get rawData from a DenseElementsAttr or a DenseResourceElementsAttr.
+llvm::ArrayRef<char> getRawData(mlir::KrnlGlobalOp &op);
 
 } // namespace krnl
 } // namespace onnx_mlir

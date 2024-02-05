@@ -10,8 +10,8 @@
 
 #include "src/Dialect/ONNX/ElementsAttr/Strides.hpp"
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/StridesRange.hpp"
+#include "src/Support/Arrays.hpp"
 
 using namespace mlir;
 

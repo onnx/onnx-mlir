@@ -15,7 +15,8 @@ from utils import *
 
 from directive import Directive, generic_config_parser
 
-logger = logging.getLogger('doc-check')
+logger = logging.getLogger("doc-check")
+
 
 def parse_code_section_delimiter(ctx):
     assert ctx.doc_file_ext() == ".md"
@@ -38,13 +39,23 @@ def try_parse_and_handle_directive(ctx):
 
     # Register all directives.
     all_directives: List[Directive] = [
-        Directive(same_as_file.ext_to_patterns, [generic_config_parser, same_as_file.parse], same_as_file.handle),
-        Directive(file_same_as_stdout.ext_to_patterns, [generic_config_parser], file_same_as_stdout.handle),
+        Directive(
+            same_as_file.ext_to_patterns,
+            [generic_config_parser, same_as_file.parse],
+            same_as_file.handle,
+        ),
+        Directive(
+            file_same_as_stdout.ext_to_patterns,
+            [generic_config_parser],
+            file_same_as_stdout.handle,
+        ),
     ]
 
     for directive in all_directives:
         directive_config = []
-        if succeeded(directive.try_parse_directive(line, ctx.doc_file_ext(), directive_config)):
+        if succeeded(
+            directive.try_parse_directive(line, ctx.doc_file_ext(), directive_config)
+        ):
             directive.handle(directive_config.pop(), ctx)
             return success(directive_config)
 

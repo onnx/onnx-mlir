@@ -12,11 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/Target/LLVMIR/TypeToLLVM.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "onnx/onnx_pb.h"
 
+#include "onnx-mlir/Compiler/OMCompilerRuntimeTypes.h"
 #include "src/Conversion/KrnlToLLVM/KrnlToLLVMHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -185,11 +190,12 @@ void fillOMTensorWithMemRef(Value &outMemRef, Type elemTy, Value &outOMTensor,
 }
 
 LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
-    OpBuilder &builder, ModuleOp module, LLVMTypeConverter *typeConverter) {
+    OpBuilder &builder, ModuleOp module,
+    const LLVMTypeConverter *typeConverter) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   assert(typeConverter && "Expecting a valid LLVM type converter");
-  LLVM::GlobalOp global =
-      module.lookupSymbol<LLVM::GlobalOp>("om_" + str.str());
+  LLVM::GlobalOp global = module.lookupSymbol<LLVM::GlobalOp>(
+      LLVMBuilder::SymbolPostfix(module, "om_" + str.str()));
   if (!global) {
     // Create the global at the entry of the module.
     OpBuilder::InsertionGuard insertGuard(builder);
@@ -218,7 +224,8 @@ Value getPtrToGlobalString(
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
-    ModuleOp module, OpBuilder &builder, LLVMTypeConverter &typeConverter) {
+    ModuleOp module, OpBuilder &builder,
+    const LLVMTypeConverter &typeConverter) {
   if (alignmentAttr && alignmentAttr.getValue().getSExtValue() != 0)
     global.setAlignmentAttr(alignmentAttr);
   else if (module->getAttr(LLVM::LLVMDialect::getDataLayoutAttrName())) {
@@ -283,6 +290,44 @@ LLVM::LLVMPointerType getPointerType(
 LLVM::LLVMPointerType getI8PointerType(
     MLIRContext *context, unsigned int addressSpace) {
   return getPointerType(context, IntegerType::get(context, 8), addressSpace);
+}
+
+Operation *getFirstEntryOpInBlock(
+    ModuleOp &module, const SmallVectorImpl<LLVM::GlobalOp> &entryGlobalOps) {
+  Operation *firstEntryPointOp = nullptr;
+  for (auto entryGlobalOp : entryGlobalOps) {
+    std::string entryName =
+        entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+    // Erase the null symbol.
+    entryName.erase(
+        std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
+    auto entryFunc = module.lookupSymbol<LLVM::LLVMFuncOp>(entryName);
+    assert(entryFunc && "Entry function not found");
+    Operation *entryOp = entryFunc.getOperation();
+    if (!firstEntryPointOp || entryOp->isBeforeInBlock(firstEntryPointOp))
+      firstEntryPointOp = entryOp;
+  }
+  return firstEntryPointOp;
+}
+
+ArrayRef<char> getRawData(KrnlGlobalOp &op) {
+  ArrayRef<char> rawData;
+  assert(op.getValue().has_value() && "Krnl Global must always have a value");
+  auto value = op.getValue().value();
+  TypeSwitch<Attribute>(value)
+      .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+        auto blob =
+            value.cast<DenseResourceElementsAttr>().getRawHandle().getBlob();
+        assert(blob && "Expecting dense resource with a valid blob");
+        rawData = blob->getData();
+      })
+      .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+        DenseElementsAttr denseAttr =
+            value.dyn_cast_or_null<DenseElementsAttr>();
+        rawData = denseAttr.getRawData();
+      })
+      .Default([&](Attribute attr) { return; });
+  return rawData;
 }
 
 } // namespace krnl

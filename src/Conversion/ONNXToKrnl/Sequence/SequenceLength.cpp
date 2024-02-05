@@ -37,6 +37,7 @@ struct ONNXSequenceLengthOpLowering
     Value outputVal = create.mem.dim(input, 0);
 
     rewriter.replaceOp(op, outputVal);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

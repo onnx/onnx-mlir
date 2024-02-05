@@ -47,7 +47,7 @@ LogicalResult ONNXTopKOpShapeHelper::computeShape() {
   // If K is literal, it must be less than the axis dimension size.
   IndexExpr XAxisDim = createIE->getShapeAsDim(X, axis);
   if (kIE.isLiteral() && XAxisDim.isLiteral())
-    if (kIE.getLiteral() >= XAxisDim.getLiteral())
+    if (kIE.getLiteral() > XAxisDim.getLiteral())
       return op->emitError("K value is out of bound");
 
   for (int64_t i = 0; i < rank; ++i) {

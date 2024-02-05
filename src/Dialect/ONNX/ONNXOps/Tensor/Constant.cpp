@@ -80,9 +80,14 @@ std::vector<Type> ONNXConstantOp::resultTypeInference() {
 LogicalResult ONNXConstantOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if ((getSparseValue().has_value() && getValue().has_value()) ||
-      (!getSparseValue().has_value() && !getValue().has_value()))
-    return emitError("Require exactly one of the two attributes, "
-                     "either value or sparse_value");
+      (!getSparseValue().has_value() && !getValue().has_value())) {
+    // This can happen in ONNXHybridTransformPass where shape inference is run
+    // before canonicalization, which normalizes constant ops with other
+    // attributes (see ONNXConstantOpNormalize in Rewrite.td).
+    // We could implement shape inference here for all the attributes but it's
+    // simpler to do nothing and punt it to a subsequent canonicalization pass.
+    return success();
+  }
   ElementsAttr valAttr;
   if (getSparseValue().has_value())
     valAttr = getSparseValueAttr().cast<SparseElementsAttr>();

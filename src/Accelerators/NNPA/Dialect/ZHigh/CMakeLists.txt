@@ -13,6 +13,9 @@ add_onnx_mlir_library(OMZHighOps
   ZHighOps/BatchNorm/BatchNorm.cpp
   ZHighOps/Conv2D/Conv2D.cpp
   ZHighOps/Elementwise/Elementwise.cpp
+  ZHighOps/GRU/FixGRUY.cpp
+  ZHighOps/GRU/FixGRUYh.cpp
+  ZHighOps/GRU/GRU.cpp
   ZHighOps/GRU/GRU.cpp
   ZHighOps/LSTM/LSTM.cpp
   ZHighOps/MatMul/MatMul.cpp
@@ -38,6 +41,7 @@ add_onnx_mlir_library(OMZHighOps
   LINK_LIBS PUBLIC
   OMONNXOps # Use ONNXShapeHelper 
   OMLayoutHelper
+  OMShapeHelperOpInterface
   MLIRIR
 
   ACCEL_INCLUDE_DIRS PRIVATE

@@ -21,10 +21,13 @@ ConfigParseResult = Tuple[str, Dict[str, Any]]
 
 class Directive(object):
     """"""
-    def __init__(self, ext_to_regexes: Dict[str, str],
-                 config_parsers: List[Callable[[str, DirectiveConfigList],
-                                               ConfigParseResult]],
-                 handler: Callable[[Dict[str, Any], DocCheckerCtx], None]):
+
+    def __init__(
+        self,
+        ext_to_regexes: Dict[str, str],
+        config_parsers: List[Callable[[str, DirectiveConfigList], ConfigParseResult]],
+        handler: Callable[[Dict[str, Any], DocCheckerCtx], None],
+    ):
         """
         :param ext_to_regexes: specify a regex expression to match the directive (for each file extension type).
         :param config_parsers: specify a list of parsers to parse configuration. They will be invoked in order until one indicates parsing is successful.
@@ -34,13 +37,14 @@ class Directive(object):
         for ext, pattern in ext_to_regexes.items():
             self.ext_to_patterns[ext] = re.compile(pattern)
 
-        self.config_parsers: List[Callable[[str, DirectiveConfigList],
-                                           ConfigParseResult]] = config_parsers
+        self.config_parsers: List[
+            Callable[[str, DirectiveConfigList], ConfigParseResult]
+        ] = config_parsers
         self.handler = handler
 
     def try_parse_directive(
-            self, line: str, doc_file_ext: str,
-            directive_config: DirectiveConfigList) -> Tuple[str, Any]:
+        self, line: str, doc_file_ext: str, directive_config: DirectiveConfigList
+    ) -> Tuple[str, Any]:
         """
         :param line: next line to try parse a directive from.
         :param doc_file_ext: file extention.
@@ -70,7 +74,8 @@ class Directive(object):
 
 
 def generic_config_parser(
-        match: str, directive_config: DirectiveConfigList) -> Tuple[str, Any]:
+    match: str, directive_config: DirectiveConfigList
+) -> Tuple[str, Any]:
     """
     Generic configuration parser.
     Will return success if and only if configuration is specified as a python dictionary literal.

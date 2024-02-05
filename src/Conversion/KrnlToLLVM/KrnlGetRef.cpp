@@ -34,7 +34,8 @@ namespace krnl {
 
 class KrnlGetRefOpLowering : public ConvertToLLVMPattern {
 public:
-  using ConvertToLLVMPattern::createIndexConstant;
+  using ConvertToLLVMPattern::createIndexAttrConstant;
+  using ConvertToLLVMPattern::getIndexType;
 
   explicit KrnlGetRefOpLowering(
       LLVMTypeConverter &typeConverter, MLIRContext *context)
@@ -113,8 +114,10 @@ public:
 
     // Offset in aligned pointer.
     // TODO: support non-zero here in the aligned case.
+
+    Type indexType = getIndexType();
     memRefDescriptor.setOffset(
-        rewriter, loc, createIndexConstant(rewriter, loc, 0));
+        rewriter, loc, createIndexAttrConstant(rewriter, loc, indexType, 0));
 
     if (memRefTy.getRank() != 0) {
       // Prepare sizes.
@@ -122,9 +125,10 @@ public:
       sizes.reserve(memRefTy.getRank());
       unsigned i = 0;
       for (int64_t s : memRefTy.getShape())
-        sizes.push_back(s == ShapedType::kDynamic
-                            ? operands[2 + i++]
-                            : createIndexConstant(rewriter, loc, s));
+        sizes.push_back(
+            s == ShapedType::kDynamic
+                ? operands[2 + i++]
+                : createIndexAttrConstant(rewriter, loc, indexType, s));
 
       // Store all sizes in the descriptor. Only dynamic sizes are passed in as
       // operands to AllocOp.
@@ -139,9 +143,11 @@ public:
           //   `runningStride *= sizes[index + 1]`
           runningStride = runningStride ? rewriter.create<LLVM::MulOp>(loc,
                                               runningStride, sizes[index + 1])
-                                        : createIndexConstant(rewriter, loc, 1);
+                                        : createIndexAttrConstant(
+                                              rewriter, loc, indexType, 1);
         else
-          runningStride = createIndexConstant(rewriter, loc, strides[index]);
+          runningStride =
+              createIndexAttrConstant(rewriter, loc, indexType, strides[index]);
         strideValues[index] = runningStride;
       }
       // Fill size and stride descriptors in memref.

@@ -86,6 +86,7 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
         });
 
     rewriter.replaceOp(op, {resMemRef, resIndexMemRef});
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

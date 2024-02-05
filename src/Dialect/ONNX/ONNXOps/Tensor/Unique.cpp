@@ -18,6 +18,33 @@ using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
 
+LogicalResult ONNXUniqueOpShapeHelper::computeShape() {
+  ONNXUniqueOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+  // Get info about X and K operands.
+  Value X = operandAdaptor.getX();
+  int64_t rank = createIE->getShapedTypeRank(X);
+  std::optional<int64_t> optionalAxis = operandAdaptor.getAxis();
+  // Generate the output dims.
+  DimsExpr outputDims;
+  if (!optionalAxis.has_value()) {                         // if no axis given
+    outputDims.emplace_back(QuestionmarkIndexExpr(false)); // return 1D array
+  } else {                                                 // if axis given
+    int64_t axis = optionalAxis.value();
+    axis = (axis < 0) ? (rank + axis) : axis;
+    for (int64_t i = 0; i < rank; i++) {
+      outputDims.emplace_back((i == axis) ? QuestionmarkIndexExpr(false)
+                                          : createIE->getShapeAsDim(X, i));
+    }
+  }
+  setOutputDims(outputDims, 0);
+  DimsExpr indexDims;
+  indexDims.emplace_back(QuestionmarkIndexExpr(false));
+  setOutputDims(indexDims, 1);
+  setOutputDims(indexDims, 2);
+  setOutputDims(indexDims, 3);
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Verify
 //===----------------------------------------------------------------------===//
@@ -37,6 +64,7 @@ LogicalResult ONNXUniqueOp::verify() {
   if (!hasShapeAndRank(X))
     return success(); // Too early to verify.
 
+  // verify axis
   int64_t XRank = X.getType().cast<ShapedType>().getRank();
   std::optional<int64_t> optionalAxis = getAxis();
 
@@ -56,4 +84,12 @@ LogicalResult ONNXUniqueOp::verify() {
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
-// TODO
+LogicalResult ONNXUniqueOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  Builder b = Builder(getContext());
+  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type indexType = b.getI64Type();
+  ONNXUniqueOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateTypes(
+      {elementType, indexType, indexType, indexType});
+}
