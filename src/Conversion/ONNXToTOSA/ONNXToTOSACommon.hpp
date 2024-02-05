@@ -51,15 +51,6 @@ std::optional<mlir::Value> convertReduceMeanOp(mlir::PatternRewriter &rewriter,
     mlir::RankedTensorType output_type, mlir::Value input_value,
     mlir::ElementsAttr axes_elems, bool keep_dims);
 
-// Common function for lowering reduce operations to TOSA ops.
-// Modified from TensorFlow
-template <typename T>
-std::optional<mlir::Value> convertReduceOpCommon(
-    mlir::PatternRewriter &rewriter, mlir::Operation *op,
-    mlir::RankedTensorType outputType, mlir::Value inputValue,
-    mlir::RankedTensorType inputType, mlir::ElementsAttr axesElems,
-    bool keepDims);
-
 // This calculates the values that need to be added to the padding in order to
 // simulate the ceil mode
 template <typename ShapeHelperType>
