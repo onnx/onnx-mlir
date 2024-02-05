@@ -443,13 +443,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     llvm::BitVector litAxes(inRank, false);
     if (hasNoAxes) {
       if (isNoop) {
-        // No axes and is noop, should we not just return the input array?
-      } else {
-        // No axes, perform a full reduction.
-        for (int64_t i = 0; i < inRank; ++i) {
-          uniqueLitAxes.push_back(i);
-          litAxes[i] = true;
-        }
+        // Axes is none and 'noop_with_empty_axes' is true. This behaves as a
+        // noop, replace op with its input
+        rewriter.replaceOp(op, adaptor.getData());
+        return success();
+      }
+      // No axes, perform a full reduction.
+      for (int64_t i = 0; i < inRank; ++i) {
+        uniqueLitAxes.push_back(i);
+        litAxes[i] = true;
       }
     } else if (!dynamicAxes) {
       // Check raw axes.
