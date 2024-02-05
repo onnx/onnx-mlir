@@ -205,15 +205,29 @@ static zdnn_status allocZTensorChunk(
 
   if (splitInfo->reuseOrigBuffer) {
     zdnn_init_ztensor(preTransDesc, transDesc, chunkZTensor);
-    // Make sure offset is 4K-alignment.
-    uint64_t reuseBufferOffset =
-        CEIL(CEIL(origZTensor->buffer_size, AIU_PAGESIZE_IN_BYTES),
-            splitInfo->numOfChunks) *
-        AIU_PAGESIZE_IN_BYTES * (uint64_t)chunkID;
-    // Set a buffer for the chunk.
-    chunkZTensor->buffer = origZTensor->buffer + reuseBufferOffset;
     // Set a buffer size for the chunk.
     chunkZTensor->buffer_size = zdnn_getsize_ztensor(transDesc);
+    // Set a buffer for the chunk.
+    uint64_t reuseBufferOffset;
+    if (chunkID == splitInfo->numOfChunks - 1) {
+      assert((origZTensor->buffer_size - chunkZTensor->buffer_size) %
+                 (splitInfo->numOfChunks - 1) ==
+             0);
+      reuseBufferOffset =
+          (origZTensor->buffer_size - chunkZTensor->buffer_size) /
+          (splitInfo->numOfChunks - 1) * chunkID;
+      // Make sure offset is 4K-alignment.
+      assert((reuseBufferOffset % AIU_PAGESIZE_IN_BYTES == 0) &&
+             "Buffer is not 4K-alignment");
+    } else {
+      // This is always 4K-alignment.
+      reuseBufferOffset = chunkZTensor->buffer_size * chunkID;
+    }
+    chunkZTensor->buffer = origZTensor->buffer + reuseBufferOffset;
+    // Make sure the chunk buffer is within the original buffer.
+    assert(((reuseBufferOffset + chunkZTensor->buffer_size) <=
+               origZTensor->buffer_size) &&
+           "Chunk buffer is outside the original buffer");
     status = ZDNN_OK;
   } else {
     // Init a zTensor with malloc.
@@ -459,6 +473,7 @@ bool initSplitInfo(SplitInfo *splitInfo) {
     chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_2BYTE_CELLS_PER_STICK);
     break;
   default:
+    chunkSizeInStick = splitInfo->chunkSize;
     break;
   }
 
