@@ -349,10 +349,9 @@ public:
     Operation *op = castLikeOp.getOperation();
     Location loc = castLikeOp.getLoc();
 
-    // CastLike is binary, so two inputs are expected
     assert(op->getNumOperands() == 2);
     Value input = op->getOperand(0);
-    Value target_type = op->getOperand(1);
+
     // The output type will be the same as the target_type or the second input
     Type outputType = castLikeOp.getTargetType()
                           .getType()
