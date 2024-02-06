@@ -52,7 +52,7 @@ func.func @test_default_maxpoolsingleout_strides(%arg0 : tensor<5x5x32x32xf32>) 
 // CHECK-LABEL:   func.func @test_default_maxpoolsingleout_strides(%arg0: tensor<5x5x32x32xf32>) -> tensor<5x5x16x16xf32> {
 // CHECK-DAG:     "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
 // CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %0 : (tensor<5x5x32x32xf32>, tensor<4xi32>) -> tensor<5x32x32x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 3, 3>, pad = array<i64: 1, 1, 1, 1>, stride = array<i64: 2, 2>} : (tensor<5x32x32x5xf32>) -> tensor<5x16x16x5xf32>
+// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 3, 3>, pad = array<i64: 1, 0, 1, 0>, stride = array<i64: 2, 2>} : (tensor<5x32x32x5xf32>) -> tensor<5x16x16x5xf32>
 // CHECK-DAG:     "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
 // CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %3 : (tensor<5x16x16x5xf32>, tensor<4xi32>) -> tensor<5x5x16x16xf32>
 // CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x16x16xf32>
@@ -65,11 +65,12 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad(%arg0 : tensor<5x5x3
   "func.return"(%0) : (tensor<5x5x15x16xf32>) -> ()
 }
 // CHECK-LABEL:   func.func @test_default_maxpoolsingleout_strides_nonunifpad(%arg0: tensor<5x5x30x32xf32>) -> tensor<5x5x15x16xf32> {
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %0 : (tensor<5x5x30x32xf32>, tensor<4xi32>) -> tensor<5x30x32x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 2, 2>, pad = array<i64: 1, 0, 0, 0>, stride = array<i64: 2, 2>} : (tensor<5x30x32x5xf32>) -> tensor<5x15x16x5xf32>
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %3 : (tensor<5x15x16x5xf32>, tensor<4xi32>) -> tensor<5x5x15x16xf32>
+// CHECK-DAG:     %[[TRANS_CONST_1:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %[[TRANS_CONST_1]] : (tensor<5x5x30x32xf32>, tensor<4xi32>) -> tensor<5x30x32x5xf32>
+// CHECK-DAG:     %[[SLICE:.+]] = tosa.slice %[[TRANS_ARG]] {size = array<i64: 5, 29, 32, 5>, start = array<i64: 0, 0, 0, 0>} : (tensor<5x30x32x5xf32>) -> tensor<5x29x32x5xf32>
+// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[SLICE]] {kernel = array<i64: 2, 2>, pad = array<i64: 1, 0, 0, 0>, stride = array<i64: 2, 2>} : (tensor<5x29x32x5xf32>) -> tensor<5x15x16x5xf32>
+// CHECK-DAG:     %[[TRANS_CONST_2:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %[[TRANS_CONST_2]] : (tensor<5x15x16x5xf32>, tensor<4xi32>) -> tensor<5x5x15x16xf32>
 // CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x15x16xf32>
 
 // -----
@@ -80,11 +81,11 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad_ceil(%arg0 : tensor<
   "func.return"(%0) : (tensor<5x5x16x16xf32>) -> ()
 }
 // CHECK-LABEL:   func.func @test_default_maxpoolsingleout_strides_nonunifpad_ceil(%arg0: tensor<5x5x30x32xf32>) -> tensor<5x5x16x16xf32> {
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %0 : (tensor<5x5x30x32xf32>, tensor<4xi32>) -> tensor<5x30x32x5xf32>
-// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 2, 2>, pad = array<i64: 1, 2, 0, 0>, stride = array<i64: 2, 2>} : (tensor<5x30x32x5xf32>) -> tensor<5x16x16x5xf32>
-// CHECK-DAG:     "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]], %3 : (tensor<5x16x16x5xf32>, tensor<4xi32>) -> tensor<5x5x16x16xf32>
+// CHECK-DAG:     %[[TRANS_CONST_1:.*]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:     %[[TRANS_ARG:.*]] = tosa.transpose %arg0, %[[TRANS_CONST_1]] : (tensor<5x5x30x32xf32>, tensor<4xi32>) -> tensor<5x30x32x5xf32>
+// CHECK-DAG:     %[[MPOOL_RES:.*]] = tosa.max_pool2d %[[TRANS_ARG]] {kernel = array<i64: 2, 2>, pad = array<i64: 1, 1, 0, 0>, stride = array<i64: 2, 2>} : (tensor<5x30x32x5xf32>) -> tensor<5x16x16x5xf32>
+// CHECK-DAG:     %[[TRANS_CONST_2:.*]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
+// CHECK-DAG:     %[[TRANS_MPOOL_RES:.*]] = tosa.transpose %[[MPOOL_RES]],  %[[TRANS_CONST_2]] : (tensor<5x16x16x5xf32>, tensor<4xi32>) -> tensor<5x5x16x16xf32>
 // CHECK-DAG:     return %[[TRANS_MPOOL_RES]] : tensor<5x5x16x16xf32>
 
 

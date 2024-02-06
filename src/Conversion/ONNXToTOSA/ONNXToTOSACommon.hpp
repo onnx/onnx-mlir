@@ -61,7 +61,7 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
 // Create an ArrayAttr of pad from \p shapeHelper using \p padIndexOrder.
 // Values are calculated considering \p ceilMode.
 template <typename ShapeHelperType>
-mlir::ArrayAttr createOrderedPadAttrForWindowBasedOps(
+llvm::SmallVector<int64_t, 4> createOrderedPadAttrForWindowBasedOps(
     mlir::PatternRewriter &rewriter, const llvm::ArrayRef<int64_t> inputShape,
     ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
     const int64_t ceilMode, const llvm::ArrayRef<int64_t> padIndexOrder);
