@@ -17,6 +17,7 @@
 #define _OPEN_THREADS
 #endif
 #include <pthread.h>
+#include <sched.h>
 
 #include <assert.h>
 #include <math.h>
@@ -96,7 +97,9 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Call zdnn_matmul_op on each chunk.
   if (OMZTensorSplitDebug)
     start_time = clock();
+#pragma omp parallel for
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
+    //printf("====cpu id %d=======\n", sched_getcpu());
     zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
     zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
     zdnn_status status = call_zdnn_matmul_op(
