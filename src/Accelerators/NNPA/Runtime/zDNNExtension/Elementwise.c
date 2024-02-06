@@ -33,26 +33,35 @@ extern "C" {
 
 typedef enum ElemementwiseOp {
   // Binary
-  ZDNN_ADD_EXT,
-  ZDNN_DIV_EXT,
-  ZDNN_MAX_EXT,
-  ZDNN_MIN_EXT,
-  ZDNN_MUL_EXT,
-  ZDNN_SUB_EXT,
+  ZDNN_ADD_EXT = 0,
+  ZDNN_DIV_EXT = 1,
+  ZDNN_MAX_EXT = 2,
+  ZDNN_MIN_EXT = 3,
+  ZDNN_MUL_EXT = 4,
+  ZDNN_SUB_EXT = 5,
   // Unary
-  ZDNN_EXP_EXT,
-  ZDNN_LOG_EXT,
-  ZDNN_RELU_EXT,
-  ZDNN_TANH_EXT,
-  ZDNN_SIGMOID_EXT,
+  ZDNN_EXP_EXT = 50,
+  ZDNN_LOG_EXT = 51,
+  ZDNN_RELU_EXT = 52,
+  ZDNN_TANH_EXT = 53,
+  ZDNN_SIGMOID_EXT = 54,
 } ElemementwiseOp;
 
 static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
     const void *clippingValue, zdnn_ztensor *output, ElemementwiseOp opType) {
+  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
+
   // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
   // will split e2 safely.
   OrigShape origShapeOfX;
   getOrigShape(input, &origShapeOfX);
+  if (OMZTensorSplitDebug) {
+    printf("[UnaryElementwise opType %d] X:  e4 = %d, e3 = %d, e2 = %d, e1 = "
+           "%d.\n",
+        opType, origShapeOfX.e4, origShapeOfX.e3, origShapeOfX.e2,
+        origShapeOfX.e1);
+  }
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
   if ((origShapeOfX.e4 > maxDimSize) || (origShapeOfX.e3 > maxDimSize) ||
       (origShapeOfX.e1 > maxDimSize)) {
@@ -77,9 +86,6 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
            "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
         splitInfoX.numOfChunks, splitInfoX.chunkSize,
         splitInfoX.reuseOrigZTensor, splitInfoX.reuseOrigBuffer);
-
-  double splitTime = 0., mmTime = 0., mergeTime = 0.;
-  clock_t start_time = 0, end_time = 0;
 
   // Split input into chunks.
   if (OMZTensorSplitDebug)
@@ -138,11 +144,24 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
 
 static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, zdnn_ztensor *output, ElemementwiseOp opType) {
+  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
+
   // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
   // will split e2 safely.
   OrigShape origShapeOfA, origShapeOfB;
   getOrigShape(inputA, &origShapeOfA);
   getOrigShape(inputB, &origShapeOfB);
+  if (OMZTensorSplitDebug) {
+    printf("[BinaryElementwise opType %d] A:  e4 = %d, e3 = %d, e2 = %d, e1 = "
+           "%d.\n",
+        opType, origShapeOfA.e4, origShapeOfA.e3, origShapeOfA.e2,
+        origShapeOfA.e1);
+    printf("[BinaryElementwise opType %d] B:  e4 = %d, e3 = %d, e2 = %d, e1 = "
+           "%d.\n",
+        opType, origShapeOfB.e4, origShapeOfB.e3, origShapeOfB.e2,
+        origShapeOfB.e1);
+  }
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
   if ((origShapeOfA.e4 > maxDimSize) || (origShapeOfA.e3 > maxDimSize) ||
       (origShapeOfA.e1 > maxDimSize)) {
@@ -179,9 +198,6 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
         "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
         splitInfoA.numOfChunks, splitInfoA.chunkSize,
         splitInfoA.reuseOrigZTensor, splitInfoA.reuseOrigBuffer);
-
-  double splitTime = 0., mmTime = 0., mergeTime = 0.;
-  clock_t start_time = 0, end_time = 0;
 
   // Split input into chunks.
   if (OMZTensorSplitDebug)

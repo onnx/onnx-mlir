@@ -32,7 +32,7 @@ static uint32_t ZTensorSplitSizeFromEnv() {
   const char *s = getenv("OM_ZTENSOR_SPLIT_SIZE");
   if (s) {
     uint32_t userSize = atoi(s);
-    if (userSize % AIU_STICKS_PER_PAGE != 0)
+    if ((userSize % AIU_2BYTE_CELLS_PER_STICK) != 0)
       printf("OM_ZTENSOR_SPLIT_SIZE is not multiple of %d, use the default "
              "value %d\n",
           AIU_STICKS_PER_PAGE, cs);
@@ -103,13 +103,13 @@ static zdnn_status allocZTensorChunk(
   uint32_t chunkSize = chunk->dimSize;
 
   // Allocate one ztensor struct.
-  chunk->ztensor = malloc(sizeof(zdnn_ztensor));
+  chunk->ztensor = malloc(sizeof(struct zdnn_ztensor));
   if (!chunk->ztensor)
     return ZDNN_ALLOCATION_FAILURE;
   zdnn_ztensor *chunkZTensor = chunk->ztensor;
 
   // Allocate one buffer for two descriptors.
-  zdnn_tensor_desc *descriptors = malloc(2 * sizeof(zdnn_tensor_desc));
+  zdnn_tensor_desc *descriptors = malloc(2 * sizeof(struct zdnn_tensor_desc));
   if (!descriptors)
     return ZDNN_ALLOCATION_FAILURE;
   zdnn_tensor_desc *preTransDesc = descriptors;
@@ -430,6 +430,9 @@ bool initSplitInfo(SplitInfo *splitInfo) {
   case 0:
     splitInfo->totalSize = origZTensor->transformed_desc->dim4;
     break;
+  case 1:
+    splitInfo->totalSize = origZTensor->transformed_desc->dim3;
+    break;
   case 2:
     splitInfo->totalSize = origZTensor->transformed_desc->dim2;
     break;
@@ -437,6 +440,7 @@ bool initSplitInfo(SplitInfo *splitInfo) {
     splitInfo->totalSize = origZTensor->transformed_desc->dim1;
     break;
   default:
+    splitInfo->totalSize = 0;
     break;
   }
   // numOfChunks
@@ -445,7 +449,7 @@ bool initSplitInfo(SplitInfo *splitInfo) {
   else
     splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
   // Allocate ChunkInfo struct.
-  splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(ChunkInfo));
+  splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(struct ChunkInfo));
   assert(splitInfo->chunks && "Failed to allocate ChunkInfo struct");
   // reuseOrigZTensor.
   if (splitInfo->numOfChunks == 1) {

@@ -38,10 +38,17 @@ extern "C" {
 
 zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output) {
+  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
+
   // Verify that e3, e2, e1 do not exceed the maximum dimension size. Thus, we
   // will split e4 safely.
   OrigShape origShapeOfX;
   getOrigShape(input, &origShapeOfX);
+  if (OMZTensorSplitDebug) {
+    printf("[Softmax] X:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
+        origShapeOfX.e4, origShapeOfX.e3, origShapeOfX.e2, origShapeOfX.e1);
+  }
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
   if ((origShapeOfX.e3 > maxDimSize) || (origShapeOfX.e2 > maxDimSize) ||
       (origShapeOfX.e1 > maxDimSize)) {
@@ -66,9 +73,6 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
            "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
         splitInfoX.numOfChunks, splitInfoX.chunkSize,
         splitInfoX.reuseOrigZTensor, splitInfoX.reuseOrigBuffer);
-
-  double splitTime = 0., mmTime = 0., mergeTime = 0.;
-  clock_t start_time = 0, end_time = 0;
 
   // Split input into chunks.
   if (OMZTensorSplitDebug)

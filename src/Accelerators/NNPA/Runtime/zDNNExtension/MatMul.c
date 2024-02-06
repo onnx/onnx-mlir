@@ -52,9 +52,18 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // Verify that e4, e3 do not exceed the maximum dimension size. Thus, we
   // will split e2 and e1 safely.
-  OrigShape origShapeOfA, origShapeOfB;
+  OrigShape origShapeOfA, origShapeOfB, origShapeOfC;
   getOrigShape(inputA, &origShapeOfA);
   getOrigShape(inputB, &origShapeOfB);
+  getOrigShape(inputC, &origShapeOfC);
+  if (OMZTensorSplitDebug) {
+    printf("[MatMul] A:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
+        origShapeOfA.e4, origShapeOfA.e3, origShapeOfA.e2, origShapeOfA.e1);
+    printf("[MatMul] B:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
+        origShapeOfA.e4, origShapeOfB.e3, origShapeOfB.e2, origShapeOfB.e1);
+    printf("[MatMul] C:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
+        origShapeOfA.e4, origShapeOfC.e3, origShapeOfC.e2, origShapeOfC.e1);
+  }
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
   if ((origShapeOfA.e4 > maxDimSize) || (origShapeOfA.e3 > maxDimSize)) {
     printf("[MatMul] The 1st tensor dimension exceeds maximum dimension index "
