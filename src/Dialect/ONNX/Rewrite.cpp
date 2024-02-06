@@ -349,7 +349,6 @@ public:
     Operation *op = castLikeOp.getOperation();
     Location loc = castLikeOp.getLoc();
 
-    assert(op->getNumOperands() == 2);
     Value input = op->getOperand(0);
 
     // The output type will be the same as the target_type or the second input
