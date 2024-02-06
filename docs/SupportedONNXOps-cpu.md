@@ -37,7 +37,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **BitwiseXor** |18 - * | | |
 | **BlackmanWindow** |none | | | |
 | **Cast** |6 - 18 |Cast only between float and double types. Only ppc64le and MacOS platforms support float16. | |
-| **CastLike** |19 - * |CastLike only between float and double types. Only ppc64le and MacOS platforms support float16. | |
+| **CastLike** |none | | | |
 | **CastMap** |none | | | |
 | **CategoryMapper** |none | | | |
 | **Ceil** |6 - * | | |
