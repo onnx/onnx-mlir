@@ -83,7 +83,7 @@ struct ONNXLayoutTransformOpLowering
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
     if (enableParallel) {
-      create.krnl.parallel(loopDef);
+      create.krnl.parallel(loopDef[0]);
       onnxToKrnlParallelReport(op, /*successful*/ true, rank, -1,
           "LayoutTransform op fully parallelized with perfectly nested loops");
     }
