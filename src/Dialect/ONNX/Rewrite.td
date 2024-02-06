@@ -79,7 +79,7 @@ def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "onnx_mlir::createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
 def AttributeIsNotNull :
-  Constraint<CPred<" ($_self) ">, "Attribute is null">;
+  Constraint<CPred<"($_self)">, "Attribute is not null">;
 
 def IsDenseElementsAttr :
   Constraint<And<[CPred<" ($_self) ">, 

@@ -40,7 +40,7 @@ def ONNXConstantOpNormalize: NativeCodeCall<
 
 def AttributeIsNull : Constraint<CPred<"! ($_self)">, "Attribute is null">;
 
-def AttributeIsNotNull : Constraint<CPred<" ($_self) ">, "Attribute is null">;
+def AttributeIsNotNull : Constraint<CPred<"($_self)">, "Attribute is not null">;
 
 def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>()"
                                     ".getElementType().isF32())">>;
