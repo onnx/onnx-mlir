@@ -1522,8 +1522,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 
 /// on the ONNXConstantOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-}
+    RewritePatternSet &results, MLIRContext *context) {}
 
 /// on the ONNXDepthToSpaceOp.
 void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
