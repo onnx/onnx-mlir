@@ -151,7 +151,6 @@ private:
       // TODO: consider flattening the outer dims.
       create->krnl.parallel(loopDef[0]);
       onnxToKrnlParallelReport(op, true, 0, lbs[0], ubs[0], "scalar transpose");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Transpose \n");
     }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -220,7 +219,6 @@ private:
       create->krnl.parallel(loopDef[0]);
       onnxToKrnlParallelReport(
           op, true, 0, lbs[0], inUBs[0], "scalar transpose");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Transpose \n");
     }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
