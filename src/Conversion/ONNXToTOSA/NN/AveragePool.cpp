@@ -14,6 +14,7 @@
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -38,14 +39,15 @@ void handleIncludePadAttr(
       op, {}, &createTosaIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
-  // Build an array with padding.
-  llvm::SmallVector<int64_t, 4> intValues;
-  IndexExpr::getLiteral(shapeHelper.pads, intValues);
+  llvm::SmallVector<int64_t, 4> pads =
+      tosa::createOrderedPadAttrForWindowBasedOps(rewriter,
+          input.getType().cast<mlir::TensorType>().getShape(), shapeHelper,
+          /*ceilMode*/ 0, {0, 1, 2, 3});
 
   // Create Padding and ConstPad tosa::ConstOp's
   TosaBuilder tosaBuilder(rewriter, loc);
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
-      rewriter, intValues, loc, {0, 0, 0, 0}, {});
+      rewriter, pads, loc, {0, 0, 0, 0}, {});
   auto constTosaTensor = tosaBuilder.getSplattedConst(0.0);
 
   auto inputType = input.getType().cast<mlir::TensorType>();

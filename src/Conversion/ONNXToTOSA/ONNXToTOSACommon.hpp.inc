@@ -97,7 +97,7 @@ llvm::SmallVector<int64_t> getCeilConstants(llvm::ArrayRef<int64_t> inputShape,
 // Create an ArrayAttr of pad from \p shapeHelper using \p padIndexOrder.
 // Values are calculated considering \p ceilMode.
 template <typename ShapeHelperType>
-mlir::ArrayAttr createOrderedPadAttrForWindowBasedOps(
+llvm::SmallVector<int64_t, 4> createOrderedPadAttrForWindowBasedOps(
     mlir::PatternRewriter &rewriter, const llvm::ArrayRef<int64_t> inputShape,
     ONNXGenericPoolOpShapeHelper<ShapeHelperType> &shapeHelper,
     const int64_t ceilMode, const llvm::ArrayRef<int64_t> padIndexOrder) {
@@ -117,8 +117,11 @@ mlir::ArrayAttr createOrderedPadAttrForWindowBasedOps(
   }
 
   // reorder padding according to the passed order and considering ceilMode.
-  return rewriter.getI64ArrayAttr({padOrder[0], padOrder[1] + ceilConstants[0],
-      padOrder[2], padOrder[3] + ceilConstants[1]});
+  llvm::SmallVector<int64_t, 4> reorderedPads = {padOrder[0],
+      padOrder[1] + ceilConstants[0], padOrder[2],
+      padOrder[3] + ceilConstants[1]};
+
+  return reorderedPads;
 }
 
 inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter,
@@ -164,6 +167,11 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   }
 
   auto kernelShape = adaptor.getKernelShapeAttr();
+  llvm::SmallVector<int64_t, 4> kernelShapeVec;
+  llvm::transform(kernelShape, std::back_inserter(kernelShapeVec),
+      [](const mlir::Attribute &pad) {
+        return pad.cast<mlir::IntegerAttr>().getInt();
+      });
 
   const int64_t ceilMode = adaptor.getCeilMode();
 
@@ -194,9 +202,21 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   llvm::SmallVector<int64_t, 4> pads;
   IndexExpr::getLiteral(shapeHelper.pads, pads);
 
-  // reorder padding values
-  auto newPads = rewriter.getDenseI64ArrayAttr({pads[0],
-      pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]});
+  llvm::SmallVector<int64_t, 4> reorderedPads = {
+      pads[0], pads[2] + ceilConstants[0], pads[1], pads[3] + ceilConstants[1]};
+
+  mlir::FailureOr<mlir::Value> resizedInput = tosaBuilder.resizeWindowBasedOps(
+      input, input.getType().cast<mlir::RankedTensorType>().getShape(),
+      {kernelShapeVec[0], kernelShapeVec[1]}, reorderedPads,
+      shapeHelper.strides, shapeHelper.dilations);
+
+  if (failed(resizedInput)) {
+    return rewriter.notifyMatchFailure(
+        op, "could not resize input to match parameters");
+  }
+
+  mlir::DenseI64ArrayAttr newPads =
+      rewriter.getDenseI64ArrayAttr(reorderedPads);
 
   auto strides = rewriter.getDenseI64ArrayAttr(shapeHelper.strides);
 
@@ -207,19 +227,18 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
                     std::is_same<TOSAPoolOp, mlir::tosa::AvgPool2dOp>::value,
       "Expected either tosa::MaxPool2dOp or tosa::AvgPool2dOp");
   if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value) {
-    input = tosa::CreateOpAndInfer<TOSAPoolOp>(
-        rewriter, loc, newResultType, input, newKernelShape, strides, newPads)
-                .getResult();
+    input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
+        *resizedInput, newKernelShape, strides, newPads).getResult();
   } else if constexpr (std::is_same<TOSAPoolOp,
                            mlir::tosa::AvgPool2dOp>::value) {
     mlir::TypeAttr accType;
-    if (failed(tosa::getAvgPool2dAccType(rewriter, input, accType))) {
+    if (failed(tosa::getAvgPool2dAccType(rewriter, *resizedInput, accType))) {
       (void)rewriter.notifyMatchFailure(
           op, "Failed to get accumulator type for pooling");
       return mlir::failure();
     }
     input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
-        input, newKernelShape, strides, newPads, accType)
+         *resizedInput, newKernelShape, strides, newPads, accType)
                 .getResult();
   }
 
