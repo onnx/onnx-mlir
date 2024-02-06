@@ -331,6 +331,40 @@ public:
   }
 };
 
+// =============================================================================
+// Rewrite pattern for CastLikeOp to CastOp (not handled in Rewrite.td).
+// =============================================================================
+// A pattern to turn
+//   `CastLikeOp(input, target_type) attribute -> saturate=1`
+// into
+//   `CastOp(input) attribute -> saturate=1`
+// we will force all CastLikeOps to become CastOp because
+// they are not optimized for constant propagation.
+class PropagateCastLikeToCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
+public:
+  using OpRewritePattern<ONNXCastLikeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXCastLikeOp castLikeOp, PatternRewriter &rewriter) const override {
+    Operation *op = castLikeOp.getOperation();
+    Location loc = castLikeOp.getLoc();
+
+    // CastLike is binary, so two inputs are expected
+    assert(op->getNumOperands() == 2);
+    Value input = op->getOperand(0);
+    Value target_type = op->getOperand(1);
+    // The output type will be the same as the target_type or the second input
+    Type outputType = castLikeOp.getTargetType().getType().cast<ShapedType>().getElementType();
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value res;
+    res = create.onnx.cast(input, outputType);
+    rewriter.replaceOp(castLikeOp, res);
+    return success();
+  };
+};
+
 // A pattern to turn
 //   `BinaryOp(Constant_X, ExpandOp(Constant_Y))`
 // into
@@ -390,7 +424,7 @@ public:
 
     rewriter.replaceOp(op, {res});
     return success();
-  }
+  };
 };
 
 template <typename OP_TYPE>
@@ -1516,14 +1550,9 @@ void ONNXAndOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
+  result.insert<PropagateCastLikeToCastPattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
-}
-
-// on the ONNXCastLikeOp.
-void ONNXCastLikeOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<CastLikeEliminationPattern>(context);
 }
 
 /// on the ONNXConstantOp.

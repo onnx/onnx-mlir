@@ -137,7 +137,7 @@ class HaveSameDim<int dim>: Constraint<
 def HaveSameStaticShape: Constraint<
   CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
   "Two tensors have the same static shape">;
-  
+
 // Create a unit constant that will be used as none input.
 def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
@@ -431,18 +431,6 @@ def CastEliminationPattern : Pat<
 //def FuseCastCastPattern : Pat<
 //  (ONNXCastOp (ONNXCastOp $arg, $_), $type),
 //  (ONNXCastOp $arg, $type)>;
-
-//===----------------------------------------------------------------------===//
-// Canonicalization for ONNXCastLikeOp
-//===----------------------------------------------------------------------===//
-
-def CastLikeEliminationPattern:  Pat<
-  // Remove a CastLike pattern if the first input tensor and second input tensor are the same. 
-  (ONNXCastLikeOp $val, $castTo, $saturate),
-  // Remove the castlike.
-  (replaceWithValue $val),
-  // Check that the first input tensor and second input tensor are the same
-  [(HaveSameElementType $val, $castTo)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp
