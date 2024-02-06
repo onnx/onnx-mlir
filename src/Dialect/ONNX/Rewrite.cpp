@@ -354,7 +354,10 @@ public:
     Value input = op->getOperand(0);
     Value target_type = op->getOperand(1);
     // The output type will be the same as the target_type or the second input
-    Type outputType = castLikeOp.getTargetType().getType().cast<ShapedType>().getElementType();
+    Type outputType = castLikeOp.getTargetType()
+                          .getType()
+                          .cast<ShapedType>()
+                          .getElementType();
 
     // Replace
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);

@@ -4,7 +4,7 @@
 
 //===------------------------- CompilerPasses.cpp -------------------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -68,6 +68,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 
   pm.addInstrumentation(
       std::make_unique<DisposableGarbageCollector>(pm.getContext()));
+
   // Decompose first. Eliminates some unsupported ops without shape inference.
   pm.addNestedPass<func::FuncOp>(onnx_mlir::createDecomposeONNXToONNXPass());
   if (!disableRecomposeOption)
