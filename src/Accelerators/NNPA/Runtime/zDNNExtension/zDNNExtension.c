@@ -35,7 +35,7 @@ static uint32_t ZTensorSplitSizeFromEnv() {
     if ((userSize % AIU_2BYTE_CELLS_PER_STICK) != 0)
       printf("OM_ZTENSOR_SPLIT_SIZE is not multiple of %d, use the default "
              "value %d\n",
-          AIU_STICKS_PER_PAGE, cs);
+          AIU_2BYTE_CELLS_PER_STICK, cs);
     else
       cs = userSize;
   }
