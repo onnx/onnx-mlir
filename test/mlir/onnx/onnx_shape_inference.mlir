@@ -1741,6 +1741,22 @@ func.func @test_cast_10(%arg0 : tensor<2x3x4xf32>) -> tensor<*xf16> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test the castlike op inference.
+//===----------------------------------------------------------------------===//
+
+
+func.func @test_castlike_1(%arg0 : tensor<2x3x4xf32>, %arg1 : tensor<2x1x4xf16>) -> tensor<*xf16> {
+  %0 = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<2x3x4xf32>, tensor<2x1x4xf16>) -> tensor<*xf16> 
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: test_castlike_1
+  // CHECK: [[RES:%.+]] = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<2x3x4xf32>, tensor<2x1x4xf16>) -> tensor<2x3x4xf16>
+  // CHECK: onnx.Return [[RES]] : tensor<2x3x4xf16>
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the quantization op inferences.
 //===----------------------------------------------------------------------===//
 

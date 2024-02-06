@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseBroadcast.cpp - ONNX Operations --------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -159,6 +159,20 @@ LogicalResult ONNXBitShiftOp::verify() {
 LogicalResult ONNXBitShiftOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXBitShiftOp>(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// CastLikeOp
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXCastLikeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getInput()))
+    return success();
+
+  Type elementType =
+      getTargetType().getType().cast<ShapedType>().getElementType();
+  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//
