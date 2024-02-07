@@ -78,11 +78,8 @@ def createDenseElementsAttrOfOneToRankOfExclusive : NativeCodeCall<
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "onnx_mlir::createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
-def ONNXConstantOpNormalize: NativeCodeCall<
-  "onnx_mlir::normalizeConstantOp($_builder, $0, $1)">;
-
 def AttributeIsNotNull :
-  Constraint<CPred<" ($_self) ">, "Attribute is null">;
+  Constraint<CPred<"($_self)">, "Attribute is not null">;
 
 def IsDenseElementsAttr :
   Constraint<And<[CPred<" ($_self) ">, 
@@ -909,52 +906,6 @@ def RemoveSpaceToDepthDepthToSpacePattern : Pat<
         (ONNXSpaceToDepthOp (ONNXDepthToSpaceOp $v, $bs1, $mode), $bs2),
         (replaceWithValue $v),
         [(Equal $bs1, $bs2), (EqualString<"CRD"> $mode)]
->;
-
-//===----------------------------------------------------------------------===//
-// Canonicalization for ONNXConstantOp
-//===----------------------------------------------------------------------===//
-
-def ConstantOpNormalizationPattern1: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $floatAttr),
-   [(AttributeIsNotNull:$floatAttr)]
->;
-
-def ConstantOpNormalizationPattern2: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $intAttr),
-   [(AttributeIsNotNull:$intAttr)]
->;
-
-def ConstantOpNormalizationPattern3: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $stringAttr),
-   [(AttributeIsNotNull:$stringAttr)]
->;
-
-def ConstantOpNormalizationPattern4: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $floatsAttr),
-   [(AttributeIsNotNull:$floatsAttr)]
->;
-
-def ConstantOpNormalizationPattern5: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $intsAttr),
-   [(AttributeIsNotNull:$intsAttr)]
->;
-
-def ConstantOpNormalizationPattern6: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $stringsAttr),
-   [(AttributeIsNotNull:$stringsAttr)]
 >;
 
 //===----------------------------------------------------------------------===//
