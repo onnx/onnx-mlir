@@ -175,7 +175,6 @@ void emitInstForSoftmax<ONNXSoftmaxV11Op>(ConversionPatternRewriter &rewriter,
       create.krnl.parallel(outerLoops[0]);
       onnxToKrnlParallelReport(
           op, true, 0, outerLbs[0], outerUbs[0], "softmax v11");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.SoftmaxV110p \n");
     }
     create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &ck, ValueRange outerIndices) {
@@ -238,7 +237,6 @@ void emitInstForSoftmax<ONNXSoftmaxOp>(ConversionPatternRewriter &rewriter,
   if (enableParallel) {
     create.krnl.parallel(outerLoops[0]);
     onnxToKrnlParallelReport(op, true, 0, outerLbs[0], outerUbs[0], "softmax");
-    LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Softmax \n");
   }
 
   // Emit outer loops.

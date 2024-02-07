@@ -456,6 +456,32 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
 }
 // ConvTransposeOp END
 
+Value normalizeConstantOp(
+    PatternRewriter &rewriter, Value output, Attribute attr) {
+  ShapedType outputType = output.getType().cast<ShapedType>();
+  Type elementType = outputType.getElementType();
+
+  DenseElementsAttr denseAttr;
+  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
+    int64_t dim = arrayAttr.size();
+    auto tensorType = RankedTensorType::get({dim}, elementType);
+    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+  } else {
+    auto tensorType = RankedTensorType::get({}, elementType);
+    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
+    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
+    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
+    } else {
+      llvm_unreachable("unexpected Attribute");
+    }
+  }
+  onnx_mlir::OnnxBuilder createONNX(rewriter, output.getLoc());
+  return createONNX.constant(denseAttr);
+}
+
 } // namespace onnx_mlir
 
 namespace {
@@ -962,6 +988,13 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     ONNXShapeOp shapeOp;
     ONNXTransposeOp transposeOp;
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
+  });
+
+  // Rewrite ONNXConstantOp with scalar values into the one using ElementAttrs.
+  target.addDynamicallyLegalOp<ONNXConstantOp>([](ONNXConstantOp op) {
+    return !(op.getValueFloatAttr() || op.getValueFloatsAttr() ||
+             op.getValueIntAttr() || op.getValueIntsAttr() ||
+             op.getValueStringAttr() || op.getValueStringsAttr());
   });
 
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:

@@ -555,3 +555,37 @@ func.func @test_instancenorm(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>,
 // CHECK:           onnx.Return [[Y_]] : tensor<2x3x4x5x6xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @test_constant_1() -> tensor<i64> {
+  %0 = onnx.Constant {value_int = 1 : si64} : tensor<i64>
+  onnx.Return %0 : tensor<i64>
+// CHECK-LABEL:       func @test_constant_1
+// CHECK:           [[VAR_0:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK:           onnx.Return [[VAR_0]] : tensor<i64>
+}
+
+
+// -----
+
+func.func @test_constant_2() -> tensor<f32> {
+  %0 = onnx.Constant {value_float = 2.0 : f32 } : tensor<f32>
+  onnx.Return %0 : tensor<f32>
+// CHECK-LABEL:     func @test_constant_2
+// CHECK: [[VAR_0:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<f32>
+// CHECK: onnx.Return [[VAR_0]] : tensor<f32>
+}
+
+// -----
+
+func.func @test_constant_3() -> tensor<3xi64> {
+  %0 = onnx.Constant {value_ints = [1, 2, 3] } : tensor<3xi64>
+  onnx.Return %0 : tensor<3xi64>
+// CHECK-LABEL:       func @test_constant_3
+// CHECK-SAME:     () -> tensor<3xi64> {
+// CHECK:           [[VAR_0:%.+]] = onnx.Constant dense<[1, 2, 3]> : tensor<3xi64>
+// CHECK:           onnx.Return [[VAR_0]] : tensor<3xi64>
+}
+
+// -----

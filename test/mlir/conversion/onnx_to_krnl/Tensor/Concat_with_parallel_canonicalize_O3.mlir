@@ -4,6 +4,8 @@
 // as input. The krnl.parallel should be the last operator before krnl.iterate, since the lowering
 // needs to interpret krnl.block, krnl.permute, krnl.unroll first.
 
+// -----
+
 // Test parallelization of Concat
 func.func @test_concat_parallel(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<5x5x3x32xf32>, %arg2 : tensor<5x5x5x32xf32>) -> tensor<5x5x9x32xf32> {
   %1 = "onnx.Concat"(%arg0, %arg1, %arg2) { axis = 2 : si64} : (tensor<5x5x1x32xf32>, tensor<5x5x3x32xf32>, tensor<5x5x5x32xf32>)  -> tensor<5x5x9x32xf32>

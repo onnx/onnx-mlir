@@ -75,7 +75,6 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
       create.krnl.parallel(outerLoopDef[0]);
       onnxToKrnlParallelReport(op, true, parId, loopLbs[parId], loopUbs[parId],
           "generic GEMM on outer loop");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM\n");
     }
     create.krnl.iterateIE(loopDef, outerLoopDef, loopLbs, loopUbs,
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
@@ -234,7 +233,6 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
         create.krnl.parallel(ii1);
         onnxToKrnlParallelReport(
             op, true, 0, zeroIE, I, "GEMM tiled copy I parallel");
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM I\n");
       }
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       create.krnl.iterateIE({ii, jj, kk}, {ii1, jj1}, {zeroIE, zeroIE, zeroIE},
@@ -290,7 +288,6 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
         create.krnl.parallel(jj1);
         onnxToKrnlParallelReport(
             op, true, 1, zeroIE, J, "GEMM tiled no copy J parallel");
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM J\n");
       }
       // Compute: A[i, k] * b[k, j] -> R[i, j])
       // Krnl Rule: must put all the iter bounds at once, but can only put the
@@ -343,7 +340,8 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
     ValueRange outerLoops = create.krnl.defineLoops(2);
     if (enableParallel) {
       create.krnl.parallel(outerLoops[0]);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.GEMM\n");
+      onnxToKrnlParallelReport(
+          op, true, 0, zeroIE, I, "outer loop on tiled Transposed Gemm");
     }
     create.krnl.iterateIE(outerLoops, outerLoops, {zeroIE, zeroIE}, {I, J},
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
