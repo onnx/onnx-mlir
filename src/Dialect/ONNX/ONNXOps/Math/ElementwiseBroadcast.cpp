@@ -164,8 +164,8 @@ LogicalResult ONNXBitShiftOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // CastLikeOp
 //===----------------------------------------------------------------------===//
-//CastLike is seen as broadcastable because it requires two inputs
-// which are "input" and "target_type". The second input tensor (target_type) is 
+// CastLike is seen as broadcastable because it requires two inputs
+// which are "input" and "target_type". The second input tensor (target_type) is
 // used to obtain the element type of the overall output as shown below
 
 LogicalResult ONNXCastLikeOp::inferShapes(
