@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseBroadcast.cpp - ONNX Operations --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -159,24 +159,6 @@ LogicalResult ONNXBitShiftOp::verify() {
 LogicalResult ONNXBitShiftOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForBroadcastingOps<ONNXBitShiftOp>(*this);
-}
-
-//===----------------------------------------------------------------------===//
-// CastLikeOp
-//===----------------------------------------------------------------------===//
-// CastLike is seen as broadcastable because it requires two inputs
-// which are "input" and "target_type". The second input tensor (target_type) is
-// used to obtain the element type of the overall output as shown below
-
-LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType =
-      getTargetType().getType().cast<ShapedType>().getElementType();
-  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
 //===----------------------------------------------------------------------===//

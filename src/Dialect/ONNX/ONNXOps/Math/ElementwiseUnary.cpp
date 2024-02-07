@@ -154,6 +154,24 @@ LogicalResult ONNXCastOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// CastLikeOp
+//===----------------------------------------------------------------------===//
+// CastLike requires two inputs which are "input" and "target_type". The second
+// input tensor (target_type) is used to obtain the element type of the overall
+// output as shown below
+
+LogicalResult ONNXCastLikeOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  if (!hasShapeAndRank(getInput()))
+    return success();
+
+  Type elementType =
+      getTargetType().getType().cast<ShapedType>().getElementType();
+  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
 // Ceil
 //===----------------------------------------------------------------------===//
 
