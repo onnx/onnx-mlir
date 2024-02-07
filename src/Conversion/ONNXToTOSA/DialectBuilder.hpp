@@ -64,6 +64,7 @@ struct TosaBuilder : DialectBuilder {
   mlir::Value lessEqual(mlir::Value &lhs, mlir::Value &rhs);
 
   mlir::Value select(mlir::Value &cond, mlir::Value &lhs, mlir::Value &rhs);
+  mlir::Value castToNewTensorElementType(mlir::Value in, mlir::Type newElemTy);
 
   /// When using window based ops like maxpool or conv2d, we sometimes have
   /// unused values at the end of a spatial dimension. TOSA does not allow that,

@@ -311,6 +311,19 @@ Value TosaBuilder::select(
       rewriter(), loc(), newValueType, cond, lhs, rhs);
 }
 
+mlir::Value TosaBuilder::castToNewTensorElementType(
+    mlir::Value in, mlir::Type newElemTy) {
+  auto tensorTy = cast<TensorType>(in.getType());
+  if (tensorTy.getElementType() == newElemTy) {
+    // Nothing to do
+    return in;
+  }
+
+  auto newTensorTy = tensorTy.clone(newElemTy);
+  return tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
+      rewriter(), loc(), newTensorTy, in);
+}
+
 Value TosaBuilder::sqrt(mlir::Value &input) {
   auto inputType = input.getType().cast<ShapedType>();
   auto oneHalf = this->getSplattedConst(
