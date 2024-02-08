@@ -1618,10 +1618,14 @@ struct ZHighToZLowDataConversionLowering
 
     // SIMD info.
     // Fixed VL for the conversion instruction: 8 elements per instruction call.
+    // Because the VL of the zlow.conversions are not "virtualized" in lengths,
+    // we manually unroll the loop containing the SIMD operations manually.
+    // Experiments on a 1024x1024 tensors shows best results with an unrolling
+    // of 8 SIMD vectors.
     int64_t VL = 8;
     int64_t VLHalf = VL / 2;
-    int64_t unrollSIMD = 8; // No support for vector unrolling, do it manually.
-    int64_t unrollVL = unrollSIMD * VL;
+    int64_t unrollSIMD = 8;             // Manually unroll the SIMD loop.
+    int64_t unrollVL = unrollSIMD * VL; // Total numbers of values unrolled.
 
     // Convert the output type to MemRef.
     Type outputTensorType = convertOp.getResult().getType();
@@ -1631,7 +1635,7 @@ struct ZHighToZLowDataConversionLowering
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
 
-    // Types.
+    // Types use the SIMD unrolling VL and VLHalf.
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
     VectorType vecF16Type = VectorType::get({VL}, f16Type);
@@ -1644,7 +1648,8 @@ struct ZHighToZLowDataConversionLowering
     IndexExprScope allocScope(create.vec, shapeHelper.getScope());
     getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
 
-    // Alloc memory with padding for SIMD.
+    // Alloc memory with padding for SIMD. Padding and loop unrolling use
+    // unrollVL.
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     Value alloc = create.mem.alignedAllocWithSimdPadding(
         outputMemRefType, outputDims, unrollVL, alignment);
@@ -1661,7 +1666,7 @@ struct ZHighToZLowDataConversionLowering
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
 
-    // Create loop iteration (flattened to 1D) and block it by VL.
+    // Create loop iteration (flattened to 1D) and block it by unrollVL.
     ValueRange loopDef = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[0], unrollVL);
     SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
