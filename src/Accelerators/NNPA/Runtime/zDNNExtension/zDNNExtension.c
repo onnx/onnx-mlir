@@ -212,18 +212,6 @@ static zdnn_status initTileWithAlloc(
     if (axis == 3)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
-  case (ZDNN_4DS):
-    // ZDNN_4DS is used exclusively as RNN output
-    // shape (a, b, c, d)  -> ZDNN_NHWC
-    //   when b = 1 (uni-dir)     -> dims4-1 (a, 1, c, d)
-    //   otherwise (bi-dir, etc.) -> dims4-1 (a, 1, c, b * PADDED(d))
-    if (axis == 0)
-      preTransDesc->dim4 = numOfElemsPerTile;
-    if (axis == 2)
-      preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 3)
-      preTransDesc->dim1 = numOfElemsPerTile;
-    break;
   case (ZDNN_NCHW):
     // shape (n, c, h, w) -> dims4-1 (n, h, w, c)
     if (axis == 0)
@@ -438,14 +426,19 @@ static void copyDataForTileScalar(
 }
 
 bool initSplitInfo(SplitInfo *splitInfo, const char *tag) {
-  assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
-             splitInfo->axis == E4) &&
-         "Unsupported axis");
   // fullZTensor.
   const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
+  zdnn_data_layouts layout = fullZTensor->transformed_desc->layout;
+
+  // Splitting has not yet been supported for the following cases, so redirect
+  // to the original zdnn function by setting splitInfo->numOfTiles = 1.
+  bool isNotSupported = (splitInfo->axis == E3) || (layout == ZDNN_FICO) ||
+                        (layout == ZDNN_BIDIR_ZRH) ||
+                        (layout == ZDNN_BIDIR_FICO) || (layout == ZDNN_ZRH) ||
+                        (layout == ZDNN_4DS);
 
   // numOfTiles.
-  if (!OMZTensorSplitEnabled)
+  if (!OMZTensorSplitEnabled || isNotSupported)
     splitInfo->numOfTiles = 1;
   else {
     uint32_t totalNumOfElems = getUnmappedDim(fullZTensor, splitInfo->axis);
