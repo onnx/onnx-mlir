@@ -138,9 +138,10 @@ void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape);
  * Make sure to call freeSplitInfoBuffer to free buffers.
  *
  * @param splitInfo information for splitting
+ * @param tag a string to use when printing debug info
  * @return true if the ztensor is splitable. Otherwise, false
  */
-bool initSplitInfo(SplitInfo *splitInfo);
+bool initSplitInfo(SplitInfo *splitInfo, const char *tag);
 
 /**
  * \brief Free buffers related to a SplitInfo struct.
@@ -150,6 +151,13 @@ bool initSplitInfo(SplitInfo *splitInfo);
  * @param splitInfo split information
  */
 void freeSplitInfoBuffer(SplitInfo *splitInfo);
+
+/**
+ * \brief Print SplitInfo.
+ *
+ * @param tag a string to use when printing debug info
+ */
+void printSplitInfo(const SplitInfo *splitInfo, const char *tag);
 
 /**
  * \brief Copy data between the full ztensor and its tiles.

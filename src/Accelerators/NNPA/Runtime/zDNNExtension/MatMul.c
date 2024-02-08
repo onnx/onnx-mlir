@@ -50,39 +50,6 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   if (OMZTensorSplitDebug)
     start_time = clock();
 
-  // Verify that e4, e3 do not exceed the maximum dimension size. Thus, we
-  // will split e2 and e1 safely.
-  UnmappedShape unmappedShapeOfA, unmappedShapeOfB, unmappedShapeOfC;
-  getUnmappedShape(inputA, &unmappedShapeOfA);
-  getUnmappedShape(inputB, &unmappedShapeOfB);
-  getUnmappedShape(inputC, &unmappedShapeOfC);
-  if (OMZTensorSplitDebug) {
-    printf("[MatMul] A:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
-        unmappedShapeOfA.e4, unmappedShapeOfA.e3, unmappedShapeOfA.e2,
-        unmappedShapeOfA.e1);
-    printf("[MatMul] B:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
-        unmappedShapeOfA.e4, unmappedShapeOfB.e3, unmappedShapeOfB.e2,
-        unmappedShapeOfB.e1);
-    printf("[MatMul] C:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
-        unmappedShapeOfA.e4, unmappedShapeOfC.e3, unmappedShapeOfC.e2,
-        unmappedShapeOfC.e1);
-  }
-  uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((unmappedShapeOfA.e4 > maxDimSize) ||
-      (unmappedShapeOfA.e3 > maxDimSize)) {
-    printf("[MatMul] The 1st tensor dimension exceeds maximum dimension index "
-           "size (MDIS) of %d: e4 = %d, e3 = %d.\n",
-        maxDimSize, unmappedShapeOfA.e4, unmappedShapeOfA.e3);
-    return ZDNN_EXCEEDS_MDIS;
-  }
-  if ((unmappedShapeOfB.e4 > maxDimSize) ||
-      (unmappedShapeOfB.e3 > maxDimSize)) {
-    printf("[MatMul] The 2nd tensor dimension exceeds maximum dimension index "
-           "size (MDIS) of %d: e4 = %d, e3 = %d.\n",
-        maxDimSize, unmappedShapeOfB.e4, unmappedShapeOfB.e3);
-    return ZDNN_EXCEEDS_MDIS;
-  }
-
   // For a MatMul of A(M,N)*B(N,P)+C(P),
   // We split M that is e2 in (e4, e3, e2, e1), and P that is e1.
   SplitInfo splitInfoA = {.fullZTensor = inputA,
@@ -98,25 +65,10 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       .axis = E2,
       .numOfElemsPerTile = OMZTensorSplitSize};
 
-  initSplitInfo(&splitInfoA);
-  initSplitInfo(&splitInfoB);
-  initSplitInfo(&splitInfoC);
-  initSplitInfo(&splitInfoY);
-
-  if (OMZTensorSplitDebug) {
-    printf("[MatMul] Split the 1st ztensor (A) along e2 into %d tiles of %d "
-           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        splitInfoA.numOfTiles, splitInfoA.numOfElemsPerTile,
-        splitInfoA.reuseFullZTensor, splitInfoA.reuseFullBuffer);
-    printf("[MatMul] Split the 2nd ztensor (B) along e1 into %d tiles of %d "
-           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        splitInfoB.numOfTiles, splitInfoB.numOfElemsPerTile,
-        splitInfoB.reuseFullZTensor, splitInfoB.reuseFullBuffer);
-    printf("[MatMul] Split the 3rd ztensor (C) along e1 into %d tiles of %d "
-           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        splitInfoC.numOfTiles, splitInfoC.numOfElemsPerTile,
-        splitInfoC.reuseFullZTensor, splitInfoC.reuseFullBuffer);
-  }
+  initSplitInfo(&splitInfoA, "MatMul A");
+  initSplitInfo(&splitInfoB, "MatMul B");
+  initSplitInfo(&splitInfoC, "MatMul C");
+  initSplitInfo(&splitInfoY, "MatMul Y");
 
   // Copy data from A, B, C into their tiles.
   copyData(&splitInfoA, FULL_TO_TILES);
@@ -132,7 +84,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     SplitInfo splitInfoYB = {.fullZTensor = zyTensor,
         .axis = E1,
         .numOfElemsPerTile = OMZTensorSplitSize};
-    initSplitInfo(&splitInfoYB);
+    initSplitInfo(&splitInfoYB, "MatMul YB");
     // Iterate over the tiles along the second dim of B.
     for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
       zdnn_ztensor *zbTensor = splitInfoB.tiles + j;

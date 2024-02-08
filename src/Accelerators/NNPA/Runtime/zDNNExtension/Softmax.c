@@ -41,42 +41,15 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   double splitTime = 0., computeTime = 0., mergeTime = 0.;
   clock_t start_time = 0, end_time = 0;
 
-  // Verify that e3, e2, e1 do not exceed the maximum dimension size. Thus, we
-  // will split e4 safely.
-  UnmappedShape unmappedShapeOfX;
-  getUnmappedShape(input, &unmappedShapeOfX);
-  if (OMZTensorSplitDebug) {
-    printf("[Softmax] X:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
-        unmappedShapeOfX.e4, unmappedShapeOfX.e3, unmappedShapeOfX.e2,
-        unmappedShapeOfX.e1);
-  }
-  uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((unmappedShapeOfX.e3 > maxDimSize) ||
-      (unmappedShapeOfX.e2 > maxDimSize) ||
-      (unmappedShapeOfX.e1 > maxDimSize)) {
-    printf(
-        "[Softmax] The input tensor dimension exceeds maximum dimension index "
-        "size (MDIS) of %d: e3 = %d, e2 = %d, e1 = %d.\n",
-        maxDimSize, unmappedShapeOfX.e3, unmappedShapeOfX.e2,
-        unmappedShapeOfX.e1);
-    return ZDNN_EXCEEDS_MDIS;
-  }
-
-  // We split e4 in (e4, e3, e2, e1) to reuse the orignal buffer.
+  // We split e4 in (e4, e3, e2, e1) to reuse the full buffer.
   SplitInfo splitInfoX = {.fullZTensor = input,
       .axis = E4,
       .numOfElemsPerTile = OMZTensorSplitSize};
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = E4,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX);
-  initSplitInfo(&splitInfoY);
-
-  if (OMZTensorSplitDebug)
-    printf("[Softmax] Split the input ztensor along e4 into %d tiles of %d "
-           "elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        splitInfoX.numOfTiles, splitInfoX.numOfElemsPerTile,
-        splitInfoX.reuseFullZTensor, splitInfoX.reuseFullBuffer);
+  initSplitInfo(&splitInfoX, "Softmax X");
+  initSplitInfo(&splitInfoY, "Softmax Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)

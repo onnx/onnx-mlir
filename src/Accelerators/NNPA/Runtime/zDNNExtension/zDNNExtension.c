@@ -437,7 +437,7 @@ static void copyDataForTileScalar(
   return;
 }
 
-bool initSplitInfo(SplitInfo *splitInfo) {
+bool initSplitInfo(SplitInfo *splitInfo, const char *tag) {
   assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
              splitInfo->axis == E4) &&
          "Unsupported axis");
@@ -458,6 +458,8 @@ bool initSplitInfo(SplitInfo *splitInfo) {
     splitInfo->reuseFullZTensor = true;
     splitInfo->reuseFullBuffer = true;
     splitInfo->tiles = fullZTensor;
+    if (OMZTensorSplitDebug)
+      printSplitInfo(splitInfo, tag);
     return false;
   }
   splitInfo->reuseFullZTensor = false;
@@ -499,6 +501,9 @@ bool initSplitInfo(SplitInfo *splitInfo) {
     assert(status == ZDNN_OK && "Failed to initialize a tile");
   }
 
+  if (OMZTensorSplitDebug)
+    printSplitInfo(splitInfo, tag);
+
   return true;
 }
 
@@ -524,6 +529,19 @@ void copyData(const SplitInfo *splitInfo, CopyDirection direction) {
     // Each tile will read/write to a distinct part of the full ztensor buffer.
     copyDataForTile(splitInfo, i, direction);
   }
+}
+
+void printSplitInfo(const SplitInfo *splitInfo, const char *tag) {
+  UnmappedShape unmappedShapeOfFull;
+  getUnmappedShape(splitInfo->fullZTensor, &unmappedShapeOfFull);
+  printf("[%s] Full zTensor shape:  e4 = %d, e3 = %d, e2 = %d, e1 = %d.\n",
+      tag ? tag : "", unmappedShapeOfFull.e4, unmappedShapeOfFull.e3,
+      unmappedShapeOfFull.e2, unmappedShapeOfFull.e1);
+  printf("[%s] Split the full ztensor along e%d into %d tiles of %d "
+         "elements. ReuseFullZTensor: %d, ReuseFullBuffer: %d \n",
+      tag ? tag : "", (4 - splitInfo->axis), splitInfo->numOfTiles,
+      splitInfo->numOfElemsPerTile, splitInfo->reuseFullZTensor,
+      splitInfo->reuseFullBuffer);
 }
 
 #ifdef __cplusplus

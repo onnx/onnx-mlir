@@ -62,16 +62,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   double splitTime = 0., computeTime = 0., mergeTime = 0.;
   clock_t start_time = 0, end_time = 0;
 
-  // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
-  // will split e2 safely.
-  UnmappedShape unmappedShapeOfX;
-  getUnmappedShape(input, &unmappedShapeOfX);
-  if (OMZTensorSplitDebug) {
-    printf("[UnaryElementwise opType %d] X:  e4 = %d, e3 = %d, e2 = %d, e1 = "
-           "%d.\n",
-        opType, unmappedShapeOfX.e4, unmappedShapeOfX.e3, unmappedShapeOfX.e2,
-        unmappedShapeOfX.e1);
-  }
+  if (OMZTensorSplitDebug)
+    printf("[UnaryElementwise opType %d]\n", opType);
 
   // We split e1 or e2 in (e4, e3, e2, e1).
   SplitAxis axis = selectSplitAxis(input);
@@ -81,15 +73,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = axis,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX);
-  initSplitInfo(&splitInfoY);
-
-  if (OMZTensorSplitDebug)
-    printf("[UnaryElementwise] Split the input ztensor along %s into %d tiles "
-           "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        (axis == E1) ? "e1" : "e2", splitInfoX.numOfTiles,
-        splitInfoX.numOfElemsPerTile, splitInfoX.reuseFullZTensor,
-        splitInfoX.reuseFullBuffer);
+  initSplitInfo(&splitInfoX, "UnaryElementwise X");
+  initSplitInfo(&splitInfoY, "UnaryElementwise Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
@@ -152,42 +137,8 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   double splitTime = 0., computeTime = 0., mergeTime = 0.;
   clock_t start_time = 0, end_time = 0;
 
-  // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
-  // will split e2 safely.
-  UnmappedShape unmappedShapeOfA, unmappedShapeOfB;
-  getUnmappedShape(inputA, &unmappedShapeOfA);
-  getUnmappedShape(inputB, &unmappedShapeOfB);
-  if (OMZTensorSplitDebug) {
-    printf("[BinaryElementwise opType %d] A:  e4 = %d, e3 = %d, e2 = %d, e1 = "
-           "%d.\n",
-        opType, unmappedShapeOfA.e4, unmappedShapeOfA.e3, unmappedShapeOfA.e2,
-        unmappedShapeOfA.e1);
-    printf("[BinaryElementwise opType %d] B:  e4 = %d, e3 = %d, e2 = %d, e1 = "
-           "%d.\n",
-        opType, unmappedShapeOfB.e4, unmappedShapeOfB.e3, unmappedShapeOfB.e2,
-        unmappedShapeOfB.e1);
-  }
-  uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((unmappedShapeOfA.e4 > maxDimSize) ||
-      (unmappedShapeOfA.e3 > maxDimSize) ||
-      (unmappedShapeOfA.e1 > maxDimSize)) {
-    printf("[BinaryElementwise] The 1st tensor dimension exceeds maximum "
-           "dimension index "
-           "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, unmappedShapeOfA.e4, unmappedShapeOfA.e3,
-        unmappedShapeOfA.e1);
-    return ZDNN_EXCEEDS_MDIS;
-  }
-  if ((unmappedShapeOfB.e4 > maxDimSize) ||
-      (unmappedShapeOfB.e3 > maxDimSize) ||
-      (unmappedShapeOfB.e1 > maxDimSize)) {
-    printf("[BinaryElementwise] The 2nd tensor dimension exceeds maximum "
-           "dimension index "
-           "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, unmappedShapeOfB.e4, unmappedShapeOfB.e3,
-        unmappedShapeOfB.e1);
-    return ZDNN_EXCEEDS_MDIS;
-  }
+  if (OMZTensorSplitDebug)
+    printf("[BinaryElementwise opType %d]\n", opType);
 
   // We split e1 or e2 in (e4, e3, e2, e1).
   SplitAxis axis = selectSplitAxis(inputA);
@@ -200,17 +151,9 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = axis,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoA);
-  initSplitInfo(&splitInfoB);
-  initSplitInfo(&splitInfoY);
-
-  if (OMZTensorSplitDebug)
-    printf(
-        "[BinaryElementwise] Split the input ztensors along %s into %d tiles "
-        "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        (axis == E1) ? "e1" : "e2", splitInfoA.numOfTiles,
-        splitInfoA.numOfElemsPerTile, splitInfoA.reuseFullZTensor,
-        splitInfoA.reuseFullBuffer);
+  initSplitInfo(&splitInfoA, "BinaryElementwise A");
+  initSplitInfo(&splitInfoB, "BinaryElementwise B");
+  initSplitInfo(&splitInfoY, "BinaryElementwise Y");
 
   // Copy data from inputs into tiles.
   if (OMZTensorSplitDebug)
