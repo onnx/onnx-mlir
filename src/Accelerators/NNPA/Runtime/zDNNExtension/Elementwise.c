@@ -49,60 +49,61 @@ typedef enum ElemementwiseOp {
 
 static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
     const void *clippingValue, zdnn_ztensor *output, ElemementwiseOp opType) {
-  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  double splitTime = 0., computeTime = 0., mergeTime = 0.;
   clock_t start_time = 0, end_time = 0;
 
   // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
   // will split e2 safely.
-  OrigShape origShapeOfX;
-  getOrigShape(input, &origShapeOfX);
+  UnmappedShape unmappedShapeOfX;
+  getUnmappedShape(input, &unmappedShapeOfX);
   if (OMZTensorSplitDebug) {
     printf("[UnaryElementwise opType %d] X:  e4 = %d, e3 = %d, e2 = %d, e1 = "
            "%d.\n",
-        opType, origShapeOfX.e4, origShapeOfX.e3, origShapeOfX.e2,
-        origShapeOfX.e1);
+        opType, unmappedShapeOfX.e4, unmappedShapeOfX.e3, unmappedShapeOfX.e2,
+        unmappedShapeOfX.e1);
   }
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((origShapeOfX.e4 > maxDimSize) || (origShapeOfX.e3 > maxDimSize) ||
-      (origShapeOfX.e1 > maxDimSize)) {
+  if ((unmappedShapeOfX.e4 > maxDimSize) ||
+      (unmappedShapeOfX.e3 > maxDimSize) ||
+      (unmappedShapeOfX.e1 > maxDimSize)) {
     printf("[UnaryElementwise] The input tensor dimension exceeds maximum "
-           "dimension index "
-           "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, origShapeOfX.e4, origShapeOfX.e3, origShapeOfX.e1);
+           "dimension index size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
+        maxDimSize, unmappedShapeOfX.e4, unmappedShapeOfX.e3,
+        unmappedShapeOfX.e1);
     return ZDNN_EXCEEDS_MDIS;
   }
 
   // We split e2 in (e4, e3, e2, e1).
-  SplitInfo splitInfoX = {
-      .origZTensor = input, .axis = 2, .chunkSize = OMZTensorSplitSize};
-  SplitInfo splitInfoY = {
-      .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
+  SplitInfo splitInfoX = {.fullZTensor = input,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoY = {.fullZTensor = output,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
   initSplitInfo(&splitInfoX);
   initSplitInfo(&splitInfoY);
 
-  // Split input.
   if (OMZTensorSplitDebug)
-    printf("[UnaryElementwise] Split the input ztensor along e2 into %d chunks "
+    printf("[UnaryElementwise] Split the input ztensor along e2 into %d tiles "
            "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        splitInfoX.numOfChunks, splitInfoX.chunkSize,
-        splitInfoX.reuseOrigZTensor, splitInfoX.reuseOrigBuffer);
+        splitInfoX.numOfTiles, splitInfoX.numOfElemsPerTile,
+        splitInfoX.reuseFullZTensor, splitInfoX.reuseFullBuffer);
 
-  // Split input into chunks.
+  // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  splitZTensor(&splitInfoX, /*copyData=*/true);
-  splitZTensor(&splitInfoY, /*copyData=*/false);
+  copyData(&splitInfoX, FULL_TO_TILES);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Call zdnn op on each chunk.
+  // Call zdnn op on each tile.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < splitInfoX.numOfChunks; ++i) {
-    zdnn_ztensor *zxTensor = (splitInfoX.chunks + i)->ztensor;
-    zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
+  for (uint32_t i = 0; i < splitInfoX.numOfTiles; ++i) {
+    zdnn_ztensor *zxTensor = splitInfoX.tiles + i;
+    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
     zdnn_status status;
     if (opType == ZDNN_EXP_EXT)
       status = zdnn_exp(zxTensor, zyTensor);
@@ -120,13 +121,14 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   }
   if (OMZTensorSplitDebug) {
     end_time = clock();
-    mmTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    computeTime =
+        ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Merging the chunks into the output.
+  // Copy data from tiles to the output.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  mergeZTensors(&splitInfoY);
+  copyData(&splitInfoY, TILES_TO_FULL);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
@@ -136,87 +138,93 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   freeSplitInfoBuffer(&splitInfoY);
 
   if (OMZTensorSplitDebug)
-    printf("[UnaryElementwise] split, %f, mm, %f, merge, %f (milliseconds)\n",
-        splitTime, mmTime, mergeTime);
+    printf(
+        "[UnaryElementwise] split, %f, compute, %f, merge, %f (milliseconds)\n",
+        splitTime, computeTime, mergeTime);
 
   return ZDNN_OK;
 }
 
 static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, zdnn_ztensor *output, ElemementwiseOp opType) {
-  double splitTime = 0., mmTime = 0., mergeTime = 0.;
+  double splitTime = 0., computeTime = 0., mergeTime = 0.;
   clock_t start_time = 0, end_time = 0;
 
   // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
   // will split e2 safely.
-  OrigShape origShapeOfA, origShapeOfB;
-  getOrigShape(inputA, &origShapeOfA);
-  getOrigShape(inputB, &origShapeOfB);
+  UnmappedShape unmappedShapeOfA, unmappedShapeOfB;
+  getUnmappedShape(inputA, &unmappedShapeOfA);
+  getUnmappedShape(inputB, &unmappedShapeOfB);
   if (OMZTensorSplitDebug) {
     printf("[BinaryElementwise opType %d] A:  e4 = %d, e3 = %d, e2 = %d, e1 = "
            "%d.\n",
-        opType, origShapeOfA.e4, origShapeOfA.e3, origShapeOfA.e2,
-        origShapeOfA.e1);
+        opType, unmappedShapeOfA.e4, unmappedShapeOfA.e3, unmappedShapeOfA.e2,
+        unmappedShapeOfA.e1);
     printf("[BinaryElementwise opType %d] B:  e4 = %d, e3 = %d, e2 = %d, e1 = "
            "%d.\n",
-        opType, origShapeOfB.e4, origShapeOfB.e3, origShapeOfB.e2,
-        origShapeOfB.e1);
+        opType, unmappedShapeOfB.e4, unmappedShapeOfB.e3, unmappedShapeOfB.e2,
+        unmappedShapeOfB.e1);
   }
   uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((origShapeOfA.e4 > maxDimSize) || (origShapeOfA.e3 > maxDimSize) ||
-      (origShapeOfA.e1 > maxDimSize)) {
+  if ((unmappedShapeOfA.e4 > maxDimSize) ||
+      (unmappedShapeOfA.e3 > maxDimSize) ||
+      (unmappedShapeOfA.e1 > maxDimSize)) {
     printf("[BinaryElementwise] The 1st tensor dimension exceeds maximum "
            "dimension index "
            "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, origShapeOfA.e4, origShapeOfA.e3, origShapeOfA.e1);
+        maxDimSize, unmappedShapeOfA.e4, unmappedShapeOfA.e3,
+        unmappedShapeOfA.e1);
     return ZDNN_EXCEEDS_MDIS;
   }
-  if ((origShapeOfB.e4 > maxDimSize) || (origShapeOfB.e3 > maxDimSize) ||
-      (origShapeOfB.e1 > maxDimSize)) {
+  if ((unmappedShapeOfB.e4 > maxDimSize) ||
+      (unmappedShapeOfB.e3 > maxDimSize) ||
+      (unmappedShapeOfB.e1 > maxDimSize)) {
     printf("[BinaryElementwise] The 2nd tensor dimension exceeds maximum "
            "dimension index "
            "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, origShapeOfB.e4, origShapeOfB.e3, origShapeOfB.e1);
+        maxDimSize, unmappedShapeOfB.e4, unmappedShapeOfB.e3,
+        unmappedShapeOfB.e1);
     return ZDNN_EXCEEDS_MDIS;
   }
 
   // We split e2 in (e4, e3, e2, e1).
-  SplitInfo splitInfoA = {
-      .origZTensor = inputA, .axis = 2, .chunkSize = OMZTensorSplitSize};
-  SplitInfo splitInfoB = {
-      .origZTensor = inputB, .axis = 2, .chunkSize = OMZTensorSplitSize};
-  SplitInfo splitInfoY = {
-      .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
+  SplitInfo splitInfoA = {.fullZTensor = inputA,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoB = {.fullZTensor = inputB,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoY = {.fullZTensor = output,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
   initSplitInfo(&splitInfoA);
   initSplitInfo(&splitInfoB);
   initSplitInfo(&splitInfoY);
 
-  // Split input.
   if (OMZTensorSplitDebug)
     printf(
-        "[BinaryElementwise] Split the input ztensors along e2 into %d chunks "
+        "[BinaryElementwise] Split the input ztensors along e2 into %d tiles "
         "of %d elements. ReuseZTensor: %d, ReuseBuffer: %d \n",
-        splitInfoA.numOfChunks, splitInfoA.chunkSize,
-        splitInfoA.reuseOrigZTensor, splitInfoA.reuseOrigBuffer);
+        splitInfoA.numOfTiles, splitInfoA.numOfElemsPerTile,
+        splitInfoA.reuseFullZTensor, splitInfoA.reuseFullBuffer);
 
-  // Split input into chunks.
+  // Copy data from inputs into tiles.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  splitZTensor(&splitInfoA, /*copyData=*/true);
-  splitZTensor(&splitInfoB, /*copyData=*/true);
-  splitZTensor(&splitInfoY, /*copyData=*/false);
+  copyData(&splitInfoA, FULL_TO_TILES);
+  copyData(&splitInfoB, FULL_TO_TILES);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Call zdnn op on each chunk.
+  // Call zdnn op on each tile.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
-    zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
-    zdnn_ztensor *zbTensor = (splitInfoB.chunks + i)->ztensor;
-    zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
+  for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
+    zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
+    zdnn_ztensor *zbTensor = splitInfoB.tiles + i;
+    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
     zdnn_status status;
     if (opType == ZDNN_ADD_EXT)
       status = zdnn_add(zaTensor, zbTensor, zyTensor);
@@ -236,13 +244,14 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   }
   if (OMZTensorSplitDebug) {
     end_time = clock();
-    mmTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    computeTime =
+        ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  // Merging the chunks into the output.
+  // Copy data from tiles to the output.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  mergeZTensors(&splitInfoY);
+  copyData(&splitInfoY, TILES_TO_FULL);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
@@ -253,8 +262,9 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   freeSplitInfoBuffer(&splitInfoY);
 
   if (OMZTensorSplitDebug)
-    printf("[BinaryElementwise] split, %f, mm, %f, merge, %f (milliseconds)\n",
-        splitTime, mmTime, mergeTime);
+    printf("[BinaryElementwise] split, %f, compute, %f, merge, %f "
+           "(milliseconds)\n",
+        splitTime, computeTime, mergeTime);
 
   return ZDNN_OK;
 }

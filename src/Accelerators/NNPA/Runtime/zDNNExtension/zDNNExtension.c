@@ -23,9 +23,9 @@
 extern "C" {
 #endif
 
-bool OMZTensorSplitEnabled;
-bool OMZTensorSplitDebug;
-uint32_t OMZTensorSplitSize;
+bool OMZTensorSplitEnabled = DEFAULT_ZTENSOR_SPLIT_ENABLED;
+bool OMZTensorSplitDebug = DEFAULT_ZTENSOR_SPLIT_DEBUG;
+uint32_t OMZTensorSplitSize = DEFAULT_ZTENSOR_SPLIT_SIZE;
 
 static uint32_t ZTensorSplitSizeFromEnv() {
   uint32_t cs = DEFAULT_ZTENSOR_SPLIT_SIZE;
@@ -68,7 +68,7 @@ void zDNNExtensionInit() {
   }
 }
 
-void getOrigShape(const zdnn_ztensor *t, OrigShape *shape) {
+void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape) {
   const zdnn_tensor_desc *desc = t->transformed_desc;
   shape->e4 = desc->dim4;
   shape->e3 = desc->dim3;
@@ -76,37 +76,75 @@ void getOrigShape(const zdnn_ztensor *t, OrigShape *shape) {
   shape->e1 = desc->dim1;
 }
 
-static void getZTensorShape(const zdnn_ztensor *t, zTensorShape *shape) {
+static uint32_t getUnmappedDim(const zdnn_ztensor *t, SplitAxis axis) {
+  if (axis == E4)
+    return t->transformed_desc->dim4;
+  if (axis == E3)
+    return t->transformed_desc->dim3;
+  if (axis == E2)
+    return t->transformed_desc->dim2;
+  if (axis == E1)
+    return t->transformed_desc->dim1;
+  return 0;
+}
+
+static void getMappedShape(const zdnn_ztensor *t, MappedShape *shape) {
   // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
   const zdnn_tensor_desc *desc = t->transformed_desc;
-  shape->dim6 = desc->dim4;
-  shape->dim5 = CEIL(desc->dim1, AIU_2BYTE_CELLS_PER_STICK);
-  shape->dim4 = desc->dim3;
-  shape->dim3 = CEIL(desc->dim2, AIU_STICKS_PER_PAGE);
-  shape->dim2 = AIU_STICKS_PER_PAGE;
-  shape->dim1 = AIU_2BYTE_CELLS_PER_STICK;
+  shape->d6 = desc->dim4;
+  shape->d5 = CEIL(desc->dim1, AIU_2BYTE_CELLS_PER_STICK);
+  shape->d4 = desc->dim3;
+  shape->d3 = CEIL(desc->dim2, AIU_STICKS_PER_PAGE);
+  shape->d2 = AIU_STICKS_PER_PAGE;
+  shape->d1 = AIU_2BYTE_CELLS_PER_STICK;
   // Tensor size is large, use uint64_t.
-  uint64_t sizeFromDim = (uint64_t)shape->dim6 * (uint64_t)shape->dim5 *
-                         (uint64_t)shape->dim4 * (uint64_t)shape->dim3 *
-                         (uint64_t)shape->dim2 * (uint64_t)shape->dim1 *
+  uint64_t sizeFromDim = (uint64_t)shape->d6 * (uint64_t)shape->d5 *
+                         (uint64_t)shape->d4 * (uint64_t)shape->d3 *
+                         (uint64_t)shape->d2 * (uint64_t)shape->d1 *
                          (uint64_t)AIU_2BYTE_CELL_SIZE;
   uint64_t sizeFromBuffer = t->buffer_size;
   assert(sizeFromDim == sizeFromBuffer && "buffer size mismatched");
 }
 
-static zdnn_status allocZTensorChunk(
-    const SplitInfo *splitInfo, uint32_t chunkID) {
-  const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
+static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
+  // Mapping: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
+  uint32_t mappedNumOfElemsPerTile;
+  switch (splitInfo->axis) {
+  case E4:
+    mappedNumOfElemsPerTile = splitInfo->numOfElemsPerTile;
+    break;
+  case E3:
+    mappedNumOfElemsPerTile = splitInfo->numOfElemsPerTile;
+    break;
+  case E2:
+    mappedNumOfElemsPerTile =
+        CEIL(splitInfo->numOfElemsPerTile, AIU_STICKS_PER_PAGE);
+    break;
+  case E1:
+    mappedNumOfElemsPerTile =
+        CEIL(splitInfo->numOfElemsPerTile, AIU_2BYTE_CELLS_PER_STICK);
+    break;
+  default:
+    mappedNumOfElemsPerTile = splitInfo->numOfElemsPerTile;
+    break;
+  }
+  return mappedNumOfElemsPerTile;
+}
 
-  uint32_t axis = splitInfo->axis;
-  ChunkInfo *chunk = splitInfo->chunks + chunkID;
-  uint32_t chunkSize = chunk->dimSize;
+static zdnn_status initTileWithAlloc(
+    const SplitInfo *splitInfo, uint32_t tileID) {
+  const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
 
-  // Allocate one ztensor struct.
-  chunk->ztensor = malloc(sizeof(struct zdnn_ztensor));
-  if (!chunk->ztensor)
-    return ZDNN_ALLOCATION_FAILURE;
-  zdnn_ztensor *chunkZTensor = chunk->ztensor;
+  SplitAxis axis = splitInfo->axis;
+  zdnn_ztensor *tile = splitInfo->tiles + tileID;
+
+  // Adjust the number of elements per tile for the last tile.
+  uint32_t numOfElemsPerTile = splitInfo->numOfElemsPerTile;
+  if (tileID == splitInfo->numOfTiles - 1) {
+    // The last tile.
+    numOfElemsPerTile = getUnmappedDim(fullZTensor, axis) -
+                        tileID * splitInfo->numOfElemsPerTile;
+  }
 
   // Allocate one buffer for two descriptors.
   zdnn_tensor_desc *descriptors = malloc(2 * sizeof(struct zdnn_tensor_desc));
@@ -115,47 +153,50 @@ static zdnn_status allocZTensorChunk(
   zdnn_tensor_desc *preTransDesc = descriptors;
   zdnn_tensor_desc *transDesc = descriptors + 1;
 
-  // Copy pre_transform_desc from the origZTensor.
-  // See zDNN/src/zdnn/zdnn/tensor_desc.c for the mapping between dimensions in
-  // pre_transform_desc and transform_desc. Here we use the inverse mapping.
-  *preTransDesc = *origZTensor->pre_transformed_desc;
+  // Copy pre_transform_desc from the fullZTensor but adjust the dimension size
+  // at the split axis.
+  // Because the split axis is the one in transform_desc, we map it back to the
+  // one in pre_transform_desc.
+  // See zDNN/src/zdnn/zdnn/tensor_desc.c for the mapping between dimensions
+  // in pre_transform_desc and transform_desc. Here we use the inverse mapping.
+  *preTransDesc = *fullZTensor->pre_transformed_desc;
   switch (preTransDesc->layout) {
   case (ZDNN_1D):
     // shape (a) <- dims4-1 (1, 1, 1, a)
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_2D):
     // shape (a, b) -> dims4-1 (1, 1, a, b)
     if (axis == 2)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_2DS):
     // shape (a, b) -> dims4-1 (a, 1, 1, b)
     if (axis == 0)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_3D):
     // shape (a, b, c) -> dims4-1 (1, a, b, c)
     if (axis == 1)
-      preTransDesc->dim3 = chunkSize;
+      preTransDesc->dim3 = numOfElemsPerTile;
     if (axis == 2)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_3DS):
     // shape (a, b, c) -> dims4-1 (a, 1, b, c)
     if (axis == 0)
-      preTransDesc->dim3 = chunkSize;
+      preTransDesc->dim3 = numOfElemsPerTile;
     if (axis == 2)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_4D):
   case (ZDNN_NHWC):
@@ -163,13 +204,13 @@ static zdnn_status allocZTensorChunk(
     // shape (a, b, c, d) -> dims4-1 (a, b, c, d)
     // shape (n, h, w, c) -> dims4-1 (n, h, w, c)
     if (axis == 0)
-      preTransDesc->dim4 = chunkSize;
+      preTransDesc->dim4 = numOfElemsPerTile;
     if (axis == 1)
-      preTransDesc->dim3 = chunkSize;
+      preTransDesc->dim3 = numOfElemsPerTile;
     if (axis == 2)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_4DS):
     // ZDNN_4DS is used exclusively as RNN output
@@ -177,69 +218,60 @@ static zdnn_status allocZTensorChunk(
     //   when b = 1 (uni-dir)     -> dims4-1 (a, 1, c, d)
     //   otherwise (bi-dir, etc.) -> dims4-1 (a, 1, c, b * PADDED(d))
     if (axis == 0)
-      preTransDesc->dim4 = chunkSize;
+      preTransDesc->dim4 = numOfElemsPerTile;
     if (axis == 2)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_NCHW):
     // shape (n, c, h, w) -> dims4-1 (n, h, w, c)
     if (axis == 0)
-      preTransDesc->dim4 = chunkSize;
+      preTransDesc->dim4 = numOfElemsPerTile;
     if (axis == 1)
-      preTransDesc->dim2 = chunkSize;
+      preTransDesc->dim2 = numOfElemsPerTile;
     if (axis == 2)
-      preTransDesc->dim1 = chunkSize;
+      preTransDesc->dim1 = numOfElemsPerTile;
     if (axis == 3)
-      preTransDesc->dim3 = chunkSize;
+      preTransDesc->dim3 = numOfElemsPerTile;
     break;
   default:
     break;
   }
 
-  // Copy a transformed desc.
+  // Generate a transformed desc.
   zdnn_status status = zdnn_generate_transformed_desc(preTransDesc, transDesc);
   if (status != ZDNN_OK)
     return status;
 
-  if (splitInfo->reuseOrigBuffer) {
-    zdnn_init_ztensor(preTransDesc, transDesc, chunkZTensor);
-    // Set a buffer size for the chunk.
-    chunkZTensor->buffer_size = zdnn_getsize_ztensor(transDesc);
-    // Set a buffer for the chunk.
-    uint64_t reuseBufferOffset;
-    if (chunkID == splitInfo->numOfChunks - 1) {
-      assert((origZTensor->buffer_size - chunkZTensor->buffer_size) %
-                 (splitInfo->numOfChunks - 1) ==
-             0);
-      reuseBufferOffset =
-          (origZTensor->buffer_size - chunkZTensor->buffer_size) /
-          (splitInfo->numOfChunks - 1) * chunkID;
-      // Make sure offset is 4K-alignment.
-      assert((reuseBufferOffset % AIU_PAGESIZE_IN_BYTES == 0) &&
-             "Buffer is not 4K-alignment");
-    } else {
-      // This is always 4K-alignment.
-      reuseBufferOffset = chunkZTensor->buffer_size * chunkID;
-    }
-    chunkZTensor->buffer = origZTensor->buffer + reuseBufferOffset;
-    // Make sure the chunk buffer is within the original buffer.
-    assert(((reuseBufferOffset + chunkZTensor->buffer_size) <=
-               origZTensor->buffer_size) &&
-           "Chunk buffer is outside the original buffer");
+  if (splitInfo->reuseFullBuffer) {
+    // No need to alloc buffers if reuseFullZTensor.
+    zdnn_init_ztensor(preTransDesc, transDesc, tile);
+    // Set a buffer size for the tile.
+    tile->buffer_size = zdnn_getsize_ztensor(transDesc);
+    // Set a buffer for the tile.
+    // All tiles except the last one have the same buffer size.
+    // The offset for the last tile is simple "totalSize - lastSize".
+    uint64_t reuseBufferOffset =
+        (tileID == splitInfo->numOfTiles - 1)
+            ? (fullZTensor->buffer_size - tile->buffer_size)
+            : (tile->buffer_size * tileID);
+    tile->buffer = fullZTensor->buffer + reuseBufferOffset;
+    // Make sure the tile buffer is within the full buffer.
+    assert(
+        ((reuseBufferOffset + tile->buffer_size) <= fullZTensor->buffer_size) &&
+        "Tile buffer is outside the original buffer");
     status = ZDNN_OK;
   } else {
     // Init a zTensor with malloc.
-    status =
-        zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, chunkZTensor);
+    status = zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, tile);
   }
-  chunkZTensor->is_transformed = true;
+  tile->is_transformed = true;
 
   return status;
 }
 
-static void freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer) {
+static void freeTile(zdnn_ztensor *t, bool freeBuffer) {
   if (freeBuffer)
     zdnn_free_ztensor_buffer(t);
   // We allocated one buffer for both two descriptors, so just one free is
@@ -248,63 +280,58 @@ static void freeZTensorChunk(zdnn_ztensor *t, bool freeBuffer) {
     free(t->pre_transformed_desc);
 }
 
-static void copyZTensorChunk(
-    const SplitInfo *splitInfo, uint32_t chunkID, bool fromChunk) {
-  // Only support the first and second innermost axis in the CPU tensor at this
-  // moment.
-  // axis = 2 in the CPU tensor corresponds to dim2 in zTensor.
-  // axis = 3 in the CPU tensor corresponds to dim1 in zTensor.
-  if (!(splitInfo->axis == 2 || splitInfo->axis == 3)) {
-    printf("Only support the first and second innermost dimension at this "
-           "moment.");
+/// Copy data between the full ztensor and the i-th tile.
+/// Each tile will read/write to different part of the full ztensor buffer.
+/// There is no data conflict if calling this function for different tiles at
+/// the same time.
+static void copyDataForTile(
+    const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
+  if (!(splitInfo->axis == E1 || splitInfo->axis == E2)) {
+    printf("Only support E1 and E2 dimensions at this moment.");
     return;
   }
 
-  ChunkInfo *chunk = splitInfo->chunks + chunkID;
-  uint32_t offset = chunk->offsetInStick;
+  zdnn_ztensor *tile = splitInfo->tiles + tileID;
+  zdnn_ztensor *full = splitInfo->fullZTensor;
+  uint32_t mappedNumOfElemsPerTile = getMappedNumOfElemsPerTile(splitInfo);
+  uint32_t offset = tileID * mappedNumOfElemsPerTile;
+  bool fullToTile = (direction == FULL_TO_TILES);
 
   // Buffer pointers.
-  void *src, *dst;
-  if (fromChunk) {
-    src = chunk->ztensor->buffer;
-    dst = splitInfo->origZTensor->buffer;
-  } else {
-    src = splitInfo->origZTensor->buffer;
-    dst = chunk->ztensor->buffer;
-  }
+  void *src = (fullToTile) ? full->buffer : tile->buffer;
+  void *dst = (fullToTile) ? tile->buffer : full->buffer;
   assert(src && "Source buffer is NULL");
   assert(dst && "Destination buffer is NULL");
 
   // Shape information.
-  // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
-  zTensorShape origShape;
-  getZTensorShape(splitInfo->origZTensor, &origShape);
-  zTensorShape chunkShape;
-  getZTensorShape(chunk->ztensor, &chunkShape);
-  assert(origShape.dim6 == chunkShape.dim6);
-  if (splitInfo->axis != 3) // e1
-    assert(origShape.dim5 == chunkShape.dim5);
-  assert(origShape.dim4 == chunkShape.dim4);
-  if (splitInfo->axis != 2) // e2
-    assert(origShape.dim3 == chunkShape.dim3);
-  assert(origShape.dim2 == chunkShape.dim2);
-  assert(origShape.dim1 == chunkShape.dim1);
+  MappedShape shapeOfFull;
+  getMappedShape(splitInfo->fullZTensor, &shapeOfFull);
+  MappedShape shapeOfTile;
+  getMappedShape(tile, &shapeOfTile);
+  assert(shapeOfFull.d6 == shapeOfTile.d6);
+  if (splitInfo->axis != E1)
+    assert(shapeOfFull.d5 == shapeOfTile.d5);
+  assert(shapeOfFull.d4 == shapeOfTile.d4);
+  if (splitInfo->axis != E2)
+    assert(shapeOfFull.d3 == shapeOfTile.d3);
+  assert(shapeOfFull.d2 == shapeOfTile.d2);
+  assert(shapeOfFull.d1 == shapeOfTile.d1);
   // Ensure that each element is 2 bytes.
-  assert(splitInfo->origZTensor->transformed_desc->type == ZDNN_DLFLOAT16);
+  assert(splitInfo->fullZTensor->transformed_desc->type == ZDNN_DLFLOAT16);
 
-  uint64_t D6 = chunkShape.dim6;
-  uint64_t D5 = chunkShape.dim5;
-  uint64_t D4 = chunkShape.dim4;
-  uint64_t D3 = chunkShape.dim3;
+  uint64_t D6 = shapeOfTile.d6;
+  uint64_t D5 = shapeOfTile.d5;
+  uint64_t D4 = shapeOfTile.d4;
+  uint64_t D3 = shapeOfTile.d3;
 
-  // Axis = 3. For splitting e1.
-  if (splitInfo->axis == 3) {
-    uint64_t SD5 = (fromChunk ? chunkShape.dim5 : origShape.dim5);
-    uint64_t TD5 = (fromChunk ? origShape.dim5 : chunkShape.dim5);
+  // Splitting e1.
+  if (splitInfo->axis == E1) {
+    uint64_t SD5 = (fullToTile ? shapeOfFull.d5 : shapeOfTile.d5);
+    uint64_t TD5 = (fullToTile ? shapeOfTile.d5 : shapeOfFull.d5);
     for (uint64_t d6 = 0; d6 < D6; ++d6) {
       for (uint64_t d5 = 0; d5 < D5; ++d5) {
-        uint64_t sd5 = (fromChunk ? d5 : (offset + d5));
-        uint64_t td5 = (fromChunk ? (offset + d5) : d5);
+        uint64_t sd5 = (fullToTile ? (offset + d5) : d5);
+        uint64_t td5 = (fullToTile ? d5 : (offset + d5));
         uint64_t SD5Offset = sd5 + SD5 * d6;
         uint64_t TD5Offset = td5 + TD5 * d6;
         uint64_t copyInBytes = D4 * D3 * AIU_PAGESIZE_IN_BYTES;
@@ -316,10 +343,10 @@ static void copyZTensorChunk(
     return;
   }
 
-  // Axis = 2. For splitting e2.
-  if (splitInfo->axis == 2) {
-    uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
-    uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
+  // Splitting e2.
+  if (splitInfo->axis == E2) {
+    uint64_t SD3 = (fullToTile ? shapeOfFull.d3 : shapeOfTile.d3);
+    uint64_t TD3 = (fullToTile ? shapeOfTile.d3 : shapeOfFull.d3);
     for (uint64_t d6 = 0; d6 < D6; ++d6) {
       for (uint64_t d5 = 0; d5 < D5; ++d5) {
         for (uint64_t d4 = 0; d4 < D4; ++d4) {
@@ -328,8 +355,8 @@ static void copyZTensorChunk(
           if (splitInfo->axis != 2)
             continue;
           for (uint64_t d3 = 0; d3 < D3; ++d3) {
-            uint64_t sd3 = (fromChunk ? d3 : (offset + d3));
-            uint64_t td3 = (fromChunk ? (offset + d3) : d3);
+            uint64_t sd3 = (fullToTile ? (offset + d3) : d3);
+            uint64_t td3 = (fullToTile ? d3 : (offset + d3));
             uint64_t SD3Offset = sd3 + SD3 * SD4Offset;
             uint64_t TD3Offset = td3 + TD3 * TD4Offset;
             // Copy one page at a time.
@@ -344,59 +371,56 @@ static void copyZTensorChunk(
   }
 }
 
-static void copyZTensorChunkScalar(
-    const SplitInfo *splitInfo, uint32_t chunkID, bool fromChunk) {
-  // Only support the second innermost axis in the CPU tensor at this moment.
-  // axis = 2 in the CPU tensor corresponds to dim3 in zTensor.
-  if (splitInfo->axis != 2) {
-    printf("Only support the second innermost dimension at this moment.");
+static void copyDataForTileScalar(
+    const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
+  if (splitInfo->axis != E2) {
+    printf("Only support E2 dimension at this moment.");
     return;
   }
 
-  ChunkInfo *chunk = splitInfo->chunks + chunkID;
-  uint32_t offset = chunk->offsetInStick;
+  zdnn_ztensor *tile = splitInfo->tiles + tileID;
+  zdnn_ztensor *full = splitInfo->fullZTensor;
+  uint32_t mappedNumOfElemsPerTile = getMappedNumOfElemsPerTile(splitInfo);
+  uint32_t offset = tileID * mappedNumOfElemsPerTile;
+  bool fullToTile = (direction == FULL_TO_TILES);
 
   // Buffers pointers.
-  uint16_t *src, *dst;
-  if (fromChunk) {
-    src = (uint16_t *)chunk->ztensor->buffer;
-    dst = (uint16_t *)splitInfo->origZTensor->buffer;
-  } else {
-    src = (uint16_t *)splitInfo->origZTensor->buffer;
-    dst = (uint16_t *)chunk->ztensor->buffer;
-  }
+  uint64_t *src =
+      (fullToTile) ? (uint16_t *)full->buffer : (uint16_t *)tile->buffer;
+  uint64_t *dst =
+      (fullToTile) ? (uint16_t *)tile->buffer : (uint16_t *)full->buffer;
   assert(src && "Source buffer is NULL");
   assert(dst && "Destination buffer is NULL");
 
   // Shape information.
-  zTensorShape origShape;
-  getZTensorShape(splitInfo->origZTensor, &origShape);
-  zTensorShape chunkShape;
-  getZTensorShape(chunk->ztensor, &chunkShape);
-  assert(origShape.dim6 == chunkShape.dim6);
-  assert(origShape.dim5 == chunkShape.dim5);
-  assert(origShape.dim4 == chunkShape.dim4);
-  assert(origShape.dim2 == chunkShape.dim2);
-  assert(origShape.dim1 == chunkShape.dim1);
+  MappedShape shapeOfFull;
+  getMappedShape(splitInfo->fullZTensor, &shapeOfFull);
+  MappedShape shapeOfTile;
+  getMappedShape(tile, &shapeOfTile);
+  assert(shapeOfFull.d6 == shapeOfTile.d6);
+  assert(shapeOfFull.d5 == shapeOfTile.d5);
+  assert(shapeOfFull.d4 == shapeOfTile.d4);
+  assert(shapeOfFull.d2 == shapeOfTile.d2);
+  assert(shapeOfFull.d1 == shapeOfTile.d1);
   // Ensure that each element is 2 bytes.
-  assert(splitInfo->origZTensor->transformed_desc->type == ZDNN_DLFLOAT16);
+  assert(splitInfo->fullZTensor->transformed_desc->type == ZDNN_DLFLOAT16);
 
-  uint64_t D6 = chunkShape.dim6;
-  uint64_t D5 = chunkShape.dim5;
-  uint64_t D4 = chunkShape.dim4;
-  uint64_t D3 = chunkShape.dim3;
-  uint64_t D2 = chunkShape.dim2;
-  uint64_t D1 = chunkShape.dim1;
+  uint64_t D6 = shapeOfTile.d6;
+  uint64_t D5 = shapeOfTile.d5;
+  uint64_t D4 = shapeOfTile.d4;
+  uint64_t D3 = shapeOfTile.d3;
+  uint64_t D2 = shapeOfTile.d2;
+  uint64_t D1 = shapeOfTile.d1;
 
-  uint64_t SD3 = (fromChunk ? chunkShape.dim3 : origShape.dim3);
-  uint64_t TD3 = (fromChunk ? origShape.dim3 : chunkShape.dim3);
+  uint64_t SD3 = (fullToTile ? shapeOfFull.d3 : shapeOfTile.d3);
+  uint64_t TD3 = (fullToTile ? shapeOfTile.d3 : shapeOfFull.d3);
 
   for (uint64_t d6 = 0; d6 < D6; ++d6) {
     for (uint64_t d5 = 0; d5 < D5; ++d5) {
       for (uint64_t d4 = 0; d4 < D4; ++d4) {
         for (uint64_t d3 = 0; d3 < D3; ++d3) {
-          uint64_t sd3 = (fromChunk ? d3 : (d3 + offset));
-          uint64_t td3 = (fromChunk ? (d3 + offset) : d3);
+          uint64_t sd3 = (fullToTile ? (d3 + offset) : d3);
+          uint64_t td3 = (fullToTile ? d3 : (d3 + offset));
           uint64_t SD3Offset = sd3 + SD3 * (d4 + D4 * (d5 + D5 * d6));
           uint64_t TD3Offset = td3 + TD3 * (d4 + D4 * (d5 + D5 * d6));
           for (uint64_t d2 = 0; d2 < D2; ++d2) {
@@ -414,104 +438,51 @@ static void copyZTensorChunkScalar(
 }
 
 bool initSplitInfo(SplitInfo *splitInfo) {
-  // Only support the following axes in the CPU tensor at this moment.
-  // axis = 0 in the CPU tensor corresponds to dim4 in zTensor.
-  // axis = 2 in the CPU tensor corresponds to dim2 in zTensor.
-  // axis = 3 in the CPU tensor corresponds to dim1 in zTensor.
-  assert(
-      (splitInfo->axis == 0 || splitInfo->axis == 2 || splitInfo->axis == 3) &&
-      "Unsupported axis");
+  assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
+             splitInfo->axis == E4) &&
+         "Unsupported axis");
+  // fullZTensor.
+  const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
 
-  // Init general split information.
-  // origZTensor.
-  const zdnn_ztensor *origZTensor = splitInfo->origZTensor;
-  // totalSize.
-  switch (splitInfo->axis) {
-  case 0:
-    splitInfo->totalSize = origZTensor->transformed_desc->dim4;
-    break;
-  case 1:
-    splitInfo->totalSize = origZTensor->transformed_desc->dim3;
-    break;
-  case 2:
-    splitInfo->totalSize = origZTensor->transformed_desc->dim2;
-    break;
-  case 3:
-    splitInfo->totalSize = origZTensor->transformed_desc->dim1;
-    break;
-  default:
-    splitInfo->totalSize = 0;
-    break;
-  }
-  // numOfChunks
+  // numOfTiles.
   if (!OMZTensorSplitEnabled)
-    splitInfo->numOfChunks = 1;
-  else
-    splitInfo->numOfChunks = CEIL(splitInfo->totalSize, splitInfo->chunkSize);
-  // Allocate ChunkInfo struct.
-  splitInfo->chunks = malloc(splitInfo->numOfChunks * sizeof(struct ChunkInfo));
-  assert(splitInfo->chunks && "Failed to allocate ChunkInfo struct");
-  // reuseOrigZTensor.
-  if (splitInfo->numOfChunks == 1) {
+    splitInfo->numOfTiles = 1;
+  else {
+    uint32_t totalNumOfElems = getUnmappedDim(fullZTensor, splitInfo->axis);
+    splitInfo->numOfTiles = CEIL(totalNumOfElems, splitInfo->numOfElemsPerTile);
+  }
+
+  // reuseFullZTensor.
+  if (splitInfo->numOfTiles == 1) {
     // No split benefit.
-    splitInfo->reuseOrigZTensor = true;
-    splitInfo->reuseOrigBuffer = true;
-    splitInfo->chunks->ztensor = origZTensor;
+    splitInfo->reuseFullZTensor = true;
+    splitInfo->reuseFullBuffer = true;
+    splitInfo->tiles = fullZTensor;
     return false;
   }
-  splitInfo->reuseOrigZTensor = false;
+  splitInfo->reuseFullZTensor = false;
 
-  // Stickification: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
-  uint32_t chunkSizeInStick;
-  switch (splitInfo->axis) {
-  case 0: // e4
-    chunkSizeInStick = splitInfo->chunkSize;
-    break;
-  case 1: // e3
-    chunkSizeInStick = splitInfo->chunkSize;
-    break;
-  case 2: // e2
-    chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_STICKS_PER_PAGE);
-    break;
-  case 3: // e1
-    chunkSizeInStick = CEIL(splitInfo->chunkSize, AIU_2BYTE_CELLS_PER_STICK);
-    break;
-  default:
-    chunkSizeInStick = splitInfo->chunkSize;
-    break;
-  }
-
-  // Init chunk information.
-  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    ChunkInfo *chunkInfo = splitInfo->chunks + i;
-    if (i == splitInfo->numOfChunks - 1)
-      chunkInfo->dimSize = splitInfo->totalSize - i * splitInfo->chunkSize;
-    else
-      chunkInfo->dimSize = splitInfo->chunkSize;
-    chunkInfo->offsetInStick = i * chunkSizeInStick;
-  }
-
-  // reuseOrigBuffer.
+  // reuseFullBuffer.
   // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
-  splitInfo->reuseOrigBuffer = false;
-  if (splitInfo->axis == 0) {
+  splitInfo->reuseFullBuffer = false;
+  if (splitInfo->axis == E4) {
     // Always reuse if splitting on e4 (batchsize).
-    splitInfo->reuseOrigBuffer = true;
+    splitInfo->reuseFullBuffer = true;
   } else {
     // Reuse if the outer loops' bounds are one.
-    zTensorShape origZShape;
-    getZTensorShape(splitInfo->origZTensor, &origZShape);
-    if (origZShape.dim6 == 1) {
-      if (splitInfo->axis == 3) { // e1
-        splitInfo->reuseOrigBuffer = true;
+    MappedShape shapeOfFull;
+    getMappedShape(splitInfo->fullZTensor, &shapeOfFull);
+    if (shapeOfFull.d6 == 1) {
+      if (splitInfo->axis == E1) {
+        splitInfo->reuseFullBuffer = true;
       } else {
-        if (origZShape.dim5 == 1) {
-          if (splitInfo->axis == 1) { // e3
-            splitInfo->reuseOrigBuffer = true;
+        if (shapeOfFull.d5 == 1) {
+          if (splitInfo->axis == E3) {
+            splitInfo->reuseFullBuffer = true;
           } else {
-            if (origZShape.dim4 == 1) {
-              if (splitInfo->axis == 2) // e2
-                splitInfo->reuseOrigBuffer = true;
+            if (shapeOfFull.d4 == 1) {
+              if (splitInfo->axis == E2)
+                splitInfo->reuseFullBuffer = true;
             }
           }
         }
@@ -519,45 +490,39 @@ bool initSplitInfo(SplitInfo *splitInfo) {
     }
   }
 
+  // Allocate tile ztensors.
+  splitInfo->tiles = malloc(splitInfo->numOfTiles * sizeof(zdnn_ztensor));
+  assert(splitInfo->tiles && "Failed to allocate tile ztensors");
+
+  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+    zdnn_status status = initTileWithAlloc(splitInfo, i);
+    assert(status == ZDNN_OK && "Failed to initialize a tile");
+  }
+
   return true;
 }
 
 void freeSplitInfoBuffer(SplitInfo *splitInfo) {
-  if (!splitInfo->reuseOrigZTensor) {
-    // Free the sub tensors.
-    for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-      zdnn_ztensor *t = (splitInfo->chunks + i)->ztensor;
-      // Free the ztensor buffer and descriptors.
-      freeZTensorChunk(t, !splitInfo->reuseOrigBuffer);
-      // Free ztensor struct.
-      free(t);
-    }
+  if (splitInfo->reuseFullZTensor)
+    return;
+
+  // Free the ztensor buffer and descriptors.
+  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+    zdnn_ztensor *t = splitInfo->tiles + i;
+    freeTile(t, !splitInfo->reuseFullBuffer);
   }
-  // Free chunk info.
-  if (splitInfo->chunks)
-    free(splitInfo->chunks);
+  // Free tiles.
+  if (splitInfo->tiles)
+    free(splitInfo->tiles);
 }
 
-void splitZTensor(const SplitInfo *splitInfo, bool copyData) {
-  if (splitInfo->reuseOrigZTensor)
+void copyData(const SplitInfo *splitInfo, CopyDirection direction) {
+  if (splitInfo->reuseFullBuffer)
     return;
-  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    // Allocate a chunk ztensor.
-    zdnn_status status = allocZTensorChunk(splitInfo, i);
-    assert(status == ZDNN_OK && "Failed to allocate zTensor chunk");
-    if (copyData && !splitInfo->reuseOrigBuffer) {
-      // Copy data from the original ztensor to the chunk ztensor.
-      copyZTensorChunk(splitInfo, i, /*fromChunk=*/false);
-    }
-  }
-}
-
-void mergeZTensors(const SplitInfo *splitInfo) {
-  if (splitInfo->reuseOrigZTensor || splitInfo->reuseOrigBuffer)
-    return;
-  for (uint32_t i = 0; i < splitInfo->numOfChunks; ++i) {
-    // Copy data from the chunk ztensor back to the original ztensor.
-    copyZTensorChunk(splitInfo, i, /*fromChunk=*/true);
+  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+    // Copy data between the full ztensor and the i-th tile.
+    // Each tile will read/write to a distinct part of the full ztensor buffer.
+    copyDataForTile(splitInfo, i, direction);
   }
 }
 

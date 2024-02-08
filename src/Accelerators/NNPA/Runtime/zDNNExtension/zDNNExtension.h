@@ -28,8 +28,8 @@ extern "C" {
 #define AIU_STICKS_PER_PAGE 32
 #define AIU_PAGESIZE_IN_BYTES 4096
 
-// Default chunk size used when spliting a big zTensor.
-// Must be divisible by AIU_STICKS_PER_PAGE.
+// Default values used when spliting a big zTensor.
+// Must be divisible by AIU_2BYTE_CELLS_PER_STICK.
 #define DEFAULT_ZTENSOR_SPLIT_SIZE 1024
 // zTensor splitting is off by default.
 #define DEFAULT_ZTENSOR_SPLIT_ENABLED 0
@@ -50,51 +50,62 @@ extern uint32_t OMZTensorSplitSize;
 // Common structures
 // -----------------------------------------------------------------------------
 
-typedef struct OrigShape {
+typedef enum CopyDirection {
+  FULL_TO_TILES,
+  TILES_TO_FULL,
+} CopyDirection;
+
+// (e4, e3, e2, e1) in ztensor.transformed_desc.
+typedef enum SplitAxis {
+  E4 = 0,
+  E3 = 1,
+  E2 = 2,
+  E1 = 3,
+} SplitAxis;
+
+// Unmapped shape is 4-dimension (e4, e3, e2, e1) in ztensor.transformed_desc.
+typedef struct UnmappedShape {
   uint32_t e4;
   uint32_t e3;
   uint32_t e2;
   uint32_t e1;
-} OrigShape;
+} UnmappedShape;
 
-typedef struct zTensorShape {
-  uint32_t dim6;
-  uint32_t dim5;
-  uint32_t dim4;
-  uint32_t dim3;
-  uint32_t dim2;
-  uint32_t dim1;
-} zTensorShape;
-
-typedef struct ChunkInfo {
-  // Dim size for this chunk along the original axis.
-  uint32_t dimSize;
-  // Offset of the split point of this chunk in the stickified axis.
-  uint32_t offsetInStick;
-  // ztensor of this chunk.
-  zdnn_ztensor *ztensor;
-} ChunkInfo;
+// clang-format off
+// Mapped shape is 6-dimension (d6, d5, d4, d3, d2, d1) in the stickified tensor.
+// Mapping: (e4, e3, e2, e1) -> (d6 = e4, d5 = e1/64, d4 = e3, d3 = e2/32, d2 = 32, d1 = 64)
+// clang-format on
+typedef struct MappedShape {
+  uint32_t d6;
+  uint32_t d5;
+  uint32_t d4;
+  uint32_t d3;
+  uint32_t d2;
+  uint32_t d1;
+} MappedShape;
 
 typedef struct SplitInfo {
-  // Original ztensor.
-  const zdnn_ztensor *origZTensor;
-  // Axis to split the tensor. Used to refer to an axis in (e4, e3, e2, e1).
-  uint32_t axis;
-  // Size of the dimension at axis.
-  uint32_t totalSize;
-  // Size of each chunk. The last chunk may be smaller.
-  uint32_t chunkSize;
-  // The number of chunks.
-  uint32_t numOfChunks;
-  // If reuse the original ztensor's buffer or not.
-  // If yes, there is no need to allocate buffers for chunks, and chunk ztensors
-  // will use the original ztensor's buffer.
-  bool reuseOrigBuffer;
-  // If reuse the original ztensor. This is true when there is only one chunk.
-  // This is used to simplify iteration over chunks.
-  bool reuseOrigZTensor;
-  // Information for each chunk.
-  ChunkInfo *chunks;
+  // The full ztensor that will be splitted.
+  const zdnn_ztensor *fullZTensor;
+  // Axis to split fullZTensor. It refers to axes (e4, e3, e2, e1) in
+  // fullZTensor.transformed_desc.
+  SplitAxis axis;
+  // Value (the number of elements) is used to split the axis equally.
+  uint32_t numOfElemsPerTile;
+  // Indicate whether tiles reuse fullZTensor->buffer or not.
+  // If "reuseOrigBuffer=true", each tile->buffer points to a different part in
+  // fullZTensor->buffer using offsets without overlap and there is no data
+  // copy. Each tile stills has its own descriptors.
+  bool reuseFullBuffer;
+  // Indicate whether tiles reuse fullZTensor or not.
+  // "reuseFullZTensor = true" only when there is only one tile. This is used to
+  // simplify iteration over tiles.
+  bool reuseFullZTensor;
+  // The number of tile ztensors.
+  uint32_t numOfTiles;
+  // Tile ztensors.
+  // When "reuseFullZTensor = true", this points to fullZTensor.
+  zdnn_ztensor *tiles;
 } SplitInfo;
 
 // -----------------------------------------------------------------------------
@@ -111,15 +122,20 @@ void zDNNExtensionInit();
 // -----------------------------------------------------------------------------
 
 /**
- * \brief Get the original shape of ztensor.
+ * \brief Get the unmapped shape (4D) of ztensor.
+ *
+ * Unmapped shape is 4-dimension in ztensor.tranformed_desc.
  *
  * @param input input ztensor
  * @param shape shape information
  */
-void getOrigShape(const zdnn_ztensor *t, OrigShape *shape);
+void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape);
 
 /**
  * \brief Initialize a SplitInfo struct.
+ *
+ * This will initialize values in SplitInfo and allocate buffers.
+ * Make sure to call freeSplitInfoBuffer to free buffers.
  *
  * @param splitInfo information for splitting
  * @return true if the ztensor is splitable. Otherwise, false
@@ -131,24 +147,18 @@ bool initSplitInfo(SplitInfo *splitInfo);
  *
  * This does not free the SplitInfo itself.
  *
- * @param splitInfo information of all chunks
+ * @param splitInfo split information
  */
 void freeSplitInfoBuffer(SplitInfo *splitInfo);
 
 /**
- * \brief Split a ztensor into multiple chunks.
+ * \brief Copy data between the full ztensor and its tiles.
  *
  * @param splitInfo information for splitting
- * @param copyData whether or not copy data from ztensor to each chunk
+ * @param direction whether copy data from the full ztensor to tiles or vice
+ * versa.
  */
-void splitZTensor(const SplitInfo *splitInfo, bool copyData);
-/**
- * \brief Merge chunks into a ztensor.
- *
- * @param splitInfo information for splitting
- * @param output a ztensor obtained by merging the chunks
- */
-void mergeZTensors(const SplitInfo *splitInfo);
+void copyData(const SplitInfo *splitInfo, CopyDirection direction);
 
 // -----------------------------------------------------------------------------
 // Extension Functions
