@@ -154,7 +154,7 @@ LogicalResult ONNXCastOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// CastLikeOp
+// CastLike
 //===----------------------------------------------------------------------===//
 // CastLike requires two inputs which are "input" and "target_type". The second
 // input tensor (target_type) is used to obtain the element type of the overall
