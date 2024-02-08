@@ -163,39 +163,39 @@ static zdnn_status initTileWithAlloc(
   switch (preTransDesc->layout) {
   case (ZDNN_1D):
     // shape (a) <- dims4-1 (1, 1, 1, a)
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_2D):
     // shape (a, b) -> dims4-1 (1, 1, a, b)
-    if (axis == 2)
+    if (axis == E2)
       preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_2DS):
     // shape (a, b) -> dims4-1 (a, 1, 1, b)
-    if (axis == 0)
+    if (axis == E4)
       preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_3D):
     // shape (a, b, c) -> dims4-1 (1, a, b, c)
-    if (axis == 1)
+    if (axis == E3)
       preTransDesc->dim3 = numOfElemsPerTile;
-    if (axis == 2)
+    if (axis == E2)
       preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_3DS):
     // shape (a, b, c) -> dims4-1 (a, 1, b, c)
-    if (axis == 0)
+    if (axis == E4)
       preTransDesc->dim3 = numOfElemsPerTile;
-    if (axis == 2)
+    if (axis == E2)
       preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_4D):
@@ -203,24 +203,24 @@ static zdnn_status initTileWithAlloc(
   case (ZDNN_HWCK):
     // shape (a, b, c, d) -> dims4-1 (a, b, c, d)
     // shape (n, h, w, c) -> dims4-1 (n, h, w, c)
-    if (axis == 0)
+    if (axis == E4)
       preTransDesc->dim4 = numOfElemsPerTile;
-    if (axis == 1)
+    if (axis == E3)
       preTransDesc->dim3 = numOfElemsPerTile;
-    if (axis == 2)
+    if (axis == E2)
       preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim1 = numOfElemsPerTile;
     break;
   case (ZDNN_NCHW):
     // shape (n, c, h, w) -> dims4-1 (n, h, w, c)
-    if (axis == 0)
+    if (axis == E4)
       preTransDesc->dim4 = numOfElemsPerTile;
-    if (axis == 1)
+    if (axis == E3)
       preTransDesc->dim2 = numOfElemsPerTile;
-    if (axis == 2)
+    if (axis == E2)
       preTransDesc->dim1 = numOfElemsPerTile;
-    if (axis == 3)
+    if (axis == E1)
       preTransDesc->dim3 = numOfElemsPerTile;
     break;
   default:
@@ -274,11 +274,6 @@ static void freeTile(zdnn_ztensor *t, bool freeBuffer) {
 /// the same time.
 static void copyDataForTile(
     const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
-  if (!(splitInfo->axis == E1 || splitInfo->axis == E2)) {
-    printf("Only support E1 and E2 dimensions at this moment.");
-    return;
-  }
-
   zdnn_ztensor *tile = splitInfo->tiles + tileID;
   zdnn_ztensor *full = splitInfo->fullZTensor;
   uint32_t mappedNumOfElemsPerTile = getMappedNumOfElemsPerTile(splitInfo);
@@ -357,6 +352,42 @@ static void copyDataForTile(
     }
     return;
   }
+
+  // Splitting e3.
+  if (splitInfo->axis == E3) {
+    uint64_t SD4 = (fullToTile ? shapeOfFull.d4 : shapeOfTile.d4);
+    uint64_t TD4 = (fullToTile ? shapeOfTile.d4 : shapeOfFull.d4);
+    for (uint64_t d6 = 0; d6 < D6; ++d6) {
+      for (uint64_t d5 = 0; d5 < D5; ++d5) {
+        for (uint64_t d4 = 0; d4 < D4; ++d4) {
+          uint64_t sd4 = (fullToTile ? (offset + d4) : d4);
+          uint64_t td4 = (fullToTile ? d4 : (offset + d4));
+          uint64_t SD4Offset = sd4 + SD4 * (d5 + D5 * d6);
+          uint64_t TD4Offset = td4 + TD4 * (d5 + D5 * d6);
+          uint64_t copyInBytes = D3 * AIU_PAGESIZE_IN_BYTES;
+          uint64_t offsetSrc = copyInBytes * SD4Offset;
+          uint64_t offsetDst = copyInBytes * TD4Offset;
+          memcpy(dst + offsetDst, src + offsetSrc, copyInBytes);
+        }
+      }
+    }
+    return;
+  }
+
+  // Splitting e4.
+  if (splitInfo->axis == E4) {
+    uint64_t SD6 = (fullToTile ? shapeOfFull.d6 : shapeOfTile.d6);
+    uint64_t TD6 = (fullToTile ? shapeOfTile.d6 : shapeOfFull.d6);
+    for (uint64_t d6 = 0; d6 < D6; ++d6) {
+      uint64_t sd6 = (fullToTile ? (offset + d6) : d6);
+      uint64_t td6 = (fullToTile ? d6 : (offset + d6));
+      uint64_t copyInBytes = D5 * D4 * D3 * AIU_PAGESIZE_IN_BYTES;
+      uint64_t offsetSrc = sd6 * copyInBytes;
+      uint64_t offsetDst = td6 * copyInBytes;
+      memcpy(dst + offsetDst, src + offsetSrc, copyInBytes);
+    }
+    return;
+  }
 }
 
 static void copyDataForTileScalar(
@@ -432,8 +463,7 @@ bool initSplitInfo(SplitInfo *splitInfo, const char *tag) {
 
   // Splitting has not yet been supported for the following cases, so redirect
   // to the original zdnn function by setting splitInfo->numOfTiles = 1.
-  bool isNotSupported = (splitInfo->axis == E3) || (layout == ZDNN_FICO) ||
-                        (layout == ZDNN_BIDIR_ZRH) ||
+  bool isNotSupported = (layout == ZDNN_FICO) || (layout == ZDNN_BIDIR_ZRH) ||
                         (layout == ZDNN_BIDIR_FICO) || (layout == ZDNN_ZRH) ||
                         (layout == ZDNN_4DS);
 
