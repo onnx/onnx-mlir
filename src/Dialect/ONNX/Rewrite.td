@@ -599,9 +599,8 @@ def RemoveIdentityReshapePattern1:  Pat<
   (ONNXReshapeOp $val, $shape, $az),
   // Remove the reshape.
   (replaceWithValue $val),
-  // Check if shape has no value and that val has the specified shape.
-  [(IsNoneValue:$shape), (HasSpecifiedConstantShape $val, $shape)]
-  >;
+  // Check if shape has no value
+  [(IsNoneValue:$shape)]>;
 
 def RemoveIdentityReshapePattern2:  Pat<
   // Remove an identity pattern. Output and input shapes are static and the same. 

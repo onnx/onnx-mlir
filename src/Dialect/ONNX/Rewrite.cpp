@@ -338,9 +338,9 @@ public:
 //   `CastLikeOp(input, target_type) attribute -> saturate=1`
 // into
 //   `CastOp(input) attribute -> saturate=1`
-// we will force all CastLikeOps to become CastOp because
+// we will force all CastLikeOps to become CastOps because
 // they are not optimized for constant propagation.
-class PropagateCastLikeToCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
+class ReplaceCastLikeToCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
 public:
   using OpRewritePattern<ONNXCastLikeOp>::OpRewritePattern;
 
@@ -425,7 +425,7 @@ public:
 
     rewriter.replaceOp(op, {res});
     return success();
-  };
+  }
 };
 
 template <typename OP_TYPE>
@@ -1551,9 +1551,14 @@ void ONNXAndOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
-  result.insert<PropagateCastLikeToCastPattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
+}
+
+/// on the ONNXCastLikeOp.
+void ONNXCastLikeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<ReplaceCastLikeToCastPattern>(context); 
 }
 
 /// on the ONNXConstantOp.
