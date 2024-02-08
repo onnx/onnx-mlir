@@ -1558,7 +1558,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 /// on the ONNXCastLikeOp.
 void ONNXCastLikeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
-  result.insert<ReplaceCastLikeToCastPattern>(context); 
+  result.insert<ReplaceCastLikeToCastPattern>(context);
 }
 
 /// on the ONNXConstantOp.
