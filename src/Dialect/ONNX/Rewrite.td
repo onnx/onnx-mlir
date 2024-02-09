@@ -2,7 +2,7 @@
 
 //===---- ONNXRewrite.td - Pattern Match Rewriting for ONNX --*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -177,6 +177,10 @@ def IsStaticShapeTensor:
     CPred<
       "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
     "hasStaticShape">;
+
+def IsNoneValue: Constraint<
+   CPred<"onnx_mlir::isNoneValue($_self)">,
+          "Is the value none">;
 
 def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
@@ -595,8 +599,8 @@ def RemoveIdentityReshapePattern1:  Pat<
   (ONNXReshapeOp $val, $shape, $az),
   // Remove the reshape.
   (replaceWithValue $val),
-  // Check that val has the specified shape.
-  [(HasSpecifiedConstantShape $val, $shape)]>;
+  // Check if shape has no value
+  [(IsNoneValue:$shape)]>;
 
 def RemoveIdentityReshapePattern2:  Pat<
   // Remove an identity pattern. Output and input shapes are static and the same. 
