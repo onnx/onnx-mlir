@@ -1553,7 +1553,7 @@ public:
                         {vecTypeI32, vecTypeI32}, /*Packed=*/false),
                     /*operands=*/asmVals,
                     /*asm_string=*/asmStr,
-                    /*constraints=*/asmConstraints, /*has_side_effects=*/true,
+                    /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                     /*is_align_stack=*/false,
                     /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
@@ -1717,7 +1717,7 @@ public:
                 .create<LLVM::InlineAsmOp>(loc, vecTypeI16,
                     /*operands=*/asmVals,
                     /*asm_string=*/asmStr,
-                    /*constraints=*/asmConstraints, /*has_side_effects=*/true,
+                    /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                     /*is_align_stack=*/false,
                     /*asm_dialect=*/LLVM::AsmDialectAttr(),
                     /*operand_attrs=*/ArrayAttr())
@@ -1858,7 +1858,7 @@ public:
                     {vecTypeI32, vecTypeI32}, /*Packed=*/false),
                 /*operands=*/asmVals,
                 /*asm_string=*/asmStr,
-                /*constraints=*/asmConstraints, /*has_side_effects=*/true,
+                /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                 /*is_align_stack=*/false,
                 /*asm_dialect=*/LLVM::AsmDialectAttr(),
                 /*operand_attrs=*/ArrayAttr())
@@ -1913,7 +1913,7 @@ public:
             .create<LLVM::InlineAsmOp>(loc, vecTypeI16,
                 /*operands=*/asmVals,
                 /*asm_string=*/asmStr,
-                /*constraints=*/asmConstraints, /*has_side_effects=*/true,
+                /*constraints=*/asmConstraints, /*has_side_effects=*/false,
                 /*is_align_stack=*/false,
                 /*asm_dialect=*/LLVM::AsmDialectAttr(),
                 /*operand_attrs=*/ArrayAttr())
