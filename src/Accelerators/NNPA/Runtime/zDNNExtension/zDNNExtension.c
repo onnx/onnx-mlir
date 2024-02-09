@@ -252,12 +252,16 @@ zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
 
 void freeTileData(const SplitInfo *splitInfo, uint32_t tileID) {
   zdnn_ztensor *t = splitInfo->tiles + tileID;
+  // Free the tile buffer if it has its own buffer.
   if (!splitInfo->reuseFullBuffer)
     zdnn_free_ztensor_buffer(t);
-  // We allocated one buffer for both two descriptors, so just one free is
-  // enought.
-  if (t->pre_transformed_desc)
-    free(t->pre_transformed_desc);
+  // Free the tile descriptors it has its own ztensor.
+  if (!splitInfo->reuseFullZTensor) {
+    // We allocated one buffer for both two descriptors, so just one free is
+    // enought.
+    if (t->pre_transformed_desc)
+      free(t->pre_transformed_desc);
+  }
 }
 
 /// Copy data between the full ztensor and the i-th tile.
@@ -266,6 +270,10 @@ void freeTileData(const SplitInfo *splitInfo, uint32_t tileID) {
 /// the same time.
 void copyDataForTile(
     const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
+  // No data copy if reuseFullBuffer.
+  if (splitInfo->reuseFullBuffer)
+    return;
+
   zdnn_ztensor *tile = splitInfo->tiles + tileID;
   const zdnn_ztensor *full = splitInfo->fullZTensor;
   uint32_t mappedNumOfElemsPerTile = getMappedNumOfElemsPerTile(splitInfo);
@@ -389,6 +397,10 @@ static void copyDataForTileScalar(
     printf("Only support E2 dimension at this moment.");
     return;
   }
+
+  // No data copy if reuseFullBuffer.
+  if (splitInfo->reuseFullBuffer)
+    return;
 
   zdnn_ztensor *tile = splitInfo->tiles + tileID;
   const zdnn_ztensor *full = splitInfo->fullZTensor;
@@ -537,17 +549,15 @@ void FreeSplitInfoData(SplitInfo *splitInfo) {
     return;
 
   // Free the ztensor buffer and descriptors.
-  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i)
     freeTileData(splitInfo, i);
-  }
+
   // Free tiles.
   if (splitInfo->tiles)
     free(splitInfo->tiles);
 }
 
 void copyData(const SplitInfo *splitInfo, CopyDirection direction) {
-  if (splitInfo->reuseFullBuffer)
-    return;
   for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
     // Copy data between the full ztensor and the i-th tile.
     // Each tile will read/write to a distinct part of the full ztensor buffer.
