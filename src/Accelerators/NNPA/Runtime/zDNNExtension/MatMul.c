@@ -65,24 +65,54 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   SplitInfo splitInfoY = {
       .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
 
+  double splitTime = 0.;
+  double mmTime = 0.;
+  double mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
+  struct timeval start_t, end_t;
+  float elapse;
+
   // Dim is small or ztensor split is disabled.
   if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoA) ||
       !initSplitInfo(&splitInfoY)) {
     if (OMZTensorSplitDebug)
       printf("[MatMul] Not split zTensor ...\n");
-    return call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
+    if (OMZTensorSplitDebug)
+      start_time = clock();
+    gettimeofday(&start_t, NULL);
+    zdnn_status status = call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
+    assert(status == ZDNN_OK && ("call_zdnn_matmul_op failed"));
+  if (OMZTensorSplitDebug) {
+    end_time = clock();
+    mmTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    gettimeofday(&end_t, NULL);
+    elapse = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
+    printf("[MatMul]  mm, %f, %f, (milliseconds)\n", mmTime, elapse);
   }
+    return status;
+  }
+
+  // Create a parallel loop to test the clock() and gettimeofday()
+  // Tested with OMP_NUM_THREADS = 1 or 2, or unset
+  start_time = clock();
+  gettimeofday(&start_t, NULL);
+#pragma omp parallel for
+  for(uint32_t i = 0; i < 2; i++) {
+	  system("sleep 5");
+    printf("====omp thread %u) is on cpu %d=======\n", i, sched_getcpu());
+  }
+  end_time = clock();
+  gettimeofday(&end_t, NULL);
+  splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+  printf("sleep loop measured with clock()  %f (milliseconds)\n", splitTime);
+  splitTime = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
+  printf("sleep loop measured with gettimeofday():  %f (milliseconds)\n", splitTime);
 
   // Split input A.
   if (OMZTensorSplitDebug)
     printf("[MatMul] Split the 1st ztensor along e2 into %d chunks of %d "
            "elements \n",
         splitInfoA.numOfChunks, splitInfoA.chunkSize);
-
-  double splitTime = 0.;
-  double mmTime = 0.;
-  double mergeTime = 0.;
-  clock_t start_time, end_time;
 
   // Split input A into chunks.
   if (OMZTensorSplitDebug)
@@ -97,19 +127,25 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   // Call zdnn_matmul_op on each chunk.
   if (OMZTensorSplitDebug)
     start_time = clock();
+  gettimeofday(&start_t, NULL);
+
+  // Parallelize the mm part over each chunk
+  // Thread binding is done at runtime with OMP_PLACES and OMP_PROC_BIND
 #pragma omp parallel for
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
-    //printf("====cpu id %d=======\n", sched_getcpu());
     zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
     zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
     zdnn_status status = call_zdnn_matmul_op(
         zaTensor, inputB, inputC, opType, zyTensor, isBcast);
     assert(status == ZDNN_OK);
+    printf("====omp thread %u) is on cpu %d=======\n", i, sched_getcpu());
   }
   if (OMZTensorSplitDebug) {
     end_time = clock();
     mmTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
+  gettimeofday(&end_t, NULL);
+  elapse = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
 
   // Merging the chunks into the output.
   if (OMZTensorSplitDebug)
@@ -124,8 +160,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   freeSplitInfoBuffer(&splitInfoY);
 
   if (OMZTensorSplitDebug)
-    printf("[MatMul] split, %f, mm, %f, merge, %f (milliseconds)\n", splitTime,
-        mmTime, mergeTime);
+    printf("[MatMul] split, %f, mm, %f, %f, merge, %f (milliseconds)\n", splitTime,
+        mmTime, elapse, mergeTime);
 
   return ZDNN_OK;
 }
@@ -149,7 +185,7 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, opType, output, /*isBcast=*/true);
   // Compiler does not check the return result at this moment. Thus, check it
   // here.
-  assert(status == ZDNN_OK && "Failed to execute MatMul on NNPA");
+  assert(status == ZDNN_OK);
   return status;
 }
 
