@@ -121,7 +121,16 @@ void zDNNExtensionInit();
 // Helper Functions
 // -----------------------------------------------------------------------------
 
-[[noreturn]] inline void omUnreachable() { __builtin_unreachable(); }
+inline void omUnreachable() {
+// Uses compiler specific extensions if possible.
+// Even if no extension is used, undefined behavior is still raised by
+// an empty function body and the noreturn attribute.
+#if defined(_MSC_VER) && !defined(__clang__) // MSVC
+  __assume(false);
+#else // GCC, Clang
+  __builtin_unreachable();
+#endif
+}
 
 /**
  * \brief Get the unmapped shape (4D) of ztensor.
@@ -161,6 +170,16 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTile, const char *tag);
  * @return zdnn_status
  */
 zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID);
+
+/**
+ * \brief Free ztensor tile data.
+ *
+ * This will free descriptors and buffer in a ztensor for a specific tile.
+ *
+ * @param splitInfo information for splitting
+ * @param tileID the id of a tile in the range of [0, numOfTiles - 1]
+ */
+void freeTileData(const SplitInfo *splitInfo, uint32_t tileID);
 
 /**
  * \brief Free buffers related to a SplitInfo struct.

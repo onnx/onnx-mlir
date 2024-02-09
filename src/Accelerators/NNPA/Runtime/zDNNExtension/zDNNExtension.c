@@ -108,7 +108,6 @@ static void getMappedShape(const zdnn_ztensor *t, MappedShape *shape) {
 
 static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   // Mapping: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
-  uint32_t mappedNumOfElemsPerTile;
   switch (splitInfo->axis) {
   case E4:
     return splitInfo->numOfElemsPerTile;
@@ -121,6 +120,7 @@ static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   default:
     omUnreachable();
   }
+  return 0;
 }
 
 zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
@@ -250,8 +250,9 @@ zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
   return status;
 }
 
-static void freeTile(zdnn_ztensor *t, bool freeBuffer) {
-  if (freeBuffer)
+void freeTileData(const SplitInfo *splitInfo, uint32_t tileID) {
+  zdnn_ztensor *t = splitInfo->tiles + tileID;
+  if (!splitInfo->reuseFullBuffer)
     zdnn_free_ztensor_buffer(t);
   // We allocated one buffer for both two descriptors, so just one free is
   // enought.
@@ -266,7 +267,7 @@ static void freeTile(zdnn_ztensor *t, bool freeBuffer) {
 void copyDataForTile(
     const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
   zdnn_ztensor *tile = splitInfo->tiles + tileID;
-  zdnn_ztensor *full = splitInfo->fullZTensor;
+  const zdnn_ztensor *full = splitInfo->fullZTensor;
   uint32_t mappedNumOfElemsPerTile = getMappedNumOfElemsPerTile(splitInfo);
   uint32_t offset = tileID * mappedNumOfElemsPerTile;
   bool fullToTile = (direction == FULL_TO_TILES);
@@ -367,8 +368,6 @@ void copyDataForTile(
 
   // Splitting e4.
   if (splitInfo->axis == E4) {
-    uint64_t SD6 = (fullToTile ? shapeOfFull.d6 : shapeOfTile.d6);
-    uint64_t TD6 = (fullToTile ? shapeOfTile.d6 : shapeOfFull.d6);
     for (uint64_t d6 = 0; d6 < D6; ++d6) {
       uint64_t sd6 = (fullToTile ? (offset + d6) : d6);
       uint64_t td6 = (fullToTile ? d6 : (offset + d6));
@@ -392,15 +391,15 @@ static void copyDataForTileScalar(
   }
 
   zdnn_ztensor *tile = splitInfo->tiles + tileID;
-  zdnn_ztensor *full = splitInfo->fullZTensor;
+  const zdnn_ztensor *full = splitInfo->fullZTensor;
   uint32_t mappedNumOfElemsPerTile = getMappedNumOfElemsPerTile(splitInfo);
   uint32_t offset = tileID * mappedNumOfElemsPerTile;
   bool fullToTile = (direction == FULL_TO_TILES);
 
   // Buffers pointers.
-  uint64_t *src =
+  uint16_t *src =
       (fullToTile) ? (uint16_t *)full->buffer : (uint16_t *)tile->buffer;
-  uint64_t *dst =
+  uint16_t *dst =
       (fullToTile) ? (uint16_t *)tile->buffer : (uint16_t *)full->buffer;
   assert(src && "Source buffer is NULL");
   assert(dst && "Destination buffer is NULL");
@@ -539,8 +538,7 @@ void FreeSplitInfoData(SplitInfo *splitInfo) {
 
   // Free the ztensor buffer and descriptors.
   for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
-    zdnn_ztensor *t = splitInfo->tiles + i;
-    freeTile(t, !splitInfo->reuseFullBuffer);
+    freeTileData(splitInfo, i);
   }
   // Free tiles.
   if (splitInfo->tiles)
