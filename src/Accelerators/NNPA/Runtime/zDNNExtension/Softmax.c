@@ -48,8 +48,8 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = E4,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX, "Softmax X");
-  initSplitInfo(&splitInfoY, "Softmax Y");
+  initSplitInfo(&splitInfoX, true, "Softmax X");
+  initSplitInfo(&splitInfoY, true, "Softmax Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
@@ -86,8 +86,8 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  freeSplitInfoBuffer(&splitInfoX);
-  freeSplitInfoBuffer(&splitInfoY);
+  FreeSplitInfoData(&splitInfoX);
+  FreeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug)
     printf("[Softmax] split, %f, compute, %f, merge, %f (milliseconds)\n",

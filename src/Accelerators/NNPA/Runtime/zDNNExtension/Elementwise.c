@@ -73,8 +73,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = axis,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX, "UnaryElementwise X");
-  initSplitInfo(&splitInfoY, "UnaryElementwise Y");
+  initSplitInfo(&splitInfoX, true, "UnaryElementwise X");
+  initSplitInfo(&splitInfoY, true, "UnaryElementwise Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
@@ -121,8 +121,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  freeSplitInfoBuffer(&splitInfoX);
-  freeSplitInfoBuffer(&splitInfoY);
+  FreeSplitInfoData(&splitInfoX);
+  FreeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug)
     printf(
@@ -151,9 +151,9 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = axis,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoA, "BinaryElementwise A");
-  initSplitInfo(&splitInfoB, "BinaryElementwise B");
-  initSplitInfo(&splitInfoY, "BinaryElementwise Y");
+  initSplitInfo(&splitInfoA, true, "BinaryElementwise A");
+  initSplitInfo(&splitInfoB, true, "BinaryElementwise B");
+  initSplitInfo(&splitInfoY, true, "BinaryElementwise Y");
 
   // Copy data from inputs into tiles.
   if (OMZTensorSplitDebug)
@@ -204,9 +204,9 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  freeSplitInfoBuffer(&splitInfoA);
-  freeSplitInfoBuffer(&splitInfoB);
-  freeSplitInfoBuffer(&splitInfoY);
+  FreeSplitInfoData(&splitInfoA);
+  FreeSplitInfoData(&splitInfoB);
+  FreeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug)
     printf("[BinaryElementwise] split, %f, compute, %f, merge, %f "

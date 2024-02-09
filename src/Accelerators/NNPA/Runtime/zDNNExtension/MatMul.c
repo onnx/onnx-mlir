@@ -65,10 +65,10 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       .axis = E2,
       .numOfElemsPerTile = OMZTensorSplitSize};
 
-  initSplitInfo(&splitInfoA, "MatMul A");
-  initSplitInfo(&splitInfoB, "MatMul B");
-  initSplitInfo(&splitInfoC, "MatMul C");
-  initSplitInfo(&splitInfoY, "MatMul Y");
+  initSplitInfo(&splitInfoA, true, "MatMul A");
+  initSplitInfo(&splitInfoB, true, "MatMul B");
+  initSplitInfo(&splitInfoC, true, "MatMul C");
+  initSplitInfo(&splitInfoY, true, "MatMul Y");
 
   // Copy data from A, B, C into their tiles.
   copyData(&splitInfoA, FULL_TO_TILES);
@@ -84,7 +84,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     SplitInfo splitInfoYB = {.fullZTensor = zyTensor,
         .axis = E1,
         .numOfElemsPerTile = OMZTensorSplitSize};
-    initSplitInfo(&splitInfoYB, "MatMul YB");
+    initSplitInfo(&splitInfoYB, true, "MatMul YB");
     // Iterate over the tiles along the second dim of B.
     for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
       zdnn_ztensor *zbTensor = splitInfoB.tiles + j;
@@ -95,17 +95,17 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       assert(status == ZDNN_OK);
     }
     copyData(&splitInfoYB, TILES_TO_FULL);
-    freeSplitInfoBuffer(&splitInfoYB);
+    FreeSplitInfoData(&splitInfoYB);
   }
 
   // Copy data from the tiles back to the full ztensor.
   copyData(&splitInfoY, TILES_TO_FULL);
 
   // Free temporary buffers.
-  freeSplitInfoBuffer(&splitInfoA);
-  freeSplitInfoBuffer(&splitInfoB);
-  freeSplitInfoBuffer(&splitInfoC);
-  freeSplitInfoBuffer(&splitInfoY);
+  FreeSplitInfoData(&splitInfoA);
+  FreeSplitInfoData(&splitInfoB);
+  FreeSplitInfoData(&splitInfoC);
+  FreeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug) {
     end_time = clock();

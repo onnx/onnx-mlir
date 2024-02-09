@@ -111,28 +111,19 @@ static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   uint32_t mappedNumOfElemsPerTile;
   switch (splitInfo->axis) {
   case E4:
-    mappedNumOfElemsPerTile = splitInfo->numOfElemsPerTile;
-    break;
+    return splitInfo->numOfElemsPerTile;
   case E3:
-    mappedNumOfElemsPerTile = splitInfo->numOfElemsPerTile;
-    break;
+    return splitInfo->numOfElemsPerTile;
   case E2:
-    mappedNumOfElemsPerTile =
-        CEIL(splitInfo->numOfElemsPerTile, AIU_STICKS_PER_PAGE);
-    break;
+    return CEIL(splitInfo->numOfElemsPerTile, AIU_STICKS_PER_PAGE);
   case E1:
-    mappedNumOfElemsPerTile =
-        CEIL(splitInfo->numOfElemsPerTile, AIU_2BYTE_CELLS_PER_STICK);
-    break;
+    return CEIL(splitInfo->numOfElemsPerTile, AIU_2BYTE_CELLS_PER_STICK);
   default:
-    mappedNumOfElemsPerTile = splitInfo->numOfElemsPerTile;
-    break;
+    omUnreachable();
   }
-  return mappedNumOfElemsPerTile;
 }
 
-static zdnn_status initTileWithAlloc(
-    const SplitInfo *splitInfo, uint32_t tileID) {
+zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
   const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
 
   SplitAxis axis = splitInfo->axis;
@@ -224,7 +215,7 @@ static zdnn_status initTileWithAlloc(
       preTransDesc->dim3 = numOfElemsPerTile;
     break;
   default:
-    break;
+    omUnreachable();
   }
 
   // Generate a transformed desc.
@@ -272,7 +263,7 @@ static void freeTile(zdnn_ztensor *t, bool freeBuffer) {
 /// Each tile will read/write to different part of the full ztensor buffer.
 /// There is no data conflict if calling this function for different tiles at
 /// the same time.
-static void copyDataForTile(
+void copyDataForTile(
     const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
   zdnn_ztensor *tile = splitInfo->tiles + tileID;
   zdnn_ztensor *full = splitInfo->fullZTensor;
@@ -390,6 +381,9 @@ static void copyDataForTile(
   }
 }
 
+/// This function does the same data copy as copyDataForTile but copies elements
+/// one-by-one. It is just used to check the correctness of copyDataForTile or
+/// for debugging purpose.
 static void copyDataForTileScalar(
     const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction) {
   if (splitInfo->axis != E2) {
@@ -456,7 +450,14 @@ static void copyDataForTileScalar(
   return;
 }
 
-bool initSplitInfo(SplitInfo *splitInfo, const char *tag) {
+bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
+  // Check required information.
+  assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
+             splitInfo->axis == E3 || splitInfo->axis == E4) &&
+         "Invalid split axis");
+  assert(splitInfo->fullZTensor && "The full ztensor is null");
+  assert(splitInfo->numOfElemsPerTile && "numOfElemsPerTile was not set");
+
   // fullZTensor.
   const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
   zdnn_data_layouts layout = fullZTensor->transformed_desc->layout;
@@ -519,9 +520,11 @@ bool initSplitInfo(SplitInfo *splitInfo, const char *tag) {
   splitInfo->tiles = malloc(splitInfo->numOfTiles * sizeof(zdnn_ztensor));
   assert(splitInfo->tiles && "Failed to allocate tile ztensors");
 
-  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
-    zdnn_status status = initTileWithAlloc(splitInfo, i);
-    assert(status == ZDNN_OK && "Failed to initialize a tile");
+  if (initTiles) {
+    for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+      zdnn_status status = initTileWithAlloc(splitInfo, i);
+      assert(status == ZDNN_OK && "Failed to initialize a tile");
+    }
   }
 
   if (OMZTensorSplitDebug)
@@ -530,7 +533,7 @@ bool initSplitInfo(SplitInfo *splitInfo, const char *tag) {
   return true;
 }
 
-void freeSplitInfoBuffer(SplitInfo *splitInfo) {
+void FreeSplitInfoData(SplitInfo *splitInfo) {
   if (splitInfo->reuseFullZTensor)
     return;
 
