@@ -121,6 +121,8 @@ void zDNNExtensionInit();
 // Helper Functions
 // -----------------------------------------------------------------------------
 
+[[noreturn]] inline void omUnreachable() { __builtin_unreachable(); }
+
 /**
  * \brief Get the unmapped shape (4D) of ztensor.
  *
@@ -135,13 +137,30 @@ void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape);
  * \brief Initialize a SplitInfo struct.
  *
  * This will initialize values in SplitInfo and allocate buffers.
- * Make sure to call freeSplitInfoBuffer to free buffers.
+ *
+ * Before calling this function, splitInfo requires fullZTensor, axis, and
+ * numOfElemsPerTile to be defined as they are effectively input parameters of
+ * this function.
+ *
+ * Make sure to call FreeSplitInfoData to free buffers.
  *
  * @param splitInfo information for splitting
+ * @param initTiles whether initialize ztensors for tiles or not.
  * @param tag a string to use when printing debug info
  * @return true if the ztensor is splitable. Otherwise, false
  */
-bool initSplitInfo(SplitInfo *splitInfo, const char *tag);
+bool initSplitInfo(SplitInfo *splitInfo, bool initTile, const char *tag);
+
+/**
+ * \brief Initialize a SplitInfo struct.
+ *
+ * This will initialize a ztensor for a specific tile.
+ *
+ * @param splitInfo information for splitting
+ * @param tileID the id of a tile in the range of [0, numOfTiles - 1]
+ * @return zdnn_status
+ */
+zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID);
 
 /**
  * \brief Free buffers related to a SplitInfo struct.
@@ -150,7 +169,7 @@ bool initSplitInfo(SplitInfo *splitInfo, const char *tag);
  *
  * @param splitInfo split information
  */
-void freeSplitInfoBuffer(SplitInfo *splitInfo);
+void FreeSplitInfoData(SplitInfo *splitInfo);
 
 /**
  * \brief Print SplitInfo.
@@ -167,6 +186,17 @@ void printSplitInfo(const SplitInfo *splitInfo, const char *tag);
  * versa.
  */
 void copyData(const SplitInfo *splitInfo, CopyDirection direction);
+
+/**
+ * \brief Copy data between the full ztensor and a specific tile.
+ *
+ * @param splitInfo information for splitting
+ * @param tileID the id of a tile in the range of [0, numOfTiles - 1]
+ * @param direction whether copy data from the full ztensor to tiles or vice
+ * versa.
+ */
+void copyDataForTile(
+    const SplitInfo *splitInfo, uint32_t tileID, CopyDirection direction);
 
 // -----------------------------------------------------------------------------
 // Extension Functions
