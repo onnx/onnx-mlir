@@ -3,11 +3,11 @@
 
 # Supported ONNX Operation for Target *cpu*.
 
-Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
+Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
 * **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator. 
-   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 19.
+   * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 20.
 
 
 | Op |Supported Opsets (inclusive) |Limitations |Notes |
@@ -37,7 +37,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **BitwiseXor** |18 - * | | |
 | **BlackmanWindow** |none | | | |
 | **Cast** |6 - 18 |Cast only between float and double types. Only ppc64le and MacOS platforms support float16. | |
-| **CastLike** |none | | | |
+| **CastLike** |19 - * |CastLike only between float and double types. Only ppc64le and MacOS platforms support float16. | |
 | **CastMap** |none | | | |
 | **CategoryMapper** |none | | | |
 | **Ceil** |6 - * | | |
@@ -88,7 +88,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **Greater** |7 - * | | |
 | **GreaterOrEqual** |12 - * | | |
 | **GridSample** |none | | | |
-| **GroupNormalization** |none | | | |
+| **GroupNormalization** |18 - * | | |
 | **HammingWindow** |none | | | |
 | **HannWindow** |none | | | |
 | **HardSigmoid** |6 - * | | |
