@@ -64,7 +64,6 @@ UNSUPPORTED_OPS(ONNXTreeEnsembleClassifierOp)
 UNSUPPORTED_OPS(ONNXTreeEnsembleRegressorOp)
 UNSUPPORTED_OPS(ONNXUpsampleV7Op)
 UNSUPPORTED_OPS(ONNXZipMapOp)
-
 // These ops were decomposed into supported ops during Decompose pass.
 UNSUPPORTED_OPS(ONNXCastLikeOp)
 UNSUPPORTED_OPS(ONNXClipV11Op)

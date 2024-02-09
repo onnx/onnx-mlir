@@ -939,7 +939,7 @@ public:
                     .cast(input, saturate, TypeAttr::get(outputType));
     rewriter.replaceOp(castLikeOp, res);
     return success();
-  };
+  }
 };
 
 struct DecomposeONNXToONNXPass
