@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseUnary.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -156,13 +156,17 @@ LogicalResult ONNXCastOp::inferShapes(
 //===----------------------------------------------------------------------===//
 // CastLike
 //===----------------------------------------------------------------------===//
+// CastLike requires two inputs which are "input" and "target_type". The second
+// input tensor (target_type) is used to obtain the element type of the overall
+// output as shown below
 
 LogicalResult ONNXCastLikeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = getElementType(getTargetType().getType());
+  Type elementType =
+      getTargetType().getType().cast<ShapedType>().getElementType();
   ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -332,6 +336,16 @@ LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation(),
       this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// IsNaN
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsNaNOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  return inferShapeForUnaryOps(getOperation(), i1Type);
 }
 
 //===----------------------------------------------------------------------===//

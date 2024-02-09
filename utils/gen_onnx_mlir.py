@@ -330,6 +330,7 @@ OpsWithCanonicalizer = [
     "Add",
     "And",
     "Cast",
+    "CastLike",
     "Constant",
     "DepthToSpace",
     "Div",
