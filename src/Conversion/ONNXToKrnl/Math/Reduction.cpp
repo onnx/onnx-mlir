@@ -736,7 +736,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnlIE.getShapeAsSymbols(alloc, ubs1);
     if (enableParallel) {
       create.krnl.parallel(loop1Def[0]);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
+      onnxToKrnlParallelReport(op, true, 0, lbs1[0], ubs1[0], "reduction");
     }
     create.krnl.iterateIE(loop1Def, loop1Def, lbs1, ubs1,
         [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
@@ -752,10 +752,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Value trueVal = create.math.constant(rewriter.getIntegerType(1), 1);
     // TODO Temporary disable the 2nd loop parallelism, since its outermost
     // loop could be a reduction loop, where parallelism would not be safe.
-    // if (enableParallel) {
-    //   create.krnl.parallel(loop2Def[0]);
-    //   LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
-    // }
     create.krnl.iterateIE(loop2Def, loop2Def, lbs2, ubs2,
         [&](KrnlBuilder &kb, ValueRange loopInd) {
           MultiDialectBuilder<KrnlBuilder, MathBuilder> create(kb);
@@ -794,7 +790,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         create.krnl.parallel(loop3Def[0]);
         onnxToKrnlParallelReport(
             op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
       }
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
           [&](KrnlBuilder &kb, ValueRange loopInd) {
@@ -899,7 +894,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       create.krnl.parallel(outLoopDef[0]);
       onnxToKrnlParallelReport(
           op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
     }
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange outLoopInd) {
@@ -1033,7 +1027,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       create.krnl.parallel(optimizedOutLoopDef[0]);
       onnxToKrnlParallelReport(
           op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: " << op->getName() << "\n");
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange blockedOutLoopInd) {

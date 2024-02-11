@@ -4,7 +4,7 @@
 
 //===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -63,32 +63,6 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
   for (int i = N; i <= M; ++i)
     vals.emplace_back(i);
   return rewriter.getI64TensorAttr(vals);
-}
-
-Value normalizeConstantOp(
-    PatternRewriter &rewriter, Value output, Attribute attr) {
-  ShapedType outputType = output.getType().cast<ShapedType>();
-  Type elementType = outputType.getElementType();
-
-  DenseElementsAttr denseAttr;
-  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
-    int64_t dim = arrayAttr.size();
-    auto tensorType = RankedTensorType::get({dim}, elementType);
-    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-  } else {
-    auto tensorType = RankedTensorType::get({}, elementType);
-    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
-    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
-    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
-    } else {
-      llvm_unreachable("unexpected Attribute");
-    }
-  }
-  OnnxBuilder createONNX(rewriter, output.getLoc());
-  return createONNX.constant(denseAttr);
 }
 
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
@@ -355,6 +329,41 @@ public:
     });
     return success();
   }
+};
+
+// =============================================================================
+// Rewrite pattern for CastLikeOp to CastOp (not handled in Rewrite.td).
+// =============================================================================
+// A pattern to turn
+//   `CastLikeOp(input, target_type) attribute -> saturate=1`
+// into
+//   `CastOp(input) attribute -> saturate=1`
+// we will force all CastLikeOps to become CastOps because
+// they are not optimized for constant propagation.
+class ReplaceCastLikeToCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
+public:
+  using OpRewritePattern<ONNXCastLikeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXCastLikeOp castLikeOp, PatternRewriter &rewriter) const override {
+    Operation *op = castLikeOp.getOperation();
+    Location loc = castLikeOp.getLoc();
+
+    Value input = op->getOperand(0);
+
+    // The output type will be the same as the target_type or the second input
+    Type outputType = castLikeOp.getTargetType()
+                          .getType()
+                          .cast<ShapedType>()
+                          .getElementType();
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value res;
+    res = create.onnx.cast(input, outputType);
+    rewriter.replaceOp(castLikeOp, res);
+    return success();
+  };
 };
 
 // A pattern to turn
@@ -1546,16 +1555,15 @@ void ONNXCastOp::getCanonicalizationPatterns(
   // result.insert<FuseCastCastPattern>(context);
 }
 
+/// on the ONNXCastLikeOp.
+void ONNXCastLikeOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<ReplaceCastLikeToCastPattern>(context);
+}
+
 /// on the ONNXConstantOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ConstantOpNormalizationPattern1>(context);
-  results.insert<ConstantOpNormalizationPattern2>(context);
-  results.insert<ConstantOpNormalizationPattern3>(context);
-  results.insert<ConstantOpNormalizationPattern4>(context);
-  results.insert<ConstantOpNormalizationPattern5>(context);
-  results.insert<ConstantOpNormalizationPattern6>(context);
-}
+    RewritePatternSet &results, MLIRContext *context) {}
 
 /// on the ONNXDepthToSpaceOp.
 void ONNXDepthToSpaceOp::getCanonicalizationPatterns(

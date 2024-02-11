@@ -392,8 +392,8 @@ void populateLoweringONNXUnsqueezeV11OpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
-void populateLoweringONNXGatherOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXGatherElementsOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherNDOpPattern(
@@ -590,8 +590,8 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // minSize. Runtime dimensions are assumed to satisfy the size requirement by
 // definition. If found one, it is parDim and the function returns true.
 bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
-    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim, int64_t lastDim,
-    int64_t &parDim, int64_t minSize = 1);
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim /*inclusive*/,
+    int64_t lastDim /*exclusive*/, int64_t &parDim, int64_t minSize = 1);
 
 //===----------------------------------------------------------------------===//
 // Support functions for reporting.
