@@ -1618,8 +1618,14 @@ struct ZHighToZLowDataConversionLowering
 
     // SIMD info.
     // Fixed VL for the conversion instruction: 8 elements per instruction call.
+    // Because the VL of the zlow.conversions are not "virtualized" in lengths,
+    // we manually unroll the loop containing the SIMD operations manually.
+    // Experiments on a 1024x1024 tensors shows best results with an unrolling
+    // of 8 SIMD vectors.
     int64_t VL = 8;
     int64_t VLHalf = VL / 2;
+    int64_t unrollSIMD = 8;             // Manually unroll the SIMD loop.
+    int64_t unrollVL = unrollSIMD * VL; // Total numbers of values unrolled.
 
     // Convert the output type to MemRef.
     Type outputTensorType = convertOp.getResult().getType();
@@ -1629,7 +1635,7 @@ struct ZHighToZLowDataConversionLowering
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
 
-    // Types.
+    // Types use the SIMD unrolling VL and VLHalf.
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
     VectorType vecF16Type = VectorType::get({VL}, f16Type);
@@ -1642,10 +1648,11 @@ struct ZHighToZLowDataConversionLowering
     IndexExprScope allocScope(create.vec, shapeHelper.getScope());
     getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
 
-    // Alloc memory with padding for SIMD.
+    // Alloc memory with padding for SIMD. Padding and loop unrolling use
+    // unrollVL.
     MemRefType outputMemRefType = convertedType.cast<MemRefType>();
     Value alloc = create.mem.alignedAllocWithSimdPadding(
-        outputMemRefType, outputDims, VL, alignment);
+        outputMemRefType, outputDims, unrollVL, alignment);
 
     // Flatten the input to 1D.
     int64_t collapsedInnermostLoops = rank;
@@ -1659,9 +1666,9 @@ struct ZHighToZLowDataConversionLowering
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
 
-    // Create loop iteration (flattened to 1D) and block it by VL.
+    // Create loop iteration (flattened to 1D) and block it by unrollVL.
     ValueRange loopDef = create.krnl.defineLoops(1);
-    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], unrollVL);
     SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
 
     if (enableParallel) {
@@ -1682,31 +1689,35 @@ struct ZHighToZLowDataConversionLowering
     create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},
         flattenedOutputDims, [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
-          Value baseIdx = loopInd[0];
-          Value baseIdxNext =
-              create.math.add(baseIdx, create.math.constantIndex(VLHalf));
-          if (fromF32) {
-            // F32 -> DLF16
-            // Load VL f32 values from the input into two vectors each
-            // with VLHalf f32 values.
-            Value vecF32H = create.vec.load(vecF32Type, flatInput, {baseIdx});
-            Value vecF32L =
-                create.vec.load(vecF32Type, flatInput, {baseIdxNext});
-            Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                loc, vecF32H, vecF32L);
-            // Store VL f16 values back to the output.
-            create.vec.store(vecF16, flatOutput, {baseIdx});
-          } else {
-            // DLF16 -> F32
-            // Load VL f16 values from the input into a register.
-            Value vecF16 = create.vec.load(vecF16Type, flatInput, {baseIdx});
-            auto convertOp =
-                rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
-            Value vecF32H = convertOp.getResult(0);
-            Value vecF32L = convertOp.getResult(1);
-            // Store f32 values back to the output.
-            create.vec.store(vecF32H, flatOutput, {baseIdx});
-            create.vec.store(vecF32L, flatOutput, {baseIdxNext});
+          // Manually unrolled loop, add VL offset at each iterations.
+          for (int64_t u = 0; u < unrollSIMD; ++u) {
+            Value baseIdx =
+                create.math.add(loopInd[0], create.math.constantIndex(u * VL));
+            Value baseIdxNext =
+                create.math.add(baseIdx, create.math.constantIndex(VLHalf));
+            if (fromF32) {
+              // F32 -> DLF16
+              // Load VL f32 values from the input into two vectors each
+              // with VLHalf f32 values.
+              Value vecF32H = create.vec.load(vecF32Type, flatInput, {baseIdx});
+              Value vecF32L =
+                  create.vec.load(vecF32Type, flatInput, {baseIdxNext});
+              Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                  loc, vecF32H, vecF32L);
+              // Store VL f16 values back to the output.
+              create.vec.store(vecF16, flatOutput, {baseIdx});
+            } else {
+              // DLF16 -> F32
+              // Load VL f16 values from the input into a register.
+              Value vecF16 = create.vec.load(vecF16Type, flatInput, {baseIdx});
+              auto convertOp =
+                  rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
+              Value vecF32H = convertOp.getResult(0);
+              Value vecF32L = convertOp.getResult(1);
+              // Store f32 values back to the output.
+              create.vec.store(vecF32H, flatOutput, {baseIdx});
+              create.vec.store(vecF32L, flatOutput, {baseIdxNext});
+            }
           }
         });
 
