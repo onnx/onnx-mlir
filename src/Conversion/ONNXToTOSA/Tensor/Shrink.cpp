@@ -4,7 +4,7 @@
 
 //===---------------- Shrink.cpp - Shrink Op-------------------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
