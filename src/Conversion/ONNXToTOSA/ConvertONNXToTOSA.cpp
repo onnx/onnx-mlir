@@ -45,6 +45,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
   populateLoweringONNXResizeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXShrinkOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   populateLoweringONNXConstOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
   populateLoweringONNXPadOpToTOSAPattern(target, patterns, typeConverter, ctx);
