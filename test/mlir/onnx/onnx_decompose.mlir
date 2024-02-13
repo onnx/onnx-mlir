@@ -589,3 +589,13 @@ func.func @test_constant_3() -> tensor<3xi64> {
 }
 
 // -----
+
+func.func @test_castlike(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf16>) -> tensor<*xf16> {
+  %0 = "onnx.CastLike"(%arg0, %arg1) {saturate = 1 : si64} : (tensor<*xf32>, tensor<*xf16>) -> tensor<*xf16> 
+  "onnx.Return"(%0) : (tensor<*xf16>) -> ()
+
+  // CHECK-LABEL: test_castlike
+  // CHECK: [[RES:%.+]] = "onnx.Cast"(%arg0) {saturate = 1 : si64, to = f16} : (tensor<*xf32>) -> tensor<*xf16> 
+  // CHECK: onnx.Return [[RES]] : tensor<*xf16>
+}
+

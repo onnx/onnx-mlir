@@ -896,7 +896,6 @@ def ONNXCastOp:ONNX_Op<"Cast",
 
 def ONNXCastLikeOp:ONNX_Op<"CastLike",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
-  let hasCanonicalizer = 1;
   let summary = "ONNX CastLike operation";
   let description = [{
   The operator casts the elements of a given input tensor (the first input) to
