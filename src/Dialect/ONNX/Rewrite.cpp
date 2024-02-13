@@ -331,41 +331,6 @@ public:
   }
 };
 
-// =============================================================================
-// Rewrite pattern for CastLikeOp to CastOp (not handled in Rewrite.td).
-// =============================================================================
-// A pattern to turn
-//   `CastLikeOp(input, target_type) attribute -> saturate=1`
-// into
-//   `CastOp(input) attribute -> saturate=1`
-// we will force all CastLikeOps to become CastOps because
-// they are not optimized for constant propagation.
-class ReplaceCastLikeToCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
-public:
-  using OpRewritePattern<ONNXCastLikeOp>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(
-      ONNXCastLikeOp castLikeOp, PatternRewriter &rewriter) const override {
-    Operation *op = castLikeOp.getOperation();
-    Location loc = castLikeOp.getLoc();
-
-    Value input = op->getOperand(0);
-
-    // The output type will be the same as the target_type or the second input
-    Type outputType = castLikeOp.getTargetType()
-                          .getType()
-                          .cast<ShapedType>()
-                          .getElementType();
-
-    // Replace
-    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-    Value res;
-    res = create.onnx.cast(input, outputType);
-    rewriter.replaceOp(castLikeOp, res);
-    return success();
-  };
-};
-
 // A pattern to turn
 //   `BinaryOp(Constant_X, ExpandOp(Constant_Y))`
 // into
@@ -1553,12 +1518,6 @@ void ONNXCastOp::getCanonicalizationPatterns(
   result.insert<CastEliminationPattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
-}
-
-/// on the ONNXCastLikeOp.
-void ONNXCastLikeOp::getCanonicalizationPatterns(
-    RewritePatternSet &result, MLIRContext *context) {
-  result.insert<ReplaceCastLikeToCastPattern>(context);
 }
 
 /// on the ONNXConstantOp.
