@@ -217,11 +217,11 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
   static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
 };
 
-// Here we will manually calculate the modulo and leave 
-// fmod to the default value of 0. 
+// Here we will manually calculate the modulo and leave
+// fmod to the default value of 0.
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs - (lhs/rhs) * rhs; }
+  static T eval(T lhs, T rhs) { return lhs - (lhs / rhs) * rhs; }
 };
 
 template <typename T>
