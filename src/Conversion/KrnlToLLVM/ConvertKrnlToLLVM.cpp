@@ -478,6 +478,12 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     if (isReturnedValue)
       return WalkResult::advance();
 
+    // Ignore constants of bool.
+    if (llvm::cast<MemRefType>(op->getResult(0).getType())
+            .getElementType()
+            .isInteger(1))
+      return WalkResult::advance();
+
     // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
     ArrayRef<char> rawData = getRawData(op);
     if (rawData.empty())
