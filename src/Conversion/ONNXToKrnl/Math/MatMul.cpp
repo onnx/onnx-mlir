@@ -75,9 +75,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       create.krnl.parallel(outerLoops[0]);
       onnxToKrnlParallelReport(
           op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul generic\n");
     } else {
-      LLVM_DEBUG(llvm::dbgs() << "[Sequential Op]: onnx.MatMul generic\n");
+      onnxToKrnlParallelReport(op, false, -1, -1, "matmul generic");
     }
 
     // Non-reduction loop iterations: output-rank.
@@ -320,9 +319,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       create.krnl.parallel(ii1);
       onnxToKrnlParallelReport(
           op, true, 0, LiteralIndexExpr(0), dimI, "matmul no broadcast");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul no broadcast\n");
     } else {
-      LLVM_DEBUG(llvm::dbgs() << "[Sequential Op]: onnx.MatMul no broadcast\n");
+      onnxToKrnlParallelReport(op, false, -1, -1, "matmul no broadcast");
     }
     create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
         {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -394,9 +392,6 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       create.krnl.parallel(broadcastLoop[0]);
       onnxToKrnlParallelReport(op, true, 0, LiteralIndexExpr(0),
           shapeHelper.getOutputDims()[0], "matmul broadcast");
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul broadcast\n");
-    } else {
-      LLVM_DEBUG(llvm::dbgs() << "[Sequential Op]: onnx.MatMul broadcast\n");
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
