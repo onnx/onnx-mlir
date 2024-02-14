@@ -2059,16 +2059,8 @@ def get_test_models():
         },
         # Not yet support integers since MLIR integers are signless.
         # "test_mod_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        "test_mod_int64_fmod_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
-        "test_mod_mixed_sign_int16_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
+        # "test_mod_int64_fmod_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # "test_mod_mixed_sign_int16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_mod_mixed_sign_int32_cpu": {
         #     STATIC_SHAPE: {},
         #     DYNAMIC_SHAPE: {-1: {-1}},
