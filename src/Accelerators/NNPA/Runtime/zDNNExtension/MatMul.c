@@ -113,7 +113,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
           zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
       assert(status == ZDNN_OK);
       if (OMZTensorSplitDebug) {
-        printf("thread [%u, %u] is on cpu %d\n", i,j, sched_getcpu());
+        printf("thread [%u, %u] is on cpu %d\n", i, j, sched_getcpu());
       }
     }
     copyData(&splitInfoYB, TILES_TO_FULL);
