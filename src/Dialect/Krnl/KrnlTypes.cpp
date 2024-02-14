@@ -38,8 +38,7 @@ void customizeTypeConverter(LLVMTypeConverter &typeConverter) {
 
 #if 1
   typeConverter.addConversion([&](krnl::NoneType type) -> Type {
-    return typeConverter.convertType(MemRefType::get({0},
-        mlir::IntegerType::get(type.getContext(), 64)));
+    return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
 #endif
 }

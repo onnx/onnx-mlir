@@ -85,6 +85,11 @@ public:
 
   // Get a unique instance of None type.
   static NoneType get(mlir::MLIRContext *context) { return Base::get(context); }
+
+  // Return the LLVM dialect type for a string with unknown value.
+  Type getLLVMType(mlir::MLIRContext *context) const {
+    return mlir::IntegerType::get(context, 64);
+  }
 };
 #endif
 
