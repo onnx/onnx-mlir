@@ -58,103 +58,81 @@ extern int sched_getcpu();
 static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output, bool isBcast) {
-  // Verify that e4, e3, e1 do not exceed the maximum dimension size. Thus, we
-  // will split e2 safely.
-  OrigShape origShapeOfA;
-  getOrigShape(inputA, &origShapeOfA);
-  uint32_t maxDimSize = zdnn_get_nnpa_max_dim_idx_size();
-  if ((origShapeOfA.e4 > maxDimSize) || (origShapeOfA.e3 > maxDimSize) ||
-      (origShapeOfA.e1 > maxDimSize)) {
-    printf("[MatMul] The 1st tensor dimension exceeds maximum dimension index "
-           "size (MDIS) of %d: e4 = %d, e3 = %d, e1 = %d.\n",
-        maxDimSize, origShapeOfA.e4, origShapeOfA.e3, origShapeOfA.e1);
-    return ZDNN_EXCEEDS_MDIS;
-  }
-
-  // For a MatMul of (M,N)*(N,P),
-  // We split M that is e2 in (e4, e3, e2, e1).
-  SplitInfo splitInfoA = {
-      .origZTensor = inputA, .axis = 2, .chunkSize = OMZTensorSplitSize};
-  SplitInfo splitInfoY = {
-      .origZTensor = output, .axis = 2, .chunkSize = OMZTensorSplitSize};
-
-  double splitTime = 0.;
-  double mmTime = 0.;
-  double mergeTime = 0.;
+  double totalTime = 0.;
   struct timeval start_t, end_t;
-  float elapse;
 
-  // Dim is small or ztensor split is disabled.
-  if (!OMZTensorSplitEnabled || !initSplitInfo(&splitInfoA) ||
-      !initSplitInfo(&splitInfoY)) {
-    if (OMZTensorSplitDebug)
-      printf("[MatMul] Not split zTensor ...\n");
-    if (OMZTensorSplitDebug)
-      gettimeofday(&start_t, NULL);
-    zdnn_status status =
-        call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
-    assert(status == ZDNN_OK && ("call_zdnn_matmul_op failed"));
-    if (OMZTensorSplitDebug) {
-      gettimeofday(&end_t, NULL);
-      elapse = get_elapse(start_t, end_t);
-      printf("[MatMul]  mm, %f, (milliseconds)\n", elapse);
+  // For a MatMul of A(M,N)*B(N,P)+C(P),
+  // We split M that is e2 in (e4, e3, e2, e1), and P that is e1.
+  SplitInfo splitInfoA = {.fullZTensor = inputA,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoB = {.fullZTensor = inputB,
+      .axis = E1,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoC = {.fullZTensor = inputC,
+      .axis = E1,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoY = {.fullZTensor = output,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&start_t, NULL);
+  }
+
+  initSplitInfo(&splitInfoA, true, "MatMul A");
+  initSplitInfo(&splitInfoB, true, "MatMul B");
+  initSplitInfo(&splitInfoC, true, "MatMul C");
+  initSplitInfo(&splitInfoY, true, "MatMul Y");
+
+  // Copy data from A, B, C into their tiles.
+  copyData(&splitInfoA, FULL_TO_TILES);
+  copyData(&splitInfoB, FULL_TO_TILES);
+  copyData(&splitInfoC, FULL_TO_TILES);
+
+  // Call zdnn_matmul_op on each tile.
+  // Iterate over the tiles along the first dim of A.
+#pragma omp parallel for
+  for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
+    zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
+    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
+
+    SplitInfo splitInfoYB = {.fullZTensor = zyTensor,
+        .axis = E1,
+        .numOfElemsPerTile = OMZTensorSplitSize};
+    initSplitInfo(&splitInfoYB, true, "MatMul YB");
+    // Iterate over the tiles along the second dim of B.
+#pragma omp parallel for
+    for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
+      zdnn_ztensor *zbTensor = splitInfoB.tiles + j;
+      zdnn_ztensor *zcTensor = splitInfoC.tiles + j;
+      zdnn_ztensor *zybTensor = splitInfoYB.tiles + j;
+      zdnn_status status = call_zdnn_matmul_op(
+          zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
+      assert(status == ZDNN_OK);
+      if (OMZTensorSplitDebug) {
+	printf("thread [%u, %u] is on cpu %d\n", i,j, sched_getcpu());
+      }
+
     }
-    return status;
+    copyData(&splitInfoYB, TILES_TO_FULL);
+    FreeSplitInfoData(&splitInfoYB);
   }
 
-  // Split input A.
-  if (OMZTensorSplitDebug)
-    printf("[MatMul] Split the 1st ztensor along e2 into %d chunks of %d "
-           "elements \n",
-        splitInfoA.numOfChunks, splitInfoA.chunkSize);
+  // Copy data from the tiles back to the full ztensor.
+  copyData(&splitInfoY, TILES_TO_FULL);
 
-  // Split input A into chunks.
-  if (OMZTensorSplitDebug)
-    gettimeofday(&start_t, NULL);
-  splitZTensor(&splitInfoA, /*copyData=*/true);
-  splitZTensor(&splitInfoY, /*copyData=*/false);
+  // Free temporary buffers.
+  FreeSplitInfoData(&splitInfoA);
+  FreeSplitInfoData(&splitInfoB);
+  FreeSplitInfoData(&splitInfoC);
+  FreeSplitInfoData(&splitInfoY);
+
   if (OMZTensorSplitDebug) {
     gettimeofday(&end_t, NULL);
-    splitTime = get_elapse(start_t, end_t);
+    totalTime = get_elapse(start_t, end_t);
+    printf("[MatMul] total time, %f (milliseconds)\n", totalTime);
   }
-
-  // Call zdnn_matmul_op on each chunk.
-  if (OMZTensorSplitDebug)
-    gettimeofday(&start_t, NULL);
-
-    // Parallelize the mm part over each chunk
-    // Thread binding is done at runtime with OMP_PLACES and OMP_PROC_BIND
-#pragma omp parallel for proc_bind(spread)
-  for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
-    zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
-    zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
-    zdnn_status status = call_zdnn_matmul_op(
-        zaTensor, inputB, inputC, opType, zyTensor, isBcast);
-    assert(status == ZDNN_OK);
-    if (OMZTensorSplitDebug) {
-      printf("====omp thread %u) is on cpu %d=======\n", i, sched_getcpu());
-    }
-  }
-  if (OMZTensorSplitDebug) {
-    gettimeofday(&end_t, NULL);
-    mmTime = get_elapse(start_t, end_t);
-  }
-
-  // Merging the chunks into the output.
-  if (OMZTensorSplitDebug)
-    gettimeofday(&start_t, NULL);
-  mergeZTensors(&splitInfoY);
-  if (OMZTensorSplitDebug) {
-    gettimeofday(&end_t, NULL);
-    mergeTime = get_elapse(start_t, end_t);
-  }
-
-  freeSplitInfoBuffer(&splitInfoA);
-  freeSplitInfoBuffer(&splitInfoY);
-
-  if (OMZTensorSplitDebug)
-    printf("[MatMul] split, %f, mm, %f, merge, %f (milliseconds)\n", splitTime,
-        mmTime, mergeTime);
 
   return ZDNN_OK;
 }
