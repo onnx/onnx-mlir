@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <omp.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,6 +93,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // Call zdnn_matmul_op on each tile.
   // Iterate over the tiles along the first dim of A.
+  omp_set_nested(true);
 #pragma omp parallel for
   for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
     zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
@@ -111,9 +113,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
           zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
       assert(status == ZDNN_OK);
       if (OMZTensorSplitDebug) {
-	printf("thread [%u, %u] is on cpu %d\n", i,j, sched_getcpu());
+        printf("thread [%u, %u] is on cpu %d\n", i,j, sched_getcpu());
       }
-
     }
     copyData(&splitInfoYB, TILES_TO_FULL);
     FreeSplitInfoData(&splitInfoYB);
