@@ -17,10 +17,10 @@
 #define _OPEN_THREADS
 #endif
 #include <pthread.h>
+#include <sched.h>
 
 #include <assert.h>
 #include <math.h>
-#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -41,17 +41,6 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
   return zdnn_matmul_op(
       inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
 }
-
-static float get_elapse(const struct timeval start_t, const struct timeval end_t) {
-  return 
-  (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
-}
-
-// It is supposed that sched.h should have the declaration of sched_getcpu.
-// No problem when I compiled a standalone test case.
-// But in onnx-mlir, this function is not defined.
-// Explicitly define it here
-extern int sched_getcpu();
 
 static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
@@ -79,6 +68,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   double splitTime = 0.;
   double mmTime = 0.;
   double mergeTime = 0.;
+  clock_t start_time = 0, end_time = 0;
   struct timeval start_t, end_t;
   float elapse;
 
@@ -88,16 +78,35 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     if (OMZTensorSplitDebug)
       printf("[MatMul] Not split zTensor ...\n");
     if (OMZTensorSplitDebug)
-      gettimeofday(&start_t, NULL);
+      start_time = clock();
+    gettimeofday(&start_t, NULL);
     zdnn_status status = call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
     assert(status == ZDNN_OK && ("call_zdnn_matmul_op failed"));
   if (OMZTensorSplitDebug) {
+    end_time = clock();
+    mmTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
     gettimeofday(&end_t, NULL);
-    elapse = get_elapse(start_t, end_t);
-    printf("[MatMul]  mm, %f, (milliseconds)\n", elapse);
+    elapse = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
+    printf("[MatMul]  mm, %f, %f, (milliseconds)\n", mmTime, elapse);
   }
     return status;
   }
+
+  // Create a parallel loop to test the clock() and gettimeofday()
+  // Tested with OMP_NUM_THREADS = 1 or 2, or unset
+  start_time = clock();
+  gettimeofday(&start_t, NULL);
+#pragma omp parallel for
+  for(uint32_t i = 0; i < 2; i++) {
+	  system("sleep 5");
+    printf("====omp thread %u) is on cpu %d=======\n", i, sched_getcpu());
+  }
+  end_time = clock();
+  gettimeofday(&end_t, NULL);
+  splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+  printf("sleep loop measured with clock()  %f (milliseconds)\n", splitTime);
+  splitTime = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
+  printf("sleep loop measured with gettimeofday():  %f (milliseconds)\n", splitTime);
 
   // Split input A.
   if (OMZTensorSplitDebug)
@@ -107,51 +116,52 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // Split input A into chunks.
   if (OMZTensorSplitDebug)
-    gettimeofday(&start_t, NULL);
+    start_time = clock();
   splitZTensor(&splitInfoA, /*copyData=*/true);
   splitZTensor(&splitInfoY, /*copyData=*/false);
   if (OMZTensorSplitDebug) {
-    gettimeofday(&end_t, NULL);
-    splitTime = get_elapse(start_t, end_t);
+    end_time = clock();
+    splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
   // Call zdnn_matmul_op on each chunk.
   if (OMZTensorSplitDebug)
-    gettimeofday(&start_t, NULL);
+    start_time = clock();
+  gettimeofday(&start_t, NULL);
 
   // Parallelize the mm part over each chunk
   // Thread binding is done at runtime with OMP_PLACES and OMP_PROC_BIND
-#pragma omp parallel for proc_bind(spread)
+#pragma omp parallel for
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
     zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
     zdnn_ztensor *zyTensor = (splitInfoY.chunks + i)->ztensor;
     zdnn_status status = call_zdnn_matmul_op(
         zaTensor, inputB, inputC, opType, zyTensor, isBcast);
     assert(status == ZDNN_OK);
-    if (OMZTensorSplitDebug) {
-      printf("====omp thread %u) is on cpu %d=======\n", i, sched_getcpu());
-    }
+    printf("====omp thread %u) is on cpu %d=======\n", i, sched_getcpu());
   }
   if (OMZTensorSplitDebug) {
-    gettimeofday(&end_t, NULL);
-    mmTime = get_elapse(start_t, end_t);
+    end_time = clock();
+    mmTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
+  gettimeofday(&end_t, NULL);
+  elapse = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
 
   // Merging the chunks into the output.
   if (OMZTensorSplitDebug)
-    gettimeofday(&start_t, NULL);
+    start_time = clock();
   mergeZTensors(&splitInfoY);
   if (OMZTensorSplitDebug) {
-    gettimeofday(&end_t, NULL);
-    mergeTime = get_elapse(start_t, end_t);
+    end_time = clock();
+    mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
   freeSplitInfoBuffer(&splitInfoA);
   freeSplitInfoBuffer(&splitInfoY);
 
   if (OMZTensorSplitDebug)
-    printf("[MatMul] split, %f, mm, %f, merge, %f (milliseconds)\n", splitTime,
-        mmTime, mergeTime);
+    printf("[MatMul] split, %f, mm, %f, %f, merge, %f (milliseconds)\n", splitTime,
+        mmTime, elapse, mergeTime);
 
   return ZDNN_OK;
 }

@@ -957,10 +957,10 @@ std::vector<std::string> getCompilerConfig(std::string k) {
 
 // Add strings in a vector to the string vector associated
 // with the specified key
-void addCompilerConfig(std::string k, std::vector<std::string> v, bool head) {
+void addCompilerConfig(std::string k, std::vector<std::string> v) {
   std::vector<std::string> u = CompilerConfigMap[k];
 
-  u.insert(head ? u.begin() : u.end(), v.begin(), v.end());
+  u.insert(u.end(), v.begin(), v.end());
   CompilerConfigMap[k] = u;
 }
 
