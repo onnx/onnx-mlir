@@ -455,7 +455,7 @@ func.func @test_greaterorequal() -> tensor<3xi1> {
 }
 
 //===----------------------------------------------------------------------===//
-/// Modulo test
+/// Modulo tests
 
 // -----
 
@@ -466,6 +466,18 @@ func.func @test_modulo_int() -> tensor<i64> {
   %2 = "onnx.Mod"(%0, %1) : (tensor<i64> , tensor<i64>) -> tensor<i64>
   "onnx.Return"(%2) : (tensor<i64>) -> ()
   // CHECK: [[CONST:%.+]] = onnx.Constant dense<1> : tensor<i64>
+}
+
+// -----
+
+// CHECK-LABEL: @test_modulo_float() -> tensor<1xf32>
+func.func @test_modulo_float() -> tensor<1xf32> {
+  %0 = onnx.Constant dense<[3.0]> : tensor<1xf32>
+  %1 = onnx.Constant dense<[4.0]> : tensor<1xf32>
+  %2 = "onnx.Mod"(%0, %1) {fmod = 1 : si64} : (tensor<1xf32> , tensor<1xf32>) -> tensor<1xf32>
+  "onnx.Return"(%2) : (tensor<1xf32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Mod"{{.*}}
 }
 
 //===----------------------------------------------------------------------===//
