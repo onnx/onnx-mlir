@@ -479,6 +479,9 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       return WalkResult::advance();
 
     // Ignore constants of bool.
+    // For an unknown reason, enabling constants of bool caused segfault in the
+    // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
+    // See issue https://github.com/onnx/onnx-mlir/issues/2713.
     if (llvm::cast<MemRefType>(op->getResult(0).getType())
             .getElementType()
             .isInteger(1))
