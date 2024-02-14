@@ -135,6 +135,8 @@ void populateLoweringONNXQuantizeLinearOpToTOSAPattern(mlir::ConversionTarget &,
 void populateLoweringONNXDequantizeLinearOpToTOSAPattern(
     mlir::ConversionTarget &, mlir::RewritePatternSet &, mlir::TypeConverter &,
     mlir::MLIRContext *);
+void populateLoweringONNXMatMulOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // `Tensor` directory methods:
 void populateLoweringONNXReshapeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
