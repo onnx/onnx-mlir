@@ -4,7 +4,7 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -352,7 +352,6 @@ using ONNXAtanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXAtanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBernoulliOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBitwiseNotOpShapeHelper = ONNXUnaryOpShapeHelper;
-using ONNXCastLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCastOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeilOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeluOpShapeHelper = ONNXUnaryOpShapeHelper;

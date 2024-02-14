@@ -912,6 +912,36 @@ struct GroupNormIntoLayerNormPattern
   }
 };
 
+// =============================================================================
+// Pattern for replacing CastLikeOp by CastOp.
+// =============================================================================
+// A pattern to turn
+//   `CastLikeOp(input, saturate, targetLike)`
+// into
+//   `CastOp(input, saturate, targetType)`
+class ReplaceCastLikeByCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
+public:
+  using OpRewritePattern<ONNXCastLikeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXCastLikeOp castLikeOp, PatternRewriter &rewriter) const override {
+    Location loc = castLikeOp.getLoc();
+
+    Value input = castLikeOp.getInput();
+    Value target = castLikeOp.getTargetType();
+    IntegerAttr saturate = castLikeOp.getSaturateAttr();
+
+    // The output type will be the same as the target_type or the second input
+    Type outputType = target.getType().cast<ShapedType>().getElementType();
+
+    // Replace
+    Value res = onnx_mlir::OnnxBuilder(rewriter, loc)
+                    .cast(input, saturate, TypeAttr::get(outputType));
+    rewriter.replaceOp(castLikeOp, res);
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -948,6 +978,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
+  target.addIllegalOp<ONNXCastLikeOp>();
   target.addIllegalOp<ONNXClipV11Op>();
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
@@ -1024,6 +1055,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
+  patterns.insert<ReplaceCastLikeByCastPattern>(context);
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
     populateDecomposingONNXBeforeStablehloPatterns(patterns, context);

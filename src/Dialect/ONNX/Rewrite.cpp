@@ -4,7 +4,7 @@
 
 //===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //

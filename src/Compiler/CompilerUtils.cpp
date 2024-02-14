@@ -360,17 +360,19 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
   tailorLLVMIR(*llvmModule);
 
   // Write LLVMIR to a file.
-  std::string llvmirNameWithExt = outputNameNoExt + ".ll";
-  llvm::FileRemover llvmirRemover(
-      llvmirNameWithExt, !keepFiles(KeepFilesOfType::LLVMIR));
-  llvm::raw_fd_ostream moduleLLVMIRStream(
-      llvmirNameWithExt, error, llvm::sys::fs::OF_None);
-  if (error) {
-    llvm::errs() << llvmirNameWithExt << ": " << error.message() << "\n";
-    return InvalidTemporaryFileAccess;
+  if (keepFiles(KeepFilesOfType::LLVMIR)) {
+    std::string llvmirNameWithExt = outputNameNoExt + ".ll";
+    llvm::FileRemover llvmirRemover(
+        llvmirNameWithExt, !keepFiles(KeepFilesOfType::LLVMIR));
+    llvm::raw_fd_ostream moduleLLVMIRStream(
+        llvmirNameWithExt, error, llvm::sys::fs::OF_None);
+    if (error) {
+      llvm::errs() << llvmirNameWithExt << ": " << error.message() << "\n";
+      return InvalidTemporaryFileAccess;
+    }
+    llvmModule->print(moduleLLVMIRStream, nullptr);
+    moduleLLVMIRStream.flush();
   }
-  llvmModule->print(moduleLLVMIRStream, nullptr);
-  moduleLLVMIRStream.flush();
 
   // Write unoptimized bitcode to a file.
   llvm::WriteBitcodeToFile(*llvmModule, moduleBitcodeStream);
