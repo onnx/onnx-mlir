@@ -1815,11 +1815,26 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     // 2. Replace the result of forkOp with allocated value.
     Value forkOpResult = forkOp.getResults()[0];
     SmallVector<zhigh::ZHighJoinOp, 4> joinOps;
-    Operation *insertionPointOp;
+    Operation *insertionPointJoinOp;
     for (Operation *user : forkOpResult.getUsers()) {
       if (auto joinOp = llvm::dyn_cast<zhigh::ZHighJoinOp>(user)) {
         joinOps.push_back(joinOp);
-        insertionPointOp = user;
+        insertionPointJoinOp = user;
+      }
+    }
+    Operation *insertionPointDeallocOp;
+    for (Operation *user : forkOpResult.getUsers()) {
+      if (auto castOp = llvm::dyn_cast<UnrealizedConversionCastOp>(user)) {
+        for (Operation *castUser : castOp.getResult(0).getUsers()) {
+          user = castUser;
+        }
+      }
+      if (happensBefore(joinOps[0].getOperation(), user)) {
+        if (joinOps[0]->getBlock() != user->getBlock()) {
+          insertionPointDeallocOp = user->getParentOp();
+        } else {
+          insertionPointDeallocOp = user;
+        }
       }
     }
     rewriter.replaceAllUsesWith(forkOpResult, rAllocOp);
@@ -1845,7 +1860,7 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, asyncExecuteOp.getToken());
 
     // 5. Create AsyncAwaitOp and replace ZHighJoinOp with it
-    rewriter.setInsertionPoint(insertionPointOp);
+    rewriter.setInsertionPoint(insertionPointJoinOp);
     auto asyncAwaitOp =
         rewriter.create<async::AwaitOp>(loc, asyncExecuteOp.getToken());
     for (auto jop : joinOps)
@@ -1854,12 +1869,13 @@ struct ZHighToZLowForkOpLowering : public ConversionPattern {
 #if 1
     // Need comment out when using new buferization.
     // Insert deallocOp for the input values
-    rewriter.setInsertionPointAfter(insertionPointOp);
+    // rewriter.setInsertionPointAfter(insertionPointOp);
+    rewriter.setInsertionPointAfter(insertionPointDeallocOp);
     for (Value inVal : inputValues) {
       // DeallocOp not inserted if the input value is used after JoinOp.
       // Instead, automatically inserted by bufferization pass after used.
       if (llvm::any_of(inVal.getUsers(), [&](Operation *user) {
-            return happensBefore(insertionPointOp, user);
+            return happensBefore(insertionPointJoinOp, user);
           }))
         continue;
 

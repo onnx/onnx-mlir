@@ -41,6 +41,9 @@ ModelLibBuilder::~ModelLibBuilder() {
 
 bool ModelLibBuilder::compileAndLoad() {
   OwningOpRef<ModuleOp> moduleRef(module);
+  if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLLVMIR) !=
+      CompilerSuccess)
+    return false;
   if (compileModule(moduleRef, ctx, sharedLibBaseName, onnx_mlir::EmitLib) !=
       CompilerSuccess)
     return false;
