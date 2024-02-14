@@ -77,6 +77,7 @@ static std::string typeToString(Type ty) {
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     std::string funcNameStr, ValueRange resultVals, Operation *op,
     ValueRange operands, bool copyAttrs) {
+  printf("XXX1 KrnlCallOp::buildKrnlCallOp::build called\n");
   // Creates parameters for KrnlCall for Optional input (with NoneType)
   // The semantics of optional input is ONNX Op specific and should be
   // handled when lowering ONNX Op, not lowering KrnlCall.
@@ -116,6 +117,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     std::string funcNameStr, ValueRange resultVals, Operation *op,
     ValueRange operands, std::vector<std::string> attributeNames) {
+  printf("XXX2 KrnlCallOp::buildKrnlCallOp::build called\n");
   SmallVector<Value, 4> allInputs(resultVals);
   for (auto operand : operands) {
     if (!isNoneValue(operand))
@@ -143,6 +145,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
 
 void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
     ValueRange resultVals, Operation *op, ValueRange operands, bool copyAttrs) {
+  printf("XXX3 KrnlCallOp::buildKrnlCallOp::build called\n");
   // Create funcName
   std::string name = op->getName().getStringRef().str();
   std::replace(name.begin(), name.end(), '.', '_');

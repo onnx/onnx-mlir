@@ -38,6 +38,7 @@ void customizeTypeConverter(LLVMTypeConverter &typeConverter) {
 
 #if 1
   typeConverter.addConversion([&](krnl::NoneType type) -> Type {
+    printf("XXXX typeConverter.addConversion([&](krnl::NoneType type) called\n");
     return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
 #endif

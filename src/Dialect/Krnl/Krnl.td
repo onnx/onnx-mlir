@@ -86,7 +86,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       // Should mlir::OpTrait::AttrSizedOperandSegments be used?
       // The case for krnl.Call is simple.
       DefaultValuedAttr<SI64Attr, "1">:$numOfOutput,
-      Variadic<AnyType>:$parameters);
+      Variadic<AnyTypeOf<[AnyType, NoneType]>>:$parameters);
 
   // builders to build KrnlCallOp from op and operands, helping conversion from
   // onnx to krnl.

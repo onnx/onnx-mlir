@@ -792,6 +792,7 @@ private:
 };
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
+  llvm::dbgs() << "XXX ConvertKrnlToLLVMPass::runOnOperation called" << "\n";
   ModuleOp module = getOperation();
   MLIRContext *ctx = &getContext();
   OpBuilder builder(ctx);
@@ -940,6 +941,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
     std::map<std::string, SmallVector<MemRefType, 4>> &inputMemRefTypes,
     std::map<std::string, SmallVector<MemRefType, 4>> &outputMemRefTypes,
     bool verifyInputTensors) {
+  printf("XXX populateKrnlToLLVMConversion caled\n");
   krnl::populateLoweringKrnlEntryPointOpPattern(typeConverter, patterns, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
@@ -958,6 +960,7 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlStrlenOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlUnaryMathOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlStrncmpOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlNoneOpPattern(typeConverter, patterns, ctx);
 }
 
 } // namespace krnl

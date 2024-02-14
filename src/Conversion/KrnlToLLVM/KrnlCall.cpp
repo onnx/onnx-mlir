@@ -208,6 +208,7 @@ private:
 
 void populateLoweringKrnlCallOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
+  printf("XXX populateLoweringKrnlCallOpPattern called\n");
   patterns.insert<KrnlCallOpLowering>(typeConverter, ctx);
 }
 
