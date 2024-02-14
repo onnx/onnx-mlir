@@ -42,11 +42,9 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
 }
 
-static float get_elapse(
-    const struct timeval start_t, const struct timeval end_t) {
-  return (((end_t.tv_sec * 1000000.) + end_t.tv_usec) -
-             ((start_t.tv_sec * 1000000) + start_t.tv_usec)) /
-         1000;
+static float get_elapse(const struct timeval start_t, const struct timeval end_t) {
+  return 
+  (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
 }
 
 // It is supposed that sched.h should have the declaration of sched_getcpu.
@@ -91,14 +89,13 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       printf("[MatMul] Not split zTensor ...\n");
     if (OMZTensorSplitDebug)
       gettimeofday(&start_t, NULL);
-    zdnn_status status =
-        call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
+    zdnn_status status = call_zdnn_matmul_op(inputA, inputB, inputC, opType, output, isBcast);
     assert(status == ZDNN_OK && ("call_zdnn_matmul_op failed"));
-    if (OMZTensorSplitDebug) {
-      gettimeofday(&end_t, NULL);
-      elapse = get_elapse(start_t, end_t);
-      printf("[MatMul]  mm, %f, (milliseconds)\n", elapse);
-    }
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&end_t, NULL);
+    elapse = get_elapse(start_t, end_t);
+    printf("[MatMul]  mm, %f, (milliseconds)\n", elapse);
+  }
     return status;
   }
 
@@ -122,8 +119,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   if (OMZTensorSplitDebug)
     gettimeofday(&start_t, NULL);
 
-    // Parallelize the mm part over each chunk
-    // Thread binding is done at runtime with OMP_PLACES and OMP_PROC_BIND
+  // Parallelize the mm part over each chunk
+  // Thread binding is done at runtime with OMP_PLACES and OMP_PROC_BIND
 #pragma omp parallel for proc_bind(spread)
   for (uint32_t i = 0; i < splitInfoA.numOfChunks; ++i) {
     zdnn_ztensor *zaTensor = (splitInfoA.chunks + i)->ztensor;
