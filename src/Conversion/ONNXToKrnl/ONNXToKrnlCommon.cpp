@@ -240,6 +240,28 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
              : create.math.constant(type, shape[axis]);
 }
 
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(Operation *op, std::string opsForCall) {
+  // Special cases for none or all
+  if (opsForCall == "")
+    return false;
+  if (opsForCall == "*")
+    return true;
+  // Get the name for op and remove the leading "onnx."
+  std::string opName = op->getName().stripDialect().str();
+  // To handle the case that onnx ops may have common part in name, a space
+  // is added as delimiter to search
+  std::string str = opsForCall + " ";
+  std::string sub = opName + " ";
+  int index = str.find(sub);
+  if (index == -1) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 namespace {
 // Returns the DenseElementsAttr of input if it's a krnl.global constant or
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a

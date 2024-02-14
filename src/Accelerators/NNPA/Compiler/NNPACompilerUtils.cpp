@@ -102,26 +102,35 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   if (nnpaEnableZHighToOnnx)
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createZHighToONNXPass());
 
-  // Constant propagation at ZHighIR: constant stickify.
-  // Only support BE machines.
-  bool isBE = llvm::support::endian::system_endianness() ==
-              llvm::support::endianness::big;
-  if (isBE)
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::zhigh::createZHighConstPropagationPass());
   // One more call to ONNX shape inference/canonicalization/... to update shape
   // if possible.
   if (enableONNXHybridPass) {
     // For starters only illustrating the new hybrid pass by replacing 3 passes
     // here. The plan is to replace most of the passes in addONNXToMLIRPasses.
-    pm.addNestedPass<func::FuncOp>(onnx_mlir::createONNXHybridTransformPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::createONNXHybridTransformPass(!disableRecomposeOption));
   } else {
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
     pm.addPass(mlir::createCanonicalizerPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
   }
+
+  // Replace every DisposableElementsAttr with DenseElementsAttr.
+  // ZHighConstPropagation currently assumes that DenseElementsAttr is used.
+  pm.addPass(createScrubDisposablePass());
+
+  // Constant propagation at ZHighIR: constant stickify.
+  // Only support BE machines.
+  bool isBE = llvm::endianness::native == llvm::support::endianness::big;
+  if (isBE)
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighConstPropagationPass());
+
   // Remove common sub-expressions.
   pm.addPass(mlir::createCSEPass());
+
+  // Clean dead code.
+  pm.addPass(mlir::createSymbolDCEPass());
 
   // Insert an instrumentation after lowering onnx to zhigh to get profiling
   // for onnx and zhigh ops.
@@ -153,7 +162,8 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
     addONNXToMLIRPasses(pm, /*target CPU*/ maccel.empty());
-    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaEnableZHighPerfModel));
+    pm.addPass(onnx_mlir::createDevicePlacementPass(nnpaLoadDevicePlacementFile,
+        nnpaSaveDevicePlacementFile, nnpaPlacementHeuristic));
   }
 
   if (emissionTarget >= EmitMLIR) {

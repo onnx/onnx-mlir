@@ -103,9 +103,9 @@ def ReplaceONNXLeakyReluPattern: Pat<
 //   - %X should have static shape, and %alpha should be constant.
 //
 def ReplaceONNXReciprocalSqrtPattern: Pat<
-  (ZHighStickOp:$stick (ONNXReciprocalOp (ONNXSqrtOp (ZHighUnstickOp $X))), $layout),
+  (ZHighStickOp:$stick (ONNXReciprocalOp (ONNXSqrtOp (ZHighUnstickOp:$unstick $X))), $layout),
   (ZHighExpOp (ZHighMulOp (ZHighLogOp $X, (returnType $X)),
-                          (ZHighStickOp (GetConstantOfType<"-0.5"> $X), $layout),
+                          (ZHighStickOp (GetConstantOfType<"-0.5"> $unstick), $layout),
                           (returnType $X))),
   [(IsStaticShapeTensor $X), (SameLayout $X, $stick)]
 >;

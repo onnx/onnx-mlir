@@ -65,8 +65,9 @@ struct ONNXOpShapeHelper {
    During lowering, we typically use and Index Expr Builder that generates code
    for values unknown at compile time. Example of such subclasses are
    IndexExprBuilderForKrnl (generates Krnl ops, in
-   src/Dialect/Krnl/DialectBuilder.hpp, ) or IndexExprBuilderForMhlo (generates
-   Shape/MHLO ops, in src/Conversion/ONNXToMhlo/DialectBuilder.hpp).
+   src/Dialect/Krnl/DialectBuilder.hpp, ) or IndexExprBuilderForStableHhlo
+   (generates Shape/StableHlo ops, in
+   src/Conversion/ONNXToStableHlo/DialectBuilder.hpp).
 
    @param scope Index expression scope to be used. If none is provided, a new
    scope is created and stored internally. This scope will then be destructed

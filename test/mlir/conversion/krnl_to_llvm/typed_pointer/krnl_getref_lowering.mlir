@@ -12,7 +12,7 @@ func.func @test_getref_lowering(%arg0: memref<2x2xf32>) -> memref<2x2xf32> {
   // CHECK: [[CONST_10_1:%.+]] = llvm.mlir.constant(10 : index) : i64
   // CHECK: [[CONST_1:%.+]] = llvm.mlir.constant(1 : index) : i64
   // CHECK: %[[CONST_100:.+]] = llvm.mlir.constant(100 : index) : i64
-  // CHECK: [[FLOAT_STAR:%.+]] = llvm.mlir.null : !llvm.ptr<f32>
+  // CHECK: [[FLOAT_STAR:%.+]] = llvm.mlir.zero : !llvm.ptr<f32>
   // CHECK: [[ELEM1:%.+]] = llvm.getelementptr [[FLOAT_STAR]][%[[CONST_100]]] : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
   // CHECK: [[ELEM_SIZE:%.+]] = llvm.ptrtoint [[ELEM1]] : !llvm.ptr<f32> to i64
   // CHECK: [[MEMPOOL:%.+]] = llvm.call @malloc([[ELEM_SIZE]]) : (i64) -> !llvm.ptr<i8>
@@ -50,7 +50,7 @@ func.func @test_getref_lowering_dynamic(%arg0: memref<2x2xf32>) -> memref<2x?xf3
   // CHECK: %[[C10_INDEX:.+]] = llvm.mlir.constant(10 : index) : i64
   // CHECK: %[[C1_INDEX:.+]] = llvm.mlir.constant(1 : index) : i64
   // CHECK: %[[MUL1:.+]] = llvm.mul %[[C5_INDEX]], %[[C10_INDEX]] : i64
-  // CHECK: [[FLOAT_STAR:%.+]] = llvm.mlir.null : !llvm.ptr<f32>
+  // CHECK: [[FLOAT_STAR:%.+]] = llvm.mlir.zero : !llvm.ptr<f32>
   // CHECK: [[ELEM1:%.+]] = llvm.getelementptr [[FLOAT_STAR]][%[[MUL1]]] : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
   // CHECK: [[ELEM_SIZE:%.+]] = llvm.ptrtoint [[ELEM1]] : !llvm.ptr<f32> to i64
 

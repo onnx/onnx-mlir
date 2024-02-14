@@ -72,9 +72,9 @@ Then location info can be found in the output of test_add.onnx.onnx.mlir
 The test_add.onnx.mlir content:
 
 ```
-  1 module attributes {llvm.data_layout = "e-m:o-p270:32:32-p271:32:32-p    272:64:64-i64:64-f80:128-n8:16:32:64-S128", llvm.target_triple = "x8    6_64-apple-darwin22.3.0", "onnx-mlir.symbol-postfix" = "test_add"} {
-  2   func.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x    5xf32>) -> tensor<3x4x5xf32> attributes {input_names = ["x", "y"], o    utput_names = ["sum"]} {
-  3     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5    xf32>) -> tensor<3x4x5xf32>
+  1 module attributes {llvm.data_layout = "e-m:o-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128", llvm.target_triple = "x86_64-apple-darwin22.3.0", "onnx-mlir.symbol-postfix" = "test_add"} {
+  2   func.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
+  3     %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
   4     onnx.Return %0 : tensor<3x4x5xf32>
   5   }
   6   "onnx.EntryPoint"() {func = @main_graph} : () -> ()

@@ -31,6 +31,7 @@ namespace zhigh {
 void ZHighUnstickOp::build(
     OpBuilder &builder, OperationState &state, Value input) {
   Type resType;
+  Type resElementType = builder.getF32Type();
   ShapedType inputType = input.getType().cast<ShapedType>();
   if (hasRankedType(input)) {
     // Compute shape.
@@ -47,9 +48,9 @@ void ZHighUnstickOp::build(
       resShape[2] = inputShape[1];
       resShape[3] = inputShape[2];
     }
-    resType = RankedTensorType::get(resShape, inputType.getElementType());
+    resType = RankedTensorType::get(resShape, resElementType);
   } else
-    resType = UnrankedTensorType::get(inputType.getElementType());
+    resType = UnrankedTensorType::get(resElementType);
   build(builder, state, resType, input);
 }
 
@@ -104,7 +105,7 @@ LogicalResult ZHighUnstickOp::inferShapes(
     return success();
 
   ZHighUnstickOpShapeHelper shapeHelper(getOperation());
-  Type elementType = getElementType(getIn().getType());
+  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

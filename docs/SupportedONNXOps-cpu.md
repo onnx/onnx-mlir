@@ -1,5 +1,5 @@
 <!--- Automatically generated, do not edit. -->
-<!--- To update, run `make onnx_mlir_supported_ops` -->
+<!--- To update, run `make onnx_mlir_supported_ops_cpu' -->
 
 # Supported ONNX Operation for Target *cpu*.
 
@@ -102,7 +102,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 19. Limitatio
 | **LRN** |6 - * | | |
 | **LSTM** |7 - * | | |
 | **LabelEncoder** |none | | | |
-| **LayerNormalization** |none | | | |
+| **LayerNormalization** |17 - * | | |
 | **LeakyRelu** |6 - * | | |
 | **Less** |7 - * | | |
 | **LessOrEqual** |12 - * | | |

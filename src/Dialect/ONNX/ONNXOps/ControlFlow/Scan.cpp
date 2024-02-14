@@ -95,8 +95,8 @@ LogicalResult ONNXScanOp::inferShapes(
       llvm::zip(scan_inputs(), bodyScanInputs)) {
     if (auto rankedTy = opScanInput.getType().dyn_cast<RankedTensorType>()) {
       ArrayRef<int64_t> squeezedShape(rankedTy.getShape().drop_front(1));
-      updateType(bodyScanInput, squeezedShape, rankedTy.getElementType(),
-          /*encoding=*/nullptr,
+      updateType(getOperation(), bodyScanInput, squeezedShape,
+          rankedTy.getElementType(), /*encoding=*/nullptr,
           /*refineShape=*/false);
     }
   }
@@ -124,8 +124,8 @@ LogicalResult ONNXScanOp::inferShapes(
     if (auto rankedTy = ty.dyn_cast<RankedTensorType>()) {
       SmallVector<int64_t, 4> unsqueezedShape(rankedTy.getShape());
       unsqueezedShape.insert(unsqueezedShape.begin(), sequence_length);
-      updateType(opScanOutput, unsqueezedShape, rankedTy.getElementType(),
-          /*encoding=*/nullptr,
+      updateType(getOperation(), opScanOutput, unsqueezedShape,
+          rankedTy.getElementType(), /*encoding=*/nullptr,
           /*refineShape=*/false);
     }
   }

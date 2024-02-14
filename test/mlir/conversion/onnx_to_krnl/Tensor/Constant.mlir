@@ -8,3 +8,39 @@ func.func private @test_constant_dense_2d_value(%arg0: tensor<1xf32>) -> tensor<
   // CHECK: return [[GLOBAL]] : memref<3x2xf32>
 }
 
+// -----
+
+func.func @test_constant_string() -> tensor<!onnx.String> {
+  %0 = onnx.Constant dense<"1"> : tensor<!onnx.String>
+  "func.return"(%0) : (tensor<!onnx.String>) -> ()
+  // mlir2FileCheck.py
+  // CHECK-LABEL:  func.func @test_constant_string
+  // CHECK-SAME:   () -> memref<!krnl.string> {
+  // CHECK:           [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [], value = dense<"1"> : tensor<!krnl.string>} : () -> memref<!krnl.string>
+  // CHECK:           return [[VAR_0_]] : memref<!krnl.string>
+}
+
+// -----
+
+func.func @test_constant_string_3elem() -> tensor<3x!onnx.String> {
+  %0 = onnx.Constant dense<["1", "2", "3"]> : tensor<3x!onnx.String>
+  "func.return"(%0) : (tensor<3x!onnx.String>) -> ()
+  // mlir2FileCheck.py
+  // CHECK-LABEL:  func.func @test_constant_string_3elem
+  // CHECK-SAME:   () -> memref<3x!krnl.string> {
+  // CHECK:           [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [3], value = dense<["1", "2", "3"]> : tensor<3x!krnl.string>} : () -> memref<3x!krnl.string>
+  // CHECK:           return [[VAR_0_]] : memref<3x!krnl.string>
+}
+
+// -----
+
+func.func @test_constant_string_3elem2() -> tensor<3x!onnx.String> {
+  %0 = onnx.Constant dense<"1"> : tensor<3x!onnx.String>
+  "func.return"(%0) : (tensor<3x!onnx.String>) -> ()
+  // mlir2FileCheck.py
+  // CHECK-LABEL:  func.func @test_constant_string_3elem2
+  // CHECK-SAME:   () -> memref<3x!krnl.string> {
+  // CHECK:           [[VAR_0_:%.+]] = "krnl.global"() {name = "constant_{{[0-9]+}}", shape = [3], value = dense<"1"> : tensor<3x!krnl.string>} : () -> memref<3x!krnl.string>
+  // CHECK:           return [[VAR_0_]] : memref<3x!krnl.string>
+  // CHECK:         }
+}

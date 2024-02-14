@@ -272,10 +272,10 @@ def ONNXLayoutTransformOp:ONNX_Op<"LayoutTransform", [Pure,
 
     This operation is not part of the standard and was added to assist onnx-mlir.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>]>:$data,
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16, F32]>]>:$data,
                        OptionalAttr<AnyAttrOf<[LayoutAttr]>>:$target_layout
   );
-  let results = (outs AnyTypeOf<[TensorOf<[F32]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16, F32]>]>:$output);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$data, "::mlir::Attribute":$target_layout)>, // Defined layouts.
   ];

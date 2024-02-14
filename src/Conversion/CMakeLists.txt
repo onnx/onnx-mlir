@@ -6,6 +6,6 @@ add_subdirectory(KrnlToAffine)
 add_subdirectory(KrnlSeqToMemref)
 add_subdirectory(ONNXToTOSA)
 
-if (ONNX_MLIR_ENABLE_MHLO)
-  add_subdirectory(ONNXToMhlo)
+if (ONNX_MLIR_ENABLE_STABLEHLO)
+  add_subdirectory(ONNXToStableHlo)
 endif()

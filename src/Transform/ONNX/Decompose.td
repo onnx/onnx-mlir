@@ -254,6 +254,11 @@ def PadV13Pattern : Pat<
   (ONNXPadOp $x, $pads, $value, (CreateNoneValue), $mode)
 >;
 
+def PadV18Pattern : Pat<
+  (ONNXPadV18Op $x, $pads, $value, $axes, $mode),
+  (ONNXPadOp $x, $pads, $value, $axes, $mode)
+>;
+
 def ResizeV10Pattern: Pat<
    (ONNXResizeV10Op:$res $x, $scales, $mode),
    (ONNXResizeOp $x, (CreateNoneValue),
@@ -295,6 +300,17 @@ def ResizeV13Pattern: Pat<
                     $exclude_outside, $extrapolation_value,
                     /*keep_aspect_ratio_policy*/(GetNullStringAttr),
                     $mode, $nearest_mode)
+>;
+
+def ResizeV18Pattern: Pat<
+   (ONNXResizeV18Op:$res $x, $roi, $scales, $size, $antialias, $axes,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value,
+                    $keep_aspect_ratio_policy, $mode, $nearest_mode),
+   (ONNXResizeOp    $x, $roi, $scales, $size, $antialias, $axes,
+                    $coordinate_transformation_node, $cubic_coeff_a,
+                    $exclude_outside, $extrapolation_value,
+                    $keep_aspect_ratio_policy, $mode, $nearest_mode)
 >;
 
 def SequenceConstructPattern1: Pat<

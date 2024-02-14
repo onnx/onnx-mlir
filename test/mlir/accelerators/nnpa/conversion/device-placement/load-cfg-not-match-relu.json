@@ -1,0 +1,14 @@
+{
+  "device_placement": [
+    {
+      "device": "cpu",
+      "node_type": "Relu",
+      "onnx_node_name": "Relu_(1|2)"
+    },
+    {
+      "device": "cpu",
+      "node_type": "onnx.Sigmoid",
+      "onnx_node_name": "Sigmoid_0"
+    }
+  ]
+}

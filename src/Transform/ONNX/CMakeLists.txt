@@ -11,6 +11,7 @@ add_onnx_mlir_library(OMONNXRewrite
   DecomposeEinsum.cpp
   ScrubDisposablePass.cpp
   SetONNXNodeName.cpp
+  Recompose.cpp
 
   DEPENDS
   OMONNXDecomposeIncGen

@@ -22,12 +22,15 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/TypeUtilities.hpp"
+
+#define DEBUG_TYPE "rewrite"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -343,6 +346,53 @@ public:
     rewriter.replaceOp(op, {res});
     return success();
   }
+};
+
+template <typename OP_TYPE>
+class PropagateReshapeThroughBinaryOpPattern
+    : public OpRewritePattern<OP_TYPE> {
+public:
+  using OpRewritePattern<OP_TYPE>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      OP_TYPE binaryOp, PatternRewriter &rewriter) const override {
+    // Variables for capturing values and attributes used while creating ops
+    Operation *op = binaryOp.getOperation();
+
+    assert(op->getNumOperands() == 2 && "op must be binary");
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Type outputType = binaryOp.getResult().getType();
+
+    Value reshapeInput;
+    Value reshapeShape;
+    IntegerAttr reshapeAZ;
+
+    // Match
+    // LHS is produced by a Reshape.
+    Operation *reshapeGenericOp = lhs.getDefiningOp();
+    if (!reshapeGenericOp)
+      return failure();
+    auto reshapeOp = dyn_cast<ONNXReshapeOp>(reshapeGenericOp);
+    if (!reshapeOp)
+      return failure();
+    // RHS is a scalar.
+    if (!isScalarTensor(rhs))
+      return failure();
+
+    // Rewrite
+    auto loc = rewriter.getFusedLoc({op->getLoc(), reshapeGenericOp->getLoc()});
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+
+    reshapeInput = reshapeOp.getData();
+    reshapeShape = reshapeOp.getShape();
+    reshapeAZ = reshapeOp.getAllowzeroAttr();
+    Value x = rewriter.create<OP_TYPE>(loc, reshapeInput, rhs);
+    Value res = create.onnx.reshape(outputType, x, reshapeShape, reshapeAZ);
+
+    rewriter.replaceOp(op, res);
+    return success();
+  };
 };
 
 // =============================================================================
@@ -993,6 +1043,277 @@ public:
   };
 };
 
+/// The pattern is to replace two consecutive ReshapeOp with a single ReshapeOp.
+/// It's not successful for arbitrary ReshapeOp, so let's consider necessary
+/// condition for the replacement.
+///
+/// We would like to replace:
+/// ```
+// %0 = onnx.Reshape(%X, %shape1) {allowzero}
+// %1 = onnx.Reshape(%0, %shape2) {allowzero}
+// ```
+// with
+// ```
+// %0 = onnx.Reshape(%X, %new_shape) {allowzero}
+// ```
+// where `%new_shape` is computed from `%shape1` and `%shape2` if possible.
+//
+// We only consider `allowzero=0` in this pattern.
+//
+// # Shape conditions
+//
+// According to ONNX specification for Reshape
+// (https://onnx.ai/onnx/operators/onnx__Reshape.html#):
+// - At most one dimension of the new shape can be -1. In this case, the value
+// is inferred from the size of the tensor and the remaining dimensions
+// - Dimension could also be 0. In this case,
+//   - if allowzero = 0, the actual dimension value is unchanged;
+//   - if allowzero = 1, the dimension will be set explicitly to zero.
+// - If allowzero = 1, it is invalid for the specified shape to contain both a
+// zero value and -1
+//
+// # Combining rules
+//
+// In this pattern, we use the following terms for values in a shape tensor:
+// 0, -1, and L (a literal).
+//
+// These are the rules to combine two values:
+//  (1st)  : (2nd)  => (result)
+//   0     : 0      => 0
+//   0     : L      => L
+//   0     : -1     => -1
+//
+//  -1     : 0      => -1
+//  -1     : L      => L
+//  -1     : -1     => -1
+//
+//   L     : 0      => L
+//   L     : L      => L
+//   L     : -1     => -1
+//
+// To produce a new shape, we combine each value one by one from left to right.
+//
+// Example (allowzero = 0):
+// Ex1. 1st: [0, -1, 0, 5], 2nd: [0, -1, 0] => [0, -1, 0]
+// Ex2. 1st: [0, -1, 0, 5], 2nd: [5, -1, 0] => [5, -1, 0]
+// Ex3. 1st: [0, -1, 0, 5], 2nd: [-1, 0, 0] => [-1, -1, 0]
+// Ex4. 1st: [0, -1, 0, 5], 2nd: [0, 0, 5] => [0, -1, 5]
+// Ex5. 1st: [0, -1, 5, 0], 2nd: [-1, 5, 0] => [-1, 5, 5]
+//
+// After combining two shapes, we check if the result shape is valid or not
+// according to the shape conditions. If it is invalid, the two ReshapeOps are
+// not combined. For example, the output shape in Ex3 is invalid because of two
+// -1s.
+//
+class FuseTwoReshapesPattern : public OpRewritePattern<ONNXReshapeOp> {
+public:
+  using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
+
+  FuseTwoReshapesPattern(MLIRContext *context) : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp secondReshapeOp, PatternRewriter &rewriter) const override {
+    // Second Reshape.
+    Operation *op = secondReshapeOp.getOperation();
+    Value secondData = secondReshapeOp.getData();
+    Value secondShape = secondReshapeOp.getShape();
+    int64_t secondAllowZero = secondReshapeOp.getAllowzero();
+    if (secondAllowZero != 0)
+      return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
+
+    // First Reshape.
+    if (!definedBy<ONNXReshapeOp>(secondData))
+      return rewriter.notifyMatchFailure(
+          op, "The input data is not defined by a Reshape");
+    auto firstReshapeOp = secondData.getDefiningOp<ONNXReshapeOp>();
+    Value firstData = firstReshapeOp.getData();
+    Value firstShape = firstReshapeOp.getShape();
+    int64_t firstAllowZero = firstReshapeOp.getAllowzero();
+    if (firstAllowZero != 0)
+      return rewriter.notifyMatchFailure(op, "Does not support AllowZero != 0");
+
+    Location loc = rewriter.getFusedLoc(
+        {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
+    OnnxBuilder createONNX(rewriter, loc);
+
+    // Try to compute a new shape tensor by fusing the two old shapes.
+    SmallVector<Value, 4> firstDims, secondDims, fusedDims;
+    if (!getValuesFromShape(createONNX, firstShape, firstDims) ||
+        !getValuesFromShape(createONNX, secondShape, secondDims)) {
+      // Not rewrite if we can not read dimension values (0, -1, L) from a shape
+      // tensor.
+      return rewriter.notifyMatchFailure(
+          op, "Cannot read invididual dimensions");
+    }
+
+    // Iterate over the second shape that is similar to the output shape.
+    int64_t s1 = firstDims.size();
+    int64_t s2 = secondDims.size();
+    uint64_t minusOnes = 0;
+    for (int64_t i = 0; i < s2; ++i) {
+      Value fusedD;
+      if (i < s1) {
+        // Fuse two dimensions.
+        // These are the rules to combine two values:
+        //  (1st)  : (2nd)  => (result)
+        //   0     : 0      => 0
+        //   0     : L      => L
+        //   0     : -1     => -1
+        //
+        //  -1     : 0      => -1
+        //  -1     : L      => L
+        //  -1     : -1     => -1
+        //
+        //   L     : 0      => L
+        //   L     : L      => L
+        //   L     : -1     => -1
+        Value d1 = firstDims[i];
+        Value d2 = secondDims[i];
+        fusedD = isZero(d2) ? d1 : d2;
+      } else {
+        // 2nd shape has more dims than the 1st shape. Get dims from the 2nd
+        // shape as they are.
+        fusedD = secondDims[i];
+      }
+      fusedDims.emplace_back(fusedD);
+      if (isMinusOne(fusedD))
+        minusOnes++;
+    }
+    if (minusOnes > 1) {
+      // The fused shape is invalid because it has two -1s.
+      return rewriter.notifyMatchFailure(op, "Failed to compute a fused shape");
+    }
+
+    // Rewrite phase.
+    // Emit the fused shape using ONNXConstantOp or ONNXConcatOp.
+    Value fusedShape;
+    if (llvm::all_of(
+            fusedDims, [](Value v) { return isScalarConstantTensor(v); })) {
+      SmallVector<int64_t> dims;
+      for (int64_t i = 0; i < s2; ++i)
+        getI64ValuesFromONNXConstantOp(fusedDims[i], dims);
+      fusedShape = createONNX.constantInt64(ArrayRef<int64_t>(dims));
+    } else {
+      fusedShape =
+          createONNX.concat(RankedTensorType::get({s2}, rewriter.getI64Type()),
+              fusedDims, /*axis=*/0);
+    }
+    // Emit a new Reshape.
+    Value res = createONNX.reshape(secondReshapeOp.getResult().getType(),
+        firstData, fusedShape, secondReshapeOp.getAllowzeroAttr());
+
+    rewriter.replaceOp(op, res);
+    return success();
+  };
+
+private:
+  bool isZero(Value v) const {
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromONNXConstantOp(v, dims))
+      return (dims[0] == 0);
+    return false;
+  }
+
+  bool isMinusOne(Value v) const {
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromONNXConstantOp(v, dims))
+      return (dims[0] == -1);
+    return false;
+  }
+
+  bool isLiteral(Value v) const {
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromONNXConstantOp(v, dims))
+      return (dims[0] > 0);
+    if (definedBy<ONNXDimOp>(v)) {
+      // Runtime dimension of a value is always literal.
+      return true;
+    }
+    return false;
+  }
+
+  // Get invididual values from a shape tensor. Return true if succeeded.
+  // Otherwise, return false.
+  bool getValuesFromShape(OnnxBuilder &createONNX, Value shape,
+      SmallVectorImpl<Value> &values) const {
+    // Shape is defined by a Concat.
+    if (areDimsFromConcat(shape)) {
+      getDims(shape, values);
+      return true;
+    }
+
+    // Shape is defined by a Constant.
+    SmallVector<int64_t> dims;
+    if (getI64ValuesFromONNXConstantOp(shape, dims)) {
+      for (int64_t d : dims) {
+        Value dim = createONNX.constantInt64({d});
+        values.emplace_back(dim);
+      }
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// =============================================================================
+// Rewrite pattern LayerNormalization
+// =============================================================================
+
+struct PropagateBiasIntoLayerNormRewritePattern
+    : public OpRewritePattern<ONNXAddOp> {
+  using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
+
+  PropagateBiasIntoLayerNormRewritePattern(MLIRContext *context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXAddOp addOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Value y, bias;
+    Operation *yLayerNormOp;
+    Operation *ywbAddOp = addOp.getOperation();
+    Location loc = addOp.getLoc();
+    // Match
+    // %noBias = "onnx.NoValue"()
+    // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
+    //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
+    // %yBias = "onnx.Add"(%y, %bias)
+    if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+            yLayerNormOp, ywbAddOp, y, bias, 0) &&
+        !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+            yLayerNormOp, ywbAddOp, bias, y, 1))
+      return reportFailure("missing y, layer norm op");
+    // Study layer norm op; make sure its used only one and that bias is not
+    // used.
+    if (!yLayerNormOp->hasOneUse())
+      return reportFailure("y/layer norm has too many uses");
+    auto lnOp = cast<ONNXLayerNormalizationOp>(yLayerNormOp);
+    if (!onnx_mlir::isNoneValue(lnOp.getB()))
+      return reportFailure("layer norm already has a bias");
+    // We are fine.
+    Value x = lnOp.getX();
+    Value scale = lnOp.getScale();
+    FloatAttr epsilon = lnOp.getEpsilonAttr();
+    int64_t axis = lnOp.getAxis();
+    LLVM_DEBUG(llvm::dbgs() << "LayerNorm from add, axis : " << axis << "\n");
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Type xType = x.getType();
+    Value res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    rewriter.replaceOp(addOp, res);
+    return success();
+  }
+
+private:
+  LogicalResult reportFailure(std::string msg) const {
+    // Can disable line below if not needed.
+    LLVM_DEBUG(llvm::dbgs() << "LayerNorm failure:" << msg << "\n");
+    return failure();
+  }
+};
+
 // =============================================================================
 /// Register optimization patterns as "canonicalization" patterns.
 /// Add op to OpsWithCanonicalizer in gen_onnx_mlir.py to activate.
@@ -1017,6 +1338,8 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
+  results.insert<PropagateBiasIntoLayerNormRewritePattern>(context);
+  results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
 }
 
 /// on the ONNXAndOp.
@@ -1055,6 +1378,7 @@ void ONNXDivOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
+  result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
 }
 
 /// on the ONNXDropoutOp.
@@ -1139,6 +1463,7 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<FuseMulConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
+  results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
 }
 
 /// on the ONNXOrOp.
@@ -1150,7 +1475,8 @@ void ONNXOrOp::getCanonicalizationPatterns(
 /// on the ONNXReshapeOp.
 void ONNXReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
-  result.insert<FuseReshapePattern>(context);
+  result.insert<FuseTwoReshapesPattern>(context);
+  result.insert<FuseTwoReshapesAllowZeroPattern>(context);
   result.insert<RemoveIdentityReshapePattern1>(context);
   result.insert<RemoveIdentityReshapePattern2>(context);
   result.insert<SwapReshapeMatMulPattern>(context);
@@ -1180,6 +1506,7 @@ void ONNXSubOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXSubOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXSubOp>>(context);
+  result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXSubOp>>(context);
 }
 
 /// on ONNXShapeTransformOp

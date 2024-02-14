@@ -112,18 +112,22 @@ std::optional<SmallVector<int64_t, 4>> reshapeStrides(ArrayRef<int64_t> shape,
         ++a1;
       }
     } while (a1 < rank1 && last == shape[a1] * strides[a1]);
-    assert(total == n * strides[a1 - 1]);
+    assert(total == n * last);
     // Add contiguous strides for axes in reshapedShape with dimSizes product n.
     int64_t n2 = 1;
     while (a2 < rank2 && n2 * reshapedShape[a2] <= n) {
-      n2 *= reshapedShape[a2];
-      total /= reshapedShape[a2];
-      reshapedStrides.push_back(total);
+      if (reshapedShape[a2] == 1) {
+        reshapedStrides.push_back(0);
+      } else {
+        n2 *= reshapedShape[a2];
+        total /= reshapedShape[a2];
+        reshapedStrides.push_back(total);
+      }
       ++a2;
     }
     if (n2 < n)
       return std::nullopt;
-    assert(strides[a1 - 1] == reshapedStrides[a2 - 1]);
+    assert(last == total);
   } while (a1 < rank1);
   assert(a2 == rank2);
   assert(a2 == reshapedStrides.size());

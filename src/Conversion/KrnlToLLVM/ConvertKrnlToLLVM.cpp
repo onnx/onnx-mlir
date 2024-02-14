@@ -560,8 +560,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       EXTERNAL_CONSTANT_PREFIX + "filesize",
       b.getI64IntegerAttr(packedConst.size()));
   // Create a global to store isLE.
-  bool isLE = llvm::support::endian::system_endianness() ==
-              llvm::support::endianness::little;
+  bool isLE = llvm::endianness::native == llvm::support::endianness::little;
   create.llvm.globalOp(llvmI8Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "isLE", b.getI8IntegerAttr(isLE));
