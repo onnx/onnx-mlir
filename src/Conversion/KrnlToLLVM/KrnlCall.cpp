@@ -33,7 +33,6 @@ public:
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    llvm::dbgs() << "XXX KrnlCallOpLowering: op=" << *op << "\n";
     KrnlCallOpAdaptor krnlCallAdaptor(operands);
     Location loc = op->getLoc();
     KrnlCallOp krnlCallOp = llvm::cast<KrnlCallOp>(op);
@@ -92,7 +91,6 @@ private:
       llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList,
       llvm::SmallVector<Value, 4> &omTensors) const {
-    llvm::dbgs() << "XXX handleOneParameter called: op=" << *op << ", parameter=" << parameter << ", original=" << original <<"\n"; fflush(stdout);
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -104,7 +102,6 @@ private:
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
-    llvm::dbgs() << "XXXX ty=" << ty << "ty.isa<NoneType>=" << ty.isa<NoneType>() << "\n";
     if (auto originalMemRef = dyn_cast<MemRefType>(ty)) {
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = parameter.getType().dyn_cast<LLVM::LLVMStructType>();
@@ -216,7 +213,6 @@ private:
 
 void populateLoweringKrnlCallOpPattern(LLVMTypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  printf("XXX populateLoweringKrnlCallOpPattern called\n");
   patterns.insert<KrnlCallOpLowering>(typeConverter, ctx);
 }
 

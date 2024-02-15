@@ -38,7 +38,6 @@ public:
             typeConverter, KrnlNoneOp::getOperationName(), 1, context) {}
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const override {
-    printf("XXX KrnlNoneOpLowering: called\n"); fflush(stdout);
     Location loc = op->getLoc();
     LLVMBuilder create(rewriter, loc);
     ModuleOp module = op->getParentOfType<ModuleOp>();
