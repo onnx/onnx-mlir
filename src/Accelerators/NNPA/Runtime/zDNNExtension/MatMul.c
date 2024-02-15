@@ -42,13 +42,6 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
 }
 
-static float GetElapseTime(
-    const struct timeval start_t, const struct timeval end_t) {
-  return (((end_t.tv_sec * 1000000.) + end_t.tv_usec) -
-             ((start_t.tv_sec * 1000000) + start_t.tv_usec)) /
-         1000;
-}
-
 // It is supposed that sched.h should have the declaration of sched_getcpu.
 // No problem when a standalone test case is compiled with clang or g++.
 // But in onnx-mlir, this function is not defined. Explicitly define it here

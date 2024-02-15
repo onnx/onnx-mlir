@@ -15,6 +15,9 @@
 #ifndef ONNX_MLIR_ZDNNEXTENSION_H
 #define ONNX_MLIR_ZDNNEXTENSION_H
 
+#include <stdlib.h>
+#include <sys/time.h>
+
 #include "zdnn.h"
 
 #ifdef __cplusplus
@@ -253,6 +256,11 @@ zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
 zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output);
 zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+
+// -----------------------------------------------------------------------------
+// Misc Utility Functions
+// -----------------------------------------------------------------------------
+float GetElapseTime(const struct timeval start_t, const struct timeval end_t);
 
 #ifdef __cplusplus
 }
