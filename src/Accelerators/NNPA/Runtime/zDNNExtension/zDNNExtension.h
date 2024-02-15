@@ -125,10 +125,12 @@ inline void omUnreachable() {
 // Uses compiler specific extensions if possible.
 // Even if no extension is used, undefined behavior is still raised by
 // an empty function body and the noreturn attribute.
-#if defined(_MSC_VER) && !defined(__clang__) // MSVC
-  __assume(false);
-#else // GCC, Clang
+#if defined(__GNUC__) || defined(__clang__) // GCC, Clang
   __builtin_unreachable();
+#elif defined(_MSC_VER) // MSVC
+  __assume(false);
+#else
+  ((void)0);
 #endif
 }
 
