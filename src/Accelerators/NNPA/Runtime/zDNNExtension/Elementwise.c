@@ -121,8 +121,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  FreeSplitInfoData(&splitInfoX);
-  FreeSplitInfoData(&splitInfoY);
+  freeSplitInfoData(&splitInfoX);
+  freeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug)
     printf(
@@ -204,9 +204,9 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  FreeSplitInfoData(&splitInfoA);
-  FreeSplitInfoData(&splitInfoB);
-  FreeSplitInfoData(&splitInfoY);
+  freeSplitInfoData(&splitInfoA);
+  freeSplitInfoData(&splitInfoB);
+  freeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug)
     printf("[BinaryElementwise] split, %f, compute, %f, merge, %f "

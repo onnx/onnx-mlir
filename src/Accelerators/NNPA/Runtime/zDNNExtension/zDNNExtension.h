@@ -35,10 +35,13 @@ extern "C" {
 #define DEFAULT_ZTENSOR_SPLIT_ENABLED 0
 // zTensor splitting debug is off by default.
 #define DEFAULT_ZTENSOR_SPLIT_DEBUG 0
+// One zAIU by default.
+#define DEFAULT_NUM_OF_ZAIUS 1
 
 extern bool OMZTensorSplitEnabled;
 extern bool OMZTensorSplitDebug;
 extern uint32_t OMZTensorSplitSize;
+extern uint32_t OMNumOfZAIUs;
 
 // -----------------------------------------------------------------------------
 // Misc Macros
@@ -143,6 +146,25 @@ inline void omUnreachable() {
  * @param shape shape information
  */
 void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape);
+
+/**
+ * \brief Compute the number of elements per tile based on the number of zAIUs.
+ *
+ * It is computed by CEIL(dimension_size, num_of_zaius).
+ * This is used if we plan to run each tile on a zAIU.
+ *
+ * @param input ztensor
+ * @param axis axis to split the ztensor
+ * @return the number of elements per tile.
+ */
+uint32_t getNumOfElemsPerZAIU(const zdnn_ztensor *input, SplitAxis axis);
+
+/**
+ * \brief Get the NNPA maximum dimension index size.
+ *
+ * @return the NNPA maximum dimension index size.
+ */
+uint32_t getMDIS();
 
 /**
  * \brief Initialize a SplitInfo struct.

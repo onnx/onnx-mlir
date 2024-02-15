@@ -26,6 +26,7 @@ extern "C" {
 bool OMZTensorSplitEnabled = DEFAULT_ZTENSOR_SPLIT_ENABLED;
 bool OMZTensorSplitDebug = DEFAULT_ZTENSOR_SPLIT_DEBUG;
 uint32_t OMZTensorSplitSize = DEFAULT_ZTENSOR_SPLIT_SIZE;
+uint32_t OMNumOfZAIUs = DEFAULT_NUM_OF_ZAIUS;
 
 static uint32_t ZTensorSplitSizeFromEnv() {
   uint32_t cs = DEFAULT_ZTENSOR_SPLIT_SIZE;
@@ -58,13 +59,23 @@ static bool ZTensorSplitDebugFromEnv() {
   return enabled;
 }
 
+static uint32_t NumOfZAIUsFromEnv() {
+  uint32_t n = DEFAULT_NUM_OF_ZAIUS;
+  const char *s = getenv("OM_NUM_OF_ZAIUS");
+  if (s)
+    n = atoi(s);
+  return n;
+}
+
 void zDNNExtensionInit() {
   OMZTensorSplitEnabled = ZTensorSplitEnabledFromEnv();
   OMZTensorSplitDebug = ZTensorSplitDebugFromEnv();
   OMZTensorSplitSize = ZTensorSplitSizeFromEnv();
+  OMNumOfZAIUs = NumOfZAIUsFromEnv();
   if (OMZTensorSplitDebug) {
     printf("OM_ZTENSOR_SPLIT_ENABLED: %d\n", OMZTensorSplitEnabled);
     printf("OM_ZTENSOR_SPLIT_SIZE: %d\n", OMZTensorSplitSize);
+    printf("OM_NUM_OF_ZAIUS: %d\n", OMNumOfZAIUs);
   }
 }
 
@@ -122,6 +133,25 @@ static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   }
   return 0;
 }
+
+uint32_t getNumOfElemsPerZAIU(const zdnn_ztensor *input, SplitAxis axis) {
+  UnmappedShape unmappedShape;
+  getUnmappedShape(input, &unmappedShape);
+  switch (axis) {
+  case (E1):
+    return CEIL(unmappedShape.e1, OMNumOfZAIUs);
+  case (E2):
+    return CEIL(unmappedShape.e2, OMNumOfZAIUs);
+  case (E3):
+    return CEIL(unmappedShape.e3, OMNumOfZAIUs);
+  case (E4):
+    return CEIL(unmappedShape.e4, OMNumOfZAIUs);
+  default:
+    omUnreachable();
+  }
+}
+
+uint32_t getMDIS() { return zdnn_get_nnpa_max_dim_idx_size(); }
 
 zdnn_ztensor *getTile(const SplitInfo *splitInfo, uint32_t tileID) {
   return splitInfo->tiles + tileID;
@@ -572,7 +602,7 @@ bool initSplitInfo(
   return true;
 }
 
-void FreeSplitInfoData(SplitInfo *splitInfo) {
+void freeSplitInfoData(SplitInfo *splitInfo) {
   if (splitInfo->reuseFullZTensor)
     return;
 

@@ -86,8 +86,8 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  FreeSplitInfoData(&splitInfoX);
-  FreeSplitInfoData(&splitInfoY);
+  freeSplitInfoData(&splitInfoX);
+  freeSplitInfoData(&splitInfoY);
 
   if (OMZTensorSplitDebug)
     printf("[Softmax] split, %f, compute, %f, merge, %f (milliseconds)\n",
