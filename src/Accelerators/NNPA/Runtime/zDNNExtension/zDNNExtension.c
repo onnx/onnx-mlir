@@ -578,8 +578,7 @@ void printSplitInfo(const SplitInfo *splitInfo, const char *tag) {
       splitInfo->reuseFullBuffer);
 }
 
-float GetElapseTime(
-    const struct timeval start_t, const struct timeval end_t) {
+float GetElapseTime(const struct timeval start_t, const struct timeval end_t) {
   return (((end_t.tv_sec * 1000000.) + end_t.tv_usec) -
              ((start_t.tv_sec * 1000000) + start_t.tv_usec)) /
          1000;
