@@ -92,7 +92,7 @@ private:
       llvm::SmallVector<Type, 4> &parameterTypeList,
       llvm::SmallVector<Value, 4> &parameterList,
       llvm::SmallVector<Value, 4> &omTensors) const {
-    printf("XXX handleOneParameter called\n"); fflush(stdout);
+    llvm::dbgs() << "XXX handleOneParameter called: op=" << *op << ", parameter=" << parameter << ", original=" << original <<"\n"; fflush(stdout);
     MLIRContext *context = op->getContext();
     Location loc = op->getLoc();
     ModuleOp module = op->getParentOfType<ModuleOp>();
@@ -104,6 +104,7 @@ private:
 
     // Check the original type, not after type conversion
     Type ty = original.getType();
+    llvm::dbgs() << "XXXX ty=" << ty << "ty.isa<NoneType>=" << ty.isa<NoneType>() << "\n";
     if (auto originalMemRef = dyn_cast<MemRefType>(ty)) {
       auto int64Ty = IntegerType::get(context, 64);
       auto memRefTy = parameter.getType().dyn_cast<LLVM::LLVMStructType>();
@@ -121,6 +122,13 @@ private:
       parameterTypeList.emplace_back(opaquePtrTy);
       parameterList.emplace_back(omTensor);
       omTensors.emplace_back(omTensor);
+    } else if (ty.isa<NoneType>()) {
+      // generate llvm null pinter for NoneType
+      auto int8Ty = IntegerType::get(context, 8);
+      auto opaquePtrTy = getPointerType(context, int8Ty);
+      parameterTypeList.emplace_back(opaquePtrTy);
+      Value nullPtr = create.llvm.null(getI8PointerType(context));
+      parameterList.emplace_back(nullPtr);
     } else {
       parameterTypeList.emplace_back(parameter.getType());
       parameterList.emplace_back(parameter);

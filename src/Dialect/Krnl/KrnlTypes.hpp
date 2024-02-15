@@ -73,7 +73,7 @@ public:
   int32_t getElementSize() const { return 64; }
 };
 
-#if 1
+#if 0
 class NoneType
     : public mlir::Type::TypeBase<NoneType, mlir::Type, mlir::TypeStorage,
           mlir::MemRefElementTypeInterface::Trait> {
