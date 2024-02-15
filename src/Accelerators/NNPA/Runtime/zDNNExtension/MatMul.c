@@ -42,7 +42,7 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
 }
 
-static float get_elapse(
+static float GetElapseTime(
     const struct timeval start_t, const struct timeval end_t) {
   return (((end_t.tv_sec * 1000000.) + end_t.tv_usec) -
              ((start_t.tv_sec * 1000000) + start_t.tv_usec)) /
@@ -50,9 +50,9 @@ static float get_elapse(
 }
 
 // It is supposed that sched.h should have the declaration of sched_getcpu.
-// No problem when I compiled a standalone test case.
-// But in onnx-mlir, this function is not defined.
-// Explicitly define it here
+// No problem when a standalone test case is compiled with clang or g++.
+// But in onnx-mlir, this function is not defined. Explicitly define it here
+// ToFix: find the correct include file.
 extern int sched_getcpu();
 
 static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
@@ -60,6 +60,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     zdnn_ztensor *output, bool isBcast) {
   double totalTime = 0.;
   struct timeval start_t, end_t;
+  struct timeval start_t1, end_t1;
 
   // For a MatMul of A(M,N)*B(N,P)+C(P),
   // We split M that is e2 in (e4, e3, e2, e1), and P that is e1.
@@ -90,13 +91,17 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   copyData(&splitInfoB, FULL_TO_TILES);
   copyData(&splitInfoC, FULL_TO_TILES);
 
+  // Should call omp_set_max_active_levels(2) here.
+  // But omp is not supported on all platform.
+  // Instead, set env variable OMP_MAX_ACTIVE_LEVELS=2
+
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&start_t1, NULL);
+  }
+
+#pragma omp parallel for
   // Call zdnn_matmul_op on each tile.
   // Iterate over the tiles along the first dim of A.
-
-  // Commented out omp_set_nested because current build cannot guarantee that
-  // OpenMP is supported. Use "OMP_SET_NESTED=TRUE" at runtime instead.
-  // omp_set_nested(true);
-#pragma omp parallel for
   for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
     zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
     zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
@@ -105,8 +110,9 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
         .axis = E1,
         .numOfElemsPerTile = OMZTensorSplitSize};
     initSplitInfo(&splitInfoYB, true, "MatMul YB");
-    // Iterate over the tiles along the second dim of B.
+
 #pragma omp parallel for
+    // Iterate over the tiles along the second dim of B.
     for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
       zdnn_ztensor *zbTensor = splitInfoB.tiles + j;
       zdnn_ztensor *zcTensor = splitInfoC.tiles + j;
@@ -122,6 +128,12 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     FreeSplitInfoData(&splitInfoYB);
   }
 
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&end_t1, NULL);
+    totalTime = GetElapseTime(start_t1, end_t1);
+    printf("[MatMul] mm loop time, %f (milliseconds)\n", totalTime);
+  }
+
   // Copy data from the tiles back to the full ztensor.
   copyData(&splitInfoY, TILES_TO_FULL);
 
@@ -133,7 +145,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   if (OMZTensorSplitDebug) {
     gettimeofday(&end_t, NULL);
-    totalTime = get_elapse(start_t, end_t);
+    totalTime = GetElapseTime(start_t, end_t);
     printf("[MatMul] total time, %f (milliseconds)\n", totalTime);
   }
 
