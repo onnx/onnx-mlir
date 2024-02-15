@@ -48,8 +48,8 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = E4,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX, true, "Softmax X");
-  initSplitInfo(&splitInfoY, true, "Softmax Y");
+  initSplitInfo(&splitInfoX, /*allocTileBuffers=*/true, "Softmax X");
+  initSplitInfo(&splitInfoY, /*allocTileBuffers=*/true, "Softmax Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
@@ -64,9 +64,9 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   // TODO: could we reuse save_area in particular in the parallel scenario?
   if (OMZTensorSplitDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < splitInfoX.numOfTiles; ++i) {
-    zdnn_ztensor *zxTensor = splitInfoX.tiles + i;
-    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
+  for (uint32_t i = 0; i < getNumOfTiles(&splitInfoX); ++i) {
+    zdnn_ztensor *zxTensor = getTile(&splitInfoX, i);
+    zdnn_ztensor *zyTensor = getTile(&splitInfoY, i);
     zdnn_status status = zdnn_softmax(zxTensor,
         (splitInfoX.reuseFullZTensor) ? save_area : NULL, act_func, zyTensor);
     assert(status == ZDNN_OK);

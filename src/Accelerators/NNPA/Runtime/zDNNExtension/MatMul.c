@@ -65,10 +65,10 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       .axis = E2,
       .numOfElemsPerTile = OMZTensorSplitSize};
 
-  initSplitInfo(&splitInfoA, true, "MatMul A");
-  initSplitInfo(&splitInfoB, true, "MatMul B");
-  initSplitInfo(&splitInfoC, true, "MatMul C");
-  initSplitInfo(&splitInfoY, true, "MatMul Y");
+  initSplitInfo(&splitInfoA, /*allocTileBuffers=*/true, "MatMul A");
+  initSplitInfo(&splitInfoB, /*allocTileBuffers=*/true, "MatMul B");
+  initSplitInfo(&splitInfoC, /*allocTileBuffers=*/true, "MatMul C");
+  initSplitInfo(&splitInfoY, /*allocTileBuffers=*/true, "MatMul Y");
 
   // Copy data from A, B, C into their tiles.
   copyData(&splitInfoA, FULL_TO_TILES);
@@ -77,19 +77,19 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // Call zdnn_matmul_op on each tile.
   // Iterate over the tiles along the first dim of A.
-  for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
-    zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
-    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
+  for (uint32_t i = 0; i < getNumOfTiles(&splitInfoA); ++i) {
+    zdnn_ztensor *zaTensor = getTile(&splitInfoA, i);
+    zdnn_ztensor *zyTensor = getTile(&splitInfoY, i);
 
     SplitInfo splitInfoYB = {.fullZTensor = zyTensor,
         .axis = E1,
         .numOfElemsPerTile = OMZTensorSplitSize};
     initSplitInfo(&splitInfoYB, true, "MatMul YB");
     // Iterate over the tiles along the second dim of B.
-    for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
-      zdnn_ztensor *zbTensor = splitInfoB.tiles + j;
-      zdnn_ztensor *zcTensor = splitInfoC.tiles + j;
-      zdnn_ztensor *zybTensor = splitInfoYB.tiles + j;
+    for (uint32_t j = 0; j < getNumOfTiles(&splitInfoB); ++j) {
+      zdnn_ztensor *zbTensor = getTile(&splitInfoB, j);
+      zdnn_ztensor *zcTensor = getTile(&splitInfoC, j);
+      zdnn_ztensor *zybTensor = getTile(&splitInfoYB, j);
       zdnn_status status = call_zdnn_matmul_op(
           zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
       assert(status == ZDNN_OK);

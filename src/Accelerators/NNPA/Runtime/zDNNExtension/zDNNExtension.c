@@ -123,7 +123,32 @@ static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   return 0;
 }
 
-zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
+zdnn_ztensor *getTile(const SplitInfo *splitInfo, uint32_t tileID) {
+  return splitInfo->tiles + tileID;
+}
+
+uint32_t getNumOfTiles(const SplitInfo *splitInfo) {
+  return splitInfo->numOfTiles;
+}
+
+zdnn_status allocTileBuffer(zdnn_ztensor *tile) {
+  if (!(tile->buffer = malloc_aligned_4k(tile->buffer_size)))
+    return ZDNN_STATUS(ZDNN_ALLOCATION_FAILURE,
+        "Unable to allocate %" PRIu64 " bytes.", tile->buffer_size);
+  return ZDNN_OK;
+}
+
+void freeTileBuffer(zdnn_ztensor *tile) {
+  if (tile->buffer)
+    zdnn_free_ztensor_buffer(tile);
+}
+
+void *getTileBuffer(zdnn_ztensor *tile) { return tile->buffer; }
+
+void setTileBuffer(zdnn_ztensor *tile, void *buffer) { tile->buffer = buffer; }
+
+zdnn_status initTile(
+    const SplitInfo *splitInfo, uint32_t tileID, bool allocBuffer) {
   const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
 
   SplitAxis axis = splitInfo->axis;
@@ -223,11 +248,16 @@ zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
   if (status != ZDNN_OK)
     return status;
 
+  // Initialize the tile.
+  zdnn_init_ztensor(preTransDesc, transDesc, tile);
+
+  // The tile is already transformed.
+  tile->is_transformed = true;
+
+  // Set a buffer size for the tile.
+  tile->buffer_size = zdnn_getsize_ztensor(transDesc);
   if (splitInfo->reuseFullBuffer) {
     // No need to alloc buffers if reuseFullZTensor.
-    zdnn_init_ztensor(preTransDesc, transDesc, tile);
-    // Set a buffer size for the tile.
-    tile->buffer_size = zdnn_getsize_ztensor(transDesc);
     // Set a buffer for the tile.
     // All tiles except the last one have the same buffer size.
     // The offset for the last tile is simple "totalSize - lastSize".
@@ -240,27 +270,26 @@ zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
     assert(
         ((reuseBufferOffset + tile->buffer_size) <= fullZTensor->buffer_size) &&
         "Tile buffer is outside the original buffer");
-    status = ZDNN_OK;
-  } else {
-    // Init a zTensor with malloc.
-    status = zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, tile);
+    return ZDNN_OK;
   }
-  tile->is_transformed = true;
 
-  return status;
+  if (allocBuffer)
+    return allocTileBuffer(tile);
+
+  return ZDNN_OK;
 }
 
 void freeTileData(const SplitInfo *splitInfo, uint32_t tileID) {
-  zdnn_ztensor *t = splitInfo->tiles + tileID;
+  zdnn_ztensor *tile = splitInfo->tiles + tileID;
   // Free the tile buffer if it has its own buffer.
   if (!splitInfo->reuseFullBuffer)
-    zdnn_free_ztensor_buffer(t);
+    freeTileBuffer(tile);
   // Free the tile descriptors it has its own ztensor.
   if (!splitInfo->reuseFullZTensor) {
     // We allocated one buffer for both two descriptors, so just one free is
     // enought.
-    if (t->pre_transformed_desc)
-      free(t->pre_transformed_desc);
+    if (tile->pre_transformed_desc)
+      free(tile->pre_transformed_desc);
   }
 }
 
@@ -461,7 +490,8 @@ static void copyDataForTileScalar(
   return;
 }
 
-bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
+bool initSplitInfo(
+    SplitInfo *splitInfo, bool allocTileBuffers, const char *tag) {
   // Check required information.
   assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
              splitInfo->axis == E3 || splitInfo->axis == E4) &&
@@ -531,11 +561,9 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
   splitInfo->tiles = malloc(splitInfo->numOfTiles * sizeof(zdnn_ztensor));
   assert(splitInfo->tiles && "Failed to allocate tile ztensors");
 
-  if (initTiles) {
-    for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
-      zdnn_status status = initTileWithAlloc(splitInfo, i);
-      assert(status == ZDNN_OK && "Failed to initialize a tile");
-    }
+  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+    zdnn_status status = initTile(splitInfo, i, allocTileBuffers);
+    assert(status == ZDNN_OK && "Failed to initialize a tile");
   }
 
   if (OMZTensorSplitDebug)

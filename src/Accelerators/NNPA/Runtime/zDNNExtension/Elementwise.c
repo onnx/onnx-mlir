@@ -73,8 +73,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = axis,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX, true, "UnaryElementwise X");
-  initSplitInfo(&splitInfoY, true, "UnaryElementwise Y");
+  initSplitInfo(&splitInfoX, /*allocTileBuffers=*/true, "UnaryElementwise X");
+  initSplitInfo(&splitInfoY, /*allocTileBuffers=*/true, "UnaryElementwise Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
@@ -88,9 +88,9 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
   // Call zdnn op on each tile.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < splitInfoX.numOfTiles; ++i) {
-    zdnn_ztensor *zxTensor = splitInfoX.tiles + i;
-    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
+  for (uint32_t i = 0; i < getNumOfTiles(&splitInfoX); ++i) {
+    zdnn_ztensor *zxTensor = getTile(&splitInfoX, i);
+    zdnn_ztensor *zyTensor = getTile(&splitInfoY, i);
     zdnn_status status;
     if (opType == ZDNN_EXP_EXT)
       status = zdnn_exp(zxTensor, zyTensor);
@@ -151,9 +151,9 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   SplitInfo splitInfoY = {.fullZTensor = output,
       .axis = axis,
       .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoA, true, "BinaryElementwise A");
-  initSplitInfo(&splitInfoB, true, "BinaryElementwise B");
-  initSplitInfo(&splitInfoY, true, "BinaryElementwise Y");
+  initSplitInfo(&splitInfoA, /*allocTileBuffers=*/true, "BinaryElementwise A");
+  initSplitInfo(&splitInfoB, /*allocTileBuffers=*/true, "BinaryElementwise B");
+  initSplitInfo(&splitInfoY, /*allocTileBuffers=*/true, "BinaryElementwise Y");
 
   // Copy data from inputs into tiles.
   if (OMZTensorSplitDebug)
@@ -168,10 +168,10 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
   // Call zdnn op on each tile.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
-    zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
-    zdnn_ztensor *zbTensor = splitInfoB.tiles + i;
-    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
+  for (uint32_t i = 0; i < getNumOfTiles(&splitInfoA); ++i) {
+    zdnn_ztensor *zaTensor = getTile(&splitInfoA, i);
+    zdnn_ztensor *zbTensor = getTile(&splitInfoB, i);
+    zdnn_ztensor *zyTensor = getTile(&splitInfoY, i);
     zdnn_status status;
     if (opType == ZDNN_ADD_EXT)
       status = zdnn_add(zaTensor, zbTensor, zyTensor);
