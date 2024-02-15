@@ -95,7 +95,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // Commented out omp_set_nested because current build cannot guarantee that
   // OpenMP is supported. Use "OMP_SET_NESTED=TRUE" at runtime instead.
-  //omp_set_nested(true);
+  // omp_set_nested(true);
 #pragma omp parallel for
   for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
     zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
