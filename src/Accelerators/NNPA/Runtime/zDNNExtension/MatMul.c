@@ -85,7 +85,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
     SplitInfo splitInfoYB = {
         .fullZTensor = zyTensor, .axis = E1, .numOfElemsPerTile = noeE1};
-    initSplitInfo(&splitInfoYB, true, "MatMul YB");
+    initSplitInfo(&splitInfoYB, /*allocTileBuffers=*/true, "MatMul YB");
     // Iterate over the tiles along the second dim of B.
     // For parallelism over multiple zAIUs, we can do it here.
     // #pragma omp parallel for
