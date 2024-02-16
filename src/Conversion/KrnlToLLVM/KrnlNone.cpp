@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------ KrnlNone.cpp - Lower KrnlNoneOp --------------------------===//
+//===------ KrnlNone.cpp - Lower KrnlNoneOp -------------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,8 +40,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     LLVMBuilder create(rewriter, loc);
-    ModuleOp module = op->getParentOfType<ModuleOp>();
-    MLIRContext *context = module.getContext();
+    MLIRContext *context = rewriter.getContext();
     Value nullPtr = create.null(getI8PointerType(context));
     rewriter.replaceOp(op, nullPtr);
     return success();

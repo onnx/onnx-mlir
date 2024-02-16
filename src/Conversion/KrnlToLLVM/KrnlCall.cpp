@@ -120,11 +120,11 @@ private:
       parameterList.emplace_back(omTensor);
       omTensors.emplace_back(omTensor);
     } else if (ty.isa<NoneType>()) {
-      // generate llvm null pinter for NoneType
+      // Generate llvm null pinter for NoneType
       auto int8Ty = IntegerType::get(context, 8);
       auto opaquePtrTy = getPointerType(context, int8Ty);
       parameterTypeList.emplace_back(opaquePtrTy);
-      Value nullPtr = create.llvm.null(getI8PointerType(context));
+      Value nullPtr = create.llvm.null(opaquePtrTy);
       parameterList.emplace_back(nullPtr);
     } else {
       parameterTypeList.emplace_back(parameter.getType());
