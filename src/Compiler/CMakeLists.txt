@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
+# Include "Tools" before "Compiler" so that LRODATA_SCRIPT
+# is set before ExternalUtil.hpp.in is processed.
+if (LRODATA_SCRIPT)
+  file(READ ${LRODATA_SCRIPT} ONNX_MLIR_LRODATA_SCRIPT)
+else()
+  set(ONNX_MLIR_LRODATA_SCRIPT "")
+endif()
+
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/ExternalUtil.hpp.in
   ${CMAKE_CURRENT_BINARY_DIR}/ExternalUtil.hpp.cfg
@@ -50,6 +58,19 @@ add_onnx_mlir_library(OMCompilerOptions
   OMAccelerator
   )
 
+
+add_onnx_mlir_library(OMCompilerDialects
+  CompilerDialects.cpp
+
+  LINK_LIBS PUBLIC
+  OMAccelerator
+  OMInitAccelerators
+  OMKrnlOps
+  OMONNXOps
+  MLIRIR
+  MLIROpenMPDialect
+  )
+
 add_onnx_mlir_library(OMCompilerPasses
   CompilerPasses.cpp
   DisposableGarbageCollector.cpp
@@ -66,10 +87,14 @@ add_onnx_mlir_library(OMCompilerPasses
   ${OMLibs}
   OMCompilerOptions
   MLIRAffineTransforms
+  MLIRBufferizationPipelines
+  MLIRBufferizationToMemRef
   MLIRIR
   MLIRLinalgTransforms
   MLIRLLVMToLLVMIRTranslation
   MLIRBuiltinToLLVMIRTranslation
+  MLIROpenMPToLLVM
+  MLIRSCFToOpenMP
   )
 
 # ONNX_MLIR_PRODUCT_VERSION is specified/cached.
@@ -130,7 +155,7 @@ add_onnx_mlir_library(OMCompilerUtils
   EXCLUDE_FROM_OM_LIBS
 
   DEPENDS
-  ExternalUtil  
+  ExternalUtil
   llc
   opt
 
@@ -141,12 +166,10 @@ add_onnx_mlir_library(OMCompilerUtils
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
-  ${OMLibs}
+  OMCompilerDialects
   OMCompilerPasses
   OMAccelerator
-  OMInitAccelerators
   OMVersion
-  MLIRIR
 
   # Link LLVM libraries necessary to query which target architectures
   # are configured.
@@ -158,6 +181,23 @@ add_onnx_mlir_library(OMCompilerUtils
   MC
   )
 
+  add_onnx_mlir_library(OMOptionUtils
+  OptionUtils.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  )
+
+
 # CompilerUtils does not require cruntime or jniruntime to build,
 # however, they are required for execution when using the EmitLib or EmitJNI
 # options
@@ -165,13 +205,15 @@ add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
 endif()
+if (TARGET omp)
+  add_dependencies(OMCompilerUtils ompruntime)
+endif()
 
 add_onnx_mlir_library(OMCompiler
   OnnxMlirCompiler.cpp
 
   DEPENDS
   OMCompilerUtils
-  ExternalUtil
 
   INCLUDE_DIRS PRIVATE
   ${FILE_GENERATE_DIR}

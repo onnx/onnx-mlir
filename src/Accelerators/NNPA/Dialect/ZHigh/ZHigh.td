@@ -16,6 +16,7 @@
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "src/Interface/ShapeHelperOpInterface.td"
 include "src/Interface/ShapeInferenceOpInterface.td"
 include "src/IR/AttrBase.td"
 
@@ -28,6 +29,7 @@ def ZHigh_Dialect : Dialect {
   let summary = "A high-level dialect for the ONNX NNPA accelerator ISA.";
   let cppNamespace = "::onnx_mlir::zhigh";
   let useDefaultAttributePrinterParser = 1;  
+  let usePropertiesForAttributes = 0;
 }
 
 //===----------------------------------------------------------------------===//
@@ -89,15 +91,15 @@ class DataLayoutOfPred<string layout> : And<[
         " == ZTensorEncodingAttr::DataLayout::" # layout # ")"> 
 ]>;
 
-// So far ZTensor supports only F32 for pre-stickified data.
+// So far ZTensor supports only F16 for stickified data.
 class ZTensorOf<string layout, list<int> ranks> :
-    Type<And<[TensorOf<[F32]>.predicate, HasAnyRankOfPred<ranks>,
+    Type<And<[TensorOf<[F16]>.predicate, HasAnyRankOfPred<ranks>,
               DataLayoutOfPred<layout>]>,
          !interleave(!foreach(rank, ranks, rank # "D"), "/") # " " #
-         TensorOf<[F32]>.summary # " with layout " # layout,
+         TensorOf<[F16]>.summary # " with layout " # layout,
          "::mlir::TensorType">;
 
-def UnrankedZTensor : UnrankedTensorOf<[F32]>;
+def UnrankedZTensor : UnrankedTensorOf<[F16]>;
 
 def ZTensor_1D: AnyTypeOf<[UnrankedZTensor, ZTensorOf<"_1D", [1]>]>;
 def ZTensor_2D: AnyTypeOf<[UnrankedZTensor, ZTensorOf<"_2D", [2]>]>;
@@ -137,7 +139,8 @@ class ZHigh_Op<string mnemonic, list<Trait> traits = []> :
     Op<ZHigh_Dialect, mnemonic, traits>;
 
 def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Stick operation";
   let description = [{
     ZHigh operation to perform a Stick."
@@ -153,10 +156,19 @@ def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
     OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>
   ];
   let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighStickOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighStickOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighUnstickOp:ZHigh_Op<"Unstick", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Unstick operation";
   let description = [{
     ZHigh operation to perform a Unstick.
@@ -169,10 +181,65 @@ def ZHighUnstickOp:ZHigh_Op<"Unstick", [Pure,
     OpBuilder<(ins "::mlir::Value":$In)>,
   ];
   let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighUnstickOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnstickOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighF32ToDLF16Op:ZHigh_Op<"F32ToDLF16", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh F32ToDLF16 operation";
+  let description = [{
+    ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
+  }];
+  let arguments = (ins TensorOf<[F32]>: $In);
+  let results = (outs TensorOf<[F16]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In)>,
+  ];
+  let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighF32ToDLF16Op::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighDLF16ToF32Op:ZHigh_Op<"DLF16ToF32", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh DLF16ToF32 operation";
+  let description = [{
+    ZHigh operation to convert a tensor of dlfloat16 to a tensor of f32.
+  }];
+  let arguments = (ins TensorOf<[F16]>: $In);
+  let results = (outs TensorOf<[F32]>:$Out);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$In)>,
+  ];
+  let hasCanonicalizer = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighDLF16ToF32Op::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighAddOp:ZHigh_Op<"Add", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Add operation";
   let description = [{
     ZHigh operation to perform an Add.
@@ -181,10 +248,19 @@ def ZHighAddOp:ZHigh_Op<"Add", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighAddOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighBinaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighSubOp:ZHigh_Op<"Sub", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Sub operation";
   let description = [{
     ZHigh operation to perform a Sub.
@@ -193,10 +269,19 @@ def ZHighSubOp:ZHigh_Op<"Sub", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighSubOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighBinaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighMulOp:ZHigh_Op<"Mul", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Mul operation";
   let description = [{
     ZHigh operation to perform a Mul.
@@ -205,10 +290,19 @@ def ZHighMulOp:ZHigh_Op<"Mul", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMulOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighBinaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighDivOp:ZHigh_Op<"Div", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Div operation";
   let description = [{
     ZHigh operation to perform a Div.
@@ -217,10 +311,19 @@ def ZHighDivOp:ZHigh_Op<"Div", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighDivOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighBinaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighMinOp:ZHigh_Op<"Min", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Min operation";
   let description = [{
     ZHigh operation to perform a Min.
@@ -229,10 +332,19 @@ def ZHighMinOp:ZHigh_Op<"Min", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMinOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighBinaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighMaxOp:ZHigh_Op<"Max", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Max operation";
   let description = [{
     ZHigh operation to perform a Max.
@@ -241,60 +353,114 @@ def ZHighMaxOp:ZHigh_Op<"Max", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X,
                        AnyTypeOf<[AnyZTensor]>:$Y);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMaxOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighBinaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighLogOp:ZHigh_Op<"Log", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Log operation";
   let description = [{
     ZHigh operation to perform a Log.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighLogOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighExpOp:ZHigh_Op<"Exp", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Exp operation";
   let description = [{
     ZHigh operation to perform a Exp.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighExpOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighReluOp:ZHigh_Op<"Relu", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Relu operation";
   let description = [{
     "ZHigh operation to perform a Relu."
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighReluOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighTanhOp:ZHigh_Op<"Tanh", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Tanh operation";
   let description = [{
     ZHigh operation to perform a Tanh.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighTanhOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighSigmoidOp:ZHigh_Op<"Sigmoid", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Sigmoid operation";
   let description = [{
     ZHigh operation to perform a Sigmoid.
   }];
   let arguments = (ins AnyTypeOf<[AnyZTensor]>:$X);
   let results = (outs AnyTypeOf<[AnyZTensor]>:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighSigmoidOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh Softmax operation";
   let description = [{
     ZHigh operation to perform a Softmax.
@@ -303,10 +469,19 @@ def ZHighSoftmaxOp:ZHigh_Op<"Softmax", [Pure, SameOperandsAndResultLayout,
   let arguments = (ins ZTensor_3DS:$X,
                        DefaultValuedStrAttr<StrAttr, "ACT_NONE">:$act_func);
   let results = (outs ZTensor_3DS:$Out);
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighSoftmaxOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh 2D mean reduce operation";
   let description = [{
     ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, 
@@ -323,10 +498,19 @@ def ZHighMeanReduce2DOp:ZHigh_Op<"MeanReduce2d", [Pure,
       build($_builder, $_state, resType, input);
     }]>
   ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMeanReduce2DOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighMeanReduce2DOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh 2D max pooling operation";
   let description = [{
     ZHigh operation to perform 2D max pooling.
@@ -345,10 +529,19 @@ def ZHighMaxPool2DOp:ZHigh_Op<"MaxPool2D", [Pure,
       build($_builder, $_state, resType, input, kernel_shape, strides, padding_type);
     }]>
   ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMaxPool2DOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighPoolingOpShapeHelper<ZHighMaxPool2DOp>(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh 2D average pooling operation";
   let description = [{
     ZHigh operation to perform 2D average pooling.
@@ -367,10 +560,19 @@ def ZHighAvgPool2DOp:ZHigh_Op<"AvgPool2D", [Pure,
       build($_builder, $_state, resType, input, kernel_shape, strides, padding_type);
     }]>
   ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighAvgPool2DOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighPoolingOpShapeHelper<ZHighAvgPool2DOp>(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh MatMul operation";
   let description = [{
     ZHigh operation to perform a MatMul.
@@ -388,10 +590,19 @@ def ZHighMatMulOp:ZHigh_Op<"MatMul", [Pure,
     }]>
   ];
   let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighMatMulOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighMatMulOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh LSTM operation";
   let description = [{
     zHigh operation to perform a LSTM.
@@ -434,10 +645,19 @@ def ZHighLSTMOp:ZHigh_Op<"LSTM", [Pure,
     }]>
   ];
   let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighLSTMOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighLSTMOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighGRUOp:ZHigh_Op<"GRU", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh GRU operation";
   let description = [{
     * zHigh operation to perform a GRU.
@@ -476,10 +696,19 @@ def ZHighGRUOp:ZHigh_Op<"GRU", [Pure,
     }]>
   ];
   let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighGRUOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighGRUOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh stick operation for LSTM";
   let description = [{
     ZHigh operation to perform a stick for LSTM.
@@ -495,15 +724,24 @@ def ZHighStickForLSTMOp:ZHigh_Op<"StickForLSTM", [Pure,
   let builders = [
     OpBuilder<(ins "::mlir::Value":$f_gate, "::mlir::Value":$i_gate,
                    "::mlir::Value":$c_gate, "::mlir::Value":$o_gate), [{
-      Type elementType = f_gate.getType().cast<ShapedType>().getElementType();
+      Type elementType = $_builder.getF16Type();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, f_gate, i_gate, c_gate, o_gate);
     }]>
   ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighStickForLSTMOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighStickForLSTMOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh stick operation for GRU";
   let description = [{
     ZHigh operation to perform a stick for GRU.
@@ -517,15 +755,24 @@ def ZHighStickForGRUOp:ZHigh_Op<"StickForGRU", [Pure,
   let results = (outs ZTensor_ZRH:$out);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$z_gate, "::mlir::Value":$r_gate, "::mlir::Value":$h_gate), [{
-      Type elementType = z_gate.getType().cast<ShapedType>().getElementType();
+      Type elementType = $_builder.getF16Type();
       UnrankedTensorType resType = UnrankedTensorType::get(elementType);
       build($_builder, $_state, resType, z_gate, r_gate, h_gate);
     }]>
   ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighStickForGRUOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighStickForGRUOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighConv2DOp:ZHigh_Op<"Conv2D", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh 2D convolution operation";
   let description = [{
     ZHigh operation to perform 2D convolution. 
@@ -558,10 +805,19 @@ def ZHighConv2DOp:ZHigh_Op<"Conv2D", [Pure,
     }]>
   ];
   let hasVerifier = 1;
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighConv2DOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighConv2DOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [Pure,
-    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ZHigh batchnorm operation";
   let description = [{
     ZHigh operation to perform batchnorm.
@@ -576,12 +832,20 @@ def ZHighBatchNormOp:ZHigh_Op<"BatchNorm", [Pure,
       build($_builder, $_state, input.getType(), input, a, b);
     }]>
   ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighBatchNormOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighUnaryOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let summary = "ZHigh Stickified Constant operation";
   let description = [{
-    This operator produces a constant tensor to store stickified data."
+    This operator produces a constant tensor to store stickified data.
     Stickified data is opaque and must be 4K-aligned. One who produces
     the stickified data must make sure its size in bytes consistent with
     the output tensor's size.
@@ -589,6 +853,74 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
+}
+
+def ZHighStickifiedConstantOfShapeOp:ZHigh_Op<"StickifiedConstantOfShape", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ZHigh Stickified Constant operation for a dynamic shape";
+  let description = [{
+    This operator produces a constant tensor to store stickified data.
+    The stickified data is defined by a f32 scalar value, a dynamic shape 
+    and a layout. Stickified data is 4K-aligned.
+  }];
+  let arguments = (ins TensorOf<[I64]>:$shape,
+                       F32Attr:$value,
+                       OptionalAttr<StrAttr>:$layout);
+  let results = (outs AnyZTensor:$output);
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$shape, "::mlir::FloatAttr":$value,
+               "::mlir::StringAttr":$layout)>
+  ];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * ZHighStickifiedConstantOfShapeOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighStickifiedConstantOfShapeOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighFixGRUYOp:ZHigh_Op<"FixGRUY", [Pure, SameOperandsAndResultLayout,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "Fix Y result of GRU for sequence_lens";
+  let description = [{
+    Fix Y result of GRU by padding value after sequence_lens.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[I32]>, NoneType]>:$sequence_lens,
+    AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$initial_h);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$output);
+    let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighFixGRUYOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ZHighFixGRUYhOp:ZHigh_Op<"FixGRUYh", [Pure,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "Fix Yh result of GRU for sequence_lens";
+  let description = [{
+    Fix Yh result of GRU by picking the value in Y according to sequence_lens.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$Y,
+    AnyTypeOf<[TensorOf<[I32]>, NoneType]>:$sequence_lens);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, NoneType]>:$output);
+    let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper,
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new ZHighFixGRUYhOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
 }
 
 #endif // ZHIGH_OPS

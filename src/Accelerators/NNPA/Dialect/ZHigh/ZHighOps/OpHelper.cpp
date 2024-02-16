@@ -76,7 +76,9 @@ ZTensorEncodingAttr::DataLayout getZTensorDataLayoutByRank(int64_t rank) {
   else if (rank == 2)
     return ZTensorEncodingAttr::DataLayout::_2D;
   else if (rank == 3)
-    return ZTensorEncodingAttr::DataLayout::_3D;
+    // Use 3DS instead of 3D since important ops like LSTM/MatMul/Softmax use
+    // 3DS, which reduces the number of layout transformations.
+    return ZTensorEncodingAttr::DataLayout::_3DS;
   else if (rank == 4)
     return ZTensorEncodingAttr::DataLayout::_4D;
   else
@@ -174,7 +176,8 @@ Value getMinusBcastConst(
   ShapedType xType = X.getType().cast<ShapedType>();
   assert(xType.hasStaticShape() && "expected static shape");
   float val = floatAttr.getValueAsDouble() * -1.0;
-  DenseElementsAttr denseAttr = DenseElementsAttr::get(X.getType(), val);
+  DenseElementsAttr denseAttr =
+      DenseElementsAttr::get(X.getType().cast<ShapedType>(), val);
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   return create.onnx.constant(denseAttr);
 }
@@ -433,6 +436,28 @@ AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
   AffineMap map =
       AffineMap::getPermutationMap(llvm::ArrayRef(perm), b.getContext());
   return AffineMapAttr::get(map);
+}
+
+IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
+  int64_t axisNCHW = axisNCHWAttr.getSInt();
+  int64_t axisNHWC;
+  switch (axisNCHW) {
+  case 0: // N
+    axisNHWC = 0;
+    break;
+  case 1: // C
+    axisNHWC = 3;
+    break;
+  case 2: // H
+    axisNHWC = 1;
+    break;
+  case 3: // W
+    axisNHWC = 2;
+    break;
+  default:
+    axisNHWC = axisNCHW;
+  }
+  return IntegerAttr::get(axisNCHWAttr.getType(), axisNHWC);
 }
 
 } // namespace zhigh

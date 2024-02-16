@@ -24,21 +24,12 @@
 // Unsupported Operations
 //===---------------------------------------------------------------------===//
 
-// Operations for which shape inference has not been implemented yet
-// If you add the implementation for one op, move it out of this section
-// Also please add test case in test/mlir/onnx/onnx_shape_inference.mlir
-// Followed by the implementation of lowering to Krnl and
-// Enable the corresponding node test in check-onnx-backend
-
+// Operations for which shape inference has not been implemented.
 #define UNSUPPORTED_OPS(OP_TYPE)                                               \
   /* shape inference interface method */                                       \
   mlir::LogicalResult mlir::OP_TYPE::inferShapes(                              \
       std::function<void(mlir::Region &)> doShapeInference) {                  \
-    return emitOpError(                                                        \
-        "op is not supported at this time. Please open an issue on "           \
-        "https://github.com/onnx/onnx-mlir and/or consider contributing "      \
-        "code. "                                                               \
-        "Error encountered in shape inference.");                              \
+    return mlir::success();                                                    \
   }
 
 #include "src/Dialect/ONNX/ONNXUnsupportedOps.hpp"
@@ -243,13 +234,14 @@ ParseResult ONNXConstantOfShapeOp::parse(
 }
 
 //===----------------------------------------------------------------------===//
-// Constant Materializer for ONNX Dialect
+// Constant Materialize for ONNX Dialect
 //===----------------------------------------------------------------------===//
 Operation *ONNXDialect::materializeConstant(
     OpBuilder &builder, Attribute value, Type type, Location loc) {
-  // The atrribute could be either a UnitAttr or DenseElementsAttr, IntAttr,
+  // The attribute could be either a UnitAttr or DenseElementsAttr, IntAttr,
   // FloatAttr and etc.
-  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or ONNXContantOp.
+  // OnnxBuilder converts it into (the result of) a ONNXNoneOp or
+  // ONNXConstantOp.
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   Value result =
       isa<UnitAttr>(value) ? create.onnx.none() : create.onnx.constant(value);

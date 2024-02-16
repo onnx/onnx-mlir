@@ -39,8 +39,20 @@ struct ONNXConstantOpLowering : public OpConversionPattern<ONNXConstantOp> {
 
     // Emit the constant global in Krnl dialect.
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
-    Value constantGlobal = create.krnl.constant(
-        memRefType, "constant_", constantOp.getValue().value());
+    mlir::Attribute constValAttr = constantOp.getValue().value();
+    if (memRefType.getElementType().isa<krnl::StringType>()) {
+      // If the onnx.ConstantOp has string type value attribute,
+      // The element type of the value attribute of krnl.global op should be
+      // "!krnl.string" instead of "!onnx.String".
+      ShapedType constStrType = RankedTensorType::get(
+          memRefType.getShape(), krnl::StringType::get(rewriter.getContext()));
+      SmallVector<StringRef> constStrVector(
+          constValAttr.dyn_cast<DenseElementsAttr>().getValues<StringAttr>());
+      ArrayRef<StringRef> constStrValues(constStrVector);
+      constValAttr = mlir::DenseElementsAttr::get(constStrType, constStrValues);
+    }
+    Value constantGlobal =
+        create.krnl.constant(memRefType, "constant_", constValAttr);
 
     // Replace this operation with the generated krnl.global.
     rewriter.replaceOp(op, constantGlobal);

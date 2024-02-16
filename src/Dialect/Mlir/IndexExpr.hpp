@@ -480,22 +480,22 @@ public:
   void getAffineMapAndOperands(
       mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands) const;
   mlir::Value getValue() const;
+  int64_t getShape(bool uniqueQuestionMark = false) const;
 
   // Helpers for list of IndexExpressions: given a (list of) IndexExpr, provide
   // the (list of) Shape/Value/OpFoldResult corresponding to the original (list
   // of) IndexExpr.
-  static void getLiteral(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getLiteral(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<int64_t> &intList);
-  static void getShape(llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getShape(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<int64_t> &intDimList,
       bool uniqueQuestionMark = false);
   static void getDynSymbols(
-      llvm::SmallVectorImpl<IndexExpr> &indexExprList, // Input list.
+      mlir::ArrayRef<IndexExpr> indexExprArray,        // Input list.
       llvm::SmallVectorImpl<mlir::Value> &dynSymbols); // Symbol for dyn ref.
   static void getValues(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::Value> &valueList);
-  static void getOpOrFoldResults(
-      llvm::SmallVectorImpl<IndexExpr> &indexExprList,
+  static void getOpOrFoldResults(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::OpFoldResult> &resList);
 
   // Possibly Affine Operations. Return a new IndexExpr
@@ -572,7 +572,7 @@ public:
   IndexExpr convertToFloat() const; // Int input only.
   IndexExpr convertToIndex() const; // Float input only.
 
-  // Debug (enable running with --debug-only=index_expr, for example).
+  // Debug (enable running with --debug-only=index-expr, for example).
   void debugPrint(const std::string &msg) const;
   static void debugPrint(
       const std::string &msg, const llvm::SmallVectorImpl<IndexExpr> &list);
@@ -835,32 +835,32 @@ inline IndexExpr operator-(int64_t const a, const IndexExpr &b) {
 // Make IndexExpressions of a given type from provided input list/range
 //===----------------------------------------------------------------------===//
 
-// Create a list of IndexExpr of kind INDEXEXPR from an ArrayRef of block args.
-template <class INDEXEXPR>
+// Create a list of IndexExpr of kind INDEX_EXPR from an ArrayRef of block args.
+template <class INDEX_EXPR>
 void getIndexExprList(mlir::ArrayRef<mlir::BlockArgument> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
-    outputList.emplace_back(INDEXEXPR(item));
+    outputList.emplace_back(INDEX_EXPR(item));
 }
 
-// Create a list of IndexExpr of kind INDEXEXPR from a value range (list of
+// Create a list of IndexExpr of kind INDEX_EXPR from a value range (list of
 // values).
-template <class INDEXEXPR>
+template <class INDEX_EXPR>
 void getIndexExprList(
     mlir::ValueRange range, llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : range)
-    outputList.emplace_back(INDEXEXPR(item));
+    outputList.emplace_back(INDEX_EXPR(item));
 }
 
-// Create a list of IndexExpr of kind INDEXEXPR from another list of IndexExpr.
-template <class INDEXEXPR>
+// Create a list of IndexExpr of kind INDEX_EXPR from another list of IndexExpr.
+template <class INDEX_EXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList) {
   outputList.clear();
   for (auto item : inputList)
-    outputList.emplace_back(INDEXEXPR(item));
+    outputList.emplace_back(INDEX_EXPR(item));
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.

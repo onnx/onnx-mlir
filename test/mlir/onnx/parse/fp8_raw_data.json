@@ -1,0 +1,171 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// fp8_raw_data.json is an onnx model that outputs 4 constant tensors
+// with the 4 float8 data types
+// and with the data represented as raw_data byte arrays
+
+// json is generated with utils/testing/fp8_data.py raw
+{
+  "irVersion": "9",
+  "graph": {
+    "node": [
+      {
+        "output": [
+          "output_f8e4m3fn"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 17,
+              "name": "tensor_f8e4m3fn",
+              "rawData": "uHQ="
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output_f8e4m3fnuz"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 18,
+              "name": "tensor_f8e4m3fnuz",
+              "rawData": "wHw="
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output_f8e5m2"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 19,
+              "name": "tensor_f8e5m2",
+              "rawData": "vFo="
+            },
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": [
+          "output_f8e5m2fnuz"
+        ],
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {
+              "dims": [
+                "2"
+              ],
+              "dataType": 20,
+              "name": "tensor_f8e5m2fnuz",
+              "rawData": "wF4="
+            },
+            "type": "TENSOR"
+          }
+        ]
+      }
+    ],
+    "name": "fp8_raw_data",
+    "output": [
+      {
+        "name": "output_f8e4m3fn",
+        "type": {
+          "tensorType": {
+            "elemType": 17,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output_f8e4m3fnuz",
+        "type": {
+          "tensorType": {
+            "elemType": 18,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output_f8e5m2",
+        "type": {
+          "tensorType": {
+            "elemType": 19,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "output_f8e5m2fnuz",
+        "type": {
+          "tensorType": {
+            "elemType": 20,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "2"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "19"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   () -> (tensor<2xf8E4M3FN> {onnx.name = "output_f8e4m3fn"}, tensor<2xf8E4M3FNUZ> {onnx.name = "output_f8e4m3fnuz"}, tensor<2xf8E5M2> {onnx.name = "output_f8e5m2"}, tensor<2xf8E5M2FNUZ> {onnx.name = "output_f8e5m2fnuz"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E4M3FN>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E4M3FNUZ>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E5M2>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[-1.000000e+00, 1.920000e+02]> : tensor<2xf8E5M2FNUZ>
+// CHECK:           onnx.Return [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]] : tensor<2xf8E4M3FN>, tensor<2xf8E4M3FNUZ>, tensor<2xf8E5M2>, tensor<2xf8E5M2FNUZ>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

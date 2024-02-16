@@ -48,6 +48,8 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   //   than one dim in the output has value -1.
 
   // Compute the total number of elements using the input data operand.
+  // dataRank will be 0 if Data is unranked tensor.
+  // The number of element will not be computed
   IndexExpr numOfElements = LiteralIndexExpr(1);
   for (unsigned i = 0; i < dataRank; ++i)
     numOfElements = numOfElements * createIE->getShapeAsDim(data, i);
@@ -75,11 +77,24 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     numOfElementsFromShape = numOfElementsFromShape * dim;
   }
 
-  // All the output dims except the one with -1 are computed. Thus, only
-  // update the dim with -1 here.
-  for (unsigned i = 0; i < outputRank; ++i)
-    outputDims[i] = outputDims[i].selectOrSelf(
-        outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+  // When data is ranked tensor, all the output dims except the one with -1
+  // are computed. Thus, only update the dim with -1 here.
+  // When data is unranked tensor, output dims with -1 or 0 (allowzero == 0)
+  // should be -1 (represented as QuestionmarkIndexExpr)
+  for (unsigned i = 0; i < outputRank; ++i) {
+    if (hasShapeAndRank(data)) {
+      outputDims[i] = outputDims[i].selectOrSelf(
+          outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+    } else {
+      // ToFix: can not check getAllowzero because the operandAdaptor is
+      // constructed without attributes
+      // Anyway the question mark is a conservative but correct result.
+      outputDims[i] = outputDims[i].selectOrSelf(
+          outputDims[i] == 0, QuestionmarkIndexExpr(false));
+      outputDims[i] = outputDims[i].selectOrSelf(
+          outputDims[i] == -1, QuestionmarkIndexExpr(false));
+    }
+  }
 
   // Save the final result.
   setOutputDims(outputDims);
@@ -93,25 +108,36 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
 // Verify
 //===----------------------------------------------------------------------===//
 
+LogicalResult ONNXReshapeOp::verify() {
+  // Cannot verify if shape has unknown rank.
+  if (!hasShapeAndRank(getShape()))
+    return success();
+
+  // Only rank 1 shape tensors are supported.
+  auto shapeTy = cast<ShapedType>(getShape().getType());
+  if (shapeTy.getRank() != 1)
+    return emitOpError("Shape tensor must have rank one");
+
+  // TODO: Check that any -1 dim is used correctly.
+  // TODO: Check that any 0 dim is used correctly with allowzero.
+  // TODO: Check that data can reshape to shape if data's shape is known.
+
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXReshapeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  // Cannot infer shape if no shape tensor is specified.
-  if (!hasShapeAndRank(getData()) || !hasShapeAndRank(getShape()))
+  // Cannot infer shape without data rank and static shape of shape.
+  // If shape is constant shape, the rank of the output known.
+  // This step may be helpful to reach the fix point.
+  // TODO: Infer shape without data rank if shape is a constant
+  //       without -1 and without 0 and allowzero.
+  if (!hasShapeAndRank(getData()) && !hasStaticShape(getShape().getType()))
     return success();
-
-  // Only rank 1 shape tensors are supported.
-  auto shapeTensorTy = getShape().getType().cast<RankedTensorType>();
-  if (shapeTensorTy.getShape().size() != 1)
-    return emitError("Shape tensor must have rank one");
-
-  // Shape tensor must have constant shape.
-  int64_t outputRank = shapeTensorTy.getShape()[0];
-  if (outputRank < 0)
-    return emitError("Shape tensor must have constant shape");
 
   Type elementType = getData().getType().cast<ShapedType>().getElementType();
   ONNXReshapeOpShapeHelper shapeHelper(getOperation(), {});

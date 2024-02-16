@@ -21,7 +21,7 @@ namespace onnx_mlir {
 namespace krnl {
 
 void customizeTypeConverter(LLVMTypeConverter &typeConverter) {
-  typeConverter.addConversion([&](MemRefType type) -> llvm::Optional<Type> {
+  typeConverter.addConversion([&](MemRefType type) -> std::optional<Type> {
     Type elementType = type.getElementType();
     if (!elementType.isa<krnl::StringType>())
       return std::nullopt;

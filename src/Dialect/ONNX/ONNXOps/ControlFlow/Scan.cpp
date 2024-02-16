@@ -35,6 +35,29 @@ size_t getNumStateVariables(ONNXScanOp *op) {
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXScanOp::resultTypeInference() {
+  unsigned numStateVariables = getNumStateVariables(this);
+  Operation *terminator = getRegion().back().getTerminator();
+  assert(terminator->getNumOperands() == getFinalStateAndScanOutputs().size() &&
+         "ScanOp outputs count must match body results count");
+  auto bodyOuputTys = terminator->getOperandTypes();
+  std::vector<Type> resultTypes;
+  for (auto [i, ty] : llvm::enumerate(bodyOuputTys)) {
+    if (i < numStateVariables) { // state variable
+      resultTypes.push_back(ty);
+    } else { // scan output
+      // Erase any rank and shape. Shape inference will add a leading dimension.
+      Type elementType = cast<ShapedType>(ty).getElementType();
+      resultTypes.push_back(UnrankedTensorType::get(elementType));
+    }
+  }
+  return resultTypes;
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
@@ -45,7 +68,7 @@ LogicalResult ONNXScanOp::inferShapes(
   assert(!getScanOutputAxes() && "scan_output_axes are unsupported");
 
   assert(!scan_inputs().empty() && "there must be 1 or more scan inputs");
-  ShapedType firstScanInputType = scan_inputs().front().getType();
+  auto firstScanInputType = scan_inputs().front().getType().cast<ShapedType>();
   // Number of body iterations is the dim size of the scan input sequence axis,
   // which is also the dim size of the scan outputs concat axis.
   int64_t sequence_length = firstScanInputType.hasRank()
@@ -72,8 +95,8 @@ LogicalResult ONNXScanOp::inferShapes(
       llvm::zip(scan_inputs(), bodyScanInputs)) {
     if (auto rankedTy = opScanInput.getType().dyn_cast<RankedTensorType>()) {
       ArrayRef<int64_t> squeezedShape(rankedTy.getShape().drop_front(1));
-      updateType(bodyScanInput, squeezedShape, rankedTy.getElementType(),
-          /*encoding=*/nullptr,
+      updateType(getOperation(), bodyScanInput, squeezedShape,
+          rankedTy.getElementType(), /*encoding=*/nullptr,
           /*refineShape=*/false);
     }
   }
@@ -101,8 +124,8 @@ LogicalResult ONNXScanOp::inferShapes(
     if (auto rankedTy = ty.dyn_cast<RankedTensorType>()) {
       SmallVector<int64_t, 4> unsqueezedShape(rankedTy.getShape());
       unsqueezedShape.insert(unsqueezedShape.begin(), sequence_length);
-      updateType(opScanOutput, unsqueezedShape, rankedTy.getElementType(),
-          /*encoding=*/nullptr,
+      updateType(getOperation(), opScanOutput, unsqueezedShape,
+          rankedTy.getElementType(), /*encoding=*/nullptr,
           /*refineShape=*/false);
     }
   }

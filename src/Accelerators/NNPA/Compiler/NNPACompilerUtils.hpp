@@ -31,6 +31,7 @@ void normalizeMemRefsPasses(mlir::PassManager &pm);
 void addAllToLLVMPasses(mlir::PassManager &pm);
 
 void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
-    mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget);
+    mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
+    std::string outputNameNoExt);
 
 } // namespace onnx_mlir

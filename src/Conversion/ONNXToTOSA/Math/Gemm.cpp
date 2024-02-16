@@ -77,9 +77,6 @@ public:
         rewriter.getDenseI64ArrayAttr(newShapeB))
             .getResult();
 
-    auto tosaResult =
-        RankedTensorType::get(dynamicTensorShape, resultType.getElementType());
-
     // If transA or transB are present, create Transpose operators.
     if (transA) {
       Value targetTensor =
@@ -105,24 +102,17 @@ public:
     // If Alpha is present and not 1, we create a multiply operation for alpha *
     // A
     if (alpha && alpha.getValueAsDouble() != 1.) {
-      alphaMulResult =
-          tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, tosaResult,
-              tosaBuilder.getSplattedConst(
-                  (float)alpha.getValueAsDouble(), newShapeA),
-              A, 0)
-              .getResult();
+      Value splattedConstAlpha = tosaBuilder.getSplattedConst(
+          (float)alpha.getValueAsDouble(), newShapeA);
+      alphaMulResult = tosaBuilder.mul(splattedConstAlpha, A, 0);
     }
 
     // If C and Beta are set, and beta is different from 1, we also need to add
     // a multiplication for beta * C
     if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
-      auto shapeC = C.getType().dyn_cast<ShapedType>();
-      betaMulResult =
-          tosa::CreateOpAndInfer<mlir::tosa::MulOp>(rewriter, loc, shapeC,
-              tosaBuilder.getSplattedConst((float)beta.getValueAsDouble(),
-                  shapeC.cast<TensorType>().getShape()),
-              C, 0)
-              .getResult();
+      Value splattedConstBeta = tosaBuilder.getSplattedConst(
+          (float)beta.getValueAsDouble(), newShapeA);
+      betaMulResult = tosaBuilder.mul(splattedConstBeta, C, 0);
     }
 
     // A * B
@@ -135,18 +125,15 @@ public:
     Value addRes = NULL;
     //(A*B) + Beta * C or (A*B) + C
     if (isCPresent) {
-      addRes = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(
-          rewriter, loc, tosaResult, matmulRes, betaMulResult)
-                   .getResult();
+      addRes =
+          tosaBuilder.binaryOp<mlir::tosa::AddOp>(matmulRes, betaMulResult);
     } else {
       addRes = matmulRes;
     }
 
     // Add reshape to go back to the original shape
-    tosa::CreateReplaceOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op,
-        resultType, addRes,
-        rewriter.getDenseI64ArrayAttr(resultType.getShape()));
-
+    Value reshape = tosaBuilder.reshape(addRes, resultType.getShape());
+    rewriter.replaceOp(op, {reshape});
     return success();
   }
 
@@ -222,10 +209,9 @@ public:
     // If C was present in the original GEMM, we create an add to take the bias
     // into account.
     if (isCPresent && needsBroadcasting)
-      tosa::CreateReplaceOpAndInfer<mlir::tosa::AddOp>(
-          rewriter, op, resultType, fcRes, C);
-    else
-      rewriter.replaceOp(op, fcRes);
+      fcRes = tosaBuilder.binaryOp<mlir::tosa::AddOp>(fcRes, C);
+
+    rewriter.replaceOp(op, fcRes);
 
     return true;
   }

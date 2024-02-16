@@ -62,7 +62,7 @@ void ConvertSeqToMemrefPass::runOnOperation() {
   target.addIllegalOp<KrnlSeqDeallocOp>();
   target.addIllegalOp<KrnlSeqExtractOp>();
   target.addIllegalOp<KrnlSeqStoreOp>();
-  target.addLegalDialect<mlir::AffineDialect, mlir::arith::ArithDialect,
+  target.addLegalDialect<mlir::affine::AffineDialect, mlir::arith::ArithDialect,
       mlir::memref::MemRefDialect, mlir::func::FuncDialect,
       mlir::vector::VectorDialect, mlir::scf::SCFDialect>();
 

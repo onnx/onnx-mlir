@@ -1,0 +1,35 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// functiontest_attrwithdefault.onnxtext is from onnxruntime/test/framework/function_test.cc
+<
+ir_version: 8,
+opset_import: [ "" : 16, "local" : 1 ]
+>
+agraph (float[N] x) => (float[N] y)
+{
+    y0 = local.myfun <a = 2.0> (x)
+    y1 = local.myfun (x)
+    y = Add (y0, y1)
+}
+
+<
+opset_import: [ "" : 16 ],
+domain: "local"
+>
+myfun <a: float=1.0> (x) => (y) {
+    x2 = Constant <value_float: float=@a>()
+    x3 = CastLike (x2, x)
+    y = Add (x, x3)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "x"}) -> (tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "y"}) {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant {value_float = 2.000000e+00 : f32} : tensor<f32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.CastLike"([[VAR_0_]], [[PARAM_0_]]) {saturate = 1 : si64} : (tensor<f32>, tensor<?xf32>) -> tensor<f32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_1_]]) : (tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant {value_float = 1.000000e+00 : f32} : tensor<f32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.CastLike"([[VAR_3_]], [[PARAM_0_]]) {saturate = 1 : si64} : (tensor<f32>, tensor<?xf32>) -> tensor<f32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Add"([[PARAM_0_]], [[VAR_4_]]) : (tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_5_]]) : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<?xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

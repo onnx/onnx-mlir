@@ -203,8 +203,8 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
          "Shape should be static when the inputs are constant");
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
-  return elementsBuilder.reshape(
-      adaptor.getData(), getShape(getSqueezed().getType()));
+  return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),
+      getShape(getSqueezed().getType()));
 }
 
 OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
@@ -222,6 +222,6 @@ OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
          "Shape should be static when the inputs are constant");
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
-  return elementsBuilder.reshape(
-      adaptor.getData(), getShape(getSqueezed().getType()));
+  return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),
+      getShape(getSqueezed().getType()));
 }

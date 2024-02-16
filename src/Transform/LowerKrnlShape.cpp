@@ -70,7 +70,8 @@ public:
       // Store value in the new MemRef.
       Value idxValue = create.math.constant(rewriter.getIndexType(), idx);
       SmallVector<Value, 1> indexArg = {idxValue};
-      rewriter.create<AffineStoreOp>(loc, operand, newMemRefAlloc, indexArg);
+      rewriter.create<affine::AffineStoreOp>(
+          loc, operand, newMemRefAlloc, indexArg);
     }
 
     rewriter.replaceOp(krnlShapeOp, newMemRefAlloc.getResult());

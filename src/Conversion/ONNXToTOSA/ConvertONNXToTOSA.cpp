@@ -5,6 +5,7 @@
 //====------ ConvertONNXToTOSA.cpp - ONNX dialects to TOSA lowering -------===//
 //
 // Copyright (c) 2022 Arm Limited.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -24,6 +25,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // Math
   populateLoweringONNXElementwiseOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXReduceMeanOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   populateLoweringONNXGemmOpToTOSAPattern(target, patterns, typeConverter, ctx);
   populateLoweringONNXSoftmaxOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
@@ -31,8 +34,14 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
   // NN
   populateLoweringONNXMaxPoolSingleOutOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXAveragePoolOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   // Tensor
   populateLoweringONNXConstOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXReshapeOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
+  populateLoweringONNXResizeOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
 }
 
@@ -63,19 +72,19 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // are executed. This ensures that we do not need to trigger separate
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
-  typeConverter.addConversion([](Type type) -> Optional<Type> {
+  typeConverter.addConversion([](Type type) -> std::optional<Type> {
     if (isTOSASignedInt(type) || isTOSAFloat(type) || type.isa<NoneType>())
       return type;
     return std::nullopt;
   });
-  typeConverter.addConversion([&](TensorType type) -> Optional<Type> {
+  typeConverter.addConversion([&](TensorType type) -> std::optional<Type> {
     if (typeConverter.isLegal(type.getElementType()))
       return type;
     return std::nullopt;
   });
 
   // Define legal dialects and operations
-  target.addLegalDialect<tosa::TosaDialect, func::FuncDialect,
+  target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
       mlir::arith::ArithDialect>();
 
   // Define patterns

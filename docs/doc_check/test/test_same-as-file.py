@@ -23,24 +23,28 @@ import check
 
 class TestStringMethods(unittest.TestCase):
     def test_basic(self):
-        check.main('./same-as-file/simple/', [])
+        check.main("./same-as-file/simple/", [])
 
     def test_different(self):
         with self.assertRaises(ValueError) as context:
             check.main("./same-as-file/error-doc-different-from-ref/", [])
-        self.assertTrue('Check failed because doc file content is not the same as that of reference file.' in str(
-            context.exception))
+        self.assertTrue(
+            "Check failed because doc file content is not the same as that of reference file."
+            in str(context.exception)
+        )
 
     def test_doc_shorter_than_ref(self):
         # check.main('./same-as-file/error-doc-shorter-than-ref/', [])
         with self.assertRaises(ValueError) as context:
-            check.main('./same-as-file/error-doc-shorter-than-ref/', [])
-        self.assertTrue('Check failed because doc file is shorter than reference file.' in str(
-            context.exception))
+            check.main("./same-as-file/error-doc-shorter-than-ref/", [])
+        self.assertTrue(
+            "Check failed because doc file is shorter than reference file."
+            in str(context.exception)
+        )
 
     def test_skip_doc_ref(self):
-        check.main('./same-as-file/skip-doc-ref/', [])
+        check.main("./same-as-file/skip-doc-ref/", [])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

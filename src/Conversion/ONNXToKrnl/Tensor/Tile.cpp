@@ -101,7 +101,7 @@ struct ONNXTileOpLowering : public OpConversionPattern<ONNXTileOp> {
         });
 
     rewriter.replaceOp(op, alloc);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
@@ -178,7 +178,7 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
 
         auto dimMap =
             AffineMap::get(2, 1, inputDimAE * repeatsIndexAE + inputIndexAE);
-        auto dimExprVal = rewriter.create<AffineApplyOp>(loc, dimMap,
+        auto dimExprVal = rewriter.create<affine::AffineApplyOp>(loc, dimMap,
             ArrayRef<Value>{iterationBlock.getArguments()[2 * i],
                 iterationBlock.getArguments()[2 * i + 1], inputDimSizeVal});
         outputMemRefVal.emplace_back(dimExprVal);
@@ -195,7 +195,7 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
     create.krnl.store(inputVal, alloc, outputMemRefVal);
 
     rewriter.replaceOp(op, alloc);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

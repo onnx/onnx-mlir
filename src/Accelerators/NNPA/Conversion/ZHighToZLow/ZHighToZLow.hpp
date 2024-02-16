@@ -38,21 +38,22 @@ ZMemRefType convertZTensorToMemRefType(mlir::Type type);
 mlir::Value insertShapeMemRefI64(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::ArrayRef<IndexExpr> originalDims);
 
-/// Insert an allocation and deallocation for the given dimensions and layout.
+/// Insert an allocation for the given dimensions and layout.
 /// By default, set alignment to 4K.
-mlir::Value insertAllocAndDeallocZMemRefByDim(mlir::ArrayRef<IndexExpr> dims,
+mlir::Value insertAllocForZMemRefByDim(mlir::ArrayRef<IndexExpr> dims,
     mlir::Type layoutType, mlir::Operation *op, mlir::PatternRewriter &rewriter,
     int64_t alignment);
 
-/// Insert an allocation and deallocation for the given ZMemRefType.
+/// Insert an allocation for the given ZMemRefType.
 /// By default, set alignment to 4K.
-mlir::Value insertAllocAndDeallocZMemRef(ZMemRefType zType,
+mlir::Value insertAllocForZMemRef(ZMemRefType zType,
     mlir::ArrayRef<IndexExpr> dims, mlir::Operation *op,
     mlir::PatternRewriter &rewriter, int64_t alignment);
 
 /// Populate all conversion patterns for ZHigh Ops.
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
-    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
+    bool enableParallel = false);
 
 } // namespace zhigh
 } // namespace onnx_mlir

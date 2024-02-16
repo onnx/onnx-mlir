@@ -195,7 +195,8 @@ OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetShape(const OMTensor *tensor);
  *
  * Set the data shape array of the OMTensor to the values in the input array.
  */
-OM_EXTERNAL_VISIBILITY void omTensorSetShape(OMTensor *tensor, const int64_t *shape);
+OM_EXTERNAL_VISIBILITY void omTensorSetShape(
+    OMTensor *tensor, const int64_t *shape);
 
 /**
  * \brief OMTensor data strides getter
@@ -209,7 +210,8 @@ OM_EXTERNAL_VISIBILITY void omTensorSetShape(OMTensor *tensor, const int64_t *sh
  * @param tensor pointer to the OMTensor
  * @return pointer to the data strides array.
  */
-OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetStrides(const OMTensor *tensor);
+OM_EXTERNAL_VISIBILITY const int64_t *omTensorGetStrides(
+    const OMTensor *tensor);
 
 /**
  * \brief OMTensor data strides setter
@@ -320,7 +322,10 @@ OM_EXTERNAL_VISIBILITY void omTensorSetOwning(OMTensor *tensor, int64_t owning);
 /**
  * Print an OMTensor to stdout.
  *
- * @param msg, pointer to descriptive string
+ * @param msg, pointer to descriptive string. It accepts one of 3 formats:
+ * '%t' for printing the tensor's type, '%s' for printing an extensive signature
+ * printout, and '%d' for printing the full data values of the tensor.
+ * Additionally it recognize '%e' as the end of the message string.
  * @param tensor, pointer to the OMTensor to print
  */
 OM_EXTERNAL_VISIBILITY void omTensorPrint(

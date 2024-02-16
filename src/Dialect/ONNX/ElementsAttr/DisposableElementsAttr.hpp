@@ -10,9 +10,9 @@
 
 #pragma once
 
-#include "src/Dialect/ONNX/ElementsAttr/Arrays.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
+#include "src/Support/Arrays.hpp"
 
 #include "mlir/IR/AttributeSupport.h"
 #include "mlir/IR/Attributes.h"
@@ -82,8 +82,8 @@ struct DisposableElementsAttributeStorage;
 //
 class DisposableElementsAttr
     : public Attribute::AttrBase<DisposableElementsAttr, Attribute,
-          DisposableElementsAttributeStorage, ElementsAttr::Trait,
-          TypedAttr::Trait> {
+          DisposableElementsAttributeStorage, TypedAttr::Trait,
+          ElementsAttr::Trait> {
   using Base::Base;
 
   // BType and WideNum are ubiquitous in the class definition and these using
@@ -102,6 +102,8 @@ public:
   // ElementsAttrBuilder needs access to buffer, transformer, and metadata to
   // construct new instances with new metadata around the same underlying data.
   friend class onnx_mlir::ElementsAttrBuilder;
+
+  static constexpr const char *name = "disposable.attr";
 
   //===--------------------------------------------------------------------===//
   // Instantiation:

@@ -23,6 +23,8 @@ public:
 
   mlir::LogicalResult matchAndRewrite(mlir::ONNXEinsumOp einsumOp,
       mlir::PatternRewriter &rewriter) const override;
+
+  static bool isDecomposable(mlir::ONNXEinsumOp einsumOp);
 };
 
 } // namespace onnx_mlir

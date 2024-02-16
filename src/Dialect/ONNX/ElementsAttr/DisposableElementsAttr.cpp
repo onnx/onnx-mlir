@@ -159,8 +159,8 @@ DenseElementsAttr DisposableElementsAttr::toDenseElementsAttr() const {
 namespace {
 // Perform byte swap if system endianness is BE and elements are multi-byte.
 bool shouldSwapLEBytes(unsigned elementByteWidth) {
-  return elementByteWidth > 1 && llvm::support::endian::system_endianness() !=
-                                     llvm::support::endianness::little;
+  return elementByteWidth > 1 &&
+         llvm::endianness::native != llvm::endianness::little;
 }
 } // namespace
 
@@ -233,14 +233,11 @@ void DisposableElementsAttr::printAsDenseElementsAttr(
     // NOTE: This creates a copy which is never garbage collected. This is not
     // only slow but also defeats the garbage collection benefits of
     // DisposableElementsAttr, depending on when the printing
-    // takes place (the print at the end of onnx-mlir-opt in lit tests is ok
-    // but the print in ONNXOpTransformPass::createTagForIR() is bad).
+    // takes place (the print at the end of onnx-mlir-opt in lit tests is ok).
     printer.printAttribute(toDenseElementsAttr());
     // TODO: Do the work to print without constructing DenseElementsAttr.
   } else {
-    // This special case is easy and by avoiding conversion to DenseElementsAttr
-    // we save a lot of time in ONNXOpTransformPass::createTagForIR() if we set:
-    // --mlir-elide-elementsattrs-if-larger=1
+    // In this special case it's easy to avoid conversion to DenseElementsAttr.
     printer << "dense<__elided__> : " << getType();
   }
 }

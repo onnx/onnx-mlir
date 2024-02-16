@@ -1,0 +1,9 @@
+{
+  "device_placement": [
+    {
+      "device": "cpu",
+      "node_type": "onnx.Relu",
+      "onnx_node_name": ".*"
+    }
+  ]
+}

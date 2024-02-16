@@ -68,6 +68,7 @@ struct ONNXExpandOpLowering : public OpConversionPattern<ONNXExpandOp> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

@@ -19,15 +19,11 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-// Get a dimension of the tensor's shape.
-int64_t dimAt(Value val, int index) {
-  return val.getType().cast<ShapedType>().getShape()[index];
-}
-
 /// Insert Allocate and Deallocate for the all hidden output.
 /// Shape :: [seq_length, num_directions, batch_size, hidden_size]
 Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+    const TypeConverter *typeConverter, Value X, Value W, Value R,
+    Value output) {
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
 
@@ -154,7 +150,8 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
 /// Insert Allocate and Deallocate for the hidden or cell output.
 /// Shape :: [num_directions, batch_size, hidden_size]
 Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
-    TypeConverter *typeConverter, Value X, Value W, Value R, Value output) {
+    const TypeConverter *typeConverter, Value X, Value W, Value R,
+    Value output) {
   MultiDialectBuilder<IndexExprBuilderForKrnl, MemRefBuilder> create(
       rewriter, loc);
   IndexExprScope scope(create.krnlIE);
@@ -247,52 +244,6 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
   }
 }
 
-// Apply an activation function on a given scalar operand.
-Value applyActivation(OpBuilder &rewriter, Location loc,
-    RNNActivation activation, Value operand) {
-  Value res;
-
-  std::vector<mlir::NamedAttribute> attributes;
-  if (activation.alpha) {
-    attributes.emplace_back(
-        rewriter.getNamedAttr("alpha", activation.alpha.value()));
-  }
-  if (activation.beta) {
-    attributes.emplace_back(
-        rewriter.getNamedAttr("beta", activation.beta.value()));
-  }
-  Type resType = operand.getType();
-
-  // Change equality to be case insensitive.
-  if (activation.name.equals_insensitive("relu"))
-    res = rewriter.create<ONNXReluOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("tanh"))
-    res = rewriter.create<ONNXTanhOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("sigmoid"))
-    res = rewriter.create<ONNXSigmoidOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("affine"))
-    llvm_unreachable("Unsupported activation");
-  else if (activation.name.equals_insensitive("leakyrelu"))
-    res = rewriter.create<ONNXLeakyReluOp>(loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("thresholdedrelu"))
-    res = rewriter.create<ONNXThresholdedReluOp>(
-        loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("scaledtanh"))
-    llvm_unreachable("Unsupported activation");
-  else if (activation.name.equals_insensitive("hardsigmoid"))
-    res = rewriter.create<ONNXHardSigmoidOp>(loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("elu"))
-    res = rewriter.create<ONNXEluOp>(loc, resType, operand, attributes);
-  else if (activation.name.equals_insensitive("softsign"))
-    res = rewriter.create<ONNXSoftsignOp>(loc, resType, operand);
-  else if (activation.name.equals_insensitive("softplus"))
-    res = rewriter.create<ONNXSoftplusOp>(loc, resType, operand);
-  else
-    llvm_unreachable("Unsupported activation");
-
-  return res;
-}
-
 /// Create a copy of a slice of X at a specific timestep.
 /// This function is not able correctly to emit 'dealloc' for the copy since it
 /// does not have enough information about the parent context. Users must
@@ -332,6 +283,35 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
       });
 
   return sliceX;
+}
+
+// Change the nextHt and Ht value if sequenceLens is defined.
+// When a sample reachs the limit of its sequence len, nextHt will be padded
+// with 0 (or initialH), and Ht will keep the last value at the sequence end
+// so that the final value Ht is the last value at their sequence len.
+Value handleSequenceLens(KrnlBuilder &createKrnl, MathBuilder &createMath,
+    Value sequenceLens, Value initialH, Value nextHt, Value sequenceIV,
+    Value directionIV, Value bs, Value hs, Value Ht) {
+  if (!isNoneValue(sequenceLens)) {
+    Value sequenceUB = createKrnl.load(sequenceLens, {bs});
+    Value initial;
+    if (isNoneValue(initialH)) {
+      initial = createMath.constant(nextHt.getType(), 0.);
+    } else {
+      initial = createKrnl.load(initialH, {directionIV, bs, hs});
+    }
+    Value cond = createMath.sge(
+        createMath.cast(sequenceUB.getType(), sequenceIV), sequenceUB);
+    nextHt = createMath.select(cond, /*padding*/ initial, nextHt);
+
+    // Last HT should be the last in sequenceLens or the current result
+    Value lastHt =
+        createMath.select(cond, createKrnl.load(Ht, {bs, hs}), nextHt);
+    createKrnl.store(lastHt, Ht, {bs, hs});
+  } else {
+    createKrnl.store(nextHt, Ht, {bs, hs});
+  }
+  return nextHt;
 }
 
 } // namespace onnx_mlir

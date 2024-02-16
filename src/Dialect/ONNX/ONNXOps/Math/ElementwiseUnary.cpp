@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseUnary.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -139,6 +139,10 @@ LogicalResult ONNXBitwiseNotOp::inferShapes(
 // Cast
 //===----------------------------------------------------------------------===//
 
+std::vector<Type> ONNXCastOp::resultTypeInference() {
+  return {UnrankedTensorType::get(getTo())};
+}
+
 LogicalResult ONNXCastOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   if (!hasShapeAndRank(getInput()))
@@ -146,20 +150,6 @@ LogicalResult ONNXCastOp::inferShapes(
 
   Type elementType = (*this)->getAttr("to").cast<::TypeAttr>().getValue();
   ONNXCastOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-//===----------------------------------------------------------------------===//
-// CastLike
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType = getElementType(getTargetType().getType());
-  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -254,6 +244,28 @@ LogicalResult ONNXFloorOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Gelu
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXGeluOp::verify() {
+  ONNXGeluOpAdaptor operandAdaptor(*this);
+  // Approximate should only be a string value of "none" or "tanh".
+  // If not, then this will result in an error.
+  StringRef approximate = getApproximate();
+  if (approximate != "none" && approximate != "tanh")
+    return emitOpError("This value is unsupported. The approximate attribute "
+                       "should be a value of none or tanh. "
+                       "The value received was approximate = " +
+                       approximate);
+  return success();
+}
+
+LogicalResult ONNXGeluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
 // HardSigmoid
 //===----------------------------------------------------------------------===//
 
@@ -278,6 +290,44 @@ LogicalResult ONNXHardSwishOp::inferShapes(
 LogicalResult ONNXInstanceNormalizationOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation());
+}
+
+//===----------------------------------------------------------------------===//
+// IsInf
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsInfOp::verify() {
+  ONNXIsInfOpAdaptor operandAdaptor(*this);
+  if (!hasShapeAndRank(operandAdaptor.getX()))
+    return success(); // Won't be able to do any checking at this stage.
+
+  int64_t detectPosAttribute = getDetectPositive();
+  int64_t detectNegAttribute = getDetectNegative();
+
+  // One of the values for detectPosAttribute and detectNegAttribute must be 1.
+  // If not, then this will result in an error.
+  if (detectPosAttribute == 0 && detectNegAttribute == 0)
+    return emitOpError(
+        "This variation is currently unsupported. One or both of the "
+        "attributes must be a value of 1 to ensure mapping to infinity.");
+
+  return success();
+}
+
+LogicalResult ONNXIsInfOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// IsNaN
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsNaNOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  return inferShapeForUnaryOps(getOperation(), i1Type);
 }
 
 //===----------------------------------------------------------------------===//

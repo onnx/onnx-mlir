@@ -2,8 +2,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef ONNX_MLIR_OMCOMPILERTYPES_H
-#define ONNX_MLIR_OMCOMPILERTYPES_H
+//===---------------- OMCompilerTypes.h - C/C++ Neutral types -------------===//
+//
+// Copyright 2019-2023 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains types that are shared between in the compiler.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef ONNX_MLIR_OM_COMPILER_TYPES_H
+#define ONNX_MLIR_OM_COMPILER_TYPES_H
 
 #ifdef __cplusplus
 namespace onnx_mlir {
@@ -42,16 +52,9 @@ typedef enum {
   OPTFlag,          /* Kind for -Xopt string. */
   LLCFlag,          /* Kind for -Xllc string. */
   LLVMFlag,         /* Kind for -mllvm string. */
+  ModelTag,         /* Kind for tag string. */
   Verbose,          /* Kind for enabling -v verbose mode (boolean option)*/
 } OptionKind;
-
-/* Compiler options to describe instrumentation options */
-typedef enum {
-  InstrumentBeforeOp,
-  InstrumentAfterOp,
-  InstrumentReportTime,
-  InstrumentReportMemory
-} InstrumentActions;
 
 /* Onnx Mlir Compiler return code on errors; zero is success */
 typedef enum {
@@ -75,4 +78,4 @@ typedef enum {
 } // namespace onnx_mlir
 #endif
 
-#endif /* ONNX_MLIR_OMCOMPILERTYPES_H */
+#endif /* ONNX_MLIR_OM_COMPILER_TYPES_H */

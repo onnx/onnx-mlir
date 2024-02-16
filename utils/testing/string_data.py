@@ -16,9 +16,9 @@ from google.protobuf.json_format import MessageToJson
 import numpy as np
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--save_dot_onnx', action='store_true',
-    help="Save model as .onnx")
+parser.add_argument("--save_dot_onnx", action="store_true", help="Save model as .onnx")
 args = parser.parse_args()
+
 
 def main():
     nptensor = np.array([b"hello", b"world"])
@@ -46,5 +46,6 @@ def main():
         onnx.save_model(model, f"string_data.onnx")
     print(MessageToJson(model))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

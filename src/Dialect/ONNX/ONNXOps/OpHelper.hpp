@@ -47,6 +47,13 @@
 
 namespace onnx_mlir {
 
+/// This function returns a location with the corresponding ONNX operator name
+/// inside. This is useful when tracing what expanded MLIR instructions
+/// correspond to what ONNX operator.
+///
+template <typename OP_TYPE>
+mlir::Location ONNXLoc(mlir::Operation *op);
+
 //===----------------------------------------------------------------------===//
 // ONNX Tensor support.
 
@@ -158,21 +165,26 @@ mlir::AffineMap getWindowAffineMap(
 
 // Helper functions to get values from attribute arrays.
 size_t ArrayAttrSize(mlir::ArrayAttr a);
-size_t ArrayAttrSize(llvm::Optional<mlir::ArrayAttr> a);
+size_t ArrayAttrSize(std::optional<mlir::ArrayAttr> a);
 int64_t ArrayAttrIntVal(mlir::ArrayAttr a, int i);
-int64_t ArrayAttrIntVal(llvm::Optional<mlir::ArrayAttr> a, int i);
+int64_t ArrayAttrIntVal(std::optional<mlir::ArrayAttr> a, int i);
+void ArrayAttrIntVals(mlir::ArrayAttr a, mlir::SmallVectorImpl<int64_t> &i);
 
 mlir::ElementsAttr getElementAttributeFromONNXValue(mlir::Value value);
 
 mlir::ONNXConstantOp getONNXConstantOp(mlir::Value value);
 
+// Obtain an array of int64_t values stored in ONNXConstantOp and append it to
+// the given SmallVector iRes.
+// Return true if successfully obtaining the array. Otherwise, false.
+bool getI64ValuesFromONNXConstantOp(
+    mlir::Value val, mlir::SmallVectorImpl<int64_t> &iRes);
+
 // Test if the value is none. Since none is a unit value it never makes a
 // difference whether it's a constant (the result of ONNXNoneOp) or the
 // optional result of some other op (e.g. ONNXDropoutOp mask result).
 // Note: It's ok to inline the isa<NoneType> test and not call this function.
-inline bool isNoneValue(mlir::Value value) {
-  return llvm::isa<mlir::NoneType>(value.getType());
-}
+inline bool isNoneValue(mlir::Value value);
 
 //===----------------------------------------------------------------------===//
 // Support for transpose patterns.
@@ -189,9 +201,16 @@ bool IsIdentityPermuteVector(mlir::ArrayAttr permAttr);
 /// Test if the value has the specified constant shape
 bool HasSpecifiedConstantShape(mlir::Value value, mlir::Value shape);
 
+/// Test if a value is a scalar constant tensor or not, i.e. tensor<dtype> or
+/// tensor<1xdtype>.
+bool isScalarConstantTensor(mlir::Value v);
+
 /// Test if 'val' has shape and rank or not.
 bool hasShapeAndRank(mlir::Value val);
 bool hasShapeAndRank(mlir::Operation *op);
+
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(mlir::Value val);
 
 //===----------------------------------------------------------------------===//
 // Support for Rewrite.
@@ -201,9 +220,6 @@ bool hasShapeAndRank(mlir::Operation *op);
 mlir::DenseElementsAttr createDenseElementsAttrFromFloatAttr(
     mlir::PatternRewriter &rewriter, mlir::Type elementType,
     mlir::FloatAttr attr);
-
-mlir::Value normalizeConstantOp(
-    mlir::PatternRewriter &rewriter, mlir::Value output, mlir::Attribute attr);
 
 // Create a DenseElementsAttr based on the shape of type at the given index.
 mlir::DenseElementsAttr createDenseElementsAttrFromShapeAtIndex(
@@ -225,13 +241,18 @@ template <typename RESULT_TYPE>
 RESULT_TYPE getScalarValue(mlir::ElementsAttr denseAttr, mlir::Type type);
 
 template <typename RESULT_TYPE>
-RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp, mlir::Type type);
+RESULT_TYPE getScalarValue(mlir::ONNXConstantOp constantOp);
 
 mlir::Type convertONNXTypeToMLIRType(
-    mlir::OpBuilder &builder_, onnx::TensorProto_DataType onnxType);
+    mlir::Builder &builder, onnx::TensorProto_DataType onnxType);
 
 /// Get the ONNX type corresponding to an MLIR type.
 int64_t mlirTypeToOnnxType(mlir::Type elemType);
+
+/// Check if a value is a scalar tensor.
+bool isScalarTensor(mlir::Value v);
+
+bool hasIntegerPowerExponent(mlir::ONNXPowOp *op, int64_t &exponentValue);
 
 //===----------------------------------------------------------------------===//
 // Support for dim operations.
@@ -241,8 +262,22 @@ int64_t mlirTypeToOnnxType(mlir::Type elemType);
 template <typename OP>
 bool definedBy(mlir::Value v);
 
-/// Check if a value is to store dimensions, meaning it is defined by
-/// Dim/Constant/Cast/Concat.
+// Check if the operation defining `op->operand[matchThisOperandIndex]` matches
+// `OP`. If it does, set matchOperand to that operand, and matchOp to that
+// defining op. Otherwise, don't change the match values.
+// See operandOfOpDefinedBy comments in its implementation for suggested usages.
+template <typename OP>
+bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
+    mlir::Value &matchOperand, int64_t matchThisOperandIndex = 0);
+
+// Same as above for binary operations, setting matchOperand0 and matchOperand1.
+template <typename OP>
+bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
+    mlir::Value &matchOperand0, mlir::Value &matchOperand1,
+    int64_t matchThisOperandIndex);
+
+/// Check if a value is to store dimensions, meaning it is a tensor of one
+/// element or concatenation of one-element tensors.
 bool areDims(mlir::Value val);
 
 /// Check if a value is defined by Concat to store dimensions.
@@ -250,5 +285,14 @@ bool areDimsFromConcat(mlir::Value val);
 
 /// Get all dimensions that are stored by the value.
 void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
+
+//===----------------------------------------------------------------------===//
+// Support for location.
+//===----------------------------------------------------------------------===//
+
+std::string getNodeNameInPresenceOfOpt(
+    mlir::Operation *op, bool useFileLine = true);
+
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp.inc"
 
 } // namespace onnx_mlir

@@ -24,6 +24,7 @@ include "ZLow.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
@@ -34,6 +35,12 @@ include "ZLow.td"
 // zlow.dummy(X) is replaced by X.
 def RemoveDummyOpPattern: Pat<
   (ZLowDummyOp $arg),
+  (replaceWithValue $arg)
+>;
+
+// Remove pairs of dlf16_to_f32 and f32_to_dlf16
+def DLF16ConversionOpPattern: Pat<
+  (ZLowConvertF32ToDLF16Op (ZLowConvertDLF16ToF32Op $arg)),
   (replaceWithValue $arg)
 >;
 

@@ -87,7 +87,6 @@ struct ONNXCategoryMapperOpLowering
 
     // Basic information.
     int64_t rank = memRefType.getShape().size();
-    assert(((rank == 1) || (rank == 2)) && "Invalid rank of input");
     ShapedType inputType = X.getType().cast<ShapedType>();
     Type elementType = inputType.getElementType();
 
@@ -177,6 +176,7 @@ struct ONNXCategoryMapperOpLowering
       llvm::dbgs() << "function:\n" << function << "\n";
     });
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
@@ -268,6 +268,7 @@ private:
                 (shape[i] == ShapedType::kDynamic) ? 1 : shape[i]);
           auto memRefType = MemRefType::get(
               newShape, krnl::StringType::get(elementType.getContext()));
+          // Sole use of krnl.getRef.
           Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
           inputElem = createKrnl.load(stringMemRef, loopInd);
         })

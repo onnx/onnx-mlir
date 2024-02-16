@@ -56,9 +56,10 @@ int main(int argc, char *argv[]) {
       onnx_mlir::getTargetFilename(SHARED_LIB_BASE.str(), onnx_mlir::EmitLib));
 
   ModelLibBuilder::setRandomNumberGeneratorSeed("TEST_SEED");
-  setCompilerOption(OptionKind::CompilerOptLevel, "3");
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
   llvm::cl::ParseCommandLineOptions(
       argc, argv, "TestElementwise\n", nullptr, "TEST_ARGS");
+  initCompilerConfig();
   std::string target = getCompilerOption(OptionKind::TargetAccel);
   std::cout << "Target options: \"" << target << "\"\n";
   bool success;
@@ -89,6 +90,16 @@ int main(int argc, char *argv[]) {
     const int I = *rc::gen::inRange(1, maxRange);
     const int J = *rc::gen::inRange(1, maxRange);
     RC_ASSERT(isOMElementwiseTheSameAsNaiveImplFor("ONNXHardSigmoidOp", I, J));
+  });
+  if (!success)
+    return 1;
+
+  printf("RapidCheck test Erf case generation.\n");
+  success = rc::check("Gemm implementation correctness", [&]() {
+    const int maxRange = 128;
+    const int I = *rc::gen::inRange(1, maxRange);
+    const int J = *rc::gen::inRange(1, maxRange);
+    RC_ASSERT(isOMElementwiseTheSameAsNaiveImplFor("ONNXErfOp", I, J));
   });
   if (!success)
     return 1;

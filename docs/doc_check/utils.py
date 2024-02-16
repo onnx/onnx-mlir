@@ -64,7 +64,7 @@ class DocCheckerCtx(object):
         self.doc_file = None
 
     def open_doc(self, file_name):
-        self.doc_file = WrappedFile(open(file_name, 'r', encoding='utf-8'))
+        self.doc_file = WrappedFile(open(file_name, "r", encoding="utf-8"))
         return self.doc_file
 
     def doc_file_ext(self):

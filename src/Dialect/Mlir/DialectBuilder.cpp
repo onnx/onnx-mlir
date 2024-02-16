@@ -4,7 +4,7 @@
 
 //===------ DialectBuilder.cpp - Helper functions for MLIR dialects -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -30,7 +30,7 @@
 
 #include <algorithm>
 
-#define DEBUG_TYPE "dialect_builder"
+#define DEBUG_TYPE "dialect-builder"
 
 using namespace mlir;
 
@@ -50,6 +50,10 @@ namespace onnx_mlir {
 // for example. Indices are signless. Also, in ONNX, we currently treat all
 // ONNX Integers as MLIR signless, and only flag the ONNX Unsigned Integer as
 // MLIR unsigned integer.
+
+/* static */ bool MathBuilder::isVector(Type type) {
+  return type.dyn_cast<VectorType>() != nullptr;
+}
 
 /* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
   VectorType vectorType = elementOrVectorType.dyn_cast<VectorType>();
@@ -205,6 +209,19 @@ Value MathBuilder::floorDiv(Value lhs, Value rhs) const {
   llvm_unreachable("expected int");
 }
 
+// return (lhs * rhs) + acc
+Value MathBuilder::fma(Value lhs, Value rhs, Value acc) const {
+  assert((lhs.getType() == rhs.getType()) && (rhs.getType() == acc.getType()) &&
+         "expected same type");
+  if (isFloatWithVector(lhs.getType()) && !isa<FloatType>(lhs.getType()))
+    return b().create<vector::FMAOp>(loc(), lhs, rhs, acc);
+  return add(mul(lhs, rhs), acc);
+}
+
+Value MathBuilder::erf(Value val) const {
+  return b().create<math::ErfOp>(loc(), val);
+}
+
 Value MathBuilder::exp(Value val) const {
   if (isFloatWithVector(val.getType()))
     return b().create<math::ExpOp>(loc(), val);
@@ -262,10 +279,16 @@ Value MathBuilder::floor(Value val) const {
   llvm_unreachable("expected float");
 }
 
+Value MathBuilder::tanh(Value val) const {
+  if (isFloatWithVector(val.getType()))
+    return b().create<math::TanhOp>(loc(), val);
+  llvm_unreachable("expected float");
+}
+
 Value MathBuilder::min(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MinFOp>(loc(), lhs, rhs);
+    return b().create<arith::MinNumFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MinUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -276,7 +299,7 @@ Value MathBuilder::min(Value lhs, Value rhs) const {
 Value MathBuilder::max(Value lhs, Value rhs) const {
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isFloatWithVector(lhs.getType()))
-    return b().create<arith::MaxFOp>(loc(), lhs, rhs);
+    return b().create<arith::MaxNumFOp>(loc(), lhs, rhs);
   if (isUnsignedIntegerWithVector(lhs.getType()))
     return b().create<arith::MaxUIOp>(loc(), lhs, rhs);
   if (isIntegerWithVector(lhs.getType()))
@@ -449,12 +472,12 @@ Value MathBuilder::constant(Type type, double val) const {
 }
 
 Value MathBuilder::constantIndex(int64_t val) const {
-  Attribute constantAttr = b().getIntegerAttr(b().getIndexType(), val);
+  IntegerAttr constantAttr = b().getIntegerAttr(b().getIndexType(), val);
   return b().create<arith::ConstantOp>(loc(), constantAttr);
 }
 
-Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
-  Attribute attr;
+TypedAttr MathBuilder::negativeInfAttr(mlir::Type type) const {
+  TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(-std::numeric_limits<float>::infinity());
@@ -498,8 +521,8 @@ Attribute MathBuilder::negativeInfAttr(mlir::Type type) const {
   return attr;
 }
 
-Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
-  Attribute attr;
+TypedAttr MathBuilder::positiveInfAttr(mlir::Type type) const {
+  TypedAttr attr;
   TypeSwitch<Type>(type)
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(std::numeric_limits<float>::infinity());
@@ -544,16 +567,32 @@ Attribute MathBuilder::positiveInfAttr(mlir::Type type) const {
 }
 
 Value MathBuilder::negativeInf(Type type) const {
-  Attribute attr = negativeInfAttr(type);
+  // Strip vector type if any.
+  Type elementType = elementTypeWithVector(type);
+  TypedAttr attr = negativeInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 
 Value MathBuilder::positiveInf(Type type) const {
-  Attribute attr = positiveInfAttr(type);
+  // Strip vector type if any.
+  Type elementType = elementTypeWithVector(type);
+  TypedAttr attr = positiveInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
+  if (type.isa<VectorType>()) {
+    // For vectors, need to splat the constant.
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    VectorType vecType = type.dyn_cast<VectorType>();
+    constant = create.vec.splat(vecType, constant);
+  }
   return constant;
 }
 
@@ -811,6 +850,14 @@ Value ShapeBuilder::shapeOf(Value val) const {
   return b().create<shape::ShapeOfOp>(loc(), val);
 }
 
+Value ShapeBuilder::fromExtents(ValueRange extents) const {
+  return b().create<shape::FromExtentsOp>(loc(), extents);
+}
+
+Value ShapeBuilder::toExtentTensor(Type type, Value shape) const {
+  return b().create<shape::ToExtentTensorOp>(loc(), type, shape);
+}
+
 Value ShapeBuilder::getExtent(Value val, int64_t index) const {
   return b().create<shape::GetExtentOp>(loc(), val, index);
 }
@@ -928,25 +975,48 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 //===----------------------------------------------------------------------===//
 // Info about memory size.
 
-// Compute static and dynamic size of memref. Return true if has static size.
+// Compute static and dynamic size of memref in elements. Return true if has
+// static size.
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
-    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize) const {
+    ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
+    int64_t range) const {
   Type elementType = type.getElementType();
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
   staticSize = 1;                // Multiplication of static sizes.
   dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
-  bool staticShape = (dynSymbols.size() == 0);
+  bool staticShape = true;       // Static until proven otherwise.
   int64_t rank = type.getRank();
+  // Process with range [lb inclusive, ub exclusive)
+  int64_t lb = 0, ub = rank;
+  if (range == 0)
+    // Empty range, nothing to do.
+    return staticShape;
+  if (range > 0) {
+    // Positive range r: interval is [ 0, min(r, rank) ).
+    ub = (range < rank) ? range : rank;
+  } else {
+    // Negative range r: interval is [ max(0, r+rank) to rank ).
+    range += rank;
+    lb = range > 0 ? range : 0;
+  }
+  assert(lb >= 0 && ub <= rank && "out of bound range");
   int64_t iDim = 0;
   for (int64_t i = 0; i < rank; ++i) {
     if (shape[i] == ShapedType::kDynamic) {
-      assert(!staticShape && "expected static shape");
       assert(iDim < (int64_t)dynSymbols.size() && "not enough dynamic symbols");
-      dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim++]);
+      if (i >= lb && i < ub) {
+        // Keep track of static shape and dynamic sizes only when inbounds.
+        staticShape = false;
+        dynSize = dynSize * SymbolIndexExpr(dynSymbols[iDim]);
+      }
+      iDim++;
     } else {
       // Has constant shape.
-      staticSize *= shape[i];
+      if (i >= lb && i < ub) {
+        // Keep track of static size only when inbounds.
+        staticSize *= shape[i];
+      }
     }
   }
   return staticShape;
@@ -954,10 +1024,11 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
     llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
-    IndexExpr &dynSize) const {
+    IndexExpr &dynSize, int64_t range) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
-  return getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
+  return getStaticAndDynamicMemSize(
+      type, dynSymbols, staticSize, dynSize, range);
 }
 
 //===----------------------------------------------------------------------===//
@@ -970,19 +1041,17 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    ValueRange dynSymbols, int64_t simdUnroll, int64_t alignment) const {
+    ValueRange dynSymbols, int64_t VL, int64_t alignment) const {
   Type elementType = type.getElementType();
   assert(!hasNonIdentityLayout(type) && "unsupported layout");
   assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
-  assert(simdUnroll >= 1 && "expected positive simd unroll factor");
+  assert(VL >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
   int64_t staticSize;
   IndexExpr dynSize;
   bool staticShape =
       getStaticAndDynamicMemSize(type, dynSymbols, staticSize, dynSize);
   // Get vector length for this element type, multiplied by the unroll factor.
-  MultiDialectBuilder<VectorBuilder> create(*this);
-  int64_t VL = create.vec.getMachineVectorLength(elementType) * simdUnroll;
   // If the static size component is already a multiple of VL, no matter the
   // values of the dynamic shapes, the last value is part of a full SIMD. No
   // need for extra padding then.
@@ -1034,18 +1103,18 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(Value operandOfSameType,
-    MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+    MemRefType type, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(operandOfSameType, type, dynSymbols);
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
-    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdUnroll,
+    llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL,
     int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
   computeDynSymbols(type, dims, dynSymbols);
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1075,54 +1144,111 @@ memref::DeallocOp MemRefBuilder::dealloc(Value val) const {
 //===----------------------------------------------------------------------===//
 // Reshape.
 
-memref::ReshapeOp MemRefBuilder::reshape(
-    MemRefType destType, Value valToReshape, Value destShapeStoredInMem) const {
+memref::ReshapeOp MemRefBuilder::reshape(MemRefType destType,
+    Value valToReshape, Value outputShapeStoredInMem) const {
   return b().create<memref::ReshapeOp>(
-      loc(), destType, valToReshape, destShapeStoredInMem);
+      loc(), destType, valToReshape, outputShapeStoredInMem);
 }
 
-memref::ReshapeOp MemRefBuilder::reshapeToFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, Value &size1D) const {
+memref::ReshapeOp MemRefBuilder::reshape(
+    llvm::SmallVectorImpl<IndexExpr> &destDims, Value valToReshape) const {
+  // Compute Shape.
+  llvm::SmallVector<int64_t, 4> outputShape;
+  IndexExpr::getShape(destDims, outputShape);
+  // Allocate data structure for dimensions.
+  // Question: is there a more optimized sequence if destDims is entirely
+  // literal.
+  Type indexType = b().getIndexType();
+  int64_t outputRank = destDims.size();
+  Value outputShapeInMem =
+      alignedAlloc(MemRefType::get({outputRank}, indexType));
+  // Store shape into data structure.
+  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
+  for (int64_t d = 0; d < outputRank; ++d) {
+    Value dd = create.math.constantIndex(d);
+    create.affine.store(destDims[d].getValue(), outputShapeInMem, {dd});
+  }
+  // Create output type.
+  Type elementType = valToReshape.getType().cast<MemRefType>().getElementType();
+  MemRefType destType = MemRefType::get(outputShape, elementType);
+  // Perform actual reshape operation
+  return reshape(destType, valToReshape, outputShapeInMem);
+}
+
+// Flatten the innermost dimsToFlatten of the value valToReshape. Return in
+// flattenSize the cumulative size of the flattened dimensions. Expect to
+// flatten at least 1 dim (which is a noop). Output rank is Rank(input) -
+// dimsToFlatten + 1.
+Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
+    int64_t dimsToFlatten) const {
   // Parse input.
   MemRefType inputType = valToReshape.getType().cast<MemRefType>();
-  Type inputElementType = inputType.getElementType();
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
-  Type indexType = b().getIndexType();
-  // Create scope to avoid issues.
-  IndexExprScope innerScope(getBuilderPtr(), loc());
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Compute total number of elements in new scope.
-  IndexExpr numOfElements = LiteralIndexExpr(1);
-  for (IndexExpr d : dims)
-    numOfElements = numOfElements * SymbolIndexExpr(d);
-  // Size1D is an output value corresponding to the total number of elements.
-  size1D = numOfElements.getValue();
-  // Shape for reshaping from N-D to 1-D saved into memory.
-  Value shape1D = alignedAlloc(MemRefType::get({1}, indexType));
-  Value zero = create.math.constantIndex(0);
-  create.affine.store(size1D, shape1D, {zero});
-  // Reshape the input N-D MemRef into a 1-D MemRef.
-  int64_t dim1DSize = ShapedType::kDynamic;
-  if (numOfElements.isLiteral())
-    dim1DSize = numOfElements.getLiteral();
-  MemRefType input1DType = MemRefType::get({dim1DSize}, inputElementType);
-  return reshape(input1DType, valToReshape, shape1D);
+  int64_t inputRank = inputType.getRank();
+  // Verify dims has the right number of elements.
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  assert(dimsToFlatten > 0 && dimsToFlatten <= inputRank &&
+         "dimsToFlatten is out of range");
+  if (dimsToFlatten == 1) {
+    // Flattening of the last dim is really no flattening at all. Return
+    // original value before doing the actual reshaping, which is unnecessary.
+    flattenedDims = dims;
+    return valToReshape;
+  }
+  // Compute the dimensions of the flattened array.
+  int64_t axis = inputRank - dimsToFlatten;
+  flattenedDims.clear();
+  // Up to axis, flatten dims == input dims.
+  for (int64_t d = 0; d < axis; ++d)
+    flattenedDims.emplace_back(dims[d]);
+  // Last flatten dim is the product of remaining input dims.
+  IndexExpr numOfFlattenedElements = LiteralIndexExpr(1);
+  for (int64_t d = axis; d < inputRank; ++d)
+    numOfFlattenedElements = numOfFlattenedElements * dims[d];
+  flattenedDims.emplace_back(numOfFlattenedElements);
+  // Reshape.
+  return reshape(flattenedDims, valToReshape);
+}
+
+Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
+    llvm::SmallVectorImpl<IndexExpr> &dims,
+    llvm::SmallVectorImpl<IndexExpr> &flattenedDims, int64_t axis) const {
+  // Parse input.
+  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
+  assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
+  int64_t inputRank = inputType.getRank();
+  // Verify dims has the right number of elements.
+  assert(inputRank == (int64_t)dims.size() && "rank mismatch");
+  if (axis < 0)
+    axis += inputRank;
+  assert(axis > 0 && axis < inputRank && "axis is out of range");
+  if (inputRank == 2) {
+    // Input is already 2D, nothing to do.
+    flattenedDims = dims;
+    return valToReshape;
+  }
+  // Compute the dimensions of the flattened array.
+  flattenedDims.clear();
+  // First output dim: product of input dims until axis (exclusively).
+  IndexExpr numElement1stDim = LiteralIndexExpr(1);
+  for (int64_t d = 0; d < axis; ++d)
+    numElement1stDim = numElement1stDim * dims[d];
+  flattenedDims.emplace_back(numElement1stDim);
+  // Second output dim: product of input dims after axis (inclusively).
+  IndexExpr numElement2ndDim = LiteralIndexExpr(1);
+  for (int64_t d = axis; d < inputRank; ++d)
+    numElement2ndDim = numElement2ndDim * dims[d];
+  flattenedDims.emplace_back(numElement2ndDim);
+  // Reshape.
+  return reshape(flattenedDims, valToReshape);
 }
 
 memref::ReshapeOp MemRefBuilder::reshapeFromFlat(Value valToReshape,
-    llvm::SmallVectorImpl<IndexExpr> &dims, MemRefType outputType) const {
+    llvm::SmallVectorImpl<IndexExpr> &outputDims, MemRefType outputType) const {
   assert(!hasNonIdentityLayout(outputType) && "MemRef is not normalized");
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  Type indexType = b().getIndexType();
-  int64_t rank = outputType.getRank();
-  // Shape for reshaping from N1D to N-D saved into memory.
-  Value shapeND = alignedAlloc(MemRefType::get({rank}, indexType));
-  for (int64_t i = 0; i < rank; ++i) {
-    Value index = create.math.constantIndex(i);
-    create.affine.store(dims[i].getValue(), shapeND, {index});
-  }
-  // Reshape the 1-D MemRef into a N-D MemRef.
-  return reshape(outputType, valToReshape, shapeND);
+  return reshape(outputDims, valToReshape);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1274,6 +1400,19 @@ void SCFBuilder::ifThenElse(Value cond,
   }
 }
 
+void SCFBuilder::forLoop(Value lowerBound, Value upperBound, int64_t step,
+    function_ref<void(SCFBuilder &createSCF, Value)> bodyFn) const {
+  MathBuilder createMath(*this);
+  Value stepVal = createMath.constantIndex(step);
+  b().create<scf::ForOp>(loc(), lowerBound, upperBound, stepVal, std::nullopt,
+      [&](OpBuilder &childBuilder, Location childLoc, Value inductionVar,
+          ValueRange args) {
+        SCFBuilder builder(childBuilder, childLoc);
+        bodyFn(builder, inductionVar);
+        yield();
+      });
+}
+
 void SCFBuilder::parallelLoop(ValueRange lowerBounds, ValueRange upperBounds,
     ValueRange steps,
     function_ref<void(SCFBuilder &createSCF, ValueRange)> bodyFn) const {
@@ -1368,6 +1507,10 @@ Value VectorBuilder::shuffle(
   return b().create<vector::ShuffleOp>(loc(), lhs, rhs, mask);
 }
 
+Value VectorBuilder::typeCast(Type resTy, Value val) const {
+  return b().create<vector::TypeCastOp>(loc(), resTy, val);
+}
+
 // Private vector utilities.
 bool VectorBuilder::isPowerOf2(uint64_t num) const {
   return (num & (num - 1)) == 0;
@@ -1431,17 +1574,79 @@ Value VectorBuilder::mergeLow(Value lhs, Value rhs, int64_t step) const {
   return shuffle(lhs, rhs, mask);
 }
 
+Value VectorBuilder::reduction(
+    VectorBuilder::CombiningKind kind, Value value) const {
+  Type type = value.getType();
+  switch (kind) {
+  case CombiningKind::ADD: {
+    return b().create<vector::ReductionOp>(
+        loc(), vector::CombiningKind::ADD, value);
+  }
+  case CombiningKind::MUL: {
+    return b().create<vector::ReductionOp>(
+        loc(), vector::CombiningKind::MUL, value);
+  }
+  case CombiningKind::MAX: {
+    if (MathBuilder::isUnsignedIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXUI, value);
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXSI, value);
+    if (MathBuilder::isFloatWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MAXF, value);
+    llvm_unreachable("unknown type in max");
+  }
+  case CombiningKind::MIN: {
+    if (MathBuilder::isUnsignedIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINUI, value);
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINSI, value);
+    if (MathBuilder::isFloatWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::MINF, value);
+    llvm_unreachable("unknown type in min");
+  }
+  case CombiningKind::AND: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::AND, value);
+    llvm_unreachable("unknown type in and");
+  }
+  case CombiningKind::OR: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::OR, value);
+    llvm_unreachable("unknown type in or");
+  }
+  case CombiningKind::XOR: {
+    if (MathBuilder::isIntegerWithVector(type))
+      return b().create<vector::ReductionOp>(
+          loc(), vector::CombiningKind::XOR, value);
+    llvm_unreachable("unknown type in xor");
+  }
+  } // Switch.
+  llvm_unreachable("unknown combining kind");
+}
+
 // Do a parallel-simd reduction of N vectors of SIMD length VL.
 // Restrictions:
 // *  VL is the vector length of the machine SIMD vectors.
 // *  N is a multiple of VL as we can perform consecutive VL x VL
 //    reductions.
+// For example, when we passe N=VL input vectors, the output has one vector;
+// when we passe N=2VL input vectors, the output has 2 vectors...
+
 void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
-    SmallVectorImpl<Value> &outputVecArray) {
+    F2 reductionFct, SmallVectorImpl<Value> &outputVecArray) {
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
   uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  // TODO alex, should relax this
   assert(VL == machineVL && "only natural sizes supported at this time");
   assert(N % machineVL == 0 &&
          "can only reduces multiple of VL vectors at this time");
@@ -1460,17 +1665,21 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   // Reductions of full physical vectors.
   outputVecArray.clear();
   MultiDialectBuilder<MathBuilder> create(*this);
+  // Process each block of machineVL input vectors at a time.
   for (uint64_t r = 0; r < N; r += machineVL) {
     // Algorithm for the set of input arrays from tmp[r] to
     // tmp[r+machineVL-1].
-    uint64_t numPairs = machineVL / 2; // Pair number decrease by power of 2.
+    // With machineVL inputs, we have machineVL/2 initial pairs.
+    uint64_t numPairs = machineVL / 2;
+    // While we have pairs...
     for (uint64_t step = 1; step < machineVL; step = step * 2) {
+      // For each pair, reduce pair 2p and 2p+1 and save sum into p.
       for (uint64_t p = 0; p < numPairs; ++p) {
         Value highVal =
             mergeHigh(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
         Value lowVal =
             mergeLow(tmpArray[r + 2 * p], tmpArray[r + 2 * p + 1], step);
-        Value red = create.math.add(highVal, lowVal);
+        Value red = reductionFct(highVal, lowVal);
         tmpArray[r + p] = red;
       }
       numPairs = numPairs / 2; // Pair number decrease by power of 2.
@@ -1478,6 +1687,59 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     // Completed the machineVL x machineVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
+}
+
+int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
+    MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
+    int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+    int64_t &simdLoopStaticTripCount) const {
+  assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
+  assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
+  simdLoopStaticTripCount = 0; // Initially assume no SIMD.
+  Type elementType = memRefType.getElementType();
+  int64_t VL = vms->getVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
+  if (VL == 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
+    return 0;
+  }
+  MemRefBuilder createMem(*this);
+  int64_t staticSize;
+  IndexExpr dynSize;
+  bool isStaticSize = createMem.getStaticAndDynamicMemSize(
+      memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
+  if (isStaticSize && staticSize < VL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
+                            << " too short for a VL of " << VL << "\n");
+    return 0;
+  }
+  // Unless otherwise disabled, here is the estimated trip count.
+  simdLoopStaticTripCount = staticSize > 1 ? staticSize : -1;
+  if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
+    // Fully collapsed and can add padding to be fine
+    return maxSimdUnroll * VL;
+  }
+  // We have a partially flattened operator. Since we do only simdize entire
+  // loops (i.e. we don't support scalar epilogues at this time), make sure
+  // the static size is a multiple of the VL. Get the VL of the store
+  // (output's element type).
+  if (staticSize % VL != 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
+                            << collapsedInnermostLoops << " with size "
+                            << staticSize << " is not 0 mod VL " << VL << "\n");
+    return 0;
+  }
+  // See if we can get a unroll factor.
+  for (int64_t u = maxSimdUnroll; u > 0; --u) {
+    if (staticSize % (u * VL) == 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  partial flattened dims " << collapsedInnermostLoops
+                 << " with size " << staticSize << " works with VL " << VL
+                 << " and unroll " << u << "\n");
+      return u * VL;
+    }
+  }
+  llvm_unreachable("should always find u==1 feasible");
 }
 
 //===----------------------------------------------------------------------===//
@@ -1493,23 +1755,18 @@ Value LLVMBuilder::addressOf(LLVM::GlobalOp op) const {
 }
 
 Value LLVMBuilder::_alloca(
-    Type resultType, Value size, int64_t alignment) const {
-  return b().create<LLVM::AllocaOp>(loc(), resultType, size, alignment);
+    Type resultType, Type elementType, Value size, int64_t alignment) const {
+  return b().create<LLVM::AllocaOp>(
+      loc(), resultType, elementType, size, alignment);
+}
+
+Value LLVMBuilder::andi(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::AndOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::bitcast(Type type, Value val) const {
   return b().create<LLVM::BitcastOp>(loc(), type, val);
-}
-
-Value LLVMBuilder::bitcastI8Ptr(Value val) const {
-  return b().create<LLVM::BitcastOp>(
-      loc(), LLVM::LLVMPointerType::get(b().getI8Type()), val);
-}
-
-Value LLVMBuilder::bitcastI8PtrPtr(Value val) const {
-  return b().create<LLVM::BitcastOp>(loc(),
-      LLVM::LLVMPointerType::get(LLVM::LLVMPointerType::get(b().getI8Type())),
-      val);
 }
 
 void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
@@ -1593,30 +1850,91 @@ Value LLVMBuilder::constant(Type type, double val) const {
   return constant;
 }
 
+Value LLVMBuilder::extractElement(
+    Type resultType, Value container, int64_t position) const {
+  Value posVal = constant(b().getI64Type(), position);
+  return b().create<LLVM::ExtractElementOp>(
+      loc(), resultType, container, posVal);
+}
+
 Value LLVMBuilder::extractValue(
     Type resultType, Value container, ArrayRef<int64_t> position) const {
   return b().create<LLVM::ExtractValueOp>(
       loc(), resultType, container, position);
 }
 
-LLVM::LLVMFuncOp LLVMBuilder::func(StringRef name, Type type) const {
-  return b().create<LLVM::LLVMFuncOp>(loc(), name, type);
+LLVM::LLVMFuncOp LLVMBuilder::func(
+    StringRef funcName, Type funcType, bool createUniqueFunc) const {
+  // If createUniqueFunc, we create two functions: name and name_postfix.
+  // They have the same signatures and `name` will call `name_postfix`.
+  // `name_postfix` funtion is expected to be unique across all generated
+  // modules, allowing to run multiple models at the same time.
+  LLVM::LLVMFuncOp funcOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), funcName, funcType);
+  if (!createUniqueFunc)
+    return funcOp;
+
+  // Create uniqueFuncOp if there exists a postfix.
+  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition before
+  // `funcOp`.
+  b().setInsertionPoint(funcOp);
+  ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
+  std::string uniqueFuncName =
+      LLVMBuilder::SymbolPostfix(module, funcName.str());
+  if (uniqueFuncName == funcName.str())
+    return funcOp;
+
+  auto uniqueFuncType = cast<LLVM::LLVMFunctionType>(funcType);
+  LLVM::LLVMFuncOp uniqueFuncOp =
+      b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
+
+  // Call uniqueFuncOp inside funcOp.
+  Block *entryBlock = funcOp.addEntryBlock();
+  OpBuilder::InsertionGuard bodyGuard(b());
+  b().setInsertionPointToStart(entryBlock);
+  ValueRange args = entryBlock->getArguments();
+  TypeRange resultTypes = uniqueFuncType.getReturnTypes();
+  assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
+         "LLVM:CallOp must return either 0 or 1 value");
+  if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
+    b().create<LLVM::CallOp>(loc(), ArrayRef<Type>({}), uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({}));
+  } else {
+    LLVM::CallOp callOp =
+        b().create<LLVM::CallOp>(loc(), resultTypes, uniqueFuncName, args);
+    b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({callOp.getResult()}));
+  }
+
+  return uniqueFuncOp;
 }
 
-Value LLVMBuilder::getElemPtr(
-    Type resultType, Value base, ArrayRef<Value> indices) const {
-  return b().create<LLVM::GEPOp>(loc(), resultType, base, indices);
+Value LLVMBuilder::getElemPtr(Type resultType, Type elemType, Value base,
+    ArrayRef<LLVM::GEPArg> indices) const {
+  return b().create<LLVM::GEPOp>(loc(), resultType, elemType, base, indices);
 }
 
 LLVM::GlobalOp LLVMBuilder::globalOp(Type resultType, bool isConstant,
     LLVM::Linkage linkage, StringRef name, Attribute valueAttr,
-    uint64_t alignment) const {
-  return b().create<LLVM::GlobalOp>(loc(), resultType,
+    uint64_t alignment, bool uniqueName) const {
+  LLVM::GlobalOp gop = b().create<LLVM::GlobalOp>(loc(), resultType,
       /*isConstant=*/isConstant, linkage, name, valueAttr);
+  if (!uniqueName)
+    return gop;
+
+  // Append to `name` a unique string to make it unique across multiple
+  // generated LLVMIR.
+  ModuleOp module = gop.getOperation()->getParentOfType<ModuleOp>();
+  gop.setName(LLVMBuilder::SymbolPostfix(module, name.str()));
+  return gop;
 }
 
 Value LLVMBuilder::icmp(LLVM::ICmpPredicate cond, Value lhs, Value rhs) const {
   return b().create<LLVM::ICmpOp>(loc(), cond, lhs, rhs);
+}
+
+Value LLVMBuilder::insertElement(Value vec, Value val, int64_t position) const {
+  Value posVal = constant(b().getI64Type(), position);
+  return b().create<LLVM::InsertElementOp>(loc(), vec, val, posVal);
 }
 
 Value LLVMBuilder::insertValue(Type resultType, Value container, Value val,
@@ -1629,8 +1947,12 @@ Value LLVMBuilder::inttoptr(Type type, Value val) const {
   return b().create<LLVM::IntToPtrOp>(loc(), type, val);
 }
 
-Value LLVMBuilder::load(Value addr) const {
-  return b().create<LLVM::LoadOp>(loc(), addr);
+Value LLVMBuilder::lshr(Value lhs, Value rhs) const {
+  return b().create<LLVM::LShrOp>(loc(), lhs, rhs);
+}
+
+Value LLVMBuilder::load(Type elementType, Value addr) const {
+  return b().create<LLVM::LoadOp>(loc(), elementType, addr);
 }
 
 Value LLVMBuilder::mul(Value lhs, Value rhs) const {
@@ -1638,28 +1960,49 @@ Value LLVMBuilder::mul(Value lhs, Value rhs) const {
 }
 
 Value LLVMBuilder::null(Type type) const {
-  return b().create<LLVM::NullOp>(loc(), type);
+  return b().create<LLVM::ZeroOp>(loc(), type);
 }
 
-Value LLVMBuilder::nullI8Ptr() const {
-  Type I8PtrTy = LLVM::LLVMPointerType::get(b().getI8Type());
-  return b().create<LLVM::NullOp>(loc(), I8PtrTy);
+Value LLVMBuilder::ori(Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::OrOp>(loc(), lhs, rhs);
 }
 
 Value LLVMBuilder::ptrtoint(Type type, Value val) const {
   return b().create<LLVM::PtrToIntOp>(loc(), type, val);
 }
 
+void LLVMBuilder::_return() const {
+  b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>{});
+}
+
 void LLVMBuilder::_return(Value val) const {
   b().create<LLVM::ReturnOp>(loc(), ArrayRef<Value>({val}));
+}
+
+Value LLVMBuilder::select(Value cmp, Value lhs, Value rhs) const {
+  assert(lhs.getType() == rhs.getType() && "expected same type");
+  return b().create<LLVM::SelectOp>(loc(), cmp, lhs, rhs);
 }
 
 Value LLVMBuilder::sext(Type type, Value val) const {
   return b().create<LLVM::SExtOp>(loc(), type, val);
 }
 
+Value LLVMBuilder::shl(Value lhs, Value rhs) const {
+  return b().create<LLVM::ShlOp>(loc(), lhs, rhs);
+}
+
 void LLVMBuilder::store(Value val, Value addr) const {
   b().create<LLVM::StoreOp>(loc(), val, addr);
+}
+
+Value LLVMBuilder::trunc(Type type, Value val) const {
+  return b().create<LLVM::TruncOp>(loc(), type, val);
+}
+
+Value LLVMBuilder::zext(Type type, Value val) const {
+  return b().create<LLVM::ZExtOp>(loc(), type, val);
 }
 
 FlatSymbolRefAttr LLVMBuilder::getOrInsertSymbolRef(ModuleOp module,
@@ -1682,14 +2025,14 @@ void LLVMBuilder::ifThenElse(
   // Split the current block into IF, THEN, ELSE and END blocks.
   Block *ifBlock, *thenBlock, *elseBlock, *endBlock;
   ifBlock = b().getInsertionBlock();
-  thenBlock = ifBlock->splitBlock(b().getInsertionPoint());
-  elseBlock = b().createBlock(
-      thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
+  endBlock = ifBlock->splitBlock(b().getInsertionPoint());
+  thenBlock = b().createBlock(
+      ifBlock->getParent(), std::next(Region::iterator(ifBlock)));
   if (elseFn)
-    endBlock = b().createBlock(
-        elseBlock->getParent(), std::next(Region::iterator(elseBlock)));
+    elseBlock = b().createBlock(
+        thenBlock->getParent(), std::next(Region::iterator(thenBlock)));
   else
-    endBlock = elseBlock;
+    elseBlock = endBlock;
 
   // Emit code for the IF block.
   b().setInsertionPointToEnd(ifBlock);

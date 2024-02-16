@@ -1,0 +1,27 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// prims_convert_element_type.onnxtext is excerpted from
+// maf_gpt2_tiny_display_name.onnx
+<
+   ir_version: 8,
+   opset_import: ["" : 18, "pkg.onnxscript.torch_lib" : 1, "torch.onnx" : 1, "torch_export" : 1],
+   producer_name: "pytorch",
+   producer_version: "2.0.0"
+>
+torch_jit (int64 slice_2) => (float convert_element_type) {
+  convert_element_type = torch.onnx.prims_convert_element_type <dtype = 1> (slice_2)
+}
+
+<
+  domain: "torch.onnx",
+  opset_import: ["" : 18]
+>
+prims_convert_element_type <dtype>(tensor) => (return_val)
+{
+   return_val = Cast <to: int = @dtype> (tensor)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<i64> {onnx.name = "slice_2"}) -> (tensor<f32> {onnx.name = "convert_element_type"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = f32} : (tensor<i64>) -> tensor<f32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<f32>
+// CHECK:         }

@@ -306,10 +306,11 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   free(coeffs_buffer);
 }
 
+// The parameters that are not used are commented out.
+// I, Tong Chen, forgot why only the default value for them are used.
+// ToFix: add the support for other value if needed
 void Resize_Scales(
-    OMTensor *output, OMTensor *data, OMTensor *scales,
-    char *coordinate_transformation_mode_str, float coeff_a,
-    int exclude_outside, float extrapolation_value, char *mode_str,
+    OMTensor *output, OMTensor *data, OMTensor *scales, char *mode_str,
     char *nearest_mode) {
   Coeff_Func_t coeffs_f = NULL;
   int coeffs_n = 0;
@@ -325,6 +326,7 @@ void Resize_Scales(
   } else {
     assert(0 && "Resize runtime: unsupported mode");
   }
+  
   interpolate_nd_OMTensor(
       /*OMTensor */ output,
       /*OMTensor */ data,
@@ -340,9 +342,7 @@ void Resize_Scales(
 }
 
 void Resize_Size(
-    OMTensor *output, OMTensor *data, OMTensor *size,
-    char *coordinate_transformation_mode_str, float coeff_a,
-    int exclude_outside, float extrapolation_value, char *mode_str,
+    OMTensor *output, OMTensor *data, OMTensor *size, char *mode_str,
     char *nearest_mode) {
   Coeff_Func_t coeffs_f = NULL;
   int coeffs_n = 0;

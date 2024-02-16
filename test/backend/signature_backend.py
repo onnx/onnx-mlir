@@ -65,6 +65,11 @@ def load_model_tests(kind):
             '[{"type":"i64","dims":[2,2,1],"name":"x"},{"type":"i64","dims":[1],"name":"starts"},{"type":"i64","dims":[1],"name":"ends"}]',
         ),
         (
+            "float16",
+            TensorProto.FLOAT16,
+            '[{"type":"f16","dims":[2,2,1],"name":"x"},{"type":"i64","dims":[1],"name":"starts"},{"type":"i64","dims":[1],"name":"ends"}]',
+        ),
+        (
             "float",
             TensorProto.FLOAT,
             '[{"type":"f32","dims":[2,2,1],"name":"x"},{"type":"i64","dims":[1],"name":"starts"},{"type":"i64","dims":[1],"name":"ends"}]',

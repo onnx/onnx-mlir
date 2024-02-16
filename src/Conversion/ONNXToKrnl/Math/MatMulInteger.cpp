@@ -58,7 +58,7 @@ public:
     // Prepare input A.
     Value AInt32 = create.onnx.cast(A, resElementType);
     if (!isNoneValue(aZeroPoint)) {
-      ShapedType aZeroPointType = aZeroPoint.getType();
+      auto aZeroPointType = aZeroPoint.getType().cast<ShapedType>();
       int64_t aZeroPointRank = aZeroPointType.getRank();
       Value aZeroPointInt32 = create.onnx.cast(aZeroPoint, resElementType);
       // If broadcasting, e.g. A is [MxK], zeroPoint is [M], M != 1.

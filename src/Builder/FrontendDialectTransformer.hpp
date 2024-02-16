@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <set>
 #include <string>
 
 #include "onnx/onnx_pb.h"
@@ -38,6 +39,7 @@ namespace onnx_mlir {
  * Options to control the translation of an ONNX model to ONNX-MLIR.
  */
 struct ImportOptions {
+  bool verboseOutput = false;
   // Use types/shapes in the input-model for translation (for intermediate
   // variables)
   bool useOnnxModelTypes = false;
@@ -56,6 +58,8 @@ struct ImportOptions {
   // Directory to look for external data if any tensor has external
   // data location. If empty then external data is disabled.
   std::string externalDataDir = "";
+
+  std::vector<std::string> functionsToDecompose = {};
 };
 
 /*!

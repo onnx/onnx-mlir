@@ -1,5 +1,5 @@
-// RUN: onnx-mlir-opt --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
-// RUN: onnx-mlir-opt --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --rewrite-onnx-for-zhigh %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --rewrite-onnx-for-zhigh --shape-inference --canonicalize --constprop-onnx  --shape-inference %s --split-input-file | FileCheck --check-prefix=CONSTPROP %s
 
 func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>, %arg3: tensor<3xf32>, %arg4: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.BatchNormalizationInferenceMode"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
@@ -16,11 +16,11 @@ func.func @test_batchnorm_epsilon(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf3
 // CHECK:           [[VAR_6_:%.+]] = "onnx.Mul"([[PARAM_3_]], [[VAR_5_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
 // CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.Sub"([[PARAM_2_]], [[VAR_6_]]) : (tensor<3xf32>, tensor<3xf32>) -> tensor<3xf32>
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<2x3x4x5xf32>) -> tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-// CHECK-DAG:       [[VAR_10_:%.+]] = "zhigh.Stick"([[VAR_5_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>
-// CHECK-DAG:       [[VAR_11_:%.+]] = "zhigh.Stick"([[VAR_7_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>
-// CHECK:           [[VAR_12_:%.+]] = "zhigh.BatchNorm"([[VAR_9_]], [[VAR_10_]], [[VAR_11_]]) : (tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>, tensor<3xf32, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>
-// CHECK:           [[VAR_13_:%.+]] = "zhigh.Unstick"([[VAR_12_]]) : (tensor<2x4x5x3xf32, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<2x3x4x5xf32>
+// CHECK-DAG:       [[VAR_9_:%.+]] = "zhigh.Stick"([[PARAM_0_]]) {layout = "NHWC"} : (tensor<2x3x4x5xf32>) -> tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+// CHECK-DAG:       [[VAR_10_:%.+]] = "zhigh.Stick"([[VAR_5_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>
+// CHECK-DAG:       [[VAR_11_:%.+]] = "zhigh.Stick"([[VAR_7_]]) {layout = "1D"} : (tensor<3xf32>) -> tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>
+// CHECK:           [[VAR_12_:%.+]] = "zhigh.BatchNorm"([[VAR_9_]], [[VAR_10_]], [[VAR_11_]]) : (tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>, tensor<3xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
+// CHECK:           [[VAR_13_:%.+]] = "zhigh.Unstick"([[VAR_12_]]) : (tensor<2x4x5x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<2x3x4x5xf32>
 // CHECK:           return [[VAR_13_]] : tensor<2x3x4x5xf32>
 // CHECK:         }
 }
@@ -485,38 +485,70 @@ func.func @test_matmul_unknown_batch_dim(%arg0: tensor<?x?x256x256xf32>) -> (ten
 
 // -----
 
-// COM: Expand Pow into multiple Mul if exponent is an integer and <= 64.
-func.func @expand_pow_into_mul(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-    %cst = onnx.Constant dense<5.0> : tensor<f32>
-    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
-    return %0 : tensor<3x4x5xf32>
+// Split MatMul because a dimension exceeds NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768.
+func.func @test_matmul_splitting_A(%arg0: tensor<?x50257x768xf32>, %arg1: tensor<768x1024xf32>) -> (tensor<?x50257x1024xf32>) {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x50257x768xf32>, tensor<768x1024xf32>) -> tensor<?x50257x1024xf32>
+  return %0 : tensor<?x50257x1024xf32>
 
-// CHECK-LABEL:  func.func @expand_pow_into_mul
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[PARAM_0_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[VAR_1_]], [[VAR_1_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_2_]]) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
-// CHECK:           return [[VAR_3_]] : tensor<3x4x5xf32>
-// CHECK:        }
+// mlir2FileCheck.py -a '["A","B"]'
+// CHECK-LABEL:  func.func @test_matmul_splitting_A
+// CHECK-SAME:   ([[A_:%.+]]: tensor<?x50257x768xf32>, [[B_:%.+]]: tensor<768x1024xf32>) -> tensor<?x50257x1024xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[32768, 17489]> : tensor<2xi64>
+// CHECK:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[A_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<?x50257x768xf32>, tensor<2xi64>) -> (tensor<?x32768x768xf32>, tensor<?x17489x768xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[VAR_1_]]#0, [[B_]]) : (tensor<?x32768x768xf32>, tensor<768x1024xf32>) -> tensor<?x32768x1024xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.MatMul"([[VAR_1_]]#1, [[B_]]) : (tensor<?x17489x768xf32>, tensor<768x1024xf32>) -> tensor<?x17489x1024xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 1 : si64} : (tensor<?x32768x1024xf32>, tensor<?x17489x1024xf32>) -> tensor<?x50257x1024xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x50257x1024xf32>
+// CHECK:         }
+}
+
+// Split MatMul because a dimension exceeds NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768.
+func.func @test_matmul_splitting_B(%arg0: tensor<?x?x768xf32>, %arg1: tensor<768x50257xf32>) -> (tensor<?x?x50257xf32>) {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x768xf32>, tensor<768x50257xf32>) -> tensor<?x?x50257xf32>
+  return %0 : tensor<?x?x50257xf32>
+
+// mlir2FileCheck.py -a '["A","B"]'
+// CHECK-LABEL:  func.func @test_matmul_splitting_B
+// CHECK-SAME:   ([[A_:%.+]]: tensor<?x?x768xf32>, [[B_:%.+]]: tensor<768x50257xf32>) -> tensor<?x?x50257xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[32768, 17489]> : tensor<2xi64>
+// CHECK:           [[VAR_1_:%.+]]:2 = "onnx.Split"([[B_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<768x50257xf32>, tensor<2xi64>) -> (tensor<768x32768xf32>, tensor<768x17489xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[A_]], [[VAR_1_]]#0) : (tensor<?x?x768xf32>, tensor<768x32768xf32>) -> tensor<?x?x32768xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.MatMul"([[A_]], [[VAR_1_]]#1) : (tensor<?x?x768xf32>, tensor<768x17489xf32>) -> tensor<?x?x17489xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_3_]]) {axis = 2 : si64} : (tensor<?x?x32768xf32>, tensor<?x?x17489xf32>) -> tensor<?x?x50257xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x?x50257xf32>
+// CHECK:         }
 }
 
 // -----
 
-func.func @expand_pow_into_constant(%arg0: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-    %cst = onnx.Constant dense<0.0> : tensor<f32>
-    %0 = "onnx.Pow"(%arg0, %cst) : (tensor<3x4x5xf32>, tensor<f32>) -> tensor<3x4x5xf32>
-    return %0 : tensor<3x4x5xf32>
+// Split MatMul because a dimension exceeds NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768.
+func.func @test_matmul_splitting_A_B(%arg0: tensor<?x50257x768xf32>, %arg1: tensor<768x50258xf32>) -> (tensor<?x50257x50258xf32>) {
+  %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x50257x768xf32>, tensor<768x50258xf32>) -> tensor<?x50257x50258xf32>
+  return %0 : tensor<?x50257x50258xf32>
 
-// CHECK-LABEL:  func.func @expand_pow_into_constant
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
-// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<3x4x5xf32>
-// CHECK:           return [[VAR_0_]] : tensor<3x4x5xf32>
+// mlir2FileCheck.py -a '["A","B"]'
+// CHECK-LABEL:  func.func @test_matmul_splitting_A_B
+// CHECK-SAME:   ([[A_:%.+]]: tensor<?x50257x768xf32>, [[B_:%.+]]: tensor<768x50258xf32>) -> tensor<?x50257x50258xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[32768, 17489]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]]:2 = "onnx.Split"([[A_]], [[VAR_0_]]) {axis = 1 : si64} : (tensor<?x50257x768xf32>, tensor<2xi64>) -> (tensor<?x32768x768xf32>, tensor<?x17489x768xf32>)
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[32768, 17490]> : tensor<2xi64>
+// CHECK:           [[VAR_3_:%.+]]:2 = "onnx.Split"([[B_]], [[VAR_2_]]) {axis = 1 : si64} : (tensor<768x50258xf32>, tensor<2xi64>) -> (tensor<768x32768xf32>, tensor<768x17490xf32>)
+// CHECK-DAG:       [[VAR_4_:%.+]] = "onnx.MatMul"([[VAR_1_]]#0, [[VAR_3_]]#0) : (tensor<?x32768x768xf32>, tensor<768x32768xf32>) -> tensor<?x32768x32768xf32>
+// CHECK-DAG:       [[VAR_5_:%.+]] = "onnx.MatMul"([[VAR_1_]]#0, [[VAR_3_]]#1) : (tensor<?x32768x768xf32>, tensor<768x17490xf32>) -> tensor<?x32768x17490xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_6_:%.+]] = "onnx.Concat"([[VAR_4_]], [[VAR_5_]]) {axis = 2 : si64} : (tensor<?x32768x32768xf32>, tensor<?x32768x17490xf32>) -> tensor<?x32768x50258xf32>
+// CHECK-DAG:       [[VAR_7_:%.+]] = "onnx.MatMul"([[VAR_1_]]#1, [[VAR_3_]]#0) : (tensor<?x17489x768xf32>, tensor<768x32768xf32>) -> tensor<?x17489x32768xf32>
+// CHECK-DAG:       [[VAR_8_:%.+]] = "onnx.MatMul"([[VAR_1_]]#1, [[VAR_3_]]#1) : (tensor<?x17489x768xf32>, tensor<768x17490xf32>) -> tensor<?x17489x17490xf32>
+// CHECK:           [[VAR_9_:%.+]] = "onnx.Concat"([[VAR_7_]], [[VAR_8_]]) {axis = 2 : si64} : (tensor<?x17489x32768xf32>, tensor<?x17489x17490xf32>) -> tensor<?x17489x50258xf32>
+// CHECK:           [[VAR_10_:%.+]] = "onnx.Concat"([[VAR_6_]], [[VAR_9_]]) {axis = 1 : si64} : (tensor<?x32768x50258xf32>, tensor<?x17489x50258xf32>) -> tensor<?x50257x50258xf32>
+// CHECK:           return [[VAR_10_]] : tensor<?x50257x50258xf32>
 // CHECK:         }
 }
 
 // -----
 
 // COM: Rewrite N-D Softmax into 2-D softmax when axis is the last dim.
+// COM: Disable this rule for now since we see NNAP Softmax produces NaNs for very small values that are out of range of DLFLoat16.
 
 func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256x256xf32>) {
     %0 = "onnx.Softmax"(%arg0) {axis = 3 : si64} : (tensor<4x12x256x256xf32>) -> tensor<4x12x256x256xf32>
@@ -594,3 +626,38 @@ func.func @test_onnx_conv2d_not_insert_onnxpad_if_auto_pad_is_valid(%arg0: tenso
   // CHECK-NOT: "onnx.Pad"
 }
 
+// -----
+
+func.func @test_replace_add_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?xi64>) -> tensor<2x4xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %4 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<1x?xf32>
+  %5 = "onnx.Add"(%arg0, %4) : (tensor<2x4xf32>, tensor<1x?xf32>) -> tensor<2x4xf32>
+  return %5 : tensor<2x4xf32>
+
+// CHECK-LABEL:  func.func @test_replace_add_zero_expand
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<2x4xf32> {
+// CHECK-NOT:       onnx.Add
+// CHECK:           return [[PARAM_0_]] : tensor<2x4xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_replace_sub_zero_expand(%arg0: tensor<2x4xf32>, %arg1: tensor<?xi64>) -> tensor<2x4xf32> {
+  %0 = onnx.Constant dense<1> : tensor<1xi64>
+  %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?xi64>) -> tensor<1xi64>
+  %2 = "onnx.Concat"(%0, %1) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
+  %3 = onnx.Constant dense<0.000000e+00> : tensor<f32>
+  %4 = "onnx.Expand"(%3, %2) : (tensor<f32>, tensor<2xi64>) -> tensor<1x?xf32>
+  %5 = "onnx.Sub"(%arg0, %4) : (tensor<2x4xf32>, tensor<1x?xf32>) -> tensor<2x4xf32>
+  return %5 : tensor<2x4xf32>
+
+// CHECK-LABEL:  func.func @test_replace_sub_zero_expand
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x4xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<2x4xf32> {
+// CHECK-NOT:       onnx.Sub
+// CHECK:           return [[PARAM_0_]] : tensor<2x4xf32>
+// CHECK:         }
+}

@@ -84,31 +84,54 @@
  *
  * OMTensorList *run_main_graph(OMTensorList *);
  *
- * int main() {
+ * OMTensorList *create_input_list() {
  *   // Shared shape & rank.
  *   int64_t shape[] = {3, 2};
+ *   int64_t num_elements = shape[0] * shape[1];
  *   int64_t rank = 2;
- *   // Construct x1 omt filled with 1.
- *   float x1Data[] = {1., 1., 1., 1., 1., 1.};
- *   OMTensor *x1 = omTensorCreate(x1Data, shape, rank, ONNX_TYPE_FLOAT);
- *   // Construct x2 omt filled with 2.
- *   float x2Data[] = {2., 2., 2., 2., 2., 2.};
- *   OMTensor *x2 = omTensorCreate(x2Data, shape, rank, ONNX_TYPE_FLOAT);
- *   // Construct a list of omts as input.
+ *
+ *   // Construct float arrays filled with 1s or 2s.
+ *   float *x1Data = (float *)malloc(sizeof(float) * num_elements);
+ *   for (int i = 0; i < num_elements; i++)
+ *     x1Data[i] = 1.0;
+ *   float *x2Data = (float *)malloc(sizeof(float) * num_elements);
+ *   for (int i = 0; i < num_elements; i++)
+ *     x2Data[i] = 2.0;
+ *
+ *   // Use omTensorCreateWithOwnership "true" so float arrays are automatically
+ *   // freed when the Tensors are destroyed.
+ *   OMTensor *x1 = omTensorCreateWithOwnership(x1Data, shape, rank, ONNX_TYPE_FLOAT, true);
+ *   OMTensor *x2 = omTensorCreateWithOwnership(x2Data, shape, rank, ONNX_TYPE_FLOAT, true);
+ *
+ *   // Construct a TensorList using the Tensors
  *   OMTensor *list[2] = {x1, x2};
- *   OMTensorList *input = omTensorListCreate(list, 2);
+ *   return omTensorListCreate(list, 2);
+ * }
+ *
+ * int main() {
+ *   // Generate input TensorList
+ *   OMTensorList *input_list = create_input_list();
+ *
  *   // Call the compiled onnx model function.
- *   OMTensorList *outputList = run_main_graph(input);
- *   if (!outputList) {
+ *   OMTensorList *output_list = run_main_graph(input_list);
+ *   if (!output_list) {
  *     // May inspect errno to get info about the error.
  *     return 1;
  *   }
- *   // Get the first omt as output.
- *   OMTensor *y = omTensorListGetOmtByIndex(outputList, 0);
- *   float *outputPtr = (float *)omTensorGetDataPtr(y);
+ *
+ *   // Get the first tensor from output list.
+ *   OMTensor *y = omTensorListGetOmtByIndex(output_list, 0);
+ *   float *outputPtr = (float *) omTensorGetDataPtr(y);
+ *
  *   // Print its content, should be all 3.
  *   for (int i = 0; i < 6; i++)
  *     printf("%f ", outputPtr[i]);
+ *   printf("\n");
+ *
+ *   // Destory the list and the tensors inside of it.
+ *   // Use omTensorListDestroyShallow if only want to destroy the list themselves.
+ *   omTensorListDestroy(input_list);
+ *   omTensorListDestroy(output_list);
  *   return 0;
  * }
  * ```
@@ -123,14 +146,28 @@
  *
  * \subsection freeing-tensor-memory Freeing Tensor Memory
  *
+ * In general, if a caller creates a tensor object (omTensorCreate), they are
+ * responsible for deallocating the data buffer separately after the tensor is
+ * destroyed. If onnx-mlir creates the tensor (run_main_graph), then the
+ * tensor object owns the data buffer and it is freed automatically when the
+ * tensor is destroyed.
  *
- * When creating an OMTensor with a specified tensor array, a user has the option to
- * create a tensor with or without ownership (omTensorCreateWithOwnership).
+ * This default behavior can be changed. When creating a tensor, a user may use
+ * omTensorCreateWithOwnership to explicitly set data buffer ownership. Additionally,
+ * after a tenor is created, omTensorSetOwning can be used to change
+ * the ownership setting.
  *
- * If the ownership flag is set to "false", then a user is responsible for freeing memory until the last use.
- * Otherwise, if the flag is set to "true", then the destruction of the tensor (omTensorDestroy)
- * will also free any associated memory and data buffers.
+ * When omTensorDestroy is called, if the ownership flag is set to "true",
+ * then the destruction of the tensor will also free any associated data buffer
+ * memory. If the ownership flag is set to "false", then the user is responsible
+ * for freeing the data buffer memory after destroying the tensor.
  *
+ * For tensor list objects, when omTensorListDestory is called, omTensorDestory
+ * is called on all tensors the list contained. The data buffer of each tensor
+ * is freed based on each tensor's ownership setting.
+ *
+ * To destroy a TensorList without automatically destorying the tensors it
+ * contained, use omTensorListDestroyShallow.
  *
  * \subsection reference Reference
  *

@@ -51,6 +51,7 @@ struct ONNXSequenceAtOpLowering : public OpConversionPattern<ONNXSequenceAtOp> {
         IntegerAttr::get(rewriter.getIntegerType(1, false), 1));
 
     rewriter.replaceOp(op, outputVal);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

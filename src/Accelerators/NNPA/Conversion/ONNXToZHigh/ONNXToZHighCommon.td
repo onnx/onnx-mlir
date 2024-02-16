@@ -24,6 +24,7 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
 /// class Pattern<
 ///    dag sourcePattern, list<dag> resultPatterns,
 ///    list<dag> additionalConstraints = [],
+///    list<dag> supplementalPatterns = [],
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 

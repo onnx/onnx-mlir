@@ -57,15 +57,8 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
 //
 template <typename PoolOp>
 std::vector<int64_t> getDilations(PoolOp poolOp) {
-  return {};
-}
-
-// MaxPool has dilations attribute.
-template <>
-std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
-    ONNXMaxPoolSingleOutOp poolOp) {
   std::vector<int64_t> dilations;
-  auto dilationsAttribute = poolOp.getDilationsAttr();
+  ArrayAttr dilationsAttribute = poolOp.getDilationsAttr();
   bool isDefaultDilations = true;
   for (auto dilation : dilationsAttribute.getValue()) {
     int64_t dilationValue = dilation.cast<IntegerAttr>().getInt();
@@ -83,14 +76,7 @@ std::vector<int64_t> getDilations<ONNXMaxPoolSingleOutOp>(
 // Get dilation attribute.
 //
 template <typename PoolOp>
-llvm::Optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
-  return std::nullopt;
-}
-
-// MaxPool has dilations attribute.
-template <>
-llvm::Optional<ArrayAttr> getDilationAttr<ONNXMaxPoolSingleOutOp>(
-    ONNXMaxPoolSingleOutOp poolOp) {
+std::optional<ArrayAttr> getDilationAttr(PoolOp poolOp) {
   return poolOp.getDilations();
 }
 
@@ -500,6 +486,7 @@ struct ONNXPoolOpLowering : public OpConversionPattern<PoolOp> {
 
     rewriter.replaceOp(op, alloc);
 
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

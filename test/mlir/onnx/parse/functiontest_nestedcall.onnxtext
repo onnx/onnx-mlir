@@ -1,0 +1,39 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// functiontest_nestedcall.onnxtext is from onnxruntime/test/framework/function_test.cc
+<
+ir_version: 8,
+opset_import: [ "" : 16, "local" : 1 ]
+>
+agraph (float[N] x) => (float[N] y)
+{
+    y = local.myfun (x)
+}
+
+<
+opset_import: [ "" : 16, "local" : 1],
+domain: "local"
+>
+myfun (lx) => (ly) {
+    one = Constant <value = float[1] {1.0}> ()
+    tmp = local.twice (lx)
+    ly = Add (tmp, one)
+}
+
+<
+opset_import: [ "" : 16 ],
+domain: "local"
+>
+twice (lx) => (ly) {
+    two = Constant <value = float[1] {2.0}> ()
+    ly = Mul (lx, two)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "x"}) -> (tensor<?xf32> {onnx.dim_params = "0:N", onnx.name = "y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<1xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Add"([[VAR_2_]], [[VAR_0_]]) : (tensor<?xf32>, tensor<1xf32>) -> tensor<?xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

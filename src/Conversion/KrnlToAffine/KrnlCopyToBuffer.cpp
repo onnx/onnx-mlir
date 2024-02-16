@@ -92,7 +92,8 @@ public:
       }
       IndexExpr startGI =
           starts[srcIndex]; // Global index in source memref of tile.
-      IndexExpr bufferRead = trip(sourceBound, blockSize, startGI);
+      IndexExpr bufferRead =
+          create.krnlIE.tileSize(startGI, blockSize, sourceBound);
       bufferRead.debugPrint("buffer read");
       bufferReadUBs.emplace_back(bufferRead);
       // Determine the UB until which to pad

@@ -80,7 +80,7 @@ public:
 
     // Only support static 1D MemRefs with integer type.
     if ((memRefType.getRank() != 1) || memRefType.isDynamicDim(0) ||
-        (!elementType.isa<IntegerType>()))
+        (!elementType.isInteger(64)))
       return failure();
 
     // The number of elements in the returned MemRef.
@@ -102,7 +102,7 @@ public:
       }
 
       // Only support KrnlStoreOp/AffineStoreOp/StoreOp
-      if (!(isa<KrnlStoreOp>(user) || isa<AffineStoreOp>(user) ||
+      if (!(isa<KrnlStoreOp>(user) || isa<affine::AffineStoreOp>(user) ||
               isa<memref::StoreOp>(user)))
         continue;
 
@@ -120,10 +120,10 @@ public:
         storeIndex = *op.getIndices().begin();
         storeVal = op.getValue();
       } else { // AffineStoreOp
-        AffineStoreOp op = llvm::dyn_cast<AffineStoreOp>(user);
+        auto op = llvm::dyn_cast<affine::AffineStoreOp>(user);
         SmallVector<Value, 2> indices(op.getMapOperands());
         auto maybeExpandedMap =
-            expandAffineMap(rewriter, loc, op.getAffineMap(), indices);
+            affine::expandAffineMap(rewriter, loc, op.getAffineMap(), indices);
         if (!maybeExpandedMap)
           continue;
         storeIndex = maybeExpandedMap.value()[0];

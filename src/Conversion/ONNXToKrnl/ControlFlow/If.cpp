@@ -43,6 +43,7 @@ struct ONNXIfOpLowering : public OpConversionPattern<ONNXIfOp> {
     graphToScfBranch(
         rewriter, loc, ifOp.getElseBranch(), scfIfOp.getElseRegion());
     rewriter.replaceOp(op, scfIfOp.getResults());
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
@@ -55,12 +56,12 @@ private:
     scfBranch.takeBody(graph);
     rewriter.setInsertionPointToEnd(&scfBranch.back());
 
-    Operation *returnOp = scfBranch.back().getTerminator();
+    Operation *yieldOp = scfBranch.back().getTerminator();
     llvm::SmallVector<Value> outputs;
-    if (failed(rewriter.getRemappedValues(returnOp->getOperands(), outputs))) {
+    if (failed(rewriter.getRemappedValues(yieldOp->getOperands(), outputs))) {
       llvm_unreachable("failed to convert branch return values");
     }
-    rewriter.replaceOpWithNewOp<scf::YieldOp>(returnOp, outputs);
+    rewriter.replaceOpWithNewOp<scf::YieldOp>(yieldOp, outputs);
   }
 };
 

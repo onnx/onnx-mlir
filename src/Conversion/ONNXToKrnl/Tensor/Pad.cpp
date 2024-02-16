@@ -150,7 +150,7 @@ struct ONNXPadOpLowering : public OpConversionPattern<ONNXPadOp> {
 
     // Replace the original op with the generated code.
     rewriter.replaceOp(op, resMemRef);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

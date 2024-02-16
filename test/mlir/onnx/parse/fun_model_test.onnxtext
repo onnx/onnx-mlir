@@ -1,0 +1,42 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// fun_model_test.onnxtext is adapted from
+// onnx/test/cpp/parser_test.cc FunModelTest.
+<
+  ir_version: 8,
+  opset_import: [ "" : 10, "local" : 1 ]
+>
+agraph (float[N, 128] X, float[128,10] W, float[10] B) => (float[N, 10] C)
+{
+  T = local.foo (X, W, B)
+  C = local.square(T)
+}
+
+<
+  opset_import: [ "" : 10 ],
+  domain: "local",
+  doc_string: "Function foo."
+>
+foo (x, w, b) => (c) {
+  T = MatMul(x, w)
+  S = Add(T, b)
+  c = Softmax(S)
+}
+
+<
+  opset_import: [ "" : 10 ],
+  domain: "local",
+  doc_string: "Function square."
+>
+square (x) => (y) {
+  y = Mul (x, x)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x128xf32> {onnx.dim_params = "0:N", onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<128x10xf32> {onnx.name = "W"}, [[PARAM_2_:%.+]]: tensor<10xf32> {onnx.name = "B"}) -> (tensor<?x10xf32> {onnx.dim_params = "0:N", onnx.name = "C"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x128xf32>, tensor<128x10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_2_]]) : (tensor<?x10xf32>, tensor<10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.SoftmaxV11"([[VAR_1_]]) {axis = 1 : si64} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_2_]]) : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK:           onnx.Return [[VAR_3_]] : tensor<?x10xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

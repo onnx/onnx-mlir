@@ -146,6 +146,7 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
         });
 
     rewriter.replaceOp(op, resMemRef);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

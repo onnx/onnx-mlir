@@ -23,6 +23,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -124,6 +126,33 @@ bool hasAllScalarValues(ValueRange values) {
   return true;
 }
 
+// Check if we have a 'tensor<' ('1x')* 'x type>' type, namely a scalar or a
+// n-dimensional tensor of size 1 along all dimensions.
+bool hasOneElement(Value value) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  for (int64_t s : type.getShape())
+    if (s != 1)
+      return false;
+  return true;
+}
+
+// Same as above, but from the innermost dimensions up to innerDim.
+bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  assert(type && "expected shaped type");
+  mlir::ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = type.getRank();
+  for (int64_t i = rank - innerDim; i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
+  return true;
+}
+
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(Value indices) {
@@ -139,21 +168,29 @@ bool indicesAreNonNegativeConstants(Value indices) {
 // Create a mapping from result type's dimensions to input type's dimensions,
 // given that the result type is the result of a reduction op over the input
 // type.
+//
+// Integers in axes must be in [0..inRank), that is they were normalized.
+//
+// Mapping responds to the following question:
+//   for a given output index (that is not a reduction index in presence of
+//   keepDim, by def of size 1), find the input index related to that given
+//   output index.
 std::map<int64_t, int64_t> getReductionMapping(
     MemRefType inputTy, ArrayRef<int64_t> axes, bool keepdims) {
   std::map<int64_t, int64_t> OutInDimMap;
-  int64_t rank = inputTy.getRank();
+  int64_t inRank = inputTy.getRank();
 
   // Mark reduction axes.
   std::vector<bool> isReductionAxis;
-  for (decltype(rank) i = 0; i < rank; ++i) {
+  for (decltype(inRank) i = 0; i < inRank; ++i) {
     if (std::find(axes.begin(), axes.end(), i) != axes.end())
       isReductionAxis.push_back(true);
     else
       isReductionAxis.push_back(false);
   }
 
-  for (decltype(rank) inIndex = 0, outIndex = 0; inIndex < rank; ++inIndex) {
+  for (decltype(inRank) inIndex = 0, outIndex = 0; inIndex < inRank;
+       ++inIndex) {
     // If it is a reduction axis, there is no relationship among dimensions.
     if (isReductionAxis[inIndex]) {
       if (keepdims)
@@ -203,6 +240,28 @@ Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
              : create.math.constant(type, shape[axis]);
 }
 
+/// Check whether this op should be lowered to Krnl.Call according to option
+/// opsToCall. The op name is used for matching
+bool checkOpToCall(Operation *op, std::string opsForCall) {
+  // Special cases for none or all
+  if (opsForCall == "")
+    return false;
+  if (opsForCall == "*")
+    return true;
+  // Get the name for op and remove the leading "onnx."
+  std::string opName = op->getName().stripDialect().str();
+  // To handle the case that onnx ops may have common part in name, a space
+  // is added as delimiter to search
+  std::string str = opsForCall + " ";
+  std::string sub = opName + " ";
+  int index = str.find(sub);
+  if (index == -1) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 namespace {
 // Returns the DenseElementsAttr of input if it's a krnl.global constant or
 // onnx.Constant, or if it's one step removed from a krnl/onnx constant by a
@@ -227,112 +286,44 @@ DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
 
 /// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
 /// and return a constant.
-Value foldOrEmitONNXSqueezeV11Op(ConversionPatternRewriter &rewriter,
+Value foldOrEmitONNXSqueezeV11OpKrnl(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  TensorType tensorType = create.onnx.toTensor(resultType);
-  if (DenseElementsAttr inputElements =
-          getDenseElementAttrFromConstValue(input)) {
-    DenseElementsAttr squeezedElements = inputElements.reshape(tensorType);
-    Value constVal = create.onnx.constant(squeezedElements);
-    return create.onnx.toMemref(constVal);
-  } else {
-    return create.onnx.toMemref(
-        rewriter
-            .create<ONNXSqueezeV11Op>(loc, tensorType,
-                create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
-            .getResult());
-  }
+  return create.onnx.toMemref(create.onnx.foldOrEmitONNXSqueezeV11Op(rewriter,
+      loc, resultType, input, axis, getDenseElementAttrFromConstValue));
 }
 
 /// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const
 /// propagation, and return a constant.
-Value foldOrEmitONNXUnsqueezeV11Op(ConversionPatternRewriter &rewriter,
+Value foldOrEmitONNXUnsqueezeV11OpKrnl(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  TensorType tensorType = create.onnx.toTensor(resultType);
-  if (DenseElementsAttr inputElements =
-          getDenseElementAttrFromConstValue(input)) {
-    DenseElementsAttr unsqueezedElements = inputElements.reshape(tensorType);
-    Value constVal = create.onnx.constant(unsqueezedElements);
-    return create.onnx.toMemref(constVal);
-  } else {
-    return create.onnx.toMemref(
-        rewriter
-            .create<ONNXUnsqueezeV11Op>(loc, tensorType,
-                create.onnx.toTensor(input), rewriter.getI64ArrayAttr(axis))
-            .getResult());
-  }
+  return create.onnx.toMemref(create.onnx.foldOrEmitONNXUnsqueezeV11Op(rewriter,
+      loc, resultType, input, axis, getDenseElementAttrFromConstValue));
 }
 
 /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
 /// return constants.
 /// Only support evenly splitting.
-std::vector<Value> foldOrEmitONNXSplitOp(ConversionPatternRewriter &rewriter,
-    Location loc, ArrayRef<Type> resultTypes, Value input, int64_t axis) {
-
+std::vector<Value> foldOrEmitONNXSplitV11OpKrnl(
+    ConversionPatternRewriter &rewriter, Location loc,
+    ArrayRef<Type> resultTypes, Value input, int64_t axis) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-
+  std::vector<Value> slices = create.onnx.foldOrEmitONNXSplitV11Op(rewriter,
+      loc, resultTypes, input, axis, getDenseElementAttrFromConstValue);
   std::vector<Value> resVals;
-  int outputNum = resultTypes.size();
-
-  if (DenseElementsAttr inputElements =
-          getDenseElementAttrFromConstValue(input)) {
-    auto inputShape = inputElements.getType().getShape();
-    assert(outputNum == 0 || inputShape[axis] % outputNum == 0);
-    int64_t sizeOfEachSplit = outputNum != 0 ? inputShape[axis] / outputNum : 0;
-    SmallVector<int64_t, 4> sizes(outputNum, sizeOfEachSplit);
-
-    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    std::vector<ElementsAttr> splits =
-        elementsBuilder.split(inputElements, axis, sizes);
-    for (ElementsAttr splitElements : splits) {
-      // Avoid DisposableElementsAttr during conversion.
-      DenseElementsAttr denseSplitElements =
-          elementsBuilder.toDenseElementsAttr(splitElements);
-      Value constVal = create.onnx.constant(denseSplitElements);
-      resVals.emplace_back(create.onnx.toMemref(constVal));
-    }
-  } else {
-    SmallVector<Type, 4> convertedTypes;
-    for (auto t : resultTypes) {
-      convertedTypes.emplace_back(create.onnx.toTensor(t));
-    }
-    ONNXSplitV11Op split = rewriter.create<ONNXSplitV11Op>(loc, convertedTypes,
-        create.onnx.toTensor(input),
-        /*axis=*/axis, nullptr);
-    for (int i = 0; i < outputNum; ++i)
-      resVals.emplace_back(create.onnx.toMemref(split.getOutputs()[i]));
-  }
+  for (Value slice : slices)
+    resVals.emplace_back(create.onnx.toMemref(slice));
   return resVals;
 }
 
 /// Emit an ONNXTransposeOp. If the input is constant, do const propagation,
 /// and return a constant.
-Value foldOrEmitONNXTransposeOp(ConversionPatternRewriter &rewriter,
+Value foldOrEmitONNXTransposeOpKrnl(ConversionPatternRewriter &rewriter,
     Location loc, Type resultType, Value input, ArrayAttr permAttr) {
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
-  if (DenseElementsAttr inputElements =
-          getDenseElementAttrFromConstValue(input)) {
-    SmallVector<uint64_t, 4> perm;
-    for (auto permVal : permAttr.getValue())
-      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
-
-    OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
-    ElementsAttr transposedElements =
-        elementsBuilder.transpose(inputElements, perm);
-    // Avoid DisposableElementsAttr during conversion.
-    DenseElementsAttr denseTransposedElements =
-        elementsBuilder.toDenseElementsAttr(transposedElements);
-    Value constVal = create.onnx.constant(denseTransposedElements);
-    return create.onnx.toMemref(constVal);
-  } else {
-    return create.onnx.toMemref(
-        rewriter
-            .create<ONNXTransposeOp>(loc, create.onnx.toTensor(resultType),
-                create.onnx.toTensor(input), permAttr)
-            .getResult());
-  }
+  return create.onnx.toMemref(create.onnx.foldOrEmitONNXTransposeOp(rewriter,
+      loc, resultType, input, permAttr, getDenseElementAttrFromConstValue));
 }
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
@@ -386,8 +377,8 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
     Type intType = rewriter.getIntegerType(64);
     Value valAxis = create.math.constant(intType, axis);
     Value valAscending = create.math.constant(intType, (int64_t)ascending);
-    SmallVector<Value, 4> operands = {input, valAxis, valAscending};
-    rewriter.create<KrnlCallOp>(loc, "omTensorSort", order, operands);
+    SmallVector<Value, 4> operands = {order, input, valAxis, valAscending};
+    rewriter.create<KrnlCallOp>(loc, "omTensorSort", 1, operands);
     return order;
   }
   // Do sorting in the descending order of input and return their indices.
@@ -552,7 +543,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addConversion([](SeqType seqType) {
-    ShapedType seqElementType = seqType.getElementType();
+    auto seqElementType = seqType.getElementType().cast<ShapedType>();
     Type elementType = seqElementType.getElementType();
     Type seqElementConvertedType;
     if (seqElementType.hasRank()) {
@@ -569,7 +560,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -579,7 +570,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
                                ValueRange inputs,
-                               Location loc) -> Optional<Value> {
+                               Location loc) -> std::optional<Value> {
     if (inputs.size() != 1)
       return std::nullopt;
 
@@ -620,6 +611,65 @@ bool hasNonIdentityLayout(ValueRange operands) {
     if (hasNonIdentityLayout(val))
       return true;
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for parallel region.
+//===----------------------------------------------------------------------===//
+
+// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >
+// minSize. Runtime dimensions are assumed to satisfy the size requirement by
+// definition. If found one, it is parDim and the function returns true.
+
+bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim, int64_t lastDim,
+    int64_t &parDim, int64_t minSize) {
+  for (int64_t i = firstDim; i < lastDim; ++i) {
+    IndexExpr tripCount = ub[i] - lb[i];
+    if (!tripCount.isLiteral() || tripCount.getLiteral() > minSize) {
+      // Got one
+      parDim = i;
+      return true;
+    }
+  }
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Support functions for reporting.
+//===----------------------------------------------------------------------===//
+
+void impl::onnxToKrnlParallelReport(Operation *op, bool successful,
+    int64_t loopLevel, int64_t parallelLoopTripCount,
+    const std::string &comment) {
+  assert(OnnxToKrnlLoweringConfiguration::reportOnParallel && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
+  StringAttr opName = op->getName().getIdentifier();
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+  // Print report on this op.
+  printf("==PAR-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-par" : ""), nodeNameStr.c_str(), comment.c_str(),
+      (long long int)loopLevel, (long long int)parallelLoopTripCount);
+}
+
+void impl::onnxToKrnlSimdReport(Operation *op, bool successful,
+    int64_t vectorLength, int64_t simdLoopTripCount,
+    const std::string &comment) {
+  assert(OnnxToKrnlLoweringConfiguration::reportOnSimd && "must report");
+  assert(comment.find(',') == std::string::npos && "no comma in comments");
+  StringAttr opName = op->getName().getIdentifier();
+  std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+  // Handling message.
+  std::string message = OnnxToKrnlLoweringConfiguration::defaultSimdComment;
+  if (message.empty())
+    message = comment;
+  if (message.empty() && vectorLength == 0 && simdLoopTripCount == 0)
+    // No comments, all values indicate no simd
+    message = "unsupported";
+  // Print report on this op.
+  printf("==SIMD-REPORT==, %s%s, %s, %s, %lld, %lld\n", opName.data(),
+      (successful ? "-simd" : ""), nodeNameStr.c_str(), message.c_str(),
+      (long long int)vectorLength, (long long int)simdLoopTripCount);
 }
 
 } // namespace onnx_mlir

@@ -19,6 +19,9 @@
 
 namespace onnx_mlir {
 
+/// Return the vendor name if specified during make processing or the default.
+std::string getVendorName();
+
 /// Retrieves the repository path from which onnx-mlir was built.
 std::string getOnnxMlirRepositoryPath();
 

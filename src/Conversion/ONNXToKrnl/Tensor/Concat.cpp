@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,13 +16,23 @@
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
 
 struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
-  ONNXConcatOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXConcatOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXConcatOp::getOperationName());
+  }
+
+  bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
       ONNXConcatOpAdaptor adaptor,
@@ -79,6 +89,17 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       create.krnlIE.getShapeAsDims(operands[i], ubs);
       // For each input, only the dimension 'axis' is different
       commonUB[axis] = ubs[axis];
+      if (enableParallel) {
+        int64_t parId;
+        if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId)) {
+          create.krnl.parallel(loopDef[0]);
+          onnxToKrnlParallelReport(
+              op, true, parId, lbs[parId], ubs[parId], "concat");
+        } else {
+          onnxToKrnlParallelReport(
+              op, false, -1, -1, "no par dim with enough work in concat");
+        }
+      }
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             // Indices for the read and write.
@@ -103,13 +124,14 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
           accumulatedOffset + create.krnlIE.getShapeAsDim(operands[i], axis);
     }
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
 
 void populateLoweringONNXConcatOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel) {
+  patterns.insert<ONNXConcatOpLowering>(typeConverter, ctx, enableParallel);
 }
 
 } // namespace onnx_mlir

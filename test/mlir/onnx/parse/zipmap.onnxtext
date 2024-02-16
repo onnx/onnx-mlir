@@ -1,0 +1,16 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s 2> zipmap.log; cat zipmap.log | FileCheck --check-prefix=FAILED %s
+
+// zipmap.onnxtext is an onnx model with a single ZipMap node.
+//
+// Parsing fails because sequences of non-tensors are not supported by
+// the ONNX parser in
+// FrontendGenImpl::ImportSequenceType in FrontendDialectTransformer.cpp
+
+<
+   ir_version: 8,
+   opset_import: ["" : 18]
+>
+zipmapper (float[3] input) => (seq(map(int64, float)) output) {
+   output = ZipMap <classlabels_int64s = [10, 20, 30]> (input)
+}
+// FAILED: "expect tensor inside sequence type"

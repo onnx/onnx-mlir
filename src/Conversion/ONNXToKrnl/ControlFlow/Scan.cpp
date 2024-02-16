@@ -194,11 +194,12 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     }
 
     rewriter.replaceOp(op, outputs);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 
   static void allocateMemoryForVFinal(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
@@ -223,7 +224,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
   }
 
   static void allocateMemoryForScanOutput(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       Operation *op, ONNXScanOpAdaptor adaptor,
       SmallVectorImpl<mlir::Value> &outputs) {
     auto scanOp = dyn_cast<ONNXScanOp>(op);
@@ -274,7 +275,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
   }
 
   static mlir::Value allocateMemoryForBodyScanInput(mlir::Location loc,
-      ConversionPatternRewriter &rewriter, TypeConverter *typeConverter,
+      ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter,
       mlir::Type bodyScanInputTy) {
     // Convert type to MemRefType.
     Type convertedType = typeConverter->convertType(bodyScanInputTy);

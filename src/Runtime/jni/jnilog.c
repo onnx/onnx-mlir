@@ -27,7 +27,6 @@
 #if defined(_MSC_VER)
 #include <windows.h>
 #else
-#include <libgen.h>
 #include <pthread.h>
 #endif
 
@@ -134,23 +133,26 @@ typedef DWORD pthread_t;
 pthread_t get_threadid() { return THREAD_ID; }
 
 /* This is based on basename from lldb: lldb\source\Host\windows\Windows.cpp */
-char *get_filename(char *path) {
+const char *get_filename(const char *path) {
 #if defined(_MSC_VER)
   char *l1 = strrchr(path, '\\');
   char *l2 = strrchr(path, '/');
   if (l2 > l1)
     l1 = l2;
+#else
+  /* C library basename modifies path (except Gnu version) so we borrow
+   * Windows code to implement our own basename.
+   */
+  char *l1 = strrchr(path, '/');
+#endif
   if (!l1)
     return path; // no base name
   return &l1[1];
-#else
-  return basename(path);
-#endif
 }
 
 /* Generic log routine */
-void log_printf(
-    int level, char *file, const char *func, int line, char *fmt, ...) {
+void log_printf(int level, const char *file, const char *func, int line,
+    const char *fmt, ...) {
 
   if (level < get_log_level())
     return;

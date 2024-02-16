@@ -58,7 +58,7 @@ void printBound(AffineMapAttr boundMap,
 
     // Print constant bound.
     if (map.getNumDims() == 0 && map.getNumSymbols() == 0) {
-      if (auto constExpr = expr.dyn_cast<AffineConstantExpr>()) {
+      if (auto constExpr = llvm::dyn_cast<AffineConstantExpr>(expr)) {
         p << constExpr.getValue();
         return;
       }
@@ -67,7 +67,7 @@ void printBound(AffineMapAttr boundMap,
     // Print bound that consists of a single SSA symbol if the map is over a
     // single symbol.
     if (map.getNumDims() == 0 && map.getNumSymbols() == 1) {
-      if (auto symExpr = expr.dyn_cast<AffineSymbolExpr>()) {
+      if (auto symExpr = llvm::dyn_cast<AffineSymbolExpr>(expr)) {
         p.printOperand(*(boundOperandsBeg++));
         return;
       }
@@ -120,8 +120,8 @@ void KrnlIterateOperandPack::pushIndexExprBound(IndexExpr expr, bool isLb) {
     pushAffineMapBound(map, list);
   } else {
     Value val = expr.getValue();
-    if ((val.getDefiningOp<AffineMinOp>() && !isLb) ||
-        (val.getDefiningOp<AffineMaxOp>() && isLb)) {
+    if ((val.getDefiningOp<affine::AffineMinOp>() && !isLb) ||
+        (val.getDefiningOp<affine::AffineMaxOp>() && isLb)) {
       // Have a Affine Min in an upper bound computation, or have an Affine Max
       // in a lower bound computation,  will extract the list of affine min/max
       // for the loop bounds.

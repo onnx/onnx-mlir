@@ -176,6 +176,7 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
         });
 
     rewriter.replaceOp(op, alloc);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

@@ -124,9 +124,10 @@ Attribute ONNXDialect::parseAttribute(
       generatedAttributeParser(parser, &attrTag, type, attr).has_value())
     return attr;
   if (attrTag == DisposableElementsAttr::getMnemonic()) {
-    if (auto membuf = DisposableElementsAttr::parse(parser, type))
+    auto shapedTy = type.cast<ShapedType>();
+    if (auto membuf = DisposableElementsAttr::parse(parser, shapedTy))
       return OnnxElementsAttrBuilder(type.getContext())
-          .fromMemoryBuffer(type, std::move(membuf));
+          .fromMemoryBuffer(shapedTy, std::move(membuf));
     else
       return {};
   }

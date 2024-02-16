@@ -26,6 +26,8 @@
 
 #include <mutex>
 
+#define DEBUG_TYPE "index-expr"
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -201,7 +203,8 @@ void IndexExprImpl::initAsAffineExpr(AffineExpr const val) {
   // Check if the affine expression is reduced to a constant expr.
   AffineExpr simpleVal =
       simplifyAffineExpr(val, scope->getNumDims(), scope->getNumSymbols());
-  AffineConstantExpr constAffineExpr = simpleVal.dyn_cast<AffineConstantExpr>();
+  AffineConstantExpr constAffineExpr =
+      llvm::dyn_cast<AffineConstantExpr>(simpleVal);
   if (constAffineExpr) {
     initAsLiteral(constAffineExpr.getValue(), IndexExprKind::Affine);
   } else {
@@ -300,7 +303,17 @@ bool IndexExprImpl::hasScope() const { return scope != nullptr; }
 
 bool IndexExprImpl::isInCurrentScope() const {
   assert(hasScope());
-  return scope->isCurrentScope();
+  bool inScope = scope->isCurrentScope();
+  LLVM_DEBUG({
+    if (!inScope)
+      llvm::dbgs() << "IES: NOT IN SCOPE, IE " << ((long long)scope)
+                   << " != curr "
+                   << ((long long)IndexExprScope::getCurrentScopePtr()) << "\n";
+    else
+      llvm::dbgs() << "IES: in scope, IE " << ((long long)scope) << " == curr "
+                   << ((long long)IndexExprScope::getCurrentScopePtr()) << "\n";
+  });
+  return inScope;
 }
 
 bool IndexExprImpl::hasAffineExpr() const {
@@ -409,13 +422,13 @@ void IndexExprImpl::getAffineMapAndOperands(
   }
   // Non Affine, check if by any chance we have a min / max, in which case we
   // will extract the correct info.
-  if (AffineMinOp affineMinOp = getValue().getDefiningOp<AffineMinOp>()) {
+  if (auto affineMinOp = getValue().getDefiningOp<affine::AffineMinOp>()) {
     map = affineMinOp.getAffineMap();
     for (Value val : affineMinOp.getMapOperands())
       operands.emplace_back(val);
     return;
   }
-  if (AffineMaxOp affineMaxOp = getValue().getDefiningOp<AffineMaxOp>()) {
+  if (auto affineMaxOp = getValue().getDefiningOp<affine::AffineMaxOp>()) {
     map = affineMaxOp.getAffineMap();
     for (Value val : affineMaxOp.getMapOperands())
       operands.emplace_back(val);
@@ -469,7 +482,7 @@ Value IndexExprImpl::getValue() {
     // list, and then use the apply.
     SmallVector<Value, 4> list;
     getScope().getDimAndSymbolList(list);
-    value = getRewriter().create<AffineApplyOp>(getLoc(), map, list);
+    value = getRewriter().create<affine::AffineApplyOp>(getLoc(), map, list);
   } else if (isQuestionmark()) {
     // There are cases where shape inference cannot determine the size even at
     // runtime before running some specialized computations. For example,

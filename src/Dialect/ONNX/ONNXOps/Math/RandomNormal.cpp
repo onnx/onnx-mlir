@@ -40,6 +40,28 @@ LogicalResult ONNXRandomNormalOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+std::vector<Type> ONNXRandomNormalOp::resultTypeInference() {
+  Type elementType;
+  if (auto attr = getDtypeAttr()) {
+    if (getDtype() == 0) {
+      elementType = FloatType::getF16(getContext());
+    } else if (getDtype() == 1) {
+      elementType = FloatType::getF32(getContext());
+    } else if (getDtype() == 2) {
+      elementType = FloatType::getF64(getContext());
+    } else {
+      llvm_unreachable("dtype not supported for RandomNormal");
+    }
+  } else {
+    elementType = FloatType::getF32(getContext());
+  }
+  return {UnrankedTensorType::get(elementType)};
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 

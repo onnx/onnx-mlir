@@ -1,0 +1,94 @@
+// RUN: onnx-mlir --functions-to-decompose=CastLike --EmitONNXBasic --printIR %s | FileCheck %s
+
+// test_castlike_decomp.json is an onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/castlike.py
+
+// json is generated with:
+// utils/onnx2json.py third_party/onnx/onnx/backend/test/data/node/test_castlike_FLOAT16_to_FLOAT/model.onnx
+
+{
+  "irVersion": "8",
+  "producerName": "backend-test",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "input",
+          "like"
+        ],
+        "output": [
+          "output"
+        ],
+        "opType": "CastLike"
+      }
+    ],
+    "name": "test_castlike_FLOAT16_to_FLOAT",
+    "input": [
+      {
+        "name": "input",
+        "type": {
+          "tensorType": {
+            "elemType": 10,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "4"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "like",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "1"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "output",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimValue": "3"
+                },
+                {
+                  "dimValue": "4"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "domain": "",
+      "version": "15"
+    }
+  ]
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf16> {onnx.name = "input"}, [[PARAM_1_:%.+]]: tensor<1xf32> {onnx.name = "like"}) -> (tensor<3x4xf32> {onnx.name = "output"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 1 : si64, to = f32} : (tensor<3x4xf16>) -> tensor<3x4xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

@@ -106,6 +106,7 @@ struct ONNXScatterElementsOpLowering
         });
 
     rewriter.replaceOp(op, output);
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };

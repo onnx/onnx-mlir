@@ -127,9 +127,11 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     //   return emitOpError("x and x_zero_point must have the same data type");
 
     if (getElementType(zero.getType()).isInteger(32) && zeroLen != 0)
-      if (auto values = getElementAttributeFromONNXValue(zero))
-        if (!values.isSplat() || !values.getSplatValue<APInt>().isZero())
+      if (auto values = getElementAttributeFromONNXValue(zero)) {
+        WideNum zero = WideNum::widen<BType::INT32>(0);
+        if (!ElementsAttrBuilder::allEqual(values, zero))
           return emitOpError("x_zero_point must be 0 for data type int32");
+      }
   }
 
   if (scaleLen == ShapedType::kDynamic && zeroLen == ShapedType::kDynamic) {

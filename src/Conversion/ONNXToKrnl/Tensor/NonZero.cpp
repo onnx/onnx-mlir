@@ -217,7 +217,7 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
         });
 
     rewriter.replaceOp(op, resMemRef);
-
+    onnxToKrnlSimdReport(op);
     return success();
   }
 };
