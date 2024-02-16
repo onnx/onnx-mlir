@@ -69,6 +69,8 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
   populateLoweringONNXDequantizeLinearOpToTOSAPattern(
       target, patterns, typeConverter, ctx);
+  populateLoweringONNXMatMulOpToTOSAPattern(
+      target, patterns, typeConverter, ctx);
   // Flow
   populateLoweringONNXEntryPointOpToTOSAPattern(
       target, patterns, typeConverter, ctx);

@@ -11,6 +11,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   Math/Softmax.cpp
   Math/Reduce.cpp
   Math/Conv2D.cpp
+  Math/MatMul.cpp
   Math/Softmax.cpp
   Math/Gemm.cpp
   NN/MaxPoolSingleOut.cpp
