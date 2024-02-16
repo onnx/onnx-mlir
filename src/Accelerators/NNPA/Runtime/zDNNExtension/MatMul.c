@@ -52,20 +52,18 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // For a MatMul of A(M,N)*B(N,P)+C(P),
   // We split M that is e2 in (e4, e3, e2, e1), and P that is e1.
-  // We split P and distribute each tile to a zAIU, while we split M using the
-  // maximum dimension index size (MDIS). That's because splitting P in most of
-  // case does not require data copy, and using MDIS in splitting M will
-  // minimize data copy.
-  uint32_t mdis = getMDIS();
-  uint32_t noeE1 = getNumOfElemsPerZAIU(inputB, E1);
-  SplitInfo splitInfoA = {
-      .fullZTensor = inputA, .axis = E2, .numOfElemsPerTile = mdis};
-  SplitInfo splitInfoB = {
-      .fullZTensor = inputB, .axis = E1, .numOfElemsPerTile = noeE1};
-  SplitInfo splitInfoC = {
-      .fullZTensor = inputC, .axis = E1, .numOfElemsPerTile = noeE1};
-  SplitInfo splitInfoY = {
-      .fullZTensor = output, .axis = E2, .numOfElemsPerTile = mdis};
+  SplitInfo splitInfoA = {.fullZTensor = inputA,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoB = {.fullZTensor = inputB,
+      .axis = E1,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoC = {.fullZTensor = inputC,
+      .axis = E1,
+      .numOfElemsPerTile = OMZTensorSplitSize};
+  SplitInfo splitInfoY = {.fullZTensor = output,
+      .axis = E2,
+      .numOfElemsPerTile = OMZTensorSplitSize};
 
   initSplitInfo(&splitInfoA, /*allocTileBuffers=*/true, "MatMul A");
   initSplitInfo(&splitInfoB, /*allocTileBuffers=*/true, "MatMul B");
@@ -83,12 +81,11 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     zdnn_ztensor *zaTensor = getTile(&splitInfoA, i);
     zdnn_ztensor *zyTensor = getTile(&splitInfoY, i);
 
-    SplitInfo splitInfoYB = {
-        .fullZTensor = zyTensor, .axis = E1, .numOfElemsPerTile = noeE1};
+    SplitInfo splitInfoYB = {.fullZTensor = zyTensor,
+        .axis = E1,
+        .numOfElemsPerTile = OMZTensorSplitSize};
     initSplitInfo(&splitInfoYB, /*allocTileBuffers=*/true, "MatMul YB");
     // Iterate over the tiles along the second dim of B.
-    // For parallelism over multiple zAIUs, we can do it here.
-    // #pragma omp parallel for
     for (uint32_t j = 0; j < getNumOfTiles(&splitInfoB); ++j) {
       zdnn_ztensor *zbTensor = getTile(&splitInfoB, j);
       zdnn_ztensor *zcTensor = getTile(&splitInfoC, j);

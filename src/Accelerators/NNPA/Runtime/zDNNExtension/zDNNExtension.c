@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +27,6 @@ extern "C" {
 bool OMZTensorSplitEnabled = DEFAULT_ZTENSOR_SPLIT_ENABLED;
 bool OMZTensorSplitDebug = DEFAULT_ZTENSOR_SPLIT_DEBUG;
 uint32_t OMZTensorSplitSize = DEFAULT_ZTENSOR_SPLIT_SIZE;
-uint32_t OMNumOfZAIUs = DEFAULT_NUM_OF_ZAIUS;
 
 static uint32_t ZTensorSplitSizeFromEnv() {
   uint32_t cs = DEFAULT_ZTENSOR_SPLIT_SIZE;
@@ -59,23 +59,40 @@ static bool ZTensorSplitDebugFromEnv() {
   return enabled;
 }
 
-static uint32_t NumOfZAIUsFromEnv() {
-  uint32_t n = DEFAULT_NUM_OF_ZAIUS;
-  const char *s = getenv("OM_NUM_OF_ZAIUS");
-  if (s)
-    n = atoi(s);
-  return n;
+// malloc_aligned_4k is from zdnn.
+static void *malloc_aligned_4k(size_t size) {
+  // Request one more page + size of a pointer from the OS.
+  unsigned short extra_allocation =
+      (AIU_PAGESIZE_IN_BYTES - 1) + sizeof(void *);
+
+  // Make sure size is reasonable.
+  if (!size || size > SIZE_MAX) {
+    return NULL;
+  }
+
+  void *ptr = malloc(size + extra_allocation);
+  if (!ptr) {
+    perror("Error during malloc");
+    fprintf(stderr, "errno = %d\n", errno);
+    return ptr;
+  }
+
+  // Find the 4k boundary after ptr.
+  void *aligned_ptr = (void *)(((uintptr_t)ptr + extra_allocation) &
+                               ~(AIU_PAGESIZE_IN_BYTES - 1));
+  // Put the original malloc'd address right before aligned_ptr.
+  ((void **)aligned_ptr)[-1] = ptr;
+
+  return aligned_ptr;
 }
 
 void zDNNExtensionInit() {
   OMZTensorSplitEnabled = ZTensorSplitEnabledFromEnv();
   OMZTensorSplitDebug = ZTensorSplitDebugFromEnv();
   OMZTensorSplitSize = ZTensorSplitSizeFromEnv();
-  OMNumOfZAIUs = NumOfZAIUsFromEnv();
   if (OMZTensorSplitDebug) {
     printf("OM_ZTENSOR_SPLIT_ENABLED: %d\n", OMZTensorSplitEnabled);
     printf("OM_ZTENSOR_SPLIT_SIZE: %d\n", OMZTensorSplitSize);
-    printf("OM_NUM_OF_ZAIUS: %d\n", OMNumOfZAIUs);
   }
 }
 
@@ -114,7 +131,8 @@ static void getMappedShape(const zdnn_ztensor *t, MappedShape *shape) {
                          (uint64_t)shape->d2 * (uint64_t)shape->d1 *
                          (uint64_t)AIU_2BYTE_CELL_SIZE;
   uint64_t sizeFromBuffer = t->buffer_size;
-  assert(sizeFromDim == sizeFromBuffer && "buffer size mismatched");
+  if (sizeFromDim != sizeFromBuffer)
+    assert(false && "buffer size mismatched");
 }
 
 static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
@@ -130,24 +148,7 @@ static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
     return CEIL(splitInfo->numOfElemsPerTile, AIU_2BYTE_CELLS_PER_STICK);
   default:
     omUnreachable();
-  }
-  return 0;
-}
-
-uint32_t getNumOfElemsPerZAIU(const zdnn_ztensor *input, SplitAxis axis) {
-  UnmappedShape unmappedShape;
-  getUnmappedShape(input, &unmappedShape);
-  switch (axis) {
-  case (E1):
-    return CEIL(unmappedShape.e1, OMNumOfZAIUs);
-  case (E2):
-    return CEIL(unmappedShape.e2, OMNumOfZAIUs);
-  case (E3):
-    return CEIL(unmappedShape.e3, OMNumOfZAIUs);
-  case (E4):
-    return CEIL(unmappedShape.e4, OMNumOfZAIUs);
-  default:
-    omUnreachable();
+    return 0;
   }
 }
 
@@ -163,8 +164,7 @@ uint32_t getNumOfTiles(const SplitInfo *splitInfo) {
 
 zdnn_status allocTileBuffer(zdnn_ztensor *tile) {
   if (!(tile->buffer = malloc_aligned_4k(tile->buffer_size)))
-    return ZDNN_STATUS(ZDNN_ALLOCATION_FAILURE,
-        "Unable to allocate %" PRIu64 " bytes.", tile->buffer_size);
+    return ZDNN_ALLOCATION_FAILURE;
   return ZDNN_OK;
 }
 
@@ -593,7 +593,8 @@ bool initSplitInfo(
 
   for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
     zdnn_status status = initTile(splitInfo, i, allocTileBuffers);
-    assert(status == ZDNN_OK && "Failed to initialize a tile");
+    if (status != ZDNN_OK)
+      assert(false && "Failed to initialize a tile");
   }
 
   if (OMZTensorSplitDebug)
