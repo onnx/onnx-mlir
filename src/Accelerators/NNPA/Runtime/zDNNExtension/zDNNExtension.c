@@ -138,18 +138,17 @@ static void getMappedShape(const zdnn_ztensor *t, MappedShape *shape) {
 static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   // Mapping: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
   switch (splitInfo->axis) {
-  case E4:
+  case (E4):
     return splitInfo->numOfElemsPerTile;
-  case E3:
+  case (E3):
     return splitInfo->numOfElemsPerTile;
-  case E2:
+  case (E2):
     return CEIL(splitInfo->numOfElemsPerTile, AIU_STICKS_PER_PAGE);
-  case E1:
+  case (E1):
     return CEIL(splitInfo->numOfElemsPerTile, AIU_2BYTE_CELLS_PER_STICK);
-  default:
-    omUnreachable();
-    return 0;
   }
+  omUnreachable();
+  return 0;
 }
 
 uint32_t getMDIS() { return zdnn_get_nnpa_max_dim_idx_size(); }

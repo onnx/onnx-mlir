@@ -160,7 +160,7 @@ uint32_t getMDIS();
  * numOfElemsPerTile to be defined as they are effectively input parameters of
  * this function.
  *
- * Make sure to call FreeSplitInfoData to free buffers.
+ * Make sure to call freeSplitInfoData to free buffers.
  *
  * @param splitInfo information for splitting
  * @param allocTileBuffers whether alloc buffers for the ztensor tiles or not.
@@ -187,7 +187,7 @@ void freeTileData(const SplitInfo *splitInfo, uint32_t tileID);
  *
  * @param splitInfo split information
  */
-void FreeSplitInfoData(SplitInfo *splitInfo);
+void freeSplitInfoData(SplitInfo *splitInfo);
 
 /**
  * \brief Print SplitInfo.

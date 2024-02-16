@@ -104,7 +104,8 @@ static zdnn_status zdnn_unary_elementwise_common(const zdnn_ztensor *input,
       status = zdnn_tanh(zxTensor, zyTensor);
     else
       status = ZDNN_UNAVAILABLE_FUNCTION;
-    assert(status == ZDNN_OK);
+    if (status != ZDNN_OK)
+      return status;
   }
   if (OMZTensorSplitDebug) {
     end_time = clock();
@@ -187,7 +188,8 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
       status = zdnn_min(zaTensor, zbTensor, zyTensor);
     else
       status = ZDNN_UNAVAILABLE_FUNCTION;
-    assert(status == ZDNN_OK);
+    if (status != ZDNN_OK)
+      return status;
   }
   if (OMZTensorSplitDebug) {
     end_time = clock();
