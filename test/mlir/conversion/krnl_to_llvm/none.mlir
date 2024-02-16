@@ -5,21 +5,12 @@ func.func private @test_krnl_call_with_novalue() {
   "krnl.call"(%none) {funcName = "func1", numOfOutput = 0 : si64} : (none) -> ()
   return
 
-// CHECK-LABEL: test_krnl_call_with_novalue
+// mlir2FileCheck.py
+// CHECK-LABEL:         llvm.func @test_krnl_call_with_novalue() attributes {llvm.emit_c_interface, sym_visibility = "private"} {
+// CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK-DAG:       llvm.call @func1([[VAR_1_]]) : (!llvm.ptr) -> ()
-
-}
-
-// -----
-
-func.func private @test_krnl_call_with_novalue_2(%arg0: memref<10x10xf32>) {
-  %none = "krnl.noValue"() : () -> none
-  "krnl.call"(%arg0, %none) {funcName = "func", numOfOutput = 1 : si64} : (memref<10x10xf32>, none) -> ()
-  return
-
-// CHECK-LABEL: test_krnl_call_with_novalue_2
-// CHECK-DAG:       [[VAR_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK-DAG:       llvm.call @func1(%arg0, [[VAR_1_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.call @func1([[VAR_1_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.return
+// CHECK:         }
 
 }

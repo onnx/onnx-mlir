@@ -321,11 +321,6 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
   }
 }
 
-static bool isEmptyTensor(OMTensor *tensor) {
-  return (tensor == NULL) || (omTensorGetRank(tensor) <= 0) ||
-         (omTensorGetShape(tensor)[0] == 0);
-}
-
 //
 // "omTensorUnique" handles two cases, where are (1) case with no axis given
 // (2) case with axis given.
@@ -348,14 +343,13 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
   int64_t *totalPtr = (int64_t *)omTensorGetDataPtr(totalTensor);
   const int64_t *inputShape = omTensorGetShape(inputTensor);
   void *inputPtr = omTensorGetDataPtr(inputTensor);
-  void *YPtr = !isEmptyTensor(Y) ? omTensorGetDataPtr(Y) : NULL;
-  void *indicesPtr =
-      !isEmptyTensor(indices) ? omTensorGetDataPtr(indices) : NULL;
-  void *inverseIndicesPtr = !isEmptyTensor(inverse_indices)
-                                ? omTensorGetDataPtr(inverse_indices)
-                                : NULL;
-  void *countsPtr = !isEmptyTensor(counts) ? omTensorGetDataPtr(counts) : NULL;
+  void *YPtr = (Y != NULL) ? omTensorGetDataPtr(Y) : NULL;
+  void *indicesPtr = (indices != NULL) ? omTensorGetDataPtr(indices) : NULL;
+  void *inverseIndicesPtr =
+      (inverse_indices != NULL) ? omTensorGetDataPtr(inverse_indices) : NULL;
+  void *countsPtr = (counts != NULL) ? omTensorGetDataPtr(counts) : NULL;
   uint64_t dataSize = OM_DATA_TYPE_SIZE[dataType];
+
   int count = 0;
   sliceTable sliceTable;
   if (sliceAxis < 0) { // if slice attribute is not specified
@@ -396,7 +390,7 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         count++;
       }
     }
-    if ((count > 0) && !isEmptyTensor(Y)) {
+    if ((count > 0) && (Y != NULL)) {
       produceY(inputTensor, indices, sliceAxis, Y);
     }
   }
@@ -404,13 +398,13 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
 #if _DEBUG_OMTENSOR
   printf("OMUnique: return (count = %d)\n", count);
   omTensorPrint("INPUT %t [\n%d", inputTensor);
-  if (!isEmptyTensor(Y))
+  if (Y != NULL)
     omTensorPrint("] Y %t [\n%d", Y);
-  if (!isEmptyTensor(indices))
+  if (indices != NULL)
     omTensorPrint("] INDICES %t [\n%d", indices);
-  if (!isEmptyTensor(inverse_indices))
+  if (inverse_indices != NULL)
     omTensorPrint("] INV_INDICES %t [\n%d", inverse_indices);
-  if (!isEmptyTensor(counts))
+  if (counts != NULL)
     omTensorPrint("] COUNTS %t [\n%d", counts);
   printf("]\n");
 #endif
