@@ -89,7 +89,7 @@ typedef struct SplitInfo {
   const zdnn_ztensor *fullZTensor;
   // Axis to split fullZTensor. It refers to axes (e4, e3, e2, e1) in
   // fullZTensor.transformed_desc.
-  const SplitAxis axis;
+  SplitAxis axis;
   // Value (the number of elements) is used to split the axis equally.
   uint32_t numOfElemsPerTile;
   // Indicate whether tiles reuse fullZTensor->buffer or not.
@@ -163,12 +163,16 @@ uint32_t getMDIS();
  * Make sure to call freeSplitInfoData to free buffers.
  *
  * @param splitInfo information for splitting
- * @param allocTileBuffers whether alloc buffers for the ztensor tiles or not.
+ * @param splitInfo the full ztensor that will be splitted
+ * @param axis dimension to split fullZTensor
+ * @param numOfElemsPerTile value is used to split the axis equally
+ * @param allocTileBuffers whether alloc buffers for the ztensor tiles or not
  * @param tag a string to use when printing debug info
  * @return true if the full ztensor is splitable. Otherwise, false
  */
-bool initSplitInfo(
-    SplitInfo *splitInfo, bool allocTileBuffers, const char *tag);
+bool initSplitInfo(SplitInfo *splitInfo, const zdnn_ztensor *fullZTensor,
+    SplitAxis axis, uint32_t numOfElemsPerTile, bool allocTileBuffers,
+    const char *tag);
 
 /**
  * \brief Free ztensor tile data.

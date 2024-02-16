@@ -519,21 +519,16 @@ static void copyDataForTileScalar(
   return;
 }
 
-bool initSplitInfo(
-    SplitInfo *splitInfo, bool allocTileBuffers, const char *tag) {
-  // Check required information.
-  assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
-             splitInfo->axis == E3 || splitInfo->axis == E4) &&
-         "Invalid split axis");
-  assert(splitInfo->fullZTensor && "The full ztensor is null");
-  assert(splitInfo->numOfElemsPerTile && "numOfElemsPerTile was not set");
-
-  // fullZTensor.
-  const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
-  zdnn_data_layouts layout = fullZTensor->transformed_desc->layout;
+bool initSplitInfo(SplitInfo *splitInfo, const zdnn_ztensor *fullZTensor,
+    SplitAxis axis, uint32_t numOfElemsPerTile, bool allocTileBuffers,
+    const char *tag) {
+  splitInfo->axis = axis;
+  splitInfo->fullZTensor = fullZTensor;
+  splitInfo->numOfElemsPerTile = numOfElemsPerTile;
 
   // Splitting has not yet been supported for the following cases, so redirect
   // to the original zdnn function by setting splitInfo->numOfTiles = 1.
+  zdnn_data_layouts layout = fullZTensor->transformed_desc->layout;
   bool isNotSupported = (layout == ZDNN_FICO) || (layout == ZDNN_BIDIR_ZRH) ||
                         (layout == ZDNN_BIDIR_FICO) || (layout == ZDNN_ZRH) ||
                         (layout == ZDNN_4DS);
@@ -543,7 +538,7 @@ bool initSplitInfo(
     splitInfo->numOfTiles = 1;
   else {
     uint32_t totalNumOfElems = getUnmappedDim(fullZTensor, splitInfo->axis);
-    splitInfo->numOfTiles = CEIL(totalNumOfElems, splitInfo->numOfElemsPerTile);
+    splitInfo->numOfTiles = CEIL(totalNumOfElems, numOfElemsPerTile);
   }
 
   // reuseFullZTensor.
@@ -561,7 +556,7 @@ bool initSplitInfo(
   // reuseFullBuffer.
   // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
   splitInfo->reuseFullBuffer = false;
-  if (splitInfo->axis == E4) {
+  if (axis == E4) {
     // Always reuse if splitting on e4 (batchsize).
     splitInfo->reuseFullBuffer = true;
   } else {
@@ -569,15 +564,15 @@ bool initSplitInfo(
     MappedShape shapeOfFull;
     getMappedShape(splitInfo->fullZTensor, &shapeOfFull);
     if (shapeOfFull.d6 == 1) {
-      if (splitInfo->axis == E1) {
+      if (axis == E1) {
         splitInfo->reuseFullBuffer = true;
       } else {
         if (shapeOfFull.d5 == 1) {
-          if (splitInfo->axis == E3) {
+          if (axis == E3) {
             splitInfo->reuseFullBuffer = true;
           } else {
             if (shapeOfFull.d4 == 1) {
-              if (splitInfo->axis == E2)
+              if (axis == E2)
                 splitInfo->reuseFullBuffer = true;
             }
           }
