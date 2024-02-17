@@ -152,6 +152,14 @@ bool isConstOf(Value constValue, double n) {
   return ElementsAttrBuilder::allEqual(constElements, w);
 }
 
+bool isConstAttrOf(IntegerAttr attr, double n) {
+  int64_t attribute = attr.getSInt();
+  if (attribute == n) {
+    return true;
+  }
+  return false;
+}
+
 // Extracts number from a scalar constant value.
 WideNum getScalarNum(Value constValue) {
   ElementsAttr elements = getConstValueElements(constValue);
@@ -217,11 +225,9 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
   static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
 };
 
-// Here we will manually calculate the modulo and leave
-// fmod to the default value of 0.
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs - lhs / rhs * rhs; }
+  static T eval(T lhs, T rhs) { return std::remainder<T>(lhs, rhs); }
 };
 
 template <typename T>
