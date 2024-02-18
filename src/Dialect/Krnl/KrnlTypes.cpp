@@ -35,6 +35,8 @@ void customizeTypeConverter(LLVMTypeConverter &typeConverter) {
   typeConverter.addConversion([&](krnl::StringType type) -> Type {
     return typeConverter.convertType(type.getLLVMType(type.getContext()));
   });
+
+  typeConverter.addConversion([&](NoneType type) -> Type { return type; });
 }
 
 } // namespace krnl
