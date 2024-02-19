@@ -71,6 +71,11 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
+def HasIntegerElementType: Constraint<CPred<
+  "isa<IntegerType>(getElementType($_self.getType()))">,
+  "A value has integer element type"
+>;
+
 def IsConstOfZeros : Constraint<
   CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
