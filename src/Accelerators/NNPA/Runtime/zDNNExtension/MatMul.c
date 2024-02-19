@@ -84,15 +84,10 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   copyData(&splitInfoB, FULL_TO_TILES);
   copyData(&splitInfoC, FULL_TO_TILES);
 
-  // Should call omp_set_max_active_levels(2) here.
-  // But omp is not supported on all platform.
-  // Instead, set env variable OMP_MAX_ACTIVE_LEVELS=2
-
   if (OMZTensorSplitDebug) {
     gettimeofday(&start_t1, NULL);
   }
 
-#pragma omp parallel for
   // Call zdnn_matmul_op on each tile.
   // Iterate over the tiles along the first dim of A.
   for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
@@ -104,7 +99,6 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
         .numOfElemsPerTile = OMZTensorSplitSize};
     initSplitInfo(&splitInfoYB, true, "MatMul YB");
 
-#pragma omp parallel for
     // Iterate over the tiles along the second dim of B.
     for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
       zdnn_ztensor *zbTensor = splitInfoB.tiles + j;
