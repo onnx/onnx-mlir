@@ -224,7 +224,7 @@ Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
     zeroVal = create.llvm.constant(i64Type, (int64_t)0);
   Value off1Val = (off1Ptr != nullptr) ? *off1Ptr : zeroVal;
   Value off2Val = (off2Ptr != nullptr) ? *off2Ptr : zeroVal;
-  return create.llvm.getElemPtr(i8PtrType, globalVal, {off1Val, off2Val});
+  return create.llvm.getElemPtr(i8PtrType, i8Type, globalVal, {off1Val, off2Val});
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,

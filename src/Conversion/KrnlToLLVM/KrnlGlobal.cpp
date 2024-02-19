@@ -295,7 +295,7 @@ private:
 
     Type i8PtrType = getI8PointerType(builder.getContext());
 
-    if (denseAttr.getValues<StringRef>().size() >= 2) { // XXX 1024??
+    if (denseAttr.getValues<StringRef>().size() >= 4) { // XXX 1024??
       // Generate one LLVM GlobalOp for string concatenating all string in the
       // KrnlGlobalOp dense attribute.
       std::string concatStr;
@@ -320,11 +320,11 @@ private:
           int64_t off = concatOffs[index];
           concatStr[off - 1] = '\00';
         }
-        LLVMTypeConverter *typeConverter = getTypeConverter();
+        const LLVMTypeConverter &typeConverter = *getTypeConverter();
         concatGlobalOp = create.llvm.globalOp(type, /*isConstant=*/true,
             LLVM::Linkage::Internal, symbol, builder.getStringAttr(concatStr));
         krnl::setAlignment(
-            concatGlobalOp, nullptr, module, builder, *typeConverter);
+            concatGlobalOp, nullptr, module, builder, typeConverter);
       }
 
       // Generate an LLVM GlobalOps with an initializer region containing one
