@@ -227,7 +227,15 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs - floor(lhs / rhs) * rhs; }
+  static T eval(T lhs, T rhs) {
+    // Handle the case when one of the values are negative
+    if (lhs < 0 || rhs < 0) {
+      return lhs - floor(lhs / rhs) * rhs + rhs;
+      // Both values are positive, so we can calculate as normal
+    } else {
+      return lhs - floor(lhs / rhs) * rhs;
+    }
+  }
 };
 
 template <typename T>
