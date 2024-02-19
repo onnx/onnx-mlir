@@ -71,16 +71,6 @@ def HasStaticShape: Constraint<CPred<
   "A value has static shape"
 >;
 
-def HasIntegerElementType: Constraint<CPred<
-  "isa<IntegerType>(getElementType($_self.getType()))">,
-  "A value has integer element type"
->;
-
-def HasFloatElementType: Constraint<CPred<
-  "isa<FloatType>(getElementType($_self.getType()))">,
-  "A value has float element type"
->;
-
 def IsConstOfZeros : Constraint<
   CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 0.0)">,
   "Value is an all-zeros constant tensor">;
@@ -88,14 +78,6 @@ def IsConstOfZeros : Constraint<
 def IsConstOfOnes : Constraint<
   CPred<"isDenseONNXConstant($_self) && isConstOf($_self, 1.0)">,
   "Value is an all-ones constant tensor">;
-
-def IsConstOfOne : Constraint<
-  CPred<"isConstAttrOf($_self, 1.0)">,
-  "A constant of value one">;
-
-def IsConstOfZero : Constraint<
-  CPred<"isConstAttrOf($_self, 0.0)">,
-  "A constant of value zero">;
 
 def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
@@ -604,23 +586,14 @@ def GreaterOrEqualConstPropPattern : NamedPat<"GreaterOrEqualConstPropPattern",
 //  Constant propagation for ONNXModOp
 //===----------------------------------------------------------------------===//
 
-def FmodConstPropPattern : NamedPat<"FmodConstPropPattern",
-    (ONNXModOp:$modOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_), 
-      $fmod),
-    (CreateModOfTwoConst  $modOp, $A, $B),
-    [(IsConstOfOne:$fmod), (HasFloatElementType:$modOp), (IsFromDenseONNXConstantOp:$A), 
-    (IsFromDenseONNXConstantOp:$B), (SatisfiesExpansionBound:$modOp)]>;
-
 def ModConstPropPattern : NamedPat<"ModConstPropPattern",
     (ONNXModOp:$modOp
       (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
       (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_), 
       $fmod),
     (CreateModOfTwoConst  $modOp, $A, $B),
-    [(IsConstOfZero:$fmod), (HasIntegerElementType:$modOp), (IsFromDenseONNXConstantOp:$A), 
-    (IsFromDenseONNXConstantOp:$B), (SatisfiesExpansionBound:$modOp)]>;
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B), 
+    (SatisfiesExpansionBound:$modOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns for Where.

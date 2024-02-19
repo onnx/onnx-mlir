@@ -34,6 +34,7 @@
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
+#include <iomanip>
 #include <math.h>
 #include <numeric>
 
@@ -152,14 +153,6 @@ bool isConstOf(Value constValue, double n) {
   return ElementsAttrBuilder::allEqual(constElements, w);
 }
 
-bool isConstAttrOf(IntegerAttr attr, int64_t n) {
-  int64_t attribute = attr.getSInt();
-  if (attribute == n) {
-    return true;
-  }
-  return false;
-}
-
 // Extracts number from a scalar constant value.
 WideNum getScalarNum(Value constValue) {
   ElementsAttr elements = getConstValueElements(constValue);
@@ -228,12 +221,26 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
   static T eval(T lhs, T rhs) {
-    // Handle the case when one of the values are negative
+    // This is the original calculation for mod
+    int mod = lhs - floor(lhs / rhs) * rhs;
+
+    // Check if the values are floats
+    if (lhs != floor(lhs) && rhs != floor(rhs)) {
+      // Rounding to match the results of the backend tests
+      return (std::floor(fmod(lhs, rhs) * 1000000000) / 1000000000);
+    }
+
+    // Handle the case when one of the int values are negative
     if (lhs < 0 || rhs < 0) {
-      return lhs - floor(lhs / rhs) * rhs + rhs;
-      // Both values are positive, so we can calculate as normal
+      // Check if lhs is a multiple of rhs
+      if (remainder(lhs, rhs) == 0) {
+        return mod;
+      } else {
+        return mod + rhs;
+      }
+      // Both int values are positive, so we can calculate as normal
     } else {
-      return lhs - floor(lhs / rhs) * rhs;
+      return mod;
     }
   }
 };
