@@ -152,7 +152,7 @@ bool isConstOf(Value constValue, double n) {
   return ElementsAttrBuilder::allEqual(constElements, w);
 }
 
-bool isConstAttrOf(IntegerAttr attr, double n) {
+bool isConstAttrOf(IntegerAttr attr, int64_t n) {
   int64_t attribute = attr.getSInt();
   if (attribute == n) {
     return true;
@@ -227,7 +227,7 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return std::remainder<T>(lhs, rhs); }
+  static T eval(T lhs, T rhs) { return lhs - floor(lhs / rhs) * rhs; }
 };
 
 template <typename T>
