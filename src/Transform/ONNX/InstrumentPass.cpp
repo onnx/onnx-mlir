@@ -132,6 +132,7 @@ public:
     if (instrumentOps == "" || instrumentOps == "NONE")
       return;
     init(instrumentOps);
+    bool hasInitializedRuntime = false;
 
     // Iterate on the operations nested in this function
     getOperation().walk([&](mlir::Operation *op) -> WalkResult {
@@ -154,13 +155,24 @@ public:
         if (std::regex_match(opName, re)) {
           Location loc = op->getLoc();
           OpBuilder opBuilder(op);
-          if (instrumentBefore)
-            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, beforeTag());
+          if (instrumentBefore) {
+            uint64_t tag = beforeTag();
+            if (!hasInitializedRuntime) {
+              SET_INSTRUMENT_INIT(tag);
+              hasInitializedRuntime = true;
+            }
+            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
+          }
 
           // Can not insert after Op (e.g. ONNXYieldOP) with IsTerminator Trait
           if (instrumentAfter && !op->hasTrait<OpTrait::IsTerminator>()) {
             opBuilder.setInsertionPointAfter(op);
-            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, afterTag());
+            uint64_t tag = afterTag();
+            if (!hasInitializedRuntime) {
+              SET_INSTRUMENT_INIT(tag);
+              hasInitializedRuntime = true;
+            }
+            opBuilder.create<mlir::KrnlInstrumentOp>(loc, op, tag);
           }
         }
       }

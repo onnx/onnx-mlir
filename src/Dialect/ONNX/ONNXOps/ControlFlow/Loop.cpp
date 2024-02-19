@@ -106,8 +106,8 @@ LogicalResult ONNXLoopOp::inferShapes(
       // input to Loop operation, but we need to eliminate the possibility of
       // early termination to be sure.
       unsqueezedShape.insert(unsqueezedShape.begin(), ShapedType::kDynamic);
-      updateType(opScanOutput, unsqueezedShape, rankedTy.getElementType(),
-          /*encoding=*/nullptr,
+      updateType(getOperation(), opScanOutput, unsqueezedShape,
+          rankedTy.getElementType(), /*encoding=*/nullptr,
           /*refineShape=*/false);
     }
   }

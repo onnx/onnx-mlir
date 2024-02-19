@@ -142,6 +142,26 @@ public:
 
     return 0;
   }
+
+  template <typename FP>
+  int test_fp_infinity(const char *fp_name) {
+    std::cout << "test_fp_no_infinity " << fp_name << ":" << std::endl;
+
+    assert(!llvm::APFloat::getInf(FP::semantics()).isNaN());
+    assert(!FP::fromFloat(INFINITY).isNaN());
+
+    return 0;
+  }
+
+  template <typename FP>
+  int test_fp_no_infinity(const char *fp_name) {
+    std::cout << "test_fp_no_infinity " << fp_name << ":" << std::endl;
+
+    assert(llvm::APFloat::getInf(FP::semantics()).isNaN());
+    assert(FP::fromFloat(INFINITY).isNaN());
+
+    return 0;
+  }
 };
 
 template <typename FP16>
@@ -238,6 +258,13 @@ int main(int argc, char *argv[]) {
   failures += test.test_fp_cast<bfloat_16>("bfloat_16", fp16min, fp16max);
   failures += test.test_fp_equals<float_16>("float_16", fp16min, fp16max);
   failures += test.test_fp_equals<bfloat_16>("bfloat_16", fp16min, fp16max);
+
+  failures += test.test_fp_infinity<float_16>("float_16");
+  failures += test.test_fp_infinity<bfloat_16>("bfloat_16");
+  failures += test.test_fp_no_infinity<float_8e4m3fn>("float_8e4m3fn");
+  failures += test.test_fp_no_infinity<float_8e4m3fnuz>("float_8e4m3fnuz");
+  failures += test.test_fp_infinity<float_8e5m2>("float_8e5m2");
+  failures += test.test_fp_no_infinity<float_8e5m2fnuz>("float_8e5m2fnuz");
 
   if (failures != 0) {
     std::cerr << failures << " test failures\n";

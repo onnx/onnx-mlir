@@ -165,7 +165,7 @@ FILE *getInstrumentFile() {
   fout = stdout;
   if (getenv("ONNX_MLIR_INSTRUMENT_FILE")) {
     char *fileName = getenv("ONNX_MLIR_INSTRUMENT_FILE");
-    FILE *newFileHandle = fopen(fileName, "w");
+    FILE *newFileHandle = fopen(fileName, "w+");
     if (newFileHandle) {
       fout = newFileHandle;
     }
@@ -193,27 +193,25 @@ void OMInstrumentInit() {
   if (!instrumentReportDisabled) {
     TimeInit();
   }
+
+  fprintf(fout, "==START-REPORT==\n");
 }
 
 void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   if (instrumentReportDisabled)
     return;
 
-  // Initialize on first call. Would prefer to call explicitly, but there is
-  // currently no support for that.
-  static bool firstTime = true;
-  if (firstTime) {
-    OMInstrumentInit();
-    firstTime = false;
-  }
-
   // Detect which reporting we have to do here.
   uint64_t tag = iTag;
+  bool initInstrument = IS_INSTRUMENT_INIT(tag);
   bool isBefore = IS_INSTRUMENT_BEFORE_OP(tag);
   bool reportTime =
       !instrumentReportTimeDisabled && IS_INSTRUMENT_REPORT_TIME(tag);
   bool reportMem =
       !instrumentReportMemoryDisabled && IS_INSTRUMENT_REPORT_MEMORY(tag);
+
+  if (initInstrument)
+    OMInstrumentInit();
 
   if (!reportTime && !reportMem) {
     fprintf(fout, "==TICK-REPORT==, %i\n", instrumentCounter++);

@@ -116,11 +116,32 @@ public:
   mlir::ElementsAttr where(mlir::ElementsAttr cond, mlir::ElementsAttr lhs,
       mlir::ElementsAttr rhs, mlir::ShapedType combinedType);
 
-  // Returns an ElementsAttr with the elements cast to the given newElementType.
+  // Returns an ElementsAttr with the elements cast to the given newElementType
+  // with default choices for rounding (true) and saturation (false).
   //
   // Reuses elms' underlying data without a data copy.
   mlir::ElementsAttr castElementType(
       mlir::ElementsAttr elms, mlir::Type newElementType);
+
+  // Returns an ElementsAttr with the elements cast to the given intElementType.
+  //
+  // If round==true and elms has floating point numbers type then they are
+  // rounded to nearest integer, ties to even, otherwise they are truncated
+  // towards zero.
+  //
+  // Reuses elms' underlying data without a data copy.
+  mlir::ElementsAttr castToIntElementType(mlir::ElementsAttr elms,
+      mlir::IntegerType newElementType, bool round = true);
+
+  // Returns an ElementsAttr with the elements cast to the given fpElementType.
+  //
+  // If saturate==true and newElementType has +/-infinity then out of range
+  // numbers are cast to +/-infinity, otherwise they are clipped to the finite
+  // range.
+  //
+  // Reuses elms' underlying data without a data copy.
+  mlir::ElementsAttr castToFPElementType(mlir::ElementsAttr elms,
+      mlir::FloatType newElementType, bool saturate = false);
 
   // Returns an ElementsAttr with the values clipped to the range [min, max].
   //

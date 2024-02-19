@@ -113,10 +113,10 @@ Value emitConcatOpForDims(MultiDialectBuilder<OnnxBuilder> create,
 /// Update the output shape using userDims.
 /// Return success if the output shape is updated. Otherwise, return failure.
 LogicalResult updateOutputType(
-    Value output, const SmallVectorImpl<int64_t> &userDims) {
+    Operation *op, Value output, const SmallVectorImpl<int64_t> &userDims) {
   // Try to update the output shape using userDims.
   Type oldOutputType = output.getType();
-  updateType(output, userDims);
+  updateType(op, output, userDims);
   Type newOutputType = output.getType();
 
   // No new output type is inferred.
@@ -422,7 +422,7 @@ public:
       return failure();
 
     // Rewrite
-    return updateOutputType(output, userDims);
+    return updateOutputType(reshapeOp.getOperation(), output, userDims);
   }
 };
 
@@ -448,7 +448,7 @@ public:
       return failure();
 
     // Rewrite
-    return updateOutputType(output, userDims);
+    return updateOutputType(cosOp.getOperation(), output, userDims);
   }
 };
 

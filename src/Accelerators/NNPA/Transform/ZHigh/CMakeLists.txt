@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(Stickify)
-
 add_onnx_mlir_rewriter(ZHighConstPropagation)
 add_onnx_mlir_library(OMZHighConstPropagation
   ZHighConstPropagation.cpp

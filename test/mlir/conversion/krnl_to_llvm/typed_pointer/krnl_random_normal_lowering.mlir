@@ -63,7 +63,7 @@ func.func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> me
   // CHECK: %[[MUL3:.+]] = llvm.mul [[MUL2]], [[C3]]  : i64
 
   /// Allocate aligned tensor:
-  // CHECK: [[POINTER:%.+]] = llvm.mlir.null : !llvm.ptr<f32>
+  // CHECK: [[POINTER:%.+]] = llvm.mlir.zero : !llvm.ptr<f32>
   // CHECK: llvm.getelementptr [[POINTER]][%[[MUL3]]]
   // CHECK: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr<f32>
 

@@ -190,6 +190,7 @@ private:
   // mapping between string name and symbol
   ValueSymbolMapping frontend_symbols_;
 
+  // Keep shape information set by users.
   ModelInputShaper modelInputShaper_;
 
   using ImportHandlerType = void (onnx_mlir::detail::FrontendGenImpl::*)(
@@ -286,8 +287,10 @@ private:
   /*!
    * Import an onnx tensor type by determining and returning its type
    * @param type_proto onnx tensor TypeProto.
+   * @param dim_params a comma-separated string of dimIndex:dimParam.
    */
-  Type ImportTensorType(const onnx::TypeProto &type_proto) {
+  Type ImportTensorType(
+      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
     assert(type_proto.value_case() == onnx::TypeProto::kTensorType &&
            "expect tensor type");
     std::vector<int64_t> dims;
@@ -300,6 +303,7 @@ private:
     auto shape_proto = tensor_type.shape();
     for (int i = 0; i < shape_proto.dim_size(); i++) {
       if (shape_proto.dim()[i].dim_value()) {
+        // Dim is a constant value.
         int dim_numeric_size = shape_proto.dim()[i].dim_value();
         assert(dim_numeric_size != 0 &&
                "Parsed an tensor with a dimension size of zero");
@@ -309,6 +313,14 @@ private:
           // If dim_value < 0, then dim is parametric.
           dims.push_back(ShapedType::kDynamic);
         }
+      } else if (dim_params && shape_proto.dim()[i].has_dim_param()) {
+        // Dim is unknown but assigned a string ID that can be used to check
+        // equality between unknown dimensions.
+        if (!dim_params->empty())
+          *dim_params += ",";
+        *dim_params +=
+            std::to_string(i) + ":" + shape_proto.dim()[i].dim_param();
+        dims.push_back(ShapedType::kDynamic);
       } else {
         dims.push_back(ShapedType::kDynamic);
       }
@@ -318,13 +330,14 @@ private:
     return RankedTensorType::get(tensor_dims, elementType);
   }
 
-  Type ImportSequenceType(const onnx::TypeProto &type_proto) {
+  Type ImportSequenceType(
+      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
     auto input_seq_type = type_proto.sequence_type();
     if (input_seq_type.has_elem_type()) {
       onnx::TypeProto elem_type = input_seq_type.elem_type();
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
-      Type mlir_elem_type = ImportTensorType(elem_type);
+      Type mlir_elem_type = ImportTensorType(elem_type, dim_params);
       if (!mlir_elem_type.isa<ShapedType>())
         llvm_unreachable("Seq type is incorrect");
       Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
@@ -343,13 +356,14 @@ private:
     llvm_unreachable("unexpected type");
   }
 
-  Type ImportType(const onnx::TypeProto &type_proto) {
+  Type ImportType(
+      const onnx::TypeProto &type_proto, std::string *dim_params = nullptr) {
     switch (type_proto.value_case()) {
     case onnx::TypeProto::kTensorType:
-      return ImportTensorType(type_proto);
+      return ImportTensorType(type_proto, dim_params);
       break;
     case onnx::TypeProto::kSequenceType:
-      return ImportSequenceType(type_proto);
+      return ImportSequenceType(type_proto, dim_params);
       break;
     case onnx::TypeProto::kOptionalType:
       return ImportOptionalType(type_proto);
@@ -468,8 +482,14 @@ private:
     //  * maintain a list of the defined graph
     llvm::SmallVector<Type, 4> argTypes;
 
-    llvm::SmallVector<llvm::StringRef, 4> inputNames;
-    llvm::SmallVector<llvm::StringRef, 4> outputNames;
+    llvm::SmallVector<llvm::StringRef, 4> inputNames, outputNames;
+    // Keep dim_param for each dynamic dimension of each input tensor.
+    // In ONNX specification, two dynamic dimensions with the same dim_param
+    // string would be the same at runtime.
+    //
+    // See https://github.com/onnx/onnx/blob/main/docs/IR.md for more
+    // information about dim_param.
+    llvm::SmallVector<std::string, 4> inputDimParams, outputDimParams;
 
     // Import the input tensor types that are not constant and not initialized.
     int inputIndex = 0;
@@ -477,8 +497,11 @@ private:
       AddValueInfo(input);
       if (initializerNames.count(input.name()) == 0) {
         inputNames.push_back(input.name());
-        Type argTy = ImportType(input.type());
+        std::string dimParams = "";
+        Type argTy = ImportType(input.type(), &dimParams);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
+        if (!dimParams.empty())
+          inputDimParams.emplace_back(dimParams);
 
         argTypes.emplace_back(argTy);
 
@@ -524,7 +547,10 @@ private:
     llvm::SmallVector<Value, 4> retVals;
     // Import the output tensors
     for (const auto &output : graph.output()) {
-      ImportOutputTensor(output, retTys, retVals);
+      std::string dimParams = "";
+      ImportOutputTensor(output, retTys, retVals, &dimParams);
+      if (!dimParams.empty())
+        outputDimParams.emplace_back(dimParams);
     }
 
     if (useReturn)
@@ -533,8 +559,21 @@ private:
       // Create a return operation to return all ONNX output tensors.
       builder_.create<ONNXYieldOp>(UnknownLoc(), retVals);
 
-    op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
-    op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
+    SmallVector<llvm::StringRef> inputDimParamsRefs, outputDimParamsRefs;
+    for (uint64_t i = 0; i < inputDimParams.size(); ++i)
+      inputDimParamsRefs.emplace_back(llvm::StringRef(inputDimParams[i]));
+    for (uint64_t i = 0; i < outputDimParams.size(); ++i)
+      outputDimParamsRefs.emplace_back(llvm::StringRef(outputDimParams[i]));
+    if (!inputNames.empty())
+      op->setAttr("input_names", builder_.getStrArrayAttr(inputNames));
+    if (!outputNames.empty())
+      op->setAttr("output_names", builder_.getStrArrayAttr(outputNames));
+    if (!inputDimParamsRefs.empty())
+      op->setAttr(
+          "input_dim_params", builder_.getStrArrayAttr(inputDimParamsRefs));
+    if (!outputDimParamsRefs.empty())
+      op->setAttr(
+          "output_dim_params", builder_.getStrArrayAttr(outputDimParamsRefs));
 
     frontend_symbols_.popScope(graph.name());
     onnx_type_map.popScope(graph.name());
@@ -753,10 +792,12 @@ private:
         OpBuilder::InsertionGuard guard(builder_);
         builder_.setInsertionPointToStart(&region.back());
         importGraph(attr.g(), region, op, false);
-        // Output types are propagated from region terminator to op results
-        // in opWithTypeInference logic below.
-        assert(opName.hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
-               "Subgraph ops must implement ResultTypeInferenceOpInterface");
+        if (!options_.useOnnxModelTypes) {
+          // Output types are propagated from region terminator to op results
+          // in opWithTypeInference logic below.
+          assert(opName.hasTrait<ResultTypeInferenceOpInterface::Trait>() &&
+                 "Subgraph ops must implement ResultTypeInferenceOpInterface");
+        }
       }
     }
     if (auto opWithTypeInference =
@@ -1326,21 +1367,71 @@ private:
    * @param output onnx output ValueInfoProto.
    * @param ret_types a vector of types representing graph's output types.
    * @param ret_vals a vector of mlir Value representing graph's output.
+   * @param dim_params a comma-separated string of dimIndex:dimParam.
    */
   void ImportOutputTensor(const onnx::ValueInfoProto &output,
       llvm::SmallVectorImpl<Type> &ret_types,
-      llvm::SmallVectorImpl<Value> &ret_vals) {
+      llvm::SmallVectorImpl<Value> &ret_vals,
+      std::string *dim_params = nullptr) {
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
       if (output.type().tensor_type().has_shape()) {
-        val.setType(ImportType(output.type()));
+        val.setType(ImportType(output.type(), dim_params));
       }
       ret_types.emplace_back(val.getType());
     } else {
-      ret_types.emplace_back(ImportType(output.type()));
+      ret_types.emplace_back(ImportType(output.type(), dim_params));
     }
     ret_vals.push_back(val);
+  }
+
+  // Move function attributes for argument/result names and dim_params into
+  // argument/result attributes.
+  void moveFuncAttrsToArgAttrs(func::FuncOp funcOp,
+      ArrayRef<std::string> funcAttrNames, ArrayRef<std::string> argAttrNames,
+      bool isArg) {
+    assert(funcAttrNames.size() == argAttrNames.size() &&
+           "The number of attributes to move mismatched");
+    Operation *op = funcOp.getOperation();
+    size_t numOfArgs =
+        (isArg) ? funcOp.getNumArguments() : funcOp.getNumResults();
+
+    // Only move attributes that exists.
+    SmallVector<ArrayAttr, 2> funcAttrsToMove;
+    SmallVector<std::string, 2> targetArgAttrNames;
+    for (size_t i = 0; i < funcAttrNames.size(); ++i) {
+      ArrayAttr attr = op->getAttrOfType<ArrayAttr>(funcAttrNames[i]);
+      if (!attr)
+        continue;
+      funcAttrsToMove.emplace_back(attr);
+      targetArgAttrNames.emplace_back(argAttrNames[i]);
+    }
+
+    // Move function attributes to argument/result attributes.
+    for (size_t i = 0; i < numOfArgs; ++i) {
+      SmallVector<NamedAttribute, 2> argAttrs;
+      for (size_t k = 0; k < funcAttrsToMove.size(); ++k) {
+        if (i < funcAttrsToMove[k].size()) {
+          auto name = (funcAttrsToMove[k].getValue()[i]).cast<StringAttr>();
+          if (name) {
+            NamedAttribute namedAttr =
+                builder_.getNamedAttr(argAttrNames[k], name);
+            argAttrs.emplace_back(namedAttr);
+          }
+        }
+      }
+      if (!argAttrs.empty()) {
+        if (isArg)
+          funcOp.setArgAttrs(i, argAttrs);
+        else
+          funcOp.setResultAttrs(i, argAttrs);
+      }
+    }
+
+    // Clean up the function attributes.
+    for (std::string s : funcAttrNames)
+      op->removeAttr(s);
   }
 
   /*!
@@ -1360,6 +1451,13 @@ private:
     auto funcType = importGraph(graph, /*region=*/mainFunc.getBody(),
         /*op=*/mainFunc.getOperation(), /*useReturn=*/true);
     mainFunc.setType(funcType);
+
+    // Move function attributes for argument/result names and dim_params into
+    // argument/result attributes.
+    moveFuncAttrsToArgAttrs(mainFunc, {"input_names", "input_dim_params"},
+        {"onnx.name", "onnx.dim_params"}, /*isArg=*/true);
+    moveFuncAttrsToArgAttrs(mainFunc, {"output_names", "output_dim_params"},
+        {"onnx.name", "onnx.dim_params"}, /*isArg=*/false);
 
     // Emit entry point op describing inference function signature.
     auto entryPoint = ONNXEntryPointOp::create(UnknownLoc(), mainFunc);

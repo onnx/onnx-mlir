@@ -48,13 +48,13 @@ parser.add_argument(
 parser.add_argument(
     "--check-operation-version",
     help="check whether the imported onnx package has new operation or "
-    " newer version of operation compared with version stored in  version_dicts",
+    " newer version of operation compared with version stored in version_dict",
     action="store_true",
     default=False,
 )
 parser.add_argument(
     "--list-operation-version",
-    help="list the version stored in version_dicts without performing checks",
+    help="list the version stored in version_dict without performing checks",
     action="store_true",
     default=False,
 )
@@ -214,7 +214,7 @@ version_dict = {
     "OptionalHasElement": [18],
     "Or": [7],
     "PRelu": [16],
-    "Pad": [19, 13, 11, 2],
+    "Pad": [19, 18, 13, 11, 2],
     "Pow": [15],
     "QLinearConv": [10],
     "QLinearMatMul": [10],
@@ -238,7 +238,7 @@ version_dict = {
     "ReduceSumSquare": [18, 13],
     "Relu": [14],
     "Reshape": [19],
-    "Resize": [19, 13, 11, 10],
+    "Resize": [19, 18, 13, 11, 10],
     "ReverseSequence": [10],
     "RoiAlign": [16],
     "Round": [11],
@@ -395,6 +395,7 @@ OpsWithVerifier = [
     "If",
     "IsInf",
     "InstanceNormalization",
+    "LayerNormalization",
     "Less",
     "LessOrEqual",
     "LogSoftmax",

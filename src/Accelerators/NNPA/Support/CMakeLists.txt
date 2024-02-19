@@ -1,3 +1,5 @@
+add_subdirectory(Stickify)
+
 add_onnx_mlir_library(OMLayoutHelper
   LayoutHelper.cpp
 

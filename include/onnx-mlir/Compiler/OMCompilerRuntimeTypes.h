@@ -30,7 +30,8 @@ typedef enum {
   InstrumentBeforeOp = 0x0,
   InstrumentAfterOp = 0x1,
   InstrumentReportTime = 0x2,
-  InstrumentReportMemory = 0x4,
+  InstrumentReportMemory = 0x3,
+  InstrumentInit = 0x4,
 } InstrumentActions;
 
 /* Definition of setter/getter from a 64 bit unsigned int. Use 64 bit only to
@@ -66,6 +67,11 @@ typedef enum {
   (x) = (x) | (0x1ull << (unsigned int)InstrumentReportMemory)
 #define IS_INSTRUMENT_REPORT_MEMORY(x)                                         \
   ((x) & (0x1ull << (unsigned int)InstrumentReportMemory))
+
+#define SET_INSTRUMENT_INIT(x)                                        \
+  (x) = (x) | (0x1ull << (unsigned int)InstrumentInit)
+#define IS_INSTRUMENT_INIT(x)                                         \
+  ((x) & (0x1ull << (unsigned int)InstrumentInit))
 
 /* Second - third byte. */
 #define INSTRUMENT_OP_NAME_MASK 0x3Full /* Max 64 chars. */

@@ -32,10 +32,12 @@ std::string mtriple;                                   // common for both
 std::string mcpu;                                      // common for both
 std::string march;                                     // common for both
 InstrumentStages instrumentStage;                      // common for both
+bool onnxConstPropRoundFPToInt;                        // common for both
 int onnxConstPropExpansionBound;                       // common for both
 std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
+std::string opsForCall;                                // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -62,6 +64,7 @@ int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
 bool enableParallel;                                   // onnx-mlir only
 bool disableSimdOption;                                // onnx-mlir only
+bool disableRecomposeOption;                           // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
@@ -155,6 +158,14 @@ static llvm::cl::opt<InstrumentStages, true> instrumentStageOpt(
             APPLY_TO_ACCELERATORS(ACCEL_INSTRUMENTSTAGE_CL_ENUM)),
     llvm::cl::init(Onnx), llvm::cl::cat(OnnxMlirCommonOptions));
 
+static llvm::cl::opt<bool, true> onnxConstPropRoundFPToIntOpt(
+    "onnx-const-prop-round-fp-to-int",
+    llvm::cl::desc("If true constant propagates onnx.Cast from a floating "
+                   "point type to an integer type by rounding to nearest, "
+                   "ties to even. If false truncates towards zero."),
+    llvm::cl::location(onnxConstPropRoundFPToInt), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
+
 static llvm::cl::opt<int, true> onnxConstPropExpansionBoundOpt(
     "onnx-const-prop-expansion-bound",
     llvm::cl::desc("ONNX dialect constant propagation maximum expansion factor."
@@ -183,6 +194,11 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::desc("Specify ONNX functions to decompose"),
         llvm::cl::location(functionsToDecompose),
         llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
+    llvm::cl::desc("Disable recomposition of ONNX operations."),
+    llvm::cl::location(disableRecomposeOption), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir only
 static llvm::cl::opt<EmissionTargetType, true> emissionTargetOpt(
@@ -253,9 +269,9 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
         "shapes for dynamic inputs.\n"
         "\"value\" is in the format of "
         "\"INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...\",\n"
-        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices starting from "
-        "0, and\n"
-        "\"D1, D2, ...\" are dimension sizes (positive integers of -1 for "
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
+        "0 or being -1 for all input indices), and\n"
+        "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
     llvm::cl::cat(OnnxMlirOptions));
@@ -300,7 +316,7 @@ static llvm::cl::opt<float, true> constantsToFileTotalThresholdOpt(
         "bytes of constants is greater than this threshold. "
         "store-constants-to-file must be enabled for this to be effective. "
         "Only count constants whose size is greater than "
-        "constants-to-file-single-threshold. Value is in GB."),
+        "constants-to-file-single-threshold. Value is in GB. Default is 2GB."),
     llvm::cl::location(constantsToFileTotalThreshold), llvm::cl::init(2.0),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -311,7 +327,7 @@ static llvm::cl::opt<float, true> constantsToFileSingleThresholdOpt(
         "bytes is greater than this threshold. "
         "store-constants-to-file must be enabled for this to be effective. "
         "Total sizes in bytes of satisfied constants must be greater than "
-        "constants-to-file-total-threshold. Value is in KB."),
+        "constants-to-file-total-threshold. Value is in KB. Default is 1KB."),
     llvm::cl::location(constantsToFileSingleThreshold), llvm::cl::init(1.0),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -408,6 +424,15 @@ static llvm::cl::opt<bool, true> enableSimdDataLayoutOpt("simd-data-layout",
     llvm::cl::desc("Enable SIMD optimization for convolution (default=false)\n"
                    "Set to 'true' if you want to enable SIMD optimizations."),
     llvm::cl::location(enableSimdDataLayout), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<std::string, true> opsForCallOpt("ops-for-call",
+    llvm::cl::desc("Specify which ops are lowered to knrl.call instead of"
+                   "krnl loops. op name are used to check against this option."
+                   "Names of opa are separated with space."
+                   "Example: ops-for-call=Conv MatMul"
+                   "The regexp match will be used to check against op name"),
+    llvm::cl::location(opsForCall), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> verifyInputTensorsOpt("verifyInputTensors",

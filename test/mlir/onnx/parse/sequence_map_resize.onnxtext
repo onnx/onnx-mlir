@@ -1,0 +1,55 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+// result of utils/onnx2text.py resnet-preproc-v1-18.onnx
+<
+   ir_version: 8,
+   opset_import: ["" : 18, "local" : 1],
+   metadata_props: ["preprocessing_fn": "local.preprocess"]
+>
+resnet_preproc_g (seq(uint8[?,?,3]) images) => (float[B,3,224,224] preproc_data) {
+   preproc_data = local.preprocess (images)
+}
+<
+  domain: "local",
+  opset_import: ["" : 18]
+>
+preprocess (input_batch) => (output_tensor)
+{
+   tmp_seq = SequenceMap (input_batch) <body = sample_preprocessing (uint8[?,?,3] sample_in) => (float[3,224,224] sample_out) {
+      target_size = Constant <value = int64[2] {256,256}> ()
+      image_resized = Resize <mode = "linear", antialias = 1, axes = [0, 1], keep_aspect_ratio_policy = "not_smaller"> (sample_in, , , target_size)
+      target_crop = Constant <value = int64[2] {224,224}> ()
+      image_sliced = CenterCropPad <axes = [0, 1]> (image_resized, target_crop)
+      kMean = Constant <value = float[3] {123.675,116.28,103.53}> ()
+      kStddev = Constant <value = float[3] {58.395,57.12,57.375}> ()
+      im_norm_tmp1 = Cast <to = 1> (image_sliced)
+      im_norm_tmp2 = Sub (im_norm_tmp1, kMean)
+      im_norm = Div (im_norm_tmp2, kStddev)
+      sample_out = Transpose <perm = [2, 0, 1]> (im_norm)
+   }>
+   output_tensor = ConcatFromSequence <axis = 0, new_axis = 1> (tmp_seq)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: !onnx.Seq<tensor<?x?x3xui8>> {onnx.name = "images"}) -> (tensor<?x3x224x224xf32> {onnx.dim_params = "0:B", onnx.name = "preproc_data"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.SequenceMap"([[PARAM_0_]]) ({
+// CHECK:           ^bb0([[PARAM_1_:%.+]]: tensor<?x?x3xui8>):
+// CHECK-DAG:         [[VAR_2_:%.+]] = onnx.Constant dense<256> : tensor<2xi64>
+// CHECK-DAG:         [[VAR_3_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:         [[VAR_4_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_5_:%.+]] = "onnx.ResizeV18"([[PARAM_1_]], [[VAR_3_]], [[VAR_4_]], [[VAR_2_]]) {antialias = 1 : si64, axes = [0, 1], coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, keep_aspect_ratio_policy = "not_smaller", mode = "linear", nearest_mode = "round_prefer_floor"} : (tensor<?x?x3xui8>, none, none, tensor<2xi64>) -> tensor<?x?x3xui8>
+// CHECK-DAG:         [[VAR_6_:%.+]] = onnx.Constant dense<224> : tensor<2xi64>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_7_:%.+]] = "onnx.CenterCropPad"([[VAR_5_]], [[VAR_6_]]) {axes = [0, 1]} : (tensor<?x?x3xui8>, tensor<2xi64>) -> tensor<224x224x3xui8>
+// CHECK-DAG:         [[VAR_8_:%.+]] = onnx.Constant dense<[1.236750e+02, 1.162800e+02, 1.035300e+02]> : tensor<3xf32>
+// CHECK-DAG:         [[VAR_9_:%.+]] = onnx.Constant dense<[5.839500e+01, 5.712000e+01, 5.737500e+01]> : tensor<3xf32>
+// CHECK:             [[VAR_10_:%.+]] = "onnx.Cast"([[VAR_7_]]) {saturate = 1 : si64, to = f32} : (tensor<224x224x3xui8>) -> tensor<224x224x3xf32>
+// CHECK:             [[VAR_11_:%.+]] = "onnx.Sub"([[VAR_10_]], [[VAR_8_]]) : (tensor<224x224x3xf32>, tensor<3xf32>) -> tensor<224x224x3xf32>
+// CHECK:             [[VAR_12_:%.+]] = "onnx.Div"([[VAR_11_]], [[VAR_9_]]) : (tensor<224x224x3xf32>, tensor<3xf32>) -> tensor<224x224x3xf32>
+// CHECK:             [[VAR_13_:%.+]] = "onnx.Transpose"([[VAR_12_]]) {perm = [2, 0, 1]} : (tensor<224x224x3xf32>) -> tensor<3x224x224xf32>
+// CHECK:             onnx.Yield [[VAR_13_]] : tensor<3x224x224xf32>
+// CHECK:           }) {input_dim_params = ["0:unk__0,1:unk__1"], input_names = ["sample_in"], output_names = ["sample_out"]} : (!onnx.Seq<tensor<?x?x3xui8>>) -> !onnx.Seq<tensor<3x224x224xf32>>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.ConcatFromSequence"([[VAR_0_]]) {axis = 0 : si64, new_axis = 1 : si64} : (!onnx.Seq<tensor<3x224x224xf32>>) -> tensor<?x3x224x224xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x3x224x224xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

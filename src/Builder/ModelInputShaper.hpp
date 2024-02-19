@@ -56,8 +56,11 @@ namespace onnx_mlir {
 //    dimensions
 class ModelInputShaper {
 public:
-  // To users of onnx-mlir, -1 is used for dynamic/unknown dimension.
+  // For users of onnx-mlir.
+  // -1 is used for dynamic/unknown dimension.
   static constexpr int64_t kUserDynamic = -1;
+  // -1 is used to indicate all input indices.
+  static constexpr int64_t kUserAllInputs = -1;
 
   ModelInputShaper();
 

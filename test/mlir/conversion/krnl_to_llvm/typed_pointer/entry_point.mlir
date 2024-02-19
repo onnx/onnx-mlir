@@ -22,14 +22,14 @@ module {
 // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr<array<15 x i8>>
 // CHECK:           [[VAR_3_:%.+]] = llvm.bitcast [[VAR_2_]] : !llvm.ptr<array<15 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_4_:%.+]] = llvm.insertvalue [[VAR_3_]], [[VAR_0_]][0] : !llvm.array<2 x ptr<i8>>
-// CHECK:           [[VAR_5_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           [[VAR_5_:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK:           [[VAR_6_:%.+]] = llvm.insertvalue [[VAR_5_]], [[VAR_4_]][1] : !llvm.array<2 x ptr<i8>>
 // CHECK:           llvm.return [[VAR_6_]] : !llvm.array<2 x ptr<i8>>
 // CHECK:         }
 
 // CHECK:         llvm.func @omQueryEntryPoints([[arg0_:%.+]]: !llvm.ptr<i64>) -> !llvm.ptr<ptr<i8>> {
 // CHECK-DAG:       [[VAR_2_4_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-// CHECK-DAG:       [[VAR_0_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i64>
+// CHECK-DAG:       [[VAR_0_3_:%.+]] = llvm.mlir.zero : !llvm.ptr<i64>
 // CHECK:           [[VAR_1_4_:%.+]] = llvm.icmp "ne" [[arg0_]], [[VAR_0_3_]] : !llvm.ptr<i64>
 // CHECK:           llvm.cond_br [[VAR_1_4_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
@@ -54,7 +54,7 @@ module {
 // CHECK:           [[VAR_10_1_:%.+]] = llvm.bitcast [[VAR_9_1_]] : !llvm.ptr<array<9 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_10_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
-// CHECK:           [[VAR_11_1_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           [[VAR_11_1_:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_11_1_]] : !llvm.ptr<i8>
 // CHECK:         }
 
@@ -71,7 +71,7 @@ module {
 // CHECK:           [[VAR_10_2_:%.+]] = llvm.bitcast [[VAR_9_2_]] : !llvm.ptr<array<10 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_10_2_]] : !llvm.ptr<i8>
 // CHECK:         ^bb2:  // pred: ^bb0
-// CHECK:           [[VAR_11_2_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           [[VAR_11_2_:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_11_2_]] : !llvm.ptr<i8>
 // CHECK:         }
 
@@ -112,13 +112,13 @@ module {
 // CHECK:           [[VAR_6_5_:%.+]] = llvm.mlir.addressof @_entry_point_1 : !llvm.ptr<array<17 x i8>>
 // CHECK:           [[VAR_7_3_:%.+]] = llvm.bitcast [[VAR_6_5_]] : !llvm.ptr<array<17 x i8>> to !llvm.ptr<i8>
 // CHECK:           [[VAR_8_3_:%.+]] = llvm.insertvalue [[VAR_7_3_]], [[VAR_4_6_]][1] : !llvm.array<3 x ptr<i8>>
-// CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK:           [[VAR_10_3_:%.+]] = llvm.insertvalue [[VAR_9_3_]], [[VAR_8_3_]][2] : !llvm.array<3 x ptr<i8>>
 // CHECK:           llvm.return [[VAR_10_3_]] : !llvm.array<3 x ptr<i8>>
 // CHECK:         }
 
 // CHECK:         llvm.func @omQueryEntryPoints([[arg0_:%.+]]: !llvm.ptr<i64>) -> !llvm.ptr<ptr<i8>> {
-// CHECK-DAG:       [[VAR_0_11_:%.+]] = llvm.mlir.null : !llvm.ptr<i64>
+// CHECK-DAG:       [[VAR_0_11_:%.+]] = llvm.mlir.zero : !llvm.ptr<i64>
 // CHECK-DAG:       [[VAR_2_14_:%.+]] = llvm.mlir.constant(2 : i64) : i64
 // CHECK:           [[VAR_1_14_:%.+]] = llvm.icmp "ne" [[arg0_]], [[VAR_0_11_]] : !llvm.ptr<i64>
 // CHECK:           llvm.cond_br [[VAR_1_14_]], ^bb1, ^bb2
@@ -156,7 +156,7 @@ module {
 // CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_3_]] : !llvm.ptr<array<11 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[LOAD_VAR_2_3_MEM_1_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb4:  // pred: ^bb2
-// CHECK:           [[VAR_19_3_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           [[VAR_19_3_:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_19_3_]] : !llvm.ptr<i8>
 // CHECK:         }
 
@@ -185,7 +185,7 @@ module {
 // CHECK:           [[LOAD_VAR_2_3_MEM_1_1_:%.+]] = llvm.bitcast [[VAR_17_4_]] : !llvm.ptr<array<12 x i8>> to !llvm.ptr<i8>
 // CHECK:           llvm.return [[LOAD_VAR_2_3_MEM_1_1_]] : !llvm.ptr<i8>
 // CHECK:         ^bb4:  // pred: ^bb2
-// CHECK:           [[VAR_19_4_:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK:           [[VAR_19_4_:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK:           llvm.return [[VAR_19_4_]] : !llvm.ptr<i8>
 // CHECK:         }
 }
@@ -208,7 +208,7 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
 // CHECK-NEXT:   [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
 // CHECK-NEXT:   llvm.cond_br [[FAILED]], ^bb1, ^bb2
 // CHECK-NEXT: ^bb1:  // 2 preds: ^bb0, ^bb2
-// CHECK-NEXT:   [[NULL:%.+]] = llvm.mlir.null : !llvm.ptr<i8>
+// CHECK-NEXT:   [[NULL:%.+]] = llvm.mlir.zero : !llvm.ptr<i8>
 // CHECK-NEXT:   llvm.return [[NULL]] : !llvm.ptr<i8>
 // CHECK-NEXT: ^bb2:  // pred: ^bb0
 // CHECK-NEXT:   [[COMPATIBLE:%.+]] = llvm.call @OMInitCompatibleAccelNNPA([[VERSION_NUMBER_1]]) : (i64) -> i64

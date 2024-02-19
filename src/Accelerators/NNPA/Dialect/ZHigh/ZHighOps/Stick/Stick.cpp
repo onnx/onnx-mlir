@@ -31,6 +31,7 @@ namespace zhigh {
 void ZHighStickOp::build(
     OpBuilder &builder, OperationState &state, Value input, StringAttr layout) {
   Type resType = builder.getNoneType();
+  Type resElementType = builder.getF16Type();
   if (!input.getType().isa<NoneType>()) {
     ShapedType inputType = input.getType().cast<ShapedType>();
     int64_t rank = -1;
@@ -56,10 +57,10 @@ void ZHighStickOp::build(
         resShape[2] = inputShape[3];
         resShape[3] = inputShape[1];
       }
-      resType = RankedTensorType::get(resShape, inputType.getElementType(),
+      resType = RankedTensorType::get(resShape, resElementType,
           ZTensorEncodingAttr::get(builder.getContext(), dataLayout));
     } else {
-      resType = UnrankedTensorType::get(inputType.getElementType());
+      resType = UnrankedTensorType::get(resElementType);
     }
   }
   build(builder, state, resType, input, layout);

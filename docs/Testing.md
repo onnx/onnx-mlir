@@ -316,7 +316,7 @@ $gdb Debug/bin/run-onnx-lib
 (gdb) run ./test_add.so
 (gdb) list
 1	builtin.module  {
-2	  builtin.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> attributes {input_names = ["x", "y"], output_names = ["sum"]} {
+2	  builtin.func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32> {
 3	    %0 = "onnx.Add"(%arg0, %arg1) : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 4	    return %0 : tensor<3x4x5xf32>
 5	  }

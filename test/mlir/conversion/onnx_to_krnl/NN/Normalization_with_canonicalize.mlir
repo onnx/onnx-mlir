@@ -3,13 +3,13 @@
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
 
-func.func @instance_norm(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<2x3x4x5xf32> attributes {input_names = ["x", "s", "bias"], output_names = ["y"]} {
+func.func @instance_norm(%arg0: tensor<2x3x4x5xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<2x3x4x5xf32> {
   %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5xf32>
   return %0 : tensor<2x3x4x5xf32>
 
 // mlir2FileCheck.py -a'["input", "scale", "bias"]'
 // CHECK-LABEL:  func @instance_norm
-// CHECK-SAME:   ([[INPUT_:%.+]]: memref<2x3x4x5xf32>, [[SCALE_:%.+]]: memref<3xf32>, [[BIAS_:%.+]]: memref<3xf32>) -> memref<2x3x4x5xf32> attributes {input_names = ["x", "s", "bias"], output_names = ["y"]} {
+// CHECK-SAME:   ([[INPUT_:%.+]]: memref<2x3x4x5xf32>, [[SCALE_:%.+]]: memref<3xf32>, [[BIAS_:%.+]]: memref<3xf32>) -> memref<2x3x4x5xf32> {
 // CHECK-DAG:       [[CST_20_:%.+]] = arith.constant 2.000000e+01 : f32
 // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
 // CHECK-DAG:       [[CST_0_dot_00999999977_:%.+]] = arith.constant 0.00999999977 : f32

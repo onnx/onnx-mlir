@@ -42,12 +42,12 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:         llvm.func @omMMapBinaryFile(!llvm.ptr, !llvm.ptr, i64, i64)
 // CHECK:         llvm.mlir.global internal constant @constant_2(dense<[21, 22, 23, 24, 25, 26, 27, 28, 29, 30]> : tensor<10xi64>) {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.array<10 x i64>
 // CHECK:         llvm.mlir.global internal @om_external_constant_data_constant_1() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
-// CHECK:           [[VAR_0_4_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK:           [[VAR_0_4_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           llvm.return [[VAR_0_4_]] : !llvm.ptr
 // CHECK:         }
 // CHECK:         llvm.mlir.global internal constant @om_external_constant_offset_constant_1(0 : i64) {addr_space = 0 : i32} : i64
 // CHECK:         llvm.mlir.global internal @om_external_constant_data_constant_0() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
-// CHECK:           [[VAR_0_5_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK:           [[VAR_0_5_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           llvm.return [[VAR_0_5_]] : !llvm.ptr
 // CHECK:         }
 // CHECK:         llvm.mlir.global internal constant @om_external_constant_offset_constant_0(4096 : i64) {addr_space = 0 : i32} : i64
@@ -55,7 +55,7 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:         llvm.mlir.global internal constant @om_external_constant_filesize(4176 : i64) {addr_space = 0 : i32} : i64
 // CHECK:         llvm.mlir.global internal constant @om_external_constant_isLE(0 : i8) {addr_space = 0 : i32} : i8
 // CHECK:         llvm.mlir.global internal @om_external_constant_packedConst() {addr_space = 0 : i32} : !llvm.ptr {
-// CHECK:           [[VAR_0_6_:%.+]] = llvm.mlir.null : !llvm.ptr
+// CHECK:           [[VAR_0_6_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK:           llvm.return [[VAR_0_6_]] : !llvm.ptr
 // CHECK:         }
 
