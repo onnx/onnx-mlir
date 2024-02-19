@@ -14,7 +14,6 @@
 #include <iostream>
 #include <regex>
 
-#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
 #include "src/Version/Version.hpp"
@@ -67,7 +66,6 @@ int main(int argc, char *argv[]) {
 
   // Create context after MLIRContextCLOptions are registered and parsed.
   mlir::MLIRContext context;
-  mlir::registerOpenMPDialectTranslation(context);
   if (!context.isMultithreadingEnabled()) {
     assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
     LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");

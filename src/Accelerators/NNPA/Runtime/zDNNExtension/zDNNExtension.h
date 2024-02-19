@@ -15,6 +15,9 @@
 #ifndef ONNX_MLIR_ZDNNEXTENSION_H
 #define ONNX_MLIR_ZDNNEXTENSION_H
 
+#include <stdlib.h>
+#include <sys/time.h>
+
 #include "zdnn.h"
 
 #ifdef __cplusplus
@@ -125,10 +128,12 @@ inline void omUnreachable() {
 // Uses compiler specific extensions if possible.
 // Even if no extension is used, undefined behavior is still raised by
 // an empty function body and the noreturn attribute.
-#if defined(_MSC_VER) && !defined(__clang__) // MSVC
-  __assume(false);
-#else // GCC, Clang
+#if defined(__GNUC__) || defined(__clang__) // GCC, Clang
   __builtin_unreachable();
+#elif defined(_MSC_VER) // MSVC
+  __assume(false);
+#else
+  ((void)0);
 #endif
 }
 
@@ -251,6 +256,11 @@ zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
 zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_softmax_act act_func, zdnn_ztensor *output);
 zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output);
+
+// -----------------------------------------------------------------------------
+// Misc Utility Functions
+// -----------------------------------------------------------------------------
+float GetElapseTime(const struct timeval start_t, const struct timeval end_t);
 
 #ifdef __cplusplus
 }

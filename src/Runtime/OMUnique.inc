@@ -268,7 +268,6 @@ void produceY(const OMTensor *inputTensor, OMTensor *indices, int64_t sliceAxis,
   const int64_t *indicesShape = omTensorGetShape(indices);
   const int64_t count = indicesShape[0];
   int64_t *indicesPtr = (int64_t *)omTensorGetDataPtr(indices);
-  assert(count > 0 && "count should be greater than 0");
   void *YPtr = omTensorGetDataPtr(Y);
 
   const OM_DATA_TYPE dataType = omTensorGetDataType(inputTensor);
@@ -391,22 +390,22 @@ void omTensorUnique(OMTensor *totalTensor, OMTensor *Y, OMTensor *indices,
         count++;
       }
     }
-    if (Y != NULL) {
+    if ((count > 0) && (Y != NULL)) {
       produceY(inputTensor, indices, sliceAxis, Y);
     }
   }
   *totalPtr = count;
 #if _DEBUG_OMTENSOR
   printf("OMUnique: return (count = %d)\n", count);
-  omTensorPrint("INPUT [\n", inputTensor);
+  omTensorPrint("INPUT %t [\n%d", inputTensor);
   if (Y != NULL)
-    omTensorPrint("] Y [\n", Y);
+    omTensorPrint("] Y %t [\n%d", Y);
   if (indices != NULL)
-    omTensorPrint("] INDICES [\n", indices);
+    omTensorPrint("] INDICES %t [\n%d", indices);
   if (inverse_indices != NULL)
-    omTensorPrint("] INV_INDICES [\n", inverse_indices);
+    omTensorPrint("] INV_INDICES %t [\n%d", inverse_indices);
   if (counts != NULL)
-    omTensorPrint("] COUNTS [\n", counts);
+    omTensorPrint("] COUNTS %t [\n%d", counts);
   printf("]\n");
 #endif
   return;
