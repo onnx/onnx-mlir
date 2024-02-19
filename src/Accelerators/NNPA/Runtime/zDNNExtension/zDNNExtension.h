@@ -212,7 +212,6 @@ zdnn_status allocTileBuffer(zdnn_ztensor *tile);
  * \brief Free memory for the tile buffer.
  *
  * @param tile ztensor tile
- * @return zdnn_status
  */
 void freeTileBuffer(zdnn_ztensor *tile);
 
