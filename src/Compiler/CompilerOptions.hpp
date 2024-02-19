@@ -191,7 +191,8 @@ std::string getCompilerOption(const onnx_mlir::OptionKind kind);
 // The add and del functions are not thread-safe and should only be
 // called from one thread.
 std::vector<std::string> getCompilerConfig(std::string k);
-void addCompilerConfig(std::string k, std::vector<std::string> v);
+void addCompilerConfig(
+    std::string k, std::vector<std::string> v, bool head = false);
 void delCompilerConfig(std::string k, std::vector<std::string> v);
 
 // Functions related to initializing compiler configuration states based on
