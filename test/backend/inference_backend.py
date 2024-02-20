@@ -394,7 +394,6 @@ def get_test_models():
         },
         # ==OP== Cast
         # ==MIN== 6
-        # ==UNSUPPORTED== 19
         # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_cast_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
@@ -615,11 +614,11 @@ def get_test_models():
         },
         # ==OP== Constant
         # ==MIN== 1
-        # ==UNSUPPORTED== 19
         # By def, no dynamic shapes.
         "test_constant_cpu": {STATIC_SHAPE: {}},
         # ==OP== ConstantOfShape
         # ==MIN== 9
+        # ==UNSUPPORTED== 20
         # By def, no dynamic shapes.
         "test_constantofshape_float_ones_cpu": {STATIC_SHAPE: {}},
         "test_constantofshape_int_zeros_cpu": {STATIC_SHAPE: {}},
@@ -769,6 +768,8 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== DFT
+        # ==MIN== 17
+        # ==UNSUPPORTED== 20
         # "test_dft_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_inverse_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -917,7 +918,6 @@ def get_test_models():
         },
         # ==OP== Equal
         # ==MIN== 7
-        # ==UNSUPPORTED== 19
         "test_equal_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -2244,7 +2244,6 @@ def get_test_models():
         },
         # ==OP== Pad
         # ==MIN== 2
-        # ==UNSUPPORTED== 19
         # ==LIM== axes input not supported
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
@@ -2298,7 +2297,6 @@ def get_test_models():
         },
         # ==OP== QuantizeLinear
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Do not support per-axis and i8 quantization.
         # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_quantizelinear_cpu": {
@@ -2430,6 +2428,7 @@ def get_test_models():
         },
         # ==OP== ReduceMax
         # ==MIN== 1
+        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2484,6 +2483,7 @@ def get_test_models():
         },
         # ==OP== ReduceMin
         # ==MIN== 1
+        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_min_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_min_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2653,7 +2653,6 @@ def get_test_models():
         },
         # ==OP== Resize
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported.
         # Resize
         # All test cases in onnx v1.11.0. yes for currently supported
@@ -2908,7 +2907,6 @@ def get_test_models():
         },
         # ==OP== Slice
         # ==MIN== 13
-        # ==UNSUPPORTED== 19
         # ==LIM== Axis must be a constant argument.
         # ==TODO== Add tests to slices, currently have none.
         # (makes Axis a runtime argument, which is not supported).
@@ -2992,7 +2990,6 @@ def get_test_models():
         },
         # ==OP== Split
         # ==MIN== 2
-        # ==UNSUPPORTED== 19
         # ==LIM== Does not support static and dynamic shape, zero size splits.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_split_equal_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
