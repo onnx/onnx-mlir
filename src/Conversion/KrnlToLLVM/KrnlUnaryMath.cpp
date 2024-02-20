@@ -134,8 +134,6 @@ struct MathFunctionName<KrnlIsInfOp> {
 #endif
     if (type.isF64())
       return "isinf";
-    if (type.isF16())
-      return "isinf";
     llvm_unreachable("Unsupported type for isinf");
   }
 };
@@ -151,8 +149,6 @@ struct MathFunctionName<KrnlIsNaNOp> {
       return "isnanf";
 #endif
     if (type.isF64())
-      return "isnan";
-    if (type.isF16())
       return "isnan";
     llvm_unreachable("Unsupported type for isnan");
   }
