@@ -3442,6 +3442,7 @@ def ONNXIsInfV10Op:ONNX_Op<"IsInfV10",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXIsNaNOp:ONNX_Op<"IsNaN",

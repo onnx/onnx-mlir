@@ -396,6 +396,7 @@ OpsWithVerifier = [
     "Hardmax",
     "If",
     "IsInf",
+    "IsInfV10",
     "InstanceNormalization",
     "LayerNormalization",
     "Less",
