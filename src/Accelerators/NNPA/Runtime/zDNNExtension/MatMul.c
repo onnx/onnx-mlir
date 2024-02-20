@@ -20,6 +20,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -41,14 +42,18 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
 }
 
+// It is supposed that sched.h should have the declaration of sched_getcpu.
+// No problem when a standalone test case is compiled with clang or g++.
+// But in onnx-mlir, this function is not defined. Explicitly define it here
+// ToFix: find the correct include file.
+extern int sched_getcpu();
+
 static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
     zdnn_ztensor *output, bool isBcast) {
   double totalTime = 0.;
-  clock_t start_time = 0, end_time = 0;
-
-  if (OMZTensorSplitDebug)
-    start_time = clock();
+  struct timeval start_t, end_t;
+  struct timeval start_t1, end_t1;
 
   // For a MatMul of A(M,N)*B(N,P)+C(P),
   // We split M that is e2 in (e4, e3, e2, e1), and P that is e1.
@@ -63,10 +68,18 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   initSplitInfo(
       &siY, output, E2, splitSize, /*allocTileBuffers=*/true, "MatMul Y");
 
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&start_t, NULL);
+  }
+
   // Copy data from A, B, C into their tiles.
   copyData(&siA, FULL_TO_TILES);
   copyData(&siB, FULL_TO_TILES);
   copyData(&siC, FULL_TO_TILES);
+
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&start_t1, NULL);
+  }
 
   // Call zdnn_matmul_op on each tile.
   // Iterate over the tiles along the first dim of A.
@@ -85,9 +98,18 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       zdnn_status status =
           call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
       assert(status == ZDNN_OK);
+      if (OMZTensorSplitDebug) {
+        printf("thread [%u, %u] is on cpu %d\n", i, j, sched_getcpu());
+      }
     }
     copyData(&siYB, TILES_TO_FULL);
     freeSplitInfoData(&siYB);
+  }
+
+  if (OMZTensorSplitDebug) {
+    gettimeofday(&end_t1, NULL);
+    totalTime = GetElapseTime(start_t1, end_t1);
+    printf("[MatMul] mm loop time, %f (milliseconds)\n", totalTime);
   }
 
   // Copy data from the tiles back to the full ztensor.
@@ -100,8 +122,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   freeSplitInfoData(&siY);
 
   if (OMZTensorSplitDebug) {
-    end_time = clock();
-    totalTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
+    gettimeofday(&end_t, NULL);
+    totalTime = GetElapseTime(start_t, end_t);
     printf("[MatMul] total time, %f (milliseconds)\n", totalTime);
   }
 
@@ -127,7 +149,7 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, opType, output, /*isBcast=*/true);
   // Compiler does not check the return result at this moment. Thus, check it
   // here.
-  assert(status == ZDNN_OK && "Failed to execute MatMul on NNPA");
+  assert(status == ZDNN_OK);
   return status;
 }
 
