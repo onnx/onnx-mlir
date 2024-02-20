@@ -21,6 +21,6 @@ set_target_properties(RuntimeNNPA
   PROPERTIES
   LANGUAGE C
   POSITION_INDEPENDENT_CODE TRUE
-  COMPILE_OPTIONS "-O3;-fopenmp"
+  COMPILE_OPTIONS -option O3 fopenmp
   )
 

@@ -3419,7 +3419,7 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
   let description = [{
   Returns which elements of the input are NaN.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
+  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>]>:$X);
   let results = (outs TensorOf<[I1]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {

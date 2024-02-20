@@ -326,8 +326,8 @@ LogicalResult ONNXIsInfOp::inferShapes(
 
 LogicalResult ONNXIsNaNOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
-  return inferShapeForUnaryOps(getOperation(), i1Type);
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
 }
 
 //===----------------------------------------------------------------------===//
