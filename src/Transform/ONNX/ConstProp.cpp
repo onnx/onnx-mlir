@@ -34,7 +34,6 @@
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
-#include <iomanip>
 #include <math.h>
 #include <numeric>
 
@@ -218,17 +217,11 @@ struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
   static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
 };
 
-template <typename T>
-struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) {
-    // This is the original calculation for mod
+template <>
+struct ElementWiseBinaryOpImpl<ONNXModOp, int64_t, EnableNotBool<int64_t>> {
+  static int64_t eval(int64_t lhs, int64_t rhs) {
+    // The original calculation for mod
     int mod = lhs - floor(lhs / rhs) * rhs;
-
-    // Check if the values are floats
-    if (lhs != floor(lhs) && rhs != floor(rhs)) {
-      // Rounding to match the results of the backend tests
-      return (std::floor(fmod(lhs, rhs) * 1000000000) / 1000000000);
-    }
 
     // Handle the case when one of the int values are negative
     if (lhs < 0 || rhs < 0) {
@@ -238,10 +231,17 @@ struct ElementWiseBinaryOpImpl<ONNXModOp, T, EnableNotBool<T>> {
       } else {
         return mod + rhs;
       }
-      // Both int values are positive, so we can calculate as normal
-    } else {
-      return mod;
     }
+    // Both int values are positive, so we can calculate as normal
+    return mod;
+  }
+};
+
+template <>
+struct ElementWiseBinaryOpImpl<ONNXModOp, double, EnableNotBool<double>> {
+  static double eval(double lhs, double rhs) {
+    // Rounding to match the results of the backend tests
+    return (std::floor(fmod(lhs, rhs) * 1000000000) / 1000000000);
   }
 };
 
