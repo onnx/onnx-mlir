@@ -90,8 +90,8 @@ op_dialect_version_map_["Identity"] = {19};
 op_dialect_version_map_["If"] = {19};
 op_dialect_version_map_["Imputer"] = {1};
 op_dialect_version_map_["InstanceNormalization"] = {6};
-op_dialect_version_map_["IsInf"] = {10, 20};
-op_dialect_version_map_["IsNaN"] = {9, 13, 20};
+op_dialect_version_map_["IsInf"] = {20, 10};
+op_dialect_version_map_["IsNaN"] = {20, 13, 9};
 op_dialect_version_map_["LayerNormalization"] = {17};
 op_dialect_version_map_["LRN"] = {13};
 op_dialect_version_map_["LSTM"] = {14};
@@ -374,8 +374,14 @@ import_handler_map_["InstanceNormalization"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXInstanceNormalizationOp>;
 import_handler_map_["IsInf"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsInfOp>;
+import_handler_map_["IsInfV10"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsInfV10Op>;
 import_handler_map_["IsNaN"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsNaNOp>;
+import_handler_map_["IsNaNV13"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsNaNV13Op>;
+import_handler_map_["IsNaNV9"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXIsNaNV9Op>;
 import_handler_map_["LRN"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXLRNOp>;
 import_handler_map_["LSTM"] = 
