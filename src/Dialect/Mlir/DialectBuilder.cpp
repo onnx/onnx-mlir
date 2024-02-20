@@ -479,6 +479,9 @@ Value MathBuilder::constantIndex(int64_t val) const {
 TypedAttr MathBuilder::negativeInfAttr(mlir::Type type) const {
   TypedAttr attr;
   TypeSwitch<Type>(type)
+      .Case<Float16Type>([&](Type) {
+        attr = b().getF16FloatAttr(-std::numeric_limits<float>::infinity());
+      })
       .Case<Float32Type>([&](Type) {
         attr = b().getF32FloatAttr(-std::numeric_limits<float>::infinity());
       })
