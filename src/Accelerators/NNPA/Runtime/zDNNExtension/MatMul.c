@@ -19,7 +19,6 @@
 #include <sys/ps.h>
 #endif
 #include <pthread.h>
-#include <sched.h>
 
 #include <assert.h>
 #include <math.h>
@@ -126,8 +125,6 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     copyData(&splitInfoYB, TILES_TO_FULL);
     FreeSplitInfoData(&splitInfoYB);
   }
-  gettimeofday(&end_t, NULL);
-  elapse = (((end_t.tv_sec * 1000000.) + end_t.tv_usec) - ((start_t.tv_sec * 1000000) + start_t.tv_usec))/1000;
 
   if (OMZTensorSplitDebug) {
     gettimeofday(&end_t1, NULL);
