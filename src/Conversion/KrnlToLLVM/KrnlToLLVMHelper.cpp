@@ -218,8 +218,8 @@ Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
   Type i64PtrTy = getPointerType(ctx, i64Type);
   Value globalVal =
       (globalPtr != nullptr) ? *globalPtr : create.llvm.addressOf(global);
-  Value offVal = (offPtr == NULL) ? create.llvm.constant(i64Type, (int64_t)0) :
-    *offPtr;
+  Value offVal =
+      (offPtr == NULL) ? create.llvm.constant(i64Type, (int64_t)0) : *offPtr;
   return create.llvm.getElemPtr(i64PtrTy, i64Type, globalVal, {offVal});
 }
 

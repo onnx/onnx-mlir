@@ -316,13 +316,10 @@ private:
 
         Type i8Type = IntegerType::get(builder.getContext(), 8);
         Type type = LLVM::LLVMArrayType::get(i8Type, concatStr.size());
-        //llvm::dbgs() << "YYYY op=" << krnlGlobalOp << ": ";
         for (int64_t index = 1; index < (int64_t)concatOffs.size(); index++) {
           int64_t off = concatOffs[index];
           concatStr[off - 1] = '\00';
-          //llvm::dbgs() << "[idx:" << index << ", off:" << off << "]";
         }
-        //llvm::dbgs() << "\n";
         const LLVMTypeConverter &typeConverter = *getTypeConverter();
         concatGlobalOp = create.llvm.globalOp(type, /*isConstant=*/true,
             LLVM::Linkage::Internal, symbol, builder.getStringAttr(concatStr));
@@ -346,9 +343,7 @@ private:
       Value lastValue = array;
       Value globalPtr = create.llvm.addressOf(global);
       Type i64Type = IntegerType::get(builder.getContext(), 64);
-      //llvm::dbgs() << "XXXX op=" << concatGlobalOp << ": ";
       for (int64_t index = 0; index < (int64_t)concatOffs.size(); index++) {
-        //llvm::dbgs() << "[idx:" << index << ",off:" << off << "]";
         int64_t off = concatOffs[index];
         Value offVal = create.llvm.constant(i64Type, off);
         Value strAddr = krnl::getPtrToGlobalString(
@@ -356,7 +351,6 @@ private:
         lastValue =
             create.llvm.insertValue(arrayType, lastValue, strAddr, {index});
       }
-      //llvm::dbgs() << "\n";
       create.llvm._return(lastValue);
       return global;
     }
