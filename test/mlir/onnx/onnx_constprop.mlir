@@ -459,6 +459,17 @@ func.func @test_greaterorequal() -> tensor<3xi1> {
 
 // -----
 
+// CHECK-LABEL: @test_modulo_int_both_neg() -> tensor<i64>
+func.func @test_modulo_int_both_neg() -> tensor<i64> {
+  %0 = onnx.Constant dense<-7> : tensor<i64>
+  %1 = onnx.Constant dense<-5> : tensor<i64>
+  %2 = "onnx.Mod"(%0, %1) : (tensor<i64> , tensor<i64>) -> tensor<i64>
+  "onnx.Return"(%2) : (tensor<i64>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<-2> : tensor<i64>
+}
+
+// -----
+
 // CHECK-LABEL: @test_modulo_int_neg() -> tensor<i64>
 func.func @test_modulo_int_neg() -> tensor<i64> {
   %0 = onnx.Constant dense<-4> : tensor<i64>

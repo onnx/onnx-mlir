@@ -222,17 +222,14 @@ struct ElementWiseBinaryOpImpl<ONNXModOp, int64_t, EnableNotBool<int64_t>> {
   static int64_t eval(int64_t lhs, int64_t rhs) {
     // The original calculation for mod
     int mod = lhs - floor(lhs / rhs) * rhs;
+    // Check if lhs is a multiple of rhs
+    int64_t rem = remainder(lhs, rhs);
 
     // Handle the case when one of the int values are negative
-    if (lhs < 0 || rhs < 0) {
-      // Check if lhs is a multiple of rhs
-      if (remainder(lhs, rhs) == 0) {
-        return mod;
-      } else {
-        return mod + rhs;
-      }
-    }
-    // Both int values are positive, so we can calculate as normal
+    // If both int values are positive or multiples of each other, we can
+    // calculate as normal
+    if ((rem != 0) && ((lhs < 0) ^ (rhs < 0)))
+      return (mod + rhs);
     return mod;
   }
 };
