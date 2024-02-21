@@ -81,9 +81,10 @@ void getRankBroadcastedShape(Value tensor, const int64_t maxInputRank,
 Type getMatMulOutputType(Type inputElemTy, PatternRewriter &rewriter) {
   Type outputElemTy;
   if (auto floatTy = dyn_cast<FloatType>(inputElemTy)) {
-    // This matches torch-mlir legalization behaviour, but this is wrong.
-    // Accumulation happens always on fp32
-    outputElemTy = rewriter.getF32Type();
+    if (floatTy.isBF16() || floatTy.isF16() || floatTy.isF32()) {
+      // Always accumulate on f32
+      outputElemTy = rewriter.getF32Type();
+    }
   } else if (auto integerTy = dyn_cast<IntegerType>(inputElemTy)) {
     if (integerTy.isInteger(/*width=*/8)) {
       outputElemTy = rewriter.getIntegerType(/*width=*/32);
@@ -132,8 +133,9 @@ public:
 
     auto outputElemType = getMatMulOutputType(lhsElemTy, rewriter);
     if (!outputElemType) {
-      return rewriter.notifyMatchFailure(
-          op, "Only i8 and i16 integer and float types are valid");
+      return rewriter.notifyMatchFailure(op,
+          "Only i8 and i16 integer and bf16, f16 and "
+          "f32 float types are valid");
     }
 
     int64_t maxInputRank = lhsRank > rhsRank ? lhsRank : rhsRank;
@@ -366,12 +368,14 @@ public:
     auto mmOpResult = tosa::CreateOpAndInfer<mlir::tosa::MatMulOp>(
         rewriter, op->getLoc(), mmOutputTy, matmulLhs, matmulRhs)
                           ->getResult(0);
+    auto castToOrigOp =
+        builder.castToNewTensorElementType(mmOpResult, lhsElemTy);
 
     // Perform the reshape to output shape. This is always required unless max
     // input rank=3 and there was no broadcasting, in which case the tosa.matmul
     // output itself is correctly shaped.
     bool performOpReshape = !(maxInputRank == 3 && !performBatchDimBroadcast);
-    Value output = mmOpResult;
+    Value output = castToOrigOp;
     if (performOpReshape) {
       // Since the output shape may be unknown, we construct it
       // independently and reshape. Otherwise reshape may be expressed for
@@ -446,7 +450,7 @@ public:
       computeOpShape(reshapedOpShape, transposedOpShape);
 
       // Perform reshape
-      auto reshapeOp = builder.reshape(mmOpResult, reshapedOpShape);
+      auto reshapeOp = builder.reshape(castToOrigOp, reshapedOpShape);
 
       // Calculate transmutation required
       SetVector<int32_t> transmutationSetVec;
