@@ -4,7 +4,7 @@
 
 //===---------------- Resize.cpp - Resize Op-------------------------------===//
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc.
+// Copyright (c) 2023 Advanced Micro Devices, Inc.
 //
 // =============================================================================
 //
@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+
 #include <cstdint>
 #include <numeric>
 
@@ -24,6 +26,81 @@ using namespace mlir;
 namespace onnx_mlir {
 
 namespace {
+struct ScaleHelper {
+  ScaleHelper(
+      int64_t numerator, int64_t denominator, int64_t offset, int64_t border)
+      : numerator(numerator), denominator(denominator), offset(offset),
+        border(border){};
+  int64_t numerator, denominator, offset, border;
+};
+
+// Adapted from TFL to TOSA.
+ScaleHelper normalize(int64_t output, int64_t input, bool pytorchHalfPixel,
+    bool alignCorners, bool halfPixel, bool isNearest,
+    bool isNearestModeFloor) {
+  int64_t numerator, denominator, offset, border;
+  // Test if pytorch_half_pixel needs special handling
+  if (pytorchHalfPixel && output == 1) {
+    numerator = 1;
+    denominator = 1;
+    offset = -1;
+    border = denominator * (output - 1) - numerator * (input - 1) + offset;
+    return ScaleHelper(numerator, denominator, offset, border);
+  }
+
+  // Apply if aligned and capable to be aligned.
+  bool applyAligned = alignCorners && (output > 1);
+  numerator = applyAligned ? (output - 1) : output;
+  denominator = applyAligned ? (input - 1) : input;
+
+  // Simplify the scalers, make sure they are even values.
+  int gcd = std::gcd(numerator, denominator);
+  numerator = 2 * numerator / gcd;
+  denominator = 2 * denominator / gcd;
+
+  // If half pixel centers we need to sample half a pixel inward.
+  offset = halfPixel || pytorchHalfPixel ? (denominator - numerator) / 2 : 0;
+
+  // If round_half_up we need to adjust the offset
+  if (isNearest && isNearestModeFloor) {
+    offset -= numerator / 2;
+  }
+
+  // We can compute this directly based on previous values.
+  border = denominator * (output - 1) - numerator * (input - 1) + offset;
+  return ScaleHelper(numerator, denominator, offset, border);
+};
+
+void valuesFromAxis(ArrayAttr *axis, llvm::SmallVectorImpl<int64_t> &axisVec) {
+  auto axisRange = axis->getAsRange<IntegerAttr>();
+  llvm::transform(axisRange, std::back_inserter(axisVec),
+      [](IntegerAttr attr) { return getAxisInRange(attr.getInt(), 4, true); });
+}
+
+LogicalResult getScaleValue(ConversionPatternRewriter &rewriter, Operation *op,
+    llvm::SmallVectorImpl<int64_t> &axisVec,
+    llvm::SmallVectorImpl<float> &scaleVec, Value scaleValue) {
+  mlir::ElementsAttr elementsAttr =
+      getElementAttributeFromONNXValue(scaleValue);
+  if (!elementsAttr)
+    return rewriter.notifyMatchFailure(
+        op, "Scale cannot come from a block argument.");
+
+  // The axis attribute might permute and/or reduce the number of elements
+  // in scaleValue. This reorders the scales to account for that.
+  for (auto [index, value] : llvm::enumerate(axisVec))
+    scaleVec[value] =
+        elementsAttr.getValues<FloatAttr>()[index].getValueAsDouble();
+
+  // Even if the shapes are identical, a scale value other than 1 is
+  // possible. TOSA does not allow that for non-spatial dimensions.
+  for (int64_t nonSpatialDimensions : {0, 1}) {
+    if (scaleVec[nonSpatialDimensions] != 1)
+      return rewriter.notifyMatchFailure(
+          op, "Axis Attr if present must contain both output dimensions.");
+  }
+  return success();
+}
 
 class ONNXResizeOpLoweringToTOSA : public ConversionPattern {
 public:
@@ -31,14 +108,32 @@ public:
       : ConversionPattern(ONNXResizeOp::getOperationName(), 1, ctx) {}
   using OpAdaptor = typename ONNXResizeOp::Adaptor;
 
+  struct FractionNumber {
+    FractionNumber(float number) {
+      double integral = std::floor(number);
+      double frac = number - integral;
+
+      const long precision = 1000000000; // This is the accuracy.
+
+      long gcd_ = std::gcd((int)round(frac * precision), precision);
+
+      long denominator = precision / gcd_;
+      long numerator = round(frac * precision) / gcd_;
+
+      this->numerator = numerator + denominator * integral;
+      this->denominator = denominator;
+    }
+    int64_t numerator;
+    int64_t denominator;
+  };
+
   /// ## coordinateTransformationMode ##
   /// TOSA uses the formula ix = (ox * scale_x_d + offset_x) / scale_x_n
   /// to find the input coordinates. In order to lower ONNX one needs to
-  /// express the modes in this context. Border is only used to check if certain
-  /// conditions in the dimensions are met, but has no actual use in calculating
-  /// something. It is probably an error in the TOSA specification. In order to
-  /// fulfill the conditions, border is always
-  /// border = d * (output - 1) - n *(input - 1) + offset
+  /// express the modes in this context. Border is used to ensure that the shape
+  /// calculation is exactly defined with an integer ratio. In order to fulfill
+  /// the conditions, border is always border = d * (output - 1) - n *(input -
+  /// 1) + offset
   ///
   /// ### half_pixel ###
   /// ONNX formula: ix = (ox + 0.5) / scale - 0.5
@@ -52,6 +147,11 @@ public:
   /// Same as half_pixel, but if output == 1:
   /// - scale_x_d = scale_x_n = 1
   /// - offset = -1
+  ///
+  /// ### half_pixel_symmetric ###
+  /// NOT SUPPORTED BY TOSA, BECAUSE OF INT OFFSET
+  /// Same as half_pixel, but with another offset
+  /// - offset_x += symmetric_offset_x
   ///
   /// ### align_corners ###
   /// - scale_x_d = (input_size - 1)
@@ -87,8 +187,10 @@ public:
     StringRef nearestMode = adaptor.getNearestMode();
     StringRef coordinateTransformationMode =
         adaptor.getCoordinateTransformationMode();
+    std::optional<ArrayAttr> axis = adaptor.getAxes();
+    int64_t antialias = adaptor.getAntialias();
 
-    if (inputType.getRank() != 4) {
+    if (!inputType || inputType.getRank() != 4) {
       return rewriter.notifyMatchFailure(
           resizeOp, "TOSA only support 4D tensors as input of resize.");
     }
@@ -98,6 +200,12 @@ public:
     if (inputType.isDynamicDim(2) || inputType.isDynamicDim(3)) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Only static sized tensors are supported.");
+    }
+
+    auto elementType = inputType.getElementType();
+    if (!(isTOSAFloat(elementType) || isTOSASignedInt(elementType))) {
+      return rewriter.notifyMatchFailure(
+          resizeOp, "Element type is not supported by TOSA.");
     }
 
     if (mode == "cubic") {
@@ -117,81 +225,82 @@ public:
           resizeOp, "TOSA does not support tf_crop_and_resize.");
     }
 
-    // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
-    Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
-
-    bool alignCorners = coordinateTransformationMode == "align_corners";
-    bool halfPixel = coordinateTransformationMode == "half_pixel";
-    bool pytorchHalfPixel =
-        coordinateTransformationMode == "pytorch_half_pixel";
-    bool isBilinear = mode == "linear";
-    bool isNearest = mode == "nearest";
-    bool isNearestModeFloor = nearestMode == "floor";
-    StringRef resizeMode = isBilinear ? "BILINEAR" : "NEAREST_NEIGHBOR";
+    if (antialias != 0)
+      return rewriter.notifyMatchFailure(
+          op, "TOSA does not support antialiasing.");
 
     auto inputShape = inputType.getShape();
     auto outputShape = resultType.getShape();
 
+    if (inputShape[0] != outputShape[0] || inputShape[1] != outputShape[1])
+      return rewriter.notifyMatchFailure(
+          op, "Cannot resize non spatial dimensions.");
+
+    // Get axis values if set. Default is all axis in normal order.
+    llvm::SmallVector<int64_t> axisVec;
+    if (axis.has_value()) {
+      valuesFromAxis(&axis.value(), axisVec);
+    } else {
+      axisVec.append({0, 1, 2, 3});
+    }
+
+    // Set these explicitly just out of convenience.
     int64_t inputHeight = inputShape[2];
     int64_t inputWidth = inputShape[3];
     int64_t outputHeight = outputShape[2];
     int64_t outputWidth = outputShape[3];
 
-    // Adapted from TFL to TOSA.
-    // Align corners sets the scaling ratio to (OH - 1)/(IH - 1)
-    // rather than OH / IH. Similarly for width.
+    // Check if scales are set. We need to get those float values, because they
+    // make a difference in linear interpolation.
+    Value scaleValue = resizeOp.getScales();
+    llvm::SmallVector<float, 4> scales{1, 1, 1, 1};
+    if (!isNoneValue(scaleValue)) {
+      if (getScaleValue(rewriter, op, axisVec, scales, scaleValue).failed())
+        return rewriter.notifyMatchFailure(
+            op, "Could not retrieve scale values.");
 
-    auto normalize = [=](int64_t input, int64_t output) {
-      // Dimension is length 1, we are just sampling from one value.
-      int64_t n, d, offset, border;
-      if (input == 1) {
-        n = output;
-        d = 1;
-        offset = 0;
-        border = output - 1;
-        return std::make_tuple(n, d, offset, border);
-      }
+      // In TOSA the scale is a fraction of two integer numbers.
+      FractionNumber height(scales[2]);
+      FractionNumber width(scales[3]);
+      outputHeight = height.numerator;
+      inputHeight = height.denominator;
+      outputWidth = width.numerator;
+      inputWidth = width.denominator;
+    }
 
-      // Test if pytorch_half_pixel needs special handling
-      if (pytorchHalfPixel && output == 1) {
-        n = 1;
-        d = 1;
-        offset = -1;
-        border = d * (output - 1) - n * (input - 1) + offset;
-        return std::make_tuple(n, d, offset, border);
-      }
+    bool alignCorners = coordinateTransformationMode == "align_corners";
+    bool halfPixel = coordinateTransformationMode == "half_pixel";
+    bool pytorchHalfPixel =
+        coordinateTransformationMode == "pytorch_half_pixel";
+    bool halfPixelSymmetric =
+        coordinateTransformationMode == "half_pixel_symmetric";
+    bool isBilinear = mode == "linear";
+    bool isNearest = mode == "nearest";
+    bool isNearestModeFloor = nearestMode == "floor";
+    StringRef resizeMode = isBilinear ? "BILINEAR" : "NEAREST_NEIGHBOR";
 
-      // Apply if aligned and capable to be aligned.
-      bool applyAligned = alignCorners && (output > 1);
-      n = applyAligned ? (output - 1) : output;
-      d = applyAligned ? (input - 1) : input;
+    if (halfPixelSymmetric)
+      return rewriter.notifyMatchFailure(op,
+          "TOSA does not support float offsets which are required "
+          "for symmetric mode.");
 
-      // Simplify the scalers, make sure they are even values.
-      int gcd = std::gcd(n, d);
-      n = 2 * n / gcd;
-      d = 2 * d / gcd;
+    ScaleHelper yDimension =
+        normalize(outputHeight, inputHeight, pytorchHalfPixel, alignCorners,
+            halfPixel, isNearest, isNearestModeFloor);
+    ScaleHelper xDimension =
+        normalize(outputWidth, inputWidth, pytorchHalfPixel, alignCorners,
+            halfPixel, isNearest, isNearestModeFloor);
 
-      // If half pixel centers we need to sample half a pixel inward.
-      offset = halfPixel || pytorchHalfPixel ? (d - n) / 2 : 0;
-      // If round_half_up we need to adjust the offset
-      if (isNearest && isNearestModeFloor) {
-        offset -= n / 2;
-      }
+    // Convert input [N,IC,IH,IW] -> [N,IH,IW,IC]
+    Value newInput = tosaBuilder.transpose(input, {0, 2, 3, 1});
 
-      // We can compute this directly based on previous values.
-      border = d * (output - 1) - n * (input - 1) + offset;
-      return std::make_tuple(n, d, offset, border);
-    };
-
-    auto [scale_y_n, scale_y_d, offset_y, border_y] =
-        normalize(inputHeight, outputHeight);
-    auto [scale_x_n, scale_x_d, offset_x, border_x] =
-        normalize(inputWidth, outputWidth);
-
-    auto scale = rewriter.getDenseI64ArrayAttr(
-        {scale_y_n, scale_y_d, scale_x_n, scale_x_d});
-    auto offset = rewriter.getDenseI64ArrayAttr({offset_y, offset_x});
-    auto border = rewriter.getDenseI64ArrayAttr({border_y, border_x});
+    // Create resizeOp
+    auto scale = rewriter.getDenseI64ArrayAttr({yDimension.numerator,
+        yDimension.denominator, xDimension.numerator, xDimension.denominator});
+    auto offset =
+        rewriter.getDenseI64ArrayAttr({yDimension.offset, xDimension.offset});
+    auto border =
+        rewriter.getDenseI64ArrayAttr({yDimension.border, xDimension.border});
     auto resizeModeAttr = rewriter.getStringAttr(resizeMode);
     Type newOutputType =
         RankedTensorType::get(llvm::SmallVector<int64_t, 4>(

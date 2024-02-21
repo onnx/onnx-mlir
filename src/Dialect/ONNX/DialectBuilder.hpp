@@ -44,6 +44,8 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
   // ONNXCastOp
+  mlir::Value cast(
+      mlir::Value input, mlir::IntegerAttr saturate, mlir::TypeAttr to) const;
   mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;
   mlir::Value cast(mlir::Value input, mlir::Type to) const;
 
@@ -83,6 +85,11 @@ struct OnnxBuilder : DialectBuilder {
 
   // ONNXLayerNormalizationOp, version with one output only (Y).
   mlir::Value layerNorm(mlir::Type outputType, mlir::Value input,
+      mlir::Value scale, mlir::Value bias, int64_t axis,
+      mlir::FloatAttr epsilon) const;
+
+  // ONNXRMSLayerNormalizationOp, version with one output only (Y).
+  mlir::Value RMSLayerNorm(mlir::Type outputType, mlir::Value input,
       mlir::Value scale, mlir::Value bias, int64_t axis,
       mlir::FloatAttr epsilon) const;
 
@@ -206,6 +213,68 @@ struct OnnxBuilder : DialectBuilder {
   // ONNXWhereOp
   mlir::Value where(mlir::Type outputType, mlir::Value condition, mlir::Value X,
       mlir::Value Y) const;
+
+  // =============================================================================
+  // Fold and emit support.
+  // =============================================================================
+
+  // These utilities emit an ONNXOp and try to fold it if possible. If the input
+  // is constant, do const propagation, and return a constant. The funcion needs
+  // to have std::function<DenseElementsAttr(mlir::Value value)> as the last
+  // argument. It is used to get the DenseElementsAttr from the value if the
+  // value is a constant.
+
+  using DenseElementsAttrGetter =
+      std::function<mlir::DenseElementsAttr(mlir::Value)>;
+
+  /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
+  /// return a constant.
+  mlir::Value foldOrEmitONNXSqueezeOp(mlir::ConversionPatternRewriter &rewriter,
+      mlir::Location loc, mlir::Type resultType, mlir::Value input,
+      int64_t axis, DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  /// Emit an ONNXSqueezeV11Op. If the input is constant, do const propagation,
+  /// and return a constant.
+  mlir::Value foldOrEmitONNXSqueezeV11Op(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+      mlir::Type resultType, mlir::Value input, int64_t axis,
+      DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation,
+  /// and return a constant.
+  mlir::Value foldOrEmitONNXUnsqueezeOp(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+      mlir::Type resultType, mlir::Value input, int64_t axis,
+      DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  /// Emit an ONNXUnsqueezeV11Op. If the input is constant, do const
+  /// propagation, and return a constant.
+  mlir::Value foldOrEmitONNXUnsqueezeV11Op(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+      mlir::Type resultType, mlir::Value input, int64_t axis,
+      DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
+  /// return constants.
+  /// Only support evenly splitting.
+  std::vector<mlir::Value> foldOrEmitONNXSplitOp(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+      llvm::ArrayRef<mlir::Type> resultTypes, mlir::Value input, int64_t axis,
+      DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  /// Emit an ONNXSplitV11Op. If the input is constant, do const propagation,
+  /// and return constants. Only support evenly splitting.
+  std::vector<mlir::Value> foldOrEmitONNXSplitV11Op(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+      llvm::ArrayRef<mlir::Type> resultTypes, mlir::Value input, int64_t axis,
+      DenseElementsAttrGetter getDenseElementAttrFromConstValue);
+
+  /// Emit an ONNXTransposeOp. If the input is constant, do const propagation,
+  /// and return a constant.
+  mlir::Value foldOrEmitONNXTransposeOp(
+      mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+      mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr,
+      DenseElementsAttrGetter getDenseElementAttrFromConstValue);
 
 private:
   mlir::IntegerAttr getSignedInt64Attr(int64_t n) const;

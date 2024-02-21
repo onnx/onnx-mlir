@@ -15,7 +15,7 @@ func.func private @test_reducemean_v13_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<
   // CHECK-DAG:       [[CST_0_dot_000000_:%.+]] = arith.constant 0.000000e+00 : f32
   // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x2xf32>
   // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
-  // CHECK:           krnl.parallel [[LOOP_0_]]#0 : !krnl.loop
+  // CHECK:           krnl.parallel([[LOOP_0_]]#0) : !krnl.loop
   // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
   // CHECK:             [[VAR_3_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK:             krnl.store [[CST_0_dot_000000_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_3_]]#1] : memref<3x2xf32>
@@ -29,7 +29,7 @@ func.func private @test_reducemean_v13_f32(%arg0 : tensor<3x2x2xf32>) -> tensor<
   // CHECK:             krnl.store [[VAR_6_]], [[RES_]]{{.}}[[VAR_3_1_]]#0, [[VAR_3_1_]]#2] : memref<3x2xf32>
   // CHECK:           }
   // CHECK:           [[LOOP_2_:%.+]]:2 = krnl.define_loops 2
-  // CHECK:           krnl.parallel [[LOOP_2_]]#0 : !krnl.loop
+  // CHECK:           krnl.parallel([[LOOP_2_]]#0) : !krnl.loop
   // CHECK:           krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 3, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = 0 to 2){
   // CHECK:             [[VAR_3_2_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
   // CHECK:             [[LOAD_RES_MEM_1_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_3_2_]]#0, [[VAR_3_2_]]#1] : memref<3x2xf32>

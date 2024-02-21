@@ -48,3 +48,21 @@ add_onnx_mlir_library(OMZHighClipToDLFloat
   OMZHighOps
   OMONNXOps
   )
+
+add_onnx_mlir_rewriter(ZHighDecomposeStickUnstick)
+add_onnx_mlir_library(OMZHighDecomposeStickUnstick
+  ZHighDecomposeStickUnstick.cpp
+
+  DEPENDS
+  OMLayoutHelper
+  OMONNXZHighDecomposeStickUnstickIncGen
+
+  LINK_LIBS PUBLIC
+  MLIRRewrite
+  MLIRTransformUtils
+  OMZHighOps
+  OMONNXOps
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
+  )

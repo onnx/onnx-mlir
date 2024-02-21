@@ -18,9 +18,8 @@
 ///
 template <typename OP_TYPE>
 mlir::Location ONNXLoc(mlir::Operation *op) {
-  using namespace mlir;
-  return NameLoc::get(
-      StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
+  return mlir::NameLoc::get(
+      mlir::StringAttr::get(op->getContext(), OP_TYPE::getOperationName()),
       op->getLoc());
 }
 
@@ -31,8 +30,7 @@ inline bool isNoneValue(mlir::Value value) {
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v) {
-  using namespace mlir;
-  return !v.isa<BlockArgument>() && isa<OP>(v.getDefiningOp());
+  return !v.isa<mlir::BlockArgument>() && llvm::isa<OP>(v.getDefiningOp());
 }
 
 // Support for recognizing patterns. Detects if the operation "op" has an input
@@ -57,14 +55,14 @@ bool definedBy(mlir::Value v) {
 template <typename OP>
 bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
     mlir::Value &matchOperand, int64_t matchThisOperandIndex) {
-  using namespace mlir;
   assert(matchThisOperandIndex >= 0 &&
          matchThisOperandIndex < op->getNumOperands() &&
          "bad match operand index");
-  Value operand = op->getOperand(matchThisOperandIndex);
+  mlir::Value operand = op->getOperand(matchThisOperandIndex);
   // operand.dump();
   //  Check for a match with definition of operand.
-  if (!operand.isa<BlockArgument>() && isa<OP>(operand.getDefiningOp())) {
+  if (!operand.isa<mlir::BlockArgument>() &&
+      llvm::isa<OP>(operand.getDefiningOp())) {
     matchOperand = operand;
     matchOp = operand.getDefiningOp();
     return true;
@@ -77,8 +75,7 @@ template <typename OP>
 bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
     mlir::Value &matchOperand0, mlir::Value &matchOperand1,
     int64_t matchThisOperandIndex) {
-  using namespace mlir;
-  Value dummy;
+  mlir::Value dummy;
   if (operandOfOpDefinedBy<OP>(matchOp, op, dummy, matchThisOperandIndex)) {
     matchOperand0 = op->getOperand(0);
     matchOperand1 = op->getOperand(1);

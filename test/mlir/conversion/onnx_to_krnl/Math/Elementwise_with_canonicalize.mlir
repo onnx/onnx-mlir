@@ -83,6 +83,67 @@ func.func @test_variadic_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x
 
 // -----
 
+func.func @test_gelu_none(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %0 = "onnx.Gelu"(%arg0) {approximate = "none"} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  return %0 : tensor<2x3x4xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_gelu_none
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x3x4xf32>) -> memref<2x3x4xf32> {
+// CHECK-DAG:       [[CST_0_dot_707106769_:%.+]] = arith.constant 0.707106769 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = arith.constant 5.000000e-01 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 4){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
+// CHECK-DAG:         [[VAR_3_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[CST_5_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_4_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[CST_0_dot_707106769_]] : f32
+// CHECK:             [[VAR_5_:%.+]] = math.erf [[VAR_4_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.addf [[VAR_5_]], [[CST_1_dot_000000_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[VAR_3_]], [[VAR_6_]] : f32
+// CHECK:             krnl.store [[VAR_7_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x3x4xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_gelu_tanh(%arg0 : tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
+  %0 = "onnx.Gelu"(%arg0) {approximate = "tanh"} : (tensor<2x3x4xf32>) -> tensor<2x3x4xf32>
+  return %0 : tensor<2x3x4xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_gelu_tanh
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<2x3x4xf32>) -> memref<2x3x4xf32> {
+// CHECK-DAG:       [[CST_0_dot_797884583_:%.+]] = arith.constant 0.797884583 : f32
+// CHECK-DAG:       [[CST_4_dot_471500_:%.+]] = arith.constant 4.471500e-02 : f32
+// CHECK-DAG:       [[CST_3_dot_000000_:%.+]] = arith.constant 3.000000e+00 : f32
+// CHECK-DAG:       [[CST_1_dot_000000_:%.+]] = arith.constant 1.000000e+00 : f32
+// CHECK-DAG:       [[CST_5_dot_000000_:%.+]] = arith.constant 5.000000e-01 : f32
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<2x3x4xf32>
+// CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 2, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 4){
+// CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
+// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
+// CHECK-DAG:         [[VAR_3_:%.+]] = arith.mulf [[LOAD_PARAM_0_MEM_]], [[CST_5_dot_000000_]] : f32
+// CHECK-DAG:         [[VAR_4_:%.+]] = math.powf [[LOAD_PARAM_0_MEM_]], [[CST_3_dot_000000_]] : f32
+// CHECK:             [[VAR_5_:%.+]] = arith.mulf [[VAR_4_]], [[CST_4_dot_471500_]] : f32
+// CHECK:             [[VAR_6_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[VAR_5_]] : f32
+// CHECK:             [[VAR_7_:%.+]] = arith.mulf [[VAR_6_]], [[CST_0_dot_797884583_]] : f32
+// CHECK:             [[VAR_8_:%.+]] = math.tanh [[VAR_7_]] : f32
+// CHECK:             [[VAR_9_:%.+]] = arith.addf [[VAR_8_]], [[CST_1_dot_000000_]] : f32
+// CHECK:             [[VAR_10_:%.+]] = arith.mulf [[VAR_3_]], [[VAR_9_]] : f32
+// CHECK:             krnl.store [[VAR_10_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<2x3x4xf32>
+// CHECK:           }
+// CHECK:           return [[RES_]] : memref<2x3x4xf32>
+// CHECK:         }
+}
+
+// -----
+
 // COM: Check PRelu with unidirectional broadcasting and unknown dimensions.
 // COM: Because of unidirectional broadcasting, always get constant dimensions from X even thought their values are 1.
 

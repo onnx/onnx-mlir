@@ -176,7 +176,7 @@ add_custom_target(check-onnx-backend-signature
 add_custom_target(check-onnx-backend-case
   COMMAND
     TEST_CASE_CHECK=true
-    ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    ${Python3_EXECUTABLE} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
@@ -211,25 +211,25 @@ add_custom_target(clean-onnx-backend
   )
 
 add_dependencies(check-onnx-backend onnx-mlir)
-add_dependencies(check-onnx-backend PyRuntime)
+add_dependencies(check-onnx-backend PyRuntimeC)
 add_dependencies(check-onnx-backend-dynamic onnx-mlir)
-add_dependencies(check-onnx-backend-dynamic PyRuntime)
+add_dependencies(check-onnx-backend-dynamic PyRuntimeC)
 add_dependencies(check-onnx-backend-constant onnx-mlir)
-add_dependencies(check-onnx-backend-constant PyRuntime)
+add_dependencies(check-onnx-backend-constant PyRuntimeC)
 IF (NOT WIN32)
 add_dependencies(check-onnx-backend-constants-to-file onnx-mlir)
-add_dependencies(check-onnx-backend-constants-to-file PyRuntime)
+add_dependencies(check-onnx-backend-constants-to-file PyRuntimeC)
 ENDIF()
 add_dependencies(check-onnx-backend-node onnx-mlir)
-add_dependencies(check-onnx-backend-node PyRuntime)
+add_dependencies(check-onnx-backend-node PyRuntimeC)
 add_dependencies(check-onnx-backend-model onnx-mlir)
-add_dependencies(check-onnx-backend-model PyRuntime)
+add_dependencies(check-onnx-backend-model PyRuntimeC)
 add_dependencies(check-onnx-backend-signature onnx-mlir)
-add_dependencies(check-onnx-backend-signature PyRuntime)
+add_dependencies(check-onnx-backend-signature PyRuntimeC)
 add_dependencies(check-onnx-backend-input-verification onnx-mlir)
-add_dependencies(check-onnx-backend-input-verification PyRuntime)
+add_dependencies(check-onnx-backend-input-verification PyRuntimeC)
 add_dependencies(check-onnx-backend-compilerlib CompilerLibTest)
-add_dependencies(check-onnx-backend-compilerlib PyRuntime)
+add_dependencies(check-onnx-backend-compilerlib PyRuntimeC)
 
 add_dependencies(check-onnx-backend-numerical check-onnx-backend)
 add_dependencies(check-onnx-backend-numerical check-onnx-backend-dynamic)
@@ -294,23 +294,23 @@ if (ONNX_MLIR_ENABLE_JNI)
     )
 
   add_dependencies(check-onnx-backend-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-jni PyRuntime)
+  add_dependencies(check-onnx-backend-jni PyRuntimeC)
   add_dependencies(check-onnx-backend-jni javaruntime)
   add_dependencies(check-onnx-backend-jni jniruntime)
   add_dependencies(check-onnx-backend-dynamic-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-dynamic-jni PyRuntime)
+  add_dependencies(check-onnx-backend-dynamic-jni PyRuntimeC)
   add_dependencies(check-onnx-backend-dynamic-jni javaruntime)
   add_dependencies(check-onnx-backend-dynamic-jni jniruntime)
   add_dependencies(check-onnx-backend-constant-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-constant-jni PyRuntime)
+  add_dependencies(check-onnx-backend-constant-jni PyRuntimeC)
   add_dependencies(check-onnx-backend-constant-jni javaruntime)
   add_dependencies(check-onnx-backend-constant-jni jniruntime)
   add_dependencies(check-onnx-backend-node-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-node-jni PyRuntime)
+  add_dependencies(check-onnx-backend-node-jni PyRuntimeC)
   add_dependencies(check-onnx-backend-node-jni javaruntime)
   add_dependencies(check-onnx-backend-node-jni jniruntime)
   add_dependencies(check-onnx-backend-model-jni onnx-mlir)
-  add_dependencies(check-onnx-backend-model-jni PyRuntime)
+  add_dependencies(check-onnx-backend-model-jni PyRuntimeC)
   add_dependencies(check-onnx-backend-model-jni javaruntime)
   add_dependencies(check-onnx-backend-model-jni jniruntime)
 

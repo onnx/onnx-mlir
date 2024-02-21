@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021, 2023 The IBM Research Authors.
+# Copyright 2021, 2024 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -432,6 +432,45 @@ def get_test_models():
         },
         "test_cast_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
         "test_cast_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
+        # ==OP== CastLike
+        # ==MIN== 19
+        # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
+        "test_castlike_FLOAT_to_DOUBLE_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_castlike_DOUBLE_to_FLOAT_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_castlike_FLOAT_to_FLOAT16_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_FLOAT16_to_FLOAT_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_FLOAT16_to_DOUBLE_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_DOUBLE_to_FLOAT16_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
+        "test_castlike_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
         # ==OP== Ceil
         # ==MIN== 6
         "test_ceil_example_cpu": {
@@ -889,9 +928,17 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # Issue #2416: We currently do not support input type of string for backend tests
-        # "test_equal_string_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_equal_string_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Issue #2416: We currently do not support input type of string for backend tests with JNI
+        "test_equal_string_broadcast_cpu": {
+            STATIC_SHAPE_STRING: {},
+            DYNAMIC_SHAPE_STRING: {-1: {-1}},
+            CONSTANT_INPUT_STRING: {-1},
+        },
+        "test_equal_string_cpu": {
+            STATIC_SHAPE_STRING: {},
+            DYNAMIC_SHAPE_STRING: {-1: {-1}},
+            CONSTANT_INPUT_STRING: {-1},
+        },
         # ==OP== Erf
         # ==MIN== 9
         "test_erf_cpu": {
@@ -1038,6 +1085,48 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== Gelu
+        # ==MIN== 20
+        "test_gelu_default_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_default_1_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_default_2_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_default_2_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_tanh_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_tanh_1_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_tanh_2_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_tanh_2_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
         # ==OP== Gemm
         # ==MIN== 6
         "test_gemm_all_attributes_cpu": {
@@ -3301,17 +3390,20 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
         key
         for (key, value) in variables.model_test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     test_to_enable = [
         key
         for (key, value) in variables.test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
 
     # Test for dynamic inputs.
@@ -3685,7 +3777,9 @@ def save_all_test_names(all_test_names):
         + "\n"
     )
     with open("./" + filename, "w") as f:
-        f.write('# This file is automatically generated by "make check-backend-case"\n')
+        f.write(
+            '# This file is automatically generated by "make check-onnx-backend-case"\n'
+        )
         f.write("# From onnx {}\n".format(onnx.__version__))
         f.write("# All test cases for cpu target\n")
         for test_name in all_test_names:

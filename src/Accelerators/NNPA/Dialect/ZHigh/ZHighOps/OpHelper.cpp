@@ -438,5 +438,27 @@ AffineMapAttr getTransposeMap(OpBuilder &b, ArrayAttr permAttr) {
   return AffineMapAttr::get(map);
 }
 
+IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
+  int64_t axisNCHW = axisNCHWAttr.getSInt();
+  int64_t axisNHWC;
+  switch (axisNCHW) {
+  case 0: // N
+    axisNHWC = 0;
+    break;
+  case 1: // C
+    axisNHWC = 3;
+    break;
+  case 2: // H
+    axisNHWC = 1;
+    break;
+  case 3: // W
+    axisNHWC = 2;
+    break;
+  default:
+    axisNHWC = axisNCHW;
+  }
+  return IntegerAttr::get(axisNCHWAttr.getType(), axisNHWC);
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir

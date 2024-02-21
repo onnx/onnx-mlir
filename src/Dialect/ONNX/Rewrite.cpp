@@ -4,7 +4,7 @@
 
 //===----------- ONNXRewrite.cpp - ONNX High Level Optimizer --------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -63,32 +63,6 @@ DenseElementsAttr createDenseElementsAttrOfNToM(
   for (int i = N; i <= M; ++i)
     vals.emplace_back(i);
   return rewriter.getI64TensorAttr(vals);
-}
-
-Value normalizeConstantOp(
-    PatternRewriter &rewriter, Value output, Attribute attr) {
-  ShapedType outputType = output.getType().cast<ShapedType>();
-  Type elementType = outputType.getElementType();
-
-  DenseElementsAttr denseAttr;
-  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
-    int64_t dim = arrayAttr.size();
-    auto tensorType = RankedTensorType::get({dim}, elementType);
-    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
-  } else {
-    auto tensorType = RankedTensorType::get({}, elementType);
-    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
-    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
-    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
-      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
-    } else {
-      llvm_unreachable("unexpected Attribute");
-    }
-  }
-  OnnxBuilder createONNX(rewriter, output.getLoc());
-  return createONNX.constant(denseAttr);
 }
 
 // Get return type for a MatMulOp whose A's rank is N (>2) and B's rank is 2.
@@ -207,6 +181,77 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
   Type lhsT = lhs.getType();
   Type rhsT = rhs.getType();
   return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
+}
+
+// Match v = shape_transform(X*A + B).
+// shape_transform is a sequence of operations like Reshape, Transpose,
+// Squeeze, Unsqueeze, etc. that do not change the numerical values by data
+// shape.
+// A and B are constants.
+bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
+    Operation *&matmulOrGemmOp, Operation *&addOp, bool &isGemm) {
+  if (v.isa<BlockArgument>())
+    return false;
+  if (!hasOneUseExceptDimOp(v))
+    return false;
+  Value origV = v;
+  // Match a sequence of shape operations. Each shape operation has only one
+  // use.
+  while (auto defOp = origV.getDefiningOp()) {
+    if (!isa<ONNXReshapeOp, ONNXTransposeOp, ONNXSqueezeOp, ONNXUnsqueezeOp>(
+            defOp))
+      break;
+    origV = defOp->getOperands()[0];
+    if (!hasOneUseExceptDimOp(origV))
+      break;
+  }
+  if (origV.isa<BlockArgument>() || !hasOneUseExceptDimOp(origV))
+    return false;
+
+  // Match Gemm
+  auto onnxGemmOp = origV.getDefiningOp<ONNXGemmOp>();
+  if (onnxGemmOp) {
+    if (!isDenseONNXConstant(onnxGemmOp.getB()))
+      return false;
+    if (!isNoneValue(onnxGemmOp.getC()) &&
+        !isDenseONNXConstant(onnxGemmOp.getC()))
+      return false;
+    matmulOrGemmOp = onnxGemmOp.getOperation();
+    matA = onnxGemmOp.getB();
+    biasB = onnxGemmOp.getC();
+    isGemm = true;
+    return true;
+  }
+
+  // Not Gemm, match Add.
+  auto onnxAddOp = origV.getDefiningOp<ONNXAddOp>();
+  if (!onnxAddOp)
+    return false;
+  Value lhsAdd = onnxAddOp.getA();
+  Value rhsAdd = onnxAddOp.getB();
+
+  // LHS of Add is the only one use of MatMul's result.
+  if (!hasOneUseExceptDimOp(lhsAdd))
+    return false;
+  auto onnxMatMulOp = lhsAdd.getDefiningOp<ONNXMatMulOp>();
+  if (!onnxMatMulOp)
+    return false;
+  Value rhsMatMul = onnxMatMulOp.getB();
+  if (!isDenseONNXConstant(rhsMatMul))
+    return false;
+
+  // RHS of Add is a constant.
+  if (!isDenseONNXConstant(rhsAdd))
+    return false;
+
+  // Passed all tests.
+  matmulOrGemmOp = onnxMatMulOp.getOperation();
+  addOp = onnxAddOp.getOperation();
+  matA = rhsMatMul;
+  biasB = rhsAdd;
+  isGemm = false;
+
+  return true;
 }
 
 } // namespace onnx_mlir
@@ -393,6 +438,112 @@ public:
     rewriter.replaceOp(op, res);
     return success();
   };
+};
+
+// This rewriting is to optimize the scalar Div/Mul in self-attention layers.
+// In particular, it rewrites the following pattern:
+// ```
+// shape_transform(X1 * A1 + B1) * shape_transform(X2 * A2 + B2) / k
+// ```
+//
+// into
+// ```
+// shape_transform(X1 * A1 + B1) * shape_transform(X2 * A2/k + B2/k)
+// ```
+// if A2, B2 and k are constants,
+//
+// or into
+// ```
+// shape_transform(X1 * A1/k + B1/k) * shape_transform(X2 * A2 + B2)
+// ```
+// if A1, B1 and k are constants,
+//
+// where
+// - * is matrix multiplication; + and / are element-wise addition and division
+// - A1, A2, B1, B2, and k are constants so that A1/k, B1/k, A2/k and B2/k can
+// be folded. k is a scalar constant so that it's broadcastable to all A1, A2,
+// B1, B2.
+// - shape_transform includes a sequence of operations that change the data
+// shape of the input but not numerical values, for example: Reshape,
+// Transpose, etc.
+//
+// This pattern supports both division and multiplication by k.
+template <typename ONNXOp>
+struct PropagateConstantScalingInAttentionLayerPattern
+    : public OpRewritePattern<ONNXOp> {
+  using OpRewritePattern<ONNXOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXOp omOp, PatternRewriter &rewriter) const final {
+    Operation *genericOp = omOp.getOperation();
+    Value lhsOMOp = omOp.getA();
+    Value K = omOp.getB();
+
+    // Match (lhs * rhs) / K.
+    // The first operand of Div/Mul is produced by MatMulOp.
+    auto onnxMatMulOp = lhsOMOp.getDefiningOp<ONNXMatMulOp>();
+    if (!onnxMatMulOp)
+      return rewriter.notifyMatchFailure(genericOp,
+          "The first operand of Div/Mul is not produced by MatMulOp");
+    Value lhs = onnxMatMulOp.getA();
+    Value rhs = onnxMatMulOp.getB();
+    // The second operand of Div/Mul is a scalar constant.
+    if (!isScalarConstantTensor(K))
+      return rewriter.notifyMatchFailure(
+          genericOp, "The second operand of Div/Mul is not a scalar constant");
+
+    // Match lhs = shape_transform(X1*A1 + B1)
+    Value A, B;
+    Operation *matmulOrGemmOp, *addOp;
+    bool isGemm;
+    bool matched =
+        matchShapeAddMatMul(lhs, A, B, matmulOrGemmOp, addOp, isGemm);
+
+    if (!matched) {
+      // Match rhs = shape_transform(X2*A2 + B2)
+      matched = matchShapeAddMatMul(rhs, A, B, matmulOrGemmOp, addOp, isGemm);
+    }
+
+    if (!matched)
+      return rewriter.notifyMatchFailure(genericOp,
+          "There is no constant tensor to replace the first operand "
+          "of Div/Mul");
+
+    // Rewrite.
+    // Move K up before MatMul/Gemm to make sure it is in the dominant region.
+    K.getDefiningOp()->moveBefore(matmulOrGemmOp);
+    if (isGemm) {
+      auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
+      // Update in place B and C of Gemm.
+      rewriter.updateRootInPlace(onnxGemmOp, [&] {
+        rewriter.setInsertionPoint(onnxGemmOp);
+        onnxGemmOp.getBMutable().assign(rewriter.create<ONNXOp>(
+            onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
+        if (!isNoneValue(onnxGemmOp.getC()))
+          onnxGemmOp.getCMutable().assign(rewriter.create<ONNXOp>(
+              onnxGemmOp.getLoc(), onnxGemmOp.getC().getType(), B, K));
+      });
+    } else {
+      auto onnxSubMatOp = cast<ONNXMatMulOp>(matmulOrGemmOp);
+      auto onnxAddOp = cast<ONNXAddOp>(addOp);
+      // Update in place MatMul and Add.
+      rewriter.updateRootInPlace(onnxSubMatOp, [&] {
+        rewriter.setInsertionPoint(onnxSubMatOp);
+        onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
+            onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
+      });
+      rewriter.updateRootInPlace(onnxAddOp, [&] {
+        OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
+        rewriter.setInsertionPoint(onnxAddOp);
+        onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
+            onnxAddOp.getLoc(), onnxAddOp.getB().getType(), B, K));
+      });
+    }
+
+    // Bypass Div/Mul.
+    rewriter.replaceOp(genericOp, onnxMatMulOp.getY());
+    return success();
+  }
 };
 
 // =============================================================================
@@ -1260,6 +1411,7 @@ private:
 // Rewrite pattern LayerNormalization
 // =============================================================================
 
+template <typename OP_TYPE>
 struct PropagateBiasIntoLayerNormRewritePattern
     : public OpRewritePattern<ONNXAddOp> {
   using OpRewritePattern<ONNXAddOp>::OpRewritePattern;
@@ -1279,16 +1431,16 @@ struct PropagateBiasIntoLayerNormRewritePattern
     // %y, %mean, %invStdDev = "onnx.LayerNormalization"(%x, %scale, %noBias)
     //     {axis = 2 : si64, epsilon = 9.994E-6 : f32, stash_type = 1 : si64}
     // %yBias = "onnx.Add"(%y, %bias)
-    if (!onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+    if (!onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
             yLayerNormOp, ywbAddOp, y, bias, 0) &&
-        !onnx_mlir::operandOfOpDefinedBy<ONNXLayerNormalizationOp>(
+        !onnx_mlir::operandOfOpDefinedBy<OP_TYPE>(
             yLayerNormOp, ywbAddOp, bias, y, 1))
       return reportFailure("missing y, layer norm op");
     // Study layer norm op; make sure its used only one and that bias is not
     // used.
     if (!yLayerNormOp->hasOneUse())
       return reportFailure("y/layer norm has too many uses");
-    auto lnOp = cast<ONNXLayerNormalizationOp>(yLayerNormOp);
+    auto lnOp = cast<OP_TYPE>(yLayerNormOp);
     if (!onnx_mlir::isNoneValue(lnOp.getB()))
       return reportFailure("layer norm already has a bias");
     // We are fine.
@@ -1301,7 +1453,14 @@ struct PropagateBiasIntoLayerNormRewritePattern
     // Replace
     MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
     Type xType = x.getType();
-    Value res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    Value res;
+    if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
+      res = create.onnx.layerNorm(xType, x, scale, bias, axis, epsilon);
+    else if constexpr (std::is_same<OP_TYPE,
+                           ONNXRMSLayerNormalizationOp>::value)
+      res = create.onnx.RMSLayerNorm(xType, x, scale, bias, axis, epsilon);
+    else
+      llvm_unreachable("unsupported op");
     rewriter.replaceOp(addOp, res);
     return success();
   }
@@ -1338,7 +1497,12 @@ void ONNXAddOp::getCanonicalizationPatterns(
   results.insert<FuseAddConvNullBiasPattern>(context);
   results.insert<BinaryOpBroadcastAxisPattern<ONNXAddOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXAddOp>>(context);
-  results.insert<PropagateBiasIntoLayerNormRewritePattern>(context);
+  results.insert<
+      PropagateBiasIntoLayerNormRewritePattern<ONNXLayerNormalizationOp>>(
+      context);
+  results.insert<
+      PropagateBiasIntoLayerNormRewritePattern<ONNXRMSLayerNormalizationOp>>(
+      context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXAddOp>>(context);
 }
 
@@ -1358,14 +1522,7 @@ void ONNXCastOp::getCanonicalizationPatterns(
 
 /// on the ONNXConstantOp.
 void ONNXConstantOp::getCanonicalizationPatterns(
-    RewritePatternSet &results, MLIRContext *context) {
-  results.insert<ConstantOpNormalizationPattern1>(context);
-  results.insert<ConstantOpNormalizationPattern2>(context);
-  results.insert<ConstantOpNormalizationPattern3>(context);
-  results.insert<ConstantOpNormalizationPattern4>(context);
-  results.insert<ConstantOpNormalizationPattern5>(context);
-  results.insert<ConstantOpNormalizationPattern6>(context);
-}
+    RewritePatternSet &results, MLIRContext *context) {}
 
 /// on the ONNXDepthToSpaceOp.
 void ONNXDepthToSpaceOp::getCanonicalizationPatterns(
@@ -1379,6 +1536,8 @@ void ONNXDivOp::getCanonicalizationPatterns(
   result.insert<BinaryOpBroadcastAxisPattern<ONNXDivOp>>(context);
   result.insert<PropagateScalarConstantExpandPattern<ONNXDivOp>>(context);
   result.insert<PropagateReshapeThroughBinaryOpPattern<ONNXDivOp>>(context);
+  result.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXDivOp>>(
+      context);
 }
 
 /// on the ONNXDropoutOp.
@@ -1434,6 +1593,7 @@ void ONNXIdentityOp::getCanonicalizationPatterns(
 void ONNXLayoutTransformOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<ONNXLayoutTransformEliminationPattern>(context);
+  result.insert<ONNXLayoutTransformFusionPattern>(context);
 }
 
 /// on the ONNXLessOp.
@@ -1464,6 +1624,8 @@ void ONNXMulOp::getCanonicalizationPatterns(
   results.insert<BinaryOpBroadcastAxisPattern<ONNXMulOp>>(context);
   results.insert<PropagateScalarConstantExpandPattern<ONNXMulOp>>(context);
   results.insert<PropagateReshapeThroughBinaryOpPattern<ONNXMulOp>>(context);
+  results.insert<PropagateConstantScalingInAttentionLayerPattern<ONNXMulOp>>(
+      context);
 }
 
 /// on the ONNXOrOp.

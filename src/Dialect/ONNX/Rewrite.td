@@ -2,7 +2,7 @@
 
 //===---- ONNXRewrite.td - Pattern Match Rewriting for ONNX --*- tablegen -===//
 //
-// Copyright 2019 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -89,11 +89,8 @@ def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
   "onnx_mlir::createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
 
-def ONNXConstantOpNormalize: NativeCodeCall<
-  "onnx_mlir::normalizeConstantOp($_builder, $0, $1)">;
-
 def AttributeIsNotNull :
-  Constraint<CPred<" ($_self) ">, "Attribute is null">;
+  Constraint<CPred<"($_self)">, "Attribute is not null">;
 
 def IsDenseElementsAttr :
   Constraint<And<[CPred<" ($_self) ">,
@@ -197,6 +194,10 @@ def HasRank:
     CPred<
       "$_self.getType().cast<::mlir::ShapedType>().hasRank()">,
     "is a tensor of static rank">;
+
+def IsNoneValue: Constraint<
+   CPred<"onnx_mlir::isNoneValue($_self)">,
+          "Is the value none">;
 
 def HasSpecifiedConstantShape: Constraint<
     CPred<"onnx_mlir::HasSpecifiedConstantShape($0, $1)">,
@@ -460,6 +461,11 @@ def ONNXLayoutTransformEliminationPattern : Pat<
   [(HaveSameEncodingAttr $res, $arg),
    (HaveSameElementType $res, $arg)]>;
 
+def ONNXLayoutTransformFusionPattern : Pat<
+  (ONNXLayoutTransformOp (ONNXLayoutTransformOp $arg, $layout1), $layout2),
+  (ONNXLayoutTransformOp $arg, $layout2)
+>;
+
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXTransposeOp
 //===----------------------------------------------------------------------===//
@@ -610,8 +616,8 @@ def RemoveIdentityReshapePattern1:  Pat<
   (ONNXReshapeOp $val, $shape, $az),
   // Remove the reshape.
   (replaceWithValue $val),
-  // Check that val has the specified shape.
-  [(HasSpecifiedConstantShape $val, $shape)]>;
+  // Check if shape has no value
+  [(IsNoneValue:$shape)]>;
 
 def RemoveIdentityReshapePattern2:  Pat<
   // Remove an identity pattern. Output and input shapes are static and the same.
@@ -927,52 +933,6 @@ def RemoveSpaceToDepthDepthToSpacePattern : Pat<
         (ONNXSpaceToDepthOp (ONNXDepthToSpaceOp $v, $bs1, $mode), $bs2),
         (replaceWithValue $v),
         [(Equal $bs1, $bs2), (EqualString<"CRD"> $mode)]
->;
-
-//===----------------------------------------------------------------------===//
-// Canonicalization for ONNXConstantOp
-//===----------------------------------------------------------------------===//
-
-def ConstantOpNormalizationPattern1: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $floatAttr),
-   [(AttributeIsNotNull:$floatAttr)]
->;
-
-def ConstantOpNormalizationPattern2: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $intAttr),
-   [(AttributeIsNotNull:$intAttr)]
->;
-
-def ConstantOpNormalizationPattern3: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $stringAttr),
-   [(AttributeIsNotNull:$stringAttr)]
->;
-
-def ConstantOpNormalizationPattern4: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $floatsAttr),
-   [(AttributeIsNotNull:$floatsAttr)]
->;
-
-def ConstantOpNormalizationPattern5: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $intsAttr),
-   [(AttributeIsNotNull:$intsAttr)]
->;
-
-def ConstantOpNormalizationPattern6: Pat<
-   (ONNXConstantOp:$res $sparseAttr, $denseAttr, $floatAttr, $floatsAttr, $intAttr,
-       $intsAttr, $stringAttr, $stringsAttr),
-   (ONNXConstantOpNormalize $res, $stringsAttr),
-   [(AttributeIsNotNull:$stringsAttr)]
 >;
 
 //===----------------------------------------------------------------------===//

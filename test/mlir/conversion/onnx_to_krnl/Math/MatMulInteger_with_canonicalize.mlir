@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
 
@@ -7,6 +9,7 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
   %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<16x32xui8>, tensor<32x64xui8>, tensor<1xui8>, tensor<1xui8>) -> tensor<16x64xi32>
   return %0 : tensor<16x64xi32>
 
+// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_matmulinteger_per_tensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x32xui8>, [[PARAM_1_:%.+]]: memref<32x64xui8>, [[PARAM_2_:%.+]]: memref<1xui8>, [[PARAM_3_:%.+]]: memref<1xui8>) -> memref<16x64xi32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
@@ -67,9 +70,9 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 // CHECK:           }
 // CHECK-DAG:       [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi32>
 // CHECK-DAG:       [[LOOP_6_:%.+]]:3 = krnl.define_loops 3
-// CHECK-DAG:       [[RES_7_:%.+]] = memref.alloca() : memref<i32>
 // CHECK:           krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = 0 to 16, [[LOOP_6_]]#1 -> [[I_11_:%.+]] = 0 to 64, [[LOOP_6_]]#2 -> [[I_12_:%.+]] = 0 to 32){
-// CHECK:             [[VAR_7_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[VAR_7_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[RES_7_:%.+]] = memref.alloca() : memref<i32>
 // CHECK:             krnl.store [[CST_0_]], [[RES_7_]][] : memref<i32>
 // CHECK:             krnl.iterate([[LOOP_6_]]#2) with (){
 // CHECK:               [[VAR_9_4_:%.+]] = krnl.get_induction_var_value([[LOOP_6_]]#2) : (!krnl.loop) -> index
@@ -93,7 +96,8 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
   %0 = "onnx.MatMulInteger"(%arg0, %arg1, %arg2, %arg3) : (tensor<16x32xui8>, tensor<32x64xui8>, tensor<16xui8>, tensor<1xui8>) -> tensor<16x64xi32>
   return %0 : tensor<16x64xi32>
 
-// CHECK-LABEL:  func.func @test_matmulinteger_per_row
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_matmulinteger_per_row_a
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x32xui8>, [[PARAM_1_:%.+]]: memref<32x64xui8>, [[PARAM_2_:%.+]]: memref<16xui8>, [[PARAM_3_:%.+]]: memref<1xui8>) -> memref<16x64xi32> {
 // CHECK-DAG:       [[CST_0_:%.+]] = arith.constant 0 : i32
 // CHECK-DAG:       [[CST_0_1_:%.+]] = arith.constant 0 : index
@@ -154,9 +158,9 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:           }
 // CHECK-DAG:       [[RES_6_:%.+]] = memref.alloc() {{.*}}: memref<16x64xi32>
 // CHECK-DAG:       [[LOOP_6_:%.+]]:3 = krnl.define_loops 3
-// CHECK-DAG:       [[RES_7_:%.+]] = memref.alloca() : memref<i32>
 // CHECK:           krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = 0 to 16, [[LOOP_6_]]#1 -> [[I_11_:%.+]] = 0 to 64, [[LOOP_6_]]#2 -> [[I_12_:%.+]] = 0 to 32){
-// CHECK:             [[VAR_7_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[VAR_7_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
+// CHECK-DAG:         [[RES_7_:%.+]] = memref.alloca() : memref<i32>
 // CHECK:             krnl.store [[CST_0_]], [[RES_7_]][] : memref<i32>
 // CHECK:             krnl.iterate([[LOOP_6_]]#2) with (){
 // CHECK:               [[VAR_9_4_:%.+]] = krnl.get_induction_var_value([[LOOP_6_]]#2) : (!krnl.loop) -> index
@@ -173,3 +177,4 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK:           return [[RES_6_]] : memref<16x64xi32>
 // CHECK:         }
 }
+
