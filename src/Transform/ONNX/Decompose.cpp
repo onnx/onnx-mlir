@@ -905,7 +905,8 @@ struct GroupNormIntoLayerNormPattern
     Type inputShapeType =
         RankedTensorType::get({inputRank}, rewriter.getI64Type());
     Value inputShape = create.onnx.shape(inputShapeType, input);
-    Value Y = create.onnx.reshape(inputType, layerNormY, inputShape);
+    Type outputType = groupNormOp.getY().getType();
+    Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
     // Replace operation.
     rewriter.replaceOp(groupNormOp, Y);
     return success();
