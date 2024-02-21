@@ -82,15 +82,14 @@ func.func private @test_category_mapper_string_to_int64(%arg0: memref<2x2x!krnl.
   // CHECK:         llvm.mlir.global internal constant @cats_strings() {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x ptr> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr>
   // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.mlir.addressof @cats_strings : !llvm.ptr
-  // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-DAG:       [[VAR_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-  // CHECK:           [[VAR_4_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_3_]]{{.}} : (!llvm.ptr, i64, i64) -> !llvm.ptr
+  // CHECK:           [[VAR_4_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_3_]]{{.}} : (!llvm.ptr, i64) -> !llvm.ptr
   // CHECK-DAG:       [[VAR_5_:%.+]] = llvm.insertvalue [[VAR_4_]], [[VAR_0_]][0] : !llvm.array<3 x ptr>
   // CHECK-DAG:       [[VAR_7_:%.+]] = llvm.mlir.constant(5 : i64) : i64
-  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_7_]]{{.}} : (!llvm.ptr, i64, i64) -> !llvm.ptr
-  // CHECK-DAG:       [[VAR_9_:%.+]] = llvm.insertvalue [[VAR_8_]], [[VAR_5_]][1] : !llvm.array<3 x ptr<i8>>
+  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_7_]]{{.}} : (!llvm.ptr, i64) -> !llvm.ptr, i64
+  // CHECK-DAG:       [[VAR_9_:%.+]] = llvm.insertvalue [[VAR_8_]], [[VAR_5_]][1] : !llvm.array<3 x ptr>
   // CHECK-DAG:       [[VAR_11_:%.+]] = llvm.mlir.constant(9 : i64) : i64
-  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_11_]]] : (!llvm.ptr, i64, i64) -> !llvm.ptr
+  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_11_]]] : (!llvm.ptr, i64) -> !llvm.ptr, i64
   // CHECK:           [[VAR_13_:%.+]] = llvm.insertvalue [[VAR_12_]], [[VAR_9_]][2] : !llvm.array<3 x ptr>
   // CHECK:           llvm.return [[VAR_13_]] : !llvm.array<3 x ptr>
   // CHECK:         }
@@ -166,15 +165,14 @@ func.func private @test_category_mapper_int64_to_string(%arg0: memref<2x2xi64>) 
   // CHECK:         llvm.mlir.global internal constant @cats_strings() {addr_space = 0 : i32, alignment = 16 : i64} : !llvm.array<3 x ptr> {
   // CHECK-DAG:       [[VAR_0_:%.+]] = llvm.mlir.undef : !llvm.array<3 x ptr>
   // CHECK-DAG:       [[VAR_1_:%.+]] = llvm.mlir.addressof @cats_strings : !llvm.ptr
-  // CHECK-DAG:       [[VAR_2_:%.+]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-DAG:       [[VAR_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-  // CHECK:           [[VAR_4_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_3_]]{{.}} : (!llvm.ptr, i64, i64) -> !llvm.ptr
+  // CHECK:           [[VAR_4_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_3_]]{{.}} : (!llvm.ptr, i64) -> !llvm.ptr
   // CHECK-DAG:       [[VAR_5_:%.+]] = llvm.insertvalue [[VAR_4_]], [[VAR_0_]][0] : !llvm.array<3 x ptr>
   // CHECK-DAG:       [[VAR_7_:%.+]] = llvm.mlir.constant(5 : i64) : i64
-  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_7_]]{{.}} : (!llvm.ptr, i64, i64) -> !llvm.ptr
+  // CHECK:           [[VAR_8_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_7_]]{{.}} : (!llvm.ptr, i64) -> !llvm.ptr
   // CHECK-DAG:       [[VAR_9_:%.+]] = llvm.insertvalue [[VAR_8_]], [[VAR_5_]][1] : !llvm.array<3 x ptr>
   // CHECK-DAG:       [[VAR_11_:%.+]] = llvm.mlir.constant(9 : i64) : i64
-  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_2_]], [[VAR_11_]]] : (!llvm.ptr, i64, i64) -> !llvm.ptr
+  // CHECK:           [[VAR_12_:%.+]] = llvm.getelementptr [[VAR_1_]]{{.}}[[VAR_11_]]] : (!llvm.ptr, i64) -> !llvm.ptr
   // CHECK:           [[VAR_13_:%.+]] = llvm.insertvalue [[VAR_12_]], [[VAR_9_]][2] : !llvm.array<3 x ptr>
   // CHECK:           llvm.return [[VAR_13_]] : !llvm.array<3 x ptr>
   // CHECK:         }

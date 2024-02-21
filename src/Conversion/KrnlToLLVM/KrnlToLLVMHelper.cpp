@@ -211,20 +211,16 @@ LLVM::GlobalOp getOrCreateGlobalString(StringRef str, Location loc,
 
 // Return a pointer to the first character in a global string.
 Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
-    OpBuilder &builder, Value *globalPtr, Value *off1Ptr, Value *off2Ptr) {
+    OpBuilder &builder, Value *globalPtr, Value *offPtr) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   MLIRContext *ctx = builder.getContext();
-  Type i8Type = IntegerType::get(ctx, 8);
-  Type i8PtrType = getPointerType(ctx, i8Type);
   Type i64Type = IntegerType::get(ctx, 64);
+  Type i64PtrTy = getPointerType(ctx, i64Type);
   Value globalVal =
       (globalPtr != nullptr) ? *globalPtr : create.llvm.addressOf(global);
-  Value zeroVal;
-  if ((off1Ptr == nullptr) || (off2Ptr == nullptr))
-    zeroVal = create.llvm.constant(i64Type, (int64_t)0);
-  Value off1Val = (off1Ptr != nullptr) ? *off1Ptr : zeroVal;
-  Value off2Val = (off2Ptr != nullptr) ? *off2Ptr : zeroVal;
-  return create.llvm.getElemPtr(i8PtrType, i8Type, globalVal, {off1Val, off2Val});
+  Value offVal = (offPtr == NULL) ? create.llvm.constant(i64Type, (int64_t)0) :
+    *offPtr;
+  return create.llvm.getElemPtr(i64PtrTy, i64Type, globalVal, {offVal});
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
