@@ -214,13 +214,12 @@ Value getPtrToGlobalString(const LLVM::GlobalOp &global, Location loc,
     OpBuilder &builder, Value *globalPtr, Value *offPtr) {
   MultiDialectBuilder<LLVMBuilder> create(builder, loc);
   MLIRContext *ctx = builder.getContext();
-  Type i64Type = IntegerType::get(ctx, 64);
-  Type i64PtrTy = getPointerType(ctx, i64Type);
+  Type i8Type = IntegerType::get(ctx, 8);
+  Type i8PtrTy = getPointerType(ctx, i8Type);
   Value globalVal =
       (globalPtr != nullptr) ? *globalPtr : create.llvm.addressOf(global);
-  Value offVal =
-      (offPtr == NULL) ? create.llvm.constant(i64Type, (int64_t)0) : *offPtr;
-  return create.llvm.getElemPtr(i64PtrTy, i64Type, globalVal, {offVal});
+  Value offVal = (offPtr == NULL) ?  create.llvm.constant(i8Type, (int64_t) 0) : *offPtr;
+  return create.llvm.getElemPtr(i8PtrTy, i8Type, globalVal, ArrayRef<LLVM::GEPArg>{offVal});
 }
 
 void setAlignment(LLVM::GlobalOp &global, IntegerAttr alignmentAttr,
