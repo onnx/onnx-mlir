@@ -15,6 +15,8 @@
 // Include pthreads (need special treatment on z/OS).
 #ifdef __MVS__
 #define _OPEN_THREADS
+#define _OPEN_SYS_EXT
+#include <sys/ps.h>
 #endif
 #include <pthread.h>
 
@@ -42,11 +44,13 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
 }
 
+#ifndef __MVS__
 // It is supposed that sched.h should have the declaration of sched_getcpu.
 // No problem when a standalone test case is compiled with clang or g++.
 // But in onnx-mlir, this function is not defined. Explicitly define it here
 // ToFix: find the correct include file.
 extern int sched_getcpu();
+#endif
 
 static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
@@ -99,7 +103,14 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
           call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
       assert(status == ZDNN_OK);
       if (OMZTensorSplitDebug) {
-        printf("thread [%u, %u] is on cpu %d\n", i, j, sched_getcpu());
+        int cpuId = 0;
+#ifdef __MVS__
+        _Cpuid cpuIdWorkArea;
+        cpuId = __get_cpuid(cpuIdWorkArea);
+#else
+        cpuId = sched_getcpu();
+#endif
+        printf("thread [%u, %u] is on cpu %d\n", i, j, cpuId);
       }
     }
     copyData(&siYB, TILES_TO_FULL);
