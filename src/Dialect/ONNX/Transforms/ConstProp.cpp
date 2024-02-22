@@ -13,9 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Transform/ONNX/ConstProp.hpp"
-#include "src/Pass/Passes.hpp"
-
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -32,6 +29,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/ConstProp.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
@@ -945,7 +944,7 @@ Value ConstPropNonZero(
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
-#include "src/Transform/ONNX/ONNXConstProp.inc"
+#include "src/Dialect/ONNX/Transforms/ONNXConstProp.inc"
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for split.

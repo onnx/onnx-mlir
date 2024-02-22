@@ -7,6 +7,7 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
 endif()
 
 add_subdirectory(ElementsAttr)
+add_subdirectory(Transforms)
 
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
