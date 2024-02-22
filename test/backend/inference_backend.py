@@ -1375,7 +1375,7 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== IsInf
-        # ==MIN== 10
+        # ==MIN== 20
         # ==LIM== Currently no support for float16 infinity value. Only for float32 and float64.
         "test_isinf_cpu": {
             STATIC_SHAPE: {},
@@ -1394,7 +1394,7 @@ def get_test_models():
         },
         # "test_isinf_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== IsNaN
-        # ==MIN== 9
+        # ==MIN== 20
         "test_isnan_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
