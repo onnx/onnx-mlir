@@ -492,7 +492,7 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
     // No split benefit.
     splitInfo->reuseFullZTensor = true;
     splitInfo->reuseFullBuffer = true;
-    splitInfo->tiles = (zdnn_ztensor*) fullZTensor;
+    splitInfo->tiles = (zdnn_ztensor *) fullZTensor;
     if (OMZTensorSplitDebug)
       printSplitInfo(splitInfo, tag);
     return false;
