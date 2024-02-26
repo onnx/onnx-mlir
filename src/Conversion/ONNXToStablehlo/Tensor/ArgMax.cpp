@@ -110,12 +110,14 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
 
     Value dataOperands[] = {data, indexValues};
     Value initValues[] = {initValue, indexInitValue};
-    DenseIntElementsAttr reductionDimensions =
-        rewriter.getI64VectorAttr({axis});
+    llvm::ArrayRef<int64_t> reductionDimensions({axis});
 
+    TypeRange reduceResultType =
+        llvm::ArrayRef<Type>({UnrankedTensorType::get(elementType),
+            UnrankedTensorType::get(rewriter.getI64Type())});
     stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(loc,
-        llvm::ArrayRef<Value>(dataOperands), llvm::ArrayRef<Value>(initValues),
-        reductionDimensions);
+        reduceResultType, llvm::ArrayRef<Value>(dataOperands),
+        llvm::ArrayRef<Value>(initValues), reductionDimensions);
     BuildArgmaxReductionBody(
         elementType, indexElementType, &reduction.getBody(), &rewriter);
 

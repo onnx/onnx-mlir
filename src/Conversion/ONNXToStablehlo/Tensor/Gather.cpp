@@ -72,7 +72,7 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
           axisDimSizeValue);
       axisDimSize =
           rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
-              axisDimSizeValue, indicesShape, rewriter.getI64TensorAttr({}));
+              axisDimSizeValue, indicesShape, rewriter.getDenseI64ArrayAttr({}));
     }
     Value greaterOp = rewriter.create<stablehlo::CompareOp>(
         loc, indices, zero, stablehlo::ComparisonDirection::LT);

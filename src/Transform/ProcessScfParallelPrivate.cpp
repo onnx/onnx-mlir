@@ -81,12 +81,12 @@ struct ProcessScfParallelWithoutScopePattern
       // Create a block containing the ops in the loop body.
       Block *ops = rewriter.splitBlock(&*newParForOp.getRegion().begin(),
           newParForOp.getRegion().begin()->begin());
-      auto oldYield = cast<scf::YieldOp>(ops->getTerminator());
+      auto oldYield = cast<scf::ReduceOp>(ops->getTerminator());
       // Insertion point at the top of the loop.
       rewriter.setInsertionPointToStart(&*newParForOp.getRegion().begin());
       // Create scope and scf yield.
       auto scope = rewriter.create<memref::AllocaScopeOp>(loc, TypeRange());
-      rewriter.create<scf::YieldOp>(loc, oldYield.getOperands());
+      rewriter.create<scf::ReduceOp>(loc, oldYield.getOperands());
       // Move the ops of the loop body into the alloca scope.
       Block *scopeBlock = rewriter.createBlock(&scope.getBodyRegion());
       rewriter.mergeBlocks(ops, scopeBlock);
