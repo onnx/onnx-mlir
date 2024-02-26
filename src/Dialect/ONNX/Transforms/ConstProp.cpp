@@ -4,7 +4,7 @@
 
 //===----------- ONNXConstProp.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,9 +12,6 @@
 // composition of other ONNX operations.
 //
 //===----------------------------------------------------------------------===//
-
-#include "src/Transform/ONNX/ConstProp.hpp"
-#include "src/Pass/Passes.hpp"
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
@@ -32,6 +29,8 @@
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
+#include "src/Dialect/ONNX/Transforms/ConstProp.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #include <math.h>
@@ -215,6 +214,28 @@ struct ElementWiseBinaryOpImpl<ONNXMinOp, T> {
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXMaxOp, T> {
   static T eval(T lhs, T rhs) { return std::max<T>(lhs, rhs); }
+};
+
+template <>
+struct ElementWiseBinaryOpImpl<ONNXModOp, int64_t, EnableNotBool<int64_t>> {
+  static int64_t eval(int64_t lhs, int64_t rhs) {
+    // The original calculation for mod
+    int64_t mod = lhs % rhs;
+    // Handle the case when one of the int values are negative
+    // If both int values are positive or multiples of each other, we can
+    // calculate as normal
+    if ((mod != 0) && ((lhs < 0) ^ (rhs < 0)))
+      return (mod + rhs);
+    return mod;
+  }
+};
+
+template <>
+struct ElementWiseBinaryOpImpl<ONNXModOp, double, EnableNotBool<double>> {
+  static double eval(double lhs, double rhs) {
+    // Rounding to match the results of the backend tests
+    return (std::floor(fmod(lhs, rhs) * 1000000000) / 1000000000);
+  }
 };
 
 template <typename T>
@@ -945,7 +966,7 @@ Value ConstPropNonZero(
 // Pattern definition.
 //===----------------------------------------------------------------------===//
 
-#include "src/Transform/ONNX/ONNXConstProp.inc"
+#include "src/Dialect/ONNX/Transforms/ONNXConstProp.inc"
 
 //===----------------------------------------------------------------------===//
 // Code to perform constant propagation for split.

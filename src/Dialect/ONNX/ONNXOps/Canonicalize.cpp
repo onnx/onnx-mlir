@@ -103,6 +103,21 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
   return transposedInputs;
 }
 
+// Cast a variadic input using the given `saturate` and `to`.
+SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
+    ValueRange inputs, IntegerAttr saturate, TypeAttr to) {
+  SmallVector<Value, 4> castInputs;
+  for (Value inp : inputs) {
+    ShapedType inpType = inp.getType().cast<ShapedType>();
+    assert(inpType && "Type is not ShapedType");
+    ONNXCastOp castOp = rewriter.create<ONNXCastOp>(loc,
+        UnrankedTensorType::get(inpType.getElementType()), inp, saturate, to);
+    (void)castOp.inferShapes([](Region &region) {});
+    castInputs.emplace_back(castOp.getResult());
+  }
+  return castInputs;
+}
+
 // Check if all values are produced by ONNXTransposeOp.
 bool areProducedByTransposeOp(ValueRange values) {
   return llvm::all_of(values, [](Value v) {
@@ -260,7 +275,7 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
 /// Include the patterns defined in the Declarative Rewrite framework.
 // =============================================================================
 
-#include "src/Dialect/ONNX/ONNXRewrite.inc"
+#include "src/Dialect/ONNX/ONNXOps/ONNXCanonicalize.inc"
 
 // =============================================================================
 // Rewrite pattern for elementwise binary ops (not handled in Rewrite.td).
@@ -1516,6 +1531,8 @@ void ONNXAndOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
+  result.insert<SwapCastConcatPattern>(context);
+  result.insert<SwapCastSlicePattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
 }

@@ -20,13 +20,13 @@
 #include "llvm/ADT/StringSet.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ConstProp.hpp"
+#include "src/Dialect/ONNX/Transforms/ConvOpt.hpp"
+#include "src/Dialect/ONNX/Transforms/Decompose.hpp"
+#include "src/Dialect/ONNX/Transforms/Recompose.hpp"
+#include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ConstProp.hpp"
-#include "src/Transform/ONNX/ConvOpt.hpp"
-#include "src/Transform/ONNX/Decompose.hpp"
-#include "src/Transform/ONNX/Recompose.hpp"
-#include "src/Transform/ONNX/ShapeInference.hpp"
 
 #include <iterator>
 
