@@ -275,7 +275,7 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
 /// Include the patterns defined in the Declarative Rewrite framework.
 // =============================================================================
 
-#include "src/Dialect/ONNX/ONNXRewrite.inc"
+#include "src/Dialect/ONNX/ONNXOps/ONNXCanonicalize.inc"
 
 // =============================================================================
 // Rewrite pattern for elementwise binary ops (not handled in Rewrite.td).
