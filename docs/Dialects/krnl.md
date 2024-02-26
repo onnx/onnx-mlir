@@ -917,6 +917,28 @@ are nested imperfectly between an "eager" and a "lazy" loop.
 
 Traits: SingleBlock, SingleBlockImplicitTerminator<KrnlTerminatorOp>
 
+### `krnl.noValue` (KrnlNoneOp)
+
+_An operation representing the absence of a value._
+
+This operation can be used to represent the absence of a value. It is
+typically used as an argument to operators that have optional parameters,
+and converted into nullptr while krnl to llvm lowering.
+Typically it is used for optional arguments used in KrnlCallop.
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>value</code></td><td>::mlir::UnitAttr</td><td>unit attribute</td></tr>
+</table>
+
+#### Results:
+
+| Result | Description |
+| :----: | ----------- |
+| `none_val` | none type
+
 ### `krnl.parallel` (KrnlParallelOp)
 
 _Mark Krnl loops as parallel loops_
