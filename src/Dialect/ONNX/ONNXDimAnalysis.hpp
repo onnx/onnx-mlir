@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Value.h"
 
@@ -90,6 +91,16 @@ private:
   /// Each dynamic dimension is initially assigned to a singleton set.
   void build(mlir::Value val);
 
+  /// Initializes the internal mappings for a single dynamic dimension.
+  /// The dynamic dimension is initially assigned to a newly-created set or an
+  /// existing set depending on `setID` is -1 or not.
+  /// This method returns the set ID that contains the dimension.
+  int64_t build(DimT d, int64_t setID = -1);
+
+  /// Initializes the internal mappings for function arguments and resutls.
+  void buildFunctionArgsRes(mlir::func::FuncOp funcOp);
+
+  // Create dims for function arguments.
   /// Update each set of dynamic dimensions to include the same dynamic
   /// dimensions. This is a local update in the sense that the search space
   /// includes dynamic dimensions that directly link to the dimensions in the
@@ -102,6 +113,12 @@ private:
 
   /// Visit a dynamic dimension and find new same dynamic dimensions.
   void visitDim(DimT &dim, DimSetT &sameDims) const;
+
+  /// Get onnx.dim_params value from a function argument/result and put it into
+  /// a map.
+  /// TODO: find a new home for this function.
+  void getONNXDimParams(std::map<unsigned, std::string> &indexParamMap,
+      mlir::ArrayAttr argResAttr, unsigned index);
 
 private:
   int64_t setCounter = 0;

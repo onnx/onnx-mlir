@@ -6,6 +6,7 @@ add_onnx_mlir_rewriter(ZLowCombine)
 add_onnx_mlir_library(OMZLowOps
   ZLowOps.cpp
   ZLowCombine.cpp
+  DialectBuilder.cpp
 
   DEPENDS
   OMZLowIncGen
@@ -13,4 +14,5 @@ add_onnx_mlir_library(OMZLowOps
 
   LINK_LIBS PUBLIC
   MLIRIR
+  OMMlirDialects
   )

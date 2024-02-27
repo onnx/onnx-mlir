@@ -71,6 +71,7 @@ op_dialect_version_map_["GRU"] = {14};
 op_dialect_version_map_["Gather"] = {13};
 op_dialect_version_map_["GatherElements"] = {13};
 op_dialect_version_map_["GatherND"] = {13};
+op_dialect_version_map_["Gelu"] = {20};
 op_dialect_version_map_["Gemm"] = {13};
 op_dialect_version_map_["GlobalAveragePool"] = {1};
 op_dialect_version_map_["GlobalLpPool"] = {2};
@@ -89,8 +90,8 @@ op_dialect_version_map_["Identity"] = {19};
 op_dialect_version_map_["If"] = {19};
 op_dialect_version_map_["Imputer"] = {1};
 op_dialect_version_map_["InstanceNormalization"] = {6};
-op_dialect_version_map_["IsInf"] = {10};
-op_dialect_version_map_["IsNaN"] = {13};
+op_dialect_version_map_["IsInf"] = {20};
+op_dialect_version_map_["IsNaN"] = {20};
 op_dialect_version_map_["LayerNormalization"] = {17};
 op_dialect_version_map_["LRN"] = {13};
 op_dialect_version_map_["LSTM"] = {14};
@@ -337,6 +338,8 @@ import_handler_map_["GatherElements"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherElementsOp>;
 import_handler_map_["GatherND"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGatherNDOp>;
+import_handler_map_["Gelu"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGeluOp>;
 import_handler_map_["Gemm"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXGemmOp>;
 import_handler_map_["GlobalAveragePool"] = 

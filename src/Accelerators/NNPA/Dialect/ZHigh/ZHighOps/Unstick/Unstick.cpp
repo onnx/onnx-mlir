@@ -116,6 +116,8 @@ LogicalResult ZHighUnstickOp::inferShapes(
 void ZHighUnstickOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<UnstickStickRemovalPattern>(context);
+  results.insert<DimUnstickRemovalPattern>(context);
+  results.insert<DimUnstickNHWCRemovalPattern>(context);
 }
 
 } // namespace zhigh

@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(ONNX)
-
 add_onnx_mlir_library(OMElideKrnlGlobalConstants
   ElideKrnlGlobalConstants.cpp
 
@@ -32,4 +30,25 @@ add_onnx_mlir_library(OMLowerKrnlRegion
   LINK_LIBS PUBLIC
   OMSupport
   MLIRTransformUtils
+  )
+
+  add_onnx_mlir_library(OMScfParallelPrivateRegion
+  ProcessScfParallelPrivate.cpp
+
+  LINK_LIBS PUBLIC
+  OMSupport
+  MLIRTransformUtils
+  )
+
+add_onnx_mlir_library(OMInstrument
+  InstrumentPass.cpp
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  OMONNXOps
+  OMKrnlOps
+  MLIRPass
+  OMOptionUtils
   )

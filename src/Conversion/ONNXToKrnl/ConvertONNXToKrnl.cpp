@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,6 +19,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
@@ -118,33 +119,9 @@ private:
     parsingFailure = false;
     auto inputs = funcType.getInputs();
     auto outputs = funcType.getResults();
-
-    ArrayAttr inputNames = op->getAttrOfType<ArrayAttr>("input_names");
-    if (!inputNames) {
-      SmallVector<StringRef, 4> names;
-      for (uint64_t i = 0; i < inputs.size(); ++i)
-        names.emplace_back(StringRef("input_" + std::to_string(i)));
-      inputNames = b.getStrArrayAttr(names);
-    } else if (inputNames.size() != inputs.size()) {
-      llvm::errs()
-          << "Please ensure that the 'input_name' function attribute has "
-             "the same number of names as function parameters.";
-      parsingFailure = true;
-      return "";
-    }
-    ArrayAttr outputNames = op->getAttrOfType<ArrayAttr>("output_names");
-    if (!outputNames) {
-      SmallVector<StringRef, 4> names;
-      for (uint64_t i = 0; i < outputs.size(); ++i)
-        names.emplace_back(StringRef("output_" + std::to_string(i)));
-      outputNames = b.getStrArrayAttr(names);
-    } else if (outputNames.size() != outputs.size()) {
-      llvm::errs()
-          << "Please ensure that the 'output_name' function attribute has "
-             "the same number of names as function results.";
-      parsingFailure = true;
-      return "";
-    }
+    auto funcOp = dyn_cast_or_null<func::FuncOp>(op);
+    ArrayAttr argAttrs = funcOp.getArgAttrsAttr();
+    ArrayAttr resAttrs = funcOp.getResAttrsAttr();
 
     std::string dString;
     llvm::raw_string_ostream dstream(dString);
@@ -152,7 +129,16 @@ private:
     std::string comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumInputs(); i++) {
       dstream << comma;
-      concatTypeString(inputs[i], inputNames[i], dstream);
+      StringAttr inputName = b.getStringAttr({"input_" + std::to_string(i)});
+      if (argAttrs) {
+        DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(argAttrs[i]);
+        if (dictAttrs && dictAttrs.contains("onnx.name"))
+          inputName = dictAttrs.getNamed("onnx.name")
+                          .value()
+                          .getValue()
+                          .cast<StringAttr>();
+      }
+      concatTypeString(inputs[i], inputName, dstream);
       comma = std::string(" , ");
     }
     dstream << "\n]";
@@ -162,7 +148,16 @@ private:
     comma = std::string("");
     for (unsigned int i = 0; i < funcType.getNumResults(); i++) {
       dstream << comma;
-      concatTypeString(outputs[i], outputNames[i], dstream);
+      StringAttr outputName = b.getStringAttr({"output_" + std::to_string(i)});
+      if (argAttrs) {
+        DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
+        if (dictAttrs && dictAttrs.contains("onnx.name"))
+          outputName = dictAttrs.getNamed("onnx.name")
+                           .value()
+                           .getValue()
+                           .cast<StringAttr>();
+      }
+      concatTypeString(outputs[i], outputName, dstream);
       comma = std::string(" , ");
     }
     dstream << "\n]";
@@ -240,7 +235,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
-  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
@@ -269,11 +264,10 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
-  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel, opsForCall);
-  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
+  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
   populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
@@ -288,8 +282,9 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
-  populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
   // clang-format on
 }
 
@@ -483,9 +478,13 @@ int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
 int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
 std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
 std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
+EnableByRegexOption OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps(
+    /*emptyIsNone*/ false);
 
+// Function to set default reporting messages, if any.
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
-    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
+    bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
+    bool simdIsEnabled) {
   OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
   OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
   if (reportOnParallel && !parallelIsEnabled)
@@ -502,6 +501,10 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
             "cpu with unspecified simd ISA";
     }
   }
+  if (parallelIsEnabled)
+    // We have parallelism, enable specific parallel ops if available.
+    OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexString(
+        specificParallelOps);
 }
 
 } // namespace onnx_mlir

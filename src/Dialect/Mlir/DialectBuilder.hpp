@@ -4,7 +4,7 @@
 
 //===---- DialectBuilder.hpp - Helper functions for MLIR dialects -----===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -113,6 +113,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
   mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value erf(mlir::Value val) const;
   mlir::Value exp(mlir::Value val) const;                       // Float only.
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
@@ -127,6 +128,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value sqrt(mlir::Value val) const; // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value tanh(mlir::Value val) const;                  // Float only.
   mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
 
   mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
@@ -203,7 +205,10 @@ struct ShapeBuilder final : DialectBuilder {
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value shapeOf(mlir::Value val) const;
+
+  mlir::Value fromExtents(mlir::ValueRange extents) const;
   mlir::Value getExtent(mlir::Value val, int64_t index) const;
+  mlir::Value toExtentTensor(mlir::Type type, mlir::Value shape) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -437,6 +442,8 @@ struct VectorBuilder final : DialectBuilder {
       llvm::SmallVectorImpl<int64_t> &mask) const;
   mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
 
+  mlir::Value typeCast(mlir::Type resTy, mlir::Value val) const;
+
   // Composite functions.
   mlir::Value mergeHigh(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
   mlir::Value mergeLow(mlir::Value lhs, mlir::Value rhs, int64_t step) const;
@@ -562,6 +569,9 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value _alloca(mlir::Type resultType, mlir::Type elementType,
       mlir::Value size, int64_t alignment) const;
 
+  // AndOp
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;
+
   // BitcastOp
   mlir::Value bitcast(mlir::Type type, mlir::Value val) const;
 
@@ -585,6 +595,10 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value constant(mlir::Type type, int64_t val) const;
   mlir::Value constant(mlir::Type type, double val) const;
 
+  // ExtractElementOp
+  mlir::Value extractElement(
+      mlir::Type resultType, mlir::Value container, int64_t position) const;
+
   // ExtractValueOp
   mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
       llvm::ArrayRef<int64_t> position) const;
@@ -606,12 +620,19 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value icmp(
       mlir::LLVM::ICmpPredicate cond, mlir::Value lhs, mlir::Value rhs) const;
 
+  // InsertElementOp
+  mlir::Value insertElement(
+      mlir::Value vec, mlir::Value val, int64_t position) const;
+
   // InsertValueOp
   mlir::Value insertValue(mlir::Type resultType, mlir::Value container,
       mlir::Value val, llvm::ArrayRef<int64_t> position) const;
 
   // Inttoptr
   mlir::Value inttoptr(mlir::Type type, mlir::Value val) const;
+
+  // LShrOp
+  mlir::Value lshr(mlir::Value lhs, mlir::Value rhs) const;
 
   // LoadOp
   mlir::Value load(mlir::Type elementType, mlir::Value addr) const;
@@ -622,6 +643,9 @@ struct LLVMBuilder final : DialectBuilder {
   // NullOp
   mlir::Value null(mlir::Type type) const;
 
+  // OrOp
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;
+
   // Ptrtoint
   mlir::Value ptrtoint(mlir::Type type, mlir::Value val) const;
 
@@ -629,11 +653,23 @@ struct LLVMBuilder final : DialectBuilder {
   void _return() const;
   void _return(mlir::Value val) const;
 
+  // SelectOp
+  mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
+
   // SExtOp
   mlir::Value sext(mlir::Type type, mlir::Value val) const;
 
+  // ShlOp
+  mlir::Value shl(mlir::Value lhs, mlir::Value rhs) const;
+
   // StoreOp
   void store(mlir::Value val, mlir::Value addr) const;
+
+  // TruncOp
+  mlir::Value trunc(mlir::Type type, mlir::Value val) const;
+
+  // ZExtOp
+  mlir::Value zext(mlir::Type type, mlir::Value val) const;
 
   //===--------------------------------------------------------------------===//
   // Helper functions

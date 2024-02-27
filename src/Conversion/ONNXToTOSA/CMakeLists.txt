@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   NN/AveragePool.cpp
   Tensor/Constant.cpp
   Tensor/Reshape.cpp
+  Tensor/Resize.cpp
 
   LINK_LIBS PUBLIC
   OMONNXOps

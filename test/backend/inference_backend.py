@@ -2,7 +2,7 @@
 
 ##################### inference_backend.py #####################################
 #
-# Copyright 2021, 2023 The IBM Research Authors.
+# Copyright 2021, 2024 The IBM Research Authors.
 #
 ################################################################################
 from __future__ import absolute_import
@@ -394,7 +394,6 @@ def get_test_models():
         },
         # ==OP== Cast
         # ==MIN== 6
-        # ==UNSUPPORTED== 19
         # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_cast_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
@@ -432,6 +431,45 @@ def get_test_models():
         },
         "test_cast_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
         "test_cast_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
+        # ==OP== CastLike
+        # ==MIN== 19
+        # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
+        "test_castlike_FLOAT_to_DOUBLE_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_castlike_DOUBLE_to_FLOAT_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        "test_castlike_FLOAT_to_FLOAT16_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_FLOAT16_to_FLOAT_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_FLOAT16_to_DOUBLE_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_DOUBLE_to_FLOAT16_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+            FLOAT16: {},
+        },
+        "test_castlike_FLOAT_to_STRING_cpu": {},  # appears unsupported at this time
+        "test_castlike_STRING_to_FLOAT_cpu": {},  # appears unsupported at this time
         # ==OP== Ceil
         # ==MIN== 6
         "test_ceil_example_cpu": {
@@ -576,11 +614,11 @@ def get_test_models():
         },
         # ==OP== Constant
         # ==MIN== 1
-        # ==UNSUPPORTED== 19
         # By def, no dynamic shapes.
         "test_constant_cpu": {STATIC_SHAPE: {}},
         # ==OP== ConstantOfShape
         # ==MIN== 9
+        # ==UNSUPPORTED== 20
         # By def, no dynamic shapes.
         "test_constantofshape_float_ones_cpu": {STATIC_SHAPE: {}},
         "test_constantofshape_int_zeros_cpu": {STATIC_SHAPE: {}},
@@ -730,6 +768,8 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== DFT
+        # ==MIN== 17
+        # ==UNSUPPORTED== 20
         # "test_dft_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_inverse_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -878,7 +918,6 @@ def get_test_models():
         },
         # ==OP== Equal
         # ==MIN== 7
-        # ==UNSUPPORTED== 19
         "test_equal_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -889,9 +928,17 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # Issue #2416: We currently do not support input type of string for backend tests
-        # "test_equal_string_broadcast_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
-        # "test_equal_string_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
+        # Issue #2416: We currently do not support input type of string for backend tests with JNI
+        "test_equal_string_broadcast_cpu": {
+            STATIC_SHAPE_STRING: {},
+            DYNAMIC_SHAPE_STRING: {-1: {-1}},
+            CONSTANT_INPUT_STRING: {-1},
+        },
+        "test_equal_string_cpu": {
+            STATIC_SHAPE_STRING: {},
+            DYNAMIC_SHAPE_STRING: {-1: {-1}},
+            CONSTANT_INPUT_STRING: {-1},
+        },
         # ==OP== Erf
         # ==MIN== 9
         "test_erf_cpu": {
@@ -1038,6 +1085,48 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # ==OP== Gelu
+        # ==MIN== 20
+        "test_gelu_default_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_default_1_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_default_2_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_default_2_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_tanh_1_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_tanh_1_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        "test_gelu_tanh_2_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
+        # "test_gelu_tanh_2_expanded_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
         # ==OP== Gemm
         # ==MIN== 6
         "test_gemm_all_attributes_cpu": {
@@ -1286,7 +1375,8 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== IsInf
-        # ==MIN== 10
+        # ==MIN== 20
+        # ==LIM== Currently no support for float16 infinity value. Only for float32 and float64.
         "test_isinf_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -1302,13 +1392,15 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # "test_isinf_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== IsNaN
-        # ==MIN== 9
+        # ==MIN== 20
         "test_isnan_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # "test_isnan_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== LayerNormalization
         # ==MIN== 17
         "test_layer_normalization_2d_axis0_cpu": {
@@ -2155,7 +2247,6 @@ def get_test_models():
         },
         # ==OP== Pad
         # ==MIN== 2
-        # ==UNSUPPORTED== 19
         # ==LIM== axes input not supported
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
@@ -2209,7 +2300,6 @@ def get_test_models():
         },
         # ==OP== QuantizeLinear
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Do not support per-axis and i8 quantization.
         # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_quantizelinear_cpu": {
@@ -2341,6 +2431,7 @@ def get_test_models():
         },
         # ==OP== ReduceMax
         # ==MIN== 1
+        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2395,6 +2486,7 @@ def get_test_models():
         },
         # ==OP== ReduceMin
         # ==MIN== 1
+        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_min_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_min_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2564,7 +2656,6 @@ def get_test_models():
         },
         # ==OP== Resize
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported.
         # Resize
         # All test cases in onnx v1.11.0. yes for currently supported
@@ -2819,7 +2910,6 @@ def get_test_models():
         },
         # ==OP== Slice
         # ==MIN== 13
-        # ==UNSUPPORTED== 19
         # ==LIM== Axis must be a constant argument.
         # ==TODO== Add tests to slices, currently have none.
         # (makes Axis a runtime argument, which is not supported).
@@ -2903,7 +2993,6 @@ def get_test_models():
         },
         # ==OP== Split
         # ==MIN== 2
-        # ==UNSUPPORTED== 19
         # ==LIM== Does not support static and dynamic shape, zero size splits.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_split_equal_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -3301,17 +3390,20 @@ def get_test_models():
     node_test_to_enable = [
         key
         for (key, value) in variables.node_test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     model_test_to_enable = [
         key
         for (key, value) in variables.model_test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
     test_to_enable = [
         key
         for (key, value) in variables.test_to_enable_dict.items()
-        if STATIC_SHAPE in value
+        if (STATIC_SHAPE in value)
+        or ((STATIC_SHAPE_STRING in value) and (args.emit == "lib"))
     ]
 
     # Test for dynamic inputs.
@@ -3685,7 +3777,9 @@ def save_all_test_names(all_test_names):
         + "\n"
     )
     with open("./" + filename, "w") as f:
-        f.write('# This file is automatically generated by "make check-backend-case"\n')
+        f.write(
+            '# This file is automatically generated by "make check-onnx-backend-case"\n'
+        )
         f.write("# From onnx {}\n".format(onnx.__version__))
         f.write("# All test cases for cpu target\n")
         for test_name in all_test_names:

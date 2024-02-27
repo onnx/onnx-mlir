@@ -33,7 +33,7 @@ import subprocess
 import sys
 
 DOCKER_SOCKET = "/var/run/docker.sock"
-ONNX_MLIR_IMAGE = "onnxmlirczar/onnx-mlir"
+ONNX_MLIR_IMAGE = "onnxmlir/onnx-mlir"
 KNOWN_INPUT_TYPE = (".onnx", ".json", ".mlir")
 
 mount_dirs = []
@@ -69,7 +69,7 @@ def main():
         print("docker daemon not running")
         sys.exit(1)
 
-    # Pull the latest onnxmlirczar/onnx-mlir image, if image
+    # Pull the latest onnxmlir/onnx-mlir image, if image
     # is already up-to-date, pull will do nothing.
     args = ["docker", "pull", ONNX_MLIR_IMAGE]
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

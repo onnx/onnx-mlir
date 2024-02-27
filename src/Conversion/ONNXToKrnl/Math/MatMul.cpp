@@ -4,7 +4,7 @@
 
 //===----------------- Matmul.cpp - Lowering Matmul Op --------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -33,8 +33,13 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       DimAnalysis *dimAnalysis, bool enableTiling, bool enableSIMD,
       bool enableParallel)
       : OpConversionPattern(typeConverter, ctx), dimAnalysis(dimAnalysis),
-        enableTiling(enableTiling), enableSIMD(enableSIMD),
-        enableParallel(enableParallel) {}
+        enableTiling(enableTiling), enableSIMD(enableSIMD) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXMatMulOp::getOperationName());
+  }
+
   DimAnalysis *dimAnalysis;
   bool enableTiling;
   bool enableSIMD;
@@ -66,12 +71,12 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     IndexExpr innerUb = shapeHelper.aDims[aRank - 1];
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
-    // Single scalar, no need for default alignment.
-    Value reductionVal =
-        create.mem.alignedAlloca(MemRefType::get({}, elementType));
     if (enableParallel) {
       create.krnl.parallel(outerLoops[0]);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+      onnxToKrnlParallelReport(
+          op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
+    } else {
+      onnxToKrnlParallelReport(op, false, -1, -1, "matmul generic");
     }
 
     // Non-reduction loop iterations: output-rank.
@@ -79,6 +84,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
+          // Single scalar, no need for default alignment.
+          Value reductionVal =
+              create.mem.alignedAlloca(MemRefType::get({}, elementType));
           create.krnl.store(fZero, reductionVal);
           // Inner loop for reduction.
           create.krnl.iterate({}, innerLoop, {}, {},
@@ -309,7 +317,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
     if (enableParallel) {
       create.krnl.parallel(ii1);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+      onnxToKrnlParallelReport(
+          op, true, 0, LiteralIndexExpr(0), dimI, "matmul no broadcast");
+    } else {
+      onnxToKrnlParallelReport(op, false, -1, -1, "matmul no broadcast");
     }
     create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
         {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -379,7 +390,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
       broadcastUB.emplace_back(create.mem.dim(C, i));
     if (enableParallel) {
       create.krnl.parallel(broadcastLoop[0]);
-      LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.MatMul\n");
+      onnxToKrnlParallelReport(op, true, 0, LiteralIndexExpr(0),
+          shapeHelper.getOutputDims()[0], "matmul broadcast");
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
@@ -442,7 +454,6 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     Location loc = ONNXLoc<ONNXMatMulOp>(op);
     MultiDialectBuilder<IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>
         create(rewriter, loc);
-
     // Get shape.
     ONNXMatMulOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();

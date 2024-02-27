@@ -255,6 +255,7 @@ MLIR_TYPE_TO_NP_TYPE = {
     "ui16": np.dtype("uint16"),
     "ui8": np.dtype("uint8"),
     "i1": np.dtype("bool"),
+    "string": np.dtype("str_"),
 }
 
 # Default lower bound for generating random inputs.
@@ -498,12 +499,20 @@ def generate_random_input(input_signature, input_shapes):
         elif np.issubdtype(np_elem_type, np.float16):
             lb = float(DEFAULT_LB["float16"])
             ub = float(DEFAULT_UB["float16"])
+        elif np.issubdtype(np_elem_type, np.str_):
+            lb = 0
+            ub = 64
+            random_element_type = np.dtype("int32")
         else:
             raise AssertionError("Unsuported element type")
         rinput = np.random.uniform(lb, ub, explicit_shape).astype(random_element_type)
         # For boolean, transform range into True/False using greater_equal
         if np.issubdtype(np_elem_type, np.dtype(bool).type):
             rinput = np.greater_equal(rinput, [0])
+        elif np.issubdtype(np_elem_type, np.str_):
+            rinput = np.array(rinput, dtype=np.str_)
+            # rinput = np.array(["ab", "defg"], dtype=np.str_)
+            rinput = np.array(rinput, dtype=object)
         print(
             "  - {} input's shape {}, element type {}.".format(
                 ordinal(i + 1), rinput.shape, np_elem_type
@@ -539,7 +548,9 @@ def verify_outs(actual_outs, ref_outs):
         print("  correct.\n")
     else:
         raise AssertionError(
-            "  mismatched elements {}/{}.\n".format(mismatched_elements, total_elements)
+            "  got mismatched elements {}/{}, abort.\n".format(
+                mismatched_elements, total_elements
+            )
         )
 
 
@@ -671,7 +682,10 @@ def main():
         # Use the generated shared library to create an execution session.
         print("Loading the compiled model ...")
         start = time.perf_counter()
-        sess = OMExecutionSession(shared_lib_path)
+        if args.load_so:
+            sess = OMExecutionSession(shared_lib_path, tag="None")
+        else:
+            sess = OMExecutionSession(shared_lib_path)
         end = time.perf_counter()
         print("  took ", end - start, " seconds.\n")
 

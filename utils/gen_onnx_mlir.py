@@ -66,7 +66,7 @@ list_operation_version = args.list_operation_version
 
 # ==UPDATE_ONNX_VERSION_OPSET==
 # Look for tag above and update all references when upgrading the ONNX support within ONNX-MLIR.
-current_onnx_version = "1.14.1"
+current_onnx_version = "1.15.0"
 
 # Check the version of onnx package being used.
 if (
@@ -152,6 +152,7 @@ version_dict = {
     "Gather": [13],
     "GatherElements": [13],
     "GatherND": [13],
+    "Gelu": [20],
     "Gemm": [13],
     "GlobalAveragePool": [1],
     "GlobalLpPool": [2],
@@ -170,8 +171,8 @@ version_dict = {
     "If": [19],
     "Imputer": [1],
     "InstanceNormalization": [6],
-    "IsInf": [10],
-    "IsNaN": [13],
+    "IsInf": [20],
+    "IsNaN": [20],
     "LayerNormalization": [17],
     "LRN": [13],
     "LSTM": [14],
@@ -389,6 +390,7 @@ OpsWithVerifier = [
     "Gather",
     "GatherElements",
     "GatherND",
+    "Gelu",
     "Greater",
     "GreaterOrEqual",
     "Hardmax",

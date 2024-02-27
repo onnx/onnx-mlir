@@ -32,7 +32,7 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape() {
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
 
-  // Axis is a required attribute and should have default value of 1.
+  // Axis is a required attribute and should have a default value of 1.
   int64_t axis = operandAdaptor.getAxis();
 
   // OneSided is a required attribute and should have default value of 0.

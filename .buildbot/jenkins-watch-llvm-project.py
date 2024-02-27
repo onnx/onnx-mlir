@@ -13,7 +13,6 @@ import re
 import requests
 import shutil
 import sys
-import traceback
 
 from datetime import datetime
 from longest_increasing_subsequence import longest_decreasing_subsequence
@@ -111,15 +110,17 @@ INIT_WATCH_STATE = {
 }
 
 
-# Download remote URL and save to local file
 def urlretrieve(remote_url, local_file):
+    """Download remote URL and save to local file."""
+
     req = requests.get(remote_url)
     with open(local_file, "wb") as f:
         f.write(req.content)
 
 
-# Extract text matching regex from file
 def extract_pattern_from_file(file_name, regex_pattern):
+    """Extract text matching regex from file."""
+
     try:
         for line in open(file_name):
             matched = re.search(re.compile(regex_pattern), line)
@@ -129,8 +130,9 @@ def extract_pattern_from_file(file_name, regex_pattern):
         return ""
 
 
-# Get the author commit date of a commit sha
 def get_repo_sha1_date(github_repo, access_token, commit_sha1):
+    """Get the author commit date of a commit sha."""
+
     try:
         resp = requests.get(
             url=github_repo + "/commits/" + commit_sha1,
@@ -141,16 +143,17 @@ def get_repo_sha1_date(github_repo, access_token, commit_sha1):
         )
         resp.raise_for_status()
         return resp.json()["commit"]["committer"]["date"]
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
         return ""
 
 
-# Retrieve llvm-project main branch commit history from the latest
-# until specified commit_sha1.
 def get_remote_repo_sha1_history(
     github_repo, access_token, commit_sha1_oldest, commit_sha1_newest=None
 ):
+    """Retrieve llvm-project main branch commit history from the latest
+    until specified commit_sha1."""
+
     logging.info("Fetch LLVM commit history until " + commit_sha1_oldest)
     sha1_history = []
     date_history = []
@@ -223,14 +226,15 @@ def get_remote_repo_sha1_history(
             ]
 
         logging.info("{} new commits retrieved".format(len(hist["history"])))
-    except:
-        logging.info(sys.exc_info()[1])
+    except Exception as e:
+        logging.exception(e)
     finally:
         return hist
 
 
-# Get the latest commit sha1 and date of a local git repo
 def get_local_repo_sha1_date(local_repo):
+    """Get the latest commit sha1 and date of a local git repo."""
+
     repo = git.Repo(local_repo)
     repo_sha1 = repo.head.commit.hexsha
     repo_sha1_date = (
@@ -239,8 +243,9 @@ def get_local_repo_sha1_date(local_repo):
     return {"sha1": repo_sha1, "date": repo_sha1_date}
 
 
-# Remove all the containers depending on an (dangling) image.
 def remove_dependent_containers(image):
+    """Remove all the containers depending on an (dangling) image."""
+
     containers = docker_api.containers(
         filters={"ancestor": image}, all=True, quiet=True
     )
@@ -252,13 +257,14 @@ def remove_dependent_containers(image):
             logging.info("     Cmd %s", str(container_info["Config"]["Cmd"]))
             logging.info("  Labels %s", str(container_info["Config"]["Labels"]))
             docker_api.remove_container(container["Id"], v=True, force=True)
-        except:
-            logging.info(sys.exc_info()[1])
+        except Exception as e:
+            logging.exception(e)
             logging.info("errors ignored while removing dependent containers")
 
 
-# Remove all the images in the list
 def remove_docker_images(images):
+    """Remove all the images in the list."""
+
     for image in images:
         try:
             image_info = docker_api.inspect_image(image)
@@ -267,12 +273,13 @@ def remove_docker_images(images):
             logging.info("     Cmd %s", str(image_info["Config"]["Cmd"]))
             logging.info("  Labels %s", str(image_info["Config"]["Labels"]))
             docker_api.remove_image(image, force=True)
-        except:
-            logging.info(sys.exc_info()[1])
+        except Exception as e:
+            logging.exception(e)
 
 
-# Remove all dangling images associated with a build
 def remove_dangling_images(build):
+    """Remove all dangling images associated with a build."""
+
     # Find all the danglig images associated with the build
     filters = {"dangling": True, "label": ["onnx_mlir_pr_number=" + build]}
     images = docker_api.images(filters=filters, quiet=True)
@@ -286,9 +293,10 @@ def remove_dangling_images(build):
     remove_docker_images(images)
 
 
-# Remove recent failed or succeeded docker image, and if requested also
-# reset the corresponding new watch_state key.
 def remove_recent_image(curr_state, watch_state, key, reset=False):
+    """Remove recent failed or succeeded docker image, and if requested also
+    reset the corresponding new watch_state key."""
+
     build = curr_state["recent"][key][1]
     if build:
         remove_docker_images(
@@ -304,8 +312,9 @@ def remove_recent_image(curr_state, watch_state, key, reset=False):
         ]
 
 
-# Build watch image
 def build_watch_image(repo, commit, dockerfile, base_image, image_repo, image_tag):
+    "Build watch image." ""
+
     image_full = image_repo + ":" + image_tag
 
     layer_sha256 = ""
@@ -349,9 +358,10 @@ def build_watch_image(repo, commit, dockerfile, base_image, image_repo, image_ta
     return True
 
 
-# Discard builds up to the last successful build since we need to keep the
-# build link to it. This is only run after we have converged.
 def cleanup_old_builds(curr_recent):
+    """Discard builds up to the last successful build since we need to keep the
+    build link to it. This is only run after we have converged."""
+
     jenkins_server = jenkins.Jenkins(
         url=jenkins_rest_api_url,
         username=jenkins_rest_api_user,
@@ -365,8 +375,9 @@ def cleanup_old_builds(curr_recent):
             jenkins_server.delete_build(LLVM_WATCH_JOB_NAME, build["number"])
 
 
-# Check if an active ONNX-MLIR build or a previous LLVM watch build is running
 def check_running_job():
+    """Check if an active ONNX-MLIR build or a previous LLVM watch build is running."""
+
     jenkins_server = jenkins.Jenkins(
         url=jenkins_rest_api_url,
         username=jenkins_rest_api_user,
@@ -387,8 +398,9 @@ def check_running_job():
     return False
 
 
-# Create index for commit history using sha1 as the index key
 def index_commit_history(commit_history):
+    """Create index for commit history using sha1 as the index key."""
+
     indexed_commit_history = {"index": {}, "history": []}
     for i, hist in enumerate(commit_history):
         indexed_commit_history["index"][hist["sha1"]] = i
@@ -397,15 +409,15 @@ def index_commit_history(commit_history):
     return indexed_commit_history
 
 
-# Set new range to search
-#
-# head:        new head
-# head_adjust: +1/-1 to head depending on situation
-# tail:        new tail
-# tail_adjust: +1/-1 to tail depending on situation
-# history:     commit history between [head_index, tail_index]
-#
 def set_range(head, head_adjust, tail, tail_adjust, history):
+    """Set new range to search
+
+    head:        new head
+    head_adjust: +1/-1 to head depending on situation
+    tail:        new tail
+    tail_adjust: +1/-1 to tail depending on situation
+    history:     commit history between [head_index, tail_index]"""
+
     history_head = history["history"][0]
     history_tail = history["history"][-1]
 
@@ -423,9 +435,10 @@ def set_range(head, head_adjust, tail, tail_adjust, history):
     return next_head, next_tail, next_history
 
 
-# Write watch state and log data, and also generate all the files
-# necessary for the HTML report.
 def write_watch_files(curr_state, watch_state, next_history):
+    """Write watch state and log data, and also generate all the files
+    necessary for the HTML report."""
+
     # Write global watch state
     with open(os.path.join(job_dir, LLVM_PROJECT_WATCH_STATE), "w") as state:
         json.dump(watch_state, state)
@@ -465,8 +478,9 @@ def write_watch_files(curr_state, watch_state, next_history):
     )
 
 
-# Workhorse function to compute and build the next llvm-project commit
 def compute_range_build_next():
+    """Workhorse function to compute and build the next llvm-project commit."""
+
     # Load previous build state json to decide how we should proceed
     try:
         with open(os.path.join(job_dir, LLVM_PROJECT_WATCH_STATE), "r") as f:
@@ -1118,8 +1132,8 @@ def main():
             # Copy from publish_dir to report_dir in case we didn't run
             # due to active build in ONNX-MLIR-Pipeline-Docker-Build.
             shutil.copytree(publish_dir, report_dir, dirs_exist_ok=True)
-    except:
-        logging.info(traceback.format_exc())
+    except Exception as e:
+        logging.exception(e)
 
         # Copy from publish_dir to report_dir in case compute_range_build_next
         # failed somehow.

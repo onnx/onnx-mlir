@@ -6,10 +6,12 @@
 
 #include "CompilerDialects.hpp"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 
 #include "mlir/InitAllDialects.h"
+#include "mlir/Target/LLVMIR/Dialect/OpenMP/OpenMPToLLVMIRTranslation.h"
 
 using namespace mlir;
 
@@ -34,7 +36,7 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   registry.insert<ONNXDialect>();
   registry.insert<KrnlDialect>();
   registry.insert<cf::ControlFlowDialect>();
-  registry.insert<mlir::omp::OpenMPDialect>();
+  registerOpenMPDialectTranslation(registry);
 
   // Initialize accelerator(s) if required.
   accel::initAccelerators(accels);
@@ -42,6 +44,9 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   // Register dialects for accelerators.
   for (auto *accel : accel::Accelerator::getAccelerators())
     accel->registerDialects(registry);
+
+  if (useOldBufferization)
+    memref::registerAllocationOpInterfaceExternalModels(registry);
 
   return registry;
 }

@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm="use-opaque-pointers=true" --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --convert-krnl-to-affine --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
 
 func.func @test_random_normal_lowering() -> memref<3x4x5xf32> {
   %0 = memref.alloc() {alignment = 16 : i64} : memref<3x4x5xf32>
@@ -63,7 +63,7 @@ func.func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> me
   // CHECK: %[[MUL3:.+]] = llvm.mul [[MUL2]], [[C3]]  : i64
 
   /// Allocate aligned tensor:
-  // CHECK: [[POINTER:%.+]] = llvm.mlir.null : !llvm.ptr
+  // CHECK: [[POINTER:%.+]] = llvm.mlir.zero : !llvm.ptr
   // CHECK: llvm.getelementptr [[POINTER]][%[[MUL3]]]
   // CHECK: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr
 

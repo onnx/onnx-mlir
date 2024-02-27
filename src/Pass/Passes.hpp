@@ -4,7 +4,7 @@
 
 //===---------- Passes.hpp - ONNX-MLIR Passes Definition ------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -86,11 +86,14 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass();
 std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
     bool enableSIMD, bool enableParallel, std::string opsForCall);
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
-    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled);
+    bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
+    bool simdIsEnabled);
+std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass();
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
-/// Add pass for lowering to StableHlo IR.
-std::unique_ptr<mlir::Pass> createLowerToStableHloPass();
+/// Add pass for lowering to Stablehlo IR.
+std::unique_ptr<mlir::Pass> createLowerToStablehloPass();
+std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 #endif
 
 /// Pass for lowering krnl.dim operations to standard dialect.
@@ -115,7 +118,7 @@ std::unique_ptr<mlir::Pass> createLowerKrnlRegionPass();
 /// Pass for lowering Krnl dialect to LLVM dialect.
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass();
 std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
-    bool useOpaquePointer, bool useLRODATA, bool storeConstantsToFile,
+    bool useLRODATA, bool storeConstantsToFile,
     float constantsToFileSingleThreshold, float constantsToFileTotalThreshold,
     std::string outputNameNoExt, bool enableParallel);
 

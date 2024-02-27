@@ -4,7 +4,7 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -290,16 +290,21 @@ struct ONNXPReluOpShapeHelper : public ONNXBroadcastOpShapeHelper {
   }
 };
 
-// Helper for ONNXLayerNormalizationOp (B and Scales broadcast to input X)
-struct ONNXLayerNormalizationOpShapeHelper : public ONNXBroadcastOpShapeHelper {
-  ONNXLayerNormalizationOpShapeHelper(mlir::Operation *op,
-      mlir::ValueRange operands, IndexExprBuilder *ieBuilder = nullptr,
-      IndexExprScope *scope = nullptr)
+// Template for Layer Normalization (LN) ops
+template <typename OP_TYPE>
+struct ONNXLNOpShapeHelper : public ONNXBroadcastOpShapeHelper {
+  ONNXLNOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXBroadcastOpShapeHelper(op, operands, ieBuilder, scope,
             /*hasUniBroadcasting*/ true) {}
-  virtual ~ONNXLayerNormalizationOpShapeHelper() {}
+  virtual ~ONNXLNOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
 };
+
+// clang-format off
+using ONNXLayerNormalizationOpShapeHelper = ONNXLNOpShapeHelper<mlir::ONNXLayerNormalizationOp>;
+using ONNXRMSLayerNormalizationOpShapeHelper = ONNXLNOpShapeHelper<mlir::ONNXRMSLayerNormalizationOp>;
+// clang-format on
 
 //===----------------------------------------------------------------------===//
 // Unary Ops
@@ -347,7 +352,6 @@ using ONNXAtanOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXAtanhOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBernoulliOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXBitwiseNotOpShapeHelper = ONNXUnaryOpShapeHelper;
-using ONNXCastLikeOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCastOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeilOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXCeluOpShapeHelper = ONNXUnaryOpShapeHelper;
@@ -359,6 +363,7 @@ using ONNXEluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXErfOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXExpOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXFloorOpShapeHelper = ONNXUnaryOpShapeHelper;
+using ONNXGeluOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardSigmoidOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardSwishOpShapeHelper = ONNXUnaryOpShapeHelper;
 using ONNXHardmaxOpShapeHelper = ONNXUnaryOpShapeHelper;

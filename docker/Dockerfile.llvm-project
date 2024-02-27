@@ -46,7 +46,7 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
           yum install -q -y \
               autoconf automake ca-certificates clang cmake diffutils \
               file java-11-openjdk-devel java-11-openjdk-headless \
-              gcc gcc-c++ git libtool make ncurses-devel \
+              gcc gcc-c++ git libtool make ncurses-devel ninja-build \
               python39 python39-devel python39-numpy python39-pip \
               python39-setuptools python39-wheel tzdata-java zlib-devel && \
           # Use same versions as those in ubuntu:jammy
@@ -54,17 +54,13 @@ RUN distro=$(cat /etc/os-release|grep -Po '(?<=^ID=").*(?=")|(?<=^ID=)[^"].*[^"]
                Cython pytest==6.2.5 pytest-forked==1.4.0 \
                pytest-xdist==2.5.0 typing-extensions==3.10.0.2 && \
           rm -rf /var/cache/dnf/* && \
-          # Install ninja
-          git clone -b v1.10.2 https://github.com/ninja-build/ninja.git && \
-          cd ninja && mkdir -p build && cd build && \
-          cmake .. && \
-          make -j${NPROC} install && \
-          cd ${WORK_DIR} && rm -rf ninja; \
+          echo -e "/usr/local/lib" > /etc/ld.so.conf.d/local.conf; \
        fi \
-    && ln -sf /usr/bin/python3 /usr/bin/python
+    && ln -sf /usr/bin/python3 /usr/bin/python \
+    && pip3 install --upgrade pip
 
 # Install protobuf
-ARG PROTOBUF_VERSION=3.20.3
+ARG PROTOBUF_VERSION=21.12
 RUN git clone -b v${PROTOBUF_VERSION} --recursive https://github.com/protocolbuffers/protobuf.git \
     && cd protobuf && ./autogen.sh \
     && ./configure --enable-static=no \

@@ -4,6 +4,10 @@
 
 add_onnx_mlir_library(RuntimeNNPA STATIC
   OMRuntimeNNPA.c
+  zDNNExtension/zDNNExtension.c
+  zDNNExtension/Elementwise.c
+  zDNNExtension/MatMul.c
+  zDNNExtension/Softmax.c
 
   EXCLUDE_FROM_OM_LIBS
 
@@ -17,5 +21,6 @@ set_target_properties(RuntimeNNPA
   PROPERTIES
   LANGUAGE C
   POSITION_INDEPENDENT_CODE TRUE
+  COMPILE_OPTIONS "-O3"
   )
 

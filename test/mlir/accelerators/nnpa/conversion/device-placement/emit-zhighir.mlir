@@ -3,7 +3,7 @@
 
 // Note that, we intentionally add `device=cpu` into onnx.Gemm to force it run on CPU.
 module { 
-  func.func @mnist(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attributes {input_names = ["Input3"], output_names = ["Plus214_Output_0"]} {
+  func.func @mnist(%arg0: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> {
     %0 = onnx.Constant dense<[-0.0822488219, -0.108868778, -0.141039595, -0.204869166, -0.17913565, -0.215438381, -0.133805066, -0.195724562, -0.268250644, -0.258212209, -0.0761560649, 0.0132841459, -0.00444464432, -0.414740831, -0.17879115, -0.0386558883]> : tensor<16xf32>
     %1 = onnx.Constant dense<[-0.161539719, -0.433835655, 0.091641359, -0.0168522168, -0.0650264397, -0.131737873, 0.0204175506, -0.121110231]> : tensor<8xf32>
     %2 = onnx.Constant dense_resource<__elided__> : tensor<16x4x4x10xf32>
@@ -26,7 +26,7 @@ module {
   "onnx.EntryPoint"() {func = @mnist} : () -> ()
 
 // CHECK-LABEL:  func.func @mnist
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> attributes {input_names = ["Input3"], output_names = ["Plus214_Output_0"]} {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x28x28xf32>) -> tensor<1x10xf32> {
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense_resource<__elided__> : tensor<16x4x4x10xf32>
 // CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense_resource<__elided__> : tensor<16x8x5x5xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense_resource<__elided__> : tensor<8x1x5x5xf32>

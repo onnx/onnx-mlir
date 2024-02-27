@@ -17,6 +17,7 @@
 #include <llvm/Support/InitLLVM.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/Bufferization/Pipelines/Passes.h>
 #include <mlir/Dialect/Bufferization/Transforms/Passes.h>
 #include <mlir/Dialect/MemRef/Transforms/Passes.h>
 #include <mlir/Dialect/Tosa/IR/TosaOps.h>
@@ -117,6 +118,8 @@ int main(int argc, char **argv) {
 
   DialectRegistry registry = registerDialects(maccel);
   registry.insert<tosa::TosaDialect>();
+
+  bufferization::registerBufferizationPipelines();
 
   // Registered passes can be expressed as command line flags, so they must
   // must be registered before command line options are parsed.

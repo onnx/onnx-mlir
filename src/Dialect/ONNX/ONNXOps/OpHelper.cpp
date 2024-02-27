@@ -420,6 +420,17 @@ bool hasShapeAndRank(Operation *op) {
   return true;
 }
 
+/// Test if a value has only one use except ONNXDimOp.
+bool hasOneUseExceptDimOp(Value val) {
+  int64_t numOfUsersExceptDim = 0;
+  for (auto user : val.getUsers()) {
+    if (isa<ONNXDimOp>(user))
+      continue;
+    numOfUsersExceptDim++;
+  }
+  return (numOfUsersExceptDim == 1);
+}
+
 //===----------------------------------------------------------------------===//
 // Support for rewrite patterns.
 //===----------------------------------------------------------------------===//

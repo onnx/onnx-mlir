@@ -86,6 +86,8 @@ def define_arch_op_names(arch):
         op_name["vfma"] = "vfma"
         op_name["vmul"] = "vfm.b"
         op_name["vdiv"] = "vfd"
+        # vector conversion between formats (NNPA <-> fp)
+        op_name["vconv"] = "(vclfnh|vclfnl|vcfn|vcrnf|vcnf)"
         # add | sub| max | min | compare
         op_name["vadd"] = "([vw]fa|[vw]fs|[vw]fmax|[vw]fmin|[vw]f[ck][eh])"
         op_name["load"] = "lg"
@@ -93,18 +95,19 @@ def define_arch_op_names(arch):
     elif arch == "x86":  # generic x86
         op_name["vload"] = "(v?mov[au]p[sd]|mov(h|hl|lh|l)ps)"
         op_name["vload-splat"] = "nothingtosee"
-        op_name[
-            "vstore"
-        ] = "v?movntp[sd]"  # non temporal... other store may be just mov too
+        op_name["vstore"] = (
+            "v?movntp[sd]"  # non temporal... other store may be just mov too
+        )
         # perm | merge | shift left | replicate | permute | gen mask | gen mask
         op_name["vshuffle"] = "(v?shufp[sd]|v?unpck[lh]p)"
         op_name["vfma"] = "v?fmadd[123]+p[ds]"
         op_name["vmul"] = "v?mulp[ds]"
         op_name["vdiv"] = "v?divp[sd]"
+        op_name["vconv"] = ""
         # add | sub| max | min | compare | and
-        op_name[
-            "vadd"
-        ] = "(v?addp[ds]|v?subp[ds]|v?maxp[ds]|v?min[dp]|cmp..p[sd]|andp|andnp|orp|xorp|pand|pandn|por|pxor)"
+        op_name["vadd"] = (
+            "(v?addp[ds]|v?subp[ds]|v?maxp[ds]|v?min[dp]|cmp..p[sd]|andp|andnp|orp|xorp|pand|pandn|por|pxor)"
+        )
         op_name["load"] = "mov"
         op_name["store"] = "mov"
     else:
@@ -191,6 +194,10 @@ def characterize_op(line):
         inc_aggr_dict("vcompute")
         inc_aggr_dict("vec")
         return "vfma"
+    if re.match(r".*\s" + op_name["vconv"], line):
+        inc_op_dict("vconv")
+        inc_aggr_dict("vec")
+        return "vconv"
     # Scalar
     if re.match(r".*\s" + op_name["load"], line):
         inc_op_dict("load")
@@ -237,6 +244,8 @@ def print_characterization(details=False):
         + get_aggr_dict("vec")
         + ", compute, "
         + get_aggr_dict("vcompute")
+        + ", conversion, "
+        + get_op_dict("vconv")
         + ", mem, "
         + get_aggr_dict("vmem")
         + ", overhead, "
@@ -440,6 +449,7 @@ def main(argv):
             pattern = add_pattern(pattern, op_name["vadd"])
             pattern = add_pattern(pattern, op_name["vmul"])
             pattern = add_pattern(pattern, op_name["vdiv"])
+            pattern = add_pattern(pattern, op_name["vconv"])
             # Mem
             pattern = add_pattern(pattern, op_name["vload"])
             pattern = add_pattern(pattern, op_name["vload-splat"])
@@ -453,6 +463,7 @@ def main(argv):
             pattern = add_pattern(pattern, op_name["vadd"])
             pattern = add_pattern(pattern, op_name["vmul"])
             pattern = add_pattern(pattern, op_name["vdiv"])
+            pattern = add_pattern(pattern, op_name["vconv"])
         elif opt in ("-m", "--mem"):
             if not pattern:
                 define_arch_op_names(arch)
