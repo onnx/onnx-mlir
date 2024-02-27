@@ -128,8 +128,6 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ValueRange globalUBs, bool simdize, bool unroll,
       bool overCompute) const;
 
-  mlir::Value dim(mlir::Type type, mlir::Value alloc, mlir::Value index) const;
-
   mlir::KrnlMovableOp movable() const;
 
   mlir::KrnlGetRefOp getRef(mlir::Type type, mlir::Value memref,

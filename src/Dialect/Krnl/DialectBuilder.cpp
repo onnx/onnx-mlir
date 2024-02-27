@@ -211,10 +211,6 @@ void KrnlBuilder::matmul(Value A, ValueRange aStart, Value B, ValueRange bStart,
       globalUBs[1], globalUBs[2], simdize, unroll, overCompute);
 }
 
-Value KrnlBuilder::dim(Type type, Value alloc, Value index) const {
-  return b().create<KrnlDimOp>(loc(), type, alloc, index);
-}
-
 KrnlMovableOp KrnlBuilder::movable() const {
   return b().create<KrnlMovableOp>(loc());
 }

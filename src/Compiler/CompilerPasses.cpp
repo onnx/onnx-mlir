@@ -193,9 +193,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createDisconnectKrnlDimFromAllocPass());
-  pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
