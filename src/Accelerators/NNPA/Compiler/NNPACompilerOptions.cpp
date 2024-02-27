@@ -40,6 +40,15 @@ llvm::cl::opt<bool> nnpaEnableZHighToOnnx("enable-zhigh-to-onnx",
         "level. Default is true."),
     llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
+    "enable-zhigh-decompose-stick-unstick",
+    llvm::cl::desc(
+        "[Experimental feature] Enabling this will convert zhigh.Stick to "
+        "`zhigh.F32ToDLF16 -> onnx.LayoutTransform` and zhigh.Unstick to "
+        "`onnx.LayoutTransform -> zhigh.DLF16ToF32`. "
+        "Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     "nnpa-load-device-placement-file",
     llvm::cl::desc(

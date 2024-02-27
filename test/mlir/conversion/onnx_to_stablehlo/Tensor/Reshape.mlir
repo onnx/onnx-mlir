@@ -6,11 +6,12 @@
 
 // -----
 
+
 func.func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi64>) -> tensor<*xf32> {
   %0 = "onnx.Reshape"(%arg0, %arg1) : (tensor<5x5x1x32xf32>, tensor<4xi64>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
-}
 
+// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_reshape_dynamic
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x1x32xf32>, [[PARAM_1_:%.+]]: tensor<4xi64>) -> tensor<?x?x?x?xf32> {
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
@@ -56,6 +57,7 @@ func.func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi
 // CHECK:           [[VAR_32_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_31_]] : (tensor<5x5x1x32xf32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
 // CHECK:           return [[VAR_32_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
+}
 
 // -----
 

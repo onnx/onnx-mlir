@@ -68,7 +68,7 @@ add_onnx_mlir_library(OMCompilerDialects
   OMKrnlOps
   OMONNXOps
   MLIRIR
-  MLIROpenMPDialect
+  MLIROpenMPToLLVMIRTranslation
   )
 
 add_onnx_mlir_library(OMCompilerPasses
@@ -181,12 +181,32 @@ add_onnx_mlir_library(OMCompilerUtils
   MC
   )
 
+  add_onnx_mlir_library(OMOptionUtils
+  OptionUtils.cpp
+
+  EXCLUDE_FROM_OM_LIBS
+
+  DEPENDS
+
+  INCLUDE_DIRS PRIVATE
+  ${FILE_GENERATE_DIR}
+
+  INCLUDE_DIRS PUBLIC
+  ${ONNX_MLIR_SRC_ROOT}/include
+
+  LINK_LIBS PUBLIC
+  )
+
+
 # CompilerUtils does not require cruntime or jniruntime to build,
 # however, they are required for execution when using the EmitLib or EmitJNI
 # options
 add_dependencies(OMCompilerUtils cruntime)
 if (ONNX_MLIR_ENABLE_JNI)
   add_dependencies(OMCompilerUtils jniruntime)
+endif()
+if (TARGET omp)
+  add_dependencies(OMCompilerUtils ompruntime)
 endif()
 
 add_onnx_mlir_library(OMCompiler

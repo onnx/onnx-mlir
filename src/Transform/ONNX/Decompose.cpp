@@ -456,6 +456,32 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
 }
 // ConvTransposeOp END
 
+Value normalizeConstantOp(
+    PatternRewriter &rewriter, Value output, Attribute attr) {
+  ShapedType outputType = output.getType().cast<ShapedType>();
+  Type elementType = outputType.getElementType();
+
+  DenseElementsAttr denseAttr;
+  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
+    int64_t dim = arrayAttr.size();
+    auto tensorType = RankedTensorType::get({dim}, elementType);
+    denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
+  } else {
+    auto tensorType = RankedTensorType::get({}, elementType);
+    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
+    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
+    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
+      denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
+    } else {
+      llvm_unreachable("unexpected Attribute");
+    }
+  }
+  onnx_mlir::OnnxBuilder createONNX(rewriter, output.getLoc());
+  return createONNX.constant(denseAttr);
+}
+
 } // namespace onnx_mlir
 
 namespace {
@@ -522,7 +548,7 @@ struct SoftmaxPattern : public OpRewritePattern<ONNXSoftmaxOp> {
   }
 };
 
-void populateDecomposingONNXBeforeStableHloPatterns(
+void populateDecomposingONNXBeforeStablehloPatterns(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.add<SoftmaxPattern>(ctx);
 }
@@ -906,6 +932,36 @@ struct GroupNormIntoLayerNormPattern
   }
 };
 
+// =============================================================================
+// Pattern for replacing CastLikeOp by CastOp.
+// =============================================================================
+// A pattern to turn
+//   `CastLikeOp(input, saturate, targetLike)`
+// into
+//   `CastOp(input, saturate, targetType)`
+class ReplaceCastLikeByCastPattern : public OpRewritePattern<ONNXCastLikeOp> {
+public:
+  using OpRewritePattern<ONNXCastLikeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXCastLikeOp castLikeOp, PatternRewriter &rewriter) const override {
+    Location loc = castLikeOp.getLoc();
+
+    Value input = castLikeOp.getInput();
+    Value target = castLikeOp.getTargetType();
+    IntegerAttr saturate = castLikeOp.getSaturateAttr();
+
+    // The output type will be the same as the target_type or the second input
+    Type outputType = target.getType().cast<ShapedType>().getElementType();
+
+    // Replace
+    Value res = onnx_mlir::OnnxBuilder(rewriter, loc)
+                    .cast(input, saturate, TypeAttr::get(outputType));
+    rewriter.replaceOp(castLikeOp, res);
+    return success();
+  }
+};
+
 struct DecomposeONNXToONNXPass
     : public PassWrapper<DecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(DecomposeONNXToONNXPass)
@@ -942,6 +998,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   // These ops will be decomposed into other ONNX ops. Hence, they will not be
   // available after this pass.
+  target.addIllegalOp<ONNXCastLikeOp>();
   target.addIllegalOp<ONNXClipV11Op>();
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
@@ -985,6 +1042,13 @@ void DecomposeONNXToONNXPass::runOnOperation() {
     return !isConcatFuseMatched(op, shapeOp, transposeOp);
   });
 
+  // Rewrite ONNXConstantOp with scalar values into the one using ElementAttrs.
+  target.addDynamicallyLegalOp<ONNXConstantOp>([](ONNXConstantOp op) {
+    return !(op.getValueFloatAttr() || op.getValueFloatsAttr() ||
+             op.getValueIntAttr() || op.getValueIntsAttr() ||
+             op.getValueStringAttr() || op.getValueStringsAttr());
+  });
+
   // Decompose CustomOp FusedMatMul introduced by onnxruntime:
   // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
   target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
@@ -996,7 +1060,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
-  // ONNXtoStableHlo pass has own rewriting for ConvTranspose Op using
+  // ONNXtoStablehlo pass has own rewriting for ConvTranspose Op using
   // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
   // is disabled when the target is stablehlo.
   if (this->target != "stablehlo") {
@@ -1012,9 +1076,10 @@ void DecomposeONNXToONNXPass::runOnOperation() {
 
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
+  patterns.insert<ReplaceCastLikeByCastPattern>(context);
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
-    populateDecomposingONNXBeforeStableHloPatterns(patterns, context);
+    populateDecomposingONNXBeforeStablehloPatterns(patterns, context);
     target.addIllegalOp<ONNXSoftmaxOp>();
   }
 #endif

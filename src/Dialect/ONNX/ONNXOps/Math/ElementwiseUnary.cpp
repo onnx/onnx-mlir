@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseUnary.cpp - ONNX Operations ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -154,20 +154,6 @@ LogicalResult ONNXCastOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// CastLike
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXCastLikeOp::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType = getElementType(getTargetType().getType());
-  ONNXCastLikeOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-//===----------------------------------------------------------------------===//
 // Ceil
 //===----------------------------------------------------------------------===//
 
@@ -258,6 +244,28 @@ LogicalResult ONNXFloorOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// Gelu
+//===----------------------------------------------------------------------===//
+LogicalResult ONNXGeluOp::verify() {
+  ONNXGeluOpAdaptor operandAdaptor(*this);
+  // Approximate should only be a string value of "none" or "tanh".
+  // If not, then this will result in an error.
+  StringRef approximate = getApproximate();
+  if (approximate != "none" && approximate != "tanh")
+    return emitOpError("This value is unsupported. The approximate attribute "
+                       "should be a value of none or tanh. "
+                       "The value received was approximate = " +
+                       approximate);
+  return success();
+}
+
+LogicalResult ONNXGeluOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  return inferShapeForUnaryOps(this->getOperation(),
+      this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
 // HardSigmoid
 //===----------------------------------------------------------------------===//
 
@@ -310,6 +318,16 @@ LogicalResult ONNXIsInfOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForUnaryOps(this->getOperation(),
       this->getResult().getType().cast<ShapedType>().getElementType());
+}
+
+//===----------------------------------------------------------------------===//
+// IsNaN
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXIsNaNOp::inferShapes(
+    std::function<void(Region &)> doShapeInference) {
+  IntegerType i1Type = IntegerType::get(getContext(), 1, IntegerType::Signless);
+  return inferShapeForUnaryOps(getOperation(), i1Type);
 }
 
 //===----------------------------------------------------------------------===//

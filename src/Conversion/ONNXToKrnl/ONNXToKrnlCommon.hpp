@@ -4,7 +4,7 @@
 
 //====------ ONNXToKrnlCommon.hpp - ONNX dialects to Krnl lowering --------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -31,6 +31,7 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
@@ -133,28 +134,28 @@ bool checkOpToCall(mlir::Operation *op, std::string opsForCall);
 
 /// Emit an ONNXSqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-mlir::Value foldOrEmitONNXSqueezeV11Op(
+mlir::Value foldOrEmitONNXSqueezeV11OpKrnl(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::Type resultType, mlir::Value input, int64_t axis);
 
 /// Emit an ONNXUnsqueezeOp. If the input is constant, do const propagation, and
 /// return a constant.
-mlir::Value foldOrEmitONNXUnsqueezeV11Op(
+mlir::Value foldOrEmitONNXUnsqueezeV11OpKrnl(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::Type resultType, mlir::Value input, int64_t axis);
 
 /// Emit an ONNXSplitOp. If the input is constant, do const propagation, and
 /// return constants.
 /// Only support evenly splitting.
-std::vector<mlir::Value> foldOrEmitONNXSplitOp(
+std::vector<mlir::Value> foldOrEmitONNXSplitV11OpKrnl(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     llvm::ArrayRef<mlir::Type> resultTypes, mlir::Value input, int64_t axis);
 
 /// Emit an ONNXTransposeOp. If the input is constant, do const propagation, and
 /// return a constant.
-mlir::Value foldOrEmitONNXTransposeOp(mlir::ConversionPatternRewriter &rewriter,
-    mlir::Location loc, mlir::Type resultType, mlir::Value input,
-    mlir::ArrayAttr permAttr);
+mlir::Value foldOrEmitONNXTransposeOpKrnl(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::Type resultType, mlir::Value input, mlir::ArrayAttr permAttr);
 
 /// Emit MemRef ReinterpretCastOp to create a new view for 'data'.
 /// The new view is created using the given 'outputDims'.
@@ -345,7 +346,8 @@ mlir::LogicalResult generateONNXLayerNormalizationOpONNXCode(
     mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
     mlir::ONNXLayerNormalizationOp lnOp);
 void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
-    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD);
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXPoolingOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
@@ -390,8 +392,8 @@ void populateLoweringONNXUnsqueezeV11OpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
-void populateLoweringONNXGatherOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXGatherElementsOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXGatherNDOpPattern(
@@ -454,8 +456,8 @@ void populateLoweringONNXCompressOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXPrintSignaturePattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXLayoutTransformOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXLayoutTransformOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXUniqueOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
@@ -581,6 +583,17 @@ bool hasNonIdentityLayout(mlir::Value val);
 bool hasNonIdentityLayout(mlir::ValueRange operands);
 
 //===----------------------------------------------------------------------===//
+// Support functions for parallel region.
+//===----------------------------------------------------------------------===//
+
+// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >
+// minSize. Runtime dimensions are assumed to satisfy the size requirement by
+// definition. If found one, it is parDim and the function returns true.
+bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim /*inclusive*/,
+    int64_t lastDim /*exclusive*/, int64_t &parDim, int64_t minSize = 1);
+
+//===----------------------------------------------------------------------===//
 // Support functions for reporting.
 //===----------------------------------------------------------------------===//
 
@@ -591,6 +604,7 @@ struct OnnxToKrnlLoweringConfiguration {
   static std::string defaultParallelComment;
   static int reportOnSimd;
   static std::string defaultSimdComment;
+  static EnableByRegexOption enableSpecificParallelOps;
 };
 
 namespace impl {
@@ -616,6 +630,19 @@ inline void onnxToKrnlParallelReport(mlir::Operation *op,
   if (OnnxToKrnlLoweringConfiguration::reportOnParallel)
     impl::onnxToKrnlParallelReport(
         op, successful, loopLevel, parallelLoopTripCount, comment);
+}
+
+inline void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
+    int64_t loopLevel, IndexExpr lb, IndexExpr ub,
+    const std::string &comment = "") {
+  if (OnnxToKrnlLoweringConfiguration::reportOnParallel) {
+    IndexExpr tripCount = ub - lb;
+    if (tripCount.isLiteral())
+      impl::onnxToKrnlParallelReport(
+          op, successful, loopLevel, tripCount.getLiteral(), comment);
+    else
+      impl::onnxToKrnlParallelReport(op, successful, loopLevel, -1, comment);
+  }
 }
 
 // When reporting is enabled (--opt-report=Simd), report on if/how are

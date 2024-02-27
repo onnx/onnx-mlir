@@ -221,11 +221,11 @@ def get_args_from_env():
 
 def get_runtime_vars():
     TEST_CASE_BY_USER = os.getenv("TEST_CASE_BY_USER")
-    if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "":
-        result_dir = "./"
     # Use ONNX_HOME if it is not the default /tmp
-    elif os.environ["ONNX_HOME"] != "/tmp":
+    if os.environ["ONNX_HOME"] != "/tmp":
         result_dir = os.environ["ONNX_HOME"]
+    elif TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "":
+        result_dir = "./"
     else:
         # tempdir = tempfile.TemporaryDirectory()
         result_dir = tempdir.name + "/"
@@ -274,8 +274,11 @@ def get_runtime_vars():
 
 ### CONSTANT ###
 STATIC_SHAPE = "static"
+STATIC_SHAPE_STRING = "static_string"
 DYNAMIC_SHAPE = "dynamic"
+DYNAMIC_SHAPE_STRING = "dynamic_string"
 CONSTANT_INPUT = "constant"
+CONSTANT_INPUT_STRING = "constant_string"
 CONSTANTS_TO_FILE = "constants_to_file"
 FLOAT16 = "float16"
 

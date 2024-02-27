@@ -4,7 +4,7 @@
 
 //===---------------- Concat.cpp - Lowering Concat Op -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -25,8 +25,13 @@ namespace onnx_mlir {
 struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
   ONNXConcatOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx, bool enableParallel)
-      : OpConversionPattern(typeConverter, ctx),
-        enableParallel(enableParallel) {}
+      : OpConversionPattern(typeConverter, ctx) {
+    this->enableParallel =
+        enableParallel &&
+        OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
+            ONNXConcatOp::getOperationName());
+  }
+
   bool enableParallel = false;
 
   LogicalResult matchAndRewrite(ONNXConcatOp concatOp,
@@ -85,8 +90,15 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
       // For each input, only the dimension 'axis' is different
       commonUB[axis] = ubs[axis];
       if (enableParallel) {
-        create.krnl.parallel(loopDef[0]);
-        LLVM_DEBUG(llvm::dbgs() << "[Parallel Op]: onnx.Concat \n");
+        int64_t parId;
+        if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId)) {
+          create.krnl.parallel(loopDef[0]);
+          onnxToKrnlParallelReport(
+              op, true, parId, lbs[parId], ubs[parId], "concat");
+        } else {
+          onnxToKrnlParallelReport(
+              op, false, -1, -1, "no par dim with enough work in concat");
+        }
       }
       create.krnl.iterateIE(loopDef, loopDef, lbs, commonUB,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {

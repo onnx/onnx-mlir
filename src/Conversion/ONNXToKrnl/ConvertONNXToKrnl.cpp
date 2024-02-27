@@ -4,7 +4,7 @@
 
 //====------ ConvertONNXToKrnl.cpp - ONNX dialects to Krnl lowering -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -19,6 +19,7 @@
 
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Builder/ModelInputShaper.hpp"
+#include "src/Compiler/OptionUtils.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
 
@@ -234,7 +235,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXUnsqueezeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUnsqueezeV11OpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
-  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXGatherOpPattern(patterns, typeConverter, ctx, enableParallel);
   populateLoweringONNXGatherElementsOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXGatherNDOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXIdentityOpPattern(patterns, typeConverter, ctx);
@@ -263,11 +264,10 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXOneHotOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCompressOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXPrintSignaturePattern(patterns, typeConverter, ctx);
-  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXUniqueOpPattern(patterns, typeConverter, ctx);
   // Neural network
   populateLoweringONNXConvOpPattern(patterns, typeConverter, ctx, enableParallel, opsForCall);
-  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD);
+  populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
   populateLoweringONNXPoolingOpPattern(patterns, typeConverter, ctx);
   // Recurrent neural network
   populateLoweringONNXGRUOpPattern(patterns, typeConverter, ctx);
@@ -282,8 +282,9 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
   // Additional
-  populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
+  populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);
+  populateLoweringONNXShapeTransformOpPattern(patterns, typeConverter, ctx);
   // clang-format on
 }
 
@@ -477,9 +478,13 @@ int OnnxToKrnlLoweringConfiguration::reportOnParallel = 0; // 0: no reporting.
 int OnnxToKrnlLoweringConfiguration::reportOnSimd = 0;     // 0: no reporting.
 std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
 std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
+EnableByRegexOption OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps(
+    /*emptyIsNone*/ false);
 
+// Function to set default reporting messages, if any.
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
-    bool parallelIsEnabled, bool reportOnSimd, bool simdIsEnabled) {
+    bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
+    bool simdIsEnabled) {
   OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
   OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
   if (reportOnParallel && !parallelIsEnabled)
@@ -496,6 +501,10 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
             "cpu with unspecified simd ISA";
     }
   }
+  if (parallelIsEnabled)
+    // We have parallelism, enable specific parallel ops if available.
+    OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexString(
+        specificParallelOps);
 }
 
 } // namespace onnx_mlir

@@ -32,9 +32,6 @@ using namespace mlir;
 namespace onnx_mlir {
 namespace krnl {
 
-/// This variable is initizalied inside ConvertKrnlToLLVMPass.
-extern bool LLVM_USE_OPAQUE_POINTER;
-
 static constexpr int32_t MinGlobalAlign = 16;
 
 // clang-format off
@@ -282,9 +279,7 @@ void emitErrNo(ModuleOp module, OpBuilder &builder, Location loc, int errCode) {
 
 LLVM::LLVMPointerType getPointerType(
     MLIRContext *context, Type elementType, unsigned int addressSpace) {
-  if (LLVM_USE_OPAQUE_POINTER)
-    return LLVM::LLVMPointerType::get(context, addressSpace);
-  return LLVM::LLVMPointerType::get(elementType, addressSpace);
+  return LLVM::LLVMPointerType::get(context, addressSpace);
 }
 
 LLVM::LLVMPointerType getI8PointerType(

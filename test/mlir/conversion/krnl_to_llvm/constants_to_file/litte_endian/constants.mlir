@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --convert-krnl-to-llvm="use-opaque-pointers=true store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s && rm model.constants.bin 
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s && rm model.constants.bin
 
 // Thresholds for this files: 
 //  -constants-to-file-single-threshold=0.03: 30 bytes for a single constants 
@@ -63,18 +63,14 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK-DAG:       [[VAR_1_3_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
 // CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       [[VAR_2_4_:%.+]] = llvm.mlir.constant(1 : i64) : i64
-// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr<array<20 x i8>>
+// CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr
 // CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[VAR_4_3_:%.+]] = llvm.bitcast [[VAR_3_3_]] : !llvm.ptr<array<20 x i8>> to !llvm.ptr
-// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr<ptr>
-// CHECK:           [[VAR_6_3_:%.+]] = llvm.bitcast [[VAR_5_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omMMapBinaryFile([[VAR_6_3_]], [[VAR_4_3_]], [[VAR_1_3_]], [[VAR_2_4_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
-// CHECK:           [[VAR_7_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr<ptr>
-// CHECK:           [[VAR_8_3_:%.+]] = llvm.bitcast [[VAR_7_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_8_3_]], [[VAR_6_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
-// CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr<ptr>
-// CHECK:           [[VAR_10_3_:%.+]] = llvm.bitcast [[VAR_9_3_]] : !llvm.ptr<ptr> to !llvm.ptr
-// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_10_3_]], [[VAR_6_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr
+// CHECK:           llvm.call @omMMapBinaryFile([[VAR_5_3_]], [[VAR_3_3_]], [[VAR_1_3_]], [[VAR_2_4_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK:           [[VAR_7_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr
+// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_7_3_]], [[VAR_5_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK:           [[VAR_9_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0 : !llvm.ptr
+// CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_9_3_]], [[VAR_5_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 
@@ -83,5 +79,5 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK:         }
 
 }
-  "krnl.entry_point"() {func = @test_constants_to_file, numInputs = 0 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
+"krnl.entry_point"() {func = @test_constants_to_file, numInputs = 0 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
 }
