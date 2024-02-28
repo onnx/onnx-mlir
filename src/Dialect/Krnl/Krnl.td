@@ -1273,6 +1273,26 @@ def KrnlFindIndexOp : Op<Krnl_Dialect, "find_index",
   let results = (outs Index:$index);
 }
 
+//===----------------------------------------------------------------------===//
+// NoneOp.
+def KrnlNoneOp : Op<Krnl_Dialect, "noValue"> {
+  let summary = "An operation representing the absence of a value.";
+  let description = [{
+    This operation can be used to represent the absence of a value. It is
+    typically used as an argument to operators that have optional parameters,
+    and converted into nullptr while krnl to llvm lowering.
+    Typically it is used for optional arguments used in KrnlCallop.
+  }];
+
+  let arguments = (ins UnitAttr:$value);
+  let results = (outs NoneType:$none_val);
+
+  let builders = [
+    OpBuilder<(ins),[{
+      build($_builder, $_state, $_builder.getNoneType(), $_builder.getUnitAttr());
+    }]>];
+}
+
 def KrnlPrintTensorOp : Op<Krnl_Dialect, "print_tensor", [MemRefsNormalizable]> {
   let summary = "Print a tensor.";
   let description = [{

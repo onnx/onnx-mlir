@@ -492,7 +492,7 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
     // No split benefit.
     splitInfo->reuseFullZTensor = true;
     splitInfo->reuseFullBuffer = true;
-    splitInfo->tiles = fullZTensor;
+    splitInfo->tiles = (zdnn_ztensor *)fullZTensor;
     if (OMZTensorSplitDebug)
       printSplitInfo(splitInfo, tag);
     return false;
@@ -576,6 +576,12 @@ void printSplitInfo(const SplitInfo *splitInfo, const char *tag) {
       tag ? tag : "", (4 - splitInfo->axis), splitInfo->numOfTiles,
       splitInfo->numOfElemsPerTile, splitInfo->reuseFullZTensor,
       splitInfo->reuseFullBuffer);
+}
+
+float GetElapseTime(const struct timeval start_t, const struct timeval end_t) {
+  return (((end_t.tv_sec * 1000000.) + end_t.tv_usec) -
+             ((start_t.tv_sec * 1000000) + start_t.tv_usec)) /
+         1000;
 }
 
 #ifdef __cplusplus
