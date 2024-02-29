@@ -54,7 +54,8 @@ llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     llvm::cl::desc(
         "Load device placement configuration from a JSON file. To "
         "have a template for the JSON file, use "
-        "-save-device-placement-file=cfg.json. Note that we can use regex for "
+        "--nnpa-save-device-placement-file=cfg.json. Note that we can use "
+        "regex for "
         "string values in the JSON file to match operations. The compiler uses "
         "C++ std::regex_match function for matching."),
     llvm::cl::init(""), llvm::cl::cat(OnnxMlirOptions)};
