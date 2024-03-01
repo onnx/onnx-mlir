@@ -3107,17 +3107,17 @@ def get_test_models():
         # ==MIN== 10
         "test_top_k_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_top_k_smallest_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_top_k_negative_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Transpose
@@ -3355,12 +3355,12 @@ def get_test_models():
         # float16 LLVM instructions that are unsupported on some platforms.
         "test_onnxmlir_top_k_float16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_onnxmlir_top_k_smallest_float16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
     }
