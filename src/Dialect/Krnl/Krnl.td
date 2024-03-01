@@ -368,37 +368,6 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
 }
 
-def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
-  let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
-  let description = [{
-    Retrieves a MemRef from within another MemRef:
-
-```
-    "krnl.getref"(%memref, %offset)
-```
-    The offset is an integer which is used as an index into the input MemRef. It works
-    just like an array index.
-  }];
-
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset,
-                   Variadic<Index>:$value);
-  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
-
-  let builders = [
-    OpBuilder<(ins "Type":$resultType, "Value":$mempool, "Value":$offset), [{
-      build($_builder, $_state, resultType, mempool, offset, {});
-    }]>,
-    ];
-
-  let extraClassDeclaration = [{
-    /// Returns the symbolic operands (the ones in square brackets), which bind
-    /// to the symbols of the memref's layout map.
-    operand_range getDynamicSizes() {
-      return {operand_begin() + 2, operand_end()};
-    }
-  }];
-}
-
 def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
   let summary = "Krnl block operation";
   let description = [{

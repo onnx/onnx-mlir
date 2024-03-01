@@ -215,11 +215,6 @@ KrnlMovableOp KrnlBuilder::movable() const {
   return b().create<KrnlMovableOp>(loc());
 }
 
-KrnlGetRefOp KrnlBuilder::getRef(
-    Type type, Value memref, Value offset, ValueRange indices) const {
-  return b().create<KrnlGetRefOp>(loc(), type, memref, offset, indices);
-}
-
 Value KrnlBuilder::constant(MemRefType type, StringRef name,
     std::optional<Attribute> value, std::optional<IntegerAttr> offset,
     std::optional<IntegerAttr> alignment) const {

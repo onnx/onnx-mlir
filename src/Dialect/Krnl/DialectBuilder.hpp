@@ -130,9 +130,6 @@ struct KrnlBuilder : public DialectBuilder {
 
   mlir::KrnlMovableOp movable() const;
 
-  mlir::KrnlGetRefOp getRef(mlir::Type type, mlir::Value memref,
-      mlir::Value offset, mlir::ValueRange indices = {}) const;
-
   mlir::Value constant(mlir::MemRefType type, mlir::StringRef name,
       std::optional<mlir::Attribute> value,
       std::optional<mlir::IntegerAttr> offset = std::nullopt,

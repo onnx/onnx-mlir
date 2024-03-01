@@ -398,34 +398,6 @@ current tile being iterated over.
 | :----: | ----------- |
 | `ind_var_vals` | variadic of any type
 
-### `krnl.getref` (KrnlGetRefOp)
-
-_Krnl a MemRef from within another MemRef starting at a specific offset._
-
-    Retrieves a MemRef from within another MemRef:
-
-```
-    "krnl.getref"(%memref, %offset)
-```
-    The offset is an integer which is used as an index into the input MemRef. It works
-    just like an array index.
-
-Traits: MemRefsNormalizable
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `mempool` | memref of any type values
-| `offset` | integer
-| `value` | variadic of index
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | memref of any type values
-
 ### `krnl.global` (KrnlGlobalOp)
 
 _Krnl global operation_
