@@ -40,7 +40,8 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();
-    assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
+    if (!isRankedShapedType(outputType))
+      return rewriter.notifyMatchFailure(op, "Expected Ranked ShapedType");
 
     // Operands and attributes.
     Value data = operandAdaptor.getData();
@@ -56,19 +57,16 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
     // start indices
     Value zero = getShapedZero(loc, rewriter, indices);
     Value axisDimSize;
-    if (inputType.hasStaticShape()) {
+    if (!inputType.isDynamicDim(axisLit)) {
       int64_t axisDimSizeLit = inputType.getShape()[axisLit];
       axisDimSize = getShapedInt(loc, rewriter, axisDimSizeLit, indices);
     } else {
-      Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
-      Value indicesShape = rewriter.create<shape::ShapeOfOp>(loc, indices);
-      Value axisDimSizeIndexValue =
-          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
-      Value axisDimSizeValue = rewriter.create<arith::IndexCastOp>(
-          loc, indicesType.getElementType(), axisDimSizeIndexValue);
-      axisDimSize =
-          rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
-              axisDimSizeValue, indicesShape, rewriter.getI64TensorAttr({}));
+      Value axisDimSizeDynamic =
+          rewriter.create<tensor::DimOp>(loc, data, axisLit);
+      axisDimSizeDynamic = rewriter.create<arith::IndexCastOp>(
+          loc, indicesType.getElementType(), axisDimSizeDynamic);
+      axisDimSize = rewriter.create<tensor::SplatOp>(
+          loc, axisDimSizeDynamic, indicesType);
     }
     Value greaterOp = rewriter.create<stablehlo::CompareOp>(
         loc, indices, zero, stablehlo::ComparisonDirection::LT);
