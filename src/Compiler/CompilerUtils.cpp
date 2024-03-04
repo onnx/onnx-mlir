@@ -146,7 +146,8 @@ int Command::exec(std::string wdir) const {
     llvm::errs() << llvm::join(argsRef, " ") << "\n"
                  << "Error message: " << errMsg << "\n"
                  << "Program path: " << _path << "\n"
-                 << "Command execution failed." << "\n";
+                 << "Command execution failed."
+                 << "\n";
     return rc;
   }
 
