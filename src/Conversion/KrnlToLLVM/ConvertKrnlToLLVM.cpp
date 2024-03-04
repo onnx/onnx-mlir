@@ -478,6 +478,15 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     if (isReturnedValue)
       return WalkResult::advance();
 
+    // Ignore constants of bool.
+    // For an unknown reason, enabling constants of bool caused segfault in the
+    // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
+    // See issue https://github.com/onnx/onnx-mlir/issues/2713.
+    if (llvm::cast<MemRefType>(op->getResult(0).getType())
+            .getElementType()
+            .isInteger(1))
+      return WalkResult::advance();
+
     // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
     ArrayRef<char> rawData = getRawData(op);
     if (rawData.empty())
@@ -947,7 +956,6 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlGetRefOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);

@@ -3436,7 +3436,7 @@ def ONNXIsInfOp:ONNX_Op<"IsInf",
   let description = [{
   Map infinity to true and other values to false.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, TensorOf<[F64]>]>:$X,
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$X,
     DefaultValuedAttr<SI64Attr, "1">:$detect_negative,
     DefaultValuedAttr<SI64Attr, "1">:$detect_positive);
   let results = (outs TensorOf<[I1]>:$Y);
@@ -3468,7 +3468,7 @@ def ONNXIsNaNOp:ONNX_Op<"IsNaN",
   let description = [{
   Returns which elements of the input are NaN.
   }];
-  let arguments = (ins AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>]>:$X);
+  let arguments = (ins AnyTypeOf<[TensorOf<[BF16]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$X);
   let results = (outs TensorOf<[I1]>:$Y);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {

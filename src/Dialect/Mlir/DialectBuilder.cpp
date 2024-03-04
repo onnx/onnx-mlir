@@ -1333,6 +1333,14 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
+memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
+    llvm::SmallVectorImpl<int64_t> &offsets,
+    llvm::SmallVectorImpl<int64_t> &sizes,
+    llvm::SmallVectorImpl<int64_t> &strides) const {
+  return b().create<memref::SubViewOp>(
+      loc(), outputType, val, offsets, sizes, strides);
+}
+
 memref::SubViewOp MemRefBuilder::subView(Value input,
     llvm::SmallVectorImpl<IndexExpr> &offsetsIE,
     llvm::SmallVectorImpl<IndexExpr> &sizesIE,

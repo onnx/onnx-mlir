@@ -20,9 +20,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Transform/ONNX/Decompose.hpp"
-#include "src/Pass/Passes.hpp"
-
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -33,8 +30,10 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/Decompose.hpp"
+#include "src/Dialect/ONNX/Transforms/DecomposeEinsum.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
-#include "src/Transform/ONNX/DecomposeEinsum.hpp"
 
 #define DEBUG_TYPE "decompose"
 
@@ -486,7 +485,7 @@ Value normalizeConstantOp(
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Transform/ONNX/ONNXDecompose.inc"
+#include "src/Dialect/ONNX/Transforms/ONNXDecompose.inc"
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
 
@@ -905,7 +904,8 @@ struct GroupNormIntoLayerNormPattern
     Type inputShapeType =
         RankedTensorType::get({inputRank}, rewriter.getI64Type());
     Value inputShape = create.onnx.shape(inputShapeType, input);
-    Value Y = create.onnx.reshape(inputType, layerNormY, inputShape);
+    Type outputType = groupNormOp.getY().getType();
+    Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
     // Replace operation.
     rewriter.replaceOp(groupNormOp, Y);
     return success();
