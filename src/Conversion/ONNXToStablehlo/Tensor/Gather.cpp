@@ -61,12 +61,18 @@ struct ONNXGatherOpLoweringToStablehlo : public ConversionPattern {
       int64_t axisDimSizeLit = inputType.getShape()[axisLit];
       axisDimSize = getShapedInt(loc, rewriter, axisDimSizeLit, indices);
     } else {
-      Value axisDimSizeDynamic =
-          rewriter.create<tensor::DimOp>(loc, data, axisLit);
-      axisDimSizeDynamic = rewriter.create<arith::IndexCastOp>(
-          loc, indicesType.getElementType(), axisDimSizeDynamic);
-      axisDimSize = rewriter.create<tensor::SplatOp>(
-          loc, axisDimSizeDynamic, indicesType);
+      Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
+      Value indicesShape = rewriter.create<shape::ShapeOfOp>(loc, indices);
+      Value axisDimSizeIndexValue =
+          rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
+      Value axisDimSizeValue = rewriter.create<arith::IndexCastOp>(
+          loc, indicesType.getElementType(), axisDimSizeIndexValue);
+      axisDimSizeValue = rewriter.create<tensor::FromElementsOp>(loc,
+          RankedTensorType::get({}, indicesType.getElementType()),
+          axisDimSizeValue);
+      axisDimSize =
+          rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
+              axisDimSizeValue, indicesShape, rewriter.getI64TensorAttr({}));
     }
     Value greaterOp = rewriter.create<stablehlo::CompareOp>(
         loc, indices, zero, stablehlo::ComparisonDirection::LT);

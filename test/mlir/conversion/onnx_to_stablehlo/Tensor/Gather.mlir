@@ -32,10 +32,12 @@ func.func @test_gather_dynamic_axis0(%arg0 : tensor<?x?xf32>) -> tensor<2x2x?xf3
 // CHECK-DAG:       [[C0:%.+]] = arith.constant 0 : index
 // CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<{{.}}[0, 1], [1, 2]{{.}}> : tensor<2x2xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0> : tensor<2x2xi64>
-// CHECK-NOT: separator of consecutive DAGs
-// CHECK-DAG:       [[DIM_:%.+]] = tensor.dim [[PARAM_0_]], [[C0]] : tensor<?x?xf32>
-// CHECK-NEXT:      [[DIM_CAST_:%.+]] = arith.index_cast [[DIM_]] : index to i64
-// CHECK-NEXT:      [[VAR_2_:%.+]] = tensor.splat [[DIM_CAST_]] : tensor<2x2xi64>
+// CHECK-DAG:       [[INDICES_SHAPE_:%.+]] = shape.const_shape [2, 2] : tensor<2xindex>
+// CHECK-DAG:       [[SHAPE_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x?xf32> -> tensor<2xindex>
+// CHECK-DAG:       [[DIM_:%.+]] = shape.get_extent [[SHAPE_]], [[C0]] : tensor<2xindex>, index -> index
+// CHECK-DAG:       [[DIM_CAST_:%.+]] = arith.index_cast [[DIM_]] : index to i64
+// CHECK-DAG:       [[DIM_TENSOR_:%.+]] = tensor.from_elements [[DIM_CAST_]] : tensor<i64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[DIM_TENSOR_]], [[INDICES_SHAPE_]], dims = [] : (tensor<i64>, tensor<2xindex>) -> tensor<2x2xi64>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_0_]], [[VAR_1_]],  NOTYPE : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi1>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.add [[VAR_0_]], [[VAR_2_]] : tensor<2x2xi64>
