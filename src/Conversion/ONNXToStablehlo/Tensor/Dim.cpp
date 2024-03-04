@@ -32,16 +32,15 @@ struct ONNXDimOpLoweringToStablehlo : public ConversionPattern {
 
     // Check that axis is a valid dimension index
     Value tensorArg = operands[0];
-    if (!tensorArg.getType().isa<RankedTensorType>()) {
-      return rewriter.notifyMatchFailure(op, "Expected ranked tensor type");
-    }
+    assert(tensorArg.getType().isa<RankedTensorType>() &&
+           "Expected ranked tensor type");
+
     RankedTensorType tensorType = tensorArg.getType().cast<RankedTensorType>();
     int64_t rank = tensorType.getRank();
 
-    if (axis < 0 || axis >= rank) {
-      return rewriter.notifyMatchFailure(
-          op, "Invalid axis, must be in range 0 to rank-1 of the input tensor");
-    }
+    assert((axis >= 0 && axis < rank) &&
+           "Invalid axis, must be in the range [0, input tensor rank)");
+
     Value dimValue = rewriter.create<tensor::DimOp>(loc, tensorArg, axis);
 
     Type dimType = dimOp.getDim().getType();
