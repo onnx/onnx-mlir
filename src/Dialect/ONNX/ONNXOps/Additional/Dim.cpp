@@ -43,8 +43,9 @@ LogicalResult ONNXDimOp::verify() {
   int64_t axis = this->getAxis();
   if ((axis < 0) || (axis >= getRank(this->getData().getType())))
     return emitOpError("attribute ")
-           << ONNXDimOp::getAxisAttrName() << " must be in the range [0, "
-           << getRank(this->getData().getType()) << ").";
+           << ONNXDimOp::getAxisAttrName() << " value is " << axis
+           << ", accepted range is [0, "
+           << getRank(this->getData().getType()) - 1 << "].";
   return success();
 }
 

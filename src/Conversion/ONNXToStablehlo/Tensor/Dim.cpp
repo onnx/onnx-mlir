@@ -39,7 +39,7 @@ struct ONNXDimOpLoweringToStablehlo : public ConversionPattern {
     int64_t rank = tensorType.getRank();
 
     assert((axis >= 0 && axis < rank) &&
-           "Invalid axis, must be in the range [0, input tensor rank)");
+           "Axis must be in the range [0, input tensor rank - 1]");
 
     Value dimValue = rewriter.create<tensor::DimOp>(loc, tensorArg, axis);
 
