@@ -4,7 +4,7 @@
 
 //===------------------ DFT.cpp - ONNX Operations ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,16 +25,14 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <>
-LogicalResult ONNXDFTOpShapeHelper::computeShape() {
-  ONNXDFTOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+template <typename OP_TYPE>
+LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
+    IndexExpr &axis) {
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
   // Get info about input data operand.
   Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
-
-  // Axis is a required attribute and should have a default value of 1.
-  int64_t axis = operandAdaptor.getAxis();
 
   // OneSided is a required attribute and should have default value of 0.
   // However oneSided can also be a value of 1 and if so a specific shape is
@@ -42,13 +41,39 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape() {
   bool isOneSided = (oneSided == 0);
 
   // Compute outputDims for DFT.
+
+  // 1. onesided is 0
+  // 2. onesided is 1 and axis is 0
+  // 3. onesided is 1 and axis is 1
+  // 4. onesided is 1 and axis is N
+
+
+  // int64_t r = rank + axis.size();
+  // // Normalize the axis values, record modified values in squeezedDims.
+  // for (uint64_t i = 0; i < axis.size(); ++i) {
+  //   // Check if the dimension to squeeze is a literal and in range.
+  //   if (!axis.isLiteral())
+  //     return op->emitError("Can not perform Discrete Fourier Transform on "
+  //                        "dynamic dimensions at this time");
+  //   int64_t a = unsqueezedDims[i].getLiteral();
+  //   if (a < -outRank || a >= outRank)
+  //     return op->emitError("Invalid axis value");
+  //   // Handle negative axis.
+  //   if (a < 0) {
+  //     a += outRank;
+  //     modified = true;
+  //   }
+
   LiteralIndexExpr one(1);
   DimsExpr outputDims;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (isOneSided) {
+  for (int64_t i = 0; i < rank - 1; ++i) {
+    if (isOneSided) { // onesided is 0
       outputDims.emplace_back(createIE->getShapeAsDim(input, i));
-    } else {
-      if (axis + 1 == i) {
+    } else { // onesided is 1
+      //check axis is long and then default value is -2 int 
+      // axis.isLiteral() == 2 &&
+      // axis.getLiteral() == 1 &&
+      if (i == 1) {
         IndexExpr d = createIE->getShapeAsDim(input, i).floorDiv(2) + one;
         outputDims.emplace_back(d);
       } else {
@@ -62,10 +87,37 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape() {
   setOutputDims(outputDims);
   return success();
 }
+
+template <typename OP>
+constexpr bool isAxisInput = std::is_same_v<OP, ONNXDFTOp>;
+
+// Default generic computeShape.
+template <typename OP_TYPE>
+LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::computeShape() {
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  IndexExpr axis;
+  // Handle simple case where axis is an attribute.
+  // The default value for axis attribute is 1
+  if constexpr (!isAxisInput<OP_TYPE>) {
+    axis = LiteralIndexExpr(operandAdaptor.getAxis());
+    return customComputeShape(axis);
+    // Make sure axis is a constant, we do not handle dynamic dimensions at this
+    // time.
+    //  The default value for axis input is -2;
+  } else if (!isNoneValue(operandAdaptor.getAxis()) &&
+             getONNXConstantOp(operandAdaptor.getAxis())) {
+    axis = createIE->getIntAsSymbol(operandAdaptor.getAxis());
+    return customComputeShape(axis);
+  } else {
+    return op->emitError("Can not perform Discrete Fourier Transform on "
+                         "dynamic dimensions at this time");
+  }
+}
+
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
-// Shape Inference
+// DFT Shape Inference
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDFTOp::inferShapes(
@@ -74,8 +126,28 @@ LogicalResult ONNXDFTOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
+  // Not yet shaped, wait for later.
+  if (!isNoneValue(getAxis()) && !hasShapeAndRank(getAxis()))
+    return success();
+
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXDFTOpShapeHelper shapeHelper(getOperation(), {});
+  // FAILING HERE!!!!!!!!
+  return shapeHelper.computeShapeAndUpdateType(elementType);
+}
+
+//===----------------------------------------------------------------------===//
+// DFT legacy: DFTV17  Shape Inference
+//===----------------------------------------------------------------------===//
+
+LogicalResult ONNXDFTV17Op::inferShapes(
+    std::function<void(mlir::Region &)> doShapeInference) {
+  // Cannot infer the output shape if the input shape is not yet known.
+  if (!hasShapeAndRank(getInput()))
+    return success();
+
+  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  ONNXDFTV17OpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
@@ -84,5 +156,6 @@ LogicalResult ONNXDFTOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct ONNXNonSpecificOpShapeHelper<ONNXDFTOp>;
+template struct ONNXGenericDFTOpShapeHelper<ONNXDFTOp>;
+template struct ONNXGenericDFTOpShapeHelper<ONNXDFTV17Op>;
 } // namespace onnx_mlir
