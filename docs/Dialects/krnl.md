@@ -313,37 +313,6 @@ intend to optimize.
 | :----: | ----------- |
 &laquo;unnamed&raquo; | variadic of any type
 
-### `krnl.dim` (KrnlDimOp)
-
-_Krnl dimensions operation._
-
-Emits the dimension of a MemRef independent of the MemRef alloc:
-
-```
-"krnl.dim"(%memref, %index)
-```
-
-The index identifies the dimension within the shape which is going to be emitted.
-Initially the krnl.dim operation depends on the alloc of the MemRef.
-Unlike the std.dim operation which maintains a dependency on the alloc of the MemRef, the dimension emitted by krnl.dim will not depend on the alloc operation of the MemRef once the krnl.dim operation is lowered.
-
-Any changes to the original MemRef size after the krnl.dim has been lowered will not be picked up by the emitted dimension. This allows the original MemRef to be safely modified via code transformations or affine map normalization without the risk of changing the value already emitted via krnl.dim.
-
-Traits: MemRefsNormalizable
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `alloc` | memref of any type values
-| `index` | index
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `dimension` | index
-
 ### `krnl.entry_point` (KrnlEntryPointOp)
 
 _Indicate ONNX entry point_
@@ -428,34 +397,6 @@ current tile being iterated over.
 | Result | Description |
 | :----: | ----------- |
 | `ind_var_vals` | variadic of any type
-
-### `krnl.getref` (KrnlGetRefOp)
-
-_Krnl a MemRef from within another MemRef starting at a specific offset._
-
-    Retrieves a MemRef from within another MemRef:
-
-```
-    "krnl.getref"(%memref, %offset)
-```
-    The offset is an integer which is used as an index into the input MemRef. It works
-    just like an array index.
-
-Traits: MemRefsNormalizable
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `mempool` | memref of any type values
-| `offset` | integer
-| `value` | variadic of index
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | memref of any type values
 
 ### `krnl.global` (KrnlGlobalOp)
 
@@ -1233,30 +1174,6 @@ Traits: MemRefsNormalizable
 | `input` | any type
 | `seq` | memref of any type values
 | `index` | index
-
-### `krnl.shape` (KrnlShapeOp)
-
-_Krnl operation to retrieve the shape of a MemRef._
-
-Extracts the shape of a MemRef:
-```
-  "krnl.shape"(%memref)
-```
-The return result is of `shape.type`.
-
-Traits: MemRefsNormalizable
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `alloc` | memref of any type values
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `shape` | memref of any type values
 
 ### `krnl.specialized_kernel` (KrnlSpecializedKernel)
 

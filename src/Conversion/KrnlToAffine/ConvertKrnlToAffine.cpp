@@ -773,8 +773,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   ConversionTarget target(*ctx);
   // Legal/illegal ops.
   target.addIllegalOp<KrnlTerminatorOp>();
-  // krnl.dim operations must be lowered prior to this pass.
-  target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
