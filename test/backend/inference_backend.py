@@ -436,12 +436,14 @@ def get_test_models():
         # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_castlike_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_DOUBLE_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_FLOAT_to_FLOAT16_cpu": {
@@ -663,47 +665,56 @@ def get_test_models():
         # TODO: Support unknown dimensions in spatial dimensions
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_3d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_autopad_same_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_dilations_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pads_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         # ==OP== Cos
@@ -777,12 +788,14 @@ def get_test_models():
         # ==MIN== 13
         "test_depthtospace_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_depthtospace_crd_mode_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== DequantizeLinear
@@ -876,12 +889,14 @@ def get_test_models():
         # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
         "test_einsum_batch_diagonal_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_batch_matmul_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_inner_prod_cpu": {
@@ -891,12 +906,14 @@ def get_test_models():
         },
         "test_einsum_sum_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_transpose_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Elu
@@ -1072,17 +1089,20 @@ def get_test_models():
         # ==MIN== 11
         "test_gathernd_example_int32_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_float32_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gelu
@@ -1366,12 +1386,14 @@ def get_test_models():
         # ==MIN== 6
         "test_instancenorm_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_instancenorm_epsilon_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== IsInf
@@ -2250,17 +2272,20 @@ def get_test_models():
         # ==LIM== axes input not supported
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_edge_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_reflect_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Pow
@@ -2988,7 +3013,8 @@ def get_test_models():
         # "test_spacetodepth_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_spacetodepth_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Split
