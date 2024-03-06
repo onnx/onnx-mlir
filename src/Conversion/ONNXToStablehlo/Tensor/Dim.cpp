@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp"
 
 using namespace mlir;
@@ -28,21 +29,21 @@ struct ONNXDimOpLoweringToStablehlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
     Location loc = op->getLoc();
     ONNXDimOp dimOp = cast<ONNXDimOp>(op);
-    int64_t axis = dimOp.getAxis();
+    int64_t axisLit = dimOp.getAxis();
 
-    // Check that axis is a valid dimension index
+    // Check that axisLit is a valid dimension index
     Value tensorArg = operands[0];
     assert(tensorArg.getType().isa<RankedTensorType>() &&
            "Expected ranked tensor type");
 
-    RankedTensorType tensorType = tensorArg.getType().cast<RankedTensorType>();
-    int64_t rank = tensorType.getRank();
+    int64_t rank = tensorArg.getType().cast<RankedTensorType>().getRank();
 
-    assert((axis >= 0 && axis < rank) &&
+    assert((axisLit >= 0 && axisLit < rank) &&
            "Axis must be in the range [0, input tensor rank - 1]");
 
-    Value dimValue = rewriter.create<tensor::DimOp>(loc, tensorArg, axis);
-
+    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, tensorArg);
+    Value dimValue =
+        rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
     Type dimType = dimOp.getDim().getType();
     Type indexValueType = dimType.cast<ShapedType>().getElementType();
     Value castedIndex =
