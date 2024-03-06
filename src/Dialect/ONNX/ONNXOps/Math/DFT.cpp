@@ -37,7 +37,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
 
   // Check if the dimension for axis is a literal and in range.
   if (!axis.isLiteral())
-     return op->emitError("Can not perform Discrete Fourier Transform on "
+    return op->emitError("Can not perform Discrete Fourier Transform on "
                          "dynamic dimensions at this time");
 
   // OneSided is a required attribute and should have default value of 0.
@@ -46,7 +46,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
   // when onesided is 1 it is a real input.
   int64_t oneSided = operandAdaptor.getOnesided();
   int64_t axisValue = axis.getLiteral();
-  
+
   bool isOneSided = (oneSided == 0);
   bool isAxis = (axisValue == 0);
 
