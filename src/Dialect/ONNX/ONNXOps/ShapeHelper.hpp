@@ -727,9 +727,8 @@ using ONNXUnsqueezeV11OpShapeHelper = ONNXCommonUnsqueezeOpShapeHelper<mlir::ONN
 // Generic DFT shape helper.
 template <typename OP_TYPE>
 struct ONNXGenericDFTOpShapeHelper : public ONNXOpShapeHelper {
-  ONNXGenericDFTOpShapeHelper(mlir::Operation *op,
-      mlir::ValueRange operands, IndexExprBuilder *ieBuilder = nullptr,
-      IndexExprScope *scope = nullptr)
+  ONNXGenericDFTOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
   virtual ~ONNXGenericDFTOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
