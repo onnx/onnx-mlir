@@ -653,8 +653,10 @@ static void outputModule(mlir::OwningOpRef<ModuleOp> &module, raw_ostream &os,
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
-  if (largeElementLimit >= 0)
+  if (largeElementLimit >= 0) {
     flags.elideLargeElementsAttrs(largeElementLimit);
+    flags.elideLargeResourceString(largeElementLimit);
+  }
   module->print(os, flags);
 }
 
