@@ -29,54 +29,39 @@ template <typename OP_TYPE>
 LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
     IndexExpr &axis) {
   typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+
   // Get info about input data operand.
   Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
 
+  // Check if the dimension for axis is a literal and in range.
+  if (!axis.isLiteral())
+     return op->emitError("Can not perform Discrete Fourier Transform on "
+                         "dynamic dimensions at this time");
+
   // OneSided is a required attribute and should have default value of 0.
   // However oneSided can also be a value of 1 and if so a specific shape is
-  // expected Values can be 0 or 1.
+  // expected Values can be 0 or 1. When onesided is 0 it is complex input and
+  // when onesided is 1 it is a real input.
   int64_t oneSided = operandAdaptor.getOnesided();
+  int64_t axisValue = axis.getLiteral();
+  
   bool isOneSided = (oneSided == 0);
+  bool isAxis = (axisValue == 0);
 
   // Compute outputDims for DFT.
-
-  // 1. onesided is 0
-  // 2. onesided is 1 and axis is 0
-  // 3. onesided is 1 and axis is 1
-  // 4. onesided is 1 and axis is N
-
-
-  // int64_t r = rank + axis.size();
-  // // Normalize the axis values, record modified values in squeezedDims.
-  // for (uint64_t i = 0; i < axis.size(); ++i) {
-  //   // Check if the dimension to squeeze is a literal and in range.
-  //   if (!axis.isLiteral())
-  //     return op->emitError("Can not perform Discrete Fourier Transform on "
-  //                        "dynamic dimensions at this time");
-  //   int64_t a = unsqueezedDims[i].getLiteral();
-  //   if (a < -outRank || a >= outRank)
-  //     return op->emitError("Invalid axis value");
-  //   // Handle negative axis.
-  //   if (a < 0) {
-  //     a += outRank;
-  //     modified = true;
-  //   }
 
   LiteralIndexExpr one(1);
   DimsExpr outputDims;
   for (int64_t i = 0; i < rank - 1; ++i) {
     if (isOneSided) { // onesided is 0
       outputDims.emplace_back(createIE->getShapeAsDim(input, i));
-    } else { // onesided is 1
-      //check axis is long and then default value is -2 int 
-      // axis.isLiteral() == 2 &&
-      // axis.getLiteral() == 1 &&
-      if (i == 1) {
+    } else { // onesided is 1 and axis is 0
+      if (isAxis && i == 1) {
         IndexExpr d = createIE->getShapeAsDim(input, i).floorDiv(2) + one;
         outputDims.emplace_back(d);
-      } else {
+      } else { // onesided is 1 and axis is 1 or onesided is 1 and axis is N
         outputDims.emplace_back(createIE->getShapeAsDim(input, i));
       }
     }
@@ -104,13 +89,9 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::computeShape() {
     // Make sure axis is a constant, we do not handle dynamic dimensions at this
     // time.
     //  The default value for axis input is -2;
-  } else if (!isNoneValue(operandAdaptor.getAxis()) &&
-             getONNXConstantOp(operandAdaptor.getAxis())) {
+  } else {
     axis = createIE->getIntAsSymbol(operandAdaptor.getAxis());
     return customComputeShape(axis);
-  } else {
-    return op->emitError("Can not perform Discrete Fourier Transform on "
-                         "dynamic dimensions at this time");
   }
 }
 
@@ -132,7 +113,6 @@ LogicalResult ONNXDFTOp::inferShapes(
 
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXDFTOpShapeHelper shapeHelper(getOperation(), {});
-  // FAILING HERE!!!!!!!!
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 
