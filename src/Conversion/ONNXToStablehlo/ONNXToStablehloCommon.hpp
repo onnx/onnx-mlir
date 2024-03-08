@@ -179,6 +179,8 @@ void populateLoweringONNXConcatOpToStablehloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXConstantOpToStablehloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXDimOpToStablehloPattern(
+    RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXDepthToSpaceOpToStablehloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXExpandOpToStablehloPattern(
