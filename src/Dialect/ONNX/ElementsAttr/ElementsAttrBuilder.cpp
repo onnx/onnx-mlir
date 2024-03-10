@@ -22,7 +22,6 @@
 
 #include <algorithm>
 #include <numeric>
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -217,6 +216,8 @@ ElementsAttr ElementsAttrBuilder::combine(ElementsAttr lhs, ElementsAttr rhs,
     WideNum *dst = dstNums.data();
     const WideNum *lhsSrc = lhsNums.get().data();
     const WideNum *rhsSrc = rhsNums.get().data();
+    
+    
     for (auto &idxoffs :
         StridesRange<2>(combinedShape, {xpLhsStrides, xpRhsStrides})) {
       dst[idxoffs.flattenedIndex] =

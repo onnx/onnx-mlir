@@ -82,6 +82,7 @@ std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
+bool enableTiming;                                     // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -546,6 +547,12 @@ static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
         clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")),
     llvm::cl::init(OptReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
 
+static llvm::cl::opt<bool, true> enable_timing("enable-timing",
+    llvm::cl::desc("Enable pass timing (default is false)\n"
+                   "Set to 'true' if you want to enable pass timings."),
+    llvm::cl::location(enableTiming), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
 // Options for onnx-mlir-opt only
 static llvm::cl::opt<bool, true> split_input_file_opt("split-input-file",
     llvm::cl::desc("Split the input file into pieces and process each "
@@ -578,6 +585,7 @@ static llvm::cl::opt<bool, true> useOldBufferizationOpt("use-old-bufferization",
         "well in onnx-mlir"),
     llvm::cl::location(useOldBufferization), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
+
 
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
