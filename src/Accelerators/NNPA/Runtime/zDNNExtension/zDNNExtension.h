@@ -148,6 +148,13 @@ inline void omUnreachable() {
 void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape);
 
 /**
+ * \brief Get the NNPA maximum dimension index size.
+ *
+ * @return the NNPA maximum dimension index size.
+ */
+uint32_t getMDIS();
+
+/**
  * \brief Initialize a SplitInfo struct.
  *
  * This will initialize values in SplitInfo and allocate buffers.
@@ -156,25 +163,19 @@ void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape);
  * numOfElemsPerTile to be defined as they are effectively input parameters of
  * this function.
  *
- * Make sure to call FreeSplitInfoData to free buffers.
+ * Make sure to call freeSplitInfoData to free buffers.
  *
  * @param splitInfo information for splitting
- * @param initTiles whether initialize ztensors for tiles or not.
+ * @param splitInfo the full ztensor that will be splitted
+ * @param axis dimension to split fullZTensor
+ * @param numOfElemsPerTile value is used to split the axis equally
+ * @param allocTileBuffers whether alloc buffers for the ztensor tiles or not
  * @param tag a string to use when printing debug info
- * @return true if the ztensor is splitable. Otherwise, false
+ * @return true if the full ztensor is splitable. Otherwise, false
  */
-bool initSplitInfo(SplitInfo *splitInfo, bool initTile, const char *tag);
-
-/**
- * \brief Initialize a SplitInfo struct.
- *
- * This will initialize a ztensor for a specific tile.
- *
- * @param splitInfo information for splitting
- * @param tileID the id of a tile in the range of [0, numOfTiles - 1]
- * @return zdnn_status
- */
-zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID);
+bool initSplitInfo(SplitInfo *splitInfo, const zdnn_ztensor *fullZTensor,
+    SplitAxis axis, uint32_t numOfElemsPerTile, bool allocTileBuffers,
+    const char *tag);
 
 /**
  * \brief Free ztensor tile data.
@@ -193,7 +194,7 @@ void freeTileData(const SplitInfo *splitInfo, uint32_t tileID);
  *
  * @param splitInfo split information
  */
-void FreeSplitInfoData(SplitInfo *splitInfo);
+void freeSplitInfoData(SplitInfo *splitInfo);
 
 /**
  * \brief Print SplitInfo.
@@ -201,6 +202,53 @@ void FreeSplitInfoData(SplitInfo *splitInfo);
  * @param tag a string to use when printing debug info
  */
 void printSplitInfo(const SplitInfo *splitInfo, const char *tag);
+
+/**
+ * \brief Allocate memory for the tile buffer.
+ *
+ * @param tile tile->buffer will point to the allocated buffer
+ * @return zdnn_status
+ */
+zdnn_status allocTileBuffer(zdnn_ztensor *tile);
+
+/**
+ * \brief Free memory for the tile buffer.
+ *
+ * @param tile ztensor tile
+ */
+void freeTileBuffer(zdnn_ztensor *tile);
+
+/**
+ * \brief Get a pointer pointing to the tile buffer.
+ *
+ * @param tile ztensor of the tile
+ * @return a pointer to the tile buffer
+ */
+void *getTileBuffer(zdnn_ztensor *tile);
+
+/**
+ * \brief Set the tile buffer pointing to the given buffer.
+ *
+ * @param tile ztensor of the tile.
+ */
+void setTileBuffer(zdnn_ztensor *tile, void *buffer);
+
+/**
+ * \brief Get a pointer pointing to a tile.
+ *
+ * @param splitInfo information for splitting
+ * @param tileID the id of a tile in the range of [0, numOfTiles - 1]
+ * @return a pointer to the tile.
+ */
+zdnn_ztensor *getTile(const SplitInfo *splitInfo, uint32_t tileID);
+
+/**
+ * \brief Get the number of tiles.
+ *
+ * @param splitInfo information for splitting
+ * @return the number of tiles.
+ */
+uint32_t getNumOfTiles(const SplitInfo *splitInfo);
 
 /**
  * \brief Copy data between the full ztensor and its tiles.

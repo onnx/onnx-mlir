@@ -380,7 +380,7 @@ func.func @test_div_ones(%arg0 : tensor<1x2xui8>) -> tensor<1x2xui8> {
 }
 
 //===----------------------------------------------------------------------===//
-/// Equal tests
+/// Equal test
 
 // -----
 
@@ -395,7 +395,7 @@ func.func @test_equal() -> tensor<3xi1> {
 }
 
 //===----------------------------------------------------------------------===//
-/// Less tests
+/// Less test
 
 // -----
 
@@ -410,7 +410,7 @@ func.func @test_less() -> tensor<3xi1> {
 }
 
 //===----------------------------------------------------------------------===//
-/// Greater tests
+/// Greater test
 
 // -----
 
@@ -425,7 +425,7 @@ func.func @test_greater() -> tensor<3xi1> {
 }
 
 //===----------------------------------------------------------------------===//
-/// LessOrEqual tests
+/// LessOrEqual test
 
 // -----
 
@@ -440,7 +440,7 @@ func.func @test_lessorequal() -> tensor<3xi1> {
 }
 
 //===----------------------------------------------------------------------===//
-/// GreaterOrEqual tests
+/// GreaterOrEqual test
 
 // -----
 
@@ -455,7 +455,67 @@ func.func @test_greaterorequal() -> tensor<3xi1> {
 }
 
 //===----------------------------------------------------------------------===//
-/// Sqrt tests
+/// Modulo tests
+
+// -----
+
+// CHECK-LABEL: @test_modulo_int_both_neg() -> tensor<i64>
+func.func @test_modulo_int_both_neg() -> tensor<i64> {
+  %0 = onnx.Constant dense<-7> : tensor<i64>
+  %1 = onnx.Constant dense<-5> : tensor<i64>
+  %2 = "onnx.Mod"(%0, %1) : (tensor<i64> , tensor<i64>) -> tensor<i64>
+  "onnx.Return"(%2) : (tensor<i64>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<-2> : tensor<i64>
+}
+
+// -----
+
+// CHECK-LABEL: @test_modulo_int_neg() -> tensor<i64>
+func.func @test_modulo_int_neg() -> tensor<i64> {
+  %0 = onnx.Constant dense<-4> : tensor<i64>
+  %1 = onnx.Constant dense<2> : tensor<i64>
+  %2 = "onnx.Mod"(%0, %1) : (tensor<i64> , tensor<i64>) -> tensor<i64>
+  "onnx.Return"(%2) : (tensor<i64>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<0> : tensor<i64>
+}
+
+// -----
+
+// CHECK-LABEL: @test_modulo_int_pos() -> tensor<i64>
+func.func @test_modulo_int_pos() -> tensor<i64> {
+  %0 = onnx.Constant dense<5> : tensor<i64>
+  %1 = onnx.Constant dense<8> : tensor<i64>
+  %2 = "onnx.Mod"(%0, %1) : (tensor<i64> , tensor<i64>) -> tensor<i64>
+  "onnx.Return"(%2) : (tensor<i64>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<5> : tensor<i64>
+}
+
+// -----
+
+// CHECK-LABEL: @test_modulo_float() -> tensor<1xf32>
+func.func @test_modulo_float() -> tensor<1xf32> {
+  %0 = onnx.Constant dense<[2.0]> : tensor<1xf32>
+  %1 = onnx.Constant dense<[7.0]> : tensor<1xf32>
+  %2 = "onnx.Mod"(%0, %1) {fmod = 1 : si64} : (tensor<1xf32> , tensor<1xf32>) -> tensor<1xf32>
+  "onnx.Return"(%2) : (tensor<1xf32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<2.000000e+00> : tensor<1xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Mod"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_modulo_float_mixed() -> tensor<1xf32>
+func.func @test_modulo_float_mixed() -> tensor<1xf32> {
+  %0 = onnx.Constant dense<[-4.3]> : tensor<1xf32>
+  %1 = onnx.Constant dense<[2.1]> : tensor<1xf32>
+  %2 = "onnx.Mod"(%0, %1) {fmod = 1 : si64} : (tensor<1xf32> , tensor<1xf32>) -> tensor<1xf32>
+  "onnx.Return"(%2) : (tensor<1xf32>) -> ()
+  // CHECK: [[CONST:%.+]] = onnx.Constant dense<-0.100000381> : tensor<1xf32>
+  // CHECK-NOT: {{.*}} = "onnx.Mod"{{.*}}
+}
+
+//===----------------------------------------------------------------------===//
+/// Sqrt test
 
 // -----
 
@@ -468,7 +528,8 @@ func.func @test_sqrt() -> tensor<1x2xf32> {
   // CHECK-NOT: {{.*}} = "onnx.Sqrt"{{.*}}
 }
 
-/// Relu tests
+//===----------------------------------------------------------------------===//
+/// Relu test
 
 // -----
 
