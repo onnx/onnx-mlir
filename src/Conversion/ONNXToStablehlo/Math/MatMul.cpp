@@ -44,13 +44,9 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
     ShapedType outputShapedType = outputType.cast<ShapedType>();
     Type elementType = outputShapedType.getElementType();
 
-    if (llvm::any_of(outputShapedType.getShape(), ShapedType::isDynamic))
-      return rewriter.notifyMatchFailure(
-          op, "dynamic dimensions not supported");
-
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB());
-    auto aRank = A.getType().cast<ShapedType>().getShape().size();
-    auto bRank = B.getType().cast<ShapedType>().getShape().size();
+    auto aRank = A.getType().cast<ShapedType>().getRank();
+    auto bRank = B.getType().cast<ShapedType>().getRank();
     // Size all the arrays to padded length.
     int paddedRank = std::max(aRank, bRank);
     paddedRank = std::max(paddedRank, 2);
@@ -82,28 +78,54 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
     if (!bPadDims[paddedRank - 1])
       bShape.push_back(bShapeList[paddedRank - 1]);
 
-    Type outputAType = RankedTensorType::get(aShape, elementType);
-    Type outputBType = RankedTensorType::get(bShape, elementType);
-
     int64_t oneDPadA = aPadDims[paddedRank - 2];
     int64_t oneDPadB = bPadDims[paddedRank - 1];
 
-    Value broadcastedA;
-    {
+    // TODO: Some of the above logic could probably be absorbed into this
+    // function but will require more refactoring
+    auto broadCastTo = [&](const Value &operandToBroadcast,
+                           const Value &operandToMatch,
+                           ArrayRef<int64_t> shapeInts, int64_t oneDPad) {
+      Value broadcasted;
+      auto rank = operandToBroadcast.getType().cast<ShapedType>().getRank();
+      RankedTensorType broadCastedType =
+          RankedTensorType::get(shapeInts, elementType);
       SmallVector<int64_t, 4> broadcastDimensions =
           llvm::to_vector<4>(llvm::seq<int64_t>(
-              paddedRank - oneDPadA - aRank, paddedRank - oneDPadA));
-      broadcastedA = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(
-          loc, outputAType, A, rewriter.getI64VectorAttr(broadcastDimensions));
-    }
-    Value broadcastedB;
-    {
-      SmallVector<int64_t, 4> broadcastDimensions =
-          llvm::to_vector<4>(llvm::seq<int64_t>(
-              paddedRank - oneDPadB - bRank, paddedRank - oneDPadB));
-      broadcastedB = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(
-          loc, outputBType, B, rewriter.getI64VectorAttr(broadcastDimensions));
-    }
+              paddedRank - oneDPad - rank, paddedRank - oneDPad));
+      if (!broadCastedType.hasStaticShape()) {
+        SmallVector<Value> dimTensors(paddedRank - oneDPad - rank);
+        for (int64_t i = 0; i < paddedRank - oneDPad - rank; i++) {
+          Value dim = rewriter.create<tensor::DimOp>(loc, operandToMatch, i);
+          dim = rewriter.create<arith::IndexCastOp>(
+              loc, rewriter.getI64Type(), dim);
+          dimTensors[i] =
+              rewriter.create<tensor::FromElementsOp>(loc, ValueRange{dim});
+        }
+        Value broadcastedShape =
+            rewriter.create<shape::ShapeOfOp>(loc, operandToBroadcast);
+        broadcastedShape = rewriter.create<arith::IndexCastOp>(loc,
+            RankedTensorType::get({rank}, rewriter.getI64Type()),
+            broadcastedShape);
+        dimTensors.push_back(broadcastedShape);
+        Value fullShape = rewriter.create<stablehlo::ConcatenateOp>(loc,
+            RankedTensorType::get(
+                {broadCastedType.getRank()}, rewriter.getI64Type()),
+            dimTensors, rewriter.getI64IntegerAttr(0));
+        broadcasted = rewriter.createOrFold<stablehlo::DynamicBroadcastInDimOp>(
+            loc, broadCastedType, operandToBroadcast, fullShape,
+            rewriter.getI64VectorAttr(broadcastDimensions));
+      } else {
+        broadcasted = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(loc,
+            broadCastedType, operandToBroadcast,
+            rewriter.getI64VectorAttr(broadcastDimensions));
+      }
+      return broadcasted;
+    };
+
+    Value broadcastedA = broadCastTo(A, B, aShape, oneDPadA);
+    Value broadcastedB = broadCastTo(B, A, bShape, oneDPadB);
+
     Value dotProduct;
     if (paddedRank > 2)
       dotProduct = rewriter.create<stablehlo::DotGeneralOp>(loc, outputType,
