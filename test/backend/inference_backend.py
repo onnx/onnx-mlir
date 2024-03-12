@@ -1103,16 +1103,12 @@ def get_test_models():
         },
         "test_gathernd_example_float32_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # Dynamic test failed due to result difference
-            # DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # Dynamic test failed due to result difference
-            # DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gelu

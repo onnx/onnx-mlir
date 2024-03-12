@@ -71,7 +71,8 @@ private:
       } else if (!ty.isa<RankedTensorType>() && !ty.isa<NoneType>()) {
         op.emitError("not ranked");
         return failure();
-      } else if (ONNXGatherNDOp gatherNDOp = llvm::dyn_cast<ONNXGatherNDOp>(op)) {
+      } else if (ONNXGatherNDOp gatherNDOp =
+                     llvm::dyn_cast<ONNXGatherNDOp>(op)) {
         Value indices = gatherNDOp.getIndices();
         Type indicesType = indices.getType();
         ArrayRef<int64_t> indicesShape = onnx_mlir::getShape(indices.getType());
