@@ -74,6 +74,8 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     auto indicesType = indices.getType().cast<ShapedType>();
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
     int64_t indicesLastDim = indicesShape[indicesRank - 1];
+    // ToFix: Handle case in which indicesLastDim is kDynamic.
+    // Currently, such case is detected by ONNXPreKrnlVerifyPass.
     assert((indicesLastDim >= 1 && indicesLastDim <= dataRank - b) &&
            "indices.shape[-1] must be in the range [1, dataRank - b]");
 
