@@ -48,9 +48,11 @@ public:
       return rewriter.notifyMatchFailure(
           op, "memrefs as inputs are unsupported by TOSA");
     }
-    if (dilations) {
+    auto isOne = [](IntegerAttr attr) { return attr.getValue().isOne(); };
+    if (dilations &&
+        !llvm::all_of(dilations.getAsRange<IntegerAttr>(), isOne)) {
       return rewriter.notifyMatchFailure(
-          maxpoolOp, "dilations attribute is unsupported by TOSA");
+          maxpoolOp, "dilations != 1 is unsupported by TOSA");
     }
     if (storageOrder && storageOrder.getSInt() != 0) {
       return rewriter.notifyMatchFailure(
