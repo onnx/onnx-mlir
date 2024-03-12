@@ -72,14 +72,14 @@ private:
         op.emitError("not ranked");
         return failure();
       } else if (ONNXGatherNDOp gatherNDOp = llvm::dyn_cast<ONNXGatherNDOp>(op)) {
-	Value indices = gatherNDOp.getIndices();
-	Type indicesType = indices.getType();
-	ArrayRef<int64_t> indicesShape = onnx_mlir::getShape(indices.getType());
-	int64_t indicesRank = onnx_mlir::getRank(indicesType);
-	if (indicesShape[indicesRank - 1] == ShapedType::kDynamic) {
-	  op.emitError("last dim of indices in GatherND is dynamic");
-	  return failure();
-	}
+        Value indices = gatherNDOp.getIndices();
+        Type indicesType = indices.getType();
+        ArrayRef<int64_t> indicesShape = onnx_mlir::getShape(indices.getType());
+        int64_t indicesRank = onnx_mlir::getRank(indicesType);
+        if (indicesShape[indicesRank - 1] == ShapedType::kDynamic) {
+          op.emitError("last dim of indices in GatherND is dynamic");
+          return failure();
+        }
       }
     }
     return success();
