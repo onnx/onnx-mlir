@@ -40,7 +40,7 @@ namespace onnx_mlir {
 namespace zhigh {
 
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
-    MathBuilder, MemRefBuilder, VectorBuilder>;
+    MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilder>;
 
 //===----------------------------------------------------------------------===//
 // Helper function of Zhigh to Zlow lowering
@@ -513,14 +513,209 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocForZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
-
     // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
+#if 1
+    if (layout.getValue().equals_insensitive("3DS")) {
+      return generateStickCode3D4D(
+          rewriter, op, operandAdaptor, shapeHelper, alloc, layout);
+    }
+#endif
     // Emit a ZLow operation.
     rewriter.create<ZLowStickOp>(loc, operandAdaptor.getIn(), alloc, layout);
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
 
+  LogicalResult generateStickCode3D4D(ConversionPatternRewriter &rewriter,
+      Operation *op, ZHighStickOpAdaptor &operandAdaptor,
+      ZHighStickOpShapeHelper &shapeHelper, Value alloc,
+      StringAttr layout) const {
+    fprintf(stderr, "hi alex\n");
+    // generate code (unoptimized)
+    int64_t rank = shapeHelper.getOutputDims().size();
+    assert((rank == 3 || rank == 4) && "3D/4D expected");
+    // Dims: e2 is second to last, e1 is last.
+    int64_t e2Ind = rank - 2, e1Ind = rank - 1;
+
+    Location loc = op->getLoc();
+    MDBuilder create(rewriter, loc);
+
+    Value input =
+        operandAdaptor.getIn(); // hi alex, if only use of adaptor, pass input.
+
+    // Compute output dims.
+    IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
+    DimsExpr outputDims;
+    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+
+    // Tiling in the e2 x e1 dim: N x M.
+    int64_t N = 2; // Must be dividing 32 and smaller or equal to 32.
+    int64_t M = 2; // Tile multiples of 64 values.
+    // Info for SIMD & unrolling.
+    int64_t VL = 8;          // FP16 VL.
+    int64_t VLHalf = VL / 2; // FP32 VL.
+    int64_t D1 = 64;         // Transformed inner dim on zAIU.
+    assert(D1 % VL == 0 && "bad vector length VL");
+    int64_t D1ByVL = D1 / VL;
+
+    // hi alex, todo use it.
+    int64_t unrollSIMD = 8;             // Manually unrolled SIMD loop.
+    int64_t unrollVL = unrollSIMD * VL; // Total number of values unrolled.
+
+    IndexExpr litZero = LiteralIndexExpr(0);
+    IndexExpr litVL = LiteralIndexExpr(VL);
+    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
+    IndexExpr litN = LiteralIndexExpr(N);
+    IndexExpr litM = LiteralIndexExpr(M);
+    IndexExpr litD1 = LiteralIndexExpr(D1);
+    IndexExpr litD1ByVL = LiteralIndexExpr(D1ByVL);
+
+    // Types use the SIMD unrolling VL and VLHalf.
+    Type f16Type = rewriter.getF16Type();
+    Type f32Type = rewriter.getF32Type();
+    VectorType vecF16Type = VectorType::get({VL}, f16Type);
+    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+
+    // Type for buffer
+    MemRefType bufferType = MemRefType::get({M, N, D1}, f16Type);
+
+    // Create loop iterations.
+    ValueRange loopDefs = create.krnl.defineLoops(rank);
+    Value defE2 = loopDefs[e2Ind];     // Second to last dim.
+    Value defE1By64 = loopDefs[e1Ind]; // Last dim.
+    ValueRange tiledDefE2 = create.krnl.block(defE2, N);
+    ValueRange tiledDefE1By64 = create.krnl.block(defE1By64, M);
+    // Permute loop defs
+    if (rank == 3) {
+      create.krnl.permute({/*E3*/ loopDefs[0],
+                              /*E2*/ tiledDefE2[0], tiledDefE2[1],
+                              /*E1By64*/ tiledDefE1By64[0], tiledDefE1By64[1]},
+          {/*E3*/ 0, /*E2*/ 1, 4, /*E1By64*/ 2, 3});
+    } else {
+      llvm_unreachable("todo");
+    }
+
+    // Bounds and optimized loop defs
+    DimsExpr lbs, ubs;
+    SmallVector<Value, 4> optLoopDefs;
+    // Outer dims: possibly e4, e3.
+    for (int64_t i = 0; i < rank - 2; ++i) {
+      lbs.emplace_back(litZero);
+      ubs.emplace_back(outputDims[i]);
+      optLoopDefs.emplace_back(loopDefs[i]);
+    }
+    // Tiled dims e2
+    lbs.emplace_back(litZero);
+    ubs.emplace_back(outputDims[e2Ind]);
+    optLoopDefs.emplace_back(tiledDefE2[0]);
+    // Tiled dims: for E1, we iterate over full tiles of D1 elements
+    lbs.emplace_back(litZero);
+    IndexExpr E1By64 = outputDims[e1Ind].ceilDiv(D1);
+    ubs.emplace_back(E1By64);
+    optLoopDefs.emplace_back(tiledDefE1By64[0]);
+
+    // Parallel...
+
+    // Outer loop (E4,E3, tiled E2, tiled E1By64)
+    create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
+        [&](KrnlBuilder &b, ValueRange loopInd) {
+          MDBuilder create(b);
+          // Create buffer
+          Value buffer = create.mem.alignedAlloc(bufferType, {});
+          // Create access function using the outer indices;
+          SmallVector<Value, 4> inputAF, outputAF;
+          for (int i = 0; i < rank - 2; ++i) {
+            inputAF.emplace_back(loopInd[i]);
+            outputAF.emplace_back(loopInd[i]);
+          }
+          Value tiledE2 = loopInd[e2Ind];
+          Value tiledE1By64 = loopInd[e1Ind];
+
+#if 1
+          DimsExpr lbs2(3, litZero);
+          DimsExpr ubs2 = {litN, litM, litD1};
+          SmallVector<int64_t, 3> steps2 = {1, 1, VL};
+          create.affine.forIE(
+              lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                Value n = loopInd[0], m = loopInd[1], l = loopInd[2];
+                // Create the e2, e1 accesses
+                Value e2 = create.math.add(tiledE2, n);
+                Value e1By64 = create.math.add(tiledE1By64, m);
+                Value e1 = create.math.mul(e1By64, litD1.getValue());
+                e1 = create.math.add(e1, l);
+                inputAF.emplace_back(e2);
+                inputAF.emplace_back(e1);
+                Value vecF32H = create.vec.load(vecF32Type, input, inputAF);
+                Value e1Next = create.math.add(
+                    e1, litVLHalf.getValue()); // Get the second half of VL;
+                inputAF[e1Ind] = e1Next;
+                Value vecF32L = create.vec.load(vecF32Type, input, inputAF);
+                Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                    loc, vecF32H, vecF32L);
+                create.vec.store(vecF16, buffer, {m, n, l});
+              });
+#endif
+#if 1
+#if 1
+          // Perform copy.
+          create.krnl.iterate({}, {tiledDefE1By64[1], tiledDefE2[1]}, {}, {},
+              [&](KrnlBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                Value m = loopInd[0];
+                Value n = loopInd[1];
+
+                Value e2 = create.math.add(tiledE2, n);
+                outputAF.emplace_back(e2);
+                Value e1By64 = create.math.add(tiledE1By64, m);
+                Value e1 = create.math.mul(e1By64, litD1.getValue());
+                outputAF.emplace_back(e1); // Placeholder, value redef below.
+                // Manually unroll as memcpy is difficult with mapped memory.
+                // Sadly, could not use SIMD either because alloc has a non-unit
+                // map.
+                Value unrolledE2 = create.math.add(tiledE2, n);
+                outputAF[e2Ind] = unrolledE2;
+                for (int64_t l = 0; l < D1; l += 1) {
+                  Value lVal = create.math.constantIndex(l);
+                  Value tmp = create.krnl.load(buffer, {m, n, lVal});
+                  Value unrolledE1 = create.math.add(e1, lVal);
+                  outputAF[e1Ind] = unrolledE1;
+                  create.krnl.store(tmp, alloc, outputAF);
+                }
+              });
+
+#else
+          // Perform copy.
+          create.krnl.iterate({}, tiledDefE1By64[1], {}, {},
+              [&](KrnlBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                Value m = loopInd[0];
+                outputAF.emplace_back(
+                    tiledE2); // Placeholder, value redef below.
+                Value e1By64 = create.math.add(tiledE1By64, m);
+                Value e1 = create.math.mul(e1By64, litD1.getValue());
+                outputAF.emplace_back(e1); // Placeholder, value redef below.
+                // Manually unroll as memcpy is difficult with mapped memory.
+                for (int64_t n = 0; n < N; ++n) {
+                  Value nVal = create.math.constantIndex(n);
+                  Value unrolledE2 = create.math.add(tiledE2, nVal);
+                  outputAF[e2Ind] = unrolledE2;
+                  for (int64_t l = 0; l < 2 /*hi alex: DL */; l += 1) {
+                    Value lVal = create.math.constantIndex(l);
+                    Value tmp = create.krnl.load(buffer, {m, nVal, lVal});
+                    Value unrolledE1 = create.math.add(e1, lVal);
+                    outputAF[e1Ind] = unrolledE1;
+                    create.krnl.store(tmp, alloc, outputAF);
+                  }
+                }
+              });
+#endif
+#endif
+        });
+    fprintf(stderr, "bye alex\n");
     rewriter.replaceOp(op, alloc);
     return success();
   }
