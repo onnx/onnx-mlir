@@ -77,8 +77,7 @@ LogicalResult ONNXDFTOpLoweringCommon(OP_TYPE dftOp, OP_ADAPTOR adaptor,
   //   }
   // onnxToKrnlSimdReport(op);
   // return success();
-  return llvm_unreachable(
-      "The lowering is not supported for DFT at this time.");
+  return op->emitError("The lowering is not supported for DFT at this time.");
 }
 
 struct ONNXDFTOpLowering : public OpConversionPattern<ONNXDFTOp> {
