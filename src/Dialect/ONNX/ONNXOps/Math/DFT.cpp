@@ -34,7 +34,7 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
   Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
-  
+
   // Check if the dimension for axis is a literal and in range.
   // TO-FIX: https://github.com/onnx/onnx-mlir/issues/2752
   if (!axis.isLiteral())
