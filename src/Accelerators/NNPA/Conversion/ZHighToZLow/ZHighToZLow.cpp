@@ -492,10 +492,12 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
 
 struct ZHighToZLowStickOpLowering : public ConversionPattern {
   ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableCompilerStickUnstickCodeGen)
+      bool enableParallel, bool enableCompilerStickUnstickCodeGen)
       : ConversionPattern(
             typeConverter, ZHighStickOp::getOperationName(), 1, ctx),
+        enableParallel(enableParallel),
         enableCompilerCodeGen(enableCompilerStickUnstickCodeGen) {}
+  bool enableParallel;
   bool enableCompilerCodeGen;
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
@@ -617,6 +619,17 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     optLoopDefs.emplace_back(tiledDefE1[0]);
 
     // Parallel...
+    if (enableParallel) {
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank - 2, parId, 8)) {
+        create.krnl.parallel(optLoopDefs[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "compiler-generated stickify");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in compiler-generated stickify");
+      }
+    }
 
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by MxD1)
     create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
@@ -637,6 +650,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           DimsExpr lbs2(3, litZero);
           DimsExpr ubs2 = {litN, litM, litD1};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
+          // Analysis of assembly showed that the inner loop was fully unrolled.
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1898,7 +1912,7 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(
-      typeConverter, ctx, enableCompilerStickUnstickCodeGen);
+      typeConverter, ctx, enableParallel, enableCompilerStickUnstickCodeGen);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
