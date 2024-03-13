@@ -175,3 +175,57 @@ func.func @test_reducemean_v13_2(%arg0 : tensor<?x?x?xf32>) -> tensor<?x?xf32> {
 // CHECK:           [[VAR_6_:%.+]] = stablehlo.divide [[VAR_2_]], [[VAR_5_]] : tensor<?x?xf32>
 // CHECK:           return [[VAR_6_]] : tensor<?x?xf32>
 // CHECK:         }
+
+// -----
+
+func.func @reduce_mean(%arg0: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
+  %0 = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.ReduceMean"(%arg0, %0) : (tensor<2x5x9x11xf32>, tensor<2xi64>) -> tensor<2x5x1x1xf32>
+  return %1 : tensor<2x5x1x1xf32>
+}
+
+// CHECK-LABEL:  func.func @reduce_mean
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = shape.const_shape [2, 5, 1, 1] : tensor<4xindex>
+// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<9.900000e+01> : tensor<2x5x1x1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_3_:%.+]] = stablehlo.reduce([[PARAM_0_]] init: [[VAR_2_]]) applies stablehlo.add across dimensions = [2, 3] : (tensor<2x5x9x11xf32>, tensor<f32>) -> tensor<2x5xf32>
+// CHECK:           [[VAR_4_:%.+]] = stablehlo.dynamic_reshape [[VAR_3_]], [[VAR_0_]] : (tensor<2x5xf32>, tensor<4xindex>) -> tensor<2x5x1x1xf32>
+// CHECK:           [[VAR_5_:%.+]] = stablehlo.divide [[VAR_4_]], [[VAR_1_]] : tensor<2x5x1x1xf32>
+// CHECK:           return [[VAR_5_]] : tensor<2x5x1x1xf32>
+// CHECK:         }
+
+// -----
+
+func.func @reduce_max(%arg0: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
+  %0 = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.ReduceMax"(%arg0, %0) : (tensor<2x5x9x11xf32>, tensor<2xi64>) -> tensor<2x5x1x1xf32>
+  return %1 : tensor<2x5x1x1xf32>
+}
+
+// CHECK-LABEL:  func.func @reduce_max
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = shape.const_shape [2, 5, 1, 1] : tensor<4xindex>
+// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.reduce([[PARAM_0_]] init: [[VAR_1_]]) applies stablehlo.maximum across dimensions = [2, 3] : (tensor<2x5x9x11xf32>, tensor<f32>) -> tensor<2x5xf32>
+// CHECK:           [[VAR_3_:%.+]] = stablehlo.dynamic_reshape [[VAR_2_]], [[VAR_0_]] : (tensor<2x5xf32>, tensor<4xindex>) -> tensor<2x5x1x1xf32>
+// CHECK:           return [[VAR_3_]] : tensor<2x5x1x1xf32>
+// CHECK:         }
+
+// -----
+
+
+func.func @reduce_min(%arg0: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
+  %0 = "onnx.Constant"() {value = dense<[2, 3]> : tensor<2xi64>} : () -> tensor<2xi64>
+  %1 = "onnx.ReduceMin"(%arg0, %0) : (tensor<2x5x9x11xf32>, tensor<2xi64>) -> tensor<2x5x1x1xf32>
+  return %1 : tensor<2x5x1x1xf32>
+}
+
+// CHECK-LABEL:  func.func @reduce_min
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2x5x9x11xf32>) -> tensor<2x5x1x1xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = shape.const_shape [2, 5, 1, 1] : tensor<4xindex>
+// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0x7F800000> : tensor<f32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.reduce([[PARAM_0_]] init: [[VAR_1_]]) applies stablehlo.minimum across dimensions = [2, 3] : (tensor<2x5x9x11xf32>, tensor<f32>) -> tensor<2x5xf32>
+// CHECK:           [[VAR_3_:%.+]] = stablehlo.dynamic_reshape [[VAR_2_]], [[VAR_0_]] : (tensor<2x5xf32>, tensor<4xindex>) -> tensor<2x5x1x1xf32>
+// CHECK:           return [[VAR_3_]] : tensor<2x5x1x1xf32>
+// CHECK:         }
