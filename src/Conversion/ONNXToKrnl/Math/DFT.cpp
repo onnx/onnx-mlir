@@ -75,8 +75,9 @@ LogicalResult ONNXDFTOpLoweringCommon(OP_TYPE dftOp, OP_ADAPTOR adaptor,
   //     //   rawAxisIE = create.krnlIE.getIntAsSymbol(axisAttrs);
   //     }
   //   }
-  onnxToKrnlSimdReport(op);
-  return success();
+  // onnxToKrnlSimdReport(op);
+  // return success();
+  return llvm_unreachable("The lowering is not supported for DFT at this time.");
 }
 
 struct ONNXDFTOpLowering : public OpConversionPattern<ONNXDFTOp> {

@@ -34,8 +34,9 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
   Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
-
+  
   // Check if the dimension for axis is a literal and in range.
+  // TO-FIX: https://github.com/onnx/onnx-mlir/issues/2752
   if (!axis.isLiteral())
     return op->emitError("Can not perform Discrete Fourier Transform on "
                          "dynamic dimensions at this time");
@@ -47,18 +48,18 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
   int64_t oneSided = operandAdaptor.getOnesided();
   int64_t axisValue = axis.getLiteral();
 
-  bool isOneSided = (oneSided == 0);
-  bool isAxis = (axisValue == 0);
+  bool isOneSided = (oneSided == 1);
+  bool isAxis = (axisValue == 1);
 
   // Compute outputDims for DFT.
 
   LiteralIndexExpr one(1);
   DimsExpr outputDims;
   for (int64_t i = 0; i < rank - 1; ++i) {
-    if (isOneSided) { // onesided is 0
+    if (!isOneSided) { // onesided is 0
       outputDims.emplace_back(createIE->getShapeAsDim(input, i));
     } else { // onesided is 1 and axis is 0
-      if (isAxis && i == 1) {
+      if (!isAxis && i == 1) {
         IndexExpr d = createIE->getShapeAsDim(input, i).floorDiv(2) + one;
         outputDims.emplace_back(d);
       } else { // onesided is 1 and axis is 1 or onesided is 1 and axis is N
