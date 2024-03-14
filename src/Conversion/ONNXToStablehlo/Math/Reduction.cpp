@@ -181,9 +181,9 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMaxOp>(Operation *op) {
   return getDefinedAxesFromConstAxes(op, axesValue, keepDims);
 }
 
-
 template <>
-llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMaxV18Op>(Operation *op) {
+llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMaxV18Op>(
+    Operation *op) {
   ONNXReduceMaxV18Op reduceMaxOp = cast<ONNXReduceMaxV18Op>(op);
   Value axesValue = reduceMaxOp.getAxes();
   bool keepDims = reduceMaxOp.getKeepdims() == 1;
@@ -199,7 +199,8 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMinOp>(Operation *op) {
 }
 
 template <>
-llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMinV18Op>(Operation *op) {
+llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMinV18Op>(
+    Operation *op) {
   ONNXReduceMinV18Op reduceMinOp = cast<ONNXReduceMinV18Op>(op);
   Value axesValue = reduceMinOp.getAxes();
   bool keepDims = reduceMinOp.getKeepdims() == 1;
