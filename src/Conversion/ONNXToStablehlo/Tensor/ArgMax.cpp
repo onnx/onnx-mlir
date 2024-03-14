@@ -86,6 +86,7 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
            "data must be ranked Shaped Type");
     ShapedType dataType = data.getType().cast<ShapedType>();
     Type elementType = dataType.getElementType();
+    llvm::ArrayRef<int64_t> dataShape = dataType.getShape();
     int64_t dataRank = dataType.getRank();
 
     // axis & keepdims attribute
@@ -101,23 +102,28 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
             APFloat::getInf(elementType.cast<FloatType>().getFloatSemantics(),
                 /*isNegative=*/true)));
     RankedTensorType indexType =
-        RankedTensorType::get(dataType.getShape(), indexElementType);
+        RankedTensorType::get(dataShape, indexElementType);
 
     IntegerAttr iotaDimension = IntegerAttr::get(rewriter.getI64Type(), axis);
     Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
     Value indexValues = rewriter.create<stablehlo::DynamicIotaOp>(
         loc, indexType, inputShape, iotaDimension);
 
-    Value dataOperands[] = {data, indexValues};
-    Value initValues[] = {initValue, indexInitValue};
+    ValueRange dataOperands({data, indexValues});
+    ValueRange initValues({initValue, indexInitValue});
     llvm::ArrayRef<int64_t> reductionDimensions({axis});
 
-    TypeRange reduceResultType =
-        llvm::ArrayRef<Type>({UnrankedTensorType::get(elementType),
-            UnrankedTensorType::get(rewriter.getI64Type())});
-    stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(loc,
-        reduceResultType, llvm::ArrayRef<Value>(dataOperands),
-        llvm::ArrayRef<Value>(initValues), reductionDimensions);
+    SmallVector<int64_t> reduceOpOutputShape;
+    for (int64_t i = 0; i < dataRank; i++)
+      if (i != axis)
+        reduceOpOutputShape.push_back(dataShape[i]);
+
+    Type outShape1 = RankedTensorType::get(reduceOpOutputShape, elementType);
+    Type outShape2 =
+        RankedTensorType::get(reduceOpOutputShape, indexElementType);
+    TypeRange reduceResultType = llvm::ArrayRef<Type>({outShape1, outShape2});
+    stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(
+        loc, reduceResultType, dataOperands, initValues, reductionDimensions);
     BuildArgmaxReductionBody(
         elementType, indexElementType, &reduction.getBody(), &rewriter);
 
