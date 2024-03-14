@@ -483,15 +483,6 @@ LogicalResult ONNXConvTransposeOpShapeHelper::computeShape() {
 
   // Save the final result.
   setOutputDims(outputDims);
-
-  dimsNoOutputPadding.emplace_back(outputDims[0]);
-  dimsNoOutputPadding.emplace_back(outputDims[1]);
-  for (int i = 0; i < spatialRank; ++i) {
-    LiteralIndexExpr outPad(outputPadding[i]);
-    IndexExpr dimNoOutPad =
-        IndexExpr::max(zeroIE, outputDims[i + spatialOffset] - outPad);
-    dimsNoOutputPadding.emplace_back(dimNoOutPad);
-  }
   return success();
 }
 
