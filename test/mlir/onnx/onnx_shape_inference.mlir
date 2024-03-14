@@ -134,6 +134,50 @@ func.func @test_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
 // -----
 
 //===----------------------------------------------------------------------===//
+/// Test shape inference for DFT.
+//===----------------------------------------------------------------------===//
+func.func @test_dft_v17(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i32>) -> tensor<*xf32> {
+  %0 = "onnx.DFTV17"(%arg0, %arg1) : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_dft_v17
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x2xf32>
+// CHECK:         }
+}
+// -----
+
+func.func @test_dft_one_sided_v17(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i32>) -> tensor<*xf32> {
+  %0 = "onnx.DFTV17"(%arg0, %arg1) { onesided = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_dft_one_sided_v17
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_dft_inverse_v17(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i32>) -> tensor<*xf32> {
+  %0 = "onnx.DFTV17"(%arg0, %arg1) { inverse = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_dft_inverse_v17
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x2xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 1 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x2xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x2xf32>
+// CHECK:         }
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
 /// Test the shape inferencing scheme for the matmul operation.
 //===----------------------------------------------------------------------===//
 
