@@ -1092,22 +1092,23 @@ def get_test_models():
         },
         # ==OP== GatherND
         # ==MIN== 11
+        # According to onnx specification:
+        # output tensor of rank q + r - indices_shape[-1] - 1 - b
+        # onnx-mlir can not infer the shape if the last dim of indices
+        # input is dynamic. Therefore, {0: {-1}} is used for DYNAMIC_SHAPE
         "test_gathernd_example_int32_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_float32_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gelu
