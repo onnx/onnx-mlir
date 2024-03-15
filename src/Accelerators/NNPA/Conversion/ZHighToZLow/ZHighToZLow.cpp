@@ -817,7 +817,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     SmallVector<Value, 4> optLoopDefs;
     // Outer dims: possibly e4, e3.
     for (int64_t i = 0; i < rank - 2; ++i)
-          optLoopDefs.emplace_back(loopDefs[i]);
+      optLoopDefs.emplace_back(loopDefs[i]);
     // Tiled dims e2, which iterates over N elements.
     optLoopDefs.emplace_back(tiledDefE2[0]);
     // Tiled dims: for e1, which iterates over M*D1 elements.
@@ -825,15 +825,15 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
     // Parallel...
     if (enableParallel) {
-          int64_t parId;
-          if (findSuitableParallelDimension(lbs, ubs, 0, rank - 2, parId, 8)) {
-            create.krnl.parallel(optLoopDefs[parId]);
-            onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-                "compiler-generated stickify");
-          } else {
-            onnxToKrnlParallelReport(op, false, -1, -1,
-                "no dim with enough work in compiler-generated stickify");
-          }
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank - 2, parId, 8)) {
+        create.krnl.parallel(optLoopDefs[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "compiler-generated stickify");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in compiler-generated stickify");
+      }
     }
 
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M*D1)
@@ -885,15 +885,16 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Value m = create.math.sub(tiledE1ByD1, tiledE1ByMxD1);
                 m = create.math.floorDiv(m, litD1.getValue());
                 // Compute offset x inside allocAs32x64
+                Value e1DivD1 =
+                    create.math.floorDiv(tiledE1ByD1, litD1.getValue());
+                Value e2DivD2 =
+                    create.math.floorDiv(tiledE2ByN, litD2.getValue());
+                Value e2ModD2 = create.math.rem(tiledE2ByN, litD2.getValue());
                 Value x;
                 if (layout.getValue().equals_insensitive("3DS")) {
                   // x = (e3 * Ceil(E1/64) + floor(e1/64)) * Ceil(E2/32) +
                   // floor(e2/32).
                   Value e3 = outputAF[0];
-                  Value e1DivD1 =
-                      create.math.floorDiv(tiledE1ByD1, litD1.getValue());
-                  Value e2DivD2 =
-                      create.math.floorDiv(tiledE2ByN, litD2.getValue());
 
                   x = create.math.mul(e3, E1ByD1.getValue());
                   x = create.math.add(x, e1DivD1);
@@ -902,7 +903,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 } else {
                   llvm_unreachable("missing layout");
                 }
-                Value offsetAlloc = create.math.mul(x, litD1xD2.getValue());
+                Value tileOffsetAlloc = create.math.mul(x, litD1xD2.getValue());
+                Value offsetInTile = create.math.mul(e2ModD2, litD1.getValue());
+                Value offsetAlloc =
+                    create.math.add(tileOffsetAlloc, offsetInTile);
+                // now I have to add the offset to get to the right
+
                 // create offset in buffer
                 Value offsetBuffer = create.math.mul(m, litNxD1.getValue());
                 Type intType = rewriter.getIntegerType(64);
@@ -1027,7 +1033,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 
     // Set layout: if NHWC, we can directly unstickify to NCHW.
     if (isNHWCLayout(layout))
-          layout = getNCHWLayoutAttr(rewriter);
+      layout = getNCHWLayoutAttr(rewriter);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
@@ -1421,22 +1427,22 @@ struct ZHighToZLowMatMulOpLowering : public ConversionPattern {
     // Prepare optional bias.
     Value bias = operandAdaptor.getB();
     if (bias.getType().isa<NoneType>()) {
-          SmallVector<IndexExpr, 4> resDims, biasDims;
-          create.krnlIE.getShapeAsDims(alloc, resDims);
-          ZTensorEncodingAttr::DataLayout biasLayout;
-          if (shapeHelper.isStacked) {
-            // Bias type is 2DS.
-            biasDims.emplace_back(resDims[0]);
-            biasDims.emplace_back(resDims[2]);
-            biasLayout = ZTensorEncodingAttr::DataLayout::_2DS;
-          } else {
-            // Bias type is 1D. Get the last dim size.
-            biasDims.emplace_back(resDims[resDims.size() - 1]);
-            biasLayout = ZTensorEncodingAttr::DataLayout::_1D;
-          }
-          // Allocate bias.
-          bias = insertAllocOrEmitZeroConstant(
-              biasDims, biasLayout, op, rewriter, loc);
+      SmallVector<IndexExpr, 4> resDims, biasDims;
+      create.krnlIE.getShapeAsDims(alloc, resDims);
+      ZTensorEncodingAttr::DataLayout biasLayout;
+      if (shapeHelper.isStacked) {
+        // Bias type is 2DS.
+        biasDims.emplace_back(resDims[0]);
+        biasDims.emplace_back(resDims[2]);
+        biasLayout = ZTensorEncodingAttr::DataLayout::_2DS;
+      } else {
+        // Bias type is 1D. Get the last dim size.
+        biasDims.emplace_back(resDims[resDims.size() - 1]);
+        biasLayout = ZTensorEncodingAttr::DataLayout::_1D;
+      }
+      // Allocate bias.
+      bias = insertAllocOrEmitZeroConstant(
+          biasDims, biasLayout, op, rewriter, loc);
     }
 
     // Attributes.
@@ -1506,20 +1512,20 @@ struct ZHighToZLowLSTMOpLowering : public ConversionPattern {
     Value input_bias = operandAdaptor.getInputBias();
     Value hidden_bias = operandAdaptor.getHiddenBias();
     if (initial_h.getType().isa<NoneType>()) {
-          initial_h = insertAllocOrEmitZeroConstant(shapeHelper.hc0Shape,
-              ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
+      initial_h = insertAllocOrEmitZeroConstant(shapeHelper.hc0Shape,
+          ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
     }
     if (initial_c.getType().isa<NoneType>()) {
-          initial_c = insertAllocOrEmitZeroConstant(shapeHelper.hc0Shape,
-              ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
+      initial_c = insertAllocOrEmitZeroConstant(shapeHelper.hc0Shape,
+          ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
     }
     if (input_bias.getType().isa<NoneType>()) {
-          input_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
-              ZTensorEncodingAttr::DataLayout::FICO, op, rewriter, loc);
+      input_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
+          ZTensorEncodingAttr::DataLayout::FICO, op, rewriter, loc);
     }
     if (hidden_bias.getType().isa<NoneType>()) {
-          hidden_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
-              ZTensorEncodingAttr::DataLayout::FICO, op, rewriter, loc);
+      hidden_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
+          ZTensorEncodingAttr::DataLayout::FICO, op, rewriter, loc);
     }
 
     // Prepare work area. Double the area for the bidirectional mode.
@@ -1587,16 +1593,16 @@ struct ZHighToZLowGRUOpLowering : public ConversionPattern {
     Value input_bias = operandAdaptor.getInputBias();
     Value hidden_bias = operandAdaptor.getHiddenBias();
     if (initial_h.getType().isa<NoneType>()) {
-          initial_h = insertAllocOrEmitZeroConstant(shapeHelper.h0Shape,
-              ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
+      initial_h = insertAllocOrEmitZeroConstant(shapeHelper.h0Shape,
+          ZTensorEncodingAttr::DataLayout::_3DS, op, rewriter, loc);
     }
     if (input_bias.getType().isa<NoneType>()) {
-          input_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
-              ZTensorEncodingAttr::DataLayout::ZRH, op, rewriter, loc);
+      input_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
+          ZTensorEncodingAttr::DataLayout::ZRH, op, rewriter, loc);
     }
     if (hidden_bias.getType().isa<NoneType>()) {
-          hidden_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
-              ZTensorEncodingAttr::DataLayout::ZRH, op, rewriter, loc);
+      hidden_bias = insertAllocOrEmitZeroConstant(shapeHelper.biasShape,
+          ZTensorEncodingAttr::DataLayout::ZRH, op, rewriter, loc);
     }
 
     // Prepare work area. Double the area for the bidirectional mode.
@@ -1783,8 +1789,8 @@ struct ZHighToZLowFixGRUYhOpLowering : public ConversionPattern {
     SmallVector<Value, 2> htLbs(htRank, iZero);
     SmallVector<Value, 2> htUbs;
     for (unsigned r = 0; r < htRank; ++r) {
-          // skip the first two dim for sequence and batch
-          htUbs.emplace_back(create.mem.dim(Y, r + 1));
+      // skip the first two dim for sequence and batch
+      htUbs.emplace_back(create.mem.dim(Y, r + 1));
     }
     Value seqSize = create.mem.dim(Y, 0);
     ValueRange loops = create.krnl.defineLoops(htRank);
@@ -1842,10 +1848,10 @@ struct ZHighToZLowConv2DOpLowering : public ConversionPattern {
     // Prepare optional values: input_bias.
     Value bias = operandAdaptor.getInputBias();
     if (bias.getType().isa<NoneType>()) {
-          // Bias's shape is [Channel_out].
-          SmallVector<IndexExpr> dims(1, shapeHelper.allOriginalDims[4]);
-          bias = insertAllocOrEmitZeroConstant(
-              dims, ZTensorEncodingAttr::DataLayout::_1D, op, rewriter, loc);
+      // Bias's shape is [Channel_out].
+      SmallVector<IndexExpr> dims(1, shapeHelper.allOriginalDims[4]);
+      bias = insertAllocOrEmitZeroConstant(
+          dims, ZTensorEncodingAttr::DataLayout::_1D, op, rewriter, loc);
     }
 
     // Create a zLow op.
@@ -2063,12 +2069,12 @@ struct ZHighToZLowDataConversionLowering
     SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
 
     if (enableParallel) {
-          create.krnl.parallel(blockedLoopDef[0]);
-          onnxToKrnlParallelReport(op, /*successful*/ true, 0,
-              flattenedOutputDims[0].isLiteral()
-                  ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)VL)
-                  : -1,
-              "dlf16-f32 conversion fully parallelized");
+      create.krnl.parallel(blockedLoopDef[0]);
+      onnxToKrnlParallelReport(op, /*successful*/ true, 0,
+          flattenedOutputDims[0].isLiteral()
+              ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)VL)
+              : -1,
+          "dlf16-f32 conversion fully parallelized");
     }
 
     onnxToKrnlSimdReport(op, /*successful*/ true, VL,
