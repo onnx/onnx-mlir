@@ -468,8 +468,7 @@ struct ONNXConvTransposeOpShapeHelper : public ONNXOpShapeHelper {
   ONNXConvTransposeOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope), kernelShape(),
-        pads(), strides(), dilations(), outputPadding(), dimsNoOutputPadding() {
-  }
+        pads(), strides(), dilations(), outputPadding() {}
   virtual ~ONNXConvTransposeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Values set by computeShape.
@@ -478,7 +477,6 @@ struct ONNXConvTransposeOpShapeHelper : public ONNXOpShapeHelper {
   llvm::SmallVector<int64_t, 2> strides;
   llvm::SmallVector<int64_t, 2> dilations;
   llvm::SmallVector<int64_t, 2> outputPadding;
-  llvm::SmallVector<IndexExpr, 2> dimsNoOutputPadding;
 };
 
 //===----------------------------------------------------------------------===//

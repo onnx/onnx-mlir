@@ -75,12 +75,10 @@ func.func @test_attributes_1(%arg0 : tensor<?x1x3x3xf32>, %arg1 : tensor<1x2x3x3
 
 // CHECK-LABEL:  func.func @test_attributes_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x1x3x3xf32>, [[PARAM_1_:%.+]]: tensor<1x2x3x3xf32>) -> tensor<?x2x10x8xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.reverse [[PARAM_1_]], dims = [2, 3] : tensor<1x2x3x3xf32>
-// CHECK:           [[VAR_2_:%.+]] = stablehlo.transpose [[VAR_1_]], dims = [1, 0, 2, 3] : (tensor<1x2x3x3xf32>) -> tensor<2x1x3x3xf32>
-// CHECK:           [[VAR_3_:%.+]] = stablehlo.convolution([[PARAM_0_]], [[VAR_2_]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {stride = [1, 1], pad = {{.}}[2, 2], [2, 2]{{.}}, lhs_dilate = [3, 2], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<?x1x3x3xf32>, tensor<2x1x3x3xf32>) -> tensor<?x2x9x7xf32>
-// CHECK:           [[VAR_4_:%.+]] = stablehlo.pad [[VAR_3_]], [[VAR_0_]], low = [0, 0, 0, 0], high = [0, 0, 1, 1], interior = [0, 0, 0, 0] : (tensor<?x2x9x7xf32>, tensor<f32>) -> tensor<?x2x10x8xf32>
-// CHECK:           return [[VAR_4_]] : tensor<?x2x10x8xf32>
+// CHECK:           [[VAR_0_:%.+]] = stablehlo.reverse [[PARAM_1_]], dims = [2, 3] : tensor<1x2x3x3xf32>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.transpose [[VAR_0_]], dims = [1, 0, 2, 3] : (tensor<1x2x3x3xf32>) -> tensor<2x1x3x3xf32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.convolution([[PARAM_0_]], [[VAR_1_]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {stride = [1, 1], pad = {{.}}[2, 3], [2, 3]{{.}}, lhs_dilate = [3, 2], rhs_dilate = [1, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<?x1x3x3xf32>, tensor<2x1x3x3xf32>) -> tensor<?x2x10x8xf32>
+// CHECK:           return [[VAR_2_]] : tensor<?x2x10x8xf32>
 // CHECK:         }
 
 // -----
