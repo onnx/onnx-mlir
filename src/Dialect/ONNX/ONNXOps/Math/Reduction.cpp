@@ -275,7 +275,7 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 
 LogicalResult ONNXReduceMaxV18Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_old<ONNXReduceMaxV18Op>(*this);
+  return inferShapeForReductionOps<ONNXReduceMaxV18Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -320,7 +320,7 @@ LogicalResult ONNXReduceMinOp::inferShapes(
 
 LogicalResult ONNXReduceMinV18Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps_old<ONNXReduceMinV18Op>(*this);
+  return inferShapeForReductionOps<ONNXReduceMinV18Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
