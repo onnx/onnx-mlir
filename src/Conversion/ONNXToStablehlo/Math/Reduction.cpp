@@ -61,6 +61,12 @@ Value getIdentityValue<ONNXReduceMaxOp>(
 }
 
 template <>
+Value getIdentityValue<ONNXReduceMaxV18Op>(
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+  return getReduceMaxIdentityValue(rewriter, loc, elemType);
+}
+
+template <>
 Value getIdentityValue<ONNXReduceMaxV13Op>(
     ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return getReduceMaxIdentityValue(rewriter, loc, elemType);
@@ -68,6 +74,12 @@ Value getIdentityValue<ONNXReduceMaxV13Op>(
 
 template <>
 Value getIdentityValue<ONNXReduceMinOp>(
+    ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
+  return getReduceMinIdentityValue(rewriter, loc, elemType);
+}
+
+template <>
+Value getIdentityValue<ONNXReduceMinV18Op>(
     ConversionPatternRewriter &rewriter, Location loc, Type elemType) {
   return getReduceMinIdentityValue(rewriter, loc, elemType);
 }
@@ -170,8 +182,26 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMaxOp>(Operation *op) {
 }
 
 template <>
+llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMaxV18Op>(
+    Operation *op) {
+  ONNXReduceMaxV18Op reduceMaxOp = cast<ONNXReduceMaxV18Op>(op);
+  Value axesValue = reduceMaxOp.getAxes();
+  bool keepDims = reduceMaxOp.getKeepdims() == 1;
+  return getDefinedAxesFromConstAxes(op, axesValue, keepDims);
+}
+
+template <>
 llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMinOp>(Operation *op) {
   ONNXReduceMinOp reduceMinOp = cast<ONNXReduceMinOp>(op);
+  Value axesValue = reduceMinOp.getAxes();
+  bool keepDims = reduceMinOp.getKeepdims() == 1;
+  return getDefinedAxesFromConstAxes(op, axesValue, keepDims);
+}
+
+template <>
+llvm::SmallVector<int64_t, 4> getDefinedAxes<ONNXReduceMinV18Op>(
+    Operation *op) {
+  ONNXReduceMinV18Op reduceMinOp = cast<ONNXReduceMinV18Op>(op);
   Value axesValue = reduceMinOp.getAxes();
   bool keepDims = reduceMinOp.getKeepdims() == 1;
   return getDefinedAxesFromConstAxes(op, axesValue, keepDims);
@@ -205,12 +235,22 @@ struct BlockReduceOp<ONNXReduceMaxOp> {
 };
 
 template <>
+struct BlockReduceOp<ONNXReduceMaxV18Op> {
+  using Op = stablehlo::MaxOp;
+};
+
+template <>
 struct BlockReduceOp<ONNXReduceMaxV13Op> {
   using Op = stablehlo::MaxOp;
 };
 
 template <>
 struct BlockReduceOp<ONNXReduceMinOp> {
+  using Op = stablehlo::MinOp;
+};
+
+template <>
+struct BlockReduceOp<ONNXReduceMinV18Op> {
   using Op = stablehlo::MinOp;
 };
 
@@ -355,7 +395,7 @@ Value createReduce(Location loc, Value operand, Value identity,
   return result;
 }
 
-// ONNXReductionOp is implmented as stablehlo.reduce with its body built
+// ONNXReductionOp is implemented as stablehlo.reduce with its body built
 // correspondingly.
 template <typename ONNXReductionOp>
 struct ONNXReductionOpLoweringToStablehlo : public ConversionPattern {
@@ -437,8 +477,10 @@ struct ONNXReductionOpLoweringToStablehlo : public ConversionPattern {
 void populateLoweringONNXReductionOpToStablehloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
   patterns.insert<ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceMaxOp>,
+      ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceMaxV18Op>,
       ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceMaxV13Op>,
       ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceMinOp>,
+      ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceMinV18Op>,
       ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceMinV13Op>,
       ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceSumOp>,
       ONNXReductionOpLoweringToStablehlo<mlir::ONNXReduceSumV11Op>>(ctx);
