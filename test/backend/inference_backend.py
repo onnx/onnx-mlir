@@ -2460,7 +2460,6 @@ def get_test_models():
         },
         # ==OP== ReduceMax
         # ==MIN== 1
-        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2515,7 +2514,6 @@ def get_test_models():
         },
         # ==OP== ReduceMin
         # ==MIN== 1
-        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_min_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_min_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
