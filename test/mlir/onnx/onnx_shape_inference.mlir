@@ -142,9 +142,9 @@ func.func @test_dft_v17(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i32>) -> t
 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_dft_v17
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x2xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x2xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x2xf32>
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
 // -----
@@ -155,9 +155,9 @@ func.func @test_dft_one_sided_v17(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<
 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_dft_one_sided_v17
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x2xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x2xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x2xf32>
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
 
@@ -169,9 +169,9 @@ func.func @test_dft_inverse_v17(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i3
 
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_dft_inverse_v17
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x2xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 1 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x2xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x2xf32>
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.DFTV17"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 1 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
 // CHECK:         }
 }
 

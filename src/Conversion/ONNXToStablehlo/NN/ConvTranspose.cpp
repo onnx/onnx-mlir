@@ -88,7 +88,6 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
     ShapedType inputType = inputOperand.getType().cast<ShapedType>();
-    Type elemType = inputType.getElementType();
     // Onnx Input is NCHW
     int64_t spatialOffset = 2;
     int64_t rank = inputType.getRank();

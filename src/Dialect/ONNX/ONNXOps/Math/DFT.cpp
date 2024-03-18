@@ -74,26 +74,19 @@ LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
   return success();
 }
 
-template <typename OP>
-constexpr bool isAxisInput = std::is_same_v<OP, ONNXDFTOp>;
+template <>
+LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTOp>::computeShape() {
+  typename ONNXDFTOp::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  IndexExpr axis = createIE->getIntAsSymbol(operandAdaptor.getAxis());
+  return customComputeShape(axis);
+}
 
-// Default generic computeShape.
-template <typename OP_TYPE>
-LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::computeShape() {
-  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
-  IndexExpr axis;
-  // Handle simple case where axis is an attribute.
-  // The default value for axis attribute is 1
-  if constexpr (!isAxisInput<OP_TYPE>) {
-    axis = LiteralIndexExpr(operandAdaptor.getAxis());
-    return customComputeShape(axis);
-    // Make sure axis is a constant, we do not handle dynamic dimensions at this
-    // time.
-    //  The default value for axis input is -2;
-  } else {
-    axis = createIE->getIntAsSymbol(operandAdaptor.getAxis());
-    return customComputeShape(axis);
-  }
+template <>
+LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTV17Op>::computeShape() {
+  typename ONNXDFTV17Op::Adaptor operandAdaptor(
+      operands, op->getAttrDictionary());
+  IndexExpr axis = LiteralIndexExpr(operandAdaptor.getAxis());
+  return customComputeShape(axis);
 }
 
 } // namespace onnx_mlir
@@ -114,21 +107,6 @@ LogicalResult ONNXDFTOp::inferShapes(
 
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();
   ONNXDFTOpShapeHelper shapeHelper(getOperation(), {});
-  return shapeHelper.computeShapeAndUpdateType(elementType);
-}
-
-//===----------------------------------------------------------------------===//
-// DFT legacy: DFTV17  Shape Inference
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXDFTV17Op::inferShapes(
-    std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer the output shape if the input shape is not yet known.
-  if (!hasShapeAndRank(getInput()))
-    return success();
-
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
-  ONNXDFTV17OpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

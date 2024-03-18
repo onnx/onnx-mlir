@@ -28,55 +28,6 @@ template <typename OP_TYPE, typename OP_ADAPTOR>
 LogicalResult ONNXDFTOpLoweringCommon(OP_TYPE dftOp, OP_ADAPTOR adaptor,
     ConversionPatternRewriter &rewriter, const TypeConverter *typeConverter) {
   Operation *op = dftOp.getOperation();
-  Location loc = ONNXLoc<OP_TYPE>(op);
-  ValueRange operands = adaptor.getOperands();
-
-  //   using MDBuilder =
-  //       MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-  //       MathBuilder,
-  //           MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder>;
-
-  Value input = adaptor.getInput();
-
-  //   int64_t oneSided = adaptor.getOnesided();
-
-  // Convert the output type to MemRefType.
-  Type convertedType = typeConverter->convertType(*op->result_type_begin());
-  assert(convertedType && convertedType.isa<MemRefType>() &&
-         "Failed to convert type to MemRefType");
-
-  // Get shape.
-  ONNXGenericDFTOpShapeHelper<OP_TYPE> shapeHelper(op, operands);
-  shapeHelper.computeShapeAndAssertOnFailure();
-
-  // Extract raw axis from operation.
-
-  //   IndexExpr rawAxisIE;
-  //   MDBuilder create(rewriter, loc);
-  //   Value axisVal = nullptr;
-  //   bool hasNoAxis = false; // Axis is a None (i.e. optional value not
-  //   given). bool dynamicAxis = false; if constexpr (isAxisInput<OP_TYPE>) {
-  //     // Here axis would be the input value
-  //     axisVal = adaptor.getAxis();
-  //     if (isNoneValue(axisVal)) {
-  //       // Default value of having no axiss.
-  //       hasNoAxis = true;
-  //     } else {
-  //         // We have a shape, try to get the array integers
-  //         // rawAxisIE = LiteralIndexExpr(axisVal);
-  //     }
-  //   } else {
-  //     // Deal with operations where we find axis in the attributes.
-  //     int64_t axisAttrs = adaptor.getAxis();
-  //     if (!axisAttrs) {
-  //       // Default value of having no axis.
-  //       hasNoAxis = true;
-  //     } else {
-  //     //   rawAxisIE = create.krnlIE.getIntAsSymbol(axisAttrs);
-  //     }
-  //   }
-  // onnxToKrnlSimdReport(op);
-  // return success();
   return op->emitError("The lowering is not supported for DFT at this time.");
 }
 

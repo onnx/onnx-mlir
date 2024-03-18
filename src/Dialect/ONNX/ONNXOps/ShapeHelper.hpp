@@ -735,7 +735,6 @@ struct ONNXGenericDFTOpShapeHelper : public ONNXOpShapeHelper {
 
 // clang-format off
 using ONNXDFTOpShapeHelper = ONNXGenericDFTOpShapeHelper<mlir::ONNXDFTOp>;
-using ONNXDFTV17OpShapeHelper = ONNXGenericDFTOpShapeHelper<mlir::ONNXDFTV17Op>;
 
 //===----------------------------------------------------------------------===//
 // Reduction Ops
