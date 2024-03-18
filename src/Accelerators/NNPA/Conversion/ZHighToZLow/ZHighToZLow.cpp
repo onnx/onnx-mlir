@@ -857,6 +857,10 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
         coeffT = {/*t4*/ c2, /*t3*/ lit0, /*t2*/ lit0, /*t1*/ c1};
       }
     }
+    coeffT[E4].debugPrint("coeffT[E4]");
+    coeffT[E3].debugPrint("coeffT[E3]");
+    coeffT[E2].debugPrint("coeffT[E2]");
+    coeffT[E1].debugPrint("coeffT[E1]");
   }
 
   /*
@@ -864,14 +868,24 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   by indexT.
   */
   IndexExpr tileOffsetForReinterpretZTensor(
-      DimsExpr indexT, DimsExpr &coeffT) const {
-    IndexExpr t4 = indexT[0] * coeffT[0];
-    IndexExpr t3 = indexT[1] * coeffT[1];
-    IndexExpr t2 = indexT[2] * coeffT[2];
-    IndexExpr t1 = indexT[3] * coeffT[3];
-    IndexExpr res = t4 * t3;
-    res = res * t2;
-    res = res * t1;
+      DimsExpr &indexT, DimsExpr &coeffT) const {
+    int64_t E4 = 0, E3 = 1, E2 = 2, E1 = 3;
+    coeffT[E4].debugPrint("coeffT[E4]");
+    indexT[E4].debugPrint("indexT[E4]");
+    coeffT[E3].debugPrint("coeffT[E3]");
+    indexT[E3].debugPrint("indexT[E3]");
+    coeffT[E2].debugPrint("coeffT[E2]");
+    indexT[E2].debugPrint("indexT[E2]");
+    coeffT[E1].debugPrint("coeffT[E1]");
+    indexT[E1].debugPrint("indexT[E1]");
+
+    IndexExpr t4 = indexT[E4] * coeffT[E4];
+    IndexExpr t3 = indexT[E3] * coeffT[E3];
+    IndexExpr t2 = indexT[E2] * coeffT[E2];
+    IndexExpr t1 = indexT[E1] * coeffT[E1];
+    IndexExpr res = t4 + t3;
+    res = res + t2;
+    res = res + t1;
     return res;
   }
 

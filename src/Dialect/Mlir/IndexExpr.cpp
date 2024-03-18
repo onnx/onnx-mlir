@@ -42,8 +42,10 @@ namespace onnx_mlir {
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), parentScope(getCurrentScopePtr()),
       loc(loc), container() {
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG(
       llvm::dbgs() << "IES: build scope: " << ((long long)this) << "\n";);
+#endif
   getCurrentScopePtr() = this;
 }
 
@@ -56,8 +58,10 @@ IndexExprScope::IndexExprScope(
     : dims(), symbols(), rewriter(innerRewriter),
       parentScope(enclosingScope ? enclosingScope : getCurrentScopePtr()),
       loc(parentScope->loc), container() {
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG(
       llvm::dbgs() << "IES: build scope: " << ((long long)this) << "\n";);
+#endif
   // Check the provided enclosing scope is the current one.
   assert(parentScope == getCurrentScopePtr() &&
          "provided parent scope was not the enclosing active scope");
@@ -79,8 +83,10 @@ IndexExprScope::~IndexExprScope() {
   container.clear();
   // no need to clear the cached copies as they are also in the container.
   getCurrentScopePtr() = parentScope;
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG(
       llvm::dbgs() << "IES: delete scope: " << ((long long)this) << "\n";);
+#endif
 }
 
 /*static*/ IndexExprScope &IndexExprScope::getCurrentScope() {
