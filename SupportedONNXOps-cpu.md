@@ -49,7 +49,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **Concat** |6 - * | | |
 | **ConcatFromSequence** |none | | | |
 | **Constant** |6 - * | | |
-| **ConstantOfShape** |20 - * | | |
+| **ConstantOfShape** |9 - * | | |
 | **Conv** |6 - * | | |
 | **ConvInteger** |none | | | |
 | **ConvTranspose** |6 - * |Unknown dimension in spatial dimensions (such as H and W) not supported. | |
