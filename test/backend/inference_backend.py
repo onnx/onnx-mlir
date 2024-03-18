@@ -1092,22 +1092,23 @@ def get_test_models():
         },
         # ==OP== GatherND
         # ==MIN== 11
+        # According to onnx specification:
+        # output tensor of rank q + r - indices_shape[-1] - 1 - b
+        # onnx-mlir can not infer the shape if the last dim of indices
+        # input is dynamic. Therefore, {0: {-1}} is used for DYNAMIC_SHAPE
         "test_gathernd_example_int32_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_float32_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gelu
@@ -2277,20 +2278,18 @@ def get_test_models():
         # ==LIM== axes input not supported
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_edge_pad_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_reflect_pad_cpu": {
             STATIC_SHAPE: {},
             # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Pow
@@ -2461,7 +2460,6 @@ def get_test_models():
         },
         # ==OP== ReduceMax
         # ==MIN== 1
-        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_max_default_axes_keepdim_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_max_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -2516,7 +2514,6 @@ def get_test_models():
         },
         # ==OP== ReduceMin
         # ==MIN== 1
-        # ==UNSUPPORTED== 20
         # ==LIM== do_not_keep_dim not supported.
         # "test_reduce_min_default_axes_keepdims_example_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_reduce_min_default_axes_keepdims_random_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
