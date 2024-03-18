@@ -526,7 +526,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       layout = getNCHWLayoutAttr(rewriter);
 
     if (enableCompilerCodeGen) {
-#if 0
+#if 1
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
           layout.getValue().equals_insensitive("3D") ||
@@ -537,7 +537,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
         return generateStickCode(
             rewriter, op, shapeHelper, alloc, operandAdaptor.getIn(), layout);
       }
-
 #else
       if (layout.getValue().equals_insensitive("3DS")) {
         return generateStickCode3D4D(
@@ -752,91 +751,147 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     return success();
   }
 
+  /*
+  Inputs:
+    origE: original dimensions of the tensor (1-4D).
+
+    layout: string indicating layout, here only 1-4D, 2-3DS.
+
+  Outputs:
+    normE: dimensions of the original tensor normalized to 4D. For the non-DS
+    format, the normE tensor is padded by 1 element dimensions.  For the DS
+    format, the outermost normalized dimension is E3/E2 (for 3DS/2DS), then
+    padded by 1 element dimensions.
+
+    NormT: same as NormE, but where the dimensions target full tiles (32x64).
+    Namely, the tiled dimensions (E2 & E1) are (ceil(E2/32) & ceil(E1/64)).
+
+    numTiles: total number of tiles, namely Product(NormT[i=1..4]).
+
+    coeffT: given a tile index (t4, t3, t2, t1): compute the offset (in tile)
+    for the element of that tile.
+  */
   void prepareReinterpretZTensor(DimsExpr &origE, StringAttr layout,
       DimsExpr &normE, DimsExpr &normT, IndexExpr &numTiles,
-      DimsExpr &coeff) const {
+      DimsExpr &coeffT) const {
+    // Get original tensor size rank, and set a few constants.
     int64_t rank = origE.size();
     assert(rank >= 1 && rank <= 4 && "expected a format between 1 to 4D");
     IndexExpr lit0 = LiteralIndexExpr(0);
     IndexExpr lit1 = LiteralIndexExpr(1);
     IndexExpr lit64 = LiteralIndexExpr(AIU_2BYTE_CELLS_PER_STICK);
     IndexExpr lit32 = LiteralIndexExpr(AIU_STICKS_PER_PAGE);
-
     // E indices to access origE.
     int64_t E4 = rank - 4, E3 = rank - 3, E2 = rank - 2, E1 = rank - 1;
     // The extended E has always 4 dims; values depend on layout.
     bool isDS = false;
     if (layout.getValue().equals_insensitive("4D")) {
+      // orig(E4, E3, E2, E1) -> norm(E4, E3, E2, E1)
       normE = {origE[E4], origE[E3], origE[E2], origE[E1]};
     } else if (layout.getValue().equals_insensitive("3D")) {
+      // orig( -, E3, E2, E1) -> norm( 1, E3, E2, E1)
       normE = {lit1, origE[E3], origE[E2], origE[E1]};
     } else if (layout.getValue().equals_insensitive("2D")) {
+      // orig( -,  -, E2, E1) -> norm( 1, 1, E2, E1)
       normE = {lit1, lit1, origE[E2], origE[E1]};
     } else if (layout.getValue().equals_insensitive("1D")) {
+      // orig( -, -, -, E1) -> norm( 1,  1,  1, E1)
       normE = {lit1, lit1, lit1, origE[E1]};
     } else if (layout.getValue().equals_insensitive("3DS")) {
+      // orig( -, E3, E2, E1) -> norm(E3,  1, E2, E1)
       normE = {origE[E3], lit1, origE[E2], origE[E1]};
       isDS = true;
     } else if (layout.getValue().equals_insensitive("2DS")) {
+      // orig( -, -, E2, E1) -> norm(E2,  1,  1, E1)
       normE = {origE[E2], lit1, lit1, origE[E1]};
       isDS = true;
     } else {
       llvm_unreachable("format cannot be processed here");
     }
-    // From here on, we only used the extended E, so update the E access indices
-    // to reflect that we always have 4 values.
+    // From here on, we only used the normalized E, so update the E access
+    // indices to reflect that we always have 4 values.
     E4 = 0, E3 = 1, E2 = 2, E1 = 3;
-    IndexExpr t1 = normE[E1].ceilDiv(64);
-    IndexExpr t2 = normE[E2].ceilDiv(32);
-    normT = {normE[E4], normE[E3], t2, t1};
-    // Compute the tiled dimensions Ceil(E1, 64) and Ceil(E2, 32).
+    // Compute the number of tiles for E2 and E1.
+    IndexExpr T2 = normE[E2].ceilDiv(32);
+    IndexExpr T1 = normE[E1].ceilDiv(64);
+    // Normalized tile dimensions use tiled dimensions for lowest 2 dims. Note
+    // that if use 2DS, the lowest 2 are (1, E1), so it still works as the
+    // actual E2 was promoted to E4 position.
+    normT = {normE[E4], normE[E3], T2, T1};
+    // Number ot tiles is the product of the normT elements.
     numTiles = normT[E4] * normT[E3];
     numTiles = numTiles * normT[E2];
     numTiles = numTiles * normT[E1];
 
-    // Compute access coefficients. Below T4 is a shortcut for normT[E4].
-    // Coefficients assume indices in tiles. Thus we use the normT instead of
-    // the normE.
+    // Compute access coefficients. In the comments below, T4 is a shortcut for
+    // normT[E4]. Coefficients assume indices in tiles. Thus we use the normT
+    // instead of the normE.
     if (!isDS) {
-      // Data layout is: T4(c4), T1(c3), T3(c2), T2(c1)
+      // Data layout is: T4(c4), T1(c3), T3(c2), T2(c1).
+      // Since the coefficients in coeffT corresponds to the multiplicative
+      // offsets of (t4, t3, t2, t1), thus we have
+      // coeffT is: c4(T4), c2(T3), c1(T2), c3(T1)
       IndexExpr c1 = lit1;
       IndexExpr c2 = c1 * normT[E2];
       IndexExpr c3 = c2 * normT[E3];
       IndexExpr c4 = c3 * normT[E1];
       if (rank == 4) // 4D
-        coeff = {/*t4*/ c4, /*t3*/ c2, /*t2*/ c1, /*t1*/ c3};
+        coeffT = {/*t4*/ c4, /*t3*/ c2, /*t2*/ c1, /*t1*/ c3};
       else if (rank == 3) // 3D
-        coeff = {/*t4*/ lit0, /*t3*/ c2, /*t2*/ c1, /*t1*/ c3};
+        coeffT = {/*t4*/ lit0, /*t3*/ c2, /*t2*/ c1, /*t1*/ c3};
       else if (rank == 2) // 2D
-        coeff = {/*t4*/ lit0, /*t3*/ lit0, /*t2*/ c1, /*t1*/ c2};
+        coeffT = {/*t4*/ lit0, /*t3*/ lit0, /*t2*/ c1, /*t1*/ c2};
       else // 1D
-        coeff = {/*t4*/ lit0, /*t3*/ lit0, /*t2*/ lit0, /*t1*/ c1};
+        coeffT = {/*t4*/ lit0, /*t3*/ lit0, /*t2*/ lit0, /*t1*/ c1};
     } else {
       if (rank == 3) { // 3DS
-        // Order is T4(c3), T1(c2), T2(c1)
+        // Order is T4(c3), T1(c2), T2(c1) -> coeffT c3(T4), 0, c1(T2), c2(T1)
         IndexExpr c1 = lit1;
         IndexExpr c2 = c1 * normT[E2];
         IndexExpr c3 = c2 * normT[E1];
-        coeff = {/*t4*/ c3, /*t3*/ lit0, /*t2*/ c1, /*t1*/ c2};
+        coeffT = {/*t4*/ c3, /*t3*/ lit0, /*t2*/ c1, /*t1*/ c2};
       } else { // 2DS
-        // Order is T4(c2), T1(c1)
+        // Order is T4(c2), T1(c1) -> coeffT c2(T4), 0, 0, c1(T1)
         IndexExpr c1 = lit1;
         IndexExpr c2 = c1 * normT[E1];
-        coeff = {/*t4*/ c2, /*t3*/ lit0, /*t2*/ lit0, /*t1*/ c1};
+        coeffT = {/*t4*/ c2, /*t3*/ lit0, /*t2*/ lit0, /*t1*/ c1};
       }
     }
   }
 
+  /*
+  Given the coeffT and indexT (both in tiles), give the offset (in tile) given
+  by indexT.
+  */
   IndexExpr tileOffsetForReinterpretZTensor(
-      DimsExpr &indices, DimsExpr &coeff) const {
-    IndexExpr t4 = indices[0] * coeff[0];
-    IndexExpr t3 = indices[1] * coeff[1];
-    IndexExpr t2 = indices[2] * coeff[2];
-    IndexExpr t1 = indices[3] * coeff[3];
+      DimsExpr indexT, DimsExpr &coeffT) const {
+    IndexExpr t4 = indexT[0] * coeffT[0];
+    IndexExpr t3 = indexT[1] * coeffT[1];
+    IndexExpr t2 = indexT[2] * coeffT[2];
+    IndexExpr t1 = indexT[3] * coeffT[3];
     IndexExpr res = t4 * t3;
     res = res * t2;
     res = res * t1;
     return res;
+  }
+
+  void computeDenormalizedAccessFunction(StringAttr layout, IndexExpr e4,
+      IndexExpr e3, IndexExpr e2, IndexExpr e1,
+      DimsExpr &denormAccessFunction) const {
+    if (layout.getValue().equals_insensitive("4D"))
+      denormAccessFunction = {e4, e3, e2, e1};
+    else if (layout.getValue().equals_insensitive("3D"))
+      denormAccessFunction = {e3, e2, e1};
+    else if (layout.getValue().equals_insensitive("2D"))
+      denormAccessFunction = {e2, e1};
+    else if (layout.getValue().equals_insensitive("1D"))
+      denormAccessFunction = {e1};
+    else if (layout.getValue().equals_insensitive("3DS"))
+      denormAccessFunction = {e4, e2, e1};
+    else if (layout.getValue().equals_insensitive("3DS"))
+      denormAccessFunction = {e4, e1};
+    else
+      llvm_unreachable("unsupported format");
   }
 
   LogicalResult generateStickCode(ConversionPatternRewriter &rewriter,
@@ -847,28 +902,32 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     Location loc = op->getLoc();
     MDBuilder create(rewriter, loc);
 
-    // Tiling in the e2 x e1 dim: N x M.
+    // Tiling in the E2 x E1 dim: N x 64M.
     int64_t N = 2;
-    int64_t M = 4; // Tiling along E1 by M * 64 values.
+    int64_t M = 4;
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
     // Info for SIMD.
     int64_t VL = 8;          // FP16 VL.
     int64_t VLHalf = VL / 2; // FP32 VL.
     assert(64 % VL == 0 && "SIMD vector length must divide 64");
 
-    // Compute output dims.
+    // Compute output dims and define useful literals.
     IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
     DimsExpr outputDims;
     getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
-
-    // Prepare for cast_reinterpret
-    DimsExpr normE, normT, coeff;
-    IndexExpr numTiles;
-    prepareReinterpretZTensor(
-        outputDims, layout, normE, normT, numTiles, coeff);
-    int64_t E4 = 0, E3 = 1, E2 = 2, E1 = 3;
+    IndexExpr litZero = LiteralIndexExpr(0);
+    IndexExpr litN = LiteralIndexExpr(N);
+    IndexExpr litM = LiteralIndexExpr(M);
+    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
     IndexExpr lit32 = LiteralIndexExpr(32);
     IndexExpr lit64 = LiteralIndexExpr(64);
+
+    // Prepare for cast_reinterpret
+    DimsExpr normE, normT, coeffT;
+    IndexExpr numTiles;
+    prepareReinterpretZTensor(
+        outputDims, layout, normE, normT, numTiles, coeffT);
+    int64_t E4 = 0, E3 = 1, E2 = 2, E1 = 3; // Use normalized sizes (4D).
     DimsExpr reallocOutputDims = {numTiles, lit32, lit64};
     Value allocAs32x64 = create.mem.reinterpretCast(alloc, reallocOutputDims);
 
@@ -876,19 +935,13 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
     VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
-
     // Type for buffer
     MemRefType bufferType = MemRefType::get({M, N, 64}, f16Type);
 
-    // Literals for further use.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr litN = LiteralIndexExpr(N);
-    IndexExpr litM = LiteralIndexExpr(M);
-
     // Create loop iterations. Use normalized iterations, which are
     // defined as a 4D vector. So use 4 loops here. The `for(i=0; i<1; ++i)`
-    // loops should simplify nicely.
-    // Note that we iterate over E1's of 64 elements.
+    // loops should simplify nicely. Note that we iterate over E1 as tiles of 64
+    // elements.
     ValueRange loopDefs = create.krnl.defineLoops(4);
     ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
     ValueRange tiledDefE1 = create.krnl.block(loopDefs[E1], M);
@@ -899,7 +952,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                             /*E1*/ tiledDefE1[0], tiledDefE1[1]},
         {/*E4*/ 0, /*E3*/ 1, /*E2*/ 2, 5, /*E1*/ 3, 4});
 
-    // Bounds and optimized loop defs.
+    // Bounds and optimized loop defs: note that UB of E1 is in tiles of 64
+    // elements.
     DimsExpr lbs = {litZero, litZero, litZero, litZero};
     DimsExpr ubs = {normE[E4], normE[E3], normE[E2], normT[E1]};
     SmallVector<Value, 4> optLoopDefs = {
@@ -925,10 +979,9 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
           getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
-
-          // Create buffer
+          // Create buffer (for parallel, must be inside loop).
           Value buffer = create.mem.alignedAlloc(bufferType, {});
-          // Iterate over N, M, and D1. Manage iterations individually.
+          // Iterate over N, M, and 64. Manage iterations explicitly.
           DimsExpr lbs2(3, litZero);
           DimsExpr ubs2 = {litN, litM, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
@@ -937,21 +990,21 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr n(loopInd[0]), m(loopInd[1]), l(loopInd[2]);
                 SymbolIndexExpr e4(outerIndices[E4]);
                 SymbolIndexExpr e3(outerIndices[E3]);
                 SymbolIndexExpr e2ByN(outerIndices[E2]);
                 SymbolIndexExpr t1ByM(outerIndices[E1]);
-                SymbolIndexExpr n(loopInd[0]);
-                SymbolIndexExpr m(loopInd[1]);
-                SymbolIndexExpr l(loopInd[2]);
                 IndexExpr e2 = e2ByN + n;
                 IndexExpr t1 = t1ByM + m;
                 IndexExpr e1 = (t1 * 64) + l;
+                DimsExpr inputAF;
+                computeDenormalizedAccessFunction(
+                    layout, e4, e3, e2, e1, inputAF);
                 Value vecF32H =
-                    create.vec.loadIE(vecF32Type, input, {e4, e3, e2, e1}, {});
-                IndexExpr e1Next = e1 + VLHalf;
+                    create.vec.loadIE(vecF32Type, input, inputAF, {});
                 Value vecF32L = create.vec.loadIE(
-                    vecF32Type, input, {e4, e3, e2, e1Next}, {});
+                    vecF32Type, input, inputAF, {litVLHalf.getValue()});
                 Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
                     loc, vecF32H, vecF32L);
                 create.vec.storeIE(vecF16, buffer, {m, n, l}, {});
@@ -961,29 +1014,31 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr m(loopInd[0]);
                 SymbolIndexExpr e4(outerIndices[E4]);
                 SymbolIndexExpr e3(outerIndices[E3]);
                 SymbolIndexExpr e2ByN(outerIndices[E2]);
                 SymbolIndexExpr t1ByM(outerIndices[E1]);
-                SymbolIndexExpr m(loopInd[0]);
+                // Compute tile indices (E1 already tiled, E2 is not => /32).
                 IndexExpr t1 = t1ByM + m;
-                IndexExpr t2 = e2ByN.floorDiv(32);
-                IndexExpr e2Mod32 = e2ByN % 32;
-
+                IndexExpr t2 = e2ByN.floorDiv(32); // Tile index in E2
+                IndexExpr e2InTile = e2ByN % 32;   // Index of E2 within tile.
                 // Re-actualize coefficients, and calculate alloc offset.
-                DimsExpr localCoeff;
-                getIndexExprList<SymbolIndexExpr>(coeff, localCoeff);
+                DimsExpr localCoeffT;
+                getIndexExprList<SymbolIndexExpr>(coeffT, localCoeffT);
                 DimsExpr tileIndices = {e4, e3, t2, t1};
                 IndexExpr allocTileOffset =
-                    tileOffsetForReinterpretZTensor(tileIndices, localCoeff);
+                    tileOffsetForReinterpretZTensor(tileIndices, localCoeffT);
                 IndexExpr allocOffset = allocTileOffset * (32 * 64);
-                allocOffset = allocOffset + (e2Mod32 * 64);
+                allocOffset = allocOffset + (e2InTile * 64);
                 // Calculate buffer offset
-                IndexExpr bufferOffset = m * (N * 64);
+                int64_t num = N * 64;
+                IndexExpr bufferOffset = m * num;
                 // Amount of values to copy
-                IndexExpr num = LiteralIndexExpr(N * 64);
+                Type intType = rewriter.getIntegerType(64);
+                Value numVal = create.math.constant(intType, num);
                 // Mem copy
-                create.krnl.memcpy(allocAs32x64, buffer, num.getValue(),
+                create.krnl.memcpy(allocAs32x64, buffer, numVal,
                     allocOffset.getValue(), bufferOffset.getValue());
               });
         });
