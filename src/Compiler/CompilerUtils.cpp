@@ -209,7 +209,6 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     // Update the function type.
     FunctionType newType =
         FunctionType::get(&context, newArgTypes, funcType.getResults());
-    ConversionPatternRewriter rewriter(&context);
     funcOp.setType(newType);
   }
 }
