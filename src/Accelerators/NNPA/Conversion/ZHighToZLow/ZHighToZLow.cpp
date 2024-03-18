@@ -1034,7 +1034,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 SymbolIndexExpr e2ByN(outerIndices[E2]);
                 SymbolIndexExpr t1ByM(outerIndices[E1]);
                 // Compute tile indices (E1 already tiled, E2 is not => /32).
-                IndexExpr t1 = t1ByM + m;
+                IndexExpr t1 = m;
                 IndexExpr t2 = e2ByN.floorDiv(32); // Tile index in E2
                 IndexExpr e2InTile = e2ByN % 32;   // Index of E2 within tile.
                 // Re-actualize coefficients, and calculate alloc offset.
