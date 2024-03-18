@@ -86,7 +86,6 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
            "data must be ranked Shaped Type");
     ShapedType dataType = data.getType().cast<ShapedType>();
     Type elementType = dataType.getElementType();
-    llvm::ArrayRef<int64_t> dataShape = dataType.getShape();
     int64_t dataRank = dataType.getRank();
 
     // axis & keepdims attribute
@@ -102,28 +101,21 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
             APFloat::getInf(elementType.cast<FloatType>().getFloatSemantics(),
                 /*isNegative=*/true)));
     RankedTensorType indexType =
-        RankedTensorType::get(dataShape, indexElementType);
+        RankedTensorType::get(dataType.getShape(), indexElementType);
 
     IntegerAttr iotaDimension = IntegerAttr::get(rewriter.getI64Type(), axis);
     Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
     Value indexValues = rewriter.create<stablehlo::DynamicIotaOp>(
         loc, indexType, inputShape, iotaDimension);
 
-    ValueRange dataOperands({data, indexValues});
-    ValueRange initValues({initValue, indexInitValue});
-    llvm::ArrayRef<int64_t> reductionDimensions({axis});
+    stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(loc,
+        /*resultType0*/
+        TypeRange{UnrankedTensorType::get(elementType),
+            UnrankedTensorType::get(indexElementType)},
+        /*inputs*/ ValueRange{data, indexValues},
+        /*init_values*/ ValueRange{initValue, indexInitValue},
+        /*dimensions*/ rewriter.getDenseI64ArrayAttr({axis}));
 
-    SmallVector<int64_t> reduceOpOutputShape;
-    for (int64_t i = 0; i < dataRank; i++)
-      if (i != axis)
-        reduceOpOutputShape.push_back(dataShape[i]);
-
-    Type outShape1 = RankedTensorType::get(reduceOpOutputShape, elementType);
-    Type outShape2 =
-        RankedTensorType::get(reduceOpOutputShape, indexElementType);
-    TypeRange reduceResultType = llvm::ArrayRef<Type>({outShape1, outShape2});
-    stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(
-        loc, reduceResultType, dataOperands, initValues, reductionDimensions);
     BuildArgmaxReductionBody(
         elementType, indexElementType, &reduction.getBody(), &rewriter);
 
