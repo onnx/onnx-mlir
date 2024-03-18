@@ -1393,7 +1393,7 @@ def get_test_models():
         "test_instancenorm_example_cpu": {
             STATIC_SHAPE: {},
             # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_instancenorm_epsilon_cpu": {
