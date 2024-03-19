@@ -436,41 +436,35 @@ def get_test_models():
         # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_castlike_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {2}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_DOUBLE_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {2}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_FLOAT_to_FLOAT16_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {2}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_FLOAT16_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {2}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_FLOAT16_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {2}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_DOUBLE_to_FLOAT16_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {2}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
@@ -624,7 +618,6 @@ def get_test_models():
         "test_constant_cpu": {STATIC_SHAPE: {}},
         # ==OP== ConstantOfShape
         # ==MIN== 9
-        # ==UNSUPPORTED== 20
         # By def, no dynamic shapes.
         "test_constantofshape_float_ones_cpu": {STATIC_SHAPE: {}},
         "test_constantofshape_int_zeros_cpu": {STATIC_SHAPE: {}},
