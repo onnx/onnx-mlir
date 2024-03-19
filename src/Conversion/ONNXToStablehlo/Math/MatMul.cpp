@@ -114,11 +114,11 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
             dimTensors, rewriter.getI64IntegerAttr(0));
         broadcasted = rewriter.createOrFold<stablehlo::DynamicBroadcastInDimOp>(
             loc, broadCastedType, operandToBroadcast, fullShape,
-            rewriter.getI64VectorAttr(broadcastDimensions));
+            rewriter.getDenseI64ArrayAttr(broadcastDimensions));
       } else {
         broadcasted = rewriter.createOrFold<stablehlo::BroadcastInDimOp>(loc,
             broadCastedType, operandToBroadcast,
-            rewriter.getI64VectorAttr(broadcastDimensions));
+            rewriter.getDenseI64ArrayAttr(broadcastDimensions));
       }
       return broadcasted;
     };

@@ -230,7 +230,6 @@ func.func private @test_matmul7(%arg0 : tensor<5xf32>, %arg1 : tensor<5xf32>) ->
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]] = krnl.define_loops 1
 // CHECK:           krnl.iterate() with ([[LOOP_0_]] -> [[I_0_:%.+]] = 0 to 5){
-// CHECK:             krnl.get_induction_var_value() : () -> ()
 // CHECK:             [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK:             krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.iterate([[LOOP_0_]]) with (){

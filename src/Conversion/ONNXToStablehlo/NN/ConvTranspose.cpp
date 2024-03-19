@@ -88,7 +88,6 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
     ShapedType inputType = inputOperand.getType().cast<ShapedType>();
-    Type elemType = inputType.getElementType();
     // Onnx Input is NCHW
     int64_t spatialOffset = 2;
     int64_t rank = inputType.getRank();
@@ -143,19 +142,13 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
 
     Value convResult = rewriter.create<stablehlo::ConvolutionOp>(loc,
         convOutputType, inputOperand, filterOperand,
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({spatialRank}, rewriter.getI64Type()),
-            SmallVector<int64_t>(spatialRank, 1)),
+        rewriter.getDenseI64ArrayAttr(SmallVector<int64_t>(spatialRank, 1)),
         DenseIntElementsAttr::get(
             RankedTensorType::get({spatialRank, 2}, rewriter.getI64Type()),
             flattenPaddings),
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({spatialRank}, rewriter.getI64Type()),
-            strides),
-        DenseIntElementsAttr::get(
-            RankedTensorType::get({spatialRank}, rewriter.getI64Type()),
-            dilations),
-        nullptr, dimension_numbers, groupNum, 1, nullptr);
+        rewriter.getDenseI64ArrayAttr(strides),
+        rewriter.getDenseI64ArrayAttr(dilations), nullptr, dimension_numbers,
+        groupNum, 1, nullptr);
 
     Value addBiasResult;
     if (!hasBias) {
@@ -165,7 +158,7 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
       Value resultShape = rewriter.create<shape::ShapeOfOp>(loc, convResult);
       finalB = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
           convOutputType, biasOperand, resultShape,
-          rewriter.getI64TensorAttr({1}));
+          rewriter.getDenseI64ArrayAttr({1}));
       addBiasResult =
           rewriter.create<stablehlo::AddOp>(loc, convResult, finalB);
     }

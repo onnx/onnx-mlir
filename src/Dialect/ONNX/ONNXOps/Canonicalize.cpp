@@ -322,7 +322,7 @@ public:
              << rhsType;
     }
 
-    rewriter.updateRootInPlace(op, [&] {
+    rewriter.modifyOpInPlace(op, [&] {
       if (rhsRank < lhsRank - axis) {
         OnnxBuilder createONNX(rewriter, op->getLoc());
         SmallVector<int64_t> axesArray;
@@ -530,7 +530,7 @@ struct PropagateConstantScalingInAttentionLayerPattern
     if (isGemm) {
       auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
       // Update in place B and C of Gemm.
-      rewriter.updateRootInPlace(onnxGemmOp, [&] {
+      rewriter.modifyOpInPlace(onnxGemmOp, [&] {
         rewriter.setInsertionPoint(onnxGemmOp);
         onnxGemmOp.getBMutable().assign(rewriter.create<ONNXOp>(
             onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
@@ -542,12 +542,12 @@ struct PropagateConstantScalingInAttentionLayerPattern
       auto onnxSubMatOp = cast<ONNXMatMulOp>(matmulOrGemmOp);
       auto onnxAddOp = cast<ONNXAddOp>(addOp);
       // Update in place MatMul and Add.
-      rewriter.updateRootInPlace(onnxSubMatOp, [&] {
+      rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
         rewriter.setInsertionPoint(onnxSubMatOp);
         onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
             onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
       });
-      rewriter.updateRootInPlace(onnxAddOp, [&] {
+      rewriter.modifyOpInPlace(onnxAddOp, [&] {
         OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
         rewriter.setInsertionPoint(onnxAddOp);
         onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
@@ -581,7 +581,7 @@ public:
     bool emptyScales = isEmptyTensor(onnxResizeOp.getScales());
     bool emptySizes = isEmptyTensor(onnxResizeOp.getSizes());
     if (emptyRoi || emptyScales || emptySizes) {
-      rewriter.updateRootInPlace(onnxResizeOp, [&] {
+      rewriter.modifyOpInPlace(onnxResizeOp, [&] {
         OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
         if (emptyRoi)
           onnxResizeOp.getRoiMutable().assign(createONNX.none());
@@ -986,7 +986,7 @@ public:
 
     // Rewrite in-place because there are so many attributes, inputs, outputs.
     // Constructing a new op would be lengthy and hard to maintain.
-    rewriter.updateRootInPlace(onnxOp, [&]() {
+    rewriter.modifyOpInPlace(onnxOp, [&]() {
       // Transpose the X and initial_h inputs by inserting an ONNXTransposeOp
       // before each and replacing the each input with the transpose output.
       rewriter.setInsertionPoint(onnxOp); // insert before (redundant)
