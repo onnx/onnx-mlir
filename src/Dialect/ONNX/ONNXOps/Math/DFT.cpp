@@ -81,14 +81,6 @@ LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTOp>::computeShape() {
   return customComputeShape(axis);
 }
 
-template <>
-LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTV17Op>::computeShape() {
-  typename ONNXDFTV17Op::Adaptor operandAdaptor(
-      operands, op->getAttrDictionary());
-  IndexExpr axis = LiteralIndexExpr(operandAdaptor.getAxis());
-  return customComputeShape(axis);
-}
-
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
@@ -97,8 +89,8 @@ LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTV17Op>::computeShape() {
 
 LogicalResult ONNXDFTOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer the output shape if the input shape is not yet known.
-  if (!hasShapeAndRank(getInput()))
+  // Cannot infer the output shape if the operands shape isn't known yet.
+  if (!hasShapeAndRank(getOperation()))
     return success();
 
   // Not yet shaped, wait for later.
@@ -116,5 +108,4 @@ LogicalResult ONNXDFTOp::inferShapes(
 
 namespace onnx_mlir {
 template struct ONNXGenericDFTOpShapeHelper<ONNXDFTOp>;
-template struct ONNXGenericDFTOpShapeHelper<ONNXDFTV17Op>;
 } // namespace onnx_mlir
