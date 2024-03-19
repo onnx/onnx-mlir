@@ -621,9 +621,12 @@ void loadConstantsFromFile(ModuleOp &module,
     funcOp = create.llvm.func(
         loadAllConstantsFuncName, llvmFnType, /*createUniqueFunc=*/true);
     // Call loadAllConstantsFuncName in each entry point function.
+    bool zOS = isZOS(module);
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
           entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+      // Entry point name is encoded in EBCDIC on z/OS.
+      entryName = (zOS) ? krnl::e2a_s(entryName) : entryName;
       // Erase the null symbol.
       entryName.erase(
           std::find(entryName.begin(), entryName.end(), '\0'), entryName.end());
@@ -692,7 +695,7 @@ void loadConstantsFromFile(ModuleOp &module,
     // Get the global op for data.
     StringRef dataSymbol = dataGlobalOp.getSymName();
     std::string prefixData = EXTERNAL_CONSTANT_PREFIX + "data";
-    if (!dataSymbol.startswith(prefixData))
+    if (!dataSymbol.starts_with(prefixData))
       return WalkResult::advance();
     std::string constantName = dataSymbol.drop_front(prefixData.size()).str();
 
@@ -795,9 +798,11 @@ struct ConvertKrnlToLLVMPass
           "constants-to-file-total-threshold. Value is in KB."),
       llvm::cl::init(1.0)};
 
+  Option<bool> enableParallel{*this, "enable-parallel",
+      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
+
 private:
   std::string outputNameNoExt = "./model";
-  bool enableParallel;
 };
 
 void ConvertKrnlToLLVMPass::runOnOperation() {
@@ -956,7 +961,6 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlGetRefOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);

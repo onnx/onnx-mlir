@@ -193,9 +193,6 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // from ONNX dialect to Standard dialect exposes additional canonicalization
   // opportunities.
   pm.addPass(mlir::createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(
-      onnx_mlir::createDisconnectKrnlDimFromAllocPass());
-  pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
@@ -259,7 +256,6 @@ void addKrnlToLLVMPasses(
   // MLIR supports only collapse for scalar loaded by scalar memory at this
   // time. Uncomment if subview/collapse are used.
   // pm.addNestedPass<func::FuncOp>(krnl::createConvertSeqToMemrefPass());
-  pm.addNestedPass<func::FuncOp>(mlir::createConvertSCFToCFPass());
 
   pm.addPass(mlir::memref::createFoldMemRefAliasOpsPass());
   pm.addPass(krnl::createConvertKrnlToLLVMPass(verifyInputTensors,

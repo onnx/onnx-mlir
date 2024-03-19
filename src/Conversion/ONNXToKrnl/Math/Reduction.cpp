@@ -489,7 +489,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
     int64_t VL = 0;
-    int64_t estimatedSimdLoopTripCount;
+    int64_t estimatedSimdLoopTripCount = 0;
 
     // With dynamic axes, use this
     Value maskVal = nullptr;

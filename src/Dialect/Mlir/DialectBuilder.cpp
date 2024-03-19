@@ -1333,6 +1333,14 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
+memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
+    llvm::SmallVectorImpl<int64_t> &offsets,
+    llvm::SmallVectorImpl<int64_t> &sizes,
+    llvm::SmallVectorImpl<int64_t> &strides) const {
+  return b().create<memref::SubViewOp>(
+      loc(), outputType, val, offsets, sizes, strides);
+}
+
 memref::SubViewOp MemRefBuilder::subView(Value input,
     llvm::SmallVectorImpl<IndexExpr> &offsetsIE,
     llvm::SmallVectorImpl<IndexExpr> &sizesIE,
@@ -1595,7 +1603,7 @@ Value VectorBuilder::reduction(
           loc(), vector::CombiningKind::MAXSI, value);
     if (MathBuilder::isFloatWithVector(type))
       return b().create<vector::ReductionOp>(
-          loc(), vector::CombiningKind::MAXF, value);
+          loc(), vector::CombiningKind::MAXNUMF, value);
     llvm_unreachable("unknown type in max");
   }
   case CombiningKind::MIN: {
@@ -1607,7 +1615,7 @@ Value VectorBuilder::reduction(
           loc(), vector::CombiningKind::MINSI, value);
     if (MathBuilder::isFloatWithVector(type))
       return b().create<vector::ReductionOp>(
-          loc(), vector::CombiningKind::MINF, value);
+          loc(), vector::CombiningKind::MINNUMF, value);
     llvm_unreachable("unknown type in min");
   }
   case CombiningKind::AND: {
