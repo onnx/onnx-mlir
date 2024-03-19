@@ -367,7 +367,7 @@ Value createReduce(Location loc, Value operand, Value identity,
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
   stablehlo::ReduceOp reduce = rewriter.create<stablehlo::ReduceOp>(loc,
-      reduceResultType, operand, identity, rewriter.getI64TensorAttr(axes));
+      reduceResultType, operand, identity, rewriter.getDenseI64ArrayAttr(axes));
 
   // setup "stablehlo.reduce"'s body
   Region &region = reduce.getBody();

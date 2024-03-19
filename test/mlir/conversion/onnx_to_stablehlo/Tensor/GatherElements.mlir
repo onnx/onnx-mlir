@@ -14,6 +14,6 @@ func.func @main_gather_elements(%arg0: tensor<3x2xf32>, %arg1: tensor<2x2xi64>) 
 // CHECK-DAG:    [[VAR_6_:%.+]] = stablehlo.dynamic_reshape [[VAR_5_]], [[CST_]] : (tensor<2x2xi64>, tensor<3xindex>) -> tensor<2x2x1xi64>
 // CHECK-DAG:    [[VAR_7_:%.+]] = stablehlo.dynamic_iota [[CST_]], dim = 1 : (tensor<3xindex>) -> tensor<2x2x1xi64>
 // CHECK-NEXT:   [[VAR_8_:%.+]] = stablehlo.concatenate [[VAR_6_]], [[VAR_7_]], dim = 2 : (tensor<2x2x1xi64>, tensor<2x2x1xi64>) -> tensor<2x2x2xi64>
-// CHECK-NEXT:   [[VAR_9_:%.+]] = "stablehlo.gather"([[PARAM_0_]], [[VAR_8_]]) {dimension_numbers = #stablehlo.gather<collapsed_slice_dims = [0, 1], start_index_map = [0, 1], index_vector_dim = 2>, indices_are_sorted = false, slice_sizes = dense<1> : tensor<2xi64>} : (tensor<3x2xf32>, tensor<2x2x2xi64>) -> tensor<2x2xf32>
+// CHECK-NEXT:   [[VAR_9_:%.+]] = "stablehlo.gather"([[PARAM_0_]], [[VAR_8_]]) {dimension_numbers = #stablehlo.gather<collapsed_slice_dims = [0, 1], start_index_map = [0, 1], index_vector_dim = 2>, indices_are_sorted = false, slice_sizes = array<i64: 1, 1>} : (tensor<3x2xf32>, tensor<2x2x2xi64>) -> tensor<2x2xf32>
 // CHECK-NEXT:   return [[VAR_9_]] : tensor<2x2xf32>
 }

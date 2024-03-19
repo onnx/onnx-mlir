@@ -81,7 +81,7 @@ Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
         loc, rewriter.getFloatAttr(elemType, value));
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
     broadcastedValue = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, inpType, floatValue, shape, rewriter.getI64TensorAttr({}));
+        loc, inpType, floatValue, shape, rewriter.getDenseI64ArrayAttr({}));
   }
   return broadcastedValue;
 }
@@ -103,7 +103,7 @@ Value getShapedInt(Location loc, ConversionPatternRewriter &rewriter,
         loc, rewriter.getIntegerAttr(elemType, value));
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
     broadcastedValue = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, inpType, intValue, shape, rewriter.getI64TensorAttr({}));
+        loc, inpType, intValue, shape, rewriter.getDenseI64ArrayAttr({}));
   }
   return broadcastedValue;
 }
