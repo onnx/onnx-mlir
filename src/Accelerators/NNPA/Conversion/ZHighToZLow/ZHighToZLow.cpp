@@ -1028,13 +1028,13 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymbolIndexExpr m(loopInd[0]);
+                SymbolIndexExpr t1(loopInd[0]);
                 SymbolIndexExpr e4(outerIndices[E4]);
                 SymbolIndexExpr e3(outerIndices[E3]);
                 SymbolIndexExpr e2ByN(outerIndices[E2]);
                 SymbolIndexExpr t1ByM(outerIndices[E1]);
                 // Compute tile indices (E1 already tiled, E2 is not => /32).
-                IndexExpr t1 = m;
+                IndexExpr m = t1 - t1ByM;
                 IndexExpr t2 = e2ByN.floorDiv(32); // Tile index in E2
                 IndexExpr e2InTile = e2ByN % 32;   // Index of E2 within tile.
                 // Re-actualize coefficients, and calculate alloc offset.
