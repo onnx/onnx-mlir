@@ -38,12 +38,11 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK:             "krnl.seqstore"([[LOAD_PARAM_0_MEM_]], [[VAR_2_]], [[VAR_7_]]) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
 // CHECK:           }
 // CHECK-DAG:       [[VAR_9_:%.+]] = arith.addi [[VAR_7_]], [[CST_1_]] : index
-// CHECK-DAG:       [[LOOP_1_:%.+]] = krnl.define_loops 1
-// CHECK:           krnl.iterate([[LOOP_1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = [[VAR_9_]] to [[MAP_2_]](){{.}}[[VAR_dim_]], [[VAR_4_]]{{.}}){
-// CHECK:             [[VAR_18_1_:%.+]] = krnl.get_induction_var_value([[LOOP_1_]]) : (!krnl.loop) -> index
+// CHECK:           krnl.iterate([[LOOP_0_]]) with ([[LOOP_0_]] -> [[I_1_:%.+]] = [[VAR_9_]] to [[MAP_2_]](){{.}}[[VAR_dim_]], [[VAR_4_]]{{.}}){
+// CHECK:             [[VAR_18_1_:%.+]] = krnl.get_induction_var_value([[LOOP_0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_1_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_18_1_]]{{.}} : memref<?xmemref<?x4x5xf32>>
 // CHECK-DAG:         [[VAR_20_:%.+]] = arith.subi [[VAR_18_1_]], [[CST_1_]] : index
-// CHECK:             "krnl.seqstore"([[LOAD_PARAM_0_MEM_1_]], [[VAR_2_]], [[VAR_2_]]0) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
+// CHECK:             "krnl.seqstore"([[LOAD_PARAM_0_MEM_1_]], [[VAR_2_]], [[VAR_20_]]) : (memref<?x4x5xf32>, memref<?xmemref<?x4x5xf32>>, index) -> ()
 // CHECK:           }
 // CHECK-DAG:       [[VAR_dim_0_:%.+]] = memref.dim [[VAR_2_]], [[CST_0_]] : memref<?xmemref<?x4x5xf32>>
 // CHECK-DAG:       [[LOAD_VAR_0_MEM_1_:%.+]] = krnl.load [[VAR_0_]][] : memref<i64>
