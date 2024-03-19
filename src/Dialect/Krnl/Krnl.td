@@ -101,7 +101,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 
-def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
+def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops", [NoMemoryEffect]> {
   let summary = "define_loops operation";
   let description = [{
     The "krnl.define_loops" operation is used to define input loops,
@@ -129,7 +129,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, ImplicitKrnlTerminator,
     DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
   let summary = "iterate operation";
   let description = [{
@@ -270,8 +270,9 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
 
   let results = (outs AnyType:$output);
 }
-
-def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore",
+    [MemRefsNormalizable, DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
   let summary = "Krnl store into a seq";
   let description = [{
     This op is similar to KrnSeqInsertOp but assumes that the input seq has
@@ -286,7 +287,7 @@ def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
                        Index:$index);
 }
 
-def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator]> {
+def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator, NoMemoryEffect]> {
   let summary = "Krnl terminator operation";
   let description = [{
     Krnl terminator is a special terminator operation for blocks inside krnl
@@ -687,7 +688,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 
 }
 
-def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"> {
+def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value", [NoMemoryEffect]> {
   let summary = "Krnl ";
   let description = [{
      Krnl operation to convert loop references to corresponding induction

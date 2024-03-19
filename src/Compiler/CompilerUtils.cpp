@@ -209,8 +209,7 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     // Update the function type.
     FunctionType newType =
         FunctionType::get(&context, newArgTypes, funcType.getResults());
-    ConversionPatternRewriter rewriter(&context);
-    rewriter.updateRootInPlace(funcOp, [&] { funcOp.setType(newType); });
+    funcOp.setType(newType);
   }
 }
 
@@ -605,10 +604,10 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
   // or JSON) or a model specified in MLIR.
   // The extension of the file is the decider.
   bool inputIsSTDIN = (inputFilename == "-");
-  bool inputIsONNX = inputFilename.endswith(".onnx");
-  bool inputIsONNXText = inputFilename.endswith(".onnxtext");
-  bool inputIsJSON = inputFilename.endswith(".json");
-  bool inputIsMLIR = inputFilename.endswith(".mlir");
+  bool inputIsONNX = inputFilename.ends_with(".onnx");
+  bool inputIsONNXText = inputFilename.ends_with(".onnxtext");
+  bool inputIsJSON = inputFilename.ends_with(".json");
+  bool inputIsMLIR = inputFilename.ends_with(".mlir");
 
   if (!inputIsSTDIN && !inputIsONNX && !inputIsONNXText && !inputIsJSON &&
       !inputIsMLIR) {
