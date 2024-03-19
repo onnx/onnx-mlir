@@ -29,10 +29,10 @@
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
+#include <mlir/Support/ToolUtilities.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
 #include "RegisterPasses.hpp"
-#include "mlir/Support/ToolUtilities.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
@@ -176,10 +176,9 @@ int main(int argc, char **argv) {
   };
 
   MlirOptMainConfig config;
-  config.setPassPipelineSetupFn(passManagerSetupFn);
-  if (split_input_file)
-    config.splitInputFile();
-  config.verifyDiagnostics(verify_diagnostics)
+  config.setPassPipelineSetupFn(passManagerSetupFn)
+      .splitInputFile(split_input_file ? kDefaultSplitMarker : "")
+      .verifyDiagnostics(verify_diagnostics)
       .verifyPasses(verify_passes)
       .allowUnregisteredDialects(allowUnregisteredDialects)
       .emitBytecode(false)
