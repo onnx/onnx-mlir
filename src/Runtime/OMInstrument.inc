@@ -103,7 +103,7 @@ static inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
 static void ReportTime(char *instrumentReportOpName,
     char *instrumentReportNodeName, int isBefore) {
   LARGE_INTEGER newTime;
-  LONGLONG resultSeconds1, resultMicroseconds2;
+  LONGLONG resultSeconds1, resultMicroseconds1;
   LONGLONG resultSeconds2, resultMicroseconds2;
   QueryPerformanceCounter(&newTime);
   WinTimerSub(newTime, globalTime, &resultSeconds1, &resultMicroseconds1);
