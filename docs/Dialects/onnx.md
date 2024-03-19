@@ -1998,40 +1998,6 @@ Effects: MemoryEffects::Effect{}
 | :----: | ----------- |
 | `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
-### `onnx.DFTV17` (ONNXDFTV17Op)
-
-_ONNX DFT operation_
-
-Computes the discrete Fourier transform of input.
-
-Traits: AlwaysSpeculatableImplTrait
-
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
-
-Effects: MemoryEffects::Effect{}
-
-#### Attributes:
-
-<table>
-<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>inverse</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-<tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
-</table>
-
-#### Operands:
-
-| Operand | Description |
-| :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
-| `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
-
-#### Results:
-
-| Result | Description |
-| :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
-
 ### `onnx.DeformConv` (ONNXDeformConvOp)
 
 _ONNX DeformConv operation_
