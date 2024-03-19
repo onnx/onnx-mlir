@@ -153,6 +153,9 @@ def compile_model(model, emit):
     # in execute_commands when calling subprocess.run.
 
     # Check if specific instruction are included in the compiled model.
-    check_instruction(name + "_cpu", exec_name)
+    # Do not check instruction if input shape is dynamic, since zDNN
+    # cannot be used for dynamic input shape.
+    if not args.dynamic:
+        check_instruction(name + "_cpu", exec_name)
 
     return exec_name
