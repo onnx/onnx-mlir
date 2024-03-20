@@ -1726,6 +1726,12 @@ void ONNXSqueezeV11Op::getCanonicalizationPatterns(
   result.insert<RemoveSqueezeV11CastUnsqueezeV11Pattern>(context);
 }
 
+/// on the ONNXTileOp.
+void ONNXTileOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<RemoveIdentityTilePattern>(context);
+}
+
 /// on the ONNXTransposeOp.
 void ONNXTransposeOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
