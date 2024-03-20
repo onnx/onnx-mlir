@@ -527,6 +527,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
     if (enableCompilerCodeGen) {
 #if 1
+      // Generic way to handle all formats listed below.
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
           layout.getValue().equals_insensitive("3D") ||
@@ -538,6 +539,9 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
             rewriter, op, shapeHelper, alloc, operandAdaptor.getIn(), layout);
       }
 #else
+      // Old version of the code, kept for reference at this stage as the new
+      // way is fancier but potentially a bit harder to comprehend. Useful for
+      // debugging until we reach a high confidence that the new code is ok.
       if (layout.getValue().equals_insensitive("3DS")) {
         return generateStickCode3DS(
             rewriter, op, shapeHelper, alloc, operandAdaptor.getIn(), layout);
