@@ -902,7 +902,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       denormAccessFunction = {e1};
     else if (layout.getValue().equals_insensitive("3DS"))
       denormAccessFunction = {e4, e2, e1};
-    else if (layout.getValue().equals_insensitive("3DS"))
+    else if (layout.getValue().equals_insensitive("2DS"))
       denormAccessFunction = {e4, e1};
     else
       llvm_unreachable("unsupported format");
