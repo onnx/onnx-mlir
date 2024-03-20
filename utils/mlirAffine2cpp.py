@@ -69,8 +69,8 @@ binary_op_dict = {
     "muli": "*",
     "addi": "+",
     "subi": "-",
-    "floordivsi" : "/",
-    "remsi" : "%",
+    "floordivsi": "/",
+    "remsi": "%",
     "cmp_eq": "==",
     "cmp_slt": "<",
 }
