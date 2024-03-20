@@ -491,7 +491,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
 // Lower ZHigh Stick to ZLow Stick
 //===----------------------------------------------------------------------===//
 
-// Initial support for flatten ztensor
+// Support for flatten ztensor
 
 struct ZHighToZLowStickOpLowering : public ConversionPattern {
   ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
