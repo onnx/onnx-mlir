@@ -1897,7 +1897,7 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
       b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
 
   // Call uniqueFuncOp inside funcOp.
-  Block *entryBlock = funcOp.addEntryBlock();
+  Block *entryBlock = funcOp.addEntryBlock(b());
   OpBuilder::InsertionGuard bodyGuard(b());
   b().setInsertionPointToStart(entryBlock);
   ValueRange args = entryBlock->getArguments();
