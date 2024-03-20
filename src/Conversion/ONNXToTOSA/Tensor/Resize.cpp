@@ -203,7 +203,7 @@ public:
     }
 
     auto elementType = inputType.getElementType();
-    if (!(isTOSAFloat(elementType) || isTOSASignedInt(elementType))) {
+    if (!(isTOSAFloat(elementType) || isTOSAInt(elementType))) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Element type is not supported by TOSA.");
     }
