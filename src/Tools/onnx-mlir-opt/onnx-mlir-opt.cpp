@@ -29,6 +29,7 @@
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
+#include <mlir/Support/ToolUtilities.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
 #include "RegisterPasses.hpp"
@@ -176,7 +177,7 @@ int main(int argc, char **argv) {
 
   MlirOptMainConfig config;
   config.setPassPipelineSetupFn(passManagerSetupFn)
-      .splitInputFile(split_input_file)
+      .splitInputFile(split_input_file ? kDefaultSplitMarker : "")
       .verifyDiagnostics(verify_diagnostics)
       .verifyPasses(verify_passes)
       .allowUnregisteredDialects(allowUnregisteredDialects)
