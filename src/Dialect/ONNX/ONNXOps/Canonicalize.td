@@ -135,8 +135,9 @@ class HaveSameDim<int dim>: Constraint<
   "Two tensors have the same specified dimension">;
 
 def HaveSameShapedType: Constraint<
-    CPred<"($0.getType().dyn_cast<ShapedType>() == "
-          "$1.getType().dyn_cast<ShapedType>())">,
+    CPred<"(isa<ShapedType>($0.getType()) &&"
+          "dyn_cast<ShapedType>($0.getType()) == "
+          "dyn_cast<ShapedType>($1.getType()))">,
     "has same shaped type">;
 
 def HaveSameStaticShape: Constraint<
@@ -456,7 +457,7 @@ def SwapCastSlicePattern: Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// Canonicalization for ONNXTransposeOp
+// Canonicalization for ONNXTileOp
 //===----------------------------------------------------------------------===//
 
 def IsFromONNXConstantOpWithOnesDenseElementsAttr: Constraint<
