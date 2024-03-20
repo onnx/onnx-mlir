@@ -539,7 +539,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       }
 #else
       if (layout.getValue().equals_insensitive("3DS")) {
-        return generateStickCode3D4D(
+        return generateStickCode3DS(
             rewriter, op, shapeHelper, alloc, operandAdaptor.getIn(), layout);
       }
 #endif
@@ -551,10 +551,11 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     return success();
   }
 
-  LogicalResult generateStickCode3D4D(ConversionPatternRewriter &rewriter,
+  /* Old version that use values and only works for 3DS. Kept at this time for
+   * reference. */
+  LogicalResult generateStickCode3DS(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
-    fprintf(stderr, "hi alex with memcpy\n");
     // generate code (unoptimized)
     int64_t rank = shapeHelper.getOutputDims().size();
     assert((rank == 3 || rank == 4) && "3D/4D expected");
@@ -578,7 +579,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     // Tiling in the e2 x e1 dim: N x M.
     int64_t N = 2;
     assert(D2 % N == 0 && "Tiling by N (along E2) must divide 32");
-    int64_t M = 4; // Tiling along E1 by M * 64 values.
+    int64_t M = 2; // Tiling along E1 by M * 64 values.
     // Info for SIMD.
     int64_t VL = 8;          // FP16 VL.
     int64_t VLHalf = VL / 2; // FP32 VL.
@@ -746,14 +747,16 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                     allocAs32x64, buffer, num, offsetAlloc, offsetBuffer);
               });
         });
-    fprintf(stderr, "bye alex with memcpy\n");
     rewriter.replaceOp(op, alloc);
     return success();
   }
 
   /*
-  Inputs:
-    origE: original dimensions of the tensor (1-4D).
+  Helper function to handle all normal zAIU layouts in a standardized way.
+  Will migrate to a common place once a second usage is added (probably for
+  unstick).
+
+  Inputs: origE: original dimensions of the tensor (1-4D).
 
     layout: string indicating layout, here only 1-4D, 2-3DS.
 
@@ -889,6 +892,10 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     return res;
   }
 
+  /* Since we work with normalized dimensions, we have to denormalize access to
+   * the actual data, which still has a 1, 2, 3, or 4D arrays. Since not all
+   * format use the same dimensions, we need a denormalization that is aware of
+   * the actual format. Exemptions are mainly for 2DS and 3DS. */
   void computeDenormalizedAccessFunction(StringAttr layout, IndexExpr e4,
       IndexExpr e3, IndexExpr e2, IndexExpr e1,
       DimsExpr &denormAccessFunction) const {
@@ -908,17 +915,17 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       llvm_unreachable("unsupported format");
   }
 
+  /* Generic version that create code for all normal layouts. */
   LogicalResult generateStickCode(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
-    fprintf(stderr, "hi alex with generic memcpy\n");
     // generate code (unoptimized)
     Location loc = op->getLoc();
     MDBuilder create(rewriter, loc);
 
     // Tiling in the E2 x E1 dim: N x 64M.
     int64_t N = 2;
-    int64_t M = 4;
+    int64_t M = 2;
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
     // Info for SIMD.
     int64_t VL = 8;          // FP16 VL.
@@ -1056,7 +1063,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                     allocOffset.getValue(), bufferOffset.getValue());
               });
         });
-    fprintf(stderr, "bye alex with generic memcpy\n");
     rewriter.replaceOp(op, alloc);
     return success();
   }
