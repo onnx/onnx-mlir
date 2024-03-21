@@ -1112,8 +1112,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     prepareReinterpretZTensor(
         outputDims, layout, normE, normT, numTiles, coeffT);
     int64_t E4 = 0, E3 = 1, E2 = 2, E1 = 3; // Use normalized sizes (4D).
-    DimsExpr reallocOutputDims = {numTiles, lit32, lit64};
-    Value allocAs32x64 = create.mem.reinterpretCast(alloc, reallocOutputDims);
 
     // Types use the SIMD unrolling VL and VLHalf.
     Type f16Type = rewriter.getF16Type();
@@ -1211,7 +1209,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 // HI ALEX make it work only for 3DS
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, {e4, e2, e1});
-                DimsExpr reallocTileDims = {lit1, lit32, lit64};
+                DimsExpr reallocTileDims = {lit1, litN, lit64};
                 Value allocAs1x32x64 = create.mem.reinterpretCast(
                     alloc, allocOffset, reallocTileDims);
 
