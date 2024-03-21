@@ -1603,7 +1603,7 @@ Value VectorBuilder::reduction(
           loc(), vector::CombiningKind::MAXSI, value);
     if (MathBuilder::isFloatWithVector(type))
       return b().create<vector::ReductionOp>(
-          loc(), vector::CombiningKind::MAXF, value);
+          loc(), vector::CombiningKind::MAXNUMF, value);
     llvm_unreachable("unknown type in max");
   }
   case CombiningKind::MIN: {
@@ -1615,7 +1615,7 @@ Value VectorBuilder::reduction(
           loc(), vector::CombiningKind::MINSI, value);
     if (MathBuilder::isFloatWithVector(type))
       return b().create<vector::ReductionOp>(
-          loc(), vector::CombiningKind::MINF, value);
+          loc(), vector::CombiningKind::MINNUMF, value);
     llvm_unreachable("unknown type in min");
   }
   case CombiningKind::AND: {
@@ -1897,7 +1897,7 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
       b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
 
   // Call uniqueFuncOp inside funcOp.
-  Block *entryBlock = funcOp.addEntryBlock();
+  Block *entryBlock = funcOp.addEntryBlock(b());
   OpBuilder::InsertionGuard bodyGuard(b());
   b().setInsertionPointToStart(entryBlock);
   ValueRange args = entryBlock->getArguments();

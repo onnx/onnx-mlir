@@ -1370,7 +1370,7 @@ def ONNXConstantOfShapeOp:ONNX_Op<"ConstantOfShape",
   }];
   let arguments = (ins TensorOf<[I64]>:$input,
     OptionalAttr<AnyAttr>:$value);
-  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>]>:$output);
+  let results = (outs AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[I8]>, TensorOf<[I16]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[UI8]>, TensorOf<[UI16]>, TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I1]>, TensorOf<[BF16]>, TensorOf<[F8E4M3FN]>, TensorOf<[F8E4M3FNUZ]>, TensorOf<[F8E5M2]>, TensorOf<[F8E5M2FNUZ]>]>:$output);
   let extraClassDeclaration = [{
     static int getNumberOfOperands() {
       return 1;
@@ -6553,6 +6553,57 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
   valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
   
   
+  If the input data type is Boolean, the comparison should consider `False < True`.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+  to `False` instead of `True`.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>, TensorOf<[I1]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>, TensorOf<[I1]>]>:$reduced);
+  let builders = [
+    OpBuilder<(ins "Value":$data, "Value":$axes, "IntegerAttr":$keepdims, "IntegerAttr":$noop_with_empty_axes), [{
+      auto resultType = UnrankedTensorType::get(data.getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, resultType, data, axes, keepdims, noop_with_empty_axes);
+    }]>,
+    OpBuilder<(ins "ValueRange":$operands, "ArrayRef<NamedAttribute>":$attributes), [{
+      auto resultType = UnrankedTensorType::get(operands[0].getType().cast<ShapedType>().getElementType());
+      build($_builder, $_state, {resultType}, operands, attributes);
+    }]>
+    ];
+    let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return 2;
+      }
+      static int getNumberOfResults() {
+        return 1;
+      }
+      static std::vector<int> getTypeMap() {
+        return {30};
+      }
+    }];
+    let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+    }];
+}
+
+def ONNXReduceMaxV18Op:ONNX_Op<"ReduceMaxV18",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMax operation";
+  let description = [{
+  Computes the max of the input tensor's elements along the provided axes. The resulting
+  tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+  the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+  valid. Reduction over an empty set of values yields minus infinity (if supported by the datatype) or the minimum value of the data type otherwise.
+  
+  
   The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
   to `False` instead of `True`.
   }];
@@ -6585,7 +6636,7 @@ def ONNXReduceMaxOp:ONNX_Op<"ReduceMax",
     let extraClassDefinition = [{
       onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
           onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxOpShapeHelper(op, oper, ieb, scope);
+        onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMaxV18OpShapeHelper(op, oper, ieb, scope);
         assert(sh && "failed to allocate shape helper");
         return sh;
       }
@@ -6727,6 +6778,47 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
   valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
   
   
+  If the input data type is Boolean, the comparison should consider `False < True`.
+  
+  The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
+  to `False` instead of `True`.
+  }];
+  let arguments = (ins AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>, TensorOf<[I1]>]>:$data,
+    AnyTypeOf<[TensorOf<[I64]>, NoneType]>:$axes,
+    DefaultValuedAttr<SI64Attr, "1">:$keepdims,
+    DefaultValuedAttr<SI64Attr, "0">:$noop_with_empty_axes);
+  let results = (outs AnyTypeOf<[TensorOf<[UI32]>, TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[BF16]>, TensorOf<[UI8]>, TensorOf<[I8]>, TensorOf<[I1]>]>:$reduced);
+  let extraClassDeclaration = [{
+    static int getNumberOfOperands() {
+      return 2;
+    }
+    static int getNumberOfResults() {
+      return 1;
+    }
+    static std::vector<int> getTypeMap() {
+      return {30};
+    }
+  }];
+  let extraClassDefinition = [{
+    onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
+        onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinOpShapeHelper(op, oper, ieb, scope);
+      assert(sh && "failed to allocate shape helper");
+      return sh;
+    }
+  }];
+}
+
+def ONNXReduceMinV18Op:ONNX_Op<"ReduceMinV18",
+  [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let summary = "ONNX ReduceMin operation";
+  let description = [{
+  Computes the min of the input tensor's elements along the provided axes. The resulting
+  tensor has the same rank as the input if `keepdims` equals 1. If `keepdims` equals 0, then
+  the resulting tensor has the reduced dimension pruned. Input tensors of rank zero are
+  valid. Reduction over an empty set of values yields plus infinity (if supported by the datatype) or the maximum value of the data type otherwise.
+  
+  
   The above behavior is similar to numpy, with the exception that numpy defaults `keepdims`
   to `False` instead of `True`.
   }];
@@ -6749,7 +6841,7 @@ def ONNXReduceMinOp:ONNX_Op<"ReduceMin",
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper, 
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
-      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinOpShapeHelper(op, oper, ieb, scope);
+      onnx_mlir::ONNXOpShapeHelper *sh = new onnx_mlir::ONNXReduceMinV18OpShapeHelper(op, oper, ieb, scope);
       assert(sh && "failed to allocate shape helper");
       return sh;
     }

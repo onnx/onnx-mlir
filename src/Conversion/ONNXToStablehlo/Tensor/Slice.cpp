@@ -128,7 +128,7 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
                 RankedTensorType::get(
                     dataType.getShape(), rewriter.getI1Type()),
                 isNegativeStepValue, inputShape,
-                rewriter.getI64TensorAttr({0}));
+                rewriter.getDenseI64ArrayAttr({0}));
         Value negatedStepValue =
             rewriter.create<stablehlo::NegOp>(loc, stepValue);
         Value negatedStartValue =
