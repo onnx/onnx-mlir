@@ -799,10 +799,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
     unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
   }
-
-  DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getOperation(), target, std::move(patterns), &unconverted))) {
+          getOperation(), target, std::move(patterns)))) {
     {
       const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
       unrollAndJamMap.erase(currFuncOp);
