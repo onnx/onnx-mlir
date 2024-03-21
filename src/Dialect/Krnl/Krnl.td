@@ -25,6 +25,7 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
+include "mlir/Dialect/Affine/IR/AffineMemoryOpInterfaces.td"
 include "src/Interface/SpecializedKernelOpInterface.td"
 
 def Krnl_Dialect : Dialect {
@@ -664,6 +665,54 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
         return getMemref().getType().cast<MemRefType>();
       }
   }];
+}
+
+def KrnlGetLinearOffsetIndexOp : Op<Krnl_Dialect, "get_linear_offset_index",
+  [DeclareOpInterfaceMethods<AffineReadOpInterface>,
+  DeclareOpInterfaceMethods<AffineMapAccessInterface>, MemRefsNormalizable]> {
+  let summary = "A Krnl operation to compute a linear offset index from a N-D index.";
+
+  let description = [{
+    Given a MemRef and an N-D index (id_1, id_2, ..., id_n), where n is
+    the rank of the MemRef, this operation computes a linear offset index.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "the reference memref", [MemRead]>:$memref,
+                       Variadic<Index>:$indices,
+                       AffineMapAttr:$map);
+  let results = (outs Index:$result);
+
+  // let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+  let builders = [
+    /// Builds an op with the specified map and operands.
+    OpBuilder<(ins "AffineMap":$map, "ValueRange":$operands)>,
+    /// Builds an op with an identity map and operands.
+    OpBuilder<(ins "Value":$memref, CArg<"ValueRange", "{}">:$indices)>,
+    /// Builds an op with the specified map and its operands.
+    OpBuilder<(ins "Value":$memref, "AffineMap":$map,
+      "ValueRange":$mapOperands)>
+  ];
+  let extraClassDeclaration = [{
+    /// Returns the operand index of the memref.
+    unsigned getMemRefOperandIndex() { return 0; }
+
+    void setMemRef(Value value) { setOperand(getMemRefOperandIndex(), value); }
+
+    MemRefType getMemRefType() {
+      return getMemref().getType().cast<MemRefType>();
+    }
+
+    /// Returns the affine map used to index the memref for this operation.
+    AffineMapAttr getAffineMapAttr() {
+      return getMapAttr();
+    }
+
+    static StringRef getMapAttrStrName() { return "map"; }
+  }];
+
+  let hasCustomAssemblyFormat = 1;
+  // let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+
 }
 
 def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
