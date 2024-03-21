@@ -1210,10 +1210,10 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
                 // HI ALEX make it work only for 3DS
                 Value allocOffset =
-                    create.krnl.getLinearOffsetIndexIE(alloc, {e3, e2, e1});
+                    create.krnl.getLinearOffsetIndexIE(alloc, {e4, e2, e1});
                 DimsExpr reallocTileDims = {lit1, lit32, lit64};
                 Value allocAs1x32x64 = create.mem.reinterpretCast(
-                    alloc, allocOffset, reallocOutputDims);
+                    alloc, allocOffset, reallocTileDims);
 
                 // Calculate buffer offset
                 int64_t num = N * 64;
