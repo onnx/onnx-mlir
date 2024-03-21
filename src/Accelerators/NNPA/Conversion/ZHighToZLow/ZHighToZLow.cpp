@@ -1080,24 +1080,36 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   LogicalResult generateStickCodeV2(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
-    // generate code
     fprintf(stderr, "hi alex, new version\n");
     Location loc = op->getLoc();
     MDBuilder create(rewriter, loc);
 
-    // Tiling in the E2 x E1 dim: N x 64M.
-    int64_t N = 2;
-    int64_t M = 2;
-    assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
-    // Info for SIMD.
-    int64_t VL = 8;          // FP16 VL.
-    int64_t VLHalf = VL / 2; // FP32 VL.
-    assert(64 % VL == 0 && "SIMD vector length must divide 64");
-
-    // Compute output dims and define useful literals.
+    // Compute output dims and rank.
     IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
     DimsExpr outputDims;
     getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+    int64_t rank = outputDims.size();
+    bool is2DS = layout.getValue().equals_insensitive("2DS");
+
+    // Tiling in the E2 x E1 dim: N x 64M.
+    int64_t N = 2;
+    int64_t M = 2;
+    if (rank == 1 || is2DS)
+      N = 1; // No tiling on E2 dim for
+    assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
+
+    // Info for SIMD Vector Length (VL) and associated types.
+    int64_t VL = 8;          // FP16 VL.
+    int64_t VLHalf = VL / 2; // FP32 VL.
+    assert(64 % VL == 0 && "SIMD vector length must divide 64");
+    Type f16Type = rewriter.getF16Type();
+    Type f32Type = rewriter.getF32Type();
+    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+
+    // Type for buffer.
+    MemRefType bufferType = MemRefType::get({M, N, 64}, f16Type);
+
+    // Define useful literals.
     IndexExpr litZero = LiteralIndexExpr(0);
     IndexExpr lit1 = LiteralIndexExpr(1);
     IndexExpr litN = LiteralIndexExpr(N);
@@ -1106,45 +1118,60 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     IndexExpr lit32 = LiteralIndexExpr(32);
     IndexExpr lit64 = LiteralIndexExpr(64);
 
-    // Prepare for cast_reinterpret
-    DimsExpr normE, normT, coeffT;
-    IndexExpr numTiles;
-    prepareReinterpretZTensor(
-        outputDims, layout, normE, normT, numTiles, coeffT);
-    int64_t E4 = 0, E3 = 1, E2 = 2, E1 = 3; // Use normalized sizes (4D).
+    // Useful references for indexing dimensions (neg val are not used).
+    int64_t E4 = rank - 4, E3 = rank - 3, E2 = rank - 2, E1 = rank - 1;
 
-    // Types use the SIMD unrolling VL and VLHalf.
-    Type f16Type = rewriter.getF16Type();
-    Type f32Type = rewriter.getF32Type();
-    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
-    // Type for buffer
-    MemRefType bufferType = MemRefType::get({M, N, 64}, f16Type);
-
-    // Create loop iterations. Use normalized iterations, which are
-    // defined as a 4D vector. So use 4 loops here. The `for(i=0; i<1; ++i)`
-    // loops should simplify nicely. Note that we iterate over E1 as tiles of 64
+    // Create loop iterations. Note that we iterate over E1 as tiles of 64
     // elements.
-    ValueRange loopDefs = create.krnl.defineLoops(4);
-    ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
+    ValueRange loopDefs = create.krnl.defineLoops(rank);
     ValueRange tiledDefE1 = create.krnl.block(loopDefs[E1], M);
-    // Final order: E4, E3, E2 tiled by N, E1 tiled by M, followed by E1 (inside
-    // M), E2 (inside N).
-    create.krnl.permute({/*E4*/ loopDefs[E4], /*E3*/ loopDefs[E3],
-                            /*E2*/ tiledDefE2[0], tiledDefE2[1],
-                            /*E1*/ tiledDefE1[0], tiledDefE1[1]},
-        {/*E4*/ 0, /*E3*/ 1, /*E2*/ 2, 5, /*E1*/ 3, 4});
-
-    // Bounds and optimized loop defs: note that UB of E1 is in tiles of 64
-    // elements.
-    DimsExpr lbs = {litZero, litZero, litZero, litZero};
-    DimsExpr ubs = {normE[E4], normE[E3], normE[E2], normT[E1]};
-    SmallVector<Value, 4> optLoopDefs = {
-        loopDefs[E4], loopDefs[E3], tiledDefE2[0], tiledDefE1[0]};
+    DimsExpr lbs(rank, litZero);
+    DimsExpr ubs = outputDims;
+    IndexExpr T1 = outputDims[E1].ceilDiv(64);
+    ubs[E1] = T1; // E1 dim is over tiles.
+    SmallVector<Value, 4> optLoopDefs;
+    if (rank == 4) {
+      ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
+      // 4D loop order: E4, E3, E2 tiled by N, E1 tiled by M, followed by E1
+      // (inside M), then unused.
+      create.krnl.permute({/*E4*/ loopDefs[E4], /*E3*/ loopDefs[E3],
+                              /*E2*/ tiledDefE2[0], tiledDefE2[1],
+                              /*E1*/ tiledDefE1[0], tiledDefE1[1]},
+          {/*E4*/ 0, /*E3*/ 1, /*E2*/ 2, 5, /*E1*/ 3, 4});
+      optLoopDefs = {loopDefs[E4], loopDefs[E3], tiledDefE2[0], tiledDefE1[0]};
+    } else if (rank == 3) {
+      ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
+      // 3D/3DS loop order: E3, E2 tiled by N, E1 tiled by M, followed by E1
+      // (inside M), then unused. Order does not change for 3D vs 3DS.
+      create.krnl.permute({/*E3*/ loopDefs[E3],
+                              /*E2*/ tiledDefE2[0], tiledDefE2[1],
+                              /*E1*/ tiledDefE1[0], tiledDefE1[1]},
+          {/*E3*/ 0, /*E2*/ 1, 4, /*E1*/ 2, 3});
+      optLoopDefs = {loopDefs[E3], tiledDefE2[0], tiledDefE1[0]};
+    } else if (rank == 2) {
+      ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
+      // 2D/2DS loop order: E2 tiled by N, E1 tiled by M, followed by E1
+      // (inside M), then unused. Order does not change for 2D vs 2DS. 2DS has a
+      // E2 tile of 1... which we can safely ignore here.
+      create.krnl.permute({/*E2*/ tiledDefE2[0], tiledDefE2[1],
+                              /*E1*/ tiledDefE1[0], tiledDefE1[1]},
+          {/*E2*/ 0, 3, /*E1*/ 1, 2});
+      optLoopDefs = {tiledDefE2[0], tiledDefE1[0]};
+    } else if (rank == 1) {
+      // 1D loop order: E2 tiled by N, E1 tiled by M, followed by E1
+      // (inside M), then unused. Order does not change for 2D vs 2DS. 2DS has a
+      // E2 tile of 1... which we can safely ignore here.
+      create.krnl.permute({/*E1*/ tiledDefE1[0], tiledDefE1[1]}, {/*E1*/ 0, 1});
+      optLoopDefs = {tiledDefE1[0]};
+    } else {
+      llvm_unreachable("rank 1 to 4 only");
+    }
 
     // Parallel...
     if (enableParallel) {
       int64_t parId;
-      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
+      // Hi Alex, may want to check if ub of rank makes sense here.
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
         create.krnl.parallel(optLoopDefs[parId]);
         onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
             "compiler-generated stickify");
@@ -1171,18 +1198,16 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
+                DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
                 SymbolIndexExpr n(loopInd[0]), m(loopInd[1]), l(loopInd[2]);
-                SymbolIndexExpr e4(outerIndices[E4]);
-                SymbolIndexExpr e3(outerIndices[E3]);
-                SymbolIndexExpr e2ByN(outerIndices[E2]);
-                SymbolIndexExpr t1ByM(outerIndices[E1]);
-                IndexExpr e2 = e2ByN + n;
-                IndexExpr t1 = t1ByM + m;
-                IndexExpr e1 = (t1 * 64) + l;
-                DimsExpr inputAF;
-                computeDenormalizedAccessFunction(
-                    layout, e4, e3, e2, e1, inputAF);
+                getIndexExprList<SymbolIndexExpr>(outerIndices, inputAF);
+                // If E2 is unrolled, must add the "n" local E2 offset.
+                if (rank > 1 && N > 1)
+                  inputAF[E2] = inputAF[E2] + n;
+                // Translate the tile index t1 to the actual targetted data: e1
+                // => 64 e1 and add the "l" local E1 offset.
+                inputAF[E1] = (inputAF[E1] * 64) + l;
                 Value vecF32H =
                     create.vec.loadIE(vecF32Type, input, inputAF, {});
                 Value vecF32L = create.vec.loadIE(
@@ -1195,24 +1220,19 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           create.krnl.iterate({}, {tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
+                DimsExpr outputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
                 SymbolIndexExpr t1(loopInd[0]);
-                SymbolIndexExpr e4(outerIndices[E4]);
-                SymbolIndexExpr e3(outerIndices[E3]);
-                SymbolIndexExpr e2ByN(outerIndices[E2]);
-                SymbolIndexExpr t1ByM(outerIndices[E1]);
-                // Compute tile indices (E1 already tiled, E2 is not => /32).
-                IndexExpr m = t1 - t1ByM;
-                IndexExpr e1 = t1 * 64; // Pointing to 0 % 64 (tile start).
-                IndexExpr e2 = e2ByN;   // Pointing to 0 % N (tile start).
-
-                // HI ALEX make it work only for 3DS
+                getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                // Compute m, the current m * 64 tile being proccessed by this inner loop.
+                IndexExpr m = t1 - outputAF[E1];
+                outputAF[E1] =
+                    outputAF[E1] * 64; // Pointing to 0 % 64 (tile start).
                 Value allocOffset =
-                    create.krnl.getLinearOffsetIndexIE(alloc, {e4, e2, e1});
+                    create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
                 DimsExpr reallocTileDims = {lit1, litN, lit64};
                 Value allocAs1x32x64 = create.mem.reinterpretCast(
                     alloc, allocOffset, reallocTileDims);
-
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
