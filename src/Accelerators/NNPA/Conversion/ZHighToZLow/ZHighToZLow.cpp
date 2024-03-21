@@ -1093,7 +1093,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
     // Tiling in the E2 x E1 dim: N x 64M.
     int64_t N = 2;
-    int64_t M = 2;
+    int64_t M = 4; // hi alex, set to 2 once debugging is done.
     if (rank == 1 || is2DS)
       N = 1; // No tiling on E2 dim for
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
@@ -1115,7 +1115,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     IndexExpr litN = LiteralIndexExpr(N);
     IndexExpr litM = LiteralIndexExpr(M);
     IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr lit32 = LiteralIndexExpr(32);
     IndexExpr lit64 = LiteralIndexExpr(64);
 
     // Useful references for indexing dimensions (neg val are not used).
@@ -1206,8 +1205,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 if (rank > 1 && N > 1)
                   inputAF[E2] = inputAF[E2] + n;
                 // Translate the tile index t1 to the actual targetted data: e1
-                // => 64 e1 and add the "l" local E1 offset.
-                inputAF[E1] = (inputAF[E1] * 64) + l;
+                // => 64 (e1+m) and add the "l" local E1 offset.
+                inputAF[E1] = ((inputAF[E1]+m) * 64) + l;
                 Value vecF32H =
                     create.vec.loadIE(vecF32Type, input, inputAF, {});
                 Value vecF32L = create.vec.loadIE(
@@ -1224,10 +1223,11 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 IndexExprScope innerScope(create.krnl, &outerScope);
                 SymbolIndexExpr t1(loopInd[0]);
                 getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
-                // Compute m, the current m * 64 tile being proccessed by this inner loop.
+                // Compute m, the current m * 64 tile being processed by this
+                // inner loop.
                 IndexExpr m = t1 - outputAF[E1];
-                outputAF[E1] =
-                    outputAF[E1] * 64; // Pointing to 0 % 64 (tile start).
+                // E1 is tiled, multiply by 64 to get the tile start.
+                outputAF[E1] = outputAF[E1] * 64;
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
                 DimsExpr reallocTileDims = {lit1, litN, lit64};
