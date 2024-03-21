@@ -104,18 +104,23 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
         RankedTensorType::get(dataType.getShape(), indexElementType);
 
     IntegerAttr iotaDimension = IntegerAttr::get(rewriter.getI64Type(), axis);
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, data);
+    Value inputShapeOp = rewriter.create<shape::ShapeOfOp>(loc, data);
     Value indexValues = rewriter.create<stablehlo::DynamicIotaOp>(
-        loc, indexType, inputShape, iotaDimension);
+        loc, indexType, inputShapeOp, iotaDimension);
 
-    Value dataOperands[] = {data, indexValues};
-    Value initValues[] = {initValue, indexInitValue};
-    DenseIntElementsAttr reductionDimensions =
-        rewriter.getI64VectorAttr({axis});
-
+    ArrayRef<int64_t> inputShape = dataType.getShape();
+    SmallVector<int64_t> resultShape;
+    for (int64_t i = 0; i < dataRank; i++)
+      if (i != axis)
+        resultShape.push_back(inputShape[i]);
     stablehlo::ReduceOp reduction = rewriter.create<stablehlo::ReduceOp>(loc,
-        llvm::ArrayRef<Value>(dataOperands), llvm::ArrayRef<Value>(initValues),
-        reductionDimensions);
+        /*resultType0*/
+        TypeRange{RankedTensorType::get(resultShape, elementType),
+            RankedTensorType::get(resultShape, indexElementType)},
+        /*inputs*/ ValueRange{data, indexValues},
+        /*init_values*/ ValueRange{initValue, indexInitValue},
+        /*dimensions*/ rewriter.getDenseI64ArrayAttr({axis}));
+
     BuildArgmaxReductionBody(
         elementType, indexElementType, &reduction.getBody(), &rewriter);
 
@@ -127,7 +132,8 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
         SmallVector<Value> dims;
         for (int64_t i = 0; i < dataRank; i++) {
           if (i != axis) {
-            Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
+            Value dim =
+                rewriter.create<shape::GetExtentOp>(loc, inputShapeOp, i);
             dims.push_back(dim);
           } else {
             Value dim = rewriter.create<arith::ConstantIndexOp>(loc, 1);

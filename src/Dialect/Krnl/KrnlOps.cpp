@@ -915,6 +915,15 @@ void KrnlSeqExtractOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
+void KrnlSeqStoreOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(), getSeq(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), getInput(),
+      SideEffects::DefaultResource::get());
+}
+
 std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();

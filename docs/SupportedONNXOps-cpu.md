@@ -6,7 +6,7 @@
 Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
-* **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
+* **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator. 
    * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 20.
 
 
@@ -49,7 +49,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **Concat** |6 - * | | |
 | **ConcatFromSequence** |none | | | |
 | **Constant** |6 - * | | |
-| **ConstantOfShape** |9 - 19 | | |
+| **ConstantOfShape** |9 - * | | |
 | **Conv** |6 - * | | |
 | **ConvInteger** |none | | | |
 | **ConvTranspose** |6 - * |Unknown dimension in spatial dimensions (such as H and W) not supported. | |
@@ -158,9 +158,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **ReduceL2** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceLogSum** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceLogSumExp** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceMax** |6 - 19 |do_not_keep_dim not supported. | |
+| **ReduceMax** |6 - * |do_not_keep_dim not supported. | |
 | **ReduceMean** |6 - * |do_not_keep_dim not supported. | |
-| **ReduceMin** |6 - 19 |do_not_keep_dim not supported. | |
+| **ReduceMin** |6 - * |do_not_keep_dim not supported. | |
 | **ReduceProd** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceSum** |6 - * |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
 | **ReduceSumSquare** |13 - * |Default axis and do_not_keep_dim not supported. | |

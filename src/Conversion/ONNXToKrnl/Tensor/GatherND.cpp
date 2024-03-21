@@ -68,12 +68,13 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     create.krnlIE.getShapeAsDims(data, dataDims);
     create.krnlIE.getShapeAsDims(indices, indicesDims);
     auto dataType = data.getType().cast<ShapedType>();
-    ArrayRef<int64_t> dataShape = dataType.getShape();
     int64_t dataRank = dataDims.size();
     int64_t indicesRank = indicesDims.size();
     auto indicesType = indices.getType().cast<ShapedType>();
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
     int64_t indicesLastDim = indicesShape[indicesRank - 1];
+    // ToFix: Handle case in which indicesLastDim is kDynamic.
+    // Currently, such case is detected by ONNXPreKrnlVerifyPass.
     assert((indicesLastDim >= 1 && indicesLastDim <= dataRank - b) &&
            "indices.shape[-1] must be in the range [1, dataRank - b]");
 
@@ -206,35 +207,41 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             // When indices.shape[-1] is less than (rank(data) - b) the
             // `reshapedDataAccessFct` computed so far yields a slice which
             // needs to be inserted into the output buffer.
-            int64_t reshapedDataLastDim = dataShape[dataRank - 1];
-            for (int64_t i = 0; i < reshapedDataLastDim; ++i) {
-              IndexExpr ind = LiteralIndexExpr(i);
-              reshapedDataAccessFct.emplace_back(ind);
-              assert(
-                  (int64_t)reshapedDataAccessFct.size() == reshapedDataRank &&
-                  "Access function should have the same rank as reshapedData");
+            Value zero = create.math.constantIndex(0);
+            IndexExpr reshapedDataLastDimExpr = dataDims[dataRank - 1];
+            Value last = reshapedDataLastDimExpr.getValue();
+            ValueRange innerLoopDef = create.krnl.defineLoops(1);
+            create.krnl.iterate(innerLoopDef, innerLoopDef, {zero}, {last},
+                [&](KrnlBuilder &createKrnl, ValueRange innerLoopInd) {
+                  IndexExpr ind = SymbolIndexExpr(innerLoopInd[0]);
+                  reshapedDataAccessFct.emplace_back(ind);
+                  assert((int64_t)reshapedDataAccessFct.size() ==
+                             reshapedDataRank &&
+                         "Access function should have the same rank as "
+                         "reshapedData");
 
-              if (emitPrintStmts)
-                printIndices("data indices", reshapedDataAccessFct, createKrnl);
+                  if (emitPrintStmts)
+                    printIndices(
+                        "data indices", reshapedDataAccessFct, createKrnl);
 
-              // Gather value from the 'data' tensor and store it into
-              // 'outputDataBuffer'.
-              Value val =
-                  createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
-              reshapedDataAccessFct.pop_back();
+                  // Gather value from the 'data' tensor and store it into
+                  // 'outputDataBuffer'.
+                  Value val =
+                      createKrnl.loadIE(reshapedData, reshapedDataAccessFct);
+                  reshapedDataAccessFct.pop_back();
 
-              if (emitPrintStmts) {
-                createKrnl.printf("val = ", val, val.getType());
-                createKrnl.printf("\n");
-              }
+                  if (emitPrintStmts) {
+                    createKrnl.printf("val = ", val, val.getType());
+                    createKrnl.printf("\n");
+                  }
 
-              Value storeIndexVal = createKrnl.load(storeIndex);
-              createKrnl.store(val, outputDataBuffer, storeIndexVal);
+                  Value storeIndexVal = createKrnl.load(storeIndex);
+                  createKrnl.store(val, outputDataBuffer, storeIndexVal);
 
-              // Bump up the storeIndex.
-              createKrnl.store(
-                  create.math.add(storeIndexVal, iOne), storeIndex);
-            }
+                  // Bump up the storeIndex.
+                  createKrnl.store(
+                      create.math.add(storeIndexVal, iOne), storeIndex);
+                });
           }
         });
 

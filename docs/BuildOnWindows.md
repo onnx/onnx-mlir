@@ -52,7 +52,7 @@ Install MLIR (as a part of LLVM-Project):
 ```shell
 git clone -n https://github.com/llvm/llvm-project.git
 # Check out a specific branch that is known to work with ONNX-MLIR.
-cd llvm-project && git checkout b2cdf3cc4c08729d0ff582d55e40793a20bbcdcc && cd ..
+cd llvm-project && git checkout a4ca07f13b560b4f6fa5459eef7159e4f9ee9a6b && cd ..
 ```
 
 [same-as-file]: <> (utils/build-mlir.cmd)
@@ -100,6 +100,7 @@ call cmake %root_dir%\onnx-mlir -G "Ninja" ^
    -DLLVM_EXTERNAL_LIT=%lit_path% ^
    -DLLVM_LIT_ARGS=-v ^
    -DMLIR_DIR=%root_dir%\llvm-project\build\lib\cmake\mlir ^
+   -DONNX_MLIR_ENABLE_STABLEHLO=OFF ^
    -DONNX_MLIR_ENABLE_WERROR=ON
 
 call cmake --build . --config Release
