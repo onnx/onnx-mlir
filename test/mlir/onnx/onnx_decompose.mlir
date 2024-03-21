@@ -2,9 +2,9 @@
 
 // -----
 
-func.func @test_dft(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
+func.func @test_df(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 ="onnx.DFT"(%arg0, %arg1, %cst) : (tensor<?x?x?xf32>, tensor<?xi64>, none)-> tensor<*xf32>
+  %0 ="onnx.DFTV17"(%arg0, %arg1, %cst) : (tensor<?x?x?xf32>, tensor<?xi64>, none)-> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
@@ -20,7 +20,7 @@ func.func @test_dft(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<
 
 func.func @test_dft_one_sided(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 ="onnx.DFT"(%arg0, %arg1, %cst) {onesided = 1 : si64}  : (tensor<?x?x?xf32>, tensor<?xi64>, none)-> tensor<*xf32>
+  %0 ="onnx.DFTV17"(%arg0, %arg1, %cst) {onesided = 1 : si64}  : (tensor<?x?x?xf32>, tensor<?xi64>, none)-> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py
@@ -36,7 +36,7 @@ func.func @test_dft_one_sided(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) 
 
 func.func @test_dft_inverse(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
   %cst = "onnx.NoValue"() {value} : () -> none
-  %0 ="onnx.DFT"(%arg0, %arg1, %cst) {inverse = 1 : si64}  : (tensor<?x?x?xf32>, tensor<?xi64>, none)-> tensor<*xf32>
+  %0 ="onnx.DFTV17"(%arg0, %arg1, %cst) {inverse = 1 : si64}  : (tensor<?x?x?xf32>, tensor<?xi64>, none)-> tensor<*xf32>
   "onnx.Return"(%0) : (tensor<*xf32>) -> ()
 
 // mlir2FileCheck.py

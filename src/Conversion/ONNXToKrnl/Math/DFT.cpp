@@ -42,25 +42,9 @@ struct ONNXDFTOpLowering : public OpConversionPattern<ONNXDFTOp> {
   }
 };
 
-struct ONNXDFTV17OpLowering : public OpConversionPattern<ONNXDFTV17Op> {
-  ONNXDFTV17OpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
-
-  LogicalResult matchAndRewrite(ONNXDFTV17Op dftOp, ONNXDFTV17OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const final {
-    return ONNXDFTOpLoweringCommon<ONNXDFTV17Op, ONNXDFTV17OpAdaptor>(
-        dftOp, adaptor, rewriter, typeConverter);
-  }
-};
-
 void populateLoweringONNXDFTOpPattern(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
   patterns.insert<ONNXDFTOpLowering>(typeConverter, ctx);
-}
-
-void populateLoweringONNXDFTV17OpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXDFTV17OpLowering>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir
