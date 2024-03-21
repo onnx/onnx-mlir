@@ -1076,7 +1076,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     return success();
   }
 
-  // hi alex
   /* Generic version that create code for all normal layouts. */
   LogicalResult generateStickCodeV2(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
@@ -1207,12 +1206,14 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 // Compute tile indices (E1 already tiled, E2 is not => /32).
                 IndexExpr m = t1 - t1ByM;
                 IndexExpr e1 = t1 * 64; // Pointing to 0 % 64 (tile start).
-                IndexExpr e2 = e2ByN; // Pointing to 0 % N (tile start).
+                IndexExpr e2 = e2ByN;   // Pointing to 0 % N (tile start).
 
                 // HI ALEX make it work only for 3DS
-                Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, {e3, e2, e1});
+                Value allocOffset =
+                    create.krnl.getLinearOffsetIndexIE(alloc, {e3, e2, e1});
                 DimsExpr reallocTileDims = {lit1, lit32, lit64};
-                Value allocAs1x32x64 = create.mem.reinterpretCast(alloc, reallocOutputDims);
+                Value allocAs1x32x64 = create.mem.reinterpretCast(
+                    alloc, allocOffset, reallocOutputDims);
 
                 // Calculate buffer offset
                 int64_t num = N * 64;
@@ -1221,8 +1222,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Type intType = rewriter.getIntegerType(64);
                 Value numVal = create.math.constant(intType, num);
                 // Mem copy
-                create.krnl.memcpy(allocAs1x32x64, buffer, numVal,
-                    allocOffset, bufferOffset.getValue());
+                create.krnl.memcpy(allocAs1x32x64, buffer, numVal, allocOffset,
+                    bufferOffset.getValue());
               });
         });
     rewriter.replaceOp(op, alloc);
