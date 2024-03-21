@@ -535,8 +535,13 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           layout.getValue().equals_insensitive("1D") ||
           layout.getValue().equals_insensitive("3DS") ||
           layout.getValue().equals_insensitive("2DS")) {
-        return generateStickCode(
+#if 1
+        return generateStickCodeV2(
             rewriter, op, shapeHelper, alloc, operandAdaptor.getIn(), layout);
+#else
+        return generateStickCodeV1(
+            rewriter, op, shapeHelper, alloc, operandAdaptor.getIn(), layout);
+#endif
       }
 #else
       // Old version of the code, kept for reference at this stage as the new
@@ -920,7 +925,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
   }
 
   /* Generic version that create code for all normal layouts. */
-  LogicalResult generateStickCode(ConversionPatternRewriter &rewriter,
+  LogicalResult generateStickCodeV1(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
     // generate code (unoptimized)
@@ -1065,6 +1070,159 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 // Mem copy
                 create.krnl.memcpy(allocAs32x64, buffer, numVal,
                     allocOffset.getValue(), bufferOffset.getValue());
+              });
+        });
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+
+  // hi alex
+  /* Generic version that create code for all normal layouts. */
+  LogicalResult generateStickCodeV2(ConversionPatternRewriter &rewriter,
+      Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
+      Value input, StringAttr layout) const {
+    // generate code
+    fprintf(stderr, "hi alex, new version\n");
+    Location loc = op->getLoc();
+    MDBuilder create(rewriter, loc);
+
+    // Tiling in the E2 x E1 dim: N x 64M.
+    int64_t N = 2;
+    int64_t M = 2;
+    assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
+    // Info for SIMD.
+    int64_t VL = 8;          // FP16 VL.
+    int64_t VLHalf = VL / 2; // FP32 VL.
+    assert(64 % VL == 0 && "SIMD vector length must divide 64");
+
+    // Compute output dims and define useful literals.
+    IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
+    DimsExpr outputDims;
+    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+    IndexExpr litZero = LiteralIndexExpr(0);
+    IndexExpr lit1 = LiteralIndexExpr(1);
+    IndexExpr litN = LiteralIndexExpr(N);
+    IndexExpr litM = LiteralIndexExpr(M);
+    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
+    IndexExpr lit32 = LiteralIndexExpr(32);
+    IndexExpr lit64 = LiteralIndexExpr(64);
+
+    // Prepare for cast_reinterpret
+    DimsExpr normE, normT, coeffT;
+    IndexExpr numTiles;
+    prepareReinterpretZTensor(
+        outputDims, layout, normE, normT, numTiles, coeffT);
+    int64_t E4 = 0, E3 = 1, E2 = 2, E1 = 3; // Use normalized sizes (4D).
+    DimsExpr reallocOutputDims = {numTiles, lit32, lit64};
+    Value allocAs32x64 = create.mem.reinterpretCast(alloc, reallocOutputDims);
+
+    // Types use the SIMD unrolling VL and VLHalf.
+    Type f16Type = rewriter.getF16Type();
+    Type f32Type = rewriter.getF32Type();
+    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+    // Type for buffer
+    MemRefType bufferType = MemRefType::get({M, N, 64}, f16Type);
+
+    // Create loop iterations. Use normalized iterations, which are
+    // defined as a 4D vector. So use 4 loops here. The `for(i=0; i<1; ++i)`
+    // loops should simplify nicely. Note that we iterate over E1 as tiles of 64
+    // elements.
+    ValueRange loopDefs = create.krnl.defineLoops(4);
+    ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
+    ValueRange tiledDefE1 = create.krnl.block(loopDefs[E1], M);
+    // Final order: E4, E3, E2 tiled by N, E1 tiled by M, followed by E1 (inside
+    // M), E2 (inside N).
+    create.krnl.permute({/*E4*/ loopDefs[E4], /*E3*/ loopDefs[E3],
+                            /*E2*/ tiledDefE2[0], tiledDefE2[1],
+                            /*E1*/ tiledDefE1[0], tiledDefE1[1]},
+        {/*E4*/ 0, /*E3*/ 1, /*E2*/ 2, 5, /*E1*/ 3, 4});
+
+    // Bounds and optimized loop defs: note that UB of E1 is in tiles of 64
+    // elements.
+    DimsExpr lbs = {litZero, litZero, litZero, litZero};
+    DimsExpr ubs = {normE[E4], normE[E3], normE[E2], normT[E1]};
+    SmallVector<Value, 4> optLoopDefs = {
+        loopDefs[E4], loopDefs[E3], tiledDefE2[0], tiledDefE1[0]};
+
+    // Parallel...
+    if (enableParallel) {
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
+        create.krnl.parallel(optLoopDefs[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "compiler-generated stickify");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in compiler-generated stickify");
+      }
+    }
+
+    // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
+    create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
+        [&](KrnlBuilder &b, ValueRange loopInd) {
+          MDBuilder create(b);
+          IndexExprScope outerScope(create.krnl, &allocScope);
+          DimsExpr outerIndices;
+          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          // Create buffer (for parallel, must be inside loop).
+          Value buffer = create.mem.alignedAlloc(bufferType, {});
+          // Iterate over N, M, and 64. Manage iterations explicitly.
+          DimsExpr lbs2(3, litZero);
+          DimsExpr ubs2 = {litN, litM, lit64};
+          SmallVector<int64_t, 3> steps2 = {1, 1, VL};
+          // Analysis of assembly showed that the inner loop was fully unrolled.
+          create.affine.forIE(
+              lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr n(loopInd[0]), m(loopInd[1]), l(loopInd[2]);
+                SymbolIndexExpr e4(outerIndices[E4]);
+                SymbolIndexExpr e3(outerIndices[E3]);
+                SymbolIndexExpr e2ByN(outerIndices[E2]);
+                SymbolIndexExpr t1ByM(outerIndices[E1]);
+                IndexExpr e2 = e2ByN + n;
+                IndexExpr t1 = t1ByM + m;
+                IndexExpr e1 = (t1 * 64) + l;
+                DimsExpr inputAF;
+                computeDenormalizedAccessFunction(
+                    layout, e4, e3, e2, e1, inputAF);
+                Value vecF32H =
+                    create.vec.loadIE(vecF32Type, input, inputAF, {});
+                Value vecF32L = create.vec.loadIE(
+                    vecF32Type, input, inputAF, {litVLHalf.getValue()});
+                Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                    loc, vecF32H, vecF32L);
+                create.vec.storeIE(vecF16, buffer, {m, n, l}, {});
+              });
+          // Perform copy: E1 Tiled by 64 (inside tile by M)
+          create.krnl.iterate({}, {tiledDefE1[1]}, {}, {},
+              [&](KrnlBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr t1(loopInd[0]);
+                SymbolIndexExpr e4(outerIndices[E4]);
+                SymbolIndexExpr e3(outerIndices[E3]);
+                SymbolIndexExpr e2ByN(outerIndices[E2]);
+                SymbolIndexExpr t1ByM(outerIndices[E1]);
+                // Compute tile indices (E1 already tiled, E2 is not => /32).
+                IndexExpr m = t1 - t1ByM;
+                IndexExpr e1 = t1 * 64; // Pointing to 0 % 64 (tile start).
+                IndexExpr e2 = e2ByN; // Pointing to 0 % N (tile start).
+
+                // HI ALEX make it work only for 3DS
+                Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, {e3, e2, e1});
+                DimsExpr reallocTileDims = {lit1, lit32, lit64};
+                Value allocAs1x32x64 = create.mem.reinterpretCast(alloc, reallocOutputDims);
+
+                // Calculate buffer offset
+                int64_t num = N * 64;
+                IndexExpr bufferOffset = m * num;
+                // Amount of values to copy
+                Type intType = rewriter.getIntegerType(64);
+                Value numVal = create.math.constant(intType, num);
+                // Mem copy
+                create.krnl.memcpy(allocAs1x32x64, buffer, numVal,
+                    allocOffset, bufferOffset.getValue());
               });
         });
     rewriter.replaceOp(op, alloc);

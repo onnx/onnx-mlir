@@ -1260,6 +1260,12 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
 
 Value MemRefBuilder::reinterpretCast(
     Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
+  // IndexExpr zero = LiteralIndexExpr(0);
+  return reinterpretCast(input, nullptr, outputDims);
+}
+
+Value MemRefBuilder::reinterpretCast(
+    Value input, Value offset, SmallVectorImpl<IndexExpr> &outputDims) const {
   // Compute new sizes and strides.
   int64_t rank = outputDims.size();
   SmallVector<IndexExpr, 4> sizesIE, stridesIE;
@@ -1280,9 +1286,12 @@ Value MemRefBuilder::reinterpretCast(
   IndexExpr::getOpOrFoldResults(stridesIE, strides);
   Type elementType = input.getType().cast<ShapedType>().getElementType();
   MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
-
+  if (offset)
+    return b().create<memref::ReinterpretCastOp>(
+        loc(), outputMemRefType, input, offset, sizes, strides);
+  // Null offset: use zero attribute (remain compatible with old lit tests).
   return b().create<memref::ReinterpretCastOp>(loc(), outputMemRefType, input,
-      /*offset=*/b().getIndexAttr(0), sizes, strides);
+      /*offset*/ b().getIndexAttr(0), sizes, strides);
 }
 
 Value MemRefBuilder::collapseShape(
