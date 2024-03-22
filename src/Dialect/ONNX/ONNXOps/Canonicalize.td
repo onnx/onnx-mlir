@@ -201,7 +201,7 @@ def IsNotFromONNXConstantOp: Constraint<
     "Is a value not from ONNXConstantOp">;
 
 def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
-    And<[CPred<" onnx_mlir::getONNXConstantOp($_self) ">,
+    And<[CPred<" $_self.getDefiningOp<ONNXConstantOp>() ">,
          CPred<" isa<DenseElementsAttr>(onnx_mlir::getONNXConstantOp($_self).getValueAttr()) ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
