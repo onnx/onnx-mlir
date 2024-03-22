@@ -25,7 +25,6 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/ShapeHelper.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Runtime/zDNNExtension/zDNNExtension.h"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/Convert.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
@@ -604,10 +603,11 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
       // 4D loop order: E4, E3, E2 tiled by N, E1 tiled by M, followed by E1
       // (inside M), then unused.
-      create.krnl.permute({/*E4*/ loopDefs[E4], /*E3*/ loopDefs[E3],
-                              /*E2*/ tiledDefE2[0], tiledDefE2[1],
-                              /*E1*/ tiledDefE1[0], tiledDefE1[1]},
-          {/*E4*/ 0, /*E3*/ 1, /*E2*/ 2, 5, /*E1*/ 3, 4});
+      // clang-format off
+      create.krnl.permute(
+        {/*E4*/loopDefs[E4],/*E3*/loopDefs[E3],/*E2*/tiledDefE2[0],tiledDefE2[1],/*E1*/tiledDefE1[0],tiledDefE1[1]},
+        {/*E4*/0,           /*E3*/1,           /*E2*/2,            5,            /*E1*/3,            4});
+      // clang-format on
       optLoopDefs = {loopDefs[E4], loopDefs[E3], tiledDefE2[0], tiledDefE1[0]};
     } else if (rank == 3) {
       ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
