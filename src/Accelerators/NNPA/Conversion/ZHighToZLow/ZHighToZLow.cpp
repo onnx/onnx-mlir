@@ -981,11 +981,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 // e2 is by N, e1 is by 64.
                 Value inputOffset =
                     create.krnl.getLinearOffsetIndexIE(input, inputAF);
-                DimsExpr reallocTileDims = {lit1, litN, lit64};
-                Value inputAs1x32x64 = create.mem.reinterpretCast(
+                DimsExpr reallocTileDims = {litN, lit64};
+                Value inputAs32x64 = create.mem.reinterpretCast(
                     input, inputOffset, reallocTileDims);
-                Value vecF16 = create.vec.loadIE(vecF16Type, inputAs1x32x64,
-                    inputAF, {n.getValue(), l.getValue()});
+                Value vecF16 =
+                    create.vec.loadIE(vecF16Type, inputAs32x64, {n, l}, {});
                 auto convertOp =
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
                 Value vecF32H = convertOp.getResult(0);
