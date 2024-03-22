@@ -18,6 +18,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   NN/AveragePool.cpp
   NN/QuantizeLinear.cpp
   NN/DequantizeLinear.cpp
+  NN/BatchNorm.cpp
   Tensor/Concat.cpp
   Tensor/Constant.cpp
   Tensor/Flatten.cpp
