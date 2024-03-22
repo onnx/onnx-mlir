@@ -526,7 +526,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
-    if (enableCompilerCodeGen && true) { // hi alex
+    if (enableCompilerCodeGen && false) { // hi alex
       // Generic way to handle all formats listed below.
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
@@ -704,16 +704,9 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 outputAF[E1] = t1 * 64;
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
-// hi alex: why 1?
-#if 1
                 DimsExpr reallocTileDims = {litN, lit64};
-                Value allocAs1x32x64 = create.mem.reinterpretCast(
+                Value allocAs32x64 = create.mem.reinterpretCast(
                     alloc, allocOffset, reallocTileDims);
-#else
-                DimsExpr reallocTileDims = {lit1, litN, lit64};
-                Value allocAs1x32x64 = create.mem.reinterpretCast(
-                    alloc, allocOffset, reallocTileDims);
-#endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
@@ -721,7 +714,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Type intType = rewriter.getIntegerType(64);
                 Value numVal = create.math.constant(intType, num);
                 // Mem copy
-                create.krnl.memcpy(allocAs1x32x64, buffer, numVal, allocOffset,
+                create.krnl.memcpy(allocAs32x64, buffer, numVal, allocOffset,
                     bufferOffset.getValue());
               });
         });
@@ -847,7 +840,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
-    if (enableCompilerCodeGen && false) {
+    if (enableCompilerCodeGen && true) {
       // Generic way to handle all formats listed below.
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
