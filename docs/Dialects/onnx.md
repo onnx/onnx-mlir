@@ -1952,7 +1952,23 @@ Effects: MemoryEffects::Effect{}
 
 _ONNX DFT operation_
 
-Computes the discrete Fourier transform of input.
+Computes the discrete Fourier Transform (DFT) of the input.
+
+Assuming the input has shape `[M, N]`, where `N` is the dimension over which the
+DFT is computed and `M` denotes the conceptual \"all other dimensions,\"
+the DFT `y[m, k]` of shape `[M, N]` is defined as
+
+$$y[m, k] = \sum_{n=0}^{N-1} e^{-2 \pi j \frac{k n}{N} } x[m, n] ,$$
+
+and the inverse transform is defined as
+
+$$x[m, n] = \frac{1}{N} \sum_{k=0}^{N-1} e^{2 \pi j \frac{k n}{N} } y[m, k] ,$$
+
+where $j$ is the imaginary unit.
+
+The actual shape of the output is specified in the \"output\" section.
+
+Reference: https://docs.scipy.org/doc/scipy/tutorial/fft.html
 
 Traits: AlwaysSpeculatableImplTrait
 
@@ -1964,7 +1980,6 @@ Effects: MemoryEffects::Effect{}
 
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
-<tr><td><code>axis</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 <tr><td><code>inverse</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 <tr><td><code>onesided</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
@@ -1973,14 +1988,15 @@ Effects: MemoryEffects::Effect{}
 
 | Operand | Description |
 | :-----: | ----------- |
-| `input` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `input` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 | `dft_length` | tensor of 32-bit signless integer values or tensor of 64-bit signless integer values or none type
+| `axis` | tensor of 64-bit signless integer values or none type
 
 #### Results:
 
 | Result | Description |
 | :----: | ----------- |
-| `output` | tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values or tensor of bfloat16 type values
+| `output` | tensor of bfloat16 type values or tensor of 16-bit float values or tensor of 32-bit float values or tensor of 64-bit float values
 
 ### `onnx.DeformConv` (ONNXDeformConvOp)
 
