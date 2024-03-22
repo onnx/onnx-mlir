@@ -9,6 +9,7 @@
 #
 # Generate the mlir file (better to use canonicalize):
 #   onnx-mlir-opt ... -convert-krnl-to-affine -canonicalize input.mlir >file.mlir
+#   If you have maps, please also run --normalize-memrefs
 #
 # Generate the cpp file:
 #  cat file.mlir | python mlirAffine2Cpp.py | clang-format > file.cpp
@@ -58,6 +59,7 @@ type_dict = {
     "i1": "int",
     "index": "long long",
     "f32": "float",
+    "f64": "double",
 }
 binary_op_dict = {
     "mulf": "*",
@@ -67,6 +69,8 @@ binary_op_dict = {
     "muli": "*",
     "addi": "+",
     "subi": "-",
+    "floordivsi": "/",
+    "remsi": "%",
     "cmp_eq": "==",
     "cmp_slt": "<",
 }
@@ -145,7 +149,7 @@ def mlir_to_c_type(m_type):
     return type_dict[m_type]
 
 
-# return elementary type and simensions
+# return elementary type and dimensions
 def compute_memref_type(type_str):
     type_str = type_str.replace("index", "inde")  # Remove x because of next step.
     vals = type_str.split("x")
@@ -346,6 +350,9 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
         if debug > 1:
             print("")
 
+        # remove "arith."
+        line = line.replace("arith.", "")
+        line = line.replace("func.func", "builtin.func")
         # Strip "(d1, d2)[s1, s2]"" into more friendly "(d1, d2, s1, s2)"."
         line = process_map_dim_sym(line)
         line = process_compare(line)
@@ -625,7 +632,7 @@ void print4(std::string msg, float *a, long long d0, long long d1, long long d2,
         if res is not None:
             stmt = res.group(1)
             if stmt:
-                print("#warning following stmt not processed:", stmt)
+                print("//#warning following stmt not processed:", stmt)
 
     # Generate call to main
     if had_builtin:

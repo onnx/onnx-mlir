@@ -588,12 +588,12 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // Support functions for parallel region.
 //===----------------------------------------------------------------------===//
 
-// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >
+// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >=
 // minSize. Runtime dimensions are assumed to satisfy the size requirement by
 // definition. If found one, it is parDim and the function returns true.
 bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
     llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim /*inclusive*/,
-    int64_t lastDim /*exclusive*/, int64_t &parDim, int64_t minSize = 1);
+    int64_t lastDim /*exclusive*/, int64_t &parDim, int64_t minSize = 4);
 
 //===----------------------------------------------------------------------===//
 // Support functions for reporting.

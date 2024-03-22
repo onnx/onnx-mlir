@@ -134,6 +134,12 @@ class HaveSameDim<int dim>: Constraint<
         "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
 
+def HaveSameShapedType: Constraint<
+    CPred<"(isa<ShapedType>($0.getType()) &&"
+          "dyn_cast<ShapedType>($0.getType()) == "
+          "dyn_cast<ShapedType>($1.getType()))">,
+    "has same shaped type">;
+
 def HaveSameStaticShape: Constraint<
   CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
   "Two tensors have the same static shape">;
@@ -195,8 +201,8 @@ def IsNotFromONNXConstantOp: Constraint<
     "Is a value not from ONNXConstantOp">;
 
 def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
-    And<[CPred<" isa<ONNXConstantOp>($_self.getDefiningOp()) ">,
-         CPred<" onnx_mlir::getONNXConstantOp($_self).getValueAttr().isa<DenseElementsAttr>() ">
+    And<[CPred<" $_self.getDefiningOp<ONNXConstantOp>() ">,
+         CPred<" isa<DenseElementsAttr>(onnx_mlir::getONNXConstantOp($_self).getValueAttr()) ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
 
 def AreTheSameAxesConstant: Constraint<
@@ -449,6 +455,26 @@ def SwapCastSlicePattern: Pat<
   (ONNXCastOp (ONNXSliceOp $data, $starts, $ends, $axes, $steps), $saturate, $to),
   (ONNXSliceOp (ONNXCastOp $data, $saturate, $to), $starts, $ends, $axes, $steps)
 >;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXTileOp
+//===----------------------------------------------------------------------===//
+
+def IsFromONNXConstantOpWithOnesDenseElementsAttr: Constraint<
+    And<[IsFromONNXConstantOpWithDenseElementsAttr.predicate,
+         CPred<"::llvm::all_of("
+               "               onnx_mlir::getONNXConstantOp($_self).getValueAttr()"
+               "                .dyn_cast<DenseElementsAttr>().getValues<int64_t>(), "
+               "[](int64_t repeat) { return repeat == 1;})">
+        ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr of ones">;
+
+def RemoveIdentityTilePattern:  Pat<
+  // Tile with `repeats` of all constant 1's
+  (ONNXTileOp:$result $val, $r),
+  // Remove the tile.
+  (replaceWithValue $val),
+  // Check that we have indeed a identity tile pattern.
+  [(IsFromONNXConstantOpWithOnesDenseElementsAttr:$r), (HaveSameShapedType $val,$result)]>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp

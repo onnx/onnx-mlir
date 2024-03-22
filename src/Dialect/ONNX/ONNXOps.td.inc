@@ -9572,6 +9572,7 @@ def ONNXThresholdedReluOp:ONNX_Op<"ThresholdedRelu",
 
 def ONNXTileOp:ONNX_Op<"Tile",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Tile operation";
   let description = [{
   Constructs a tensor by tiling a given tensor.
