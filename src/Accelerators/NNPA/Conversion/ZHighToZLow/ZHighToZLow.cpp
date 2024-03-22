@@ -492,6 +492,7 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
 
 // Support for flatten ztensor
 
+// hi alex
 struct ZHighToZLowStickOpLowering : public ConversionPattern {
   ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableParallel, bool enableCompilerStickUnstickCodeGen)
@@ -796,11 +797,16 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 // Lower ZHigh Unstick to ZLow Unstick
 //===----------------------------------------------------------------------===//
-
+// hi alex
 struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
-  ZHighToZLowUnstickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
+  ZHighToZLowUnstickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableParallel, bool enableCompilerStickUnstickCodeGen)
       : ConversionPattern(
-            typeConverter, ZHighUnstickOp::getOperationName(), 1, ctx) {}
+            typeConverter, ZHighUnstickOp::getOperationName(), 1, ctx),
+        enableParallel(enableParallel),
+        enableCompilerCodeGen(enableCompilerStickUnstickCodeGen) {}
+  bool enableParallel;
+  bool enableCompilerCodeGen;
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -1932,7 +1938,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
       typeConverter, ctx);
-  patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
+  patterns.insert<ZHighToZLowUnstickOpLowering>(
+      typeConverter, ctx, enableParallel, enableCompilerStickUnstickCodeGen);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
       typeConverter, ctx, /*fromF32=*/false, enableParallel);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
