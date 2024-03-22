@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===--------------- DFT.cpp - Lowering DFT Op ----------------===//
+//===----------------- DFT.cpp - Lowering DFT Op --------------------------===//
 //
 // Copyright 2024 The IBM Research Authors.
 //
