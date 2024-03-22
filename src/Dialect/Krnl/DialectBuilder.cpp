@@ -92,6 +92,18 @@ void KrnlBuilder::storeIE(
   b().create<KrnlStoreOp>(loc(), val, memref, indexValues);
 }
 
+Value KrnlBuilder::getLinearOffsetIndex(
+    Value memref, ValueRange indices) const {
+  return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indices);
+}
+
+Value KrnlBuilder::getLinearOffsetIndexIE(
+    Value memref, ArrayRef<IndexExpr> indices) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indexValues);
+}
+
 void KrnlBuilder::seqstore(
     mlir::Value element, mlir::Value seq, mlir::Value index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index);

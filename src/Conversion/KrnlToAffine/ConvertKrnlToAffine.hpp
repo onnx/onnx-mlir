@@ -71,6 +71,10 @@ void populateLoweringKrnlLoadOpPattern(mlir::TypeConverter &typeConverter,
 void populateLoweringKrnlStoreOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 
+void populateLoweringKrnlGetLinearOffsetIndexOpPattern(
+    mlir::TypeConverter &typeConverter, mlir::RewritePatternSet &patterns,
+    mlir::MLIRContext *ctx);
+
 void populateLoweringKrnlMatmultOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
 

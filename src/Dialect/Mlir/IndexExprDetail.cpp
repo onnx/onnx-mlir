@@ -304,6 +304,7 @@ bool IndexExprImpl::hasScope() const { return scope != nullptr; }
 bool IndexExprImpl::isInCurrentScope() const {
   assert(hasScope());
   bool inScope = scope->isCurrentScope();
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG({
     if (!inScope)
       llvm::dbgs() << "IES: NOT IN SCOPE, IE " << ((long long)scope)
@@ -313,6 +314,7 @@ bool IndexExprImpl::isInCurrentScope() const {
       llvm::dbgs() << "IES: in scope, IE " << ((long long)scope) << " == curr "
                    << ((long long)IndexExprScope::getCurrentScopePtr()) << "\n";
   });
+#endif
   return inScope;
 }
 

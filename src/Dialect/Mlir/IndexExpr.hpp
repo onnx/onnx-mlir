@@ -396,6 +396,7 @@ private:
   // live range analysis. ALl will be deleted upon scope destruction.
   llvm::SmallVector<IndexExprImpl *, 20> container;
 };
+#define DETAILED_DEBUG_OF_SCOPE 0
 
 //===----------------------------------------------------------------------===//
 // IndexExprExpr
