@@ -935,7 +935,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           {/*E2*/ 0, 2, /*E1*/ 1, 3});
       optLoopDefs = {tiledDefE2[0], tiledDefE1[0]};
     } else {
-      llvm_unreachable("rank 1 to 4 only");
+      llvm_unreachable("rank 2 to 4 only");
     }
 
     // Parallel...
@@ -1008,6 +1008,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 // Compute n, the current m * 64 tile being processed by this
                 // inner loop.
                 IndexExpr n = e2 - outputAF[E2];
+                outputAF[E2] = e2;
                 // E1 is tiled, multiply by 64 to get the tile start.
                 outputAF[E1] = outputAF[E1] * 64;
                 // AE: consider only full M*64 tiles for now
