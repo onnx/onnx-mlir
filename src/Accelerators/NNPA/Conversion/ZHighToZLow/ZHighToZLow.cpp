@@ -1002,7 +1002,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.krnl.printf("][m=", m);
                 create.krnl.printf("][l=", l);
                 create.krnl.printf(
-                    "..+8 = remap[n, l] with rc input[e3=", inputAF[E3]);
+                    "..+8] = remap[n, l] with rc input[e3=", inputAF[E3]);
                 create.krnl.printf("][e2=", inputAF[E2]);
                 create.krnl.printf("][e1=", inputAF[E1]);
                 create.krnl.printf("]\n");
@@ -1010,6 +1010,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
               });
 #if 1
           create.krnl.printf("HI ALEX, Read from buffer IE\n");
+          create.krnl.printf(" ");
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1040,7 +1041,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       create.krnl.printf("load buff[n=", nn);
                       create.krnl.printf("][m=", mm);
                       create.krnl.printf("][l=", ll);
-                      create.krnl.printf("..+8 = output[e3=", outputAF[E3]);
+                      create.krnl.printf("] = output[e3=", outputAF[E3]);
                       create.krnl.printf("][e2=", outputAF[E2]);
                       create.krnl.printf("][e1=", outputAF[E1]);
                       create.krnl.printf("]\n");
