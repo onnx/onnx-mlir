@@ -966,7 +966,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           DimsExpr ubs2 = {litM, litN, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
           // Analysis of assembly showed that the inner loop was fully unrolled.
-          create.krnl.printf("HI ALEX, first affine IE\n");
+          create.krnl.printf("HI ALEX, Write to buffer IE\n");
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -997,7 +997,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
 #define DEBUG_UNSTICK 1
-#if 1
+#if DEBUG_UNSTICK
                 create.krnl.printf("store buff[n=", n);
                 create.krnl.printf("][m=", m);
                 create.krnl.printf("][l=", l);
@@ -1009,6 +1009,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 #endif
               });
 #if 1
+          create.krnl.printf("HI ALEX, Read from buffer IE\n");
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1022,8 +1023,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 IndexExpr max1 = min + 64;
                 SymbolIndexExpr max2(outputDims[E1]);
                 IndexExpr max = IndexExpr::max(max1, max2);
-                // IndexExpr max2 = SymbolIndexExpr(outputDims[E1]);
-                // IndexExpr max = IndexExpr::max(max1, max2);
                 create.scf.forLoop(min.getValue(), max.getValue(), 1,
                     [&](SCFBuilder &b, ValueRange loopInd) {
                       MDBuilder create(b);
@@ -1037,6 +1036,15 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimsExpr bufferAF = {nn, mm, ll};
                       Value t = create.krnl.loadIE(buffer, bufferAF);
                       create.krnl.storeIE(t, alloc, outputAF);
+#if DEBUG_UNSTICK
+                      create.krnl.printf("load buff[n=", nn);
+                      create.krnl.printf("][m=", mm);
+                      create.krnl.printf("][l=", ll);
+                      create.krnl.printf("..+8 = output[e3=", outputAF[E3]);
+                      create.krnl.printf("][e2=", outputAF[E2]);
+                      create.krnl.printf("][e1=", outputAF[E1]);
+                      create.krnl.printf("]\n");
+#endif
                     });
               });
 
