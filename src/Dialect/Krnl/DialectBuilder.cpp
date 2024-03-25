@@ -290,10 +290,22 @@ void KrnlBuilder::printf(
   b().create<KrnlPrintOp>(loc(), newFormat, input);
 }
 
+void KrnlBuilder::printf(
+    StringRef msg, Value input, bool endsWithNewLine) const {
+  KrnlBuilder::printf(msg, input, input.getType(), endsWithNewLine);
+}
+
+void KrnlBuilder::printf(
+    StringRef msg, IndexExpr input, bool endsWithNewLine) const {
+  KrnlBuilder::printf(msg, input.getValue(), endsWithNewLine);
+}
+
+#if 0 // hi alex
 void KrnlBuilder::printf(Value input, Type inputType) const {
   StringRef format = getFormat(inputType);
   b().create<KrnlPrintOp>(loc(), format, input);
 }
+#endif
 
 // =============================================================================
 // IndexExpr Builder for Analysis

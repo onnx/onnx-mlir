@@ -38,7 +38,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     int64_t n = (int64_t)indices.size();
     for (int64_t i = 0; i < n; ++i) {
       Value val = indices[i].getValue();
-      createKrnl.printf(val, val.getType());
+      createKrnl.printf(" ", val, val.getType());
     }
     createKrnl.printf(")\n");
   }
