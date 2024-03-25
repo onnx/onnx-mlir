@@ -1023,7 +1023,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 IndexExpr min = m * 64;
                 IndexExpr max1 = min + 64;
                 SymbolIndexExpr max2(outputDims[E1]);
-                IndexExpr max = IndexExpr::max(max1, max2);
+                IndexExpr max = IndexExpr::min(max1, max2);
                 create.scf.forLoop(min.getValue(), max.getValue(), 1,
                     [&](SCFBuilder &b, ValueRange loopInd) {
                       MDBuilder create(b);
