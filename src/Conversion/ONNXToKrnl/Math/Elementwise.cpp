@@ -1504,7 +1504,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   DimsExpr outputDims;
   getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
-
+  create.krnl.printf("HI ALEX from SIMD\n");
   // Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
