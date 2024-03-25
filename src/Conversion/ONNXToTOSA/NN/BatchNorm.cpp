@@ -18,31 +18,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
 using namespace mlir;
-
 namespace onnx_mlir {
-
 namespace {
-
-// output = (input - mean) * scale / sqrt(var + eps) + bias
-Value computeBatchNorm(Operation *op, ConversionPatternRewriter &rewriter,
-    Type outType, Value input, Value variance, Value eps, Value mean,
-    Value scale, Value bias) {
-  auto op1SubInputMean =
-      rewriter.create<mlir::tosa::SubOp>(op->getLoc(), outType, input, mean);
-  auto op2AddVarEps = rewriter.create<mlir::tosa::AddOp>(
-      op->getLoc(), variance.getType(), variance, eps);
-  auto op3RsqrtOp2 = rewriter.create<mlir::tosa::RsqrtOp>(
-      op->getLoc(), variance.getType(), op2AddVarEps.getResult());
-  auto op4MulOp1Op3 = rewriter.create<mlir::tosa::MulOp>(op->getLoc(), outType,
-      op1SubInputMean.getResult(), op3RsqrtOp2.getResult(), 0);
-  auto op5MulOp4Scale = rewriter.create<mlir::tosa::MulOp>(
-      op->getLoc(), outType, op4MulOp1Op3.getResult(), scale, 0);
-  return rewriter
-      .create<mlir::tosa::AddOp>(
-          op->getLoc(), outType, op5MulOp4Scale.getResult(), bias)
-      .getResult();
-}
-
 class ONNXBatchNormalizationInferenceModeOpLoweringToTOSA
     : public OpConversionPattern<ONNXBatchNormalizationInferenceModeOp> {
 public:
@@ -52,77 +29,53 @@ public:
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
 
     auto outType = getTypeConverter()->convertType(op.getResult().getType());
+    auto outTensorType = outType.cast<RankedTensorType>();
 
-    // reshape rank-1 tensors (scale, bias, mean, variance) and attribute
-    // epsilon, such that they have the same rank as input/output tensor
-    auto reshapeToInputDim = [&](Operation *op,
-                                 ConversionPatternRewriter &rewriter,
-                                 Type outType, const Value toBcast,
-                                 Value &result) {
-      auto toBCastType = toBcast.getType().dyn_cast<RankedTensorType>();
-      if (toBCastType.getRank() > 1) {
-        return rewriter.notifyMatchFailure(op, "Rank cannot be more than 1");
-      }
-      auto outTensorType = outType.cast<RankedTensorType>();
-
-      // onnx-mlir uses layout NCHW for input. For batch normalization, the C
-      // dimension is kept. The new shape should be {1, C, 1, 1}, if the rank of
-      // input/output tensor is 4
-      SmallVector<int64_t> newShape = {1, toBCastType.getShape()[0]};
-      for (auto i = 2; i < outTensorType.getRank(); i++) {
-        newShape.push_back(1);
-      }
-
-      auto newType =
-          RankedTensorType::get(newShape, outTensorType.getElementType());
-      result =
-          tosa::CreateOpAndInfer<mlir::tosa::ReshapeOp>(rewriter, op->getLoc(),
-              newType, toBcast, rewriter.getDenseI64ArrayAttr(newShape));
-      if (!result) {
-        return failure();
-      }
-      return success();
-    };
-
-    Value reshapedInputMean;
-    Value reshapedScale;
-    Value reshapedB;
-    Value reshapedInputVar;
-
-    if (failed(reshapeToInputDim(op.getOperation(), rewriter, outType,
-            op.getMean(), reshapedInputMean))) {
-      return rewriter.notifyMatchFailure(op, "failed to reshape mean");
+    // The layout of the output is N x C x D1 x D2 … Dn. For batch
+    // normalization, the C dimension is kept. The new shape should be {1, C, 1,
+    // 1, ...}.
+    SmallVector<int64_t> newShape = {1, outTensorType.getShape()[1]};
+    for (auto i = 2; i < outTensorType.getRank(); i++) {
+      newShape.push_back(1);
     }
 
-    if (failed(reshapeToInputDim(op.getOperation(), rewriter, outType,
-            op.getScale(), reshapedScale))) {
-      return rewriter.notifyMatchFailure(op, "failed to reshape scale");
-    }
-
-    if (failed(reshapeToInputDim(
-            op.getOperation(), rewriter, outType, op.getB(), reshapedB))) {
-      return rewriter.notifyMatchFailure(op, "failed to reshape bias");
-    }
-
-    if (failed(reshapeToInputDim(op.getOperation(), rewriter, outType,
-            op.getVar(), reshapedInputVar))) {
-      return rewriter.notifyMatchFailure(op, "failed to reshape variance");
-    }
-
-    Value reshapedEps;
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
-    auto Eps = tosaBuilder.getConst(
-        llvm::SmallVector<float>{op.getEpsilon().convertToFloat()}, {1});
-    if (failed(reshapeToInputDim(
-            op.getOperation(), rewriter, outType, Eps, reshapedEps))) {
-      return rewriter.notifyMatchFailure(op, "failed to reshape epsilon");
-    }
+    Value input = op.getX();
+    Value mean = op.getMean();
+    Value scale = op.getScale();
+    Value bias = op.getB();
+    Value var = op.getVar();
 
-    auto batchNorm =
-        computeBatchNorm(op, rewriter, outType, op.getX(), reshapedInputVar,
-            reshapedEps, reshapedInputMean, reshapedScale, reshapedB);
+    // reshape rank-1 tensors (scale, bias, mean, variance),
+    // such that they have the same rank as input/output tensor
+    Value reshapedMean;
+    Value reshapedScale;
+    Value reshapedBias;
+    Value reshapedVar;
 
-    rewriter.replaceOp(op, batchNorm);
+    reshapedMean = tosaBuilder.reshape(mean, llvm::ArrayRef<int64_t>(newShape));
+    reshapedScale =
+        tosaBuilder.reshape(scale, llvm::ArrayRef<int64_t>(newShape));
+    reshapedBias = tosaBuilder.reshape(bias, llvm::ArrayRef<int64_t>(newShape));
+    reshapedVar = tosaBuilder.reshape(var, llvm::ArrayRef<int64_t>(newShape));
+
+    // epsilon's shape: constant -> {1, 1, 1, ...}
+    newShape[1] = 1;
+    auto eps = tosaBuilder.getSplattedConst(op.getEpsilon().convertToFloat(),
+        newShape, outTensorType.getElementType());
+
+    // output = (input - mean) * scale * rsqrt(var + eps) + bias
+    auto op1SubInputMean =
+        tosaBuilder.binaryOp<mlir::tosa::SubOp>(input, reshapedMean);
+    auto op2AddVarEps =
+        tosaBuilder.binaryOp<mlir::tosa::AddOp>(reshapedVar, eps);
+    auto op3RsqrtOp2 = tosaBuilder.unaryOp<mlir::tosa::RsqrtOp>(op2AddVarEps);
+    auto op4MulOp1Op3 = tosaBuilder.mul(op1SubInputMean, op3RsqrtOp2, 0);
+    auto op5MulOp4Scale = tosaBuilder.mul(op4MulOp1Op3, reshapedScale, 0);
+    auto newOutput =
+        tosaBuilder.binaryOp<mlir::tosa::AddOp>(op5MulOp4Scale, reshapedBias);
+
+    rewriter.replaceOp(op, {newOutput});
     return success();
   }
 };
