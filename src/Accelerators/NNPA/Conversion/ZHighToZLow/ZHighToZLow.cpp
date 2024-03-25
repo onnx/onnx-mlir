@@ -998,13 +998,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
               });
 #if 1
-          fprintf(stderr, "HI ALEX, before krnl iterate\n");
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr outputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                fprintf(stderr, "HI ALEX, inside krnl iterate\n");
                 DimIndexExpr e2(loopInd[0]), t1(loopInd[1]);
                 getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
                 IndexExpr n = e2 - outputAF[E2];
@@ -1015,11 +1013,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 IndexExpr max = IndexExpr::max(max1, max2);
                 // IndexExpr max2 = SymbolIndexExpr(outputDims[E1]);
                 // IndexExpr max = IndexExpr::max(max1, max2);
-                fprintf(stderr, "HI ALEX, before create affine for ie\n");
                 create.scf.forLoop(min.getValue(), max.getValue(), 1,
                     [&](SCFBuilder &b, ValueRange loopInd) {
                       MDBuilder create(b);
-#if 1
                       DimsExpr outputAF;
                       IndexExprScope innermostScope(create.krnl, &innerScope);
                       getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
@@ -1030,7 +1026,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimsExpr bufferAF = {nn, mm, ll};
                       Value t = create.krnl.loadIE(buffer, bufferAF);
                       create.krnl.storeIE(t, alloc, outputAF);
-#endif
                     });
               });
 
