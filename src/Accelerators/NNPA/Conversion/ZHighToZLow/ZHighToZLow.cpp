@@ -996,6 +996,23 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(vecF32H, buffer, bufferAF, {});
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
+#define DEBUG_UNSTICK 1
+#if DEBUG_UNSTICK
+                Value nVal = n.getValue();
+                Value mVal = m.getValue();
+                Value lVal = l.getValue();
+                Value e3Val = inputAF[E3].getValue(); // assume E3
+                Value e2Val = inputAF[E2].getValue(); // assume E3
+                Value e1Val = inputAF[E1].getValue(); // assume E3
+                create.krnl.printf("store buff[n=", nVal, nVal.getType());
+                create.krnl.printf("][m=", mVal, mVal.getType());
+                create.krnl.printf("][l=", lVal, lVal.getType());
+                create.krnl.printf("..+8 = remap[n, l] with rc input[e3=",
+                    e3Val, e3Val.getType());
+                create.krnl.printf(".][e2=", e2Val, e2Val.getType());
+                create.krnl.printf(".][e1=", e1Val, e1Val.getType());
+                create.krnl.printf("]\n");
+#endif
               });
 #if 1
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
