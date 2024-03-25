@@ -257,37 +257,20 @@ private:
         .Case<IntegerType>(
             [&](IntegerType) { inputElem = createKrnl.load(memref, loopInd); })
         .Case<krnl::StringType>([&](krnl::StringType stringType) {
+          MathBuilder createMath(createKrnl);
+          Value zero = createMath.constant(
+              createMath.getBuilder().getIntegerType(64), 0);
           ArrayRef<int64_t> shape =
               memref.getType().cast<ShapedType>().getShape();
           SmallVector<int64_t, 4> newShape;
-          bool hasDynamicDim = false;
-          for (uint64_t i = 0; i < shape.size(); i++) {
-            if (shape[i] == ShapedType::kDynamic) {
-              newShape.emplace_back(1);
-              hasDynamicDim = true;
-            } else {
-              newShape.emplace_back(shape[i]);
-            }
-          }
-          if (!hasDynamicDim) {
-            inputElem = createKrnl.load(memref, loopInd);
-          } else {
-            MemRefBuilder createMemRef(createKrnl);
-            MemRefType memRefType = MemRefType::get(
-                newShape, krnl::StringType::get(elementType.getContext()));
-            SmallVector<int64_t, 4> offsets(shape.size(), 0);
-            SmallVector<int64_t, 4> strides;
-            int64_t alignmentOffset; // not used, just to make the function call
-                                     // completed.
-            if (getStridesAndOffset(memRefType, strides, alignmentOffset)
-                    .failed())
-              llvm_unreachable("Failed to get strides");
-            Value stringMemRef =
-                createMemRef
-                    .subView(memRefType, memref, offsets, newShape, strides)
-                    .getResult();
-            inputElem = createKrnl.load(stringMemRef, loopInd);
-          }
+          for (uint64_t i = 0; i < shape.size(); i++)
+            newShape.emplace_back(
+                (shape[i] == ShapedType::kDynamic) ? 1 : shape[i]);
+          auto memRefType = MemRefType::get(
+              newShape, krnl::StringType::get(elementType.getContext()));
+          // Sole use of krnl.getRef.
+          Value stringMemRef = createKrnl.getRef(memRefType, memref, zero);
+          inputElem = createKrnl.load(stringMemRef, loopInd);
         })
         .Default([&](Type type) {
           llvm::errs() << "type: " << type << "\n";

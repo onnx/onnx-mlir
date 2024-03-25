@@ -88,9 +88,8 @@ Value buildRescale(PatternRewriter &rewriter, Operation *op,
       rewriter.getI32IntegerAttr(static_cast<int32_t>(input_zp)),
       rewriter.getI32IntegerAttr(static_cast<int32_t>(output_zp)),
       rewriter.getDenseI32ArrayAttr({multiplier}),
-      rewriter.getDenseI8ArrayAttr({(int8_t)shift}),
-      rewriter.getBoolAttr(scale32), rewriter.getBoolAttr(double_round),
-      rewriter.getBoolAttr(false));
+      rewriter.getDenseI32ArrayAttr({shift}), rewriter.getBoolAttr(scale32),
+      rewriter.getBoolAttr(double_round), rewriter.getBoolAttr(false));
 
   return rescale_op.getResult();
 }

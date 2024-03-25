@@ -54,12 +54,12 @@ LogicalResult verifyOp(Operation *op) {
 template <typename Callback = std::function<LogicalResult()>>
 LogicalResult tryUpdateRootInPlace(
     Operation *op, PatternRewriter &rewriter, Callback &&callback) {
-  rewriter.startOpModification(op);
+  rewriter.startRootUpdate(op);
   if (failed(callback())) {
-    rewriter.cancelOpModification(op);
+    rewriter.cancelRootUpdate(op);
     return failure();
   } else {
-    rewriter.finalizeOpModification(op);
+    rewriter.finalizeRootUpdate(op);
     return success();
   }
 }

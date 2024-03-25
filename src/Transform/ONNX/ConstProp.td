@@ -2,7 +2,7 @@
 
 //===- ONNXConstProp.td - Rewriting for Constant Propagation in ONNX Ops -*- tablegen -===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2020 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -165,9 +165,6 @@ def CreateGreaterOrEqualOfTwoConst :
 
 def CreatePowOfTwoConst :
    NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXPowOp>($_builder, $0, $1, $2)">;
-
-def CreateModOfTwoConst :
-   NativeCodeCall<"ConstPropElementwiseBinary<mlir::ONNXModOp>($_builder, $0, $1, $2)">;
 
 def CreateWhereOfThreeConst :
    NativeCodeCall<"ConstPropWhere($_builder, $0, $1, $2, $3)">;
@@ -525,7 +522,7 @@ def DivOnesOnRhs : NamedPat<"DivOnesOnRhs",
     ]>;
 
 //===----------------------------------------------------------------------===//
-// Constant propagation for ONNXEqualOp
+// Constant propagate ONNXEqualOp
 //===----------------------------------------------------------------------===//
 
 def EqualConstProp : NamedPat<"EqualConstProp",
@@ -540,7 +537,7 @@ def EqualConstProp : NamedPat<"EqualConstProp",
      (IsIntOrFloatType:$lhs), (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
-// Constant propagation for ONNXLessOp
+// Constant propagate ONNXLessOp
 //===----------------------------------------------------------------------===//
 
 def LessConstPropPattern : NamedPat<"LessConstPropPattern",
@@ -552,7 +549,7 @@ def LessConstPropPattern : NamedPat<"LessConstPropPattern",
      (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
-// Constant propagation for ONNXGreaterOp
+// Constant propagate ONNXGreaterOp
 //===----------------------------------------------------------------------===//
 
 def GreaterConstPropPattern : NamedPat<"GreaterConstPropPattern",
@@ -564,7 +561,7 @@ def GreaterConstPropPattern : NamedPat<"GreaterConstPropPattern",
      (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
-// Constant propagation for ONNXLessOrEqualOp
+// Constant propagate ONNXLessOrEqualOp
 //===----------------------------------------------------------------------===//
 
 def LessOrEqualConstPropPattern : NamedPat<"LessOrEqualConstPropPattern",
@@ -576,7 +573,7 @@ def LessOrEqualConstPropPattern : NamedPat<"LessOrEqualConstPropPattern",
      (SatisfiesExpansionBound:$result)]>;
 
 //===----------------------------------------------------------------------===//
-// Constant propagation for ONNXGreaterOrEqualOp
+// Constant propagate ONNXGreaterOrEqualOp
 //===----------------------------------------------------------------------===//
 
 def GreaterOrEqualConstPropPattern : NamedPat<"GreaterOrEqualConstPropPattern",
@@ -586,19 +583,6 @@ def GreaterOrEqualConstPropPattern : NamedPat<"GreaterOrEqualConstPropPattern",
     (CreateGreaterOrEqualOfTwoConst $result, $lhs, $rhs),
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
      (SatisfiesExpansionBound:$result)]>;
-
-//===----------------------------------------------------------------------===//
-//  Constant propagation for ONNXModOp
-//===----------------------------------------------------------------------===//
-
-def ModConstPropPattern : NamedPat<"ModConstPropPattern",
-    (ONNXModOp:$modOp
-      (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_), 
-      $fmod),
-    (CreateModOfTwoConst  $modOp, $A, $B),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B), 
-    (SatisfiesExpansionBound:$modOp)]>;
 
 //===----------------------------------------------------------------------===//
 // Patterns for Where.

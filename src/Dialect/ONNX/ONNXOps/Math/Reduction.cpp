@@ -78,9 +78,7 @@ template <typename OP>
 constexpr bool isAxesInput =
     std::is_same_v<OP, ONNXReduceSumOp> ||
     std::is_same_v<OP, ONNXReduceMinOp> ||
-    std::is_same_v<OP, ONNXReduceMinV18Op> ||
     std::is_same_v<OP, ONNXReduceMaxOp> ||
-    std::is_same_v<OP, ONNXReduceMaxV18Op> ||
     std::is_same_v<OP, ONNXReduceProdOp> ||
     std::is_same_v<OP, ONNXReduceMeanOp> ||
     std::is_same_v<OP, ONNXReduceL1Op> || std::is_same_v<OP, ONNXReduceL2Op> ||
@@ -270,15 +268,6 @@ LogicalResult ONNXReduceMaxOp::inferShapes(
 }
 
 //===----------------------------------------------------------------------===//
-// ReduceMax legacy: ReduceMaxV18
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceMaxV18Op::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMaxV18Op>(*this);
-}
-
-//===----------------------------------------------------------------------===//
 // ReduceMax legacy: ReduceMaxV13
 //===----------------------------------------------------------------------===//
 
@@ -312,15 +301,6 @@ LogicalResult ONNXReduceMeanV13Op::inferShapes(
 LogicalResult ONNXReduceMinOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   return inferShapeForReductionOps<ONNXReduceMinOp>(*this);
-}
-
-//===----------------------------------------------------------------------===//
-// ReduceMin legacy: ReduceMinV18
-//===----------------------------------------------------------------------===//
-
-LogicalResult ONNXReduceMinV18Op::inferShapes(
-    std::function<void(Region &)> doShapeInference) {
-  return inferShapeForReductionOps<ONNXReduceMinV18Op>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -401,12 +381,10 @@ template struct ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumV13Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumExpOp>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceLogSumExpV13Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMaxOp>;
-template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMaxV18Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMaxV13Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMeanOp>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMeanV13Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMinOp>;
-template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMinV18Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceMinV13Op>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceProdOp>;
 template struct ONNXGenericReductionOpShapeHelper<ONNXReduceProdV13Op>;

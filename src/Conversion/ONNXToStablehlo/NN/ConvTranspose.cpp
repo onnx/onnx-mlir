@@ -78,6 +78,8 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     llvm::SmallVector<int64_t, 2> strides = shapeHelper.strides;
     llvm::SmallVector<int64_t, 2> dilations = shapeHelper.dilations;
     llvm::SmallVector<int64_t, 2> outputPadding = shapeHelper.outputPadding;
+    bool needOutputPadding = std::any_of(outputPadding.begin(),
+        outputPadding.end(), [](int64_t i) { return i != 0; });
 
     Value inputOperand = operandAdaptor.getX();
     Value filterOperand = operandAdaptor.getW();
@@ -88,12 +90,29 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
     ShapedType inputType = inputOperand.getType().cast<ShapedType>();
+    Type elemType = inputType.getElementType();
     // Onnx Input is NCHW
     int64_t spatialOffset = 2;
     int64_t rank = inputType.getRank();
     int64_t kernelSize = kernelShape.size();
 
-    Type convOutputType = *op->result_type_begin();
+    Type outputType = *op->result_type_begin();
+    Type convOutputType;
+    if (!needOutputPadding)
+      convOutputType = outputType;
+    else {
+      // use the shape inference result of shapeHelper
+      llvm::SmallVector<IndexExpr, 2> dimsNoOutputPadding =
+          shapeHelper.dimsNoOutputPadding;
+      SmallVector<int64_t> convOutputShape;
+      for (int i = 0; i < rank; ++i) {
+        if (dimsNoOutputPadding[i].isLiteral())
+          convOutputShape.emplace_back(dimsNoOutputPadding[i].getLiteral());
+        else
+          convOutputShape.emplace_back(ShapedType::kDynamic);
+      }
+      convOutputType = RankedTensorType::get(convOutputShape, elemType);
+    }
 
     SmallVector<int64_t> spatialDimensions;
     for (int64_t i = spatialOffset; i < rank; i++) {
@@ -117,7 +136,7 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
           pads[i].getLiteral());
       flattenPaddings.push_back(
           dilations[i] * (kernelShape[i].getLiteral() - 1) -
-          pads[i + spatialRank].getLiteral() + outputPadding[i]);
+          pads[i + spatialRank].getLiteral());
     }
 
     stablehlo::ConvDimensionNumbersAttr dimension_numbers =
@@ -142,25 +161,51 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
 
     Value convResult = rewriter.create<stablehlo::ConvolutionOp>(loc,
         convOutputType, inputOperand, filterOperand,
-        rewriter.getDenseI64ArrayAttr(SmallVector<int64_t>(spatialRank, 1)),
+        DenseIntElementsAttr::get(
+            RankedTensorType::get({spatialRank}, rewriter.getI64Type()),
+            SmallVector<int64_t>(spatialRank, 1)),
         DenseIntElementsAttr::get(
             RankedTensorType::get({spatialRank, 2}, rewriter.getI64Type()),
             flattenPaddings),
-        rewriter.getDenseI64ArrayAttr(strides),
-        rewriter.getDenseI64ArrayAttr(dilations), nullptr, dimension_numbers,
-        groupNum, 1, nullptr);
+        DenseIntElementsAttr::get(
+            RankedTensorType::get({spatialRank}, rewriter.getI64Type()),
+            strides),
+        DenseIntElementsAttr::get(
+            RankedTensorType::get({spatialRank}, rewriter.getI64Type()),
+            dilations),
+        nullptr, dimension_numbers, groupNum, 1, nullptr);
+
+    Value padResult;
+    if (!needOutputPadding) {
+      padResult = convResult;
+    } else {
+      SmallVector<int64_t> edgePaddingLowVec(rank, 0);
+      SmallVector<int64_t> edgePaddingHighVec(rank, 0);
+      SmallVector<int64_t> interiorPaddingVec(rank, 0);
+      std::copy(outputPadding.begin(), outputPadding.end(),
+          edgePaddingHighVec.begin() + 2);
+      Value zeroPaddingValue = rewriter.create<stablehlo::ConstantOp>(
+          loc, DenseElementsAttr::get(mlir::RankedTensorType::get({}, elemType),
+                   rewriter.getZeroAttr(elemType)));
+      mlir::DenseI64ArrayAttr edgePaddingLow =
+          rewriter.getDenseI64ArrayAttr(edgePaddingLowVec);
+      mlir::DenseI64ArrayAttr edgePaddingHigh =
+          rewriter.getDenseI64ArrayAttr(edgePaddingHighVec);
+      mlir::DenseI64ArrayAttr interiorPadding =
+          rewriter.getDenseI64ArrayAttr(interiorPaddingVec);
+      padResult = rewriter.create<stablehlo::PadOp>(loc, outputType, convResult,
+          zeroPaddingValue, edgePaddingLow, edgePaddingHigh, interiorPadding);
+    }
 
     Value addBiasResult;
     if (!hasBias) {
-      addBiasResult = convResult;
+      addBiasResult = padResult;
     } else {
       Value finalB;
-      Value resultShape = rewriter.create<shape::ShapeOfOp>(loc, convResult);
+      Value resultShape = rewriter.create<shape::ShapeOfOp>(loc, padResult);
       finalB = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
-          convOutputType, biasOperand, resultShape,
-          rewriter.getDenseI64ArrayAttr({1}));
-      addBiasResult =
-          rewriter.create<stablehlo::AddOp>(loc, convResult, finalB);
+          outputType, biasOperand, resultShape, rewriter.getI64TensorAttr({1}));
+      addBiasResult = rewriter.create<stablehlo::AddOp>(loc, padResult, finalB);
     }
 
     rewriter.replaceOp(op, addBiasResult);

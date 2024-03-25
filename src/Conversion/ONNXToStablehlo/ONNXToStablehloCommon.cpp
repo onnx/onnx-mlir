@@ -36,7 +36,7 @@ Value getShapedZero(
         loc, rewriter.getZeroAttr(elemType));
     Value shape = rewriter.create<shape::ShapeOfOp>(loc, inp);
     broadcastedZero = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-        loc, inpType, zero, shape, rewriter.getDenseI64ArrayAttr({}));
+        loc, inpType, zero, shape, rewriter.getI64TensorAttr({}));
   }
   return broadcastedZero;
 }
@@ -62,7 +62,7 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
         RankedTensorType::get(outputShapedType.getShape(), elementType);
     Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
         broadcastedOutputType, operand, resultExtents,
-        rewriter.getDenseI64ArrayAttr(broadcastDimensions));
+        rewriter.getI64TensorAttr(broadcastDimensions));
     broadcastedOperands.push_back(broadcast);
   }
   return broadcastedOperands;
@@ -89,7 +89,7 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
         RankedTensorType::get(outputShapedType.getShape(), elementType);
     Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
         broadcastedOutputType, operand, resultExtents,
-        rewriter.getDenseI64ArrayAttr(broadcastDimensions));
+        rewriter.getI64TensorAttr(broadcastDimensions));
     broadcastedOperands.push_back(broadcast);
   }
   return broadcastedOperands;

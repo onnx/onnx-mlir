@@ -41,7 +41,6 @@ void populateONNXToStablehloConversionPattern(
   populateLoweringONNXConcatOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXConstantOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXDepthToSpaceOpToStablehloPattern(patterns, ctx);
-  populateLoweringONNXDimOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXExpandOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXFlattenOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXGatherOpToStablehloPattern(patterns, ctx);
@@ -88,7 +87,6 @@ struct FrontendToStablehloLoweringPass
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<mlir::stablehlo::StablehloDialect>();
-    registry.insert<mlir::arith::ArithDialect>();
     registry.insert<shape::ShapeDialect>();
   }
 

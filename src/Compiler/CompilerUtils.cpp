@@ -209,7 +209,8 @@ static void loadMLIR(std::string inputFilename, mlir::MLIRContext &context,
     // Update the function type.
     FunctionType newType =
         FunctionType::get(&context, newArgTypes, funcType.getResults());
-    funcOp.setType(newType);
+    ConversionPatternRewriter rewriter(&context);
+    rewriter.updateRootInPlace(funcOp, [&] { funcOp.setType(newType); });
   }
 }
 
@@ -604,10 +605,10 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
   // or JSON) or a model specified in MLIR.
   // The extension of the file is the decider.
   bool inputIsSTDIN = (inputFilename == "-");
-  bool inputIsONNX = inputFilename.ends_with(".onnx");
-  bool inputIsONNXText = inputFilename.ends_with(".onnxtext");
-  bool inputIsJSON = inputFilename.ends_with(".json");
-  bool inputIsMLIR = inputFilename.ends_with(".mlir");
+  bool inputIsONNX = inputFilename.endswith(".onnx");
+  bool inputIsONNXText = inputFilename.endswith(".onnxtext");
+  bool inputIsJSON = inputFilename.endswith(".json");
+  bool inputIsMLIR = inputFilename.endswith(".mlir");
 
   if (!inputIsSTDIN && !inputIsONNX && !inputIsONNXText && !inputIsJSON &&
       !inputIsMLIR) {
@@ -652,10 +653,8 @@ static void outputModule(mlir::OwningOpRef<ModuleOp> &module, raw_ostream &os,
   mlir::OpPrintingFlags flags;
   if (preserveLocations)
     flags.enableDebugInfo();
-  if (largeElementLimit >= 0) {
+  if (largeElementLimit >= 0)
     flags.elideLargeElementsAttrs(largeElementLimit);
-    flags.elideLargeResourceString(largeElementLimit);
-  }
   module->print(os, flags);
 }
 

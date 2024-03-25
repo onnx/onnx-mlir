@@ -72,7 +72,7 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
         Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
         Value broadcastedAlpha =
             rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, resultType,
-                alphaVal, shape, rewriter.getDenseI64ArrayAttr({}));
+                alphaVal, shape, rewriter.getI64TensorAttr({}));
         dotResult =
             rewriter.create<stablehlo::MulOp>(loc, dot, broadcastedAlpha);
       }
@@ -108,10 +108,10 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
         Value shape = rewriter.create<shape::ShapeOfOp>(loc, dot);
         if (cRank == 1)
           broadcastedC = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-              loc, resultType, C, shape, rewriter.getDenseI64ArrayAttr({1}));
+              loc, resultType, C, shape, rewriter.getI64TensorAttr({1}));
         else if (cRank == 0)
           broadcastedC = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-              loc, resultType, C, shape, rewriter.getDenseI64ArrayAttr({}));
+              loc, resultType, C, shape, rewriter.getI64TensorAttr({}));
         else
           broadcastedC = C;
         if (!closeTo(betaLit, 1.0f)) {
@@ -119,8 +119,7 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
               loc, rewriter.getFloatAttr(elemType, gemmOp.getBeta()));
           Value broadcastedBeta =
               rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
-                  resultType, betaVal, shape,
-                  rewriter.getDenseI64ArrayAttr({}));
+                  resultType, betaVal, shape, rewriter.getI64TensorAttr({}));
           finalC = rewriter.create<stablehlo::MulOp>(
               loc, broadcastedC, broadcastedBeta);
         } else

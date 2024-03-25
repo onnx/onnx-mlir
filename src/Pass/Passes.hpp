@@ -96,6 +96,12 @@ std::unique_ptr<mlir::Pass> createLowerToStablehloPass();
 std::unique_ptr<mlir::Pass> createLowerToStablehloPass(bool enableUnroll);
 #endif
 
+/// Pass for lowering krnl.dim operations to standard dialect.
+std::unique_ptr<mlir::Pass> createDisconnectKrnlDimFromAllocPass();
+
+/// Pass for lowering krnl.shape operation.
+std::unique_ptr<mlir::Pass> createLowerKrnlShapePass();
+
 /// Pass for eliding the values of global Krnl operations.
 std::unique_ptr<mlir::Pass> createElideConstGlobalValuePass();
 
