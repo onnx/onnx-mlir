@@ -1033,6 +1033,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimIndexExpr e1(loopInd[0]);
                       SymbolIndexExpr mm(m), nn(n);
                       outputAF[E1] = e1;
+                      outputAF[E2] = SymbolIndexExpr(e2);
                       IndexExpr ll = e1 - SymbolIndexExpr(min);
                       DimsExpr bufferAF = {nn, mm, ll};
                       Value t = create.krnl.loadIE(buffer, bufferAF);
