@@ -73,8 +73,16 @@ void buildReduceBodyFor<ONNXAveragePoolOp>(
   buildReduceBody<stablehlo::AddOp>(elementType, body, builder);
 }
 
+static DenseIntElementsAttr getDenseIntElementsAttr(
+    SmallVectorImpl<int64_t> &values, Builder *builder) {
+  return DenseIntElementsAttr::get(
+      RankedTensorType::get(
+          {static_cast<int64_t>(values.size())}, builder->getI64Type()),
+      values);
+}
+
 // Returns 1D 64-bit dense elements attribute padded with the given values.
-static DenseI64ArrayAttr getKernelAttr(ArrayRef<IndexExpr> values,
+static DenseIntElementsAttr getKernelAttr(ArrayRef<IndexExpr> values,
     Builder *builder, int64_t spatialOffset, int64_t defaultValue = 1) {
   SmallVector<int64_t> vectorValues(spatialOffset, defaultValue);
   int64_t size = values.size();
@@ -82,7 +90,7 @@ static DenseI64ArrayAttr getKernelAttr(ArrayRef<IndexExpr> values,
     assert(values[i].isLiteral() && "kernel dim is not literal");
     vectorValues.push_back(values[i].getLiteral());
   }
-  return builder->getDenseI64ArrayAttr(vectorValues);
+  return getDenseIntElementsAttr(vectorValues, builder);
 }
 
 void padVector(
@@ -160,9 +168,9 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
         rewriter.create<stablehlo::ReduceWindowOp>(loc, outputType,
             inputOperand, initVal,
             getKernelAttr(kernelShape, &rewriter, spatialOffset),
-            rewriter.getDenseI64ArrayAttr(strides),
-            /*base_dilations=*/DenseI64ArrayAttr(),
-            /*window_dilations=*/rewriter.getDenseI64ArrayAttr(dilations),
+            getDenseIntElementsAttr(strides, &rewriter),
+            /*base_dilations=*/DenseIntElementsAttr(),
+            /*window_dilations=*/getDenseIntElementsAttr(dilations, &rewriter),
             DenseIntElementsAttr::get(
                 RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
                 flattenPaddings));
@@ -185,15 +193,15 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
       } else {
         // Use another stablehlo.ReduceWindowOp to get the divisor
         Value one = getShapedFloat(loc, rewriter, 1.0, inputOperand);
-        stablehlo::ReduceWindowOp reduceDivisor =
-            rewriter.create<stablehlo::ReduceWindowOp>(loc, outputType, one,
-                initVal, getKernelAttr(kernelShape, &rewriter, spatialOffset),
-                rewriter.getDenseI64ArrayAttr(strides),
-                /*base_dilations=*/DenseI64ArrayAttr(),
-                /*window_dilations=*/rewriter.getDenseI64ArrayAttr(dilations),
-                DenseIntElementsAttr::get(
-                    RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
-                    flattenPaddings));
+        stablehlo::ReduceWindowOp reduceDivisor = rewriter.create<
+            stablehlo::ReduceWindowOp>(loc, outputType, one, initVal,
+            getKernelAttr(kernelShape, &rewriter, spatialOffset),
+            getDenseIntElementsAttr(strides, &rewriter),
+            /*base_dilations=*/DenseIntElementsAttr(),
+            /*window_dilations=*/getDenseIntElementsAttr(dilations, &rewriter),
+            DenseIntElementsAttr::get(
+                RankedTensorType::get({rank, 2}, rewriter.getI64Type()),
+                flattenPaddings));
         buildReduceBodyFor<ONNXAveragePoolOp>(
             elemType, &reduceDivisor.getBody(), &rewriter);
         Value divResult = rewriter.create<stablehlo::DivOp>(

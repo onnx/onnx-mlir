@@ -289,42 +289,24 @@ private:
     Location loc = krnlGlobalOp.getLoc();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
+    ModuleOp module = krnlGlobalOp->getParentOfType<ModuleOp>();
     DenseElementsAttr denseAttr =
         krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
 
     Type i8PtrType = getI8PointerType(builder.getContext());
 
-    auto strs = denseAttr.getValues<StringRef>();
-    // Collect total size of the strs.
-    size_t totalSize = 0;
-    for (StringRef str : strs) {
-      // Add 1 for the null terminator.
-      totalSize += str.size() + 1;
+    // Generate LLVM GlobalOps for each string in the KrnlGlobalOp dense
+    // attribute.
+    SmallVector<LLVM::GlobalOp> globalOps;
+    for (StringRef str : denseAttr.getValues<StringRef>()) {
+      LLVM::GlobalOp globalOp = krnl::getOrCreateGlobalString(
+          str, loc, builder, module, getTypeConverter());
+      globalOps.push_back(globalOp);
     }
-
-    // Concatenate all strings into one.
-    std::vector<char> concatStr(totalSize);
-    size_t offset = 0;
-    std::vector<size_t> offsets;
-    for (StringRef str : strs) {
-      offsets.emplace_back(offset);
-      std::copy(str.begin(), str.end(), concatStr.begin() + offset);
-      concatStr[offset + str.size()] = '\0';
-      offset += str.size() + 1;
-    }
-
-    // Create a global for the concatenated string.
-    StringRef data(concatStr.data(), concatStr.size());
-    StringAttr llvmStringAttr = StringAttr::get(builder.getContext(), data);
-    auto i8Type = IntegerType::get(builder.getContext(), 8);
-    auto llvmArrayI8Ty = LLVM::LLVMArrayType::get(i8Type, totalSize);
-    LLVM::GlobalOp globalStr = create.llvm.globalOp(llvmArrayI8Ty,
-        /*isConstant=*/true, LLVM::Linkage::Internal,
-        "om.strArray." + krnlGlobalOp.getName().str(), llvmStringAttr);
 
     // Generate an LLVM GlobalOps with an initializer region containing one
     // block.
-    auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, offsets.size());
+    auto arrayType = LLVM::LLVMArrayType::get(i8PtrType, globalOps.size());
     auto global = create.llvm.globalOp(arrayType,
         /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
         Attribute());
@@ -337,15 +319,10 @@ private:
 
     int32_t index = 0;
     Value lastValue = array;
-    Value baseAddr = create.llvm.addressOf(globalStr);
-    // Cast globalStr to i8Ptr.
-    baseAddr = create.llvm.bitcast(i8PtrType, baseAddr);
-    for (size_t offset : offsets) {
-      // Get each str with gep base, offset.
-      Value gepOp =
-          create.llvm.getElemPtr(i8PtrType, i8Type, baseAddr, {offset});
+    for (const LLVM::GlobalOp &globalOp : globalOps) {
+      Value strAddr = krnl::getPtrToGlobalString(globalOp, loc, builder);
       lastValue =
-          create.llvm.insertValue(arrayType, lastValue, gepOp, {index++});
+          create.llvm.insertValue(arrayType, lastValue, strAddr, {index++});
     }
 
     create.llvm._return(lastValue);

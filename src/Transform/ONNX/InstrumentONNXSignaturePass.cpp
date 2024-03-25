@@ -2,14 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- InstrumentONNXSignaturePass.cpp - Instrumentation ------------===//
+//===------- InstrumentONNXSignaturePass.cpp - Instrumentation
+//---------------------===//
 //
 // Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file implements a Function level pass that inserts statements that print
-// the operation name and its input type signature at runtime.
+// This file implements a Function level pass that inserts krnl print statements
+// that print the operation name and its input type signature at runtime.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,6 +25,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Dialect/Krnl/DialectBuilder.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
@@ -34,7 +37,7 @@ using namespace mlir;
 namespace {
 
 /*!
- * This pass insert ONNXPrintSignatureOp before each ONNX ops to print
+ * This pass insert KrnlPrint and KrnlPrintTensor before each ONNX ops to print
  * an operation name and input operand type signatures at runtime.
  */
 

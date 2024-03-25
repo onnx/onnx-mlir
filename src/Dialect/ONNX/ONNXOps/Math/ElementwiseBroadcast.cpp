@@ -4,7 +4,7 @@
 
 //===------------------ ElementwiseBroadcast.cpp - ONNX Operations --------===//
 //
-// Copyright 2019-2024 The IBM Research Authors.
+// Copyright 2019-2023 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -299,10 +299,6 @@ LogicalResult ONNXModOp::verify() {
   // must be set to 1.
   if (elementType.isa<FloatType>() && (getFmod() != 1))
     return emitOpError("fmod must be 1 when the input type is floating point");
-  // Verify that when the input type is integer, then `fmod` attribute
-  // must be set to 0.
-  if (elementType.isa<IntegerType>() && (getFmod() != 0))
-    return emitOpError("fmod must be 0 when the input type is an integer");
 
   return success();
 }

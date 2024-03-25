@@ -51,6 +51,7 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
     Type elementType = outputShapedType.getElementType();
     int64_t outputRank = outputShapedType.getRank();
 
+    Operation *shapeDefOp = shape.getDefiningOp();
     Value ones;
     if (elementType.isa<IntegerType>())
       ones = rewriter.create<stablehlo::ConstantOp>(
@@ -59,24 +60,29 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
       ones = rewriter.create<stablehlo::ConstantOp>(
           loc, rewriter.getFloatAttr(elementType, 1.0));
     Value broadcastedOnes;
-    if (mlir::ElementsAttr constShape =
-            getElementAttributeFromConstValue(shape)) {
+    if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
+      assert(shapeOp.getData().getType().isa<ShapedType>() &&
+             "ShapeOp's input data should be of ShapedType");
+      int64_t shapeRank =
+          shapeOp.getData().getType().cast<ShapedType>().getRank();
+      SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamic);
+      RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
+      broadcastedOnes = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
+          loc, onesType, ones, shape, rewriter.getI64TensorAttr({}));
+    } else if (mlir::ElementsAttr constShape =
+                   getElementAttributeFromConstValue(shape)) {
       llvm::SmallVector<int64_t, 4> shapeValues;
       for (mlir::IntegerAttr element : constShape.getValues<IntegerAttr>())
         shapeValues.push_back(element.getInt());
       RankedTensorType broadcastedType =
           RankedTensorType::get(shapeValues, elementType);
       broadcastedOnes = rewriter.create<stablehlo::BroadcastInDimOp>(
-          loc, broadcastedType, ones, rewriter.getDenseI64ArrayAttr({}));
+          loc, broadcastedType, ones, rewriter.getI64TensorAttr({}));
     } else {
-      ShapedType shapeType = shape.getType().cast<ShapedType>();
-      assert(shapeType.getRank() == 1 && shapeType.hasStaticShape() &&
-             "expected 1D statically shaped shape tensor");
-      int64_t shapeRank = shapeType.getShape()[0];
-      SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamic);
-      RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
-      broadcastedOnes = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-          loc, onesType, ones, shape, rewriter.getDenseI64ArrayAttr({}));
+      assert(
+          false &&
+          "Shape argument of Expand is the output of an unexpected operation. "
+          "Supported operations are: onnx.Constant and onnx.Shape");
     }
     llvm::SmallVector<Value, 4> newOperands = {input, broadcastedOnes};
     llvm::SmallVector<Value, 4> broadcastedOperands = getBroadcastedOperands(

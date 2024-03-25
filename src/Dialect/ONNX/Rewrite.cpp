@@ -103,21 +103,6 @@ SmallVector<Value, 4> transposeVariadicInput(PatternRewriter &rewriter,
   return transposedInputs;
 }
 
-// Cast a variadic input using the given `saturate` and `to`.
-SmallVector<Value, 4> castVariadicInput(PatternRewriter &rewriter, Location loc,
-    ValueRange inputs, IntegerAttr saturate, TypeAttr to) {
-  SmallVector<Value, 4> castInputs;
-  for (Value inp : inputs) {
-    ShapedType inpType = inp.getType().cast<ShapedType>();
-    assert(inpType && "Type is not ShapedType");
-    ONNXCastOp castOp = rewriter.create<ONNXCastOp>(loc,
-        UnrankedTensorType::get(inpType.getElementType()), inp, saturate, to);
-    (void)castOp.inferShapes([](Region &region) {});
-    castInputs.emplace_back(castOp.getResult());
-  }
-  return castInputs;
-}
-
 // Check if all values are produced by ONNXTransposeOp.
 bool areProducedByTransposeOp(ValueRange values) {
   return llvm::all_of(values, [](Value v) {
@@ -275,7 +260,7 @@ bool matchShapeAddMatMul(Value v, Value &matA, Value &biasB,
 /// Include the patterns defined in the Declarative Rewrite framework.
 // =============================================================================
 
-#include "src/Dialect/ONNX/ONNXOps/ONNXCanonicalize.inc"
+#include "src/Dialect/ONNX/ONNXRewrite.inc"
 
 // =============================================================================
 // Rewrite pattern for elementwise binary ops (not handled in Rewrite.td).
@@ -322,7 +307,7 @@ public:
              << rhsType;
     }
 
-    rewriter.modifyOpInPlace(op, [&] {
+    rewriter.updateRootInPlace(op, [&] {
       if (rhsRank < lhsRank - axis) {
         OnnxBuilder createONNX(rewriter, op->getLoc());
         SmallVector<int64_t> axesArray;
@@ -530,7 +515,7 @@ struct PropagateConstantScalingInAttentionLayerPattern
     if (isGemm) {
       auto onnxGemmOp = cast<ONNXGemmOp>(matmulOrGemmOp);
       // Update in place B and C of Gemm.
-      rewriter.modifyOpInPlace(onnxGemmOp, [&] {
+      rewriter.updateRootInPlace(onnxGemmOp, [&] {
         rewriter.setInsertionPoint(onnxGemmOp);
         onnxGemmOp.getBMutable().assign(rewriter.create<ONNXOp>(
             onnxGemmOp.getLoc(), onnxGemmOp.getB().getType(), A, K));
@@ -542,12 +527,12 @@ struct PropagateConstantScalingInAttentionLayerPattern
       auto onnxSubMatOp = cast<ONNXMatMulOp>(matmulOrGemmOp);
       auto onnxAddOp = cast<ONNXAddOp>(addOp);
       // Update in place MatMul and Add.
-      rewriter.modifyOpInPlace(onnxSubMatOp, [&] {
+      rewriter.updateRootInPlace(onnxSubMatOp, [&] {
         rewriter.setInsertionPoint(onnxSubMatOp);
         onnxSubMatOp.getBMutable().assign(rewriter.create<ONNXOp>(
             onnxSubMatOp.getLoc(), onnxSubMatOp.getB().getType(), A, K));
       });
-      rewriter.modifyOpInPlace(onnxAddOp, [&] {
+      rewriter.updateRootInPlace(onnxAddOp, [&] {
         OnnxBuilder createONNX(rewriter, onnxAddOp.getLoc());
         rewriter.setInsertionPoint(onnxAddOp);
         onnxAddOp.getBMutable().assign(rewriter.create<ONNXOp>(
@@ -581,7 +566,7 @@ public:
     bool emptyScales = isEmptyTensor(onnxResizeOp.getScales());
     bool emptySizes = isEmptyTensor(onnxResizeOp.getSizes());
     if (emptyRoi || emptyScales || emptySizes) {
-      rewriter.modifyOpInPlace(onnxResizeOp, [&] {
+      rewriter.updateRootInPlace(onnxResizeOp, [&] {
         OnnxBuilder createONNX(rewriter, onnxResizeOp.getLoc());
         if (emptyRoi)
           onnxResizeOp.getRoiMutable().assign(createONNX.none());
@@ -986,7 +971,7 @@ public:
 
     // Rewrite in-place because there are so many attributes, inputs, outputs.
     // Constructing a new op would be lengthy and hard to maintain.
-    rewriter.modifyOpInPlace(onnxOp, [&]() {
+    rewriter.updateRootInPlace(onnxOp, [&]() {
       // Transpose the X and initial_h inputs by inserting an ONNXTransposeOp
       // before each and replacing the each input with the transpose output.
       rewriter.setInsertionPoint(onnxOp); // insert before (redundant)
@@ -1531,8 +1516,6 @@ void ONNXAndOp::getCanonicalizationPatterns(
 void ONNXCastOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<CastEliminationPattern>(context);
-  result.insert<SwapCastConcatPattern>(context);
-  result.insert<SwapCastSlicePattern>(context);
   // TODO: Reintroduce pattern for sound type combinations, see issue #2210.
   // result.insert<FuseCastCastPattern>(context);
 }

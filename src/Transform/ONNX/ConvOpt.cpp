@@ -13,6 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Transform/ONNX/ConvOpt.hpp"
+#include "src/Pass/Passes.hpp"
+
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -22,8 +25,6 @@
 #include "src/Dialect/ONNX/ONNXLayoutHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
-#include "src/Dialect/ONNX/Transforms/ConvOpt.hpp"
-#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 // Enables a minimum of printing.
@@ -104,7 +105,7 @@ bool ExpressONNXConvOpAsMatmul(ONNXConvOp convOp, bool verbose = 0) {
 namespace {
 
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Dialect/ONNX/Transforms/ONNXConvOpt.inc"
+#include "src/Transform/ONNX/ONNXConvOpt.inc"
 
 /*
    Pattern: when we have a convolution with filter of 1x1, stride 1, dilation of

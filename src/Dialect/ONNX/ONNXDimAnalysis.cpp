@@ -869,9 +869,8 @@ void DimAnalysis::visitDim(
 
   // CastOp
   if (auto castOp = dyn_cast<ONNXCastOp>(op)) {
-    if (auto d = insertDimWhenUseful(castOp.getInput(), dimIndex, sameDims))
-      LLVM_DEBUG(llvm::dbgs() << "  - Added a new dim(" << d.value().first
-                              << ", " << d.value().second << ")\n");
+    DimAnalysis::DimT newSameDim(castOp.getInput(), dimIndex);
+    sameDims.insert(newSameDim);
     return;
   }
 

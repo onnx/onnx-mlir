@@ -7,11 +7,11 @@ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "s390x")
 endif()
 
 add_subdirectory(ElementsAttr)
-add_subdirectory(ONNXOps)
-add_subdirectory(Transforms)
 
 add_onnx_mlir_dialect(ONNX onnx)
 add_onnx_mlir_dialect_doc(onnx ONNX.td)
+
+add_onnx_mlir_rewriter(Rewrite)
 
 add_onnx_mlir_library(OMONNXOps
   # Top files for ONNX dialect
@@ -22,9 +22,9 @@ add_onnx_mlir_library(OMONNXOps
   ONNXDimAnalysis.cpp
   ONNXOps.cpp
   ONNXOps/OpHelper.cpp
-  ONNXOps/Canonicalize.cpp
   ONNXOps/ShapeHelper.cpp
   ONNXTypes.cpp
+  Rewrite.cpp
 
   # Support for shape inference and verifiers
   ONNXOps/Additional/ConcatShapeTranspose.cpp
@@ -104,7 +104,7 @@ add_onnx_mlir_library(OMONNXOps
   DEPENDS
   OMHasOnnxSubgraphOpInterfaceIncGen
   OMONNXIncGen
-  OMONNXCanonicalizeIncGen
+  OMONNXRewriteIncGen
   OMResultTypeInferenceOpInterfaceIncGen
   OMShapeInferenceOpInterfaceIncGen
 
