@@ -90,11 +90,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     //     for coPerGroup = 0 .. COPerGroup:
     //       co = g * COPerGroup + coPerGroup;
 
-    // Create a local reduction value.
-    MemRefType tmpType = MemRefType::get({}, memRefType.getElementType());
     auto bodyFunction = [&](ValueRange outerIndices) {
-      // Single scalar, no need for default alignment.
-      Value reductionVal = create.mem.alloca(tmpType);
       // Compute the Channel In Indices.
       IndexExprScope outerScope(create.krnl);
       // Compute the channel out index "co".
@@ -122,8 +118,8 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
             MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
                 MathBuilder>
                 create(createKrnl);
-            // Reset reduction value to zero.
-            create.krnl.store(fZero, reductionVal);
+
+            ValueRange inits = ValueRange(fZero);
 
             // Bounds for reduction loops.
             ValueRange redLoops = create.krnl.defineLoops(spacialRank + 1);
@@ -158,51 +154,55 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
             // for ciPerGroup = 0 .. CIPerGroup:
             //   for kh in lb .. ub:
             //     for kw in lb .. ub:
-            create.krnl.iterateIE(redLoops, redLoops, redLbs, redUbs,
-                [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
-                  IndexExprScope redScope(createKrnl);
-                  MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
-                      MathBuilder>
-                      create(createKrnl);
-                  // Create access function for input image:
-                  // [n, ci, ho * sh + kh * dh - ph, wo * sw + kw * dw -
-                  // pw].
-                  SmallVector<IndexExpr, 4> inputAccessFct;
-                  DimIndexExpr n(outerIndices[0]);
-                  inputAccessFct.emplace_back(n);
-                  // ci = g * CIPerG + ciPerG
-                  DimIndexExpr ciPerG(redIndices[0]);
-                  IndexExpr ci = SymbolIndexExpr(gTimesCIPerGroup) + ciPerG;
-                  inputAccessFct.emplace_back(ci);
-                  for (int i = 0; i < spacialRank; ++i) {
-                    // for each spacial dims: access is o * s + k * d - p.
-                    DimIndexExpr k(redIndices[1 + i]);
-                    SymbolIndexExpr pos(pMinOS[i]);
-                    LiteralIndexExpr d(shapeHelper.dilations[i]);
-                    // k*d - (p - o*s) = k*d + o*s - p
-                    IndexExpr t = (k * d) - pos;
-                    inputAccessFct.emplace_back(t);
-                  }
-                  Value image =
-                      create.krnl.loadIE(inputOperand, inputAccessFct);
-                  // Create access fct for filter: [co, ciPerG, kh, kw].
-                  SmallVector<IndexExpr, 4> filterAccessFct;
-                  filterAccessFct.emplace_back(DimIndexExpr(co));
-                  filterAccessFct.emplace_back(DimIndexExpr(ciPerG));
+            auto innerIterate =
+                create.krnl.iterateIE(redLoops, redLoops, redLbs, redUbs, inits,
+                    [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
+                      Block *iterEntryBB = createKrnl.getBuilder().getBlock();
+                      // Get last argument for the iterate body.
+                      Value iterArg = iterEntryBB->getArguments().back();
+                      IndexExprScope redScope(createKrnl);
+                      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
+                          MathBuilder>
+                          create(createKrnl);
+                      // Create access function for input image:
+                      // [n, ci, ho * sh + kh * dh - ph, wo * sw + kw * dw -
+                      // pw].
+                      SmallVector<IndexExpr, 4> inputAccessFct;
+                      DimIndexExpr n(outerIndices[0]);
+                      inputAccessFct.emplace_back(n);
+                      // ci = g * CIPerG + ciPerG
+                      DimIndexExpr ciPerG(redIndices[0]);
+                      IndexExpr ci = SymbolIndexExpr(gTimesCIPerGroup) + ciPerG;
+                      inputAccessFct.emplace_back(ci);
+                      for (int i = 0; i < spacialRank; ++i) {
+                        // for each spacial dims: access is o * s + k * d - p.
+                        DimIndexExpr k(redIndices[1 + i]);
+                        SymbolIndexExpr pos(pMinOS[i]);
+                        LiteralIndexExpr d(shapeHelper.dilations[i]);
+                        // k*d - (p - o*s) = k*d + o*s - p
+                        IndexExpr t = (k * d) - pos;
+                        inputAccessFct.emplace_back(t);
+                      }
+                      Value image =
+                          create.krnl.loadIE(inputOperand, inputAccessFct);
+                      // Create access fct for filter: [co, ciPerG, kh, kw].
+                      SmallVector<IndexExpr, 4> filterAccessFct;
+                      filterAccessFct.emplace_back(DimIndexExpr(co));
+                      filterAccessFct.emplace_back(DimIndexExpr(ciPerG));
 
-                  for (int i = 0; i < spacialRank; ++i) {
-                    DimIndexExpr k(redIndices[1 + i]);
-                    filterAccessFct.emplace_back(k);
-                  }
-                  Value filter =
-                      create.krnl.loadIE(filterOperand, filterAccessFct);
-                  Value oldRed = create.krnl.load(reductionVal);
-                  Value mul = create.math.mul(image, filter);
-                  Value newRed = create.math.add(oldRed, mul);
-                  create.krnl.store(newRed, reductionVal);
-                }); // Reduction loops.
-                    // Finish the reduction and store in result array.
-            Value result = create.krnl.load(reductionVal);
+                      for (int i = 0; i < spacialRank; ++i) {
+                        DimIndexExpr k(redIndices[1 + i]);
+                        filterAccessFct.emplace_back(k);
+                      }
+                      Value filter =
+                          create.krnl.loadIE(filterOperand, filterAccessFct);
+                      Value oldRed = iterArg;
+                      Value mul = create.math.mul(image, filter);
+                      Value newRed = create.math.add(oldRed, mul);
+                      create.krnl.yield(newRed);
+                    }); // Reduction loops.
+                        // Finish the reduction and store in result array.
+            Value result = innerIterate.getResult(0);
             // Store the result. Optionally add bias.
             SymbolIndexExpr coInOutputSpacial(co);
             if (hasBias) {

@@ -217,6 +217,11 @@ public:
                   .getRegion()
                   .front();
     auto insertPt = loopBody.begin();
+    // If the first operation is not a loop, it must be inserted at the end of
+    // the block. This situation arises when the loop of the first operation has
+    // been unrolled.
+    if (!isa<AffineForOp, AffineParallelOp>(loopBody.getOperations().front()))
+      insertPt = loopBody.getTerminator()->getIterator();
 
     // Find the ops to transfer (saved into a Movable) associated with
     // loopRef.
@@ -371,6 +376,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
   auto operandItr =
       iterateOp.operand_begin() + iterateOp.getNumOptimizedLoops();
 
+  ValueRange inits = iterateOp.getIterArgInits();
+
   // For each bounds, create an original loop with its original bounds using
   // an affine.for. This affine.for will be transformed if any optimizations are
   // present on the loop nest (aka permute, tile, ...).
@@ -390,8 +397,13 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
           operands.end(), operandItr, operandItr + map.getNumInputs());
       std::advance(operandItr, map.getNumInputs());
     }
-    auto forOp = builder.create<AffineForOp>(
-        iterateOp.getLoc(), lbOperands, lbMap, ubOperands, ubMap);
+
+    auto forOp = builder.create<AffineForOp>(iterateOp.getLoc(), lbOperands,
+        lbMap, ubOperands, ubMap, /*step*/ 1, inits,
+        /*bodyBuilder=*/[](OpBuilder &, Location, Value, ValueRange) {
+          // Make sure we don't create a default terminator in the loop body as
+          // the proper terminator will be added later.
+        });
 
     currentNestedForOps.emplace_back(std::make_pair(unoptimizedLoopRef, forOp));
     builder.setInsertionPoint(
@@ -399,6 +411,38 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
         llvm::cast<AffineForOp>(currentNestedForOps.back().second)
             .getBody()
             ->begin());
+    // Update inits to iterArgs of forOp.
+    inits = ValueRange(forOp.getRegionIterArgs());
+  }
+
+  // add yield for each affine.for created with result of inner affine.for
+  // until last optimized loop.
+  for (int64_t i = 0; i < (int64_t)currentNestedForOps.size() - 1; i++) {
+    auto forOp = llvm::cast<AffineForOp>(currentNestedForOps[i].second);
+    if ((iterateOp.getNumOptimizedLoops() - 1) == i) {
+      // For last optimized loop.
+      // yield the iterateOp yield value.
+      builder.setInsertionPointToEnd(forOp.getBody());
+      auto Yield = cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
+      builder.create<AffineYieldOp>(iterateOp.getLoc(), Yield.getOperands());
+
+      // replace use of iterateOp iterArgs with forOp iterArgs.
+      for (auto [newIterArg, oldItArg] :
+          llvm::zip(forOp.getRegionIterArgs(), iterateOp.getRegionIterArgs())) {
+        oldItArg.replaceAllUsesWith(newIterArg);
+      }
+      // No need to add yield for rest nested loops.
+      // These nested loops will be replaced when lower nested iterateOp.
+      break;
+    }
+    auto innerForOp =
+        llvm::cast<AffineForOp>(currentNestedForOps[i + 1].second);
+    builder.setInsertionPointToEnd(forOp.getBody());
+    if (forOp.getNumResults() > 0)
+      builder.create<AffineYieldOp>(
+          iterateOp.getLoc(), innerForOp.getResults());
+    else
+      builder.create<AffineYieldOp>(iterateOp.getLoc());
   }
 
   // Replace induction variable references from those introduced by a
@@ -413,22 +457,143 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     iterateOp.getBodyRegion().front().eraseArgument(0);
   }
 
-  // Pop krnl.iterate body region block arguments, leave the last one
-  // for convenience (it'll be taken care of by region inlining).
-  while (iterateOp.getBodyRegion().front().getNumArguments() > 1)
+  // Pop krnl.iterate body region block arguments which is not iterArgs, leave
+  // the last one for convenience (it'll be taken care of by region inlining).
+  unsigned int numIterArgs = iterateOp.getNumIterArgs();
+  while (
+      iterateOp.getBodyRegion().front().getNumArguments() > (numIterArgs + 1))
     iterateOp.getBodyRegion().front().eraseArgument(0);
 
   if (currentNestedForOps.empty()) {
-    // If no loops are involved, simply move operations from within iterateOp
-    // body region to the parent region of iterateOp.
+    // Collect information about nested loop.
+    bool isLoop = iterateOp.getNumOptimizedLoops() > 0;
+    bool outerLoopHasResult = false;
+    bool iterateHasResult = iterateOp.getNumResults() > 0;
+    if (isLoop) {
+      Value loopRef =
+          iterateOp.getOperand(iterateOp.getNumOptimizedLoops() - 1);
+      auto it = refToOps.find(loopRef);
+      assert(it != refToOps.end());
+      auto outerLoop = llvm::cast<AffineForOp>(it->second);
+      outerLoopHasResult = outerLoop.getNumResults() > 0;
+    }
+
+    // When there's loop and iterateOp/outerLoop has result.
+    if (isLoop && (iterateHasResult || outerLoopHasResult)) {
+      // Recreate forOps for iterate with iterateOp inits.
+      // The old forOps are using outer iterateOp inits.
+      std::vector<AffineForOp> newForOps;
+      std::vector<AffineForOp> oldForOps;
+      for (int i = 0; i < iterateOp.getNumOptimizedLoops(); ++i) {
+        Value LoopRef = iterateOp.getOperand(i);
+        auto it = refToOps.find(LoopRef);
+        assert(it != refToOps.end());
+
+        auto oldForOp = llvm::cast<AffineForOp>(it->second);
+        builder.setInsertionPointAfter(oldForOp);
+        oldForOps.emplace_back(oldForOp);
+        auto forOp = builder.create<AffineForOp>(iterateOp.getLoc(),
+            oldForOp.getLowerBoundOperands(), oldForOp.getLowerBoundMap(),
+            oldForOp.getUpperBoundOperands(), oldForOp.getUpperBoundMap(),
+            /*step*/ 1, inits,
+            /*bodyBuilder=*/[](OpBuilder &, Location, Value, ValueRange) {
+              // Make sure we don't create a default terminator in the loop body
+              // as the proper terminator will be added later.
+            });
+        newForOps.emplace_back(forOp);
+        refToOps[LoopRef] = forOp;
+        // Update inits to iterArgs of forOp.
+        inits = ValueRange(forOp.getRegionIterArgs());
+      }
+
+      // Move the body of oldForOp to newForOp.
+      auto innermostNewForOp = newForOps.back();
+      auto oldForOp = oldForOps.back();
+      Region &innerMostRegion = innermostNewForOp.getRegion();
+
+      innerMostRegion.getBlocks().clear();
+      innerMostRegion.getBlocks().splice(
+          innerMostRegion.end(), oldForOp.getBodyRegion().getBlocks());
+
+      // After the splice, newForOp get entry arguments of oldForOp.
+      // Remove oldForOp iter arguments.
+      Block *loopEntry = innermostNewForOp.getBody();
+      int oldForOpResNum = oldForOp.getResults().size();
+      for (int i = 0; i < oldForOpResNum; ++i) {
+        int lastArgIdx = loopEntry->getNumArguments() - 1;
+        loopEntry->eraseArgument(lastArgIdx);
+      }
+      // Add newForOp iter arguments. Then replace iterateOp iterArgs with
+      // newForOp iter arguments.
+      auto iterLoopArgs = iterateOp.getRegionIterArgs();
+      for (auto iterArg : iterLoopArgs) {
+        auto NewArg =
+            loopEntry->addArgument(iterArg.getType(), iterArg.getLoc());
+        iterArg.replaceAllUsesWith(NewArg);
+      }
+
+      // Remove old ForOps.
+      for (auto it = oldForOps.rbegin(); it != oldForOps.rend(); ++it) {
+        auto forOp = *it;
+        forOp.erase();
+      }
+
+      // add yield for each affine.for created with result of inner affine.for
+      // except innermost affine.for.
+      for (int64_t i = 0; i < (int64_t)newForOps.size() - 1; i++) {
+        auto forOp = newForOps[i];
+        auto innerForOp = newForOps[i + 1];
+        builder.setInsertionPointToEnd(forOp.getBody());
+        if (forOp.getNumResults() > 0)
+          builder.create<AffineYieldOp>(
+              iterateOp.getLoc(), innerForOp.getResults());
+        else
+          builder.create<AffineYieldOp>(iterateOp.getLoc());
+      }
+      // Add yield for innermost affine.for with iterateOp yield value.
+      auto innerForOp = newForOps.back();
+      auto prevTerm = innerForOp.getBody()->getTerminator();
+      builder.setInsertionPointToEnd(innerForOp.getBody());
+      auto iterTerm = cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
+      builder.create<AffineYieldOp>(iterateOp.getLoc(), iterTerm.getOperands());
+      // Remove the old terminator.
+      prevTerm->erase();
+
+      // replace use of iterateOp result with outer affine.for result.
+      auto outermostForOp = llvm::cast<AffineForOp>(newForOps.front());
+      for (auto [result, newResult] :
+          llvm::zip(iterateOp.getResults(), outermostForOp.getResults())) {
+        result.replaceAllUsesWith(newResult);
+      }
+    }
+    // When there's no loop but iterateOp has result.
+    else if (!isLoop && iterateHasResult) {
+      // Replace use of iteratedOp with the yield value.
+      auto Yield = cast<KrnlYieldOp>(iterateOp.getBody()->getTerminator());
+      for (auto [result, yieldValue] :
+          llvm::zip(iterateOp.getResults(), Yield.getOperands())) {
+        result.replaceAllUsesWith(yieldValue);
+      }
+      // Replace iterArg with iterInit.
+      auto iterLoopArgs = iterateOp.getRegionIterArgs();
+      auto iterInits = iterateOp.getIterArgInits();
+      // Add iterLoopArgs to outer affine.for region iterArgs.
+      for (auto [arg, init] : llvm::zip(iterLoopArgs, iterInits)) {
+        arg.replaceAllUsesWith(init);
+      }
+    }
+
+    // Move operations from within iterateOp body region to the parent region of
+    // iterateOp.
     Block *parentBlock = iterateOp->getBlock();
     Block &iterateOpEntryBlock = iterateOp.getBodyRegion().front();
-    // Transfer body region operations to parent region, without the terminator
-    // op.
+    // Transfer body region operations to parent region, without the
+    // terminator op.
     parentBlock->getOperations().splice(iterateOp->getIterator(),
         iterateOpEntryBlock.getOperations(),
         iterateOpEntryBlock.front().getIterator(),
         iterateOpEntryBlock.getTerminator()->getIterator());
+
   } else {
     // Transfer krnl.iterate region to innermost for op.
     auto innermostForOp =
@@ -437,6 +602,14 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     Region &innerMostRegion = innermostForOp.getRegion();
     innerMostRegion.getBlocks().splice(
         innerMostRegion.end(), iterateOp.getBodyRegion().getBlocks());
+
+    // replace iterateOp result with outer affine.for result.
+    auto outermostForOp =
+        llvm::cast<AffineForOp>(currentNestedForOps.front().second);
+    for (auto [result, newResult] :
+        llvm::zip(iterateOp.getResults(), outermostForOp.getResults())) {
+      result.replaceAllUsesWith(newResult);
+    }
   }
 
   for (const auto &pair : currentNestedForOps)
@@ -478,20 +651,10 @@ static void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
 static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, Operation *, 4> &loopRefToOp,
     llvm::SmallPtrSetImpl<Operation *> &opsToErase, LoopBodyMover &mover) {
-  // Recursively interpret nested operations.
-  for (auto &region : op->getRegions())
-    for (auto &block : region.getBlocks()) {
-      auto &blockOps = block.getOperations();
-      for (auto itr = blockOps.begin(); itr != blockOps.end();) {
-        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " Call interpretOperation \n");
-        if (failed(interpretOperation(
-                &(*itr), builder, loopRefToOp, opsToErase, mover)))
-          return failure();
-        else
-          ++itr;
-      }
-    }
-
+  // Make sure define loop lowered first, so the iterateOp which create
+  // affine.for can be lowered first.
+  // This is because the affine.for created by iterateOp will be used by
+  // the blockOp and permuteOp and the nested iterateOp.
   if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret define op " << defineOp << "\n");
@@ -516,7 +679,22 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     }
     opsToErase.insert(op);
     return success();
-  } else if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
+  }
+  // Recursively interpret nested operations.
+  for (auto &region : op->getRegions())
+    for (auto &block : region.getBlocks()) {
+      auto &blockOps = block.getOperations();
+      for (auto itr = blockOps.begin(); itr != blockOps.end();) {
+        LLVM_DEBUG(llvm::dbgs() << DEBUG_TYPE << " Call interpretOperation \n");
+        if (failed(interpretOperation(
+                &(*itr), builder, loopRefToOp, opsToErase, mover)))
+          return failure();
+        else
+          ++itr;
+      }
+    }
+
+  if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(op)) {
     LLVM_DEBUG(llvm::dbgs()
                << DEBUG_TYPE << " interpret iterate op " << iterateOp << "\n");
     // If an iterateOp has no unoptimized loop references, then we need to lower
@@ -579,39 +757,6 @@ static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     // Perform loop permutation.
     permuteLoops(loopsToPermute, permuteMap);
 
-    opsToErase.insert(op);
-    return success();
-  } else if (auto unrollOp = dyn_cast_or_null<KrnlUnrollOp>(op)) {
-    LLVM_DEBUG(llvm::dbgs()
-               << DEBUG_TYPE << " interpret unroll op " << unrollOp << "\n");
-    // Unroll the affine for loop fully.
-    Value loopRef = unrollOp.getLoop();
-    auto loopToUnroll = llvm::cast<AffineForOp>(loopRefToOp[loopRef]);
-
-    mover.moveOne(loopRef, loopRefToOp);
-
-    // Interpret and remove 'krnl.get_induction_var' inside the unrolling loop
-    // if any. Otherwise, we lost the trace of the loop induction variables.
-    for (auto &region : loopToUnroll->getRegions())
-      for (auto &block : region.getBlocks()) {
-        auto &blockOps = block.getOperations();
-        for (auto itr = blockOps.begin(); itr != blockOps.end(); ++itr) {
-          Operation *genericOp = &(*itr);
-          if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
-                  genericOp)) {
-            lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
-            opsToErase.insert(genericOp);
-          }
-        }
-      }
-    removeOps(opsToErase);
-
-    // Assert that there's no floating code within the loop to be unrolled.
-    loopToUnroll.walk([](KrnlMovableOp op) {
-      llvm_unreachable("Loop to unroll must not contain movable op.");
-    });
-    LogicalResult res = loopUnrollFull(loopToUnroll);
-    assert(succeeded(res) && "failed to unroll");
     opsToErase.insert(op);
     return success();
   } else if (auto parallelOp = dyn_cast_or_null<KrnlParallelOp>(op)) {
@@ -751,6 +896,46 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     signalPassFailure();
     return;
   }
+  // Lower `unrollOp` after all `iterateOps` have been lowered.
+  // This is necessary because `unrollOp` may reference a loop created by an
+  // outer `iterateOp`, which will be updated after lowering an inner
+  // `iterateOp`. If `unrollOp` is lowered before `iterateOp`, the loop may end
+  // up in an incorrect state during unrolling.
+  auto unrolls = funcOp.getOps<KrnlUnrollOp>();
+  for (KrnlUnrollOp unrollOp : unrolls) {
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret unroll op " << unrollOp << "\n");
+    // Unroll the affine for loop fully.
+    Value loopRef = unrollOp.getLoop();
+    auto loopToUnroll = llvm::cast<AffineForOp>(loopRefToOp[loopRef]);
+
+    mover.moveOne(loopRef, loopRefToOp);
+
+    // Interpret and remove 'krnl.get_induction_var' inside the unrolling loop
+    // if any. Otherwise, we lost the trace of the loop induction variables.
+    for (auto &region : loopToUnroll->getRegions())
+      for (auto &block : region.getBlocks()) {
+        auto &blockOps = block.getOperations();
+        for (auto itr = blockOps.begin(); itr != blockOps.end(); ++itr) {
+          Operation *genericOp = &(*itr);
+          if (auto getIVOp = dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
+                  genericOp)) {
+            lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
+            opsToErase.insert(genericOp);
+          }
+        }
+      }
+    removeOps(opsToErase);
+
+    // Assert that there's no floating code within the loop to be unrolled.
+    loopToUnroll.walk([](KrnlMovableOp op) {
+      llvm_unreachable("Loop to unroll must not contain movable op.");
+    });
+    LogicalResult res = loopUnrollFull(loopToUnroll);
+    assert(succeeded(res) && "failed to unroll");
+    opsToErase.insert(unrollOp);
+  }
+
   funcOp->walk([&](Operation *op) {
     if (SpecializedKernelOpInterface kernelOp =
             dyn_cast<SpecializedKernelOpInterface>(op)) {

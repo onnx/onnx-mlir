@@ -15,7 +15,7 @@ func.func @simple_iterate(%N : index) {
 
   // GENERIC: "krnl.iterate"(%{{.*}}, %{{.*}}, %{{.*}}, %{{.*}}) ({
   // GENERIC-NEXT: ^bb0(%{{.*}}: index, %{{.*}}: index):
-  // GENERIC-NEXT: "krnl.terminate"() : () -> ()
+  // GENERIC-NEXT: "krnl.yield"() : () -> ()
   // GENERIC-NEXT: bounds = [#{{.*}}, #{{.*}}, #{{.*}}, #{{.*}}]
 
   // CHECK: krnl.iterate(%{{.*}}, %{{.*}}) with (%{{.*}} -> %{{.*}} = 0 to 10, %{{.*}} -> %{{.*}} = 1 to 11){

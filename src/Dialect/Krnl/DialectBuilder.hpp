@@ -65,6 +65,12 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::function_ref<void(
           KrnlBuilder &createKrnl, mlir::ValueRange indices)>
           bodyBuilderFn) const;
+  mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
+      mlir::ValueRange ubs, mlir::ValueRange inits,
+      mlir::function_ref<void(
+          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
+          bodyBuilderFn) const;
   mlir::KrnlIterateOp iterate(
       const krnl::KrnlIterateOperandPack &operands) const;
 
@@ -75,6 +81,14 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::function_ref<void(
           KrnlBuilder &createKrnl, mlir::ValueRange indices)>
           bodyBuilderFn) const;
+  mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
+      mlir::ArrayRef<IndexExpr> ubs, mlir::ValueRange inits,
+      mlir::function_ref<void(
+          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
+          bodyBuilderFn) const;
+
+  void yield(mlir::ValueRange iterArgs) const;
 
   void copyToBuffer(
       // Buffer and source memory. Source memref may have a higher rank than
