@@ -13,13 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/BuiltinTypes.h"
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "llvm/ADT/ArrayRef.h"
 #include <src/Dialect/Mlir/IndexExpr.hpp>
 
 using namespace mlir;
@@ -32,35 +29,37 @@ class ONNXDequantizeLinearOpLoweringToTOSA
     : public OpConversionPattern<ONNXDequantizeLinearOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
-  LogicalResult matchAndRewrite(ONNXDequantizeLinearOp op, OpAdaptor,
+  LogicalResult matchAndRewrite(ONNXDequantizeLinearOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     Value x = op.getX();
-    ArrayRef<int64_t> inputShape = cast<TensorType>(x.getType()).getShape();
-    Value x_scale = op.getXScale();
-    Value x_zero_point = op.getXZeroPoint();
-    Type resultType = op.getResult().getType();
-    // Axis attribute is ignored for per-tensor quantization, which is the only
-    // one handled for the moment, so there is no need to look at this
-    // attribute. If x_scale is an array, it means it is trying to run per
-    // element quantization, which is not supported.
-    if (cast<TensorType>(x_scale.getType()).getRank() >= 1) {
+    auto resultType = dyn_cast_if_present<ShapedType>(
+        getTypeConverter()->convertType(op.getResult().getType()));
+    if (!resultType) {
       return rewriter.notifyMatchFailure(
-          op, "Only per-tensor quantization is handled.");
+          loc, "expected valid tensor result type");
     }
 
-    // Since tosa.sub and tosa.mul don't allow different ranks, get the value
-    // from the constants, and create a constant of the same rank as the input
-    // out of it in order to have a correct sub and mul.
-    mlir::ElementsAttr zeroPoint = tosa::getElementsAttrFromConst(x_zero_point);
-    auto zpValue = zeroPoint.getValues<int8_t>()[0];
-    auto zpConst =
-        tosaBuilder.getSplattedConst<int8_t>(zpValue, inputShape.size());
-    mlir::ElementsAttr scaleFactor = tosa::getElementsAttrFromConst(x_scale);
-    auto scaleFactorValue = scaleFactor.getValues<float>()[0];
-    auto scaleFactorConst = tosaBuilder.getSplattedConst<float>(
-        scaleFactorValue, inputShape.size());
+    if (auto zpTy = dyn_cast<ShapedType>(adaptor.getXZeroPoint().getType());
+        !zpTy.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(
+          loc, "expected zero point to have static shape");
+    }
+
+    if (auto zpTy = dyn_cast<ShapedType>(adaptor.getXScale().getType());
+        !zpTy.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(
+          loc, "expected scale to have static shape");
+    }
+
+    // Since tosa.add and tosa.mul don't allow different ranks, get the value
+    // from the constants, and create a new constant of the same rank as the
+    // input out of it in order to have a correct add and mul.
+    auto zpConst = tosa::expandShape(rewriter, loc, adaptor.getXZeroPoint(),
+        op.getAxis(), resultType.getRank());
+    auto scaleFactorConst = tosa::expandShape(
+        rewriter, loc, adaptor.getXScale(), op.getAxis(), resultType.getRank());
 
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
@@ -84,7 +83,7 @@ public:
 void populateLoweringONNXDequantizeLinearOpToTOSAPattern(
     ConversionTarget &target, RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXDequantizeLinearOpLoweringToTOSA>(ctx);
+  patterns.insert<ONNXDequantizeLinearOpLoweringToTOSA>(typeConverter, ctx);
 }
 
 } // namespace onnx_mlir

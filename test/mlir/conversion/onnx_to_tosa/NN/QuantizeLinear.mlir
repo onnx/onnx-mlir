@@ -15,3 +15,23 @@ func.func @test_quantizeLinear(%arg0 : tensor<32x3x224x224xf32>) -> tensor<32x3x
 // CHECK-DAG:    %[[ADD:.*]] = tosa.add %[[CAST]], %[[ZP]] : (tensor<32x3x224x224xi8>, tensor<1x1x1x1xi8>) -> tensor<32x3x224x224xi8>
 // CHECK-DAG:    return %[[ADD]] : tensor<32x3x224x224xi8>
 
+// -----
+
+func.func @test_quantizeLinear_per_axis(%arg0: tensor<8x2xf32>) -> tensor<8x2xi8> {
+  %0 = onnx.Constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
+  %1 = onnx.Constant dense<[0, 1]> : tensor<2xi8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1)
+    {axis = 1 : si64,
+     saturate = 1 : si64} : (tensor<8x2xf32>, tensor<2xf32>, tensor<2xi8>) -> tensor<8x2xi8>
+  return %2 : tensor<8x2xi8>
+}
+// CHECK-LABEL:   func.func @test_quantizeLinear_per_axis(
+// CHECK-SAME:                                            %[[VAL_0:.*]]: tensor<8x2xf32>) -> tensor<8x2xi8> {
+// CHECK:           %[[VAL_1:.*]] = "tosa.const"() <{value = dense<{{\[\[}}0, 1]]> : tensor<1x2xi8>}> : () -> tensor<1x2xi8>
+// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<{{\[\[}}1.000000e+00, 2.000000e+00]]> : tensor<1x2xf32>}> : () -> tensor<1x2xf32>
+// CHECK:           %[[VAL_3:.*]] = tosa.reciprocal %[[VAL_2]] : (tensor<1x2xf32>) -> tensor<1x2xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_0]], %[[VAL_3]] {shift = 0 : i8} : (tensor<8x2xf32>, tensor<1x2xf32>) -> tensor<8x2xf32>
+// CHECK:           %[[VAL_5:.*]] = tosa.cast %[[VAL_4]] : (tensor<8x2xf32>) -> tensor<8x2xi8>
+// CHECK:           %[[VAL_6:.*]] = tosa.add %[[VAL_5]], %[[VAL_1]] : (tensor<8x2xi8>, tensor<1x2xi8>) -> tensor<8x2xi8>
+// CHECK:           return %[[VAL_6]] : tensor<8x2xi8>
+// CHECK:         }

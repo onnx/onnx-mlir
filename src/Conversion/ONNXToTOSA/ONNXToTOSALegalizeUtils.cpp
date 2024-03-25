@@ -131,5 +131,16 @@ mlir::Value buildOnnxToTosaPaddingConstOp(mlir::PatternRewriter &rewriter,
   return tosaBuilder.getConst(tosaPads, {numberOfDims, 2});
 }
 
+mlir::Value expandShape(mlir::PatternRewriter &rewriter, mlir::Location loc,
+    mlir::Value tensor, size_t axis, size_t rank) {
+  auto inTy = cast<ShapedType>(tensor.getType());
+  llvm::SmallVector<int64_t> newShape(rank, 1);
+  newShape[axis] = inTy.getNumElements();
+  auto resultTy = RankedTensorType::get(newShape, inTy.getElementType());
+
+  return rewriter.createOrFold<mlir::tosa::ReshapeOp>(
+      loc, resultTy, tensor, newShape);
+}
+
 } // namespace tosa
 } // namespace onnx_mlir
