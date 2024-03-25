@@ -651,35 +651,7 @@ static void removeOps(llvm::SmallPtrSetImpl<Operation *> &opsToErase) {
 static LogicalResult interpretOperation(Operation *op, OpBuilder &builder,
     llvm::SmallDenseMap<Value, Operation *, 4> &loopRefToOp,
     llvm::SmallPtrSetImpl<Operation *> &opsToErase, LoopBodyMover &mover) {
-  // Make sure define loop lowered first, so the iterateOp which create
-  // affine.for can be lowered first.
-  // This is because the affine.for created by iterateOp will be used by
-  // the blockOp and permuteOp and the nested iterateOp.
-  if (auto defineOp = dyn_cast_or_null<KrnlDefineLoopsOp>(op)) {
-    LLVM_DEBUG(llvm::dbgs()
-               << DEBUG_TYPE << " interpret define op " << defineOp << "\n");
-    // Collect users of defineLoops operations that are iterate operations.
-    std::vector<KrnlIterateOp> iterateOps;
-    for (auto result : op->getResults())
-      for (auto *user : result.getUsers())
-        if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(user))
-          if (std::find(iterateOps.begin(), iterateOps.end(), iterateOp) ==
-              iterateOps.end())
-            iterateOps.push_back(dyn_cast<KrnlIterateOp>(user));
 
-    // Lower iterate operations and record the mapping between loop references
-    // and affine for loop operations in loopRefToOp map.
-    if (!iterateOps.empty()) {
-      for (auto opToLower : iterateOps) {
-        if (opsToErase.count(opToLower) == 0) {
-          lowerIterateOp(opToLower, builder, loopRefToOp);
-          opsToErase.insert(opToLower);
-        }
-      }
-    }
-    opsToErase.insert(op);
-    return success();
-  }
   // Recursively interpret nested operations.
   for (auto &region : op->getRegions())
     for (auto &block : region.getBlocks()) {
@@ -891,6 +863,40 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   // only erase after iteration completes.
   llvm::SmallDenseMap<Value, Operation *, 4> loopRefToOp;
   llvm::SmallPtrSet<Operation *, 4> opsToErase;
+
+  // Lower `define_loops` first.
+  // This is will make sure affine.for created for all the defined loops first.
+  // Later when lower things like nested iteratorOp and blockOp, these
+  // affine.for will be ready to use.
+  funcOp->walk([&](KrnlDefineLoopsOp defineOp) {
+    // Make sure define loop lowered first, so the iterateOp which create
+    // affine.for can be lowered first.
+    // This is because the affine.for created by iterateOp will be used by
+    // the blockOp and permuteOp and the nested iterateOp.
+    LLVM_DEBUG(llvm::dbgs()
+               << DEBUG_TYPE << " interpret define op " << defineOp << "\n");
+    // Collect users of defineLoops operations that are iterate operations.
+    std::vector<KrnlIterateOp> iterateOps;
+    for (auto result : defineOp.getResults())
+      for (auto *user : result.getUsers())
+        if (auto iterateOp = dyn_cast_or_null<KrnlIterateOp>(user))
+          if (std::find(iterateOps.begin(), iterateOps.end(), iterateOp) ==
+              iterateOps.end())
+            iterateOps.push_back(dyn_cast<KrnlIterateOp>(user));
+
+    // Lower iterate operations and record the mapping between loop references
+    // and affine for loop operations in loopRefToOp map.
+    if (!iterateOps.empty()) {
+      for (auto opToLower : iterateOps) {
+        if (opsToErase.count(opToLower) == 0) {
+          lowerIterateOp(opToLower, builder, loopRefToOp);
+          opsToErase.insert(opToLower);
+        }
+      }
+    }
+    opsToErase.insert(defineOp);
+  });
+
   if (failed(interpretOperation(
           funcOp, builder, loopRefToOp, opsToErase, mover))) {
     signalPassFailure();
