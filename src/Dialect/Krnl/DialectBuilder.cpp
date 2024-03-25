@@ -300,13 +300,6 @@ void KrnlBuilder::printf(
   KrnlBuilder::printf(msg, input.getValue(), endsWithNewLine);
 }
 
-#if 0 // hi alex
-void KrnlBuilder::printf(Value input, Type inputType) const {
-  StringRef format = getFormat(inputType);
-  b().create<KrnlPrintOp>(loc(), format, input);
-}
-#endif
-
 // =============================================================================
 // IndexExpr Builder for Analysis
 // =============================================================================

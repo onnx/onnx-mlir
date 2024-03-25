@@ -966,7 +966,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           DimsExpr ubs2 = {litM, litN, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
           // Analysis of assembly showed that the inner loop was fully unrolled.
-          fprintf(stderr, "HI ALEX, first affine IE\n");
+          create.krnl.printf("HI ALEX, first affine IE\n");
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
