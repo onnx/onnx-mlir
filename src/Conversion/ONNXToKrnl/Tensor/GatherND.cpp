@@ -38,7 +38,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     int64_t n = (int64_t)indices.size();
     for (int64_t i = 0; i < n; ++i) {
       Value val = indices[i].getValue();
-      createKrnl.printf(" ", val, val.getType());
+      createKrnl.printf(" ", val);
     }
     createKrnl.printf(")\n");
   }
@@ -173,7 +173,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
             reshapedIndicesAccessFct.pop_back();
 
             if (emitPrintStmts) {
-              createKrnl.printf("index = ", indexVal, indexVal.getType());
+              createKrnl.printf("index = ", indexVal);
               createKrnl.printf("\n");
             }
 
@@ -231,7 +231,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
                   reshapedDataAccessFct.pop_back();
 
                   if (emitPrintStmts) {
-                    createKrnl.printf("val = ", val, val.getType());
+                    createKrnl.printf("val = ", val);
                     createKrnl.printf("\n");
                   }
 

@@ -150,7 +150,7 @@ struct ONNXCategoryMapperOpLowering
           Value inputElem =
               loadElement(X, loopInd, elementType, rank, createKrnl);
           if (emitPrintStmts)
-            create.krnl.printf("inputElem: ", inputElem, elementType);
+            create.krnl.printf("inputElem: ", inputElem);
 
           Value index, isIndexValid;
           std::tie(index, isIndexValid) =
@@ -158,7 +158,7 @@ struct ONNXCategoryMapperOpLowering
                   constantForCatsInt64s, constantForCatsStrings, create);
 
           if (emitPrintStmts)
-            create.krnl.printf("index: ", index, index.getType());
+            create.krnl.printf("index: ", index);
 
           // Store the final result.
           scf::IfOp ifOp = rewriter.create<scf::IfOp>(
