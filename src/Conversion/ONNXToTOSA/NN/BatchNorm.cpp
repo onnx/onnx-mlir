@@ -35,9 +35,8 @@ public:
     // normalization, the C dimension is kept. The new shape should be {1, C, 1,
     // 1, ...}.
     SmallVector<int64_t> newShape = {1, outTensorType.getShape()[1]};
-    for (auto i = 2; i < outTensorType.getRank(); i++) {
+    for (auto i = 2; i < outTensorType.getRank(); i++)
       newShape.push_back(1);
-    }
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     Value input = op.getX();
