@@ -415,22 +415,26 @@ void IndexExprImpl::getAffineMapAndOperands(
   }
   // Handle affine cases.
   if (isAffine()) {
+    fprintf(stderr, "hi alex, has an affine\n");
     // Important to get the affine expressions before getting the dims/symbols.
     getAffineExpr();
     map = AffineMap::get(getScope().getNumDims(), getScope().getNumSymbols(),
         {affineExpr}, getRewriter().getContext());
     getScope().getDimAndSymbolList(operands);
+    map.dump();
     return;
   }
   // Non Affine, check if by any chance we have a min / max, in which case we
   // will extract the correct info.
   if (auto affineMinOp = getValue().getDefiningOp<affine::AffineMinOp>()) {
+    fprintf(stderr, "hi alex, has a min\n");
     map = affineMinOp.getAffineMap();
     for (Value val : affineMinOp.getMapOperands())
       operands.emplace_back(val);
     return;
   }
   if (auto affineMaxOp = getValue().getDefiningOp<affine::AffineMaxOp>()) {
+    fprintf(stderr, "hi alex, has a max\n");
     map = affineMaxOp.getAffineMap();
     for (Value val : affineMaxOp.getMapOperands())
       operands.emplace_back(val);

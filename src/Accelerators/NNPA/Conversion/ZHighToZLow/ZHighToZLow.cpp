@@ -958,7 +958,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
           DimsExpr outerIndices;
-          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          getIndexExprList<DimIndexExpr>(loopInd, outerIndices);
           // Create buffer [N][M][64] (for parallel, must be inside loop).
           Value buffer = create.mem.alignedAlloc(bufferType, {});
           // Iterate over M, N, and 64. Manage iterations explicitly.
@@ -966,12 +966,13 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           DimsExpr ubs2 = {litM, litN, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
           // Analysis of assembly showed that the inner loop was fully unrolled.
+          fprintf(stderr, "hi alex, first affine IE\n");
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymbolIndexExpr m(loopInd[0]), n(loopInd[1]), l(loopInd[2]);
+                DimIndexExpr m(loopInd[0]), n(loopInd[1]), l(loopInd[2]);
                 getIndexExprList<SymbolIndexExpr>(outerIndices, inputAF);
                 // Translate the tile index t1 to the actual targetted data: e1
                 // => 64 (e1+m). Don't use n & l in inputAF as we are mapping a
@@ -996,6 +997,43 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
               });
+#if 0
+          fprintf(stderr, "hi alex, before krnl iterate\n");
+          create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
+              [&](KrnlBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                DimsExpr outputAF;
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                fprintf(stderr, "hi alex, inside krnl iterate\n");
+                DimIndexExpr e2(loopInd[0]), t1(loopInd[1]);
+                getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                IndexExpr n = e2 - outputAF[E2];
+                IndexExpr m = t1 - outputAF[E1];
+                IndexExpr min = m * 64;
+                IndexExpr max = m + 64;
+                // IndexExpr max2 = SymbolIndexExpr(outputDims[E1]);
+                // IndexExpr max = IndexExpr::max(max1, max2);
+                fprintf(stderr, "hi alex, before create affine for ie\n");
+                create.affine.forIE (min, max, 1,
+                    [&](AffineBuilder &b, ValueRange loopInd) {
+                      MDBuilder create(b);
+#if 0
+                      DimsExpr outputAF;
+                      IndexExprScope innermostScope(create.krnl, &innerScope);
+                      getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                      DimIndexExpr e1(loopInd[0]);
+                      IndexExpr mm = SymbolIndexExpr(m);
+                      IndexExpr nn = SymbolIndexExpr(n);
+                      outputAF[E1] = e1;
+                      IndexExpr ll = e1 - SymbolIndexExpr(min);
+                      DimsExpr bufferAF = {nn, mm, ll};
+                      Value t = create.krnl.loadIE(buffer, bufferAF);
+                      create.krnl.storeIE(t, alloc, outputAF);
+#endif
+                    });
+              });
+
+#else
           // Perform copy: E2 Tiled by N (inside tile by M); will copy here
           // chunks of m * 64 values for a given n.
           create.krnl.iterate({}, {tiledDefE2[1]}, {}, {},
@@ -1003,7 +1041,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 MDBuilder create(b);
                 DimsExpr outputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymbolIndexExpr e2(loopInd[0]);
+                DimIndexExpr e2(loopInd[0]);
                 getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
                 // Compute n, the current m * 64 tile being processed by this
                 // inner loop.
@@ -1028,6 +1066,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.krnl.memcpy(alloc, buffer, numVal, allocOffset,
                     bufferOffset.getValue());
               });
+#endif
         });
     rewriter.replaceOp(op, alloc);
     return success();
