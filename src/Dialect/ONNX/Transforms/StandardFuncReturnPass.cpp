@@ -16,8 +16,8 @@
 #include "mlir/Transforms/Passes.h"
 
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
 

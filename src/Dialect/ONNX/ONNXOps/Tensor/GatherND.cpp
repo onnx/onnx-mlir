@@ -50,6 +50,8 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
   assert(b >= 0 && "batch_dim should not be negative");
   assert(b < std::min(dataRank, indicesRank) &&
          "batch_dims must be smaller than the min(dataRank, indicesRank)");
+  // ToFix: Handle the case when indicesLastDim is dynamic and the rank
+  // of output tensor is known.
   assert((indicesLastDim >= 1 && indicesLastDim <= dataRank - b) &&
          "indices.shape[-1] must be in the range [1, dataRank - b]");
 

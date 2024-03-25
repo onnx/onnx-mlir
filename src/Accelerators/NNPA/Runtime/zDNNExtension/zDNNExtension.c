@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +57,33 @@ static bool ZTensorSplitDebugFromEnv() {
   if (s)
     enabled = atoi(s);
   return enabled;
+}
+
+// malloc_aligned_4k is from zdnn.
+static void *malloc_aligned_4k(size_t size) {
+  // Request one more page + size of a pointer from the OS.
+  unsigned short extra_allocation =
+      (AIU_PAGESIZE_IN_BYTES - 1) + sizeof(void *);
+
+  // Make sure size is reasonable.
+  if (!size || size > SIZE_MAX) {
+    return NULL;
+  }
+
+  void *ptr = malloc(size + extra_allocation);
+  if (!ptr) {
+    perror("Error during malloc");
+    fprintf(stderr, "errno = %d\n", errno);
+    return ptr;
+  }
+
+  // Find the 4k boundary after ptr.
+  void *aligned_ptr = (void *)(((uintptr_t)ptr + extra_allocation) &
+                               ~(AIU_PAGESIZE_IN_BYTES - 1));
+  // Put the original malloc'd address right before aligned_ptr.
+  ((void **)aligned_ptr)[-1] = ptr;
+
+  return aligned_ptr;
 }
 
 void zDNNExtensionInit() {
@@ -103,27 +131,53 @@ static void getMappedShape(const zdnn_ztensor *t, MappedShape *shape) {
                          (uint64_t)shape->d2 * (uint64_t)shape->d1 *
                          (uint64_t)AIU_2BYTE_CELL_SIZE;
   uint64_t sizeFromBuffer = t->buffer_size;
-  assert(sizeFromDim == sizeFromBuffer && "buffer size mismatched");
+  if (sizeFromDim != sizeFromBuffer)
+    assert(false && "buffer size mismatched");
 }
 
 static uint32_t getMappedNumOfElemsPerTile(const SplitInfo *splitInfo) {
   // Mapping: (e4, e3, e2, e1) -> (e4, e1/64, e3, e2/32, 32, 64)
   switch (splitInfo->axis) {
-  case E4:
+  case (E4):
     return splitInfo->numOfElemsPerTile;
-  case E3:
+  case (E3):
     return splitInfo->numOfElemsPerTile;
-  case E2:
+  case (E2):
     return CEIL(splitInfo->numOfElemsPerTile, AIU_STICKS_PER_PAGE);
-  case E1:
+  case (E1):
     return CEIL(splitInfo->numOfElemsPerTile, AIU_2BYTE_CELLS_PER_STICK);
-  default:
-    omUnreachable();
   }
+  omUnreachable();
   return 0;
 }
 
-zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
+uint32_t getMDIS() { return zdnn_get_nnpa_max_dim_idx_size(); }
+
+zdnn_ztensor *getTile(const SplitInfo *splitInfo, uint32_t tileID) {
+  return splitInfo->tiles + tileID;
+}
+
+uint32_t getNumOfTiles(const SplitInfo *splitInfo) {
+  return splitInfo->numOfTiles;
+}
+
+zdnn_status allocTileBuffer(zdnn_ztensor *tile) {
+  if (!(tile->buffer = malloc_aligned_4k(tile->buffer_size)))
+    return ZDNN_ALLOCATION_FAILURE;
+  return ZDNN_OK;
+}
+
+void freeTileBuffer(zdnn_ztensor *tile) {
+  if (tile->buffer)
+    zdnn_free_ztensor_buffer(tile);
+}
+
+void *getTileBuffer(zdnn_ztensor *tile) { return tile->buffer; }
+
+void setTileBuffer(zdnn_ztensor *tile, void *buffer) { tile->buffer = buffer; }
+
+zdnn_status initTile(
+    const SplitInfo *splitInfo, uint32_t tileID, bool allocBuffer) {
   const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
 
   SplitAxis axis = splitInfo->axis;
@@ -223,11 +277,16 @@ zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
   if (status != ZDNN_OK)
     return status;
 
+  // Initialize the tile.
+  zdnn_init_ztensor(preTransDesc, transDesc, tile);
+
+  // The tile is already transformed.
+  tile->is_transformed = true;
+
+  // Set a buffer size for the tile.
+  tile->buffer_size = zdnn_getsize_ztensor(transDesc);
   if (splitInfo->reuseFullBuffer) {
     // No need to alloc buffers if reuseFullZTensor.
-    zdnn_init_ztensor(preTransDesc, transDesc, tile);
-    // Set a buffer size for the tile.
-    tile->buffer_size = zdnn_getsize_ztensor(transDesc);
     // Set a buffer for the tile.
     // All tiles except the last one have the same buffer size.
     // The offset for the last tile is simple "totalSize - lastSize".
@@ -240,27 +299,26 @@ zdnn_status initTileWithAlloc(const SplitInfo *splitInfo, uint32_t tileID) {
     assert(
         ((reuseBufferOffset + tile->buffer_size) <= fullZTensor->buffer_size) &&
         "Tile buffer is outside the original buffer");
-    status = ZDNN_OK;
-  } else {
-    // Init a zTensor with malloc.
-    status = zdnn_init_ztensor_with_malloc(preTransDesc, transDesc, tile);
+    return ZDNN_OK;
   }
-  tile->is_transformed = true;
 
-  return status;
+  if (allocBuffer)
+    return allocTileBuffer(tile);
+
+  return ZDNN_OK;
 }
 
 void freeTileData(const SplitInfo *splitInfo, uint32_t tileID) {
-  zdnn_ztensor *t = splitInfo->tiles + tileID;
+  zdnn_ztensor *tile = splitInfo->tiles + tileID;
   // Free the tile buffer if it has its own buffer.
   if (!splitInfo->reuseFullBuffer)
-    zdnn_free_ztensor_buffer(t);
+    freeTileBuffer(tile);
   // Free the tile descriptors it has its own ztensor.
   if (!splitInfo->reuseFullZTensor) {
     // We allocated one buffer for both two descriptors, so just one free is
     // enought.
-    if (t->pre_transformed_desc)
-      free(t->pre_transformed_desc);
+    if (tile->pre_transformed_desc)
+      free(tile->pre_transformed_desc);
   }
 }
 
@@ -461,20 +519,16 @@ static void copyDataForTileScalar(
   return;
 }
 
-bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
-  // Check required information.
-  assert((splitInfo->axis == E1 || splitInfo->axis == E2 ||
-             splitInfo->axis == E3 || splitInfo->axis == E4) &&
-         "Invalid split axis");
-  assert(splitInfo->fullZTensor && "The full ztensor is null");
-  assert(splitInfo->numOfElemsPerTile && "numOfElemsPerTile was not set");
-
-  // fullZTensor.
-  const zdnn_ztensor *fullZTensor = splitInfo->fullZTensor;
-  zdnn_data_layouts layout = fullZTensor->transformed_desc->layout;
+bool initSplitInfo(SplitInfo *splitInfo, const zdnn_ztensor *fullZTensor,
+    SplitAxis axis, uint32_t numOfElemsPerTile, bool allocTileBuffers,
+    const char *tag) {
+  splitInfo->axis = axis;
+  splitInfo->fullZTensor = fullZTensor;
+  splitInfo->numOfElemsPerTile = numOfElemsPerTile;
 
   // Splitting has not yet been supported for the following cases, so redirect
   // to the original zdnn function by setting splitInfo->numOfTiles = 1.
+  zdnn_data_layouts layout = fullZTensor->transformed_desc->layout;
   bool isNotSupported = (layout == ZDNN_FICO) || (layout == ZDNN_BIDIR_ZRH) ||
                         (layout == ZDNN_BIDIR_FICO) || (layout == ZDNN_ZRH) ||
                         (layout == ZDNN_4DS);
@@ -484,7 +538,7 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
     splitInfo->numOfTiles = 1;
   else {
     uint32_t totalNumOfElems = getUnmappedDim(fullZTensor, splitInfo->axis);
-    splitInfo->numOfTiles = CEIL(totalNumOfElems, splitInfo->numOfElemsPerTile);
+    splitInfo->numOfTiles = CEIL(totalNumOfElems, numOfElemsPerTile);
   }
 
   // reuseFullZTensor.
@@ -492,7 +546,7 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
     // No split benefit.
     splitInfo->reuseFullZTensor = true;
     splitInfo->reuseFullBuffer = true;
-    splitInfo->tiles = fullZTensor;
+    splitInfo->tiles = (zdnn_ztensor *)fullZTensor;
     if (OMZTensorSplitDebug)
       printSplitInfo(splitInfo, tag);
     return false;
@@ -502,7 +556,7 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
   // reuseFullBuffer.
   // (e4, e3, e2, e1) -> (d6=e4, d5=e1/64, d4=e3, d3=e2/32, d2=32, d1=64)
   splitInfo->reuseFullBuffer = false;
-  if (splitInfo->axis == E4) {
+  if (axis == E4) {
     // Always reuse if splitting on e4 (batchsize).
     splitInfo->reuseFullBuffer = true;
   } else {
@@ -510,15 +564,15 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
     MappedShape shapeOfFull;
     getMappedShape(splitInfo->fullZTensor, &shapeOfFull);
     if (shapeOfFull.d6 == 1) {
-      if (splitInfo->axis == E1) {
+      if (axis == E1) {
         splitInfo->reuseFullBuffer = true;
       } else {
         if (shapeOfFull.d5 == 1) {
-          if (splitInfo->axis == E3) {
+          if (axis == E3) {
             splitInfo->reuseFullBuffer = true;
           } else {
             if (shapeOfFull.d4 == 1) {
-              if (splitInfo->axis == E2)
+              if (axis == E2)
                 splitInfo->reuseFullBuffer = true;
             }
           }
@@ -531,11 +585,10 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
   splitInfo->tiles = malloc(splitInfo->numOfTiles * sizeof(zdnn_ztensor));
   assert(splitInfo->tiles && "Failed to allocate tile ztensors");
 
-  if (initTiles) {
-    for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
-      zdnn_status status = initTileWithAlloc(splitInfo, i);
-      assert(status == ZDNN_OK && "Failed to initialize a tile");
-    }
+  for (uint32_t i = 0; i < splitInfo->numOfTiles; ++i) {
+    zdnn_status status = initTile(splitInfo, i, allocTileBuffers);
+    if (status != ZDNN_OK)
+      assert(false && "Failed to initialize a tile");
   }
 
   if (OMZTensorSplitDebug)
@@ -544,7 +597,7 @@ bool initSplitInfo(SplitInfo *splitInfo, bool initTiles, const char *tag) {
   return true;
 }
 
-void FreeSplitInfoData(SplitInfo *splitInfo) {
+void freeSplitInfoData(SplitInfo *splitInfo) {
   if (splitInfo->reuseFullZTensor)
     return;
 

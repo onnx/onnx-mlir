@@ -249,6 +249,9 @@ class RankXMinusRankYIs<int diff>: Constraint<
 def TransposeVariadicInput: NativeCodeCall<
   "onnx_mlir::transposeVariadicInput($_builder, $_loc, $0, $1)">;
 
+def CastVariadicInput: NativeCodeCall<
+  "onnx_mlir::castVariadicInput($_builder, $_loc, $0, $1, $2)">;
+
 // Check whether two variables are equal.
 def Equal: Constraint<CPred<"$0 == $1">, "are equal">;
 
@@ -448,6 +451,21 @@ def CastEliminationPattern : Pat<
 //def FuseCastCastPattern : Pat<
 //  (ONNXCastOp (ONNXCastOp $arg, $_), $type),
 //  (ONNXCastOp $arg, $type)>;
+
+// Do cast on concat's inputs instead of output in order to propagate
+// cast operations together, which brings concat close to reshape
+// because concat is used for shape in reshape.
+def SwapCastConcatPattern: Pat<
+  (ONNXCastOp (ONNXConcatOp $inputs, $axis), $saturate, $to),
+  (ONNXConcatOp (CastVariadicInput $inputs, $saturate, $to), $axis)
+>;
+
+// Do cast on slice's inputs instead of output in order to propagate
+// cast operations together, which brings slice close to reshape.
+def SwapCastSlicePattern: Pat<
+  (ONNXCastOp (ONNXSliceOp $data, $starts, $ends, $axes, $steps), $saturate, $to),
+  (ONNXSliceOp (ONNXCastOp $data, $saturate, $to), $starts, $ends, $axes, $steps)
+>;
 
 //===----------------------------------------------------------------------===//
 // Canonicalization for ONNXLayoutTransformOp
