@@ -56,13 +56,24 @@ public:
           loc, "expected scale to have static shape");
     }
 
+    if (!op.getSaturate()) {
+      return rewriter.notifyMatchFailure(loc, "Only saturate=1 is supported");
+    }
+
+    int64_t axis = op.getAxis();
+    if (axis < -resultType.getRank() || axis >= resultType.getRank()) {
+      return rewriter.notifyMatchFailure(loc, "axis is invalid");
+    }
+    if (axis < 0)
+      axis += resultType.getRank();
+
     // Since tosa.add and tosa.mul don't allow different ranks, get the value
     // from the constants, and create a new constant of the same rank as the
     // input out of it in order to have a correct add and mul.
-    auto zpConst = tosa::expandShape(rewriter, loc, adaptor.getYZeroPoint(),
-        op.getAxis(), resultType.getRank());
+    auto zpConst = tosa::expandShape(
+        rewriter, loc, adaptor.getYZeroPoint(), axis, resultType.getRank());
     auto scaleFactorConst = tosa::expandShape(
-        rewriter, loc, adaptor.getYScale(), op.getAxis(), resultType.getRank());
+        rewriter, loc, adaptor.getYScale(), axis, resultType.getRank());
 
     // Quantization formula is ((x / y_scale) + y_zero_point)
     // Replace the division by a reciprocal followed by a mul

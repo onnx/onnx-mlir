@@ -35,3 +35,16 @@ func.func @test_quantizeLinear_per_axis(%arg0: tensor<8x2xf32>) -> tensor<8x2xi8
 // CHECK:           %[[VAL_6:.*]] = tosa.add %[[VAL_5]], %[[VAL_1]] : (tensor<8x2xi8>, tensor<1x2xi8>) -> tensor<8x2xi8>
 // CHECK:           return %[[VAL_6]] : tensor<8x2xi8>
 // CHECK:         }
+
+// -----
+
+func.func @test_quantizeLinear_negative_axis(%arg0: tensor<8x2xf32>) -> tensor<8x2xi8> {
+  %0 = onnx.Constant dense<2.000000e+00> : tensor<8xf32>
+  %1 = onnx.Constant dense<1> : tensor<8xi8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1)
+    {axis = -2 : si64,
+     saturate = 1 : si64} : (tensor<8x2xf32>, tensor<8xf32>, tensor<8xi8>) -> tensor<8x2xi8>
+  return %2 : tensor<8x2xi8>
+}
+// CHECK-LABEL: test_quantizeLinear_negative_axis
+// CHECK: "tosa.const"() {{.*}} : tensor<8x1xi8>
