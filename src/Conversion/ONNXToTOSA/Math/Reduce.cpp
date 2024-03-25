@@ -61,6 +61,8 @@ DenseIntElementsAttr getAxesLatestsVersionAttr(ONNXReduceOp op) {
     auto axesValues =
         tosa::getElementsAttrFromConst(axesValue).getValues<int64_t>();
     targetAxes = SmallVector<int64_t>(axesValues.begin(), axesValues.end());
+  } else {
+    return {};
   }
 
   const int64_t numTargetAxes = targetAxes.size();
@@ -156,7 +158,9 @@ LogicalResult reduceMeanLowering(ONNXReduceMeanOp op,
     ConversionPatternRewriter &rewriter) {
   typename ONNXReduceMeanOp::Adaptor adaptor(op);
   auto newAxesAttr = getAxesLatestsVersionAttr(op);
-
+  if (!newAxesAttr) {
+    return rewriter.notifyMatchFailure(op, "cannot convert with dynamic axis");
+  }
   // reduce_mean is lowered as followed:
   // op1 = reduce_sum(input)
   // op2 = mul(op1, 1.0 / num_elements_on_reduced_axis)

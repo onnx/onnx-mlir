@@ -297,6 +297,9 @@ std::optional<Value> convertReduceOpCommon(PatternRewriter &rewriter,
   if (!input_type)
     return std::nullopt;
 
+  if (!axes_elems)
+    return std::nullopt;
+
   ArrayRef<int64_t> input_shape = input_type.getShape();
   ArrayRef<int64_t> output_shape = output_type.getShape();
   auto input_rank = input_shape.size();

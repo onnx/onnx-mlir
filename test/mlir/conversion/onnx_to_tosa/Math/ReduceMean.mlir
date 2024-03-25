@@ -87,3 +87,12 @@ func.func @test_reducemeanV13(%arg0: tensor<1x32x112x112xf32>) -> tensor<1x32x1x
 // CHECK:           [[VAR_3_:%.+]] = tosa.mul [[VAR_1_]], [[VAR_2_]] {shift = 0 : i8} : (tensor<1x32x1x1xf32>, tensor<1x1x1x1xf32>)
 // CHECK:           return [[VAR_3_]] : tensor<1x32x1x1xf32>
 }
+
+// -----
+
+func.func @non_constant_axis(%arg0: tensor<3x2x2xf32>, %arg1: tensor<1xi64>) -> tensor<3x2xf32> {
+  %0 = "onnx.ReduceMean"(%arg0, %arg1) {keepdims = 0 : si64} : (tensor<3x2x2xf32>, tensor<1xi64>) -> tensor<3x2xf32>
+  return %0 : tensor<3x2xf32>
+}
+// CHECK-LABEL: non_constant_axis
+// CHECK: onnx.ReduceMean
