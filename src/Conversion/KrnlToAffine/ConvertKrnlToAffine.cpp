@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
@@ -313,6 +314,8 @@ static void markLoopBodyAsMovable(
 
     // Delimeter ops are delimeter of a movable chunk of code.
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
+    for (auto op : block.getOps<scf::IfOp>())
+      delimeterOps.push_back(op);
     delimeterOps.push_back(block.getTerminator());
     Operation *movableBeginOp = &block.front();
     for (Operation *delimeterOp : delimeterOps) {
