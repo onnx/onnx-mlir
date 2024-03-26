@@ -837,6 +837,8 @@ void populateKrnlToAffineConversion(TypeConverter &typeConverter,
   krnl::populateLoweringKrnlCopyToBufferOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlLoadOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlStoreOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlGetLinearOffsetIndexOpPattern(
+      typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMatmultOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemsetOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlTerminatorOpPattern(typeConverter, patterns, ctx);

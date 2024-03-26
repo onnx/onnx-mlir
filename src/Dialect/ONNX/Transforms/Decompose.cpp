@@ -4,7 +4,7 @@
 
 //===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -90,7 +90,7 @@ DenseElementsAttr createScalarDenseAttr(
   if (attr.dyn_cast<IntegerAttr>()) {
     Type elementType = rewriter.getIntegerType(64);
     SmallVector<int64_t, 1> wrapper;
-    wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
+    wrapper.emplace_back(attr.cast<IntegerAttr>().getSInt());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
@@ -818,6 +818,9 @@ struct InstanceNormIntoLayerNormPattern
     // Create output using layer norm.
     Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
         instanceNormOp.getEpsilonAttr());
+    // Set the type of the output to be the same as the output of the original
+    // operation we are trying to replace.
+    Y.setType(instanceNormOp.getResult().getType());
     // Replace operation.
     rewriter.replaceOp(instanceNormOp, Y);
     return success();
@@ -906,6 +909,9 @@ struct GroupNormIntoLayerNormPattern
     Value inputShape = create.onnx.shape(inputShapeType, input);
     Type outputType = groupNormOp.getY().getType();
     Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
+    // Set the type of the output to be the same as the output of the original
+    // operation we are trying to replace.
+    Y.setType(groupNormOp.getResult().getType());
     // Replace operation.
     rewriter.replaceOp(groupNormOp, Y);
     return success();
@@ -983,6 +989,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
+  target.addIllegalOp<ONNXDFTV17Op>();
   target.addIllegalOp<ONNXGroupNormalizationOp>();
   target.addIllegalOp<ONNXInstanceNormalizationOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();

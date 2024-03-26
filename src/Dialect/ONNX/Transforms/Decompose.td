@@ -2,7 +2,7 @@
 
 //===- ONNXDecompose.td - Rewriting for decomposing ONNX Ops -*- tablegen -===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -352,6 +352,11 @@ def ClipV11Pattern : Pat<
 def ClipV12Pattern : Pat<
   (ONNXClipV12Op $x, $min, $max),
   (ONNXClipOp $x, $min, $max)
+>;
+
+def DFTV17Pattern : Pat<
+  (ONNXDFTV17Op $x, $dft_length, $axis, $inverse, $onesided),
+  (ONNXDFTOp $x, $dft_length, (ONNXConstantOpFromDenseAttr(createScalarDenseAttrRank0 $axis)), $inverse, $onesided)
 >;
 
 def SplitV11PatternNoAttr : Pat<

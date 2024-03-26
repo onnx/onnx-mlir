@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------ DFT.cpp - ONNX Operations ---------------------===//
+//===----------------- DFT.cpp - Lowering DFT Op --------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
 using namespace mlir;
@@ -24,34 +25,44 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
-template <>
-LogicalResult ONNXDFTOpShapeHelper::computeShape() {
-  ONNXDFTOpAdaptor operandAdaptor(operands, op->getAttrDictionary());
+template <typename OP_TYPE>
+LogicalResult ONNXGenericDFTOpShapeHelper<OP_TYPE>::customComputeShape(
+    IndexExpr &axis) {
+  typename OP_TYPE::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+
   // Get info about input data operand.
   Value input = operandAdaptor.getInput();
   // Get the rank to compensate for N dimensions.
   int64_t rank = createIE->getShapedTypeRank(input);
 
-  // Axis is a required attribute and should have a default value of 1.
-  int64_t axis = operandAdaptor.getAxis();
+  // Check if the dimension for axis is a literal and in range.
+  // TO-FIX: https://github.com/onnx/onnx-mlir/issues/2752
+  if (!axis.isLiteral())
+    return op->emitError("Can not perform Discrete Fourier Transform on "
+                         "dynamic dimensions at this time");
 
   // OneSided is a required attribute and should have default value of 0.
   // However oneSided can also be a value of 1 and if so a specific shape is
-  // expected Values can be 0 or 1.
+  // expected Values can be 0 or 1. When onesided is 0 it is complex input and
+  // when onesided is 1 it is a real input.
   int64_t oneSided = operandAdaptor.getOnesided();
-  bool isOneSided = (oneSided == 0);
+  int64_t axisValue = axis.getLiteral();
+
+  bool isOneSided = (oneSided == 1);
+  bool isAxis = (axisValue == 1);
 
   // Compute outputDims for DFT.
+
   LiteralIndexExpr one(1);
   DimsExpr outputDims;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (isOneSided) {
+  for (int64_t i = 0; i < rank - 1; ++i) {
+    if (!isOneSided) { // onesided is 0
       outputDims.emplace_back(createIE->getShapeAsDim(input, i));
-    } else {
-      if (axis + 1 == i) {
+    } else { // onesided is 1 and axis is 0
+      if (!isAxis && i == 1) {
         IndexExpr d = createIE->getShapeAsDim(input, i).floorDiv(2) + one;
         outputDims.emplace_back(d);
-      } else {
+      } else { // onesided is 1 and axis is 1 or onesided is 1 and axis is N
         outputDims.emplace_back(createIE->getShapeAsDim(input, i));
       }
     }
@@ -62,16 +73,28 @@ LogicalResult ONNXDFTOpShapeHelper::computeShape() {
   setOutputDims(outputDims);
   return success();
 }
+
+template <>
+LogicalResult ONNXGenericDFTOpShapeHelper<ONNXDFTOp>::computeShape() {
+  typename ONNXDFTOp::Adaptor operandAdaptor(operands, op->getAttrDictionary());
+  IndexExpr axis = createIE->getIntAsSymbol(operandAdaptor.getAxis());
+  return customComputeShape(axis);
+}
+
 } // namespace onnx_mlir
 
 //===----------------------------------------------------------------------===//
-// Shape Inference
+// DFT Shape Inference
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDFTOp::inferShapes(
     std::function<void(mlir::Region &)> doShapeInference) {
-  // Cannot infer the output shape if the input shape is not yet known.
-  if (!hasShapeAndRank(getInput()))
+  // Cannot infer the output shape if the operands shape isn't known yet.
+  if (!hasShapeAndRank(getOperation()))
+    return success();
+
+  // Not yet shaped, wait for later.
+  if (!isNoneValue(getAxis()) && !hasShapeAndRank(getAxis()))
     return success();
 
   Type elementType = getInput().getType().cast<ShapedType>().getElementType();
@@ -84,5 +107,5 @@ LogicalResult ONNXDFTOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 namespace onnx_mlir {
-template struct ONNXNonSpecificOpShapeHelper<ONNXDFTOp>;
+template struct ONNXGenericDFTOpShapeHelper<ONNXDFTOp>;
 } // namespace onnx_mlir

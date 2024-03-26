@@ -43,6 +43,11 @@ struct KrnlBuilder : public DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
 
+  mlir::Value getLinearOffsetIndex(
+      mlir::Value memref, mlir::ValueRange indices = {}) const;
+  mlir::Value getLinearOffsetIndexIE(
+      mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
+
   void seqstore(mlir::Value element, mlir::Value seq, mlir::Value index) const;
   void seqstore(mlir::Value element, mlir::Value seq, IndexExpr index) const;
 
