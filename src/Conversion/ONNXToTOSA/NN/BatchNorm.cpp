@@ -29,7 +29,7 @@ public:
       OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
 
     auto outType = getTypeConverter()->convertType(op.getResult().getType());
-    auto outTensorType = outType.cast<RankedTensorType>();
+    auto outTensorType = cast<RankedTensorType>(outType);
 
     // The layout of the output is N x C x D1 x D2 … Dn. For batch
     // normalization, the C dimension is kept. The new shape should be {1, C, 1,
