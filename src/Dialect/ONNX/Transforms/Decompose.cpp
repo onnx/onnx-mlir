@@ -4,7 +4,7 @@
 
 //===----------- ONNXDecompose.cpp - ONNX High Level Rewriting ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -90,7 +90,7 @@ DenseElementsAttr createScalarDenseAttr(
   if (attr.dyn_cast<IntegerAttr>()) {
     Type elementType = rewriter.getIntegerType(64);
     SmallVector<int64_t, 1> wrapper;
-    wrapper.emplace_back(attr.cast<IntegerAttr>().getInt());
+    wrapper.emplace_back(attr.cast<IntegerAttr>().getSInt());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
@@ -989,6 +989,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
+  target.addIllegalOp<ONNXDFTV17Op>();
   target.addIllegalOp<ONNXGroupNormalizationOp>();
   target.addIllegalOp<ONNXInstanceNormalizationOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();

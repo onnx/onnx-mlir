@@ -4,7 +4,7 @@
 
 //===--------------- ONNXUnsupportedOps.hpp - ONNX Operations -------------===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -75,6 +75,7 @@ CONVERTED_TO_SUPPORTED_OPS(ONNXCastLikeOp)
 CONVERTED_TO_SUPPORTED_OPS(ONNXClipV11Op)
 CONVERTED_TO_SUPPORTED_OPS(ONNXClipV12Op)
 CONVERTED_TO_SUPPORTED_OPS(ONNXClipV6Op)
+CONVERTED_TO_SUPPORTED_OPS(ONNXDFTV17Op)
 CONVERTED_TO_SUPPORTED_OPS(ONNXGroupNormalizationOp)
 CONVERTED_TO_SUPPORTED_OPS(ONNXPadV18Op)
 CONVERTED_TO_SUPPORTED_OPS(ONNXPadV13Op)

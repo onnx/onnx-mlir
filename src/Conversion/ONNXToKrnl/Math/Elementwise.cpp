@@ -425,7 +425,7 @@ Value emitScalarOpFor<ONNXIsInfOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
 
   Value operand = scalarOperands[0];
-  // Get the type from the operands, as they determine the type of the compares.
+  // Get the type from the operand, as they determine the type for the compares.
   Type inputType = operand.getType();
   CheckIfCustomScalarOpIsSupported<ONNXIsInfOp>(inputType);
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);

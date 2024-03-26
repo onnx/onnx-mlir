@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   ConvertONNXToKrnl.cpp
   ML/CategoryMapper.cpp
   Math/CumSum.cpp
+  Math/DFT.cpp
   Math/Elementwise.cpp
   Math/Gemm.cpp
   Math/Hardmax.cpp
