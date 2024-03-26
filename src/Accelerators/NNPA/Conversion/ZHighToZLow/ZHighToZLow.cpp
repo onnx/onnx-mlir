@@ -863,6 +863,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     return success();
   }
 
+#define DEBUG_UNSTICK 0
+
   LogicalResult generateUnstickCodeSimple(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
@@ -960,12 +962,14 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value inputAs64 =
               create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
 
-          // Iterate over M, N, and 64. Manage iterations explicitly.
-          // DimsExpr lbs2 = {litZero};
-          // DimsExpr ubs2 = {lit64};
-          // SmallVector<int64_t, 3> steps2 = {VL};
-          // Analysis of assembly showed that the inner loop was fully unrolled.
+      // Iterate over M, N, and 64. Manage iterations explicitly.
+      // DimsExpr lbs2 = {litZero};
+      // DimsExpr ubs2 = {lit64};
+      // SmallVector<int64_t, 3> steps2 = {VL};
+      // Analysis of assembly showed that the inner loop was fully unrolled.
+#if DEBUG_UNSTICK
           create.krnl.printf("HI ALEX, Write to buffer IE\n");
+#endif
           create.affine.forIE(
               litZero, lit64, VL, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -982,14 +986,15 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(vecF32H, buffer, bufferAF, {});
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
-#define DEBUG_UNSTICK 1
 #if DEBUG_UNSTICK
                 create.krnl.printf("store buff[l=", l);
                 create.krnl.printf("]\n");
 #endif
               });
+#if DEBUG_UNSTICK
           create.krnl.printf("HI ALEX, Read from buffer IE\n");
           create.krnl.printf(" ");
+#endif
           create.krnl.iterate({}, {tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1122,8 +1127,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           DimsExpr lbs2(3, litZero);
           DimsExpr ubs2 = {litM, litN, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
-          // Analysis of assembly showed that the inner loop was fully unrolled.
+      // Analysis of assembly showed that the inner loop was fully unrolled.
+#if DEBUG_UNSTICK
           create.krnl.printf("HI ALEX, Write to buffer IE\n");
+#endif
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1153,7 +1160,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(vecF32H, buffer, bufferAF, {});
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
-#define DEBUG_UNSTICK 1
 #if DEBUG_UNSTICK
                 create.krnl.printf("store buff[n=", n);
                 create.krnl.printf("][m=", m);
@@ -1171,8 +1177,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 #endif
               });
 #if 1
+#if DEBUG_UNSTICK
           create.krnl.printf("HI ALEX, Read from buffer IE\n");
           create.krnl.printf(" ");
+#endif
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
