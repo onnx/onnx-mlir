@@ -1007,7 +1007,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.krnl.printf("][e1=", inputAF[E1]);
                 create.krnl.printf(", input offset =", inputOffset);
                 IndexExpr nlOffset = (n * 64) + l;
-                IndexExpr absoluteOffset = SymbolIndexExpr(inputOffset) + nlOffset;
+                IndexExpr absoluteOffset =
+                    SymbolIndexExpr(inputOffset) + nlOffset;
                 create.krnl.printf(", abs-input offset =", absoluteOffset);
                 create.krnl.printf("]\n");
 #endif
@@ -1035,10 +1036,18 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       IndexExprScope innermostScope(create.krnl, &innerScope);
                       getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
                       DimIndexExpr e1(loopInd[0]);
-                      SymbolIndexExpr mm(m), nn(n);
                       outputAF[E1] = e1;
                       outputAF[E2] = SymbolIndexExpr(e2);
+#if 1
+                      IndexExpr nn = outputAF[E2] % litN;
+                      IndexExpr ll = e1 % lit64;
+                      IndexExpr tmp = e1.floorDiv(lit64);
+                      IndexExpr mm = tmp % litM;
+#else
+                      SymbolIndexExpr mm(m), nn(n);
                       IndexExpr ll = e1 - SymbolIndexExpr(min);
+
+#endif
                       DimsExpr bufferAF = {nn, mm, ll};
                       Value t = create.krnl.loadIE(buffer, bufferAF);
                       create.krnl.storeIE(t, alloc, outputAF);
