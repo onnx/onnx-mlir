@@ -94,9 +94,7 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
     if (!isa<ONNXYieldOp>(yieldOp))
       return failure();
 
-    // ForkOps in ParallelOp region
-    // Move alloc op for return values and replace uses with them.
-    // Still not replace ForkOps yet.
+    // Move alloc ops included ForkOps
     SmallVector<ONNXForkOp, 4> forkOps;
     for (Operation &bOp : bodyBlock.getOperations()) {
       if (auto forkOp = dyn_cast<ONNXForkOp>(bOp)) {
@@ -115,7 +113,8 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
     if (failed(moveAllocOpBeforeAndReplaceAllUses(rewriter, op, yieldOp)))
       return failure();
 
-    // 2. Create KrnlIterateOp and replace Parallel Op with it.
+    // Create KrnlIterateOp and replace ParallelOp with it.
+    rewriter.setInsertionPoint(op);
     std::vector<Value> loop;
     defineLoops(rewriter, loc, loop, 1);
     krnl::KrnlIterateOperandPack pack(rewriter, loop);
@@ -130,7 +129,7 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
     rewriter.eraseOp(yieldOp);
     rewriter.inlineBlockBefore(&bodyBlock, iterationBlock.getTerminator());
 
-    // 3. Create SCFIfOp and replace ForkOp with it.
+    // Create SCFIfOp and replace ForkOp with it.
     int64_t id = 0;
     for (auto forkOp : forkOps) {
       rewriter.setInsertionPoint(forkOp);
