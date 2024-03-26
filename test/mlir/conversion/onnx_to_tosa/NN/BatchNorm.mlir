@@ -94,12 +94,6 @@ func.func @test_batchnorm_f64(%arg0: tensor<100x3x10x10xf64>) -> tensor<100x3x10
     %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xf64>} : () -> tensor<3xf64>
     %4 = "onnx.BatchNormalizationInferenceMode"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32} : (tensor<100x3x10x10xf64>, tensor<3xf64>, tensor<3xf64>, tensor<3xf64>, tensor<3xf64>) -> tensor<100x3x10x10xf64>
     return %4 : tensor<100x3x10x10xf64>
-// CHECK-LABEL: func @test_batchnorm_f64
-// CHECK-SAME:  ([[PARAM_0_:%.+]]: tensor<100x3x10x10xf64>) -> tensor<100x3x10x10xf64>
-// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf64>
-// CHECK:           [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<3xf64>
-// CHECK:           [[VAR_2_:%.+]] = onnx.Constant dense<[3.000000e+00, 4.000000e+00, 5.000000e+00]> : tensor<3xf64>
-// CHECK:           [[VAR_3_:%.+]] = onnx.Constant dense<[4.000000e+00, 5.000000e+00, 6.000000e+00]> : tensor<3xf64>
-// CHECK:           [[VAR_4_:%.+]] = "onnx.BatchNormalizationInferenceMode"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]])
-// CHECK:           return [[VAR_4_]] : tensor<100x3x10x10xf64>
+// CHECK:       onnx.BatchNormalizationInferenceMode
+// CHECK-NOT:   tosa
 }

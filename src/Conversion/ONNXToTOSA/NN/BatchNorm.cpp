@@ -52,11 +52,11 @@ public:
     Value reshapedBias;
     Value reshapedVar;
 
-    reshapedMean = tosaBuilder.reshape(mean, llvm::ArrayRef<int64_t>(newShape));
+    reshapedMean = tosaBuilder.reshape(mean, ArrayRef<int64_t>(newShape));
     reshapedScale =
-        tosaBuilder.reshape(scale, llvm::ArrayRef<int64_t>(newShape));
-    reshapedBias = tosaBuilder.reshape(bias, llvm::ArrayRef<int64_t>(newShape));
-    reshapedVar = tosaBuilder.reshape(var, llvm::ArrayRef<int64_t>(newShape));
+        tosaBuilder.reshape(scale, ArrayRef<int64_t>(newShape));
+    reshapedBias = tosaBuilder.reshape(bias, ArrayRef<int64_t>(newShape));
+    reshapedVar = tosaBuilder.reshape(var, ArrayRef<int64_t>(newShape));
 
     // epsilon's shape: constant -> {1, 1, 1, ...}
     newShape[1] = 1;
