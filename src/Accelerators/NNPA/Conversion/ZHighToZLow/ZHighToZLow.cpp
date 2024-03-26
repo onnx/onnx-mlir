@@ -1005,6 +1005,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                     "..+8] = remap[n, l] with rc input[e3=", inputAF[E3]);
                 create.krnl.printf("][e2=", inputAF[E2]);
                 create.krnl.printf("][e1=", inputAF[E1]);
+                create.krnl.printf(", input offset =", inputOffset);
                 create.krnl.printf("]\n");
 #endif
               });
