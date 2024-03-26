@@ -53,8 +53,7 @@ public:
     Value reshapedVar;
 
     reshapedMean = tosaBuilder.reshape(mean, ArrayRef<int64_t>(newShape));
-    reshapedScale =
-        tosaBuilder.reshape(scale, ArrayRef<int64_t>(newShape));
+    reshapedScale = tosaBuilder.reshape(scale, ArrayRef<int64_t>(newShape));
     reshapedBias = tosaBuilder.reshape(bias, ArrayRef<int64_t>(newShape));
     reshapedVar = tosaBuilder.reshape(var, ArrayRef<int64_t>(newShape));
 
