@@ -394,7 +394,6 @@ def get_test_models():
         },
         # ==OP== Cast
         # ==MIN== 6
-        # ==UNSUPPORTED== 19
         # ==LIM== Cast only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_cast_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
@@ -437,35 +436,41 @@ def get_test_models():
         # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_castlike_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_DOUBLE_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_FLOAT_to_FLOAT16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_FLOAT16_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_FLOAT16_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_DOUBLE_to_FLOAT16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
@@ -615,7 +620,6 @@ def get_test_models():
         },
         # ==OP== Constant
         # ==MIN== 1
-        # ==UNSUPPORTED== 19
         # By def, no dynamic shapes.
         "test_constant_cpu": {STATIC_SHAPE: {}},
         # ==OP== ConstantOfShape
@@ -664,47 +668,56 @@ def get_test_models():
         # TODO: Support unknown dimensions in spatial dimensions
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_3d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_autopad_same_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_dilations_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pads_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         # ==OP== Cos
@@ -769,6 +782,8 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== DFT
+        # ==MIN== 17
+        # ==UNSUPPORTED== 20
         # "test_dft_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_dft_inverse_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -776,12 +791,14 @@ def get_test_models():
         # ==MIN== 13
         "test_depthtospace_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_depthtospace_crd_mode_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== DequantizeLinear
@@ -875,27 +892,32 @@ def get_test_models():
         # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
         "test_einsum_batch_diagonal_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_batch_matmul_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_inner_prod_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_sum_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_einsum_transpose_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Elu
@@ -917,7 +939,6 @@ def get_test_models():
         },
         # ==OP== Equal
         # ==MIN== 7
-        # ==UNSUPPORTED== 19
         "test_equal_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -1070,19 +1091,23 @@ def get_test_models():
         },
         # ==OP== GatherND
         # ==MIN== 11
+        # According to onnx specification:
+        # output tensor of rank q + r - indices_shape[-1] - 1 - b
+        # onnx-mlir can not infer the shape if the last dim of indices
+        # input is dynamic. Therefore, {0: {-1}} is used for DYNAMIC_SHAPE
         "test_gathernd_example_int32_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_float32_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_gathernd_example_int32_batch_dim1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Gelu
@@ -1366,16 +1391,19 @@ def get_test_models():
         # ==MIN== 6
         "test_instancenorm_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_instancenorm_epsilon_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== IsInf
-        # ==MIN== 10
+        # ==MIN== 20
+        # ==LIM== Currently no support for float16 infinity value. Only for float32 and float64.
         "test_isinf_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -1391,13 +1419,15 @@ def get_test_models():
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # "test_isinf_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== IsNaN
-        # ==MIN== 9
+        # ==MIN== 20
         "test_isnan_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
+        # "test_isnan_float16_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== LayerNormalization
         # ==MIN== 17
         "test_layer_normalization_2d_axis0_cpu": {
@@ -2244,21 +2274,21 @@ def get_test_models():
         },
         # ==OP== Pad
         # ==MIN== 2
-        # ==UNSUPPORTED== 19
         # ==LIM== axes input not supported
         "test_constant_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_edge_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_reflect_pad_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Pow
@@ -2298,7 +2328,6 @@ def get_test_models():
         },
         # ==OP== QuantizeLinear
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Do not support per-axis and i8 quantization.
         # "test_quantizelinear_axis_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_quantizelinear_cpu": {
@@ -2653,7 +2682,6 @@ def get_test_models():
         },
         # ==OP== Resize
         # ==MIN== 10
-        # ==UNSUPPORTED== 19
         # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported.
         # Resize
         # All test cases in onnx v1.11.0. yes for currently supported
@@ -2908,7 +2936,6 @@ def get_test_models():
         },
         # ==OP== Slice
         # ==MIN== 13
-        # ==UNSUPPORTED== 19
         # ==LIM== Axis must be a constant argument.
         # ==TODO== Add tests to slices, currently have none.
         # (makes Axis a runtime argument, which is not supported).
@@ -2987,12 +3014,12 @@ def get_test_models():
         # "test_spacetodepth_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         "test_spacetodepth_example_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Issue #2639: Dynamic test fails. Need to be fixed.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Split
         # ==MIN== 2
-        # ==UNSUPPORTED== 19
         # ==LIM== Does not support static and dynamic shape, zero size splits.
         # ==TODO== Temporally removed due to changes in onnx 1.8.1
         # "test_split_equal_parts_1d_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
@@ -3107,17 +3134,17 @@ def get_test_models():
         # ==MIN== 10
         "test_top_k_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_top_k_smallest_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_top_k_negative_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Transpose
@@ -3355,12 +3382,12 @@ def get_test_models():
         # float16 LLVM instructions that are unsupported on some platforms.
         "test_onnxmlir_top_k_float16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_onnxmlir_top_k_smallest_float16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
     }

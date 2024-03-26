@@ -61,32 +61,25 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // For a MatMul of A(M,N)*B(N,P)+C(P),
   // We split M that is e2 in (e4, e3, e2, e1), and P that is e1.
-  SplitInfo splitInfoA = {.fullZTensor = inputA,
-      .axis = E2,
-      .numOfElemsPerTile = OMZTensorSplitSize};
-  SplitInfo splitInfoB = {.fullZTensor = inputB,
-      .axis = E1,
-      .numOfElemsPerTile = OMZTensorSplitSize};
-  SplitInfo splitInfoC = {.fullZTensor = inputC,
-      .axis = E1,
-      .numOfElemsPerTile = OMZTensorSplitSize};
-  SplitInfo splitInfoY = {.fullZTensor = output,
-      .axis = E2,
-      .numOfElemsPerTile = OMZTensorSplitSize};
+  uint32_t splitSize = OMZTensorSplitSize;
+  SplitInfo siA, siB, siC, siY;
+  initSplitInfo(
+      &siA, inputA, E2, splitSize, /*allocTileBuffers=*/true, "MatMul A");
+  initSplitInfo(
+      &siB, inputB, E1, splitSize, /*allocTileBuffers=*/true, "MatMul B");
+  initSplitInfo(
+      &siC, inputC, E1, splitSize, /*allocTileBuffers=*/true, "MatMul C");
+  initSplitInfo(
+      &siY, output, E2, splitSize, /*allocTileBuffers=*/true, "MatMul Y");
 
   if (OMZTensorSplitDebug) {
     gettimeofday(&start_t, NULL);
   }
 
-  initSplitInfo(&splitInfoA, true, "MatMul A");
-  initSplitInfo(&splitInfoB, true, "MatMul B");
-  initSplitInfo(&splitInfoC, true, "MatMul C");
-  initSplitInfo(&splitInfoY, true, "MatMul Y");
-
   // Copy data from A, B, C into their tiles.
-  copyData(&splitInfoA, FULL_TO_TILES);
-  copyData(&splitInfoB, FULL_TO_TILES);
-  copyData(&splitInfoC, FULL_TO_TILES);
+  copyData(&siA, FULL_TO_TILES);
+  copyData(&siB, FULL_TO_TILES);
+  copyData(&siC, FULL_TO_TILES);
 
   if (OMZTensorSplitDebug) {
     gettimeofday(&start_t1, NULL);
@@ -94,22 +87,20 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
 
   // Call zdnn_matmul_op on each tile.
   // Iterate over the tiles along the first dim of A.
-  for (uint32_t i = 0; i < splitInfoA.numOfTiles; ++i) {
-    zdnn_ztensor *zaTensor = splitInfoA.tiles + i;
-    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
+  for (uint32_t i = 0; i < getNumOfTiles(&siA); ++i) {
+    zdnn_ztensor *za = getTile(&siA, i);
+    zdnn_ztensor *zy = getTile(&siY, i);
 
-    SplitInfo splitInfoYB = {.fullZTensor = zyTensor,
-        .axis = E1,
-        .numOfElemsPerTile = OMZTensorSplitSize};
-    initSplitInfo(&splitInfoYB, true, "MatMul YB");
-
+    SplitInfo siYB;
+    initSplitInfo(
+        &siYB, zy, E1, splitSize, /*allocTileBuffers=*/true, "MatMul YB");
     // Iterate over the tiles along the second dim of B.
-    for (uint32_t j = 0; j < splitInfoB.numOfTiles; ++j) {
-      zdnn_ztensor *zbTensor = splitInfoB.tiles + j;
-      zdnn_ztensor *zcTensor = splitInfoC.tiles + j;
-      zdnn_ztensor *zybTensor = splitInfoYB.tiles + j;
-      zdnn_status status = call_zdnn_matmul_op(
-          zaTensor, zbTensor, zcTensor, opType, zybTensor, isBcast);
+    for (uint32_t j = 0; j < getNumOfTiles(&siB); ++j) {
+      zdnn_ztensor *zb = getTile(&siB, j);
+      zdnn_ztensor *zc = getTile(&siC, j);
+      zdnn_ztensor *zyb = getTile(&siYB, j);
+      zdnn_status status =
+          call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
       assert(status == ZDNN_OK);
       if (OMZTensorSplitDebug) {
         int cpuId = 0;
@@ -122,8 +113,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
         printf("thread [%u, %u] is on cpu %d\n", i, j, cpuId);
       }
     }
-    copyData(&splitInfoYB, TILES_TO_FULL);
-    FreeSplitInfoData(&splitInfoYB);
+    copyData(&siYB, TILES_TO_FULL);
+    freeSplitInfoData(&siYB);
   }
 
   if (OMZTensorSplitDebug) {
@@ -133,13 +124,13 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
   }
 
   // Copy data from the tiles back to the full ztensor.
-  copyData(&splitInfoY, TILES_TO_FULL);
+  copyData(&siY, TILES_TO_FULL);
 
   // Free temporary buffers.
-  FreeSplitInfoData(&splitInfoA);
-  FreeSplitInfoData(&splitInfoB);
-  FreeSplitInfoData(&splitInfoC);
-  FreeSplitInfoData(&splitInfoY);
+  freeSplitInfoData(&siA);
+  freeSplitInfoData(&siB);
+  freeSplitInfoData(&siC);
+  freeSplitInfoData(&siY);
 
   if (OMZTensorSplitDebug) {
     gettimeofday(&end_t, NULL);

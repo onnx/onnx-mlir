@@ -773,8 +773,6 @@ void ConvertKrnlToAffinePass::runOnOperation() {
   ConversionTarget target(*ctx);
   // Legal/illegal ops.
   target.addIllegalOp<KrnlTerminatorOp>();
-  // krnl.dim operations must be lowered prior to this pass.
-  target.addIllegalOp<KrnlDimOp>();
   target.addIllegalOp<KrnlMatMulOp>();
   target.addIllegalOp<KrnlCopyToBufferOp>();
   target.addIllegalOp<KrnlCopyFromBufferOp>();
@@ -802,9 +800,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
   }
 
-  DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getOperation(), target, std::move(patterns), &unconverted))) {
+          getOperation(), target, std::move(patterns)))) {
     {
       const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
       unrollAndJamMap.erase(currFuncOp);

@@ -83,6 +83,22 @@ func.func @test_concat_from_sequence_verifier_2(%arg0 : !onnx.Seq<tensor<5x5x1x3
 
 // -----
 
+func.func @test_dim_verifier_1(%arg0 : tensor<*xf32>) -> tensor<i64> {
+  // expected-error @+1 {{input must have shape and rank}}
+  %1 = "onnx.Dim"(%arg0) {axis = 0 : si64} : (tensor<*xf32>)  -> tensor<i64>
+  "onnx.Return"(%1) : (tensor<i64>) -> ()
+}
+
+// -----
+
+func.func @test_dim_verifier_2(%arg0 : tensor<5x5xf32>) -> tensor<i64> {
+  // expected-error @+1 {{'onnx.Dim' op attribute "axis" value is -1, accepted range is [0, 1].}}
+  %1 = "onnx.Dim"(%arg0) {axis = -1 : si64} : (tensor<5x5xf32>)  -> tensor<i64>
+  "onnx.Return"(%1) : (tensor<i64>) -> ()
+}
+
+// -----
+
 func.func @test_dequantize_linear_verifier_1(%arg0 : tensor<5x5x1xi32>, %arg1 : tensor<3xf32>, %arg2 : tensor<3xi32>) -> tensor<*xf32> {
   // expected-error @+1 {{onnx.DequantizeLinear: 'axis' value is 3, accepted range is [-3, 2]}}
   %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %arg2) {axis = 3 : si64} : (tensor<5x5x1xi32>, tensor<3xf32>, tensor<3xi32>)  -> tensor<*xf32>

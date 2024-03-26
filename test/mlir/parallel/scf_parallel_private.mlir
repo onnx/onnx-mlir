@@ -22,7 +22,7 @@ func.func @add_with_par(%arg0: memref<16x8x128xf32>) -> (memref<16x8x128xf32>)  
     %1 = vector.load %reshape_2[%arg1] : memref<16384xf32>, vector<32xf32>
     %2 = arith.addf %0, %1 : vector<32xf32>
     vector.store %2, %reshape_4[%arg1] : memref<16384xf32>, vector<32xf32>
-    scf.yield
+    scf.reduce
   }
   return %alloc : memref<16x8x128xf32>
 
@@ -49,7 +49,7 @@ func.func @add_with_par(%arg0: memref<16x8x128xf32>) -> (memref<16x8x128xf32>)  
 // CHECK:               [[VAR_2_:%.+]] = arith.addf [[LOAD_VAR_reshape_MEM_]], [[LOAD_VAR_reshape_2_MEM_]] : vector<32xf32>
 // CHECK:               vector.store [[VAR_2_]], [[VAR_reshape_4_]]{{.}}[[arg1_]]{{.}} : memref<16384xf32>, vector<32xf32>
 // CHECK:             }
-// CHECK:             scf.yield
+// CHECK:             scf.reduce
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<16x8x128xf32>
 // CHECK:         }
