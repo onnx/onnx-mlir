@@ -361,6 +361,38 @@ endforeach()
 
 set(NNPA_TESTS_ENVS TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER} TEST_ATOL=0.01 TEST_RTOL=0.05)
 
+set(NNPA_TEST_LIST_DYNAMIC
+    test_exp_cpu,zdnn_exp
+    test_exp_example_cpu,zdnn_exp
+    test_gemm_default_matrix_bias_cpu,zdnn_matmul_op
+    test_gemm_default_no_bias_cpu,zdnn_matmul_op
+    test_gemm_default_vector_bias_cpu,zdnn_matmul_op
+    test_gemm_default_zero_bias_cpu,zdnn_matmul_op
+    test_gemm_transposeA_cpu,zdnn_matmul_op
+    test_gemm_transposeB_cpu,zdnn_matmul_op
+    test_log_example_cpu,zdnn_log
+    test_log_cpu,zdnn_log
+    test_logsoftmax_example_1_cpu,zdnn_softmax
+    test_lstm_defaults_cpu,zdnn_lstm
+    test_lstm_with_initial_bias_cpu,zdnn_lstm
+    test_matmul_2d_cpu,zdnn_matmul_op
+    test_matmul_3d_cpu,zdnn_matmul_op
+    test_pow_bcast_scalar_cpu
+    test_relu_cpu,zdnn_relu
+    test_softmax_example_cpu,zdnn_softmax
+    #test_inception_v1_cpu,zdnn_conv2d
+    #test_resnet50_cpu,zdnn_conv2d
+    #test_shufflenet_cpu,zdnn_matmul_op
+    #test_squeezenet_cpu,zdnn_conv
+    #test_vgg19_cpu,zdnn_conv
+)
+foreach(test_name IN LISTS NNPA_TEST_LIST_DYNAMIC)
+  set(ENV_TEST_CASE_BY_USER_DYNAMIC "${ENV_TEST_CASE_BY_USER_DYNAMIC} ${test_name}")
+endforeach()
+
+set(NNPA_TESTS_ENVS_DYNAMIC TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER_DYNAMIC} TEST_ATOL=0.01 TEST_RTOL=0.05)
+
+
 # ${ONNX_HOME} is the directory where onnx downloads real model files.
 # Model files are saved under ${ONNX_HOME}/models/model_name/model.onnx.
 # C/C++ and JNI tests run in parallel so they must use a different
@@ -380,7 +412,7 @@ add_custom_target(check-onnx-backend-dynamic-nnpa
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-nnpa
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
-    ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+    ${NNPA_TESTS_ENVS_DYNAMIC} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
     ${FILE_GENERATE_DIR}/test_config.py
@@ -445,7 +477,7 @@ if (ONNX_MLIR_ENABLE_JNI)
     COMMAND
       ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-jni-nnpa
       TEST_DYNAMIC=true TEST_EMIT=jni JSONITER_JAR=${JSONITER_JAR}
-      ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
+      ${NNPA_TESTS_ENVS_DYNAMIC} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
     DEPENDS
       ${FILE_GENERATE_DIR}/test.py
       ${FILE_GENERATE_DIR}/test_config.py
