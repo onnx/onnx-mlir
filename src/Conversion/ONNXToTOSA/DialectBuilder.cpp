@@ -263,6 +263,8 @@ template Value TosaBuilder::unaryOp<mlir::tosa::ReciprocalOp>(
 
 template Value TosaBuilder::unaryOp<mlir::tosa::LogOp>(mlir::Value &input);
 
+template Value TosaBuilder::unaryOp<mlir::tosa::RsqrtOp>(mlir::Value &input);
+
 template <typename T>
 Value TosaBuilder::compareOp(mlir::PatternRewriter &rewriter,
     mlir::Location loc, mlir::Value &lhs, mlir::Value &rhs) {
