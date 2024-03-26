@@ -902,8 +902,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     // Create loop iterations. Note that we iterate over E1 as tiles of 64
     // elements.
     ValueRange loopDefs = create.krnl.defineLoops(rank);
-    ValueRange tiledDefE1 = create.krnl.block(loopDefs[E1], M);
     ValueRange tiledDefE2 = create.krnl.block(loopDefs[E2], N);
+    ValueRange tiledDefE1 = create.krnl.block(loopDefs[E1], M);
     DimsExpr lbs(rank, litZero);
     DimsExpr ubs = outputDims;
     IndexExpr T1 = outputDims[E1].ceilDiv(64);
@@ -1020,7 +1020,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
                 IndexExpr n = e2 - outputAF[E2];
                 IndexExpr m = t1 - outputAF[E1];
-                IndexExpr min = m * 64;
+                IndexExpr min = t1 * 64;
                 IndexExpr max1 = min + 64;
                 SymbolIndexExpr max2(outputDims[E1]);
                 IndexExpr max = IndexExpr::min(max1, max2);
