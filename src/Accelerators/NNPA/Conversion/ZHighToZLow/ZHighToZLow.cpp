@@ -958,6 +958,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value buffer = create.mem.alignedAlloc(bufferType, {});
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, outerIndices);
+          create.krnl.printf("",inputOffset, true);
           DimsExpr reallocTileDims = {lit64};
           Value inputAs64 =
               create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
