@@ -1006,6 +1006,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.krnl.printf("][e2=", inputAF[E2]);
                 create.krnl.printf("][e1=", inputAF[E1]);
                 create.krnl.printf(", input offset =", inputOffset);
+                IndexExpr nlOffset = (n * 64) + l;
+                IndexExpr absoluteOffset = SymbolIndexExpr(inputOffset) + nlOffset;
+                create.krnl.printf(", abs-input offset =", absoluteOffset);
                 create.krnl.printf("]\n");
 #endif
               });
