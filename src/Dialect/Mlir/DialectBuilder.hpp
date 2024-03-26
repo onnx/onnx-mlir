@@ -334,6 +334,8 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::Value input, mlir::MemRefType outputType) const;
   mlir::Value reinterpretCast(
       mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+  mlir::Value reinterpretCast(mlir::Value input, mlir::Value offset,
+      llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
 
   // Does not support layouts at this time. Does only work for values that are
   // then loaded with affine or memref scalar load/store (MLIR limitations).
@@ -344,6 +346,13 @@ struct MemRefBuilder final : DialectBuilder {
   // shaped by outputType.
   mlir::memref::ViewOp view(mlir::Value input, int64_t byteOffset,
       mlir::MemRefType outputType, mlir::ValueRange outputDynSymbols) const;
+
+  // Create a subview of val.
+  mlir::memref::SubViewOp subView(mlir::Value val,
+      llvm::SmallVectorImpl<int64_t> &offsets, // Offset for each val dims.
+      llvm::SmallVectorImpl<int64_t> &sizes,   // Sizes for each val dims.
+      llvm::SmallVectorImpl<int64_t> &strides) // Stride for each val dims.
+      const;
 
   // Create a subview of val.
   mlir::memref::SubViewOp subView(mlir::MemRefType outputType, mlir::Value val,

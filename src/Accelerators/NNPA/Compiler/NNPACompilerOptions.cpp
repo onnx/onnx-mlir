@@ -49,6 +49,12 @@ llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
         "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
+    "enable-compiler-stick-unstick",
+    llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
+                   "stick/unstick code. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
 llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     "nnpa-load-device-placement-file",
     llvm::cl::desc(

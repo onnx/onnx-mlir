@@ -799,10 +799,8 @@ void ConvertKrnlToAffinePass::runOnOperation() {
     const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
     unrollAndJamMap[currFuncOp] = currUnrollAndJamList;
   }
-
-  DenseSet<Operation *> unconverted;
   if (failed(applyPartialConversion(
-          getOperation(), target, std::move(patterns), &unconverted))) {
+          getOperation(), target, std::move(patterns)))) {
     {
       const std::lock_guard<std::mutex> lock(unrollAndJamMutex);
       unrollAndJamMap.erase(currFuncOp);
@@ -836,6 +834,8 @@ void populateKrnlToAffineConversion(TypeConverter &typeConverter,
   krnl::populateLoweringKrnlCopyToBufferOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlLoadOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlStoreOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlGetLinearOffsetIndexOpPattern(
+      typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMatmultOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemsetOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlTerminatorOpPattern(typeConverter, patterns, ctx);

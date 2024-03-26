@@ -67,7 +67,7 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
       RankedTensorType broadcastedType =
           RankedTensorType::get(shapeValues, elementType);
       broadcastedOnes = rewriter.create<stablehlo::BroadcastInDimOp>(
-          loc, broadcastedType, ones, rewriter.getI64TensorAttr({}));
+          loc, broadcastedType, ones, rewriter.getDenseI64ArrayAttr({}));
     } else {
       ShapedType shapeType = shape.getType().cast<ShapedType>();
       assert(shapeType.getRank() == 1 && shapeType.hasStaticShape() &&
@@ -76,7 +76,7 @@ struct ONNXExpandOpLoweringToStablehlo : public ConversionPattern {
       SmallVector<int64_t, 4> onesShape(shapeRank, ShapedType::kDynamic);
       RankedTensorType onesType = RankedTensorType::get(onesShape, elementType);
       broadcastedOnes = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(
-          loc, onesType, ones, shape, rewriter.getI64TensorAttr({}));
+          loc, onesType, ones, shape, rewriter.getDenseI64ArrayAttr({}));
     }
     llvm::SmallVector<Value, 4> newOperands = {input, broadcastedOnes};
     llvm::SmallVector<Value, 4> broadcastedOperands = getBroadcastedOperands(

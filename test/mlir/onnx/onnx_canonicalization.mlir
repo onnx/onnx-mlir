@@ -213,6 +213,18 @@ func.func @test_transpose_concat_reversed(%arg0: tensor<?x5x5x1xf32>, %arg1: ten
 
 // -----
 
+// CHECK-LABEL: func @identity_tile
+func.func @identity_tile(%arg0: tensor<32x64xf32>) -> tensor<32x64xf32> {
+    %0 = onnx.Constant dense<1> : tensor<2xi64>
+    %1 = "onnx.Tile"(%arg0, %0) : (tensor<32x64xf32>, tensor<2xi64>) -> tensor<32x64xf32>
+    onnx.Return %1 : tensor<32x64xf32>
+
+    // CHECK-NEXT: onnx.Return %arg0
+    // CHECK-NOT: "onnx.Tile"
+}
+
+// -----
+
 // Check the removal of identity reshapes.
 // CHECK-LABEL: func @test_reshape_removal_1(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {
 func.func @test_reshape_removal_1(%arg0: tensor<10x11x12x13xf32>) -> tensor<10x11x12x13xf32> {

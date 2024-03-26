@@ -76,11 +76,11 @@ struct ONNXGatherElementsOpLoweringToStablehlo : public ConversionPattern {
     }
     if (indicesType.hasStaticShape()) {
       broadcastedAxisDimSize = rewriter.create<stablehlo::BroadcastInDimOp>(
-          loc, indicesType, axisDimSize, rewriter.getI64TensorAttr({}));
+          loc, indicesType, axisDimSize, rewriter.getDenseI64ArrayAttr({}));
     } else {
       broadcastedAxisDimSize =
           rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc, indicesType,
-              axisDimSize, indicesShape, rewriter.getI64TensorAttr({}));
+              axisDimSize, indicesShape, rewriter.getDenseI64ArrayAttr({}));
     }
     Value isNegative = rewriter.create<stablehlo::CompareOp>(
         loc, indices, zero, stablehlo::ComparisonDirection::LT);
@@ -138,7 +138,8 @@ struct ONNXGatherElementsOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t> sliceSizes(inputType.getRank(), 1);
 
     Value gatherValue = rewriter.create<stablehlo::GatherOp>(loc, outputType,
-        data, gatherIndicies, dimsAttr, rewriter.getI64TensorAttr(sliceSizes));
+        data, gatherIndicies, dimsAttr,
+        rewriter.getDenseI64ArrayAttr(sliceSizes));
     rewriter.replaceOp(op, gatherValue);
     return success();
   }

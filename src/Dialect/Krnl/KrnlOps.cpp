@@ -915,6 +915,15 @@ void KrnlSeqExtractOp::getEffects(
       SideEffects::DefaultResource::get());
 }
 
+void KrnlSeqStoreOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(), getSeq(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Read::get(), getInput(),
+      SideEffects::DefaultResource::get());
+}
+
 std::optional<Operation *> KrnlSeqExtractOp::buildDealloc(
     OpBuilder &builder, Value alloc) {
   Location loc = alloc.getLoc();
@@ -952,6 +961,72 @@ std::optional<Value> KrnlSeqAllocOp::buildClone(
     OpBuilder &builder, Value alloc) {
   return builder.create<bufferization::CloneOp>(alloc.getLoc(), alloc)
       .getResult();
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlGetLinearOffsetIndexOp
+//===----------------------------------------------------------------------===//
+
+void KrnlGetLinearOffsetIndexOp::build(OpBuilder &builder,
+    OperationState &result, AffineMap map, ValueRange operands) {
+  assert(operands.size() == 1 + map.getNumInputs() && "inconsistent operands");
+  result.addOperands(operands);
+  if (map)
+    result.addAttribute(getMapAttrStrName(), AffineMapAttr::get(map));
+  auto memrefType = llvm::cast<MemRefType>(operands[0].getType());
+  result.types.push_back(memrefType.getElementType());
+}
+
+void KrnlGetLinearOffsetIndexOp::build(OpBuilder &builder,
+    OperationState &result, Value memref, AffineMap map,
+    ValueRange mapOperands) {
+  assert(map.getNumInputs() == mapOperands.size() && "inconsistent index info");
+  result.addOperands(memref);
+  result.addOperands(mapOperands);
+  result.addAttribute(getMapAttrStrName(), AffineMapAttr::get(map));
+  result.types.push_back(builder.getIndexType());
+}
+
+void KrnlGetLinearOffsetIndexOp::build(OpBuilder &builder,
+    OperationState &result, Value memref, ValueRange indices) {
+  auto memrefType = llvm::cast<MemRefType>(memref.getType());
+  int64_t rank = memrefType.getRank();
+  // Create identity map for memrefs with at least one dimension or () -> ()
+  // for zero-dimensional memrefs.
+  auto map =
+      rank ? builder.getMultiDimIdentityMap(rank) : builder.getEmptyAffineMap();
+  build(builder, result, memref, map, indices);
+}
+
+ParseResult KrnlGetLinearOffsetIndexOp::parse(
+    OpAsmParser &parser, OperationState &result) {
+  auto &builder = parser.getBuilder();
+  auto indexTy = builder.getIndexType();
+
+  MemRefType type;
+  OpAsmParser::UnresolvedOperand memrefInfo;
+  AffineMapAttr mapAttr;
+  SmallVector<OpAsmParser::UnresolvedOperand, 1> mapOperands;
+  return failure(
+      parser.parseOperand(memrefInfo) || parser.parseKeyword("at") ||
+      parser.parseAffineMapOfSSAIds(mapOperands, mapAttr,
+          KrnlGetLinearOffsetIndexOp::getMapAttrStrName(), result.attributes) ||
+      parser.parseOptionalAttrDict(result.attributes) ||
+      parser.parseColonType(type) ||
+      parser.resolveOperand(memrefInfo, type, result.operands) ||
+      parser.resolveOperands(mapOperands, indexTy, result.operands) ||
+      parser.addTypeToList(indexTy, result.types));
+}
+
+void KrnlGetLinearOffsetIndexOp::print(OpAsmPrinter &p) {
+  p << " " << getMemRef() << " at [";
+  if (AffineMapAttr mapAttr =
+          (*this)->getAttrOfType<AffineMapAttr>(getMapAttrStrName()))
+    p.printAffineMapOfSSAIds(mapAttr, getMapOperands());
+  p << ']';
+  p.printOptionalAttrDict((*this)->getAttrs(),
+      /*elidedAttrs=*/{getMapAttrStrName()});
+  p << " : " << getMemRefType();
 }
 
 } // namespace mlir
