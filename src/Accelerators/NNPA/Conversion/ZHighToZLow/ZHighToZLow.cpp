@@ -847,13 +847,170 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           layout.getValue().equals_insensitive("3D") ||
           layout.getValue().equals_insensitive("2D") ||
           layout.getValue().equals_insensitive("3DS")) {
+#if 1
+        return generateUnstickCodeSimple(
+            rewriter, op, shapeHelper, alloc, input, layout);
+#else
         return generateUnstickCode(
             rewriter, op, shapeHelper, alloc, input, layout);
+#endif
       }
     }
 
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+
+  LogicalResult generateUnstickCodeSimple(ConversionPatternRewriter &rewriter,
+      Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
+      Value input, StringAttr layout) const {
+    Location loc = op->getLoc();
+    MDBuilder create(rewriter, loc);
+
+    // Compute output dims and rank.
+    IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
+    DimsExpr outputDims;
+    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+    int64_t rank = outputDims.size();
+
+    // Info for SIMD Vector Length (VL) and associated types.
+    int64_t VL = 8;          // FP16 VL.
+    int64_t VLHalf = VL / 2; // FP32 VL.
+    assert(64 % VL == 0 && "SIMD vector length must divide 64");
+    Type f16Type = rewriter.getF16Type();
+    Type f32Type = rewriter.getF32Type();
+    VectorType vecF16Type = VectorType::get({VL}, f16Type);
+
+    // Type for buffer (write 64 continuously back in the output).
+    MemRefType bufferType = MemRefType::get({64}, f32Type);
+
+    // Define useful literals.
+    IndexExpr litZero = LiteralIndexExpr(0);
+    IndexExpr lit1 = LiteralIndexExpr(1);
+    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
+    IndexExpr litVL = LiteralIndexExpr(VL);
+    IndexExpr lit64 = LiteralIndexExpr(64);
+
+    // Useful references for indexing dimensions (neg val are not used).
+    int64_t E4 = rank - 4, E3 = rank - 3, E2 = rank - 2, E1 = rank - 1;
+
+    // Create loop iterations. Note that we iterate over E1 as tiles of 64
+    // elements.
+    ValueRange loopDefs = create.krnl.defineLoops(rank);
+    ValueRange tiledDefE1 = create.krnl.block(loopDefs[E1], 64);
+    DimsExpr lbs(rank, litZero);
+    DimsExpr ubs = outputDims;
+    SmallVector<Value, 4> optLoopDefs;
+    if (rank == 4) {
+      // 4D loop order: E4, E3, E2, E1 tiled by64, followed by E1
+      // clang-format off
+      create.krnl.permute(
+        {/*E4*/loopDefs[E4],/*E3*/loopDefs[E3],/*E2*/loopDefs[E2],/*E1*/tiledDefE1[0],tiledDefE1[1]},
+        {/*E4*/0,           /*E3*/1,           /*E2*/2,          /*E1*/3,            4});
+      // clang-format on
+      optLoopDefs = {loopDefs[E4], loopDefs[E3], loopDefs[E2], tiledDefE1[0]};
+    } else if (rank == 3) {
+      // 3D/3DS loop order:
+      // clang-format off
+      create.krnl.permute(
+        {/*E3*/loopDefs[E3],/*E2*/loopDefs[E2],/*E1*/tiledDefE1[0],tiledDefE1[1]},
+        {/*E3*/0,           /*E2*/1,          /*E1*/2,            3});
+      // clang-format on
+      optLoopDefs = {loopDefs[E3], loopDefs[E2], tiledDefE1[0]};
+    } else if (rank == 2) {
+      // 2D/2DS loop order:
+      // clang-format off
+      create.krnl.permute(
+        {/*E2*/loopDefs[E2],/*E1*/tiledDefE1[0],tiledDefE1[1]},
+        {/*E2*/0,           /*E1*/1,            2});
+      // clang-format on
+      optLoopDefs = {loopDefs[E2], tiledDefE1[0]};
+    } else {
+      llvm_unreachable("rank 2 to 4 only");
+    }
+
+    // Parallel...
+    if (enableParallel) {
+      int64_t parId;
+      // Hi Alex, may want to check if ub of rank makes sense here.
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
+        create.krnl.parallel(optLoopDefs[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "compiler-generated stickify");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in compiler-generated stickify");
+      }
+    }
+
+    // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
+    create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
+        [&](KrnlBuilder &b, ValueRange loopInd) {
+          MDBuilder create(b);
+          IndexExprScope outerScope(create.krnl, &allocScope);
+          DimsExpr outerIndices;
+          getIndexExprList<DimIndexExpr>(loopInd, outerIndices);
+          // Create buffer [64] (for parallel, must be inside loop).
+          Value buffer = create.mem.alignedAlloc(bufferType, {});
+          Value inputOffset =
+              create.krnl.getLinearOffsetIndexIE(input, outerIndices);
+          DimsExpr reallocTileDims = {lit64};
+          Value inputAs64 =
+              create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
+
+          // Iterate over M, N, and 64. Manage iterations explicitly.
+          // DimsExpr lbs2 = {litZero};
+          // DimsExpr ubs2 = {lit64};
+          // SmallVector<int64_t, 3> steps2 = {VL};
+          // Analysis of assembly showed that the inner loop was fully unrolled.
+          create.krnl.printf("HI ALEX, Write to buffer IE\n");
+          create.affine.forIE(
+              litZero, lit64, VL, [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                DimIndexExpr l(loopInd[0]);
+                Value vecF16 =
+                    create.vec.loadIE(vecF16Type, inputAs64, {l}, {});
+                auto convertOp =
+                    rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
+                Value vecF32H = convertOp.getResult(0);
+                Value vecF32L = convertOp.getResult(1);
+                // Store f32 values back to the buffer[N][M][64].
+                DimsExpr bufferAF = {l};
+                create.vec.storeIE(vecF32H, buffer, bufferAF, {});
+                create.vec.storeIE(
+                    vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
+#define DEBUG_UNSTICK 1
+#if DEBUG_UNSTICK
+                create.krnl.printf("store buff[l=", l);
+                create.krnl.printf("]\n");
+#endif
+              });
+          create.krnl.printf("HI ALEX, Read from buffer IE\n");
+          create.krnl.printf(" ");
+          create.krnl.iterate({}, {tiledDefE1[1]}, {}, {},
+              [&](KrnlBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                DimsExpr outputAF;
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                DimIndexExpr e1(loopInd[0]);
+                getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                outputAF[E1] = e1;
+                IndexExpr l = e1 % lit64;
+                DimsExpr bufferAF = {l};
+                Value t = create.krnl.loadIE(buffer, bufferAF);
+                create.krnl.storeIE(t, alloc, outputAF);
+#if DEBUG_UNSTICK
+                create.krnl.printf("load buff[l=", l);
+                create.krnl.printf("] => output[e3=", outputAF[E3]);
+                create.krnl.printf("][e2=", outputAF[E2]);
+                create.krnl.printf("][e1=", outputAF[E1]);
+                create.krnl.printf("]\n");
+#endif
+              });
+        });
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -1038,7 +1195,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimIndexExpr e1(loopInd[0]);
                       outputAF[E1] = e1;
                       outputAF[E2] = SymbolIndexExpr(e2);
-#if 1
+#if 1 // seems to make no differences
                       IndexExpr nn = outputAF[E2] % litN;
                       IndexExpr ll = e1 % lit64;
                       IndexExpr tmp = e1.floorDiv(lit64);
