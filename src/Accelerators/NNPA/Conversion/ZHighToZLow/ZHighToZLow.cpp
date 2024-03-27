@@ -985,11 +985,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value inputAs64 =
               create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
 
-      // Iterate over M, N, and 64. Manage iterations explicitly.
-      // DimsExpr lbs2 = {litZero};
-      // DimsExpr ubs2 = {lit64};
-      // SmallVector<int64_t, 3> steps2 = {VL};
-      // Analysis of assembly showed that the inner loop was fully unrolled.
 #if DEBUG_UNSTICK
           create.krnl.printf("HI ALEX, Write to buffer IE\n");
 #endif
