@@ -961,9 +961,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       }
     }
 
-    // Compute max tiles
-    IndexExpr tileNum = LiteralIndexExpr(2);
-    DimsExpr reallocTileDims = {tileNum, lit64};
+    // Compute max tiles. It is actually not easy to compute the max number of
+    // tiles; since we don't allocate, just need to index by the "tile size", it
+    // is sufficient to assume 2 or more.
+    IndexExpr T = LiteralIndexExpr(2);
+    DimsExpr reallocTileDims = {T, lit64};
     Value inputAsTx64 =
         create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
 
@@ -978,13 +980,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value buffer = create.mem.alignedAlloc(bufferType, {});
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, outerIndices);
-          create.krnl.printf("", inputOffset, true);
           IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(lit64);
 
-#if DEBUG_UNSTICK
-          create.krnl.printf("HI ALEX, Write to buffer IE\n");
-#endif
           create.affine.forIE(
               litZero, lit64, VL, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1002,15 +1000,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(vecF32H, buffer, bufferAF, {});
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
-#if DEBUG_UNSTICK
-                create.krnl.printf("store buff[l=", l);
-                create.krnl.printf("]\n");
-#endif
               });
-#if DEBUG_UNSTICK
-          create.krnl.printf("HI ALEX, Read from buffer IE\n");
-          create.krnl.printf(" ");
-#endif
           create.krnl.iterate({}, {tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1023,13 +1013,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 DimsExpr bufferAF = {l};
                 Value t = create.krnl.loadIE(buffer, bufferAF);
                 create.krnl.storeIE(t, alloc, outputAF);
-#if DEBUG_UNSTICK
-                create.krnl.printf("load buff[l=", l);
-                create.krnl.printf("] => output[e3=", outputAF[E3]);
-                create.krnl.printf("][e2=", outputAF[E2]);
-                create.krnl.printf("][e1=", outputAF[E1]);
-                create.krnl.printf("]\n");
-#endif
               });
         });
     rewriter.replaceOp(op, alloc);
