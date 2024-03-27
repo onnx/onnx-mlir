@@ -712,9 +712,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
                 DimsExpr reallocTileDims = {litN, lit64};
 #if USE_RC_ZERO_OFFSET
-                Value allocAs32x64 =
-                    create.mem.reinterpretCast(alloc, litZero.getValue(),
-                        reallocTileDims);
+                Value allocAs32x64 = create.mem.reinterpretCast(
+                    alloc, litZero.getValue(), reallocTileDims);
 #else
                 Value allocAs32x64 =
                     create.mem.reinterpretCast(alloc, allocOffset,
@@ -962,9 +961,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       }
     }
 
-    // Create a reinterpret cast
-    //          DimsExpr reallocTileDims = {lit64};
-    //          create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
+    // Compute max tiles
+    IndexExpr tileNum = LiteralIndexExpr(2);
+    DimsExpr reallocTileDims = {tileNum, lit64};
+    Value inputAsTx64 =
+        create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
 
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
     create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
@@ -978,12 +979,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, outerIndices);
           create.krnl.printf("", inputOffset, true);
-          IndexExpr iDataOffset = SymbolIndexExpr(inputOffset);
-          IndexExpr iTileOffset = iDataOffset.floorDiv(lit64);
-          IndexExpr iTileDim = iTileOffset+1;
-          DimsExpr reallocTileDims = {iTileDim, lit64};
-          Value inputAs64 =
-              create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
+          IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
+          IndexExpr inputTileOffset = inputDataOffset.floorDiv(lit64);
 
 #if DEBUG_UNSTICK
           create.krnl.printf("HI ALEX, Write to buffer IE\n");
@@ -993,9 +990,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 MDBuilder create(b);
                 IndexExprScope innerScope(create.krnl, &outerScope);
                 DimIndexExpr l(loopInd[0]);
-                IndexExpr ii = SymbolIndexExpr(iTileOffset);
+                IndexExpr ii = SymbolIndexExpr(inputTileOffset);
                 Value vecF16 =
-                    create.vec.loadIE(vecF16Type, inputAs64, {ii, l}, {});
+                    create.vec.loadIE(vecF16Type, inputAsTx64, {ii, l}, {});
                 auto convertOp =
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
                 Value vecF32H = convertOp.getResult(0);
