@@ -53,7 +53,7 @@ public:
 
     auto memrefTy = llvm::dyn_cast<MemRefType>(memref.getType());
     int64_t rank = memrefTy.getRank();
-    assert(mapResults.value().size() == rank && "Invalid indices");
+    assert((int64_t)mapResults.value().size() == rank && "Invalid indices");
 
     // Only lower this op after the memref is normalized.
     if (!memrefTy.getLayout().isIdentity())

@@ -1251,14 +1251,11 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
         create.math.select(needAdjust, adjustedRemainder, mathRemainder);
 
 #ifdef DEBUG_ONNX_MOD
-    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: dividend=", dividend,
-        dividend.getType());
-    create.krnl.printf(", divisor=", divisor, divisor.getType());
-    create.krnl.printf(
-        ", mathReminder=", mathRemainder, mathRemainder.getType());
-    create.krnl.printf(
-        ", adjustedReminder=", adjustedRemainder, adjustedRemainder.getType());
-    create.krnl.printf(", Answer=", answer, answer.getType());
+    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: dividend=", dividend);
+    create.krnl.printf(", divisor=", divisor);
+    create.krnl.printf(", mathReminder=", mathRemainder);
+    create.krnl.printf(", adjustedReminder=", adjustedRemainder);
+    create.krnl.printf(", Answer=", answer);
     create.krnl.printf("\n");
 #endif
 
@@ -1504,7 +1501,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   DimsExpr outputDims;
   getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
-
+  create.krnl.printf(
+      "HI ALEX from SIMD with output dims[0]: ", outputDims[0], true);
   // Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
