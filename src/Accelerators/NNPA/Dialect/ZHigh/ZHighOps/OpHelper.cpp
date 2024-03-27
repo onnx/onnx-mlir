@@ -460,5 +460,17 @@ IntegerAttr getAxisNHWC(IntegerAttr axisNCHWAttr) {
   return IntegerAttr::get(axisNCHWAttr.getType(), axisNHWC);
 }
 
+//===----------------------------------------------------------------------===//
+
+bool hasNNPAUse(Value v) {
+  return llvm::any_of(v.getUsers(), [](Operation *op) {
+    // Stick/Unstick ops are not considered as NNPA ops.
+    return ((op->getDialect()->getNamespace() ==
+                ZHighDialect::getDialectNamespace()) &&
+            !isa<ZHighStickOp, ZHighUnstickOp, ZHighStickForLSTMOp,
+                ZHighStickForGRUOp>(op));
+  });
+}
+
 } // namespace zhigh
 } // namespace onnx_mlir
