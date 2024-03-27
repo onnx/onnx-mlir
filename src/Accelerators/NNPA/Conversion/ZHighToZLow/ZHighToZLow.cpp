@@ -1167,7 +1167,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
               });
-#if 1
+#if 0
           // Use the original loop iterations to write the data to the right spot,
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
@@ -1191,7 +1191,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimIndexExpr e1(loopInd[0]);
                       outputAF[E1] = e1;
                       outputAF[E2] = SymbolIndexExpr(e2);
-#if 0 // seems to make no differences
+#if 0 
+                      // simpler computations, but more costly.
                       IndexExpr nn = outputAF[E2] % litN;
                       IndexExpr ll = e1 % lit64;
                       IndexExpr tmp = e1.floorDiv(lit64);
@@ -1236,7 +1237,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 // if (outputAF[E1]+ M * 64 < outputDims[E1])
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
-                DimsExpr reallocTileDims = {lit1, litM, lit64};
+                // DimsExpr reallocTileDims = {lit1, litM, lit64};
                 // Value allocAs1x32x64 = create.mem.reinterpretCast(
                 //     alloc, allocOffset, reallocTileDims);
                 //  Calculate buffer offset: buffer is [N][M][64]
