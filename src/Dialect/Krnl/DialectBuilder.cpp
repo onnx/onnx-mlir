@@ -118,6 +118,17 @@ Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
   return b().create<KrnlVectorTypeCastOp>(loc(), sourceMemref, vectorLen);
 }
 
+void KrnlBuilder::region(
+    function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const {
+  KrnlBuilder createKrnl(b(), loc());
+  KrnlRegionOp regionOp = b().create<KrnlRegionOp>(loc());
+  {
+    OpBuilder::InsertionGuard guard(b());
+    b().setInsertionPointToStart(&regionOp.getBodyRegion().front());
+    bodyBuilderFn(createKrnl);
+  }
+}
+
 ValueRange KrnlBuilder::defineLoops(int64_t originalLoopNum) const {
   return b()
       .template create<KrnlDefineLoopsOp>(loc(), originalLoopNum)
