@@ -40,8 +40,9 @@ struct ONNXScatterNDOpLoweringToStablehlo
     auto indicesType = indices.getType().cast<ShapedType>();
     int64_t dataRank = dataType.getRank();
     int64_t indicesRank = indicesType.getRank();
-    assert(indicesType.hasStaticShape() &&
-           "only support indices with static shape");
+    if (indicesType.isDynamicDim(indicesRank - 1))
+      return rewriter.notifyMatchFailure(
+          op, "only support indices with static last dim");
     int64_t partialIdxDim = indicesType.getDimSize(indicesRank - 1);
 
     assert(dataRank >= 1 && "The rank of 'data' must be >= 1");
