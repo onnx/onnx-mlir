@@ -72,19 +72,15 @@ func.func @test_matmulinteger_per_tensor(%arg0: tensor<16x32xui8>, %arg1: tensor
 // CHECK-DAG:       [[LOOP_6_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = 0 to 16, [[LOOP_6_]]#1 -> [[I_11_:%.+]] = 0 to 64, [[LOOP_6_]]#2 -> [[I_12_:%.+]] = 0 to 32){
 // CHECK-DAG:         [[VAR_7_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_7_:%.+]] = memref.alloca() : memref<i32>
-// CHECK:             krnl.store [[CST_0_]], [[RES_7_]][] : memref<i32>
-// CHECK:             krnl.iterate([[LOOP_6_]]#2) with (){
+// CHECK:             [[IterResult:%.+]] = krnl.iterate([[LOOP_6_]]#2) with () iter_args([[IterArg:%.+]] = [[CST_0_]]) -> (i32){
 // CHECK:               [[VAR_9_4_:%.+]] = krnl.get_induction_var_value([[LOOP_6_]]#2) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_10_5_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_7_6_]]#0, [[VAR_9_4_]]{{.}} : memref<16x32xi32>
 // CHECK-DAG:           [[LOAD_RES_5_MEM_:%.+]] = krnl.load [[RES_5_]]{{.}}[[VAR_9_4_]], [[VAR_7_6_]]#1] : memref<32x64xi32>
-// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]][] : memref<i32>
 // CHECK:               [[VAR_13_:%.+]] = arith.muli [[VAR_10_5_]], [[LOAD_RES_5_MEM_]] : i32
-// CHECK:               [[VAR_14_:%.+]] = arith.addi [[LOAD_RES_7_MEM_]], [[VAR_13_]] : i32
-// CHECK:               krnl.store [[VAR_14_]], [[RES_7_]][] : memref<i32>
+// CHECK:               [[VAR_14_:%.+]] = arith.addi [[IterArg]], [[VAR_13_]] : i32
+// CHECK:               krnl.yield [[VAR_14_]] : i32
 // CHECK:             }
-// CHECK:             [[LOAD_RES_7_MEM_1_:%.+]] = krnl.load [[RES_7_]][] : memref<i32>
-// CHECK:             krnl.store [[LOAD_RES_7_MEM_1_]], [[RES_6_]]{{.}}[[VAR_7_6_]]#0, [[VAR_7_6_]]#1] : memref<16x64xi32>
+// CHECK:             krnl.store [[IterResult]], [[RES_6_]]{{.}}[[VAR_7_6_]]#0, [[VAR_7_6_]]#1] : memref<16x64xi32>
 // CHECK:           }
 // CHECK:           return [[RES_6_]] : memref<16x64xi32>
 // CHECK:         }
@@ -160,19 +156,15 @@ func.func @test_matmulinteger_per_row_a(%arg0: tensor<16x32xui8>, %arg1: tensor<
 // CHECK-DAG:       [[LOOP_6_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_6_]]#0, [[LOOP_6_]]#1) with ([[LOOP_6_]]#0 -> [[I_10_:%.+]] = 0 to 16, [[LOOP_6_]]#1 -> [[I_11_:%.+]] = 0 to 64, [[LOOP_6_]]#2 -> [[I_12_:%.+]] = 0 to 32){
 // CHECK-DAG:         [[VAR_7_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_6_]]#0, [[LOOP_6_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK-DAG:         [[RES_7_:%.+]] = memref.alloca() : memref<i32>
-// CHECK:             krnl.store [[CST_0_]], [[RES_7_]][] : memref<i32>
-// CHECK:             krnl.iterate([[LOOP_6_]]#2) with (){
+// CHECK:             [[IterResult:%.+]] = krnl.iterate([[LOOP_6_]]#2) with () iter_args([[IterArg:%.+]] = [[CST_0_]]) -> (i32){
 // CHECK:               [[VAR_9_4_:%.+]] = krnl.get_induction_var_value([[LOOP_6_]]#2) : (!krnl.loop) -> index
 // CHECK-DAG:           [[VAR_10_5_:%.+]] = krnl.load [[RES_2_]]{{.}}[[VAR_7_6_]]#0, [[VAR_9_4_]]{{.}} : memref<16x32xi32>
 // CHECK-DAG:           [[LOAD_RES_5_MEM_:%.+]] = krnl.load [[RES_5_]]{{.}}[[VAR_9_4_]], [[VAR_7_6_]]#1] : memref<32x64xi32>
-// CHECK-DAG:           [[LOAD_RES_7_MEM_:%.+]] = krnl.load [[RES_7_]][] : memref<i32>
 // CHECK:               [[VAR_13_:%.+]] = arith.muli [[VAR_10_5_]], [[LOAD_RES_5_MEM_]] : i32
-// CHECK:               [[VAR_14_:%.+]] = arith.addi [[LOAD_RES_7_MEM_]], [[VAR_13_]] : i32
-// CHECK:               krnl.store [[VAR_14_]], [[RES_7_]][] : memref<i32>
+// CHECK:               [[VAR_14_:%.+]] = arith.addi [[IterArg]], [[VAR_13_]] : i32
+// CHECK:               krnl.yield [[VAR_14_]] : i32
 // CHECK:             }
-// CHECK:             [[LOAD_RES_7_MEM_1_:%.+]] = krnl.load [[RES_7_]][] : memref<i32>
-// CHECK:             krnl.store [[LOAD_RES_7_MEM_1_]], [[RES_6_]]{{.}}[[VAR_7_6_]]#0, [[VAR_7_6_]]#1] : memref<16x64xi32>
+// CHECK:             krnl.store [[IterResult]], [[RES_6_]]{{.}}[[VAR_7_6_]]#0, [[VAR_7_6_]]#1] : memref<16x64xi32>
 // CHECK:           }
 // CHECK:           return [[RES_6_]] : memref<16x64xi32>
 // CHECK:         }

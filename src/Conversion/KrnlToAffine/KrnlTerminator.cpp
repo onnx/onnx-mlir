@@ -42,9 +42,23 @@ public:
   }
 };
 
+class KrnlYieldLowering : public ConversionPattern {
+public:
+  explicit KrnlYieldLowering(TypeConverter &typeConverter, MLIRContext *context)
+      : ConversionPattern(
+            typeConverter, KrnlYieldOp::getOperationName(), 1, context) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<affine::AffineYieldOp>(op, op->getOperands());
+    return success();
+  }
+};
+
 void populateLoweringKrnlTerminatorOpPattern(TypeConverter &typeConverter,
     RewritePatternSet &patterns, MLIRContext *ctx) {
-  patterns.insert<KrnlTerminatorLowering>(typeConverter, ctx);
+  patterns.insert<KrnlTerminatorLowering, KrnlYieldLowering>(
+      typeConverter, ctx);
 }
 
 } // namespace krnl

@@ -40,17 +40,15 @@ func.func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %ar
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[MAP_2_]]([[VAR_dim_0_]], [[VAR_dim_1_]], [[VAR_dim_]]), [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
 // CHECK-DAG:         [[VAR_3_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_4_:%.+]] = affine.apply [[MAP_3_]]([[VAR_3_]]#1, [[VAR_3_]]#2)
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to [[MAP_4_]]([[VAR_3_]]#1, [[VAR_3_]]#2){{.}}[[VAR_0_]]{{.}}, [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to [[MAP_5_]]([[VAR_3_]]#1, [[VAR_3_]]#2){{.}}[[VAR_0_]], [[VAR_1_]]{{.}}){
 // CHECK:               [[VAR_6_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK-DAG:           [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
 // CHECK-DAG:           [[VAR_dim_2_:%.+]] = memref.dim [[IMAGE_]], [[CST_2_]] : memref<?x?x?x?xf32>
 // CHECK-DAG:           [[VAR_dim_3_:%.+]] = memref.dim [[IMAGE_]], [[CST_3_]] : memref<?x?x?x?xf32>
-// CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = max [[MAP_6_]]([[VAR_6_]]#0) to min [[MAP_7_]]([[VAR_6_]]#0){{.}}[[VAR_dim_2_]]{{.}}, [[LOOP_2_]]#2 -> [[I_7_:%.+]] = max [[MAP_8_]]([[VAR_6_]]#0, [[VAR_6_]]#1){{.}}[[VAR_dim_2_]]{{.}} to min [[MAP_9_]]([[VAR_6_]]#0, [[VAR_6_]]#1){{.}}[[VAR_dim_2_]], [[VAR_dim_3_]]{{.}}){
+// CHECK:               [[IterResult:%.+]] = krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = max [[MAP_6_]]([[VAR_6_]]#0) to min [[MAP_7_]]([[VAR_6_]]#0){{.}}[[VAR_dim_2_]]{{.}}, [[LOOP_2_]]#2 -> [[I_7_:%.+]] = max [[MAP_8_]]([[VAR_6_]]#0, [[VAR_6_]]#1){{.}}[[VAR_dim_2_]]{{.}} to min [[MAP_9_]]([[VAR_6_]]#0, [[VAR_6_]]#1){{.}}[[VAR_dim_2_]], [[VAR_dim_3_]]{{.}}) iter_args([[IterArg:%.+]] = [[CST_0_dot_000000_]]) -> (f32){
 // CHECK:                 [[VAR_11_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:             [[VAR_12_:%.+]] = affine.apply [[MAP_10_]]([[VAR_11_]]#0, [[VAR_3_]]#1)
 // CHECK-DAG:             [[VAR_13_:%.+]] = affine.apply [[MAP_11_]]([[VAR_11_]]#1, [[VAR_6_]]#0)
@@ -58,14 +56,12 @@ func.func private @test_conv_unknown_dimensions(%arg0 : tensor<?x?x?x?xf32>, %ar
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[LOAD_IMAGE_MEM_:%.+]] = krnl.load [[IMAGE_]]{{.}}[[VAR_3_]]#0, [[VAR_12_]], [[VAR_13_]], [[VAR_14_]]{{.}} : memref<?x?x?x?xf32>
 // CHECK-DAG:             [[LOAD_FILTER_MEM_:%.+]] = krnl.load [[FILTER_]]{{.}}[[VAR_4_]], [[VAR_11_]]#0, [[VAR_11_]]#1, [[VAR_11_]]#2] : memref<5x2x6x7xf32>
-// CHECK-DAG:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:                 [[VAR_18_:%.+]] = arith.mulf [[LOAD_IMAGE_MEM_]], [[LOAD_FILTER_MEM_]] : f32
-// CHECK:                 [[VAR_19_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_18_]] : f32
-// CHECK:                 krnl.store [[VAR_19_]], [[RES_1_]][] : memref<f32>
+// CHECK:                 [[VAR_19_:%.+]] = arith.addf [[IterArg]], [[VAR_18_]] : f32
+// CHECK:                 krnl.yield [[VAR_19_]] : f32
 // CHECK:               }
-// CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK-DAG:           [[LOAD_BIAS_MEM_:%.+]] = krnl.load [[BIAS_]]{{.}}[[VAR_4_]]{{.}} : memref<5xf32>
-// CHECK:               [[VAR_10_:%.+]] = arith.addf [[LOAD_RES_1_MEM_1_]], [[LOAD_BIAS_MEM_]] : f32
+// CHECK:               [[VAR_10_:%.+]] = arith.addf [[IterResult]], [[LOAD_BIAS_MEM_]] : f32
 // CHECK:               krnl.store [[VAR_10_]], [[RES_]]{{.}}[[VAR_3_]]#0, [[VAR_4_]], [[VAR_6_]]#0, [[VAR_6_]]#1] : memref<?x5x?x?xf32>
 // CHECK:             }
 // CHECK:           }
@@ -96,15 +92,13 @@ func.func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[BIAS_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 5){
 // CHECK-DAG:         [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]]#1, [[VAR_1_]]#2)
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 27, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 58){
 // CHECK:               [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
-// CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)){
+// CHECK:               [[IterResult:%.+]] = krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)) iter_args([[IterArg:%.+]] = [[CST_0_dot_000000_]]) -> (f32){
 // CHECK:                 [[VAR_7_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:             [[VAR_8_:%.+]] = affine.apply [[MAP_5_]]([[VAR_7_]]#0, [[VAR_1_]]#1)
 // CHECK-DAG:             [[VAR_9_:%.+]] = affine.apply [[MAP_6_]]([[VAR_7_]]#1, [[VAR_4_]]#0)
@@ -112,13 +106,11 @@ func.func private @test_conv_no_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[LOAD_IMAGE_MEM_:%.+]] = krnl.load [[IMAGE_]]{{.}}[[VAR_1_]]#0, [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0] : memref<1x2x32x64xf32>
 // CHECK-DAG:             [[LOAD_FILTER_MEM_:%.+]] = krnl.load [[FILTER_]]{{.}}[[VAR_2_]], [[VAR_7_]]#0, [[VAR_7_]]#1, [[VAR_7_]]#2] : memref<5x2x6x7xf32>
-// CHECK-DAG:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:                 [[VAR_14_:%.+]] = arith.mulf [[LOAD_IMAGE_MEM_]], [[LOAD_FILTER_MEM_]] : f32
-// CHECK:                 [[VAR_15_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_14_]] : f32
-// CHECK:                 krnl.store [[VAR_15_]], [[RES_1_]][] : memref<f32>
+// CHECK:                 [[VAR_15_:%.+]] = arith.addf [[IterArg]], [[VAR_14_]] : f32
+// CHECK:                 krnl.yield [[VAR_15_]] : f32
 // CHECK:               }
-// CHECK:               [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:               krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x5x27x58xf32>
+// CHECK:               krnl.store [[IterResult]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x5x27x58xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x5x27x58xf32>
@@ -147,15 +139,13 @@ func.func private @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : 
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 5){
 // CHECK-DAG:         [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]]#1, [[VAR_1_]]#2)
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_3_:%.+]] = 0 to 27, [[LOOP_1_]]#1 -> [[I_4_:%.+]] = 0 to 58){
 // CHECK:               [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
-// CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_7_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)){
+// CHECK:               [[IterResult:%.+]] = krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_5_:%.+]] = 0 to 2, [[LOOP_2_]]#1 -> [[I_6_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_7_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)) iter_args([[IterArg:%.+]] = [[CST_0_dot_000000_]]) -> (f32){
 // CHECK:                 [[VAR_9_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:             [[VAR_10_:%.+]] = affine.apply [[MAP_5_]]([[VAR_9_]]#0, [[VAR_1_]]#1)
 // CHECK-DAG:             [[VAR_11_:%.+]] = affine.apply [[MAP_6_]]([[VAR_9_]]#1, [[VAR_4_]]#0)
@@ -163,14 +153,12 @@ func.func private @test_conv_bias_no_pad(%arg0 : tensor<1x2x32x64xf32>, %arg1 : 
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[LOAD_IMAGE_MEM_:%.+]] = krnl.load [[IMAGE_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]0, [[VAR_1_]]1, [[VAR_1_]]2] : memref<1x2x32x64xf32>
 // CHECK-DAG:             [[LOAD_FILTER_MEM_:%.+]] = krnl.load [[FILTER_]]{{.}}[[VAR_2_]], [[VAR_9_]]#0, [[VAR_9_]]#1, [[VAR_9_]]#2] : memref<5x2x6x7xf32>
-// CHECK-DAG:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:                 [[VAR_16_:%.+]] = arith.mulf [[LOAD_IMAGE_MEM_]], [[LOAD_FILTER_MEM_]] : f32
-// CHECK:                 [[VAR_17_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_16_]] : f32
-// CHECK:                 krnl.store [[VAR_17_]], [[RES_1_]][] : memref<f32>
+// CHECK:                 [[VAR_17_:%.+]] = arith.addf [[IterArg]], [[VAR_16_]] : f32
+// CHECK:                 krnl.yield [[VAR_17_]] : f32
 // CHECK:               }
-// CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK-DAG:           [[LOAD_BIAS_MEM_:%.+]] = krnl.load [[BIAS_]]{{.}}[[VAR_2_]]{{.}} : memref<5xf32>
-// CHECK:               [[VAR_8_:%.+]] = arith.addf [[LOAD_RES_1_MEM_1_]], [[LOAD_BIAS_MEM_]] : f32
+// CHECK:               [[VAR_8_:%.+]] = arith.addf [[IterResult]], [[LOAD_BIAS_MEM_]] : f32
 // CHECK:               krnl.store [[VAR_8_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x5x27x58xf32>
 // CHECK:             }
 // CHECK:           }
@@ -201,15 +189,13 @@ func.func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[BIAS_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 2){
 // CHECK-DAG:         [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]]#1, [[VAR_1_]]#2)
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 27, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 58){
 // CHECK:               [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
-// CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 3, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)){
+// CHECK:               [[IterResult:%.+]] = krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 3, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)) iter_args([[IterArg:%.+]] = [[CST_0_dot_000000_]]) -> (f32){
 // CHECK:                 [[VAR_7_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:             [[VAR_8_:%.+]] = affine.apply [[MAP_5_]]([[VAR_7_]]#0, [[VAR_1_]]#1)
 // CHECK-DAG:             [[VAR_9_:%.+]] = affine.apply [[MAP_6_]]([[VAR_7_]]#1, [[VAR_4_]]#0)
@@ -217,13 +203,11 @@ func.func private @test_conv_no_bias_no_pad_w_group(%arg0 : tensor<1x9x32x64xf32
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[LOAD_IMAGE_MEM_:%.+]] = krnl.load [[IMAGE_]]{{.}}[[VAR_1_]]#0, [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0] : memref<1x9x32x64xf32>
 // CHECK-DAG:             [[LOAD_FILTER_MEM_:%.+]] = krnl.load [[FILTER_]]{{.}}[[VAR_2_]], [[VAR_7_]]#0, [[VAR_7_]]#1, [[VAR_7_]]#2] : memref<6x3x6x7xf32>
-// CHECK-DAG:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:                 [[VAR_14_:%.+]] = arith.mulf [[LOAD_IMAGE_MEM_]], [[LOAD_FILTER_MEM_]] : f32
-// CHECK:                 [[VAR_15_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_14_]] : f32
-// CHECK:                 krnl.store [[VAR_15_]], [[RES_1_]][] : memref<f32>
+// CHECK:                 [[VAR_15_:%.+]] = arith.addf [[IterArg]], [[VAR_14_]] : f32
+// CHECK:                 krnl.yield [[VAR_15_]] : f32
 // CHECK:               }
-// CHECK:               [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:               krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x6x27x58xf32>
+// CHECK:               krnl.store [[IterResult]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x6x27x58xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x6x27x58xf32>
@@ -253,15 +237,13 @@ func.func private @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[BIAS_:%.+]] = 0 to 1, [[LOOP_0_]]#1 -> [[I_0_:%.+]] = 0 to 1, [[LOOP_0_]]#2 -> [[I_1_:%.+]] = 0 to 5){
 // CHECK-DAG:         [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK-DAG:         [[RES_1_:%.+]] = memref.alloca() : memref<f32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_2_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]]#1, [[VAR_1_]]#2)
 // CHECK-DAG:         [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK:             krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to 14, [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 29){
 // CHECK:               [[VAR_4_:%.+]]:2 = krnl.get_induction_var_value([[LOOP_1_]]#0, [[LOOP_1_]]#1) : (!krnl.loop, !krnl.loop) -> (index, index)
-// CHECK:               krnl.store [[CST_0_dot_000000_]], [[RES_1_]][] : memref<f32>
 // CHECK:               [[LOOP_2_:%.+]]:3 = krnl.define_loops 3
-// CHECK:               krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 9, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)){
+// CHECK:               [[IterResult:%.+]] = krnl.iterate([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) with ([[LOOP_2_]]#0 -> [[I_4_:%.+]] = 0 to 9, [[LOOP_2_]]#1 -> [[I_5_:%.+]] = max [[MAP_1_]]([[VAR_4_]]#0) to min [[MAP_2_]]([[VAR_4_]]#0), [[LOOP_2_]]#2 -> [[I_6_:%.+]] = max [[MAP_3_]]([[VAR_4_]]#0, [[VAR_4_]]#1) to min [[MAP_4_]]([[VAR_4_]]#0, [[VAR_4_]]#1)) iter_args([[IterArg:%.+]] = [[CST_0_dot_000000_]]) -> (f32){
 // CHECK:                 [[VAR_7_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_2_]]#0, [[LOOP_2_]]#1, [[LOOP_2_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:             [[VAR_8_:%.+]] = affine.apply [[MAP_5_]]([[VAR_7_]]#0, [[VAR_1_]]#1)
 // CHECK-DAG:             [[VAR_9_:%.+]] = affine.apply [[MAP_6_]]([[VAR_7_]]#1, [[VAR_4_]]#0)
@@ -269,13 +251,11 @@ func.func private @test_conv_no_bias_no_pad_w_strides(%arg0 : tensor<1x9x32x64xf
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:             [[LOAD_IMAGE_MEM_:%.+]] = krnl.load [[IMAGE_]]{{.}}[[VAR_1_]]#0, [[VAR_8_]], [[VAR_9_]], [[VAR_1_]]0] : memref<1x9x32x64xf32>
 // CHECK-DAG:             [[LOAD_FILTER_MEM_:%.+]] = krnl.load [[FILTER_]]{{.}}[[VAR_2_]], [[VAR_7_]]#0, [[VAR_7_]]#1, [[VAR_7_]]#2] : memref<5x9x6x7xf32>
-// CHECK-DAG:             [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:                 [[VAR_14_:%.+]] = arith.mulf [[LOAD_IMAGE_MEM_]], [[LOAD_FILTER_MEM_]] : f32
-// CHECK:                 [[VAR_15_:%.+]] = arith.addf [[LOAD_RES_1_MEM_]], [[VAR_14_]] : f32
-// CHECK:                 krnl.store [[VAR_15_]], [[RES_1_]][] : memref<f32>
+// CHECK:                 [[VAR_15_:%.+]] = arith.addf [[IterArg]], [[VAR_14_]] : f32
+// CHECK:                 krnl.yield [[VAR_15_]] : f32
 // CHECK:               }
-// CHECK:               [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:               krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x5x14x29xf32>
+// CHECK:               krnl.store [[IterResult]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_2_]], [[VAR_4_]]#0, [[VAR_4_]]#1] : memref<1x5x14x29xf32>
 // CHECK:             }
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1x5x14x29xf32>

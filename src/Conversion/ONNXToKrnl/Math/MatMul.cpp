@@ -84,13 +84,15 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         [&](KrnlBuilder &createKrnl, ValueRange outerIndices) {
           MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
               createKrnl);
-          // Single scalar, no need for default alignment.
-          Value reductionVal =
-              create.mem.alignedAlloca(MemRefType::get({}, elementType));
-          create.krnl.store(fZero, reductionVal);
+
+          ValueRange inits = ValueRange(fZero);
           // Inner loop for reduction.
-          create.krnl.iterate({}, innerLoop, {}, {},
+          auto innerIterate = create.krnl.iterate({}, innerLoop, {}, {}, inits,
               [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
+                Block *innerIterEntryBB = createKrnl.getBuilder().getBlock();
+                // Get last argument for the iterate body.
+                Value iterArg = innerIterEntryBB->getArguments().back();
+
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);
                 Value k = innerIndex[0];
@@ -128,13 +130,16 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
                     create.krnl.load(operandAdaptor.getA(), aAccessFct);
                 Value loadedB =
                     create.krnl.load(operandAdaptor.getB(), bAccessFct);
-                Value loadedY = create.krnl.load(reductionVal);
+                Value loadedY = iterArg;
                 Value AB = create.math.mul(loadedA, loadedB);
                 Value accumulated = create.math.add(loadedY, AB);
-                create.krnl.store(accumulated, reductionVal);
+                // Create yield.
+                create.krnl.yield(accumulated);
               });
-          Value accumulated = create.krnl.load(reductionVal);
+          Value accumulated = innerIterate.getResult(0);
           create.krnl.store(accumulated, alloc, outerIndices);
+          // Create yield.
+          create.krnl.yield({});
         });
   }
 
