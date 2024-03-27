@@ -1166,27 +1166,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 create.vec.storeIE(vecF32H, buffer, bufferAF, {});
                 create.vec.storeIE(
                     vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
-#if DEBUG_UNSTICK
-                create.krnl.printf("store buff[n=", n);
-                create.krnl.printf("][m=", m);
-                create.krnl.printf("][l=", l);
-                create.krnl.printf(
-                    "..+8] = remap[n, l] with rc input[e3=", inputAF[E3]);
-                create.krnl.printf("][e2=", inputAF[E2]);
-                create.krnl.printf("][e1=", inputAF[E1]);
-                create.krnl.printf(", input offset =", inputOffset);
-                IndexExpr nlOffset = (n * 64) + l;
-                IndexExpr absoluteOffset =
-                    SymbolIndexExpr(inputOffset) + nlOffset;
-                create.krnl.printf(", abs-input offset =", absoluteOffset);
-                create.krnl.printf("]\n");
-#endif
               });
 #if 1
-#if DEBUG_UNSTICK
-          create.krnl.printf("HI ALEX, Read from buffer IE\n");
-          create.krnl.printf(" ");
-#endif
+          // Use the original loop iterations to write the data to the right spot,
           create.krnl.iterate({}, {tiledDefE2[1], tiledDefE1[1]}, {}, {},
               [&](KrnlBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1209,7 +1191,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimIndexExpr e1(loopInd[0]);
                       outputAF[E1] = e1;
                       outputAF[E2] = SymbolIndexExpr(e2);
-#if 1 // seems to make no differences
+#if 0 // seems to make no differences
                       IndexExpr nn = outputAF[E2] % litN;
                       IndexExpr ll = e1 % lit64;
                       IndexExpr tmp = e1.floorDiv(lit64);
