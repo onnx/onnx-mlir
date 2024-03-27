@@ -115,6 +115,8 @@ using ONNXSequenceEraseOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason
 using ONNXSequenceInsertOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
 using ONNXSequenceLengthOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
 using ONNXSplitToSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
+using ONNXForkOpShapeHelper = ONNXUnimplementedOpShapeHelper;
+using ONNXParallelOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 // clang-format on
 
 //===----------------------------------------------------------------------===//

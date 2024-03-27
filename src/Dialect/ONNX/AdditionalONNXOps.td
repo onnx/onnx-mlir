@@ -620,3 +620,95 @@ def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
   }];
   let hasVerifier = 1;
 }
+
+//===----------------------------------------------------------------------===//
+// ONNXForkOp
+def ONNXForkOp:ONNX_Op<"Fork",
+    [Pure, HasParent<"ONNXParallelOp">,
+     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+  DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+  DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>,
+  OpInterface<"mlir::HasOnnxSubgraphOpInterface">
+]> {
+  let summary = "ONNX operation for forking threads.";
+  let description = [{
+
+  }];
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$inputs,
+                  DefaultValuedAttr<SI64Attr, "0">:$id);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
+  let regions = (region SizedRegion<1>:$body);
+  let skipDefaultBuilders = 1;
+  let extraClassDeclaration = [{
+      int64_t getSubgraphRegionIdx(const std::string& name) {
+        if (name == "body") return 0;
+        llvm_unreachable("region with the specified name does not exist");
+      }
+      using BodyBuilderFn =
+          llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>;
+  }];
+  let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * ONNXForkOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new ONNXForkOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+}
+  }];
+  let builders = [
+    OpBuilder<(ins "mlir::TypeRange":$resultTypes,
+      "mlir::ValueRange":$operands,
+      CArg<"llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>",
+           "nullptr">:$bodyBuilder)>
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXParallelOp
+def ONNXParallelOp:ONNX_Op<"Parallel",
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+    DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>,
+    OpInterface<"mlir::HasOnnxSubgraphOpInterface">]> {
+  let summary = "ONNX operation to specify paralell region.";
+  let description = [{
+
+  }];
+  let arguments = (ins Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$inputs);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
+  let regions = (region SizedRegion<1>:$body);
+
+  let skipDefaultBuilders = 1;
+  let extraClassDeclaration = [{
+      static int getNumberOfOperands() {
+        return -1;
+      }
+      static int getNumberOfResults() {
+        return -1;
+      }
+      int64_t getSubgraphRegionIdx(const std::string& name) {
+        if (name == "body") return 0;
+        llvm_unreachable("region with the specified name does not exist");
+      }
+      using BodyBuilderFn =
+          llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>;
+  }];
+  let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * ONNXParallelOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new ONNXParallelOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+  }];
+  let builders = [
+    OpBuilder<(ins "mlir::TypeRange":$resultTypes,
+      "mlir::ValueRange":$operands,
+      CArg<"llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>",
+           "nullptr">:$bodyBuilder)>
+  ];
+}

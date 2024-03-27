@@ -186,13 +186,15 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   if (enableInstrumentONNXSignature)
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
-  pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
-      /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
-      /*opsToCall*/ opsForCall));
-  // An additional pass of canonicalization is helpful because lowering
-  // from ONNX dialect to Standard dialect exposes additional canonicalization
-  // opportunities.
-  pm.addPass(mlir::createCanonicalizerPass());
+  for (unsigned i = 0; i < 2; i++) {
+    pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
+        /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
+        /*opsToCall*/ opsForCall));
+    // An additional pass of canonicalization is helpful because lowering
+    // from ONNX dialect to Standard dialect exposes additional canonicalization
+    // opportunities.
+    pm.addPass(mlir::createCanonicalizerPass());
+  }
 }
 
 void addKrnlToAffinePasses(mlir::PassManager &pm) {
