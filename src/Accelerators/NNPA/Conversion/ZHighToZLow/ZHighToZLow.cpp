@@ -860,7 +860,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           layout.getValue().equals_insensitive("3D") ||
           layout.getValue().equals_insensitive("2D") ||
           layout.getValue().equals_insensitive("3DS")) {
-#if 1
+#if 0
         return generateUnstickCodeSimple(
             rewriter, op, shapeHelper, alloc, input, layout);
 #else
@@ -1113,6 +1113,14 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       }
     }
 
+    // Compute max tiles. It is actually not easy to compute the max number of
+    // tiles; since we don't allocate, just need to index by the "tile size", it
+    // is sufficient to assume 2 or more. Tiles are N x 64.
+    IndexExpr T = LiteralIndexExpr(2);
+    DimsExpr reallocTileDims = {T, litN, lit64};
+    Value inputAsTxNx64 =
+        create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
+
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
     create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
         [&](KrnlBuilder &b, ValueRange loopInd) {
@@ -1145,11 +1153,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 // e2 is by N, e1 is by 64.
                 Value inputOffset =
                     create.krnl.getLinearOffsetIndexIE(input, inputAF);
-                DimsExpr reallocTileDims = {litN, lit64};
-                Value inputAs32x64 = create.mem.reinterpretCast(
-                    input, inputOffset, reallocTileDims);
-                Value vecF16 =
-                    create.vec.loadIE(vecF16Type, inputAs32x64, {n, l}, {});
+                IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
+                IndexExpr inputTileOffset = inputDataOffset.floorDiv(N * 64);
+                Value vecF16 = create.vec.loadIE(
+                    vecF16Type, inputAsTxNx64, {inputTileOffset, n, l}, {});
                 auto convertOp =
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
                 Value vecF32H = convertOp.getResult(0);
