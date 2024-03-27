@@ -12,6 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define USE_RC_ZERO_OFFSET 1
+#define ENABLE_COMPILER_STICK 1
+#define ENABLE_COMPILER_UNSTICK 0
+
 #include "llvm/Support/Debug.h"
 
 #include "mlir/Dialect/Affine/Analysis/Utils.h"
@@ -526,7 +530,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
-    if (enableCompilerCodeGen && false) { // hi alex
+#if ENABLE_COMPILER_STICK
+    if (enableCompilerCodeGen) { // hi alex
       // Generic way to handle all formats listed below.
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
@@ -539,6 +544,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
             rewriter, op, shapeHelper, alloc, input, layout);
       }
     }
+#endif
 
     // Else, emit a ZLow operation.
     rewriter.create<ZLowStickOp>(loc, input, alloc, layout);
@@ -705,8 +711,15 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
                 DimsExpr reallocTileDims = {litN, lit64};
-                Value allocAs32x64 = create.mem.reinterpretCast(
-                    alloc, allocOffset, reallocTileDims);
+#if USE_RC_ZERO_OFFSET
+                Value allocAs32x64 =
+                    create.mem.reinterpretCast(alloc, litZero.getValue(),
+                        reallocTileDims); // hi alex, should I use zero here?
+#else
+                Value allocAs32x64 =
+                    create.mem.reinterpretCast(alloc, allocOffset,
+                        reallocTileDims); // hi alex, should I use zero here?
+#endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
@@ -840,7 +853,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
-    if (enableCompilerCodeGen && true) {
+#if ENABLE_COMPILER_UNSTICK
+    if (enableCompilerCodeGen) {
       // Generic way to handle all formats listed below.
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
@@ -856,6 +870,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 #endif
       }
     }
+#endif
 
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
@@ -947,6 +962,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       }
     }
 
+    // Create a reinterpret cast
+    //          DimsExpr reallocTileDims = {lit64};
+    //          create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
+
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
     create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
         [&](KrnlBuilder &b, ValueRange loopInd) {
@@ -958,7 +977,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value buffer = create.mem.alignedAlloc(bufferType, {});
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, outerIndices);
-          create.krnl.printf("",inputOffset, true);
+          create.krnl.printf("", inputOffset, true);
           DimsExpr reallocTileDims = {lit64};
           Value inputAs64 =
               create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
