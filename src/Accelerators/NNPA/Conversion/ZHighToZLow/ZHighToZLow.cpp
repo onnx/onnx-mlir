@@ -13,8 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #define USE_RC_ZERO_OFFSET 1
-#define ENABLE_COMPILER_STICK 1
-#define ENABLE_COMPILER_UNSTICK 0
+#define ENABLE_COMPILER_STICK 0
+#define ENABLE_COMPILER_UNSTICK 1
 
 #include "llvm/Support/Debug.h"
 
@@ -714,11 +714,11 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 #if USE_RC_ZERO_OFFSET
                 Value allocAs32x64 =
                     create.mem.reinterpretCast(alloc, litZero.getValue(),
-                        reallocTileDims); // hi alex, should I use zero here?
+                        reallocTileDims);
 #else
                 Value allocAs32x64 =
                     create.mem.reinterpretCast(alloc, allocOffset,
-                        reallocTileDims); // hi alex, should I use zero here?
+                        reallocTileDims);
 #endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
@@ -978,9 +978,12 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, outerIndices);
           create.krnl.printf("", inputOffset, true);
-          DimsExpr reallocTileDims = {lit64};
+          IndexExpr iDataOffset = SymbolIndexExpr(inputOffset);
+          IndexExpr iTileOffset = iDataOffset.floorDiv(lit64);
+          IndexExpr iTileDim = iTileOffset+1;
+          DimsExpr reallocTileDims = {iTileDim, lit64};
           Value inputAs64 =
-              create.mem.reinterpretCast(input, inputOffset, reallocTileDims);
+              create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
 
       // Iterate over M, N, and 64. Manage iterations explicitly.
       // DimsExpr lbs2 = {litZero};
@@ -995,8 +998,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 MDBuilder create(b);
                 IndexExprScope innerScope(create.krnl, &outerScope);
                 DimIndexExpr l(loopInd[0]);
+                IndexExpr ii = SymbolIndexExpr(iTileOffset);
                 Value vecF16 =
-                    create.vec.loadIE(vecF16Type, inputAs64, {l}, {});
+                    create.vec.loadIE(vecF16Type, inputAs64, {ii, l}, {});
                 auto convertOp =
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
                 Value vecF32H = convertOp.getResult(0);
