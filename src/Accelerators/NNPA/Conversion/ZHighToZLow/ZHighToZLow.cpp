@@ -1230,26 +1230,76 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 // Compute n, the current m * 64 tile being processed by this
                 // inner loop.
                 IndexExpr n = e2 - outputAF[E2];
-                outputAF[E2] = e2;
                 // E1 is tiled, multiply by 64 to get the tile start.
-                outputAF[E1] = outputAF[E1] * 64;
-                // AE: consider only full M*64 tiles for now
-                // if (outputAF[E1]+ M * 64 < outputDims[E1])
-                Value allocOffset =
-                    create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
-                // DimsExpr reallocTileDims = {lit1, litM, lit64};
-                // Value allocAs1x32x64 = create.mem.reinterpretCast(
-                //     alloc, allocOffset, reallocTileDims);
-                //  Calculate buffer offset: buffer is [N][M][64]
-                int64_t num = M * 64;
-                IndexExpr bufferOffset = n * num;
-                // Amount of values to copy
-                Type intType = rewriter.getIntegerType(64);
-                Value numVal = create.math.constant(intType, num);
-                // Mem copy
-                create.krnl.memcpy(alloc, buffer, numVal, allocOffset,
-                    bufferOffset.getValue());
-              });
+                IndexExpr e1 = outputAF[E1] * 64;
+
+                // I may process here up to [e1 ... e1 + m*64), make sure its
+                // not going out of bound, i.e. beyond outputDIms[E1];
+                IndexExpr ub1 = SymbolIndexExpr(outputDims[E1]);
+                IndexExpr lit64M = LiteralIndexExpr(64 * M);
+                IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64M, ub1);
+                IndexExpr isFullLogical = isFull >= 0;
+                create.scf.ifThenElse(
+                    // Condition
+                    isFullLogical.getValue(),
+                    // Then (is full).
+                    [&](SCFBuilder b) {
+#if 1
+                      MDBuilder create(b);
+                      DimsExpr outputAF;
+                      IndexExprScope innermostScope(create.krnl, &innerScope);
+                      getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                      SymbolIndexExpr nn(n), ee1(e1), ee2(e2);
+                      // Has full M*64 tiles here, use memcpy.
+                      // Calculate offset for output (alloc)
+                      outputAF[E2] = ee2;
+                      outputAF[E1] = ee1;
+                      Value allocOffset =
+                          create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
+                      //  Calculate buffer offset: buffer is [N][M][64]
+                      int64_t num = M * 64;
+                      IndexExpr bufferOffset = nn * num;
+                      // Amount of values to copy
+                      Type intType = rewriter.getIntegerType(64);
+                      Value numVal = create.math.constant(intType, num);
+                      // Mem copy
+                      create.krnl.memcpy(alloc, buffer, numVal, allocOffset,
+                          bufferOffset.getValue());
+#endif
+                    },
+                    // Else (is not full).
+                    [&](SCFBuilder b) {
+                      MDBuilder create(b);
+                      IndexExprScope innerNextScope(create.krnl, &innerScope);
+                      SymbolIndexExpr lb1(e1.getValue()), ub1(outputDims[E1].getValue());
+#if 1
+                      create.affine.forIE(lb1, ub1, 1,
+                          [&](AffineBuilder b, ValueRange loopInd) {
+                            #if 0
+                            MDBuilder create(b);
+                            DimsExpr outputAF;
+                            IndexExprScope innermostScope(
+                                create.krnl, &innerNextScope);
+                            DimIndexExpr ee1(loopInd[0]);
+                            SymbolIndexExpr ee2(e2), llb1(lb1);
+                            // Compute access function for output.
+                            getIndexExprList<SymbolIndexExpr>(
+                                outerIndices, outputAF);
+                            outputAF[E2] = ee2;
+                            outputAF[E1] = ee1;
+                            // Compute access function for buffer
+                            IndexExpr ll = ee1 % lit64;
+                            IndexExpr mm = ee1 - llb1;
+                            mm.floorDiv(lit64);
+                            SymbolIndexExpr nn(n);
+                            DimsExpr bufferAF = {nn, mm, ll};
+                            Value t = create.krnl.loadIE(buffer, bufferAF);
+                            create.krnl.storeIE(t, alloc, outputAF);
+                            #endif
+                          }); // For
+#endif
+                    }); // Else
+              });       // Iterate over ns.
 #endif
         });
     rewriter.replaceOp(op, alloc);
