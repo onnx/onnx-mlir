@@ -1135,9 +1135,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           DimsExpr ubs2 = {litM, litN, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
       // Analysis of assembly showed that the inner loop was fully unrolled.
-#if DEBUG_UNSTICK
-          create.krnl.printf("HI ALEX, Write to buffer IE\n");
-#endif
           create.affine.forIE(
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
@@ -1191,29 +1188,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       DimIndexExpr e1(loopInd[0]);
                       outputAF[E1] = e1;
                       outputAF[E2] = SymbolIndexExpr(e2);
-#if 0 
-                      // simpler computations, but more costly.
-                      IndexExpr nn = outputAF[E2] % litN;
-                      IndexExpr ll = e1 % lit64;
-                      IndexExpr tmp = e1.floorDiv(lit64);
-                      IndexExpr mm = tmp % litM;
-#else
                       SymbolIndexExpr mm(m), nn(n);
                       IndexExpr ll = e1 - SymbolIndexExpr(min);
-
-#endif
                       DimsExpr bufferAF = {nn, mm, ll};
                       Value t = create.krnl.loadIE(buffer, bufferAF);
                       create.krnl.storeIE(t, alloc, outputAF);
-#if DEBUG_UNSTICK
-                      create.krnl.printf("load buff[n=", nn);
-                      create.krnl.printf("][m=", mm);
-                      create.krnl.printf("][l=", ll);
-                      create.krnl.printf("] = output[e3=", outputAF[E3]);
-                      create.krnl.printf("][e2=", outputAF[E2]);
-                      create.krnl.printf("][e1=", outputAF[E1]);
-                      create.krnl.printf("]\n");
-#endif
                     });
               });
 
@@ -1244,7 +1223,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                     isFullLogical.getValue(),
                     // Then (is full).
                     [&](SCFBuilder b) {
-#if 1
                       MDBuilder create(b);
                       DimsExpr outputAF;
                       IndexExprScope innermostScope(create.krnl, &innerScope);
@@ -1265,12 +1243,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       // Mem copy
                       create.krnl.memcpy(alloc, buffer, numVal, allocOffset,
                           bufferOffset.getValue());
-#endif
                     },
                     // Else (is not full).
                     [&](SCFBuilder b) {
                       MDBuilder create(b);
-#if 1
                       Value lb1v = e1.getValue();
                       Value ub1v = ub1.getValue();
                       Value e2v = e2.getValue();
@@ -1280,22 +1256,20 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                             MDBuilder create(b);
                             SmallVector<Value, 4> outputAF;
                             Value e1v = loopInd[0];
+                            // Compute access function for output.
                             IndexExpr::getValues(outerIndices, outputAF);
                             outputAF[E2] = e2v;
                             outputAF[E1] = e1v;
-                            // Compute access function for buffer
+                            // Compute access function for buffer.
                             Value lv = create.math.rem(e1v, lit64.getValue());
                             Value mv = create.math.sub(e1v, lb1v);
                             mv = create.math.floorDiv(mv, lit64.getValue());
                             SmallVector<Value, 4> bufferAF = {nv, mv, lv};
-#if 1
                             Value t = create.krnl.load(buffer, bufferAF);
                             create.krnl.store(t, alloc, outputAF);
-#endif
-                          }); // For
-#endif
-                    }); // Else
-              });       // Iterate over ns.
+                          }); // For.
+                    }); // Else.
+              });       // Iterate over n.
 #endif
         });
     rewriter.replaceOp(op, alloc);
