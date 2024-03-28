@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define USE_RC_ZERO_OFFSET 1
-#define ENABLE_COMPILER_STICK 0
+#define ENABLE_COMPILER_STICK 1
 #define ENABLE_COMPILER_UNSTICK 1
 
 #include "llvm/Support/Debug.h"
@@ -496,7 +495,6 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
 
 // Support for flatten ztensor
 
-// hi alex
 struct ZHighToZLowStickOpLowering : public ConversionPattern {
   ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableParallel, bool enableCompilerStickUnstickCodeGen)
@@ -531,7 +529,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       layout = getNCHWLayoutAttr(rewriter);
 
 #if ENABLE_COMPILER_STICK
-    if (enableCompilerCodeGen) { // hi alex
+    if (enableCompilerCodeGen) {
       // Generic way to handle all formats listed below.
       // Think we only come in here when condition below is true.
       if (layout.getValue().equals_insensitive("4D") ||
@@ -649,7 +647,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     // Parallel...
     if (enableParallel) {
       int64_t parId;
-      // Hi Alex, may want to check if ub of rank makes sense here.
+      // TODO: may want to check if ub of rank makes sense here.
       if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
         create.krnl.parallel(optLoopDefs[parId]);
         onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
@@ -711,14 +709,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
                 DimsExpr reallocTileDims = {litN, lit64};
-#if USE_RC_ZERO_OFFSET
                 Value allocAs32x64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
-#else
-                Value allocAs32x64 =
-                    create.mem.reinterpretCast(alloc, allocOffset,
-                        reallocTileDims);
-#endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
@@ -811,7 +803,7 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 // Lower ZHigh Unstick to ZLow Unstick
 //===----------------------------------------------------------------------===//
-// hi alex unstick
+
 struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
   ZHighToZLowUnstickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableParallel, bool enableCompilerStickUnstickCodeGen)
@@ -950,7 +942,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     // Parallel...
     if (enableParallel) {
       int64_t parId;
-      // Hi Alex, may want to check if ub of rank makes sense here.
+      // TODO: may want to check if ub of rank makes sense here.
       if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
         create.krnl.parallel(optLoopDefs[parId]);
         onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
@@ -1102,7 +1094,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     // Parallel...
     if (enableParallel) {
       int64_t parId;
-      // Hi Alex, may want to check if ub of rank makes sense here.
+      // TODO: may want to check if ub of rank makes sense here.
       if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
         create.krnl.parallel(optLoopDefs[parId]);
         onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
