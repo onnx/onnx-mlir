@@ -1114,8 +1114,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     }
 
     // Compute max tiles. It is actually not easy to compute the max number of
-    // tiles; since we don't allocate, just need to index by the "tile size", it
-    // is sufficient to assume 2 or more. Tiles are N x 64.
+    // tiles. Since we don't allocate, it is just a "view", we only need to
+    // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
+    // N x 64.
     IndexExpr T = LiteralIndexExpr(2);
     DimsExpr reallocTileDims = {T, litN, lit64};
     Value inputAsTxNx64 =
@@ -1134,8 +1135,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           DimsExpr lbs2(3, litZero);
           DimsExpr ubs2 = {litM, litN, lit64};
           SmallVector<int64_t, 3> steps2 = {1, 1, VL};
-      // Analysis of assembly showed that the inner loop was fully unrolled.
-          create.affine.forIE(
+          // Analysis of assembly showed that the inner loop was fully unrolled.
+          create.affine.forIE( // M, N, Lit
               lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;
@@ -1268,8 +1269,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                             Value t = create.krnl.load(buffer, bufferAF);
                             create.krnl.store(t, alloc, outputAF);
                           }); // For.
-                    }); // Else.
-              });       // Iterate over n.
+                    });       // Else.
+              });             // Iterate over n.
 #endif
         });
     rewriter.replaceOp(op, alloc);
