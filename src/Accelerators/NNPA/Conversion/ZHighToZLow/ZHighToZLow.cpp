@@ -568,9 +568,9 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     int64_t rank = outputDims.size();
     bool is2DS = layout.getValue().equals_insensitive("2DS");
 
-    // Tiling in the E2 x E1 dim: N x 64M.
-    int64_t N = 2;
-    int64_t M = 2;
+    // Tiling for Stick in the E2 x E1 dim: N x 64M.
+    int64_t N = 1;
+    int64_t M = 8;
     if (rank == 1 || is2DS)
       N = 1; // No tiling on E2 dim for
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
@@ -1024,9 +1024,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
     int64_t rank = outputDims.size();
 
-    // Tiling in the E2 x E1 dim: N x 64M.
-    int64_t N = 2;
-    int64_t M = 4; // hi alex, 4 for debug
+    // Tiling Unstick in the E2 x E1 dim: N x 64M.
+    int64_t N = 1;
+    int64_t M = 1;
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
 
     // Info for SIMD Vector Length (VL) and associated types.
