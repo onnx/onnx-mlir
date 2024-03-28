@@ -420,7 +420,6 @@ void IndexExprImpl::getAffineMapAndOperands(
     map = AffineMap::get(getScope().getNumDims(), getScope().getNumSymbols(),
         {affineExpr}, getRewriter().getContext());
     getScope().getDimAndSymbolList(operands);
-    map.dump();
     return;
   }
   // Non Affine, check if by any chance we have a min / max, in which case we
