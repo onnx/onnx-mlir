@@ -53,6 +53,8 @@ SUPPRESS_WARNINGS_POP
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <sstream>
+#include <string>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
@@ -1386,6 +1388,44 @@ private:
     ret_vals.push_back(val);
   }
 
+  // Generate string for input_dim_params attr from the IMPORTER_FORCE_DYNAMIC
+  // string.
+  SmallVector<std::string>
+      getInputDimParamStrVec(std::string envInputString, size_t numOfArgs) {
+    SmallVector<std::string> paramStrVec;
+    if (envInputString == "-1:-1") {
+      for (size_t i = 0; i < numOfArgs; i++)
+        paramStrVec.emplace_back("0:a,1:b,2:c");
+      return paramStrVec;
+    }
+    std::stringstream paramStrStream;
+    paramStrStream << envInputString;
+    std::string paramStr;
+    while (std::getline(paramStrStream, paramStr, '|')) {
+      size_t pos = paramStr.find(':'); // Ignore symbol part before ':'
+      paramStrVec.emplace_back(paramStr.substr(pos + 1));
+    }
+    return paramStrVec;
+  }
+
+  // Get named attributesfrom IMPORTER_FORCE_DYNAMIC environment.
+  SmallVector<NamedAttribute> getNamedAttrFromImporterForceDynamic(
+      func::FuncOp funcOp, size_t numOfArgs) {
+    SmallVector<NamedAttribute> argNamedAttrs;
+    const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC");
+    if (envInputString == NULL)
+      return argNamedAttrs;
+    SmallVector<std::string> inputDimParamStrVec =
+      getInputDimParamStrVec(envInputString, numOfArgs);
+    for (size_t i = 0; i < numOfArgs; ++i) {
+      StringAttr name = builder_.getStringAttr(inputDimParamStrVec[i]);
+      NamedAttribute namedAttr =
+          builder_.getNamedAttr("onnx.dim_params", name);
+      argNamedAttrs.emplace_back(namedAttr);
+    }
+    return argNamedAttrs;
+  }
+
   // Move function attributes for argument/result names and dim_params into
   // argument/result attributes.
   void moveFuncAttrsToArgAttrs(func::FuncOp funcOp,
@@ -1396,6 +1436,10 @@ private:
     Operation *op = funcOp.getOperation();
     size_t numOfArgs =
         (isArg) ? funcOp.getNumArguments() : funcOp.getNumResults();
+    SmallVector<NamedAttribute> argAttrsFromImporterForceDynamic;
+    if (isArg)
+      argAttrsFromImporterForceDynamic =
+        getNamedAttrFromImporterForceDynamic(funcOp, numOfArgs);
 
     // Only move attributes that exists.
     SmallVector<ArrayAttr, 2> funcAttrsToMove;
@@ -1420,6 +1464,8 @@ private:
             argAttrs.emplace_back(namedAttr);
           }
         }
+        if (isArg && (i < argAttrsFromImporterForceDynamic.size()))
+          argAttrs.emplace_back(argAttrsFromImporterForceDynamic[i]);
       }
       if (!argAttrs.empty()) {
         if (isArg)

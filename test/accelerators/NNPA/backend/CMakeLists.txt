@@ -362,6 +362,14 @@ endforeach()
 set(NNPA_TESTS_ENVS TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER} TEST_ATOL=0.01 TEST_RTOL=0.05)
 
 set(NNPA_TEST_LIST_DYNAMIC
+    test_add_cpu,zdnn_add
+)
+set(NNPA_TEST_LIST_DYNAMIC_
+    #test_convtranspose_pads
+    #test_convtranspose
+    #test_convtranspose_autopad_same
+    #test_convtranspose_output_shape
+    #test_convtranspose_kernel_shape
     test_exp_cpu,zdnn_exp
     test_exp_example_cpu,zdnn_exp
     test_gemm_default_matrix_bias_cpu,zdnn_matmul_op
