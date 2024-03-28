@@ -1392,7 +1392,7 @@ private:
   // string.
   SmallVector<std::string>
       getInputDimParamStrVec(std::string envInputString, size_t numOfArgs) {
-    SmallVector<std::string> paramStrVec;
+    SmallVector<std::string> paramStrVec(numOfArgs);
     if (envInputString == "-1:-1") {
       for (size_t i = 0; i < numOfArgs; i++)
         paramStrVec.emplace_back("0:a,1:b,2:c");
@@ -1402,8 +1402,15 @@ private:
     paramStrStream << envInputString;
     std::string paramStr;
     while (std::getline(paramStrStream, paramStr, '|')) {
-      size_t pos = paramStr.find(':'); // Ignore symbol part before ':'
-      paramStrVec.emplace_back(paramStr.substr(pos + 1));
+      size_t pos = paramStr.find(':');
+      assert((pos > 0) && "invalid IMPORTER_FORCE_DYNAMIC environment");
+      int idx = stoi(paramStr.substr(0, pos));
+      paramStr = paramStr.substr(pos + 1);
+      if (idx < 0) // set all arguments
+        for (size_t i = 0; i < numOfArgs; i++)
+          paramStrVec[i] = paramStr;
+      else
+        paramStrVec[idx] = paramStr;
     }
     return paramStrVec;
   }
