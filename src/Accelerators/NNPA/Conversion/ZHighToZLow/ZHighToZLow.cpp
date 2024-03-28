@@ -1270,32 +1270,28 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                     // Else (is not full).
                     [&](SCFBuilder b) {
                       MDBuilder create(b);
-                      IndexExprScope innerNextScope(create.krnl, &innerScope);
-                      SymbolIndexExpr lb1(e1.getValue()), ub1(outputDims[E1].getValue());
 #if 1
-                      create.affine.forIE(lb1, ub1, 1,
-                          [&](AffineBuilder b, ValueRange loopInd) {
-                            #if 0
+                      Value lb1v = e1.getValue();
+                      Value ub1v = ub1.getValue();
+                      Value e2v = e2.getValue();
+                      Value nv = n.getValue();
+                      create.scf.forLoop(
+                          lb1v, ub1v, 1, [&](SCFBuilder b, ValueRange loopInd) {
                             MDBuilder create(b);
-                            DimsExpr outputAF;
-                            IndexExprScope innermostScope(
-                                create.krnl, &innerNextScope);
-                            DimIndexExpr ee1(loopInd[0]);
-                            SymbolIndexExpr ee2(e2), llb1(lb1);
-                            // Compute access function for output.
-                            getIndexExprList<SymbolIndexExpr>(
-                                outerIndices, outputAF);
-                            outputAF[E2] = ee2;
-                            outputAF[E1] = ee1;
+                            SmallVector<Value, 4> outputAF;
+                            Value e1v = loopInd[0];
+                            IndexExpr::getValues(outerIndices, outputAF);
+                            outputAF[E2] = e2v;
+                            outputAF[E1] = e1v;
                             // Compute access function for buffer
-                            IndexExpr ll = ee1 % lit64;
-                            IndexExpr mm = ee1 - llb1;
-                            mm.floorDiv(lit64);
-                            SymbolIndexExpr nn(n);
-                            DimsExpr bufferAF = {nn, mm, ll};
-                            Value t = create.krnl.loadIE(buffer, bufferAF);
-                            create.krnl.storeIE(t, alloc, outputAF);
-                            #endif
+                            Value lv = create.math.rem(e1v, lit64.getValue());
+                            Value mv = create.math.sub(e1v, lb1v);
+                            mv = create.math.floorDiv(mv, lit64.getValue());
+                            SmallVector<Value, 4> bufferAF = {nv, mv, lv};
+#if 1
+                            Value t = create.krnl.load(buffer, bufferAF);
+                            create.krnl.store(t, alloc, outputAF);
+#endif
                           }); // For
 #endif
                     }); // Else
