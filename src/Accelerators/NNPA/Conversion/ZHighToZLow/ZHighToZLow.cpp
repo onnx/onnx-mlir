@@ -1077,8 +1077,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
       create.krnl.permute({/*E3*/ loopDefs[E3],
                               /*E2*/ tiledDefE2[0], tiledDefE2[1],
                               /*E1*/ tiledDefE1[0], tiledDefE1[1]},
-          {/*E3*/ 0, /*E2*/ 1, 3, /*E1*/ 2, 4});
-      optLoopDefs = {loopDefs[E3], tiledDefE2[0], tiledDefE1[0]};
+          {/*E3*/ 0, /*E2*/ 2, 3, /*E1*/ 1, 4});
+      optLoopDefs = {loopDefs[E3], tiledDefE1[0], tiledDefE2[0]};
     } else if (rank == 2) {
       // 2D/2DS loop order: E2 tiled by N, E1 tiled by M, followed by E2
       // (inside N), then unused. Order does not change for 2D vs 2DS. 2DS has a
