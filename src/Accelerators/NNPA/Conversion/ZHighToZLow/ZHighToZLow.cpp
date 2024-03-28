@@ -1132,16 +1132,13 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           // Create buffer [N][M][64] (for parallel, must be inside loop).
           Value buffer = create.mem.alignedAlloc(bufferType, {});
           // Iterate over M, N, and 64. Manage iterations explicitly.
-          DimsExpr lbs2(3, litZero);
-          DimsExpr ubs2 = {litM, litN, lit64};
-          SmallVector<int64_t, 3> steps2 = {1, 1, VL};
           // Analysis of assembly showed that the inner loop was fully unrolled.
-          create.affine.forIE( // M, N, Lit
-              lbs2, ubs2, steps2, [&](AffineBuilder &b, ValueRange loopInd) {
+          create.affine.forIE( // M
+              litZero, litM, 1, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                DimIndexExpr m(loopInd[0]), n(loopInd[1]), l(loopInd[2]);
+                DimIndexExpr m(loopInd[0]);
                 getIndexExprList<SymbolIndexExpr>(outerIndices, inputAF);
                 // Translate the tile index t1 to the actual targetted data: e1
                 // => 64 (e1+m). Don't use n & l in inputAF as we are mapping a
@@ -1153,17 +1150,28 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                     create.krnl.getLinearOffsetIndexIE(input, inputAF);
                 IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
                 IndexExpr inputTileOffset = inputDataOffset.floorDiv(N * 64);
-                Value vecF16 = create.vec.loadIE(
-                    vecF16Type, inputAsTxNx64, {inputTileOffset, n, l}, {});
-                auto convertOp =
-                    rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
-                Value vecF32H = convertOp.getResult(0);
-                Value vecF32L = convertOp.getResult(1);
-                // Store f32 values back to the buffer[N][M][64].
-                DimsExpr bufferAF = {n, m, l};
-                create.vec.storeIE(vecF32H, buffer, bufferAF, {});
-                create.vec.storeIE(
-                    vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
+                DimsExpr lbs2(2, litZero);
+                DimsExpr ubs2 = {litN, lit64};
+                SmallVector<int64_t, 2> steps2 = {1, VL};
+                create.affine.forIE(lbs2, ubs2, steps2, // N, 64
+                    [&](AffineBuilder &b, ValueRange loopInd) {
+                      MDBuilder create(b);
+                      IndexExprScope innermostScope(create.krnl, &innerScope);
+                      DimIndexExpr n(loopInd[0]), l(loopInd[1]);
+                      Value vecF16 =
+                          create.vec.loadIE(vecF16Type, inputAsTxNx64,
+                              {SymbolIndexExpr(inputTileOffset), n, l}, {});
+                      auto convertOp =
+                          rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
+                              loc, vecF16);
+                      Value vecF32H = convertOp.getResult(0);
+                      Value vecF32L = convertOp.getResult(1);
+                      // Store f32 values back to the buffer[N][M][64].
+                      DimsExpr bufferAF = {n, SymbolIndexExpr(m), l};
+                      create.vec.storeIE(vecF32H, buffer, bufferAF, {});
+                      create.vec.storeIE(
+                          vecF32L, buffer, bufferAF, {litVLHalf.getValue()});
+                    });
               });
 #if 0
           // Use the original loop iterations to write the data to the right spot,
