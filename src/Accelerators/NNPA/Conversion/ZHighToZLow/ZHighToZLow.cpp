@@ -32,6 +32,12 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "zhigh-to-zlow"
+#define ENABLE_CSU_PAR 0
+#define CS_N 2
+#define CS_M 2
+#define CU_N 2
+#define CU_M 2
+#define USE_PREFETCH 1
 
 using namespace mlir;
 using namespace onnx_mlir::zlow;
@@ -564,8 +570,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     bool is2DS = layout.getValue().equals_insensitive("2DS");
 
     // Tiling for Stick in the E2 x E1 dim: N x 64M.
-    int64_t N = 1;
-    int64_t M = 8;
+    int64_t N = CS_N;
+    int64_t M = CS_M;
     if (rank == 1 || is2DS)
       N = 1; // No tiling on E2 dim for
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
@@ -706,6 +712,10 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 DimsExpr reallocTileDims = {litN, lit64};
                 Value allocAs32x64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
+#if USE_PREFETCH
+                outputAF[E1] = outputAF[E1] + 64;
+                create.mem.prefetchIE(alloc, outputAF, /*write*/ true, 3);
+#endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
@@ -847,10 +857,13 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           layout.getValue().equals_insensitive("2D") ||
           layout.getValue().equals_insensitive("3DS")) {
 #if 1
+        return generateUnstickCode(
+            rewriter, op, shapeHelper, alloc, input, layout);
+#elif 0
         return generateUnstickCodeE1E2(
             rewriter, op, shapeHelper, alloc, input, layout);
 #else
-        return generateUnstickCode(
+        return generateUnstickCodeSimple(
             rewriter, op, shapeHelper, alloc, input, layout);
 #endif
       }
@@ -861,6 +874,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     rewriter.replaceOp(op, alloc);
     return success();
   }
+
+  /*
+    This version tile E1 by 64, convert f16 to f32 64 values at a time.
+    Then it simply write individual f32 to its destination 1 value at a time.
+  */
 
   LogicalResult generateUnstickCodeSimple(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
@@ -1002,7 +1020,14 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     return success();
   }
 
-  // Generic version that create code for all normal layouts but for 1D and 2DS.
+  /*
+     Generic version that create code for all normal layouts but for 1D and 2DS.
+     This version tiles E2 and E1 by N and 64 M.
+     For conversions from 16 to 32, it process N * 64 values in a row
+     (effectively covering a partial Nx64 tile of the 32x64 tile).
+     Then, it memcpy M*64 values back to the output. Partial tiles are handled
+     one element at a time.
+  */
   LogicalResult generateUnstickCode(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
@@ -1016,8 +1041,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     int64_t rank = outputDims.size();
 
     // Tiling Unstick in the E2 x E1 dim: N x 64M.
-    int64_t N = 1;
-    int64_t M = 1;
+    int64_t N = CU_N;
+    int64_t M = CU_M;
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
 
     // Info for SIMD Vector Length (VL) and associated types.
@@ -1241,7 +1266,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     array[rank - 2] = t;
   }
 
-  // Generic version that create code for all normal layouts but for 1D and 2DS.
+  /*
+  Same version as the previous one, but the outer loop is in E3, E1 by 64M, E2
+  to better use the tiled data locality.
+  */
   LogicalResult generateUnstickCodeE1E2(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
@@ -1255,8 +1283,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     int64_t rank = outputDims.size();
 
     // Tiling Unstick in the E2 x E1 dim: N x 64M.
-    int64_t N = 2;
-    int64_t M = 4;
+    int64_t N = CU_N;
+    int64_t M = CU_M;
     assert(32 % N == 0 && "Tiling by N (along E2) must divide 32");
 
     // Info for SIMD Vector Length (VL) and associated types.
@@ -2563,14 +2591,14 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     bool enableParallel, bool enableCompilerStickUnstickCodeGen) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowStickOpLowering>(
-      typeConverter, ctx, enableParallel, enableCompilerStickUnstickCodeGen);
+  patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx,
+      ENABLE_CSU_PAR && enableParallel, enableCompilerStickUnstickCodeGen);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
       typeConverter, ctx);
-  patterns.insert<ZHighToZLowUnstickOpLowering>(
-      typeConverter, ctx, enableParallel, enableCompilerStickUnstickCodeGen);
+  patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx,
+      ENABLE_CSU_PAR && enableParallel, enableCompilerStickUnstickCodeGen);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
       typeConverter, ctx, /*fromF32=*/false, enableParallel);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
