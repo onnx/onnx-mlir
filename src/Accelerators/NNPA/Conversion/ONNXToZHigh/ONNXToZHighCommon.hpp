@@ -27,6 +27,8 @@ const std::string DEVICE_ATTRIBUTE = "device";
 const std::string CPU_DEVICE = "cpu";
 const std::string NNPA_DEVICE = "nnpa";
 
+bool isEnableScalarBcastBinary();
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
