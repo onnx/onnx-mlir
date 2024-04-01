@@ -6,7 +6,7 @@
 Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitations are listed when applicable. This documentation highlights the minimum and maximum opset versions that are fully supported by onnx-mlir and not the version changes.
 
 * Operations are defined by the [ONNX Standard](https://github.com/onnx/onnx/blob/main/docs/Operators.md).
-* **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator. 
+* **Supported Opsets** indicates the lowest and highest opset a model may have for onnx-mlir to support compiling a model with the operator.
    * A * indicates onnx-mlir is compatible with the latest version of that operator available as of opset 20.
 
 
@@ -98,8 +98,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **If** |16 - * |Sequence and Optional outputs are not supported. | |
 | **Imputer** |none | | | |
 | **InstanceNormalization** |6 - * | | |
-| **IsInf** |20 - * |Currently no support for float16 infinity value. Only for float32 and float64. | |
-| **IsNaN** |20 - * | | |
+| **IsInf** |10 - * |Currently no support for float16 infinity value. Only for float32 and float64. | |
+| **IsNaN** |9 - * | | |
 | **LRN** |6 - * | | |
 | **LSTM** |7 - * | | |
 | **LabelEncoder** |none | | | |
