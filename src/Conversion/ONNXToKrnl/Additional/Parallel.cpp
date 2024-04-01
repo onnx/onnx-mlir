@@ -31,19 +31,24 @@ void moveAllocOpOperands(
   SmallVector<Operation *, 4> opsToMove1;
   for (Operation *op : opsToMove) {
     llvm::dbgs() << "opToMove : " << *op << "\n";
-    for (unsigned i = 0; i < op->getNumOperands(); ++i) {
-      Value oprd = op->getOperand(i);
-      if (isa<BlockArgument>(oprd))
-        continue;
-      Operation *oprdDefOp = oprd.getDefiningOp();
-      llvm::dbgs() << "oprdDefOp " << i << " = " << *oprdDefOp << "\n";
-      llvm::dbgs() << "oprdDefOp need to be moved?:  "
-                   << (oprdDefOp->getBlock() != justMovedOp->getBlock())
-                   << "\n";
-      if (oprdDefOp->getBlock() != justMovedOp->getBlock())
-        opsToMove1.push_back(oprdDefOp);
+    if (op->getNumOperands() == 0) {
       op->moveBefore(justMovedOp);
       justMovedOp = op;
+    } else {
+      for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+        Value oprd = op->getOperand(i);
+        if (isa<BlockArgument>(oprd))
+          continue;
+        Operation *oprdDefOp = oprd.getDefiningOp();
+        llvm::dbgs() << "oprdDefOp " << i << " = " << *oprdDefOp << "\n";
+        llvm::dbgs() << "oprdDefOp need to be moved?:  "
+                     << (oprdDefOp->getBlock() != justMovedOp->getBlock())
+                     << "\n";
+        if (oprdDefOp->getBlock() != justMovedOp->getBlock())
+          opsToMove1.push_back(oprdDefOp);
+        op->moveBefore(justMovedOp);
+        justMovedOp = op;
+      }
     }
   }
   moveAllocOpOperands(opsToMove1, justMovedOp);
