@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "src/Compiler/CompilerOptions.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
