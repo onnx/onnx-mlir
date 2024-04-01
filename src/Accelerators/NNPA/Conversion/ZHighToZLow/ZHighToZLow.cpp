@@ -714,7 +714,16 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                     alloc, litZero.getValue(), reallocTileDims);
 #if USE_PREFETCH
                 outputAF[E1] = outputAF[E1] + 64;
+#if 1
+                Value allocForPrefetchAs32x64 = create.mem.reinterpretCast(
+                    alloc, litZero.getValue(), reallocTileDims);
+                DimsExpr prefetchAF(2, litZero);
+                create.mem.prefetchIE(
+                    allocForPrefetchAs32x64, prefetchAF, /*write*/ true, 3);
+#else
+                // prefetch does not seem to support memref normalize
                 create.mem.prefetchIE(alloc, outputAF, /*write*/ true, 3);
+#endif
 #endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
