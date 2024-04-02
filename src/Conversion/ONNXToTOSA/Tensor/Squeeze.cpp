@@ -39,7 +39,9 @@ public:
     // Get shape.
     IndexExprBuilderForTosa createTosaIE(rewriter, loc);
     ShapeHelper shapeHelper(op, {}, &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (failed(shapeHelper.computeShape())) {
+      return rewriter.notifyMatchFailure(op, "could not compute shape.");
+    }
 
     TosaBuilder tosaBuilder(rewriter, loc);
 
