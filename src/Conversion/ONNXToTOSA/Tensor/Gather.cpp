@@ -54,6 +54,10 @@ public:
     SmallVector<int32_t, 4> newIndicesValues;
     newIndicesValues.resize(indicesType.getNumElements());
 
+    if (!indices.getDefiningOp<mlir::tosa::ConstOp>()) {
+      return rewriter.notifyMatchFailure(op, "indices must be constant");
+    }
+
     auto indicesValues = tosa::getValueFromTosaConst<ElementsAttr>(indices);
 
     // ONNX allows negative indices and TOSA doesn't. This iterates through each
