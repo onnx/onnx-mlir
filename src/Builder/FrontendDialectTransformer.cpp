@@ -51,10 +51,10 @@ SUPPRESS_WARNINGS_POP
 #include <array>
 #include <fstream>
 #include <map>
-#include <unordered_map>
-#include <vector>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #define DEBUG_TYPE "frontend_dialect_transformer"
 
@@ -1388,31 +1388,42 @@ private:
     ret_vals.push_back(val);
   }
 
+  void getParamStr(std::string envStr, Value arg, std::string &paramStr) {
+    if (envStr != "-1")
+      return;
+    auto tensorType = arg.getType().dyn_cast<RankedTensorType>();
+    assert(tensorType && "arg should be ranked tensor");
+    int64_t rank = tensorType.getRank();
+    for (int64_t i = 0; i < rank; i++) {
+      if (i != 0)
+        paramStr += ',';
+      paramStr += std::to_string(i) + ":" + char('a' + i);
+    }
+    return;
+  }
+
   // Generate string for input_dim_params attr from the IMPORTER_FORCE_DYNAMIC
   // string.
-  SmallVector<std::string>
-      getInputDimParamStrVec(std::string envInputString, size_t numOfArgs) {
-    SmallVector<std::string> paramStrVec(numOfArgs);
-    if (envInputString == "-1:-1") {
-      for (size_t i = 0; i < numOfArgs; i++)
-        paramStrVec.emplace_back("0:a,1:b,2:c");
-      return paramStrVec;
-    }
+  void getInputDimParamStrVec(std::string envInputString, func::FuncOp funcOp,
+      size_t numOfArgs, SmallVector<std::string> &paramStrVec) {
+    ArrayRef<BlockArgument> args = funcOp.getArguments();
     std::stringstream paramStrStream;
     paramStrStream << envInputString;
-    std::string paramStr;
-    while (std::getline(paramStrStream, paramStr, '|')) {
-      size_t pos = paramStr.find(':');
+    std::string envStr;
+    while (std::getline(paramStrStream, envStr, '|')) {
+      size_t pos = envStr.find(':');
       assert((pos > 0) && "invalid IMPORTER_FORCE_DYNAMIC environment");
-      int idx = stoi(paramStr.substr(0, pos));
-      paramStr = paramStr.substr(pos + 1);
-      if (idx < 0) // set all arguments
-        for (size_t i = 0; i < numOfArgs; i++)
-          paramStrVec[i] = paramStr;
-      else
-        paramStrVec[idx] = paramStr;
+      int idx = stoi(envStr.substr(0, pos));
+      envStr = envStr.substr(pos + 1);
+      if (idx < 0) { // set all arguments
+        for (size_t i = 0; i < numOfArgs; i++) {
+          getParamStr(envStr, args[i], paramStrVec[i]);
+        }
+      } else {
+        getParamStr(envStr, args[idx], paramStrVec[idx]);
+      }
     }
-    return paramStrVec;
+    return;
   }
 
   // Get named attributesfrom IMPORTER_FORCE_DYNAMIC environment.
@@ -1422,12 +1433,12 @@ private:
     const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC");
     if (envInputString == NULL)
       return argNamedAttrs;
-    SmallVector<std::string> inputDimParamStrVec =
-      getInputDimParamStrVec(envInputString, numOfArgs);
-    for (size_t i = 0; i < numOfArgs; ++i) {
+    SmallVector<std::string> inputDimParamStrVec(numOfArgs);
+    getInputDimParamStrVec(
+        envInputString, funcOp, numOfArgs, inputDimParamStrVec);
+    for (size_t i = 0; i < inputDimParamStrVec.size(); ++i) {
       StringAttr name = builder_.getStringAttr(inputDimParamStrVec[i]);
-      NamedAttribute namedAttr =
-          builder_.getNamedAttr("onnx.dim_params", name);
+      NamedAttribute namedAttr = builder_.getNamedAttr("onnx.dim_params", name);
       argNamedAttrs.emplace_back(namedAttr);
     }
     return argNamedAttrs;
@@ -1446,7 +1457,7 @@ private:
     SmallVector<NamedAttribute> argAttrsFromImporterForceDynamic;
     if (isArg)
       argAttrsFromImporterForceDynamic =
-        getNamedAttrFromImporterForceDynamic(funcOp, numOfArgs);
+          getNamedAttrFromImporterForceDynamic(funcOp, numOfArgs);
 
     // Only move attributes that exists.
     SmallVector<ArrayAttr, 2> funcAttrsToMove;
