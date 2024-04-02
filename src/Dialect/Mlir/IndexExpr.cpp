@@ -568,6 +568,40 @@ void IndexExpr::debugPrint(
     valueList.emplace_back(expr.getValue());
 }
 
+/* static*/ void IndexExpr::getAffineMapAndOperands(
+    ArrayRef<IndexExpr> indexExprArray, AffineMap &map,
+    SmallVectorImpl<mlir::Value> &operands) {
+  assert(indexExprArray.size() > 0 && "expected at least one index expr");
+  SmallVector<AffineExpr, 8> affineExprList;
+  for (IndexExpr expr : indexExprArray) {
+    AffineMap tmpMap;
+    SmallVector<Value, 8> tmpOperands;
+    expr.getAffineMapAndOperands(tmpMap, tmpOperands);
+    operands = tmpOperands;
+    fprintf(stderr, "hi alex in getAffineMapAndOperator\n  Operands (%d)\n",
+        (int)tmpOperands.size());
+    for (Value v : tmpOperands) {
+      fprintf(stderr, "    ");
+      v.dump();
+    }
+    fprintf(stderr, "  Expr (%d)\n", (int)tmpMap.getResults().size());
+    // Enqueue the affine expressions defined by this temp map.
+    for (AffineExpr affineExpr : tmpMap.getResults()) {
+      affineExprList.emplace_back(affineExpr);
+      fprintf(stderr, "    ");
+      affineExpr.dump();
+    }
+  }
+
+  // Now can generate a common map with all the results
+  unsigned dimCount = indexExprArray[0].getScope().getNumDims();
+  unsigned symCount = indexExprArray[0].getScope().getNumSymbols();
+  fprintf(stderr, "hi alex  from list: dim %d sym %d\n", (int)dimCount,
+      (int)symCount);
+  map = AffineMap::get(dimCount, symCount, affineExprList,
+      indexExprArray[0].getRewriter().getContext());
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Op Support.
 //===----------------------------------------------------------------------===//

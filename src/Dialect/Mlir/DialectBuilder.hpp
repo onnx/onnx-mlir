@@ -524,6 +524,12 @@ struct GenericAffineBuilder final : DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
 
+  void prefetch(mlir::Value memref, mlir::AffineMap map,
+      llvm::ArrayRef<mlir::Value> operands, bool isWrite, unsigned localityHint,
+      bool isDataCache = true) const;
+  void prefetchIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
+      bool isWrite, unsigned localityHint, bool isDataCache = true) const;
+
   void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
       const;

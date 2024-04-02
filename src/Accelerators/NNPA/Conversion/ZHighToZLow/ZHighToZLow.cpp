@@ -38,7 +38,7 @@
 #define CU_N 2
 #define CU_M 2
 #define USE_PREFETCH 1
-
+#define USE_PREFETCH_NO_MAP 0
 using namespace mlir;
 using namespace onnx_mlir::zlow;
 
@@ -659,6 +659,22 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       }
     }
 
+#if USE_PREFETCH_NO_MAP
+    // Compute offset between two E1 that are 64 elements apart.
+    IndexExpr T = LiteralIndexExpr(2);
+    IndexExpr lit32 = LiteralIndexExpr(32);
+    DimsExpr reallocTileDims = {T, lit32, lit64};
+    Value allocAsTx32x64 =
+        create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
+    DimsExpr offsetE1For64AF(rank, litZero);
+    offsetE1For64AF[E1] = lit64; // Dist of 64 in E1.
+    Value offsetE1For64 =
+        create.krnl.getLinearOffsetIndexIE(alloc, offsetE1For64AF);
+    IndexExpr prefetchOffsetInElements = SymbolIndexExpr(offsetE1For64);
+    IndexExpr prefetchOffsetInTiles =
+        prefetchOffsetInElements.floorDiv(32 * 64);
+#endif
+
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
     create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
         [&](KrnlBuilder &b, ValueRange loopInd) {
@@ -710,19 +726,21 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Value allocOffset =
                     create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
                 DimsExpr reallocTileDims = {litN, lit64};
-                Value allocAs32x64 = create.mem.reinterpretCast(
+                Value allocAsNx64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
 #if USE_PREFETCH
-                outputAF[E1] = outputAF[E1] + 64;
-#if 1
-                Value allocForPrefetchAs32x64 = create.mem.reinterpretCast(
-                    alloc, litZero.getValue(), reallocTileDims);
-                DimsExpr prefetchAF(2, litZero);
+#if USE_PREFETCH_NO_MAP
+                IndexExpr allocOffsetInTiles = SymbolIndexExpr(allocOffset);
+                IndexExpr prefetchOffset = allocOffsetInTiles.floorDiv(32 * 64);
+                prefetchOffset =
+                    prefetchOffset + SymbolIndexExpr(prefetchOffsetInTiles);
+                DimsExpr prefetchAF = {prefetchOffset, litZero, litZero};
                 create.mem.prefetchIE(
-                    allocForPrefetchAs32x64, prefetchAF, /*write*/ true, 3);
+                    allocAsTx32x64, prefetchAF, /*write*/ true, 3);
 #else
                 // prefetch does not seem to support memref normalize
-                create.mem.prefetchIE(alloc, outputAF, /*write*/ true, 3);
+                outputAF[E1] = outputAF[E1] + 64;
+                create.affine.prefetchIE(alloc, outputAF, /*write*/ true, 3);
 #endif
 #endif
                 // Calculate buffer offset
@@ -732,7 +750,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 Type intType = rewriter.getIntegerType(64);
                 Value numVal = create.math.constant(intType, num);
                 // Mem copy
-                create.krnl.memcpy(allocAs32x64, buffer, numVal, allocOffset,
+                create.krnl.memcpy(allocAsNx64, buffer, numVal, allocOffset,
                     bufferOffset.getValue());
               });
         });
