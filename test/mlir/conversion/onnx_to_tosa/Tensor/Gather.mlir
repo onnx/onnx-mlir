@@ -59,3 +59,13 @@ func.func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 // CHECK:           %[[VAL_9:.*]] = tosa.transpose %[[VAL_7]], %[[VAL_8]] : (tensor<1x2x3xf32>, tensor<3xi32>) -> tensor<3x1x2xf32>
 // CHECK:           return %[[VAL_9]] : tensor<3x1x2xf32>
 }
+
+// -----
+
+// Test along axis 1. Transpose should be different.
+func.func @test_gather_dynamic_indices(%arg0 : tensor<3x3xf32>, %indices: tensor<1x2xi64>) -> tensor<3x1x2xf32> {
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 1 : si64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
+  "func.return"(%0) : (tensor<3x1x2xf32>) -> ()
+// CHECK-LABEL:   func.func @test_gather_dynamic_indices(
+// CHECK: onnx.Gather
+}
