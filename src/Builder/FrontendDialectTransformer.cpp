@@ -1394,11 +1394,9 @@ private:
     auto tensorType = arg.getType().dyn_cast<RankedTensorType>();
     assert(tensorType && "arg should be ranked tensor");
     int64_t rank = tensorType.getRank();
-    for (int64_t i = 0; i < rank; i++) {
-      if (i != 0)
-        paramStr += ',';
-      paramStr += std::to_string(i) + ":" + char('a' + i);
-    }
+    for (int64_t i = 0; i < rank; i++)
+      paramStr +=
+          ((i == 0) ? "" : ",") + std::to_string(i) + ":" + char('a' + i);
     return;
   }
 
@@ -1436,10 +1434,13 @@ private:
     SmallVector<std::string> inputDimParamStrVec(numOfArgs);
     getInputDimParamStrVec(
         envInputString, funcOp, numOfArgs, inputDimParamStrVec);
-    for (size_t i = 0; i < inputDimParamStrVec.size(); ++i) {
-      StringAttr name = builder_.getStringAttr(inputDimParamStrVec[i]);
-      NamedAttribute namedAttr = builder_.getNamedAttr("onnx.dim_params", name);
-      argNamedAttrs.emplace_back(namedAttr);
+    for (size_t i = 0; i < numOfArgs; ++i) {
+      if (inputDimParamStrVec[i].length() != 0) {
+        auto name = builder_.getStringAttr(inputDimParamStrVec[i]);
+        NamedAttribute namedAttr =
+            builder_.getNamedAttr("onnx.dim_params", name);
+        argNamedAttrs.emplace_back(namedAttr);
+      }
     }
     return argNamedAttrs;
   }

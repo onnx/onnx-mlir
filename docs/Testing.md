@@ -49,11 +49,14 @@ Testing with dynamic tensor sizes is most easily performed by using the followin
 cmake --build . --config Release --target check-onnx-backend-dynamic[-jni]
 ``` 
 
-The onnx node tests usually have known dimension size for input tensors. So, to test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the all the dimensions (by default) of all the input tensors of the model into -1. For example,
+The onnx node tests usually have known dimension size for input tensors. So, to test tensor with unknown dimension, the model importer (Build/FrontendONNXTransformer.cpp) provides a functionality to generate such cases. When the environment variable, `IMPORTER_FORCE_DYNAMIC`, is set, the frontend import will turn the all the dimensions (by default) of all the input tensors of the model into -1. As default, we assume that first dimension of all the inputs are the same, and the second dimension of all inputs are the same, and so on.
+
+For example,
 ```
 IMPORTER_FORCE_DYNAMIC='-1:-1' all dimensions of all the inputs will be changed
 IMPORTER_FORCE_DYNAMIC='0:-1' all dimensions of the first input will be changed
 IMPORTER_FORCE_DYNAMIC='0:-1|1:0,1' all dimensions of the first input and the 1st and 2nd dimensions of the second input will be changed
+IMPORTER_FORCE_DYNAMIC='0:0:a,1:b,2:c|1:0:a,1:b,2:c' the first three dimensions of the first of and the second inputs are changed. And assume that the first dimensions of the first and second arguments are the same, and same for the the second and third dimensions.
 ```
 
 The Backus-Naur Form (BNF) for `IMPORTER_FORCE_DYNAMIC` is as follows.
@@ -63,10 +66,11 @@ The Backus-Naur Form (BNF) for `IMPORTER_FORCE_DYNAMIC` is as follows.
             <inputString ::= <inputIndex> `:` <dimString>
              <dimString> ::= <dimIndex> | <dimIndex> `,` <dimString>
             <inputIndex> ::= <index>
-              <dimIndex> ::= <index>
+              <dimIndex> ::= <index> | <index> ':' <symbol>
                  <index> ::= -1 | <number>
                 <number> ::= <digit> | <digit><number>
                  <digit> ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+                <symbol> ::= 'a', 'b', 'c', ...
 ```
 Value `-1` semantically represents all inputs or all dimensions, and it has the highest priority. E.g. `'0: -1, 0'` means all dimensions of the first input will be changed. Input and dimension indices start from 0.
 
@@ -76,15 +80,18 @@ func @main_graph(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3
 ```
 with `IMPORTER_FORCE_DYNAMIC='-1:-1'`, the result is:
 ```
-func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+func @main_graph(%arg0: tensor<?x?x?xf32>{onnx.name = "x“, onnx.dim_params = "0:a,1:b,2:c"}, %arg1: tensor<?x?x?xf32>{onnx.name = "y“, onnx.dim_params = "0:a,1:b,2:c"}) -> tensor<?x?x?xf32>
 ```
+The onnx.dim_params attributes are used to specify the assumptions about dimensions of the first and second arguments.
+
 with `IMPORTER_FORCE_DYNAMIC='0:-1'`, the result is:
 ```
-func @main_graph(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
+func @main_graph(%arg0: tensor<?x?x?xf32>{onnx.name = "x“, onnx.dim_params = "0:a,1:b,2:c"}, %arg1: tensor<3x4x5xf32>) -> tensor<3x4x5xf32>
 ```
-with `IMPORTER_FORCE_DYNAMIC='0:0,2|1:1'`, the result is:
+
+with `IMPORTER_FORCE_DYNAMIC='0:0:a,2:b|1:1:a'`, the result is:
 ```
-func @main_graph(%arg0: tensor<?x4x?xf32>, %arg1: tensor<3x?x5xf32>) -> tensor<3x4x5xf32>
+func @main_graph(%arg0: tensor<?x4x?xf32>{onnx.name = "x“, onnx.dim_params = "0:a,2:b"}, %arg1: tensor<3x?x5xf32>{onnx.name = "y“, onnx.dim_params = "1:a"}) -> tensor<3x4x5xf32>
 ```
 This is a way to use existing node test for dynamic tensors. Since not all test case can pass with dynamic tensor, there is a list in test/backend/test.py, test_not_for_dynamic, to specify which test can not pass with `IMPORTER_FORCE_DYNAMIC` is defined.
 

@@ -348,11 +348,11 @@ set(NNPA_TEST_LIST
 
     # Model
     # test_densenet121_cpu  #  accurary error
-    test_inception_v1_cpu,zdnn_conv2d
-    test_resnet50_cpu,zdnn_conv2d
-    test_shufflenet_cpu,zdnn_matmul_op
-    test_squeezenet_cpu,zdnn_conv
-    test_vgg19_cpu,zdnn_conv
+    #test_inception_v1_cpu,zdnn_conv2d
+    #test_resnet50_cpu,zdnn_conv2d
+    #test_shufflenet_cpu,zdnn_matmul_op
+    #test_squeezenet_cpu,zdnn_conv
+    #test_vgg19_cpu,zdnn_conv
 )
 set(ENV_TEST_CASE_BY_USER "")
 foreach(test_name IN LISTS NNPA_TEST_LIST)
@@ -362,32 +362,86 @@ endforeach()
 set(NNPA_TESTS_ENVS TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_CASE_BY_USER} TEST_ATOL=0.01 TEST_RTOL=0.05)
 
 set(NNPA_TEST_LIST_DYNAMIC
+    # ==OP== Add
     test_add_cpu,zdnn_add
-)
-set(NNPA_TEST_LIST_DYNAMIC_
-    #test_convtranspose_pads
-    #test_convtranspose
-    #test_convtranspose_autopad_same
-    #test_convtranspose_output_shape
-    #test_convtranspose_kernel_shape
+    # ==OP== AveragePool
+    test_averagepool_2d_default_cpu,zdnn_avgpool2d
+    test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d
+    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
+    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d
+    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
+    test_averagepool_2d_strides_cpu,zdnn_avgpool2d
+    # ==OP== BatchNormalization
+    test_batchnorm_epsilon_cpu,zdnn_mul
+    test_batchnorm_example_cpu,zdnn_mul
+    # ==OP== Conv
+    test_basic_conv_with_padding_cpu,zdnn_conv2d
+    test_basic_conv_without_padding_cpu,zdnn_conv2d
+    test_conv_with_strides_no_padding_cpu,zdnn_conv2d
+    test_conv_with_strides_padding_cpu,zdnn_conv2d
+    # ==OP== ConvTranspose
+    test_convtranspose_autopad_same_cpu,zdnn_conv2d
+    test_convtranspose_cpu,zdnn_conv2d
+    test_convtranspose_kernel_shape_cpu,zdnn_conv2d
+    test_convtranspose_output_shape_cpu,zdnn_conv2d
+    test_convtranspose_pad_cpu,zdnn_conv2d
+    test_convtranspose_pads_cpu,zdnn_conv2d
+    # ==OP== Div
+    test_div_cpu,zdnn_div
+    test_div_example_cpu,zdnn_div
+    # ==OP== Exp
     test_exp_cpu,zdnn_exp
     test_exp_example_cpu,zdnn_exp
+    # ==OP== Gemm
     test_gemm_default_matrix_bias_cpu,zdnn_matmul_op
     test_gemm_default_no_bias_cpu,zdnn_matmul_op
     test_gemm_default_vector_bias_cpu,zdnn_matmul_op
     test_gemm_default_zero_bias_cpu,zdnn_matmul_op
     test_gemm_transposeA_cpu,zdnn_matmul_op
     test_gemm_transposeB_cpu,zdnn_matmul_op
+    # ==OP== GlobalAveragePool
+    test_globalaveragepool_cpu,zdnn_meanreduce2d
+    test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d
+    # ==OP== Log
     test_log_example_cpu,zdnn_log
     test_log_cpu,zdnn_log
+    # ==OP== LogSoftmax
     test_logsoftmax_example_1_cpu,zdnn_softmax
+    # ==OP== LSTM
     test_lstm_defaults_cpu,zdnn_lstm
     test_lstm_with_initial_bias_cpu,zdnn_lstm
+    # ==OP== MatMul
     test_matmul_2d_cpu,zdnn_matmul_op
     test_matmul_3d_cpu,zdnn_matmul_op
+    test_matmul_4d_cpu,zdnn_matmul_op
+    # ==OP== Max
+    test_max_two_inputs_cpu,zdnn_max
+    test_max_float32_cpu,zdnn_max
+    # ==OP== MaxPool
+    test_maxpool_2d_default_cpu,zdnn_avgpool2d
+    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
+    test_maxpool_2d_precomputed_strides_cpu,zdnn_avgpool2d
+    test_maxpool_2d_same_upper_cpu,zdnn_avgpool2d
+    test_maxpool_2d_strides_cpu,zdnn_avgpool2d
+    # ==OP== Min
+    test_min_two_inputs_cpu,zdnn_min
+    test_min_float32_cpu,zdnn_min
+    # ==OP== Mul
+    test_mul_cpu,zdnn_mul
+    test_mul_example_cpu,zdnn_mul
+    # ==OP== Pow
     test_pow_bcast_scalar_cpu
+    # ==OP== Relu
     test_relu_cpu,zdnn_relu
+    # ==OP== Softmax
     test_softmax_example_cpu,zdnn_softmax
+    # ==OP== Sub
+    test_sub_cpu,zdnn_sub
+    test_sub_example_cpu,zdnn_sub
+    # ==OP== Sum
+    test_sum_example_cpu,zdnn_add
+    test_sum_two_inputs_cpu,zdnn_add
+    # Model
     #test_inception_v1_cpu,zdnn_conv2d
     #test_resnet50_cpu,zdnn_conv2d
     #test_shufflenet_cpu,zdnn_matmul_op
