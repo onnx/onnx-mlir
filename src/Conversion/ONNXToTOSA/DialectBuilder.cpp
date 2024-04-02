@@ -431,10 +431,8 @@ ElementsAttr IndexExprBuilderForTosa::getConst(Value value) {
 }
 
 Value IndexExprBuilderForTosa::getVal(Value intArrayVal, uint64_t i) {
-  MultiDialectBuilder<AffineBuilder, MathBuilder> create(*this);
-  // Need to add some acceptable dialects to TOSA conversion.
-  llvm_unreachable(
-      "unimplemented (see IndexExprBuilderForKrnl for functionality).");
+  // TODO: unimplemented (see IndexExprBuilderForKrnl for functionality).
+  return {};
 }
 
 Value IndexExprBuilderForTosa::getShapeVal(

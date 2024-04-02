@@ -34,10 +34,19 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op->getLoc();
+    if (!adaptor.getStarts().getDefiningOp<mlir::tosa::ConstOp>()) {
+      return rewriter.notifyMatchFailure(op, "starts must be constant");
+    }
+    if (!adaptor.getEnds().getDefiningOp<mlir::tosa::ConstOp>()) {
+      return rewriter.notifyMatchFailure(op, "ends must be constant");
+    }
+
     // Get shape.
     IndexExprBuilderForTosa createTosaIE(rewriter, loc);
     ONNXSliceOpShapeHelper shapeHelper(op, {}, &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+    if (failed(shapeHelper.computeShape())) {
+      return rewriter.notifyMatchFailure(op, "could not compute shape.");
+    }
 
     TosaBuilder tosaBuilder(rewriter, loc);
 

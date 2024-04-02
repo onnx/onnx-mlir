@@ -21,3 +21,12 @@ func.func @test_squeeze_unknown_dimensions(%arg0 : tensor<1x1x32x1x64xf32>) -> t
 // CHECK:           return [[VAR_0_]] : tensor<32x64xf32>
 // CHECK:         }
 }
+
+// -----
+
+func.func @squeeze_dynamic(%arg0: tensor<1x3x4x5xf32> , %arg1: tensor<1xi64> ) -> tensor<3x4x5xf32> {
+  %0 = "onnx.Squeeze"(%arg0, %arg1) : (tensor<1x3x4x5xf32>, tensor<1xi64>) -> tensor<3x4x5xf32>
+  return %0 : tensor<3x4x5xf32>
+// CHECK-LABEL:  func.func @squeeze_dynamic
+// CHECK: onnx.Squeeze
+}
