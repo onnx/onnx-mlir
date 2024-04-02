@@ -148,15 +148,26 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
     int64_t id = 0;
     for (auto forkOp : forkOps) {
       rewriter.setInsertionPoint(forkOp);
+      // Insert scf::IfOp
       Value forkId = create.math.constantIndex(id);
       Value eq = create.math.eq(forkId, indices[0]);
       scf::IfOp ifOp = rewriter.create<scf::IfOp>(loc, eq, /*else=*/false);
       Block &ifBlock = ifOp.getThenRegion().back();
+      // Insert KrnlRegionOp within scf::IfOp
+      rewriter.setInsertionPointToStart(&ifBlock);
+      KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+      Block &regionBlock = regionOp.getBodyRegion().front();
+      rewriter.setInsertionPointToStart(&regionBlock);
+      // Insert KrnlNoneOp. This op is used for inserting forkBlock into
+      // regionBlock. This op is deleted after doing it.
+      KrnlNoneOp noneOp = rewriter.create<KrnlNoneOp>(loc);
+      // Delete terminator of forkRegion.
       Block &forkBlock = forkOp.getRegion().back();
       Operation *forkYieldOp = forkBlock.getTerminator();
       rewriter.eraseOp(forkYieldOp);
-      rewriter.inlineBlockBefore(
-          &forkOp.getRegion().back(), ifBlock.getTerminator());
+      // Insert forkBlock into regionBlock
+      rewriter.inlineBlockBefore(&forkOp.getRegion().back(), noneOp);
+      rewriter.eraseOp(noneOp);
       rewriter.eraseOp(forkOp);
       id++;
     }
