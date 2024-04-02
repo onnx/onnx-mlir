@@ -49,7 +49,6 @@ add_onnx_mlir_library(OMZHighToONNX
   libzdnn
 
   LINK_LIBS PUBLIC
-  OMNNPACompilerOptions
   OMONNXOps
   OMZHighOps
 
