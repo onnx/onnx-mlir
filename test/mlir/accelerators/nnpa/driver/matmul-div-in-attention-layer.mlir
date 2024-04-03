@@ -1,4 +1,4 @@
-// RUN: onnx-mlir --mcpu=z16 --maccel=NNPA --EmitMLIR --printIR %s | FileCheck %s
+// RUN: onnx-mlir --mcpu=z16 --maccel=NNPA --EmitMLIR --nnpa-enable-scalar-bcast-binary --printIR %s | FileCheck %s
 
 // Check whether the compiler can remove unstick/stick so that the output of zdnn matmul is passed directly to zdnn div.
 func.func @matmul_div(%arg0: tensor<?x12x?x64xf32>) -> tensor<?x?x?x?xf32> {
