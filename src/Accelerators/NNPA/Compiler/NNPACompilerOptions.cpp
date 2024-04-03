@@ -55,6 +55,13 @@ llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
                    "stick/unstick code. Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
+    "nnpa-enable-scalar-bcast-binary",
+    llvm::cl::desc("Enable the lowering to NNPA the broadcasting binary ops "
+                   "whose one of the operands is scalar. Currently support "
+                   "ONNXDiv only. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
 llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     "nnpa-load-device-placement-file",
     llvm::cl::desc(
