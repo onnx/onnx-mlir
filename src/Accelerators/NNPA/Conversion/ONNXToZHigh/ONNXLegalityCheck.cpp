@@ -324,12 +324,19 @@ bool isSuitableForZDNN<ONNXDivOp>(
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
     return false;
-  if (!isF32ScalarConstantTensor(A) && !isValidElementTypeAndRank(A))
+  // Broadcast with a scalar operand.
+  if (isEnableScalarBcastBinary()) {
+    if (isF32ScalarConstantTensor(A) && isValidElementTypeAndRank(B))
+      return true;
+    if (isF32ScalarConstantTensor(B) && isValidElementTypeAndRank(A))
+      return true;
+  }
+  // Non-broadcast cases.
+  if (!isValidElementTypeAndRank(A))
     return false;
-  if (!isF32ScalarConstantTensor(B) && !isValidElementTypeAndRank(B))
+  if (!isValidElementTypeAndRank(B))
     return false;
-  return isF32ScalarConstantTensor(A) || isF32ScalarConstantTensor(B) ||
-         dimAnalysis->sameShape(A, B);
+  return dimAnalysis->sameShape(A, B);
 }
 
 /// Check legality for ONNXSum.
