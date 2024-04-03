@@ -18,45 +18,67 @@
 
 #include <llvm/Support/Debug.h>
 
+#define DEBUG_TYPE "lowering-to-krnl"
+
 using namespace mlir;
 
 namespace onnx_mlir {
 
-void moveAllocOpOperands(
-    SmallVector<Operation *, 4> &opsToMove, Operation *justMovedOp) {
-  llvm::dbgs() << "opsToMove.size() = " << opsToMove.size() << "\n";
+//===----------------------------------------------------------------------===//
+// Helper function of Zhigh to Zlow lowering
+// Return true if `a` happens before `b`, i.e., `a` or one of its ancestors
+// properly dominates `b` and `b` is not inside `a`.
+// Reference: llvm-project/mlir/lib/Dialect/Transform/IR/TransformInterfaces.cpp
+//===----------------------------------------------------------------------===//
+
+static bool happensBefore(Operation *a, Operation *b) {
+  do {
+    if (a->isProperAncestor(b))
+      return false;
+    if (Operation *bAncestor = a->getBlock()->findAncestorOpInBlock(*b)) {
+      return a->isBeforeInBlock(bAncestor);
+    }
+  } while ((a = a->getParentOp()));
+  return false;
+}
+
+void moveAllocOpOperands(SmallVector<Operation *, 4> &opsToMove,
+    SmallVector<Operation *, 4> &globalOpsToMove, Operation *parentOp) {
   if (opsToMove.size() == 0)
     return;
 
-  SmallVector<Operation *, 4> opsToMove1;
+  SmallVector<Operation *, 4> nextOpsToMove;
   for (Operation *op : opsToMove) {
-    llvm::dbgs() << "opToMove : " << *op << "\n";
-    if (op->getNumOperands() == 0) {
-      op->moveBefore(justMovedOp);
-      justMovedOp = op;
-    } else {
-      for (unsigned i = 0; i < op->getNumOperands(); ++i) {
-        Value oprd = op->getOperand(i);
-        if (isa<BlockArgument>(oprd))
-          continue;
-        Operation *oprdDefOp = oprd.getDefiningOp();
-        llvm::dbgs() << "oprdDefOp " << i << " = " << *oprdDefOp << "\n";
-        llvm::dbgs() << "oprdDefOp need to be moved?:  "
-                     << (oprdDefOp->getBlock() != justMovedOp->getBlock())
-                     << "\n";
-        if (oprdDefOp->getBlock() != justMovedOp->getBlock())
-          opsToMove1.push_back(oprdDefOp);
-        op->moveBefore(justMovedOp);
-        justMovedOp = op;
-      }
+    // Added the op in ops list to move if it is still not added.
+    if (llvm::find(globalOpsToMove, op) == globalOpsToMove.end()) {
+      globalOpsToMove.push_back(op);
+      LLVM_DEBUG(llvm::dbgs() << "Added in ops list to move : " << *op << "\n");
+    }
+    // Check if operands need to be moved. Need to move if defining op for the
+    // operand exists in block in parentOp.
+    for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+      Value oprd = op->getOperand(i);
+      if (isa<BlockArgument>(oprd))
+        continue;
+      Operation *oprdDefOp = oprd.getDefiningOp();
+      Region &parentOpRegion = parentOp->getRegions().front();
+      Block &parentOpBlock = parentOpRegion.getBlocks().front();
+      LLVM_DEBUG(
+          llvm::dbgs() << "Operand DefOp " << i << " = " << *oprdDefOp << "\n");
+      LLVM_DEBUG(llvm::dbgs()
+                 << "Operand DefOp need to be moved?:  "
+                 << (oprdDefOp->getBlock() == &parentOpBlock) << "\n");
+      if (oprdDefOp->getBlock() == &parentOpBlock)
+        nextOpsToMove.push_back(oprdDefOp);
     }
   }
-  moveAllocOpOperands(opsToMove1, justMovedOp);
+  // Check if operands of operandDefOp need to be moved recursively
+  moveAllocOpOperands(nextOpsToMove, globalOpsToMove, parentOp);
 }
 
 LogicalResult moveAllocOpBeforeAndReplaceAllUses(
     ConversionPatternRewriter &rewriter, Operation *op, Operation *yieldOp) {
-
+  SmallVector<Operation *, 4> globalOpsToMove;
   for (unsigned ii = 0; ii < yieldOp->getNumOperands(); ++ii) {
     // Check the return value of the block to check if operations in the
     // block is already lowered to memref-level IR such as KrnlIR. Assume
@@ -74,9 +96,17 @@ LogicalResult moveAllocOpBeforeAndReplaceAllUses(
     Operation *allocOpForReturnVal = returnVal.getDefiningOp();
     SmallVector<Operation *, 4> opsToMove;
     opsToMove.push_back(allocOpForReturnVal);
-    moveAllocOpOperands(opsToMove, op);
+    moveAllocOpOperands(opsToMove, globalOpsToMove, op);
     rewriter.replaceAllUsesWith(
         op->getResults()[ii], allocOpForReturnVal->getResult(0));
+  }
+
+  llvm::sort(globalOpsToMove,
+      [](Operation *a, Operation *b) { return !happensBefore(a, b); });
+  Operation *justMovedOp = op;
+  for (Operation *gop : globalOpsToMove) {
+    gop->moveBefore(justMovedOp);
+    justMovedOp = gop;
   }
   return success();
 }
@@ -109,7 +139,7 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
     if (!isa<ONNXYieldOp>(yieldOp))
       return failure();
 
-    // Move alloc ops included ForkOps
+    // Move alloc ops included in ForkOps
     SmallVector<ONNXForkOp, 4> forkOps;
     for (Operation &bOp : bodyBlock.getOperations()) {
       if (auto forkOp = dyn_cast<ONNXForkOp>(bOp)) {
@@ -124,7 +154,7 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
       }
     }
 
-    // Move allocOp in ParallelOp region
+    // Move allocOp included in ParallelOp
     if (failed(moveAllocOpBeforeAndReplaceAllUses(rewriter, op, yieldOp)))
       return failure();
 
