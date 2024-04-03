@@ -15,8 +15,6 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <string>
-
 #if defined(__APPLE__)
 #include <unistd.h> // Unsupported on MSVC.
 #endif
@@ -26,13 +24,6 @@ using namespace mlir;
 namespace onnx_mlir {
 
 namespace {
-void splitToSet(StringRef commaSeparated, llvm::StringSet<> &set) {
-  SmallVector<StringRef> splits;
-  commaSeparated.split(splits, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
-  for (StringRef s : splits)
-    set.insert(s.trim());
-}
-
 #if defined(__APPLE__)
 void logMessage(StringRef logFilename, StringRef msg,
     llvm::sys::fs::OpenFlags extraFlags = llvm::sys::fs::OF_None) {
@@ -48,15 +39,23 @@ void logMessage(StringRef logFilename, StringRef msg,
 #endif
 } // namespace
 
-HeapReporter::HeapReporter(
-    std::string logFilename, StringRef beforePasses, StringRef afterPasses)
+HeapReporter::HeapReporter(std::string logFilename,
+    std::vector<std::string> beforePasses, std::vector<std::string> afterPasses)
     : logFilename(logFilename) {
-  splitToSet(beforePasses, this->beforePassesSet);
-  splitToSet(afterPasses, this->afterPassesSet);
+  beforePassesSet = llvm::StringSet<>(beforePasses);
+  afterPassesSet = llvm::StringSet<>(afterPasses);
+
+  std::string beforePassesStr = "";
+  std::string afterPassesStr = "";
+
+  for (std::string &s : beforePasses)
+    beforePassesStr = beforePassesStr + s + ",";
+  for (std::string &s : afterPasses)
+    afterPassesStr = afterPassesStr + s + ",";
+
   reportBegin("onnx-mlir heap report"
               "\n--report-heap-before='" +
-              beforePasses.str() + "'\n--report-heap-after='" +
-              afterPasses.str() + "'");
+              beforePassesStr + "'\n--report-heap-after=" + afterPassesStr);
 }
 
 HeapReporter::~HeapReporter() {}
