@@ -426,6 +426,44 @@ public:
   }
 };
 
+class ONNXCastOpLoweringToTOSA : public OpConversionPattern<ONNXCastOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  LogicalResult matchAndRewrite(ONNXCastOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+
+    auto resultTy =
+        dyn_cast<ShapedType>(getTypeConverter()->convertType(op.getType()));
+    if (!resultTy) {
+      return rewriter.notifyMatchFailure(op, "expected valid result type");
+    }
+    auto input = adaptor.getInput();
+    auto inputTy = dyn_cast<ShapedType>(input.getType());
+    if (!inputTy) {
+      return rewriter.notifyMatchFailure(op, "expected valid input type");
+    }
+    if (isa<FloatType>(inputTy.getElementType()) &&
+        isa<IntegerType>(resultTy.getElementType())) {
+      // ONNX.Cast has truncating behavior, and tosa.cast has rounds
+      // half-to-even. We simulate truncate by floor for positive values and
+      // ceil for negative ones.
+      auto zero = tosaBuilder.getSplattedConst(0.0f, resultTy.getRank());
+      zero = tosaBuilder.castToNewTensorElementType(
+          zero, inputTy.getElementType());
+      auto positive = tosaBuilder.greaterEqual(input, zero);
+
+      auto floor = tosaBuilder.unaryOp<mlir::tosa::FloorOp>(input);
+      auto ceil = tosaBuilder.unaryOp<mlir::tosa::CeilOp>(input);
+      input = tosaBuilder.select(positive, floor, ceil);
+    }
+
+    rewriter.replaceOpWithNewOp<mlir::tosa::CastOp>(op, resultTy, input);
+    return success();
+  }
+};
+
 class ONNXDivOpLoweringToTOSA : public OpConversionPattern<ONNXDivOp> {
 public:
   using OpConversionPattern::OpConversionPattern;
@@ -708,8 +746,6 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
           IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXLogOp, mlir::tosa::LogOp,
           IsIntOrFloat, IsIntOrFloat>,
-      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCastOp, mlir::tosa::CastOp,
-          IsAnyLegalType, IsAnyLegalType>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXReciprocalOp,
           mlir::tosa::ReciprocalOp, IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXTanhOp, mlir::tosa::TanhOp,
@@ -747,7 +783,7 @@ void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,
       ONNXSqrtOpLoweringToTOSA, ONNXEluOpLoweringToTOSA,
       ONNXPReluOpLoweringToTOSA, ONNXThresholdedReluOpLoweringToTOSA,
       ONNXSoftplusOpLoweringToTOSA, ONNXSeluOpLoweringToTOSA,
-      ONNXComparisonOpLoweringToTOSA<ONNXEqualOp>,
+      ONNXCastOpLoweringToTOSA, ONNXComparisonOpLoweringToTOSA<ONNXEqualOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXGreaterOrEqualOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXGreaterOp>,
       ONNXComparisonOpLoweringToTOSA<ONNXLessOrEqualOp>,
