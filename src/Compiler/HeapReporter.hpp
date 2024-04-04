@@ -12,14 +12,17 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "mlir/Pass/PassInstrumentation.h"
 #include "llvm/ADT/StringSet.h"
 
 namespace onnx_mlir {
 
 struct HeapReporter : public mlir::PassInstrumentation {
-  HeapReporter(std::string logFilename, llvm::StringRef beforePasses,
-      llvm::StringRef afterPasses);
+  HeapReporter(std::string logFilename, std::vector<std::string> beforePasses,
+      std::vector<std::string> afterPasses);
   ~HeapReporter() override;
 
   void runBeforePass(mlir::Pass *pass, mlir::Operation *op) override;
