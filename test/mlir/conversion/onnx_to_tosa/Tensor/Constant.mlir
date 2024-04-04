@@ -42,3 +42,30 @@ func.func @test_int_dense() -> tensor<2xi8> {
 // CHECK-LABEL: @test_int_dense() -> tensor<2xi8>
 // CHECK:       "tosa.const"() <{value = dense<[-1, -2]> : tensor<2xi8>}> : () -> tensor<2xi8>
 }
+
+// -----
+
+func.func @test_bool_single() -> tensor<i1> {
+  %0 = "onnx.Constant"() {value = dense<true> : tensor<i1>} : () -> tensor<i1>
+  return %0 : tensor<i1>
+// CHECK-LABEL: @test_bool_single() -> tensor<i1>
+// CHECK:      "tosa.const"() <{value = dense<true> : tensor<i1>}> : () -> tensor<i1>
+}
+
+// -----
+
+func.func @test_bool_broadcast() -> tensor<4xi1> {
+  %0 = "onnx.Constant"() {value = dense<false> : tensor<4xi1>} : () -> tensor<4xi1>
+  return %0 : tensor<4xi1>
+// CHECK-LABEL: @test_bool_broadcast() -> tensor<4xi1>
+// CHECK:       "tosa.const"() <{value = dense<false> : tensor<4xi1>}> : () -> tensor<4xi1>
+}
+
+// -----
+
+func.func @test_bool_dense() -> tensor<2xi1> {
+  %0 = "onnx.Constant"() {value = dense<[true, false]> : tensor<2xi1>} : () -> tensor<2xi1>
+  return %0 : tensor<2xi1>
+// CHECK-LABEL: @test_bool_dense() -> tensor<2xi1>
+// CHECK:       "tosa.const"() <{value = dense<[true, false]> : tensor<2xi1>}> : () -> tensor<2xi1>
+}
