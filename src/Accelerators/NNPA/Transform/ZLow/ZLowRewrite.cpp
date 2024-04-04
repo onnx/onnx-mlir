@@ -88,6 +88,7 @@ public:
         continue;
       // UnstickOp must be before the stick operation.
       if (userOp.getOut() == stickInput &&
+          user->getBlock() == stickOp.getOperation()->getBlock() &&
           user->isBeforeInBlock(stickOp.getOperation())) {
         unstickOp = userOp;
         break;
