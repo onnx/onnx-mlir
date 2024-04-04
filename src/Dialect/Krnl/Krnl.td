@@ -341,7 +341,8 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   }];
 }
 
-def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
+def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Krnl memcpy operation";
   let description = [{
     Copy `num_elems` elements from `src` to `dest` MemRef.
@@ -716,9 +717,7 @@ def KrnlGetLinearOffsetIndexOp : Op<Krnl_Dialect, "get_linear_offset_index",
 }
 
 def KrnlPrefetchOp : Op<Krnl_Dialect, "prefetch",
-  [DeclareOpInterfaceMethods<AffineMapAccessInterface>,
-    //DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
-    MemRefsNormalizable]> {
+  [ MemRefsNormalizable, DeclareOpInterfaceMethods<AffineMapAccessInterface>]> {
   let summary = "A Krnl operation to compute a linear offset index from a N-D index.";
 
   let description = [{
@@ -1237,6 +1236,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
 }
 
 def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     TypesMatchWith<"type of 'value' matches element type of 'dest'",
                    "dest", "value",
                    "$_self.cast<MemRefType>().getElementType()">]> {

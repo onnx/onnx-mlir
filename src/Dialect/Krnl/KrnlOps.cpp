@@ -1096,14 +1096,48 @@ void KrnlPrefetchOp::print(OpAsmPrinter &p) {
 }
 
 #if 0
+#if 1
+void KrnlPrefetchOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {}
+#else
 // hi alex: it already define them, but only for read
-void KrnlPrefetchOp::getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects) {
+void KrnlPrefetchOp::getEffects(::llvm::SmallVectorImpl<
+    ::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>>
+        &effects) {
   for (::mlir::Value value : getODSOperands(0))
-    effects.emplace_back(::mlir::MemoryEffects::Write::get(), value, 0, false, ::mlir::SideEffects::DefaultResource::get());
+    effects.emplace_back(::mlir::MemoryEffects::Write::get(), value, 0, false,
+        ::mlir::SideEffects::DefaultResource::get());
   for (::mlir::Value value : getODSOperands(0))
-    effects.emplace_back(::mlir::MemoryEffects::Read::get(), value, 0, false, ::mlir::SideEffects::DefaultResource::get());
+    effects.emplace_back(::mlir::MemoryEffects::Read::get(), value, 0, false,
+        ::mlir::SideEffects::DefaultResource::get());
 }
 #endif
+#endif
+
+//===----------------------------------------------------------------------===//
+// KrnlMemcpyOp
+//===----------------------------------------------------------------------===//
+
+void KrnlMemcpyOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Read::get(), getSrc(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Write::get(), getDest(),
+      SideEffects::DefaultResource::get());
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlMemsetOp
+//===----------------------------------------------------------------------===//
+
+void KrnlMemsetOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(), getDest(),
+      SideEffects::DefaultResource::get());
+}
 
 } // namespace mlir
 
