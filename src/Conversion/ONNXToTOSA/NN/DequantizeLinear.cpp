@@ -36,7 +36,7 @@ public:
     Value x = op.getX();
     auto resultType = dyn_cast_if_present<ShapedType>(
         getTypeConverter()->convertType(op.getResult().getType()));
-    if (!resultType) {
+    if (!resultType || !resultType.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           loc, "expected valid tensor result type");
     }
@@ -54,6 +54,9 @@ public:
     }
 
     int64_t axis = op.getAxis();
+    // See https://github.com/onnx/onnx/issues/6067
+    if (axis == 1 && resultType.getRank() == 1)
+      axis = 0;
     if (axis < -resultType.getRank() || axis >= resultType.getRank()) {
       return rewriter.notifyMatchFailure(loc, "axis is invalid");
     }
