@@ -1029,6 +1029,82 @@ void KrnlGetLinearOffsetIndexOp::print(OpAsmPrinter &p) {
   p << " : " << getMemRefType();
 }
 
+//===----------------------------------------------------------------------===//
+// KrnlPrefetchOp
+//===----------------------------------------------------------------------===//
+
+void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
+    Value memref, AffineMap map, ValueRange mapOperands, bool isWrite,
+    unsigned localityHint, bool isDataCache) {
+  assert(map.getNumInputs() == mapOperands.size() && "inconsistent index info");
+  result.addOperands(memref);
+  result.addOperands(mapOperands);
+  result.addAttribute(getMapAttrStrName(), AffineMapAttr::get(map));
+  result.addAttribute(getIsWriteAttrStrName(), builder.getBoolAttr(isWrite));
+  result.addAttribute(
+      getLocalityHintAttrStrName(), builder.getI32IntegerAttr(localityHint));
+  result.addAttribute(
+      getIsDataCacheAttrStrName(), builder.getBoolAttr(isDataCache));
+}
+
+void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
+    Value memref, ValueRange indices, bool isWrite, unsigned localityHint,
+    bool isDataCache) {
+  auto memrefType = llvm::cast<MemRefType>(memref.getType());
+  int64_t rank = memrefType.getRank();
+  // Create identity map for memrefs with at least one dimension or () -> ()
+  // for zero-dimensional memrefs.
+  auto map =
+      rank ? builder.getMultiDimIdentityMap(rank) : builder.getEmptyAffineMap();
+  build(builder, result, memref, map, indices, isWrite, localityHint,
+      isDataCache);
+}
+
+void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
+    Value memref, bool isWrite, unsigned localityHint, bool isDataCache) {
+  build(builder, result, memref, {}, isWrite, localityHint, isDataCache);
+}
+
+ParseResult KrnlPrefetchOp::parse(OpAsmParser &parser, OperationState &result) {
+  auto &builder = parser.getBuilder();
+  auto indexTy = builder.getIndexType();
+
+  MemRefType type;
+  OpAsmParser::UnresolvedOperand memrefInfo;
+  AffineMapAttr mapAttr;
+  SmallVector<OpAsmParser::UnresolvedOperand, 1> mapOperands;
+  return failure(
+      parser.parseOperand(memrefInfo) ||
+      parser.parseAffineMapOfSSAIds(mapOperands, mapAttr,
+          KrnlPrefetchOp::getMapAttrStrName(), result.attributes) ||
+      parser.parseOptionalAttrDict(result.attributes) ||
+      parser.parseColonType(type) ||
+      parser.resolveOperand(memrefInfo, type, result.operands) ||
+      parser.resolveOperands(mapOperands, indexTy, result.operands) ||
+      parser.addTypeToList(indexTy, result.types));
+}
+
+void KrnlPrefetchOp::print(OpAsmPrinter &p) {
+  p << " " << getMemRef() << " [";
+  if (AffineMapAttr mapAttr =
+          (*this)->getAttrOfType<AffineMapAttr>(getMapAttrStrName()))
+    p.printAffineMapOfSSAIds(mapAttr, getMapOperands());
+  p << ']';
+  p.printOptionalAttrDict((*this)->getAttrs(),
+      /*elidedAttrs=*/{getMapAttrStrName()});
+  p << " : " << getMemRefType();
+}
+
+#if 0
+// hi alex: it already define them, but only for read
+void KrnlPrefetchOp::getEffects(::llvm::SmallVectorImpl<::mlir::SideEffects::EffectInstance<::mlir::MemoryEffects::Effect>> &effects) {
+  for (::mlir::Value value : getODSOperands(0))
+    effects.emplace_back(::mlir::MemoryEffects::Write::get(), value, 0, false, ::mlir::SideEffects::DefaultResource::get());
+  for (::mlir::Value value : getODSOperands(0))
+    effects.emplace_back(::mlir::MemoryEffects::Read::get(), value, 0, false, ::mlir::SideEffects::DefaultResource::get());
+}
+#endif
+
 } // namespace mlir
 
 #define GET_OP_CLASSES

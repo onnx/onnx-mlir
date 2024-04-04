@@ -2509,6 +2509,11 @@ struct ONNXElementwiseVariadicOpLowering
                     oprdAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
+            // hi alex; temporary code to exercise a prefech operation.
+            SmallVector<IndexExpr, 4> prefetchAE = oprdAccessExprs;
+            int rank = prefetchAE.size();
+            prefetchAE[rank-1] = prefetchAE[rank-1] + LiteralIndexExpr(64);
+            createKrnl.prefetchIE(operands[0], prefetchAE, false, 3);
 
             // Iterate over the remaining operands.
             for (unsigned i = 1; i < numArgs; ++i) {

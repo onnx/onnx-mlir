@@ -104,6 +104,20 @@ Value KrnlBuilder::getLinearOffsetIndexIE(
   return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indexValues);
 }
 
+void KrnlBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
+    unsigned localityHint, bool isDataCache) {
+  b().create<KrnlPrefetchOp>(
+      loc(), memref, indices, isWrite, localityHint, isDataCache);
+}
+
+void KrnlBuilder::prefetchIE(Value memref, ArrayRef<IndexExpr> indices,
+    bool isWrite, unsigned localityHint, bool isDataCache) {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  b().create<KrnlPrefetchOp>(
+      loc(), memref, indexValues, isWrite, localityHint, isDataCache);
+}
+
 void KrnlBuilder::seqstore(
     mlir::Value element, mlir::Value seq, mlir::Value index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index);
