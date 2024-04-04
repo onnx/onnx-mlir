@@ -29,6 +29,8 @@ include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 ///    dag benefitsAdded = (addBenefit 0)
 /// >;
 
+def IsEnableScalarBcastBinary: Constraint<CPred<"isEnableScalarBcastBinary()">>;
+
 def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
 
 def IsNotNoneType : Constraint<CPred<"(!($_self).getType().isa<NoneType>())">>;
@@ -227,7 +229,7 @@ def replaceONNXDivBroadcastPattern1 : Pat<
         (GetScalarF32AttrFromConstant $y),
         (NoneLayoutAttr)),
       (returnType $s_x))),
-  [(IsF32ScalarConstantTensor $y)], [],
+  [(IsEnableScalarBcastBinary), (IsF32ScalarConstantTensor $y)], [],
   (addBenefit 1)
 >;
 
@@ -241,7 +243,7 @@ def replaceONNXDivBroadcastPattern2 : Pat<
         (NoneLayoutAttr)),
       (ZHighStickOp:$s_y $y, (NoneLayoutAttr)),
       (returnType $s_y))),
-  [(IsF32ScalarConstantTensor $x)], [],
+  [(IsEnableScalarBcastBinary), (IsF32ScalarConstantTensor $x)], [],
   (addBenefit 1)
 >;
 

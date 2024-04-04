@@ -113,6 +113,11 @@ def TensorHasNoNHWCLayout: Constraint<
   "ZTensor has no NHWC layout"
 >;
 
+def HasNNPAUse: Constraint<
+  CPred<"::onnx_mlir::zhigh::hasNNPAUse($0)">,
+  "The value has NNPA users (or is consumed by an NNPA op)"
+>;
+
 def Is2DLayout : Constraint<
   CPred<"::onnx_mlir::is2DLayout($0)">,
   "Is 2D layout"
