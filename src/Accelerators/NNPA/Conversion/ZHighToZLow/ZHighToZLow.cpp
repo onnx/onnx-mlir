@@ -32,13 +32,11 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "zhigh-to-zlow"
-#define ENABLE_CSU_PAR 0
-#define CS_N 2
-#define CS_M 2
-#define CU_N 2
-#define CU_M 2
-#define USE_PREFETCH 1
-#define USE_PREFETCH_NO_MAP 0
+#define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
+#define CS_N 2              /* Tiling for Stick */
+#define CS_M 2              /* Tiling for Stick */
+#define CU_N 2              /* Tiling for Unstick */
+#define CU_M 2              /* Tiling for Unstick */
 using namespace mlir;
 using namespace onnx_mlir::zlow;
 
@@ -659,22 +657,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
       }
     }
 
-#if USE_PREFETCH_NO_MAP
-    // Compute offset between two E1 that are 64 elements apart.
-    IndexExpr T = LiteralIndexExpr(2);
-    IndexExpr lit32 = LiteralIndexExpr(32);
-    DimsExpr reallocTileDims = {T, lit32, lit64};
-    Value allocAsTx32x64 =
-        create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
-    DimsExpr offsetE1For64AF(rank, litZero);
-    offsetE1For64AF[E1] = lit64; // Dist of 64 in E1.
-    Value offsetE1For64 =
-        create.krnl.getLinearOffsetIndexIE(alloc, offsetE1For64AF);
-    IndexExpr prefetchOffsetInElements = SymbolIndexExpr(offsetE1For64);
-    IndexExpr prefetchOffsetInTiles =
-        prefetchOffsetInElements.floorDiv(32 * 64);
-#endif
-
     // Outer loop (E4, E3, E2 tiled by N, E1 tiled by M)
     create.krnl.iterateIE(loopDefs, optLoopDefs, lbs, ubs,
         [&](KrnlBuilder &b, ValueRange loopInd) {
@@ -728,21 +710,6 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 DimsExpr reallocTileDims = {litN, lit64};
                 Value allocAsNx64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
-#if USE_PREFETCH
-#if USE_PREFETCH_NO_MAP
-                IndexExpr allocOffsetInTiles = SymbolIndexExpr(allocOffset);
-                IndexExpr prefetchOffset = allocOffsetInTiles.floorDiv(32 * 64);
-                prefetchOffset =
-                    prefetchOffset + SymbolIndexExpr(prefetchOffsetInTiles);
-                DimsExpr prefetchAF = {prefetchOffset, litZero, litZero};
-                create.mem.prefetchIE(
-                    allocAsTx32x64, prefetchAF, /*write*/ true, 3);
-#else
-                // prefetch does not seem to support memref normalize
-                outputAF[E1] = outputAF[E1] + 64;
-                create.affine.prefetchIE(alloc, outputAF, /*write*/ true, 3);
-#endif
-#endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
@@ -883,16 +850,13 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           layout.getValue().equals_insensitive("3D") ||
           layout.getValue().equals_insensitive("2D") ||
           layout.getValue().equals_insensitive("3DS")) {
-#if 1
+        // Alternative versions of the code are:
+        // o  generateUnstickCode (preferred)
+        // o  generateUnstickCodeE1E2 (different loop order)
+        // o  generateUnstickCodeSimple (simple)
+        // As the code matures, we will keep only one.
         return generateUnstickCode(
             rewriter, op, shapeHelper, alloc, input, layout);
-#elif 0
-        return generateUnstickCodeE1E2(
-            rewriter, op, shapeHelper, alloc, input, layout);
-#else
-        return generateUnstickCodeSimple(
-            rewriter, op, shapeHelper, alloc, input, layout);
-#endif
       }
     }
 
@@ -906,7 +870,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     This version tile E1 by 64, convert f16 to f32 64 values at a time.
     Then it simply write individual f32 to its destination 1 value at a time.
   */
-
   LogicalResult generateUnstickCodeSimple(ConversionPatternRewriter &rewriter,
       Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
       Value input, StringAttr layout) const {
