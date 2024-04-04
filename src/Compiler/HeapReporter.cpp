@@ -12,6 +12,8 @@
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LLVM.h"
+
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -41,21 +43,13 @@ void logMessage(StringRef logFilename, StringRef msg,
 
 HeapReporter::HeapReporter(std::string logFilename,
     std::vector<std::string> beforePasses, std::vector<std::string> afterPasses)
-    : logFilename(logFilename) {
-  beforePassesSet = llvm::StringSet<>(beforePasses);
-  afterPassesSet = llvm::StringSet<>(afterPasses);
-
-  std::string beforePassesStr = "";
-  std::string afterPassesStr = "";
-
-  for (std::string &s : beforePasses)
-    beforePassesStr = beforePassesStr + s + ",";
-  for (std::string &s : afterPasses)
-    afterPassesStr = afterPassesStr + s + ",";
+    : logFilename(logFilename), beforePassesSet(beforePasses),
+      afterPassesSet(afterPasses) {
 
   reportBegin("onnx-mlir heap report"
               "\n--report-heap-before='" +
-              beforePassesStr + "'\n--report-heap-after=" + afterPassesStr);
+              llvm::join(beforePasses, ",") + "'\n--report-heap-after='" +
+              llvm::join(afterPasses, ",") + "'");
 }
 
 HeapReporter::~HeapReporter() {}
