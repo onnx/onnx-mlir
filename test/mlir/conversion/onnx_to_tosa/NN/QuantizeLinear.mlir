@@ -48,3 +48,18 @@ func.func @test_quantizeLinear_negative_axis(%arg0: tensor<8x2xf32>) -> tensor<8
 }
 // CHECK-LABEL: test_quantizeLinear_negative_axis
 // CHECK: "tosa.const"() {{.*}} : tensor<8x1xi8>
+
+// -----
+
+// The default `axis` is `1` when it's absent in ONNX, which conflicts
+// with the allowed range of `axis` when the input has rank 1.
+// See https://github.com/onnx/onnx/issues/6067
+func.func @default_axis(%arg0 : tensor<32xf32>) -> tensor<32xi8> {
+  %0 = onnx.Constant dense<3.125000e-02> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.QuantizeLinear"(%arg0, %0, %1) {axis = 1 : si64} : (tensor<32xf32>, tensor<f32>, tensor<i8>) -> tensor<32xi8>
+  return %2 : tensor<32xi8>
+}
+
+// CHECK-LABEL: default_axis
+// CHECK-NOT: onnx.QuantizeLinear

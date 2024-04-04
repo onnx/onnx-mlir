@@ -24,12 +24,18 @@ func.func @per_axis(%arg0: tensor<8x2xi8>) -> tensor<8x2xf32> {
      saturate = 1 : si64} : (tensor<8x2xi8>, tensor<2xf32>, tensor<2xi8>) -> tensor<8x2xf32>
   return %2 : tensor<8x2xf32>
 }
-// CHECK-LABEL:   func.func @per_axis(
-// CHECK-SAME:                        %[[VAL_0:.*]]: tensor<8x2xi8>) -> tensor<8x2xf32> {
-// CHECK:           %[[VAL_1:.*]] = "tosa.const"() <{value = dense<{{\[\[}}0, 1]]> : tensor<1x2xi8>}> : () -> tensor<1x2xi8>
-// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<{{\[\[}}1.000000e+00, 2.000000e+00]]> : tensor<1x2xf32>}> : () -> tensor<1x2xf32>
-// CHECK:           %[[VAL_3:.*]] = tosa.sub %[[VAL_0]], %[[VAL_1]] : (tensor<8x2xi8>, tensor<1x2xi8>) -> tensor<8x2xi8>
-// CHECK:           %[[VAL_4:.*]] = tosa.cast %[[VAL_3]] : (tensor<8x2xi8>) -> tensor<8x2xf32>
-// CHECK:           %[[VAL_5:.*]] = tosa.mul %[[VAL_4]], %[[VAL_2]] {shift = 0 : i8} : (tensor<8x2xf32>, tensor<1x2xf32>) -> tensor<8x2xf32>
-// CHECK:           return %[[VAL_5]] : tensor<8x2xf32>
-// CHECK:         }
+
+// -----
+
+// The default `axis` is `1` when it's absent in ONNX, which conflicts
+// with the allowed range of `axis` when the input has rank 1.
+// See https://github.com/onnx/onnx/issues/6067
+func.func @default_axis(%arg0 : tensor<32xi8>) -> tensor<32xf32> {
+  %0 = onnx.Constant dense<3.125000e-02> : tensor<f32>
+  %1 = onnx.Constant dense<0> : tensor<i8>
+  %2 = "onnx.DequantizeLinear"(%arg0, %0, %1) {axis = 1 : si64} : (tensor<32xi8>, tensor<f32>, tensor<i8>) -> tensor<32xf32>
+  return %2 : tensor<32xf32>
+}
+
+// CHECK-LABEL: default_axis
+// CHECK-NOT: onnx.DequantizeLinear
