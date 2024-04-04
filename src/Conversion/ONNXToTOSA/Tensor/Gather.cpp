@@ -54,26 +54,32 @@ public:
     SmallVector<int32_t, 4> newIndicesValues;
     newIndicesValues.resize(indicesType.getNumElements());
 
-    if (!indices.getDefiningOp<mlir::tosa::ConstOp>()) {
-      return rewriter.notifyMatchFailure(op, "indices must be constant");
-    }
-
-    auto indicesValues = tosa::getValueFromTosaConst<ElementsAttr>(indices);
-
-    // ONNX allows negative indices and TOSA doesn't. This iterates through each
-    // index and rescales if necessary.
     ArrayRef<int64_t> inputShape = inputType.cast<ShapedType>().getShape();
-    auto indicesAttrValues = indicesValues.getValues<APInt>();
-    for (const auto &[index, value] : llvm::enumerate(indicesAttrValues)) {
-      int64_t numericalValue = value.getSExtValue();
-      if (numericalValue < 0)
-        newIndicesValues[index] = (int32_t)(numericalValue + inputShape[axis]);
-      else
-        newIndicesValues[index] = (int32_t)(numericalValue);
-    }
 
-    Value newIndices =
-        tosaBuilder.getConst(newIndicesValues, indicesType.getShape());
+    // ONNX allows negative indices and TOSA doesn't.
+    // We will emit ops to compute
+    //   newIndices = indices >= 0 ? indices : indices + dimSize
+    // element-wise.
+
+    // Create an 1x..x1 constant containing the size of the gathered dimension.
+    auto dimSize =
+        tosaBuilder.getSplattedConst(inputShape[axis], indicesType.getRank());
+    if (!indicesType.getElementType().isInteger(64)) {
+      dimSize = tosaBuilder.castToNewTensorElementType(
+          dimSize, indicesType.getElementType());
+    }
+    auto indicesPlusDimSize =
+        tosaBuilder.binaryOp<mlir::tosa::AddOp>(indices, dimSize);
+
+    auto zero = tosaBuilder.getSplattedConst((int64_t)0, indicesType.getRank());
+    if (!indicesType.getElementType().isInteger(64)) {
+      zero = tosaBuilder.castToNewTensorElementType(
+          zero, indicesType.getElementType());
+    }
+    auto indicesPositive = tosaBuilder.greaterEqual(indices, zero);
+
+    auto newIndices =
+        tosaBuilder.select(indicesPositive, indices, indicesPlusDimSize);
 
     auto newGather =
         tosaBuilder.gather(result, input, newIndices, 0, (int32_t)axis);
