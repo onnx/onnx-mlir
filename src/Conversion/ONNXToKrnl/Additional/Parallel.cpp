@@ -18,14 +18,14 @@
 
 #include <llvm/Support/Debug.h>
 
-#define DEBUG_TYPE "lowering-to-krnl"
+#define DEBUG_TYPE "lowering-parallelop-to-krnl"
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
 //===----------------------------------------------------------------------===//
-// Helper function of Zhigh to Zlow lowering
+// Helper function
 // Return true if `a` happens before `b`, i.e., `a` or one of its ancestors
 // properly dominates `b` and `b` is not inside `a`.
 // Reference: llvm-project/mlir/lib/Dialect/Transform/IR/TransformInterfaces.cpp
