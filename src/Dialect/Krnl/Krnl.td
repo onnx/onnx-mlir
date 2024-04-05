@@ -381,7 +381,8 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   }];
 }
 
-def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
+def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Krnl memcpy operation";
   let description = [{
     Copy `num_elems` elements from `src` to `dest` MemRef.
@@ -1216,6 +1217,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
 }
 
 def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     TypesMatchWith<"type of 'value' matches element type of 'dest'",
                    "dest", "value",
                    "$_self.cast<MemRefType>().getElementType()">]> {
