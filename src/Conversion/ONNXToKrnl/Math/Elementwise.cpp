@@ -2505,6 +2505,7 @@ struct ONNXElementwiseVariadicOpLowering
                     oprdAccessExprs, /*flattened dims*/ false, hasNoBroadcast);
             assert(succeeded(res) && "Could not compute access indices");
             Value accumulated = createKrnl.loadIE(operands[0], oprdAccessExprs);
+            
             // Iterate over the remaining operands.
             for (unsigned i = 1; i < numArgs; ++i) {
               // Obtain the next operand.
