@@ -14,10 +14,10 @@
 
 // z/OS specific includes
 #ifdef __MVS__
-  // needed for pthread on z/OS
-  #define _OPEN_THREADS
-  // z/OS needs <time.h> in addition to <sys/time.h>
-  #include <time.h>
+// needed for pthread on z/OS
+#define _OPEN_THREADS
+// z/OS needs <time.h> in addition to <sys/time.h>
+#include <time.h>
 #endif
 
 #include <assert.h>

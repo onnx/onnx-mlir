@@ -17,8 +17,8 @@
 
 // z/OS specific includes
 #ifdef __MVS__
-  // z/OS needs <time.h> in addition to <sys/time.h>
-  #include <time.h>
+// z/OS needs <time.h> in addition to <sys/time.h>
+#include <time.h>
 #endif
 
 #include <stdlib.h>
