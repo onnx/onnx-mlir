@@ -158,17 +158,21 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::Value strncmp(
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;
+  // Debug: print messages, values, and tensors at runtime.
   void printf(mlir::StringRef msg) const;
+  void printf(mlir::StringRef msg, mlir::Value input, /* type from input */
+      bool endsWithNewLine = false) const;
+  void printf(
+      mlir::StringRef msg, IndexExpr input, bool endsWithNewLine = false) const;
   void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
       bool endsWithNewLine = false) const;
-  void printf(mlir::Value input, mlir::Type inputType) const;
+  void printTensor(mlir::StringRef msg, mlir::Value input) const;
 
   // Onnx-mlir runtime functions.
   void randomNormal(mlir::Value alloc, mlir::Value numberOfRandomValues,
       mlir::Value mean, mlir::Value scale, mlir::Value seed) const;
   mlir::Value findIndex(
       mlir::Value input, mlir::Value G, mlir::Value V, mlir::Value len) const;
-  void printTensor(mlir::StringRef msg, mlir::Value input) const;
 };
 
 //====--- Support for Affine Builder with Krnl Mem Ops ------------------===//
