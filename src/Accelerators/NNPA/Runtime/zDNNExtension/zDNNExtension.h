@@ -15,6 +15,12 @@
 #ifndef ONNX_MLIR_ZDNNEXTENSION_H
 #define ONNX_MLIR_ZDNNEXTENSION_H
 
+// z/OS specific includes
+#ifdef __MVS__
+  // z/OS needs <time.h> in addition to <sys/time.h>
+  #include <time.h>
+#endif
+
 #include <stdlib.h>
 #include <sys/time.h>
 
