@@ -88,10 +88,10 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           ValueRange inits = ValueRange(fZero);
           // Inner loop for reduction.
           auto innerIterate = create.krnl.iterate({}, innerLoop, {}, {}, inits,
-              [&](KrnlBuilder &createKrnl, ValueRange innerIndex) {
-                Block *innerIterEntryBB = createKrnl.getBuilder().getBlock();
+              [&](KrnlBuilder &createKrnl, ValueRange innerIndex,
+                  ValueRange iterArgs) {
                 // Get last argument for the iterate body.
-                Value iterArg = innerIterEntryBB->getArguments().back();
+                Value iterArg = iterArgs.back();
 
                 MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
                     createKrnl);

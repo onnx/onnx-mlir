@@ -230,15 +230,16 @@ ParseResult KrnlDefineLoopsOp::parse(
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
+    krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgInits,
+    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+        bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
 
-  // Add result based on iterArgs.
-  result.addOperands(iterArgs);
-  for (auto iterArg : iterArgs)
-    result.addTypes(iterArg.getType());
+  // Add result based on iterArgInits.
+  result.addOperands(iterArgInits);
+  for (auto iterArgInit : iterArgInits)
+    result.addTypes(iterArgInit.getType());
 
   result.addAttribute(
       KrnlIterateOp::getBoundsAttrName(), operandPack.getAttributes());
@@ -255,9 +256,10 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   auto body_arg_locs = llvm::SmallVector<Location, 4>(
       operandPack.getNumInputLoops(), result.location);
   body->addArguments(body_args, body_arg_locs);
+  SmallVector<Value> iterArgs;
   // Add iterArgs after loop args.
-  for (Value val : iterArgs)
-    body->addArgument(val.getType(), val.getLoc());
+  for (Value val : iterArgInits)
+    iterArgs.emplace_back(body->addArgument(val.getType(), val.getLoc()));
   bodyRegion->push_back(body);
 
   // If nonnull, invoke the lambda function that creates the loop body. This
@@ -267,7 +269,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   if (bodyBuilderFn) {
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
-    bodyBuilderFn(builder, result.location, iterArgs);
+    bodyBuilderFn(builder, result.location, iterArgInits, iterArgs);
     ensureTerminator(*bodyRegion, builder, result.location);
   } else {
     ensureTerminator(*bodyRegion, builder, result.location);
@@ -277,7 +279,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
     ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+        bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
   SmallVector<Value, 4> origLoops, optLoops;
@@ -297,7 +300,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+        bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   SmallVector<Value, 4> origLoops, optLoops;
   for (auto org : originalLoops)

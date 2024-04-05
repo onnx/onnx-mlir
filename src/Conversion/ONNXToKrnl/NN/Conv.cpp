@@ -156,10 +156,10 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
             //     for kw in lb .. ub:
             auto innerIterate =
                 create.krnl.iterateIE(redLoops, redLoops, redLbs, redUbs, inits,
-                    [&](KrnlBuilder &createKrnl, ValueRange redIndices) {
-                      Block *iterEntryBB = createKrnl.getBuilder().getBlock();
+                    [&](KrnlBuilder &createKrnl, ValueRange redIndices,
+                        ValueRange iterArgs) {
                       // Get last argument for the iterate body.
-                      Value iterArg = iterEntryBB->getArguments().back();
+                      Value iterArg = iterArgs.back();
                       IndexExprScope redScope(createKrnl);
                       MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl,
                           MathBuilder>

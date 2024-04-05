@@ -196,18 +196,18 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, Implici
     // Main builder.
     OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "std::nullopt">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs,
       CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>">:$bodyBuilderFn)>
   ];
 
   let hasCustomAssemblyFormat = 1;

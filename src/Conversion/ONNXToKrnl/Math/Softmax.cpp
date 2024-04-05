@@ -31,10 +31,9 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the maximum value along axis.
   ValueRange maxLoops = createKrnl.defineLoops(numberOfLoops);
   auto maxLoop = createKrnl.iterateIE(maxLoops, maxLoops, Lbs, Ubs, maxInits,
-      [&](KrnlBuilder &createKrnl, ValueRange maxIndices) {
-        Block *iterEntryBB = createKrnl.getBuilder().getBlock();
+      [&](KrnlBuilder &createKrnl, ValueRange maxIndices, ValueRange iterArgs) {
         // Get last argument for the iterate body.
-        Value iterArg = iterEntryBB->getArguments().back();
+        Value iterArg = iterArgs.back();
 
         MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
         IndexExprScope ieScope(createKrnl);
@@ -68,10 +67,9 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
   // Compute the sum of all values along axis.
   ValueRange sumLoops = createKrnl.defineLoops(numberOfLoops);
   auto sumLoop = createKrnl.iterateIE(sumLoops, sumLoops, Lbs, Ubs, sumInits,
-      [&](KrnlBuilder &createKrnl, ValueRange sumIndices) {
-        Block *iterEntryBB = createKrnl.getBuilder().getBlock();
+      [&](KrnlBuilder &createKrnl, ValueRange sumIndices, ValueRange iterArgs) {
         // Get last argument for the iterate body.
-        Value iterArg = iterEntryBB->getArguments().back();
+        Value iterArg = iterArgs.back();
 
         MultiDialectBuilder<KrnlBuilder, MathBuilder> create(createKrnl);
         IndexExprScope ieScope(createKrnl);

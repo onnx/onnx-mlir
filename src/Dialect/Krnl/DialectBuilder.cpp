@@ -157,21 +157,28 @@ void KrnlBuilder::iterate(ValueRange originalLoops, ValueRange optimizedLoops,
     ValueRange lbs, ValueRange ubs,
     function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) const {
-  iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFn);
+  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
+                                  ValueRange iterArgs) {
+    bodyBuilderFn(createKrnl, indices);
+  };
+  iterate(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
 mlir::KrnlIterateOp KrnlBuilder::iterate(ValueRange originalLoops,
     ValueRange optimizedLoops, ValueRange lbs, ValueRange ubs, ValueRange inits,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
+    function_ref<void(
+        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
         bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
   return b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs,
-      ubs, inits, [&](OpBuilder &builder, Location loc, ValueRange args) {
+      ubs, inits,
+      [&](OpBuilder &builder, Location loc, ValueRange args,
+          ValueRange iterArgs) {
         KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
-        bodyBuilderFn(createKrnl, indices);
+        bodyBuilderFn(createKrnl, indices, iterArgs);
       });
 }
 
@@ -184,22 +191,29 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
     function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
         bodyBuilderFn) const {
-  iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFn);
+  auto bodyBuilderFnWrapper = [&](KrnlBuilder &createKrnl, ValueRange indices,
+                                  ValueRange iterArgs) {
+    bodyBuilderFn(createKrnl, indices);
+  };
+  iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
 mlir::KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
     mlir::ValueRange inits,
-    function_ref<void(KrnlBuilder &createKrnl, ValueRange indices)>
+    function_ref<void(
+        KrnlBuilder &createKrnl, ValueRange indices, ValueRange iterArgs)>
         bodyBuilderFn) const {
   // Check that originalLoops, lbs, and ubs have the same rank.
   assert(originalLoops.size() == lbs.size() && "expected same rank");
   assert(originalLoops.size() == ubs.size() && "expected same rank");
   return b().create<KrnlIterateOp>(loc(), originalLoops, optimizedLoops, lbs,
-      ubs, inits, [&](OpBuilder &builder, Location loc, ValueRange args) {
+      ubs, inits,
+      [&](OpBuilder &builder, Location loc, ValueRange args,
+          ValueRange iterArgs) {
         KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
-        bodyBuilderFn(createKrnl, indices);
+        bodyBuilderFn(createKrnl, indices, iterArgs);
       });
 }
 

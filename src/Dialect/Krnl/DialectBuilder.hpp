@@ -71,8 +71,8 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
       mlir::ValueRange ubs, mlir::ValueRange inits,
-      mlir::function_ref<void(
-          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
+      mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
+          mlir::ValueRange blockIters)>
           bodyBuilderFn) const;
   mlir::KrnlIterateOp iterate(
       const krnl::KrnlIterateOperandPack &operands) const;
@@ -87,8 +87,8 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs, mlir::ValueRange inits,
-      mlir::function_ref<void(
-          KrnlBuilder &createKrnl, mlir::ValueRange indices)>
+      mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
+          mlir::ValueRange blockIters)>
           bodyBuilderFn) const;
 
   void yield(mlir::ValueRange iterArgs) const;
