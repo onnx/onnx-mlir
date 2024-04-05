@@ -725,7 +725,7 @@ def KrnlPrefetchOp : Op<Krnl_Dialect, "prefetch",
     location pointed by this memory reference.
   }];
 
-  let arguments = (ins Arg<AnyMemRef, "the reference memref", [MemRead]>:$memref,
+  let arguments = (ins Arg<AnyMemRef, "the reference memref", [MemWrite]>:$memref,
       Variadic<Index>:$indices,
       BoolAttr:$isWrite,
       ConfinedAttr<I32Attr, [IntMinValue<0>, IntMaxValue<3>]>:$localityHint,

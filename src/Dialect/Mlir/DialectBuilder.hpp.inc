@@ -65,6 +65,15 @@ inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::storeIE(mlir::Value val,
 }
 
 template <class LOAD_OP, class STORE_OP>
+inline mlir::Operation *GenericAffineBuilder<LOAD_OP, STORE_OP>::prefetch(
+    mlir::Value memref, mlir::AffineMap map, mlir::ValueRange indices,
+    bool isWrite, unsigned localityHint, bool isDataCache) {
+  llvm::SmallVector<mlir::Value> indexArray(indices);
+  return b().template create<mlir::affine::AffinePrefetchOp>(
+      loc(), memref, map, indexArray, isWrite, localityHint, isDataCache);
+}
+
+template <class LOAD_OP, class STORE_OP>
 inline void GenericAffineBuilder<LOAD_OP, STORE_OP>::forIE(IndexExpr lb,
     IndexExpr ub, int64_t step,
     mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)
