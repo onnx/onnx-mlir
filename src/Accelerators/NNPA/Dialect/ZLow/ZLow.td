@@ -45,7 +45,8 @@ def ZMemRef : MemRefOf<[DLF16]>;
 
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-def ZLowAddOp:ZLow_Op<"add", [MemRefsNormalizable]> {
+def ZLowAddOp:ZLow_Op<"add", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow add operation";
   let description = [{
   ZLow operation to perform an add.
@@ -57,7 +58,8 @@ def ZLowAddOp:ZLow_Op<"add", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowSubOp:ZLow_Op<"sub", [MemRefsNormalizable]> {
+def ZLowSubOp:ZLow_Op<"sub", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow sub operation";
   let description = [{
   ZLow operation to perform a sub.
@@ -69,7 +71,8 @@ def ZLowSubOp:ZLow_Op<"sub", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowMulOp:ZLow_Op<"mul", [MemRefsNormalizable]> {
+def ZLowMulOp:ZLow_Op<"mul", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow mul operation";
   let description = [{
   ZLow operation to perform a mul.
@@ -81,7 +84,8 @@ def ZLowMulOp:ZLow_Op<"mul", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowDivOp:ZLow_Op<"div", [MemRefsNormalizable]> {
+def ZLowDivOp:ZLow_Op<"div", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow div operation";
   let description = [{
   ZLow operation to perform a div.
@@ -93,7 +97,8 @@ def ZLowDivOp:ZLow_Op<"div", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowLogOp:ZLow_Op<"log", [MemRefsNormalizable]> {
+def ZLowLogOp:ZLow_Op<"log", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow log operation";
   let description = [{
   ZLow operation to perform a log.
@@ -104,7 +109,8 @@ def ZLowLogOp:ZLow_Op<"log", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowExpOp:ZLow_Op<"exp", [MemRefsNormalizable]> {
+def ZLowExpOp:ZLow_Op<"exp", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow exp operation";
   let description = [{
   ZLow operation to perform a exp.
@@ -115,7 +121,8 @@ def ZLowExpOp:ZLow_Op<"exp", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowMinOp:ZLow_Op<"min", [MemRefsNormalizable]> {
+def ZLowMinOp:ZLow_Op<"min", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow min operation";
   let description = [{
   ZLow operation to perform a min.
@@ -127,7 +134,8 @@ def ZLowMinOp:ZLow_Op<"min", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowMaxOp:ZLow_Op<"max", [MemRefsNormalizable]> {
+def ZLowMaxOp:ZLow_Op<"max", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow max operation";
   let description = [{
   ZLow operation to perform a max.
@@ -139,7 +147,8 @@ def ZLowMaxOp:ZLow_Op<"max", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowReluOp:ZLow_Op<"relu", [MemRefsNormalizable]> {
+def ZLowReluOp:ZLow_Op<"relu", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow relu operation";
   let description = [{
   ZLow operation to perform a relu.
@@ -150,7 +159,8 @@ def ZLowReluOp:ZLow_Op<"relu", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowTanhOp:ZLow_Op<"tanh", [MemRefsNormalizable]> {
+def ZLowTanhOp:ZLow_Op<"tanh", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow tanh operation";
   let description = [{
   ZLow operation to perform a tanh.
@@ -161,7 +171,8 @@ def ZLowTanhOp:ZLow_Op<"tanh", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowSigmoidOp:ZLow_Op<"sigmoid", [MemRefsNormalizable]> {
+def ZLowSigmoidOp:ZLow_Op<"sigmoid", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow sigmoid operation";
   let description = [{
   ZLow operation to perform a sigmoid.
@@ -172,7 +183,8 @@ def ZLowSigmoidOp:ZLow_Op<"sigmoid", [MemRefsNormalizable]> {
                        StrAttr:$layout);
 }
 
-def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable]> {
+def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow softmax operation";
   let description = [{
   ZLow operation to perform a softmax.
@@ -186,7 +198,8 @@ def ZLowSoftmaxOp:ZLow_Op<"softmax", [MemRefsNormalizable]> {
                        StrAttr:$act_func);
 }
 
-def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable]> {
+def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow matmul operation";
   let description = [{
   ZLow operation to perform a matmul.
@@ -214,7 +227,8 @@ def ZLowMatMulOp:ZLow_Op<"matmul", [MemRefsNormalizable]> {
                        DefaultValuedAttr<SI64Attr, "-1">:$is_stacked);
 }
 
-def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
+def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow lstm operation";
   let description = [{
   ZLow operation to perform a lstm.
@@ -245,7 +259,8 @@ def ZLowLSTMOp:ZLow_Op<"lstm", [MemRefsNormalizable]> {
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
-def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
+def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow gru operation";
   let description = [{
   ZLow operation to perform a gru.
@@ -274,7 +289,8 @@ def ZLowGRUOp:ZLow_Op<"gru", [MemRefsNormalizable]> {
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
-def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
+def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow stick operation";
   let description = [{
   "ZLow operation to perform a stick."
@@ -289,7 +305,8 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable]> {
   ];
 }
 
-def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable]> {
+def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow stick operation for LSTM";
   let description = [{
   ZLow operation to perform a stick for LSTM.
@@ -304,7 +321,8 @@ def ZLowStickForLSTMOp:ZLow_Op<"stickForLSTM", [MemRefsNormalizable]> {
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
-def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
+def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow stick operation for GRU";
   let description = [{
   ZLow operation to perform a stick for GRU.
@@ -318,7 +336,8 @@ def ZLowStickForGRUOp:ZLow_Op<"stickForGRU", [MemRefsNormalizable]> {
                        DefaultValuedStrAttr<StrAttr, "none">:$prev_layer);
 }
 
-def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
+def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow unstick operation";
   let description = [{
   ZLow operation to perform a unstick.
@@ -333,7 +352,8 @@ def ZLowUnstickOp:ZLow_Op<"unstick", [MemRefsNormalizable]> {
   ];
 }
 
-def ZLowConv2DOp:ZLow_Op<"conv2d", [MemRefsNormalizable]> {
+def ZLowConv2DOp:ZLow_Op<"conv2d", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow 2D convolution operation";
   let description = [{
   ZLow operation to perform 2D convolution.
@@ -361,7 +381,8 @@ def ZLowConv2DOp:ZLow_Op<"conv2d", [MemRefsNormalizable]> {
                        DefaultValuedStrAttr<StrAttr, "ACT_NONE">:$act_func);
 }
 
-def ZLowAvgPool2DOp:ZLow_Op<"avgpool2d", [MemRefsNormalizable]> {
+def ZLowAvgPool2DOp:ZLow_Op<"avgpool2d", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow 2D average pooling operation";
   let description = [{
   ZLow operation to perform 2D average pooling.
@@ -385,7 +406,8 @@ def ZLowAvgPool2DOp:ZLow_Op<"avgpool2d", [MemRefsNormalizable]> {
                   );
 }
 
-def ZLowMaxPool2DOp:ZLow_Op<"maxpool2d", [MemRefsNormalizable]> {
+def ZLowMaxPool2DOp:ZLow_Op<"maxpool2d", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow 2D max pooling operation";
   let description = [{
   ZLow operation to perform 2D max pooling.
@@ -409,7 +431,8 @@ def ZLowMaxPool2DOp:ZLow_Op<"maxpool2d", [MemRefsNormalizable]> {
                   );
 }
 
-def ZLowMeanReduce2DOp:ZLow_Op<"meanreduce2d", [MemRefsNormalizable]> {
+def ZLowMeanReduce2DOp:ZLow_Op<"meanreduce2d", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow 2D mean reduce operation";
   let description = [{
   ZLow operation to perform 2D mean reduce.
@@ -424,7 +447,8 @@ def ZLowMeanReduce2DOp:ZLow_Op<"meanreduce2d", [MemRefsNormalizable]> {
                        ZMemRef:$output);
 }
 
-def ZLowBatchNormOp:ZLow_Op<"batchnorm", [MemRefsNormalizable]> {
+def ZLowBatchNormOp:ZLow_Op<"batchnorm", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "ZLow batchnorm operation";
   let description = [{
   ZLow operation to perform batchnorm.
