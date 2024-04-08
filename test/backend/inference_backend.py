@@ -110,7 +110,7 @@ def get_test_models():
         # ==LIM== No support for short integers.
         "test_add_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {-1: {0:"0=a,1=b,2=c", 1:"0=a,1=b,2=c"}},
             CONSTANT_INPUT: {-1},
         },
         "test_add_bcast_cpu": {

@@ -34,8 +34,10 @@ def determine_dynamic_parameters(test_name):
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in variables.test_for_dynamic:
-        if len(variables.test_to_enable_dict[test_name_cpu]) > 1:
-            selected_list = variables.test_to_enable_dict[test_name_cpu].get(
+        if len(test_to_enable_dynshape_dict[test_name_cpu]) > 1:
+            selected_list = variables.test_to_enable_dynshape_dict[test_name_cpu]
+        else if len(variables.test_to_enable_dict[test_name_cpu]) > 1:
+            selected_list = variables.test_to_enable_dict[test_name_cpu].get( 
                 DYNAMIC_SHAPE
             )
     return selected_list
