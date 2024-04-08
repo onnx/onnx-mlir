@@ -498,6 +498,8 @@ public:
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::OpFoldResult> &resList);
+  static void getAffineMapAndOperands(mlir::ArrayRef<IndexExpr> indexExprArray,
+      mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;
