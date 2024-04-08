@@ -324,6 +324,12 @@ set(NNPA_TEST_LIST
     test_softmax_example_cpu,zdnn_softmax
     # test_softmax_large_number_cpu #  accuracy error
 
+    # ==OP== Softplus
+    # ==MIN== 1
+    # ==LIM== - `axis` must be the last dimension, i.e. `rank - 1` or -1.
+    test_softplus_cpu,zdnn_log
+    test_softplus_example_cpu,zdnn_log
+
     # ==OP== Sub
     # ==MIN== 6
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.

@@ -637,6 +637,19 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   return true;
 }
 
+/// Check legality for ONNXSoftplus.
+template <>
+bool isSuitableForZDNN<ONNXSoftplusOp>(
+    ONNXSoftplusOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return false;
+  if (!isValidElementTypeAndRank(op.getX()))
+    return false;
+  ShapedType inputType = op.getX().getType().cast<ShapedType>();
+  return inputType.hasRank() && (inputType.getRank() <= 4);
+}
+
 /// Check legality for ONNXLSTM.
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>

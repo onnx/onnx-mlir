@@ -92,6 +92,10 @@ def GetI64ZeroAttr :
 class GetI64ArrayAttr<int n> :
         NativeCodeCall<"$_builder.getI64ArrayAttr(" # n # ")">;
 
+class GetConstantOfType<string v> : NativeCodeCall<
+  "::onnx_mlir::zhigh::getConstantOfType($_builder, $_loc, $0.getType(), " # v # ")"
+>;
+
 def GetUnrankedTensorTypeOf : NativeCodeCall<
   "UnrankedTensorType::get($0.getType().cast<ShapedType>().getElementType())"
 >;
@@ -378,6 +382,24 @@ def replaceONNXLogSoftmaxPattern : Pattern<
 def replaceONNXReduceMeanV13Pattern : Pat<
   (ONNXReduceMeanV13Op:$res $x, $_, $_),
   (ZHighUnstickOp (ZHighMeanReduce2DOp (ZHighStickOp $x, (NHWCLayoutAttr))))
+>;
+
+//===----------------------------------------------------------------------===//
+// ONNXSoftplusOp %X =
+//   (ZHighUnstickOp
+//      (ZHighLogOp (ZHighAddOp (ZHighExpOp (ZHighStickOp %X))),
+//                              (ZHighSticOp (GetConstantOfType<"1.0">, X))))
+//===----------------------------------------------------------------------===//
+def replaceONNXSoftplusPattern : Pat<
+  (ONNXSoftplusOp:$res $x),
+  (ZHighUnstickOp:$unstick
+      (ZHighLogOp
+          (ZHighAddOp (ZHighExpOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
+                                  (returnType $s_x)),
+                      (ZHighStickOp (GetConstantOfType<"1.0"> $res),
+                                    (NoneLayoutAttr)),
+                      (returnType $s_x)),
+          (returnType $s_x)))
 >;
 
 //===----------------------------------------------------------------------===//
