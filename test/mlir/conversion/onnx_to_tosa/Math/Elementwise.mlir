@@ -5,9 +5,16 @@
 func.func @test_cast_f32_i8(%arg0: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
   %0 = "onnx.Cast"(%arg0) {to = i8} : (tensor<13x21x1xf32>) -> tensor<13x21x1xi8>
   "func.return"(%0) : (tensor<13x21x1xi8>) -> ()
-// CHECK-LABEL:  func @test_cast_f32_i8
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
-// CHECK-NEXT:      tosa.cast [[PARAM_0_]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xi8>
+// CHECK-LABEL:   func.func @test_cast_f32_i8(
+// CHECK-SAME:                                %[[VAL_0:.*]]: tensor<13x21x1xf32>) -> tensor<13x21x1xi8> {
+// CHECK:           %[[VAL_1:.*]] = "tosa.const"() <{value = dense<0.000000e+00> : tensor<1x1x1xf32>}> : () -> tensor<1x1x1xf32>
+// CHECK:           %[[VAL_2:.*]] = tosa.greater_equal %[[VAL_0]], %[[VAL_1]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xi1>
+// CHECK:           %[[VAL_3:.*]] = tosa.floor %[[VAL_0]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.ceil %[[VAL_0]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+// CHECK:           %[[VAL_5:.*]] = tosa.select %[[VAL_2]], %[[VAL_3]], %[[VAL_4]] : (tensor<13x21x1xi1>, tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
+// CHECK:           %[[VAL_6:.*]] = tosa.cast %[[VAL_5]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xi8>
+// CHECK:           return %[[VAL_6]] : tensor<13x21x1xi8>
+// CHECK:         }
 }
 
 // -----
