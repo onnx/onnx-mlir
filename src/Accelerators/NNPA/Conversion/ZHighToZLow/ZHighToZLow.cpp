@@ -33,6 +33,8 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
+#define ENABLE_CSU_PREFETCH true
+
 #define CS_N 2              /* Tiling for Stick */
 #define CS_M 2              /* Tiling for Stick */
 #define CU_N 2              /* Tiling for Unstick */
