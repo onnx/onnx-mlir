@@ -33,7 +33,8 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
-#define PREFETCH_CSU_DIST 64
+#define PREFETCH_CSU_DIST 0
+#define PREFETCH_CSU_BEFORE 1
 
 #define CS_N 2 /* Tiling for Stick */
 #define CS_M 2 /* Tiling for Stick */
@@ -668,6 +669,21 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
           // Create buffer (for parallel, must be inside loop).
           Value buffer = create.mem.alignedAlloc(bufferType, {});
+#if PREFETCH_CSU_BEFORE
+          create.affine.forIE(
+              litZero, litM, 1, [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                DimsExpr outputAF;
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr t1(loopInd[0]);
+                getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                // E1 is tiled, multiply by 64 to get the tile start.
+                outputAF[E1] = t1 * 64;
+                outputAF[E1] = outputAF[E1] + PREFETCH_CSU_DIST;
+                create.krnl.prefetchIE(
+                    alloc, outputAF, /*write*/ true, /*locality*/ 3);
+              });
+#endif
           // Iterate over N, M, and 64. Manage iterations explicitly.
           DimsExpr lbs2(3, litZero);
           DimsExpr ubs2 = {litN, litM, lit64};
@@ -712,7 +728,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 DimsExpr reallocTileDims = {litN, lit64};
                 Value allocAsNx64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
-#if PREFETCH_CSU_DIST > 0
+#if !PREFETCH_CSU_BEFORE && PREFETCH_CSU_DIST > 0
                 // Calculate the prefetch
                 outputAF[E1] = outputAF[E1] + PREFETCH_CSU_DIST;
                 create.krnl.prefetchIE(
