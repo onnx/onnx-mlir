@@ -33,12 +33,12 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
-#define ENABLE_CSU_PREFETCH true
+#define PREFETCH_CSU_DIST 64
 
-#define CS_N 2              /* Tiling for Stick */
-#define CS_M 2              /* Tiling for Stick */
-#define CU_N 2              /* Tiling for Unstick */
-#define CU_M 2              /* Tiling for Unstick */
+#define CS_N 2 /* Tiling for Stick */
+#define CS_M 2 /* Tiling for Stick */
+#define CU_N 2 /* Tiling for Unstick */
+#define CU_M 2 /* Tiling for Unstick */
 using namespace mlir;
 using namespace onnx_mlir::zlow;
 
@@ -712,6 +712,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 DimsExpr reallocTileDims = {litN, lit64};
                 Value allocAsNx64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
+#if PREFETCH_CSU_DIST > 0
+                // Calculate the prefetch
+                outputAF[E1] = outputAF[E1] + PREFETCH_CSU_DIST;
+                create.krnl.prefetchIE(
+                    alloc, outputAF, /*write*/ true, /*locality*/ 3);
+#endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
                 IndexExpr bufferOffset = m * num;
