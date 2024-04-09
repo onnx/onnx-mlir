@@ -1,8 +1,5 @@
 // RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --buffer-deallocation %s -split-input-file | FileCheck %s
 
-// -----
-
-
 func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3xi64>  {
   %0 = onnx.Constant {value = dense<0> : tensor<i64>} : tensor<i64>
   %7 = "onnx.SequenceErase"(%arg0, %0) : (!onnx.Seq<tensor<?x4x5xf32>>, tensor<i64>) -> !onnx.Seq<tensor<?x4x5xf32>>
