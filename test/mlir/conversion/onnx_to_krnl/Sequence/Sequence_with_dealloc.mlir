@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --buffer-deallocation %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt -O3 --shape-inference --convert-onnx-to-krnl --buffer-deallocation  %s -split-input-file | FileCheck %s
 
 func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3xi64>  {
   %0 = onnx.Constant {value = dense<0> : tensor<i64>} : tensor<i64>
@@ -54,13 +54,13 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:       [[VAR_13_:%.+]] = arith.cmpi slt, [[VAR_12_]], [[CST_0_4_]] : index
 // CHECK-DAG:       [[VAR_14_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_12_]], [[VAR_dim_4_]]{{.}}
 // CHECK:           [[VAR_15_:%.+]] = arith.select [[VAR_13_]], [[VAR_14_]], [[VAR_12_]] : index
-// CHECK:           [[VAR_16_:%.+]] = "krnl.seqextract"([[VAR_2_]], [[VAR_15_]]) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
-// CHECK:           "krnl.seqdealloc"([[VAR_2_]]) : (memref<?xmemref<?x4x5xf32>>) -> ()
+// CHECK-DAG:       [[VAR_16_:%.+]] = "krnl.seqextract"([[VAR_2_]], [[VAR_15_]]) {copy = 1 : ui1} : (memref<?xmemref<?x4x5xf32>>, index) -> memref<?x4x5xf32>
 // CHECK-DAG:       [[CST_3_:%.+]] = arith.constant 3 : index
 // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3xi64>
 // CHECK-DAG:       [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_dim_7_:%.+]] = memref.dim [[VAR_16_]], [[CST_0_5_]] : memref<?x4x5xf32>
 // CHECK:           memref.dealloc [[VAR_16_]] : memref<?x4x5xf32>
+// CHECK:           "krnl.seqdealloc"([[VAR_2_]]) : (memref<?xmemref<?x4x5xf32>>) -> ()
 // CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_17_:%.+]] = arith.index_cast [[VAR_dim_7_]] : index to i64
@@ -75,4 +75,3 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK:           return [[RES_]] : memref<3xi64>
 // CHECK:         }
 }
-
