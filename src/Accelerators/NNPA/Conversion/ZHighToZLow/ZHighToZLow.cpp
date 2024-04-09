@@ -670,16 +670,47 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
           // Create buffer (for parallel, must be inside loop).
           Value buffer = create.mem.alignedAlloc(bufferType, {});
+#if 1
+          llvm::SmallVector<IndexExpr, 4> prefetchLB = {litZero, litZero};
+          llvm::SmallVector<IndexExpr, 4> prefetchUB = {litN, litM};
+          llvm::SmallVector<int64_t, 4> prefetchStep = {1, 1};
+          create.affine.forIE(prefetchLB, prefetchUB, prefetchStep,
+              [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                DimsExpr outputAF;
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr n(loopInd[0]), m(loopInd[1]);
+                // Input prefetching.
+                DimsExpr inputAF;
+                getIndexExprList<SymbolIndexExpr>(outerIndices, inputAF);
+                // If E2 is unrolled, must add the "n" local E2 offset.
+                inputAF[E2] = inputAF[E2] + n;
+                // inputAF[E2] = inputAF[E2] + PREFETCH_CSU_INPUT_DIST;
+                inputAF[E1] = (inputAF[E1] + m) * 64;
+                create.krnl.prefetchIE(
+                    input, inputAF, /*write*/ false, /*locality*/ 3);
+
+                // Output prefetching.
+                getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
+                // E1 is tiled, multiply by 64 to get the tile start.
+                outputAF[E2] = outputAF[E1] + n;
+                outputAF[E1] = (outputAF[E1] + m) * 64;
+                // outputAF[E1] = outputAF[E1] + PREFETCH_CSU_OUTPUT_DIST;
+                create.krnl.prefetchIE(
+                    alloc, outputAF, /*write*/ true, /*locality*/ 3);
+              });
+
+#else
 #if PREFETCH_CSU_BEFORE
           create.affine.forIE(
               litZero, litM, 1, [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr outputAF;
                 IndexExprScope innerScope(create.krnl, &outerScope);
-                SymbolIndexExpr t1(loopInd[0]);
+                SymbolIndexExpr m(loopInd[0]);
                 getIndexExprList<SymbolIndexExpr>(outerIndices, outputAF);
                 // E1 is tiled, multiply by 64 to get the tile start.
-                outputAF[E1] = t1 * 64;
+                outputAF[E1] = (outputAF[E1] + m) * 64;
                 outputAF[E1] = outputAF[E1] + PREFETCH_CSU_OUTPUT_DIST;
                 create.krnl.prefetchIE(
                     alloc, outputAF, /*write*/ true, /*locality*/ 3);
@@ -699,6 +730,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 create.krnl.prefetchIE(
                     input, inputAF, /*write*/ false, /*locality*/ 3);
               });
+#endif
 #endif
 
           // Iterate over N, M, and 64. Manage iterations explicitly.
@@ -745,7 +777,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 DimsExpr reallocTileDims = {litN, lit64};
                 Value allocAsNx64 = create.mem.reinterpretCast(
                     alloc, litZero.getValue(), reallocTileDims);
-#if !PREFETCH_CSU_BEFORE && PREFETCH_CSU_OUTPUT_DIST > 0
+#if 0 && !PREFETCH_CSU_BEFORE && PREFETCH_CSU_OUTPUT_DIST > 0
                 // Calculate the prefetch
                 outputAF[E1] = outputAF[E1] + PREFETCH_CSU_OUTPUT_DIST;
                 create.krnl.prefetchIE(
