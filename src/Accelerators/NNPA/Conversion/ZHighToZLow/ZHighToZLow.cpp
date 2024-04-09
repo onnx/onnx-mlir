@@ -33,8 +33,8 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
-#define PREFETCH_CSU_INPUT_DIST 64
-#define PREFETCH_CSU_OUTPUT_DIST 1
+#define PREFETCH_CSU_INPUT_DIST 1
+#define PREFETCH_CSU_OUTPUT_DIST 64
 #define PREFETCH_CSU_BEFORE 0
 
 #define CS_N 2 /* Tiling for Stick */
@@ -695,7 +695,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 // If E2 is unrolled, must add the "n" local E2 offset.
                 inputAF[E2] = inputAF[E2] + n;
                 inputAF[E2] = inputAF[E2] + PREFETCH_CSU_INPUT_DIST;
-                inputAF[E1] = inputAF[E2] * 64;
+                inputAF[E1] = inputAF[E1] * 64;
                 create.krnl.prefetchIE(
                     input, inputAF, /*write*/ false, /*locality*/ 3);
               });
