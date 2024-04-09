@@ -63,7 +63,6 @@ func.func @test_sequence_erase(%arg0: !onnx.Seq<tensor<?x4x5xf32>>) -> tensor<3x
 // CHECK-DAG:       [[CST_0_5_:%.+]] = arith.constant 0 : index
 // CHECK:           [[VAR_dim_7_:%.+]] = memref.dim [[VAR_16_]], [[CST_0_5_]] : memref<?x4x5xf32>
 // CHECK:           memref.dealloc [[VAR_16_]] : memref<?x4x5xf32>
-// CHECK:           "krnl.seqdealloc"([[VAR_2_]]) : (memref<?xmemref<?x4x5xf32>>) -> ()
 // CHECK-DAG:       [[CST_4_:%.+]] = arith.constant 4 : index
 // CHECK-DAG:       [[CST_5_:%.+]] = arith.constant 5 : index
 // CHECK-DAG:       [[VAR_17_:%.+]] = arith.index_cast [[VAR_dim_7_]] : index to i64
