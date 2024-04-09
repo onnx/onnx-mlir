@@ -697,7 +697,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 inputAF[E2] = inputAF[E2] + PREFETCH_CSU_INPUT_DIST;
                 inputAF[E1] = inputAF[E2] * 64;
                 create.krnl.prefetchIE(
-                    input, inputAF, /*write*/ true, /*locality*/ 3);
+                    input, inputAF, /*write*/ false, /*locality*/ 3);
               });
 #endif
 
