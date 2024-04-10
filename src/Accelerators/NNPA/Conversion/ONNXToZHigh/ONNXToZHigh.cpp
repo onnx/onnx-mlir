@@ -13,6 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
+
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
@@ -22,6 +26,7 @@
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Pass/Passes.hpp"
 
 using namespace mlir;
 
@@ -333,11 +338,6 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
 
-  // Run the unknown dimension analysis to help check equality of unknown
-  // dimensions at compile time.
-  onnx_mlir::DimAnalysis dimAnalysis(module);
-  dimAnalysis.analyze();
-
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
   ConversionTarget target(getContext());
@@ -362,6 +362,19 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
+
+  // Get shape for newly added operations if any.
+  // Otherwise, DimAnalysis would fail.
+  mlir::OpPassManager pm("builtin.module");
+  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
+  pm.addPass(mlir::createCanonicalizerPass());
+  if (failed(runPipeline(pm, module)))
+    return signalPassFailure();
+
+  // Run the unknown dimension analysis to help check equality of unknown
+  // dimensions at compile time.
+  onnx_mlir::DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());

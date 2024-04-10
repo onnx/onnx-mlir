@@ -48,10 +48,16 @@ def replaceZHighAddPattern : Pat<
 // ONNXMulOp %X = ZHighUnstickOp (ZHighMulOp (ZHighStickOp %X),
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
-def replaceZHighMulPattern : Pat<
-  (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, $_), (ZHighStickOp:$s_y $y, $_))),
-  (ONNXMulOp $x, $y),
-  [(NotBlockArgument:$x), (HasOneUse:$s_x), (HasOneUse:$s_y)]
+def replaceZHighMulPattern1 : Pat<
+  (ZHighUnstickOp (ZHighMulOp $x, (ZHighStickOp:$s_y $y, $_))),
+  (ONNXMulOp (ZHighUnstickOp $x), $y),
+  [(NotBlockArgument:$y), (HasOneUse:$s_y)]
+>;
+
+def replaceZHighMulPattern2 : Pat<
+  (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, $_), $y)),
+  (ONNXMulOp $x, (ZHighUnstickOp $y)),
+  [(NotBlockArgument:$y), (HasOneUse:$s_x)]
 >;
 
 //===----------------------------------------------------------------------===//
