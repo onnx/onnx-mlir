@@ -12,7 +12,9 @@ func.func @test_mul() -> tensor<10x10xf32> {
 // CHECK-LABEL:  func.func @test_mul
 // CHECK-SAME:   () -> tensor<10x10xf32> {
 // CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<10x10xf32>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[VAR_0_]], [[VAR_0_]]) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
-// CHECK:           return [[VAR_1_]] : tensor<10x10xf32>
+// CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "2D"} : (tensor<10x10xf32>) -> tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>
+// CHECK:           [[VAR_2_:%.+]] = "zhigh.Unstick"([[VAR_1_]]) : (tensor<10x10xf16, #zhigh.layout<{dataLayout = "2D"}>>) -> tensor<10x10xf32>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Mul"([[VAR_2_]], [[VAR_0_]]) : (tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK:           return [[VAR_3_]] : tensor<10x10xf32>
 // CHECK:         }
 }
