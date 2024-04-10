@@ -41,6 +41,7 @@
 #define CS_M 2 /* Tiling for Stick */
 #define CU_N 2 /* Tiling for Unstick */
 #define CU_M 2 /* Tiling for Unstick */
+
 using namespace mlir;
 using namespace onnx_mlir::zlow;
 
