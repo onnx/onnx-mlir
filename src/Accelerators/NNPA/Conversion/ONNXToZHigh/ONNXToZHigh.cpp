@@ -13,10 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/Passes.h"
-
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
@@ -26,7 +22,7 @@
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "src/Pass/Passes.hpp"
+#include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 
 using namespace mlir;
 
@@ -333,6 +329,8 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   patterns.insert<replaceONNXMatMulAddPattern2>(context);
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
+  // Shape inference for newly-added operations.
+  getShapeInferencePatterns(patterns);
 }
 
 void ONNXToZHighLoweringPass::runOnOperation() {
@@ -362,14 +360,6 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
-
-  // Get shape for newly added operations if any.
-  // Otherwise, DimAnalysis would fail.
-  mlir::OpPassManager pm("builtin.module");
-  pm.addNestedPass<func::FuncOp>(onnx_mlir::createShapeInferencePass());
-  pm.addPass(mlir::createCanonicalizerPass());
-  if (failed(runPipeline(pm, module)))
-    return signalPassFailure();
 
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
