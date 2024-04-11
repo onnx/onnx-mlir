@@ -1187,8 +1187,14 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 IndexExpr inputTileOffset = inputDataOffset.floorDiv(N * 64);
                 DimsExpr lbs2(2, litZero);
                 DimsExpr ubs2 = {litN, lit64};
-                SmallVector<int64_t, 2> steps2 = {1, VL}; // hi alex
-                create.affine.forIE(lbs2, ubs2, steps2,   // N, 64
+                SmallVector<int64_t, 2> steps2 = {1, VL};
+#if PREFETCH_CSU
+                // In the loading of the input below, N & L is consecutive, so
+                // prefetch data here.
+                create.krnl.prefetchIE(input, inputAF, /*isWrite*/ false,
+                    /*locality*/ PREFETCH_LOCALITY);
+#endif
+                create.affine.forIE(lbs2, ubs2, steps2, // N, 64
                     [&](AffineBuilder &b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innermostScope(create.krnl, &innerScope);
@@ -1245,6 +1251,10 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                       outputAF[E1] = ee1;
                       Value allocOffset =
                           create.krnl.getLinearOffsetIndexIE(alloc, outputAF);
+#if PREFETCH_CSU
+                      create.krnl.prefetchIE(alloc, outputAF, /*isWrite*/ true,
+                          /*locality*/ PREFETCH_LOCALITY);
+#endif
                       //  Calculate buffer offset: buffer is [N][M][64]
                       int64_t num = M * 64;
                       IndexExpr bufferOffset = nn * num;
