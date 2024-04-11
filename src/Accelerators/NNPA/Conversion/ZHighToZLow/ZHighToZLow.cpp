@@ -33,12 +33,15 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
-#define PREFETCH_CSU_INPUT_DIST (0*1)
-#define PREFETCH_CSU_OUTPUT_DIST (0*64)
+#define PREFETCH_CSU_INPUT_DIST (0 * 1)
+#define PREFETCH_CSU_OUTPUT_DIST (0 * 64)
 #define PREFETCH_CSU 1
+#define PREFETCH_LOCALITY 1
 
-#define CS_N 2 /* Tiling for Stick */
-#define CS_M 2 /* Tiling for Stick */
+// For roberta: stick N/M=1 with dist = 0 performs marginally better than the
+// other combinations.
+#define CS_N 1 /* Tiling for Stick */
+#define CS_M 1 /* Tiling for Stick */
 #define CU_N 2 /* Tiling for Unstick */
 #define CU_M 2 /* Tiling for Unstick */
 
@@ -692,12 +695,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 // => 64 (e1+m) and add the "l" local E1 offset.
                 prefetchInputAF[E1] = (prefetchInputAF[E1] + m) * 64;
 #if PREFETCH_CSU
-                prefetchInputAF[E1] =
-                    prefetchInputAF[E1] + PREFETCH_CSU_INPUT_DIST;
-                create.krnl.prefetchIE(
-                    input, prefetchInputAF, /*isWrite*/ false, /*locality*/ 3);
-                prefetchInputAF[E1] =
-                    prefetchInputAF[E1] - PREFETCH_CSU_INPUT_DIST;
+                IndexExpr origE1 = prefetchInputAF[E1];
+                // Temporarily increase prefetch input AF on E1 by input dist.
+                prefetchInputAF[E1] = origE1 + PREFETCH_CSU_INPUT_DIST;
+                create.krnl.prefetchIE(input, prefetchInputAF,
+                    /*isWrite*/ false, /*locality*/ PREFETCH_LOCALITY);
+                prefetchInputAF[E1] = origE1;
 #endif
                 // Loop over 64.
                 create.affine.forIE(litZero, lit64, VL,
@@ -741,8 +744,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 #if PREFETCH_CSU
                 // Calculate the prefetch
                 outputAF[E1] = outputAF[E1] + PREFETCH_CSU_OUTPUT_DIST;
-                create.krnl.prefetchIE(
-                    alloc, outputAF, /*write*/ true, /*locality*/ 3);
+                create.krnl.prefetchIE(alloc, outputAF, /*write*/ true,
+                    /*locality*/ PREFETCH_LOCALITY);
 #endif
                 // Calculate buffer offset
                 int64_t num = N * 64;
@@ -1184,8 +1187,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 IndexExpr inputTileOffset = inputDataOffset.floorDiv(N * 64);
                 DimsExpr lbs2(2, litZero);
                 DimsExpr ubs2 = {litN, lit64};
-                SmallVector<int64_t, 2> steps2 = {1, VL};
-                create.affine.forIE(lbs2, ubs2, steps2, // N, 64
+                SmallVector<int64_t, 2> steps2 = {1, VL}; // hi alex
+                create.affine.forIE(lbs2, ubs2, steps2,   // N, 64
                     [&](AffineBuilder &b, ValueRange loopInd) {
                       MDBuilder create(b);
                       IndexExprScope innermostScope(create.krnl, &innerScope);
