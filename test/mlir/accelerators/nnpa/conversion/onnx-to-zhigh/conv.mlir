@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --mcpu=z16 --maccel=NNPA --shape-inference --convert-onnx-to-zhigh %s -split-input-file | FileCheck %s
 
 func.func @test_onnx_conv2d(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<2x3x2x2xf32>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
   %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {kernel_shape = [2, 2]} : (tensor<5x3x32x32xf32>, tensor<2x3x2x2xf32>, tensor<2xf32>) -> tensor<*xf32>
@@ -32,7 +32,8 @@ func.func @test_onnx_conv2d_nobias(%arg0: tensor<5x3x32x32xf32>, %arg1 : tensor<
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 1, 0]} : (tensor<2x3x2x2xf32>) -> tensor<2x2x3x2xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {layout = "HWCK"} : (tensor<2x2x3x2xf32>) -> tensor<2x2x3x2xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_cst_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, none) -> tensor<*xf16>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[VAR_cst_]]) {layout = "1D"} : (none) -> none
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, none) -> tensor<*xf16>
 // CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<*xf16>) -> tensor<5x2x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x2x31x31xf32>
 // CHECK:         }
@@ -53,7 +54,8 @@ func.func @test_onnx_conv2d_no_bias_unknown_bias_dims(%arg0: tensor<5x3x32x32xf3
 // CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_1_]]) {perm = [2, 3, 1, 0]} : (tensor<?x3x2x2xf32>) -> tensor<2x2x3x?xf32>
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {layout = "HWCK"} : (tensor<2x2x3x?xf32>) -> tensor<2x2x3x?xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_cst_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x?xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, none) -> tensor<*xf16>
+// CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[VAR_cst_]]) {layout = "1D"} : (none) -> none
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_NONE", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x?xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, none) -> tensor<*xf16>
 // CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<*xf16>) -> tensor<5x?x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x?x31x31xf32>
 // CHECK:         }
@@ -105,7 +107,7 @@ func.func @test_fuse_onnx_relu_conv2d(%arg0: tensor<5x3x32x32xf32>, %arg1 : tens
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:       [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {layout = "HWCK"} : (tensor<2x2x3x2xf32>) -> tensor<2x2x3x2xf16, #zhigh.layout<{dataLayout = "HWCK"}>>
 // CHECK-DAG:       [[VAR_4_:%.+]] = "zhigh.Stick"([[PARAM_2_]]) {layout = "1D"} : (tensor<2xf32>) -> tensor<2xf16, #zhigh.layout<{dataLayout = "1D"}>>
-// CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_RELU", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<2xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<5x31x31x2xf16, #zhigh.layout<{dataLayout = "NHWC"}>> 
+// CHECK:           [[VAR_5_:%.+]] = "zhigh.Conv2D"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) {act_func = "ACT_RELU", kernel_shape = [2, 2], padding_type = "VALID_PADDING", strides = [1, 1]} : (tensor<5x32x32x3xf16, #zhigh.layout<{dataLayout = "NHWC"}>>, tensor<2x2x3x2xf16, #zhigh.layout<{dataLayout = "HWCK"}>>, tensor<2xf16, #zhigh.layout<{dataLayout = "1D"}>>) -> tensor<5x31x31x2xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
 // CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<5x31x31x2xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<5x2x31x31xf32>
 // CHECK:           return [[VAR_6_]] : tensor<5x2x31x31xf32>
 // CHECK:         }
