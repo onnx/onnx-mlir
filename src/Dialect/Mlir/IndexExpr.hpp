@@ -821,6 +821,14 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// Shortcuts for Index Expr subclasses, to render code more readable.
+//===----------------------------------------------------------------------===//
+
+using LitIE = LiteralIndexExpr;
+using SymIE = SymbolIndexExpr;
+using DimIE = DimIndexExpr;
+
+//===----------------------------------------------------------------------===//
 // Additional operators with integer values in first position
 //===----------------------------------------------------------------------===//
 
