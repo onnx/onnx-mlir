@@ -635,6 +635,12 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
+#if PREFETCH_CSU_DIST > 0
+          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
+              /*locality*/ PREFETCH_LOCALITY);
+          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
+              /*locality*/ PREFETCH_LOCALITY);
+#endif
           prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
@@ -668,7 +674,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 }
                 for (int64_t i = 0; i < U; ++i) {
                   create.vec.storeIE(vecF16[i], allocAsTx64,
-                      {SymIE(allocTileIndex), l + (i*VL)}, {});
+                      {SymIE(allocTileIndex), l + (i * VL)}, {});
                 }
               });
 #else
