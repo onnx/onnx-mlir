@@ -636,7 +636,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
           prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
-          create.krnl.prefetchIE(input, memAF, /*isWrite*/ false,
+          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
           create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
               /*locality*/ PREFETCH_LOCALITY);
@@ -644,7 +644,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 
 #if 1
 #define U 4
-          assert(U * VL < 64 && "bad unroll");
+          assert(U * VL <= 64 && "bad unroll");
           create.affine.forIE(litZero, lit64, U * VL,
               [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
