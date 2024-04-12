@@ -33,8 +33,7 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
-#define PREFETCH_CSU_INPUT_DIST (0 * 1)
-#define PREFETCH_CSU_OUTPUT_DIST (0 * 64)
+#define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 1
 #define PREFETCH_LOCALITY 1
 #define PREFETCH_NO_BUFFER 1
@@ -634,6 +633,14 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
           IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
+#if PREFETCH_CSU
+          DimsExpr prefetchAF = memAF;
+          prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
+          create.krnl.prefetchIE(input, memAF, /*isWrite*/ false,
+              /*locality*/ PREFETCH_LOCALITY);
+          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
+              /*locality*/ PREFETCH_LOCALITY);
+#endif
 
           // Loop over 64.
           create.affine.forIE(
@@ -800,7 +807,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 #if PREFETCH_CSU
                 IndexExpr origE1 = prefetchInputAF[E1];
                 // Temporarily increase prefetch input AF on E1 by input dist.
-                prefetchInputAF[E1] = origE1 + PREFETCH_CSU_INPUT_DIST;
+                prefetchInputAF[E1] = origE1 + (PREFETCH_CSU_DIST * 64);
                 create.krnl.prefetchIE(input, prefetchInputAF,
                     /*isWrite*/ false, /*locality*/ PREFETCH_LOCALITY);
                 prefetchInputAF[E1] = origE1;
@@ -846,7 +853,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                     alloc, litZero.getValue(), reallocTileDims);
 #if PREFETCH_CSU
                 // Calculate the prefetch
-                outputAF[E1] = outputAF[E1] + PREFETCH_CSU_OUTPUT_DIST;
+                outputAF[E1] = outputAF[E1] + (PREFETCH_CSU_DIST * 1);
                 create.krnl.prefetchIE(alloc, outputAF, /*write*/ true,
                     /*locality*/ PREFETCH_LOCALITY);
 #endif
