@@ -37,6 +37,7 @@
 #define PREFETCH_CSU_OUTPUT_DIST (0 * 64)
 #define PREFETCH_CSU 1
 #define PREFETCH_LOCALITY 1
+#define PREFETCH_NO_BUFFER 1
 
 // For roberta: stick N/M=1 with dist = 0 performs marginally better than the
 // other combinations.
@@ -546,13 +547,115 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           // layout.getValue().equals_insensitive("1D") ||
           // layout.getValue().equals_insensitive("2DS") ||
           layout.getValue().equals_insensitive("3DS")) {
+#if PREFETCH_NO_BUFFER
+        return generateStickCodeNoBuffer(
+            rewriter, op, shapeHelper, alloc, input, layout);
+#else
         return generateStickCode(
             rewriter, op, shapeHelper, alloc, input, layout);
+#endif
       }
     }
 
     // Else, emit a ZLow operation.
     rewriter.create<ZLowStickOp>(loc, input, alloc, layout);
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+
+  /* Version without buffer, more like zdnn */
+  LogicalResult generateStickCodeNoBuffer(ConversionPatternRewriter &rewriter,
+      Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
+      Value input, StringAttr layout) const {
+    Location loc = op->getLoc();
+    MDBuilder create(rewriter, loc);
+
+    // Compute output dims and rank.
+    IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
+    DimsExpr outputDims;
+    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
+    int64_t rank = outputDims.size();
+
+    // Info for SIMD Vector Length (VL) and associated types.
+    int64_t VL = 8;          // FP16 VL.
+    int64_t VLHalf = VL / 2; // FP32 VL.
+    assert(64 % VL == 0 && "SIMD vector length must divide 64");
+    Type f32Type = rewriter.getF32Type();
+    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
+
+    // Define useful literals.
+    IndexExpr litZero = LiteralIndexExpr(0);
+    IndexExpr lit1 = LiteralIndexExpr(1);
+    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
+    IndexExpr lit64 = LiteralIndexExpr(64);
+
+    // Useful references for indexing dimensions (neg val are not used).
+    int64_t E1 = rank - 1;
+
+    // Create loop iterations. Note that we iterate over E1 as tiles of 64
+    // elements.
+    ValueRange loopDefs = create.krnl.defineLoops(rank);
+    DimsExpr lbs(rank, litZero);
+    DimsExpr ubs = outputDims;
+    IndexExpr T1 = outputDims[E1].ceilDiv(64);
+    ubs[E1] = T1; // E1 dim is over tiles.
+
+    // Parallel...
+    if (enableParallel) {
+      int64_t parId;
+      // TODO: may want to check if ub of rank makes sense here.
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
+        create.krnl.parallel(loopDefs[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "compiler-generated stickify");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in compiler-generated stickify");
+      }
+    }
+
+    // Compute max tiles. It is actually not easy to compute the max number of
+    // tiles. Since we don't allocate, it is just a "view", we only need to
+    // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
+    // 64 elements.
+    IndexExpr T = LiteralIndexExpr(2);
+    DimsExpr reallocTileDims = {T, lit64};
+    Value allocAsTx64 =
+        create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
+
+    // Outer loop (E1 iterates over tiles of 64 elements).
+    create.krnl.iterateIE(
+        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
+          MDBuilder create(b);
+          IndexExprScope outerScope(create.krnl, &allocScope);
+          DimsExpr outerIndices;
+          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          DimsExpr memAF = outerIndices;
+          memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
+          Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
+          IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
+
+          // Loop over 64.
+          create.affine.forIE(
+              litZero, lit64, VL, [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                DimsExpr inputAF;
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr l(loopInd[0]);
+                getIndexExprList<SymbolIndexExpr>(memAF, inputAF);
+                // E1: add the "l" local E1 offset.
+                inputAF[E1] = inputAF[E1] + l;
+                Value vecF32H =
+                    create.vec.loadIE(vecF32Type, input, inputAF, {});
+                Value vecF32L = create.vec.loadIE(
+                    vecF32Type, input, inputAF, {litVLHalf.getValue()});
+                Value vecF16 = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                    loc, vecF32H, vecF32L);
+                create.vec.storeIE(
+                    vecF16, allocAsTx64, {SymIE(allocTileIndex), l}, {});
+              });
+        });
+
     rewriter.replaceOp(op, alloc);
     return success();
   }
