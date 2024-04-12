@@ -3801,3 +3801,47 @@ func.func @test_RMSlayer_norm_2inputs(%arg0: tensor<12x3x5xf32>, %arg1: tensor<5
 // CHECK:         }
 }
 
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Test shape inference for Parallel and Fork.
+//===----------------------------------------------------------------------===//
+
+func.func @test_parallel_fork_1(%arg0: tensor<8x64x32xf32>, %arg1: tensor<32x32xf32>) -> (tensor<*xf32>, tensor<*xf32>) {
+  %c0 = onnx.Constant dense<1.0> : tensor<32x32xf32>
+  %c1 = onnx.Constant dense<1.0> : tensor<32xf32>
+  %c2 = onnx.Constant dense<1.0> : tensor<32x32xf32>
+
+  %0:2 = "onnx.Parallel"() ({
+      %00 = "onnx.Fork"() ({
+        %01 = "onnx.MatMul"(%arg0, %c0) : (tensor<8x64x32xf32>, tensor<32x32xf32>) -> tensor<*xf32>
+        onnx.Yield %01 : tensor<*xf32>
+      }) {id = 0 : si64} : () -> tensor<*xf32
+      %01 = "onnx.Fork"() ({
+        %01 = "onnx.MatMul"(%arg0, %c2) : (tensor<8x64x32xf32>, tensor<32x32xf32>) -> tensor<*xf32>
+        onnx.Yield %01 : tensor<*xf32>
+      }) {id = 1 : si64} : () -> tensor<*xf32>
+      "onnx.Yield"(%00, %01) : (tensor<*xf32>, tensor<*xf32>) -> ()
+  }) : () ->  (tensor<*xf32>, tensor<*xf32>)
+  "onnx.Return"(%0#0,%0#1): (tensor<*xf32>, tensor<*xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_parallel_fork_1
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<8x64x32xf32>, [[PARAM_1_:%.+]]: tensor<32x32xf32>) -> (tensor<8x64x32xf32>, tensor<8x64x32xf32>) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<32x32xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]]:2 = "onnx.Parallel"() ({
+// CHECK-DAG:         [[VAR_2_:%.+]] = "onnx.Fork"() ({
+// CHECK:               [[VAR_4_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<8x64x32xf32>, tensor<32x32xf32>) -> tensor<8x64x32xf32>
+// CHECK:               onnx.Yield [[VAR_4_]] : tensor<8x64x32xf32>
+// CHECK:             }) {id = 0 : si64} : () -> tensor<8x64x32xf32>
+// CHECK-DAG:         [[VAR_3_:%.+]] = "onnx.Fork"() ({
+// CHECK-DAG:           [[VAR_4_1_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<8x64x32xf32>, tensor<32x32xf32>) -> tensor<8x64x32xf32>
+// CHECK:               onnx.Yield [[VAR_4_1_]] : tensor<8x64x32xf32>
+// CHECK:             }) {id = 1 : si64} : () -> tensor<8x64x32xf32>
+// CHECK:             onnx.Yield [[VAR_2_]], [[VAR_3_]] : tensor<8x64x32xf32>, tensor<8x64x32xf32>
+// CHECK:           }) : () -> (tensor<8x64x32xf32>, tensor<8x64x32xf32>)
+// CHECK:           onnx.Return [[VAR_1_]]#0, [[VAR_1_]]#1 : tensor<8x64x32xf32>, tensor<8x64x32xf32>
+// CHECK:         }
+}
+
+// -----
+
