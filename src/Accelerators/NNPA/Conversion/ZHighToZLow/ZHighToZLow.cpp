@@ -642,6 +642,36 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
               /*locality*/ PREFETCH_LOCALITY);
 #endif
 
+#if 1
+#define U 4
+          assert(U * VL < 64 && "bad unroll");
+          create.affine.forIE(litZero, lit64, U * VL,
+              [&](AffineBuilder &b, ValueRange loopInd) {
+                MDBuilder create(b);
+                DimsExpr inputAF;
+                IndexExprScope innerScope(create.krnl, &outerScope);
+                SymbolIndexExpr l(loopInd[0]);
+                getIndexExprList<SymbolIndexExpr>(memAF, inputAF);
+                // E1: add the "l" local E1 offset.
+                inputAF[E1] = inputAF[E1] + l;
+                Value vecF32H[U], vecF32L[U], vecF16[U];
+                for (int64_t i = 0; i < U; ++i) {
+                  LiteralIndexExpr iH(i * VL), iL(i * VL + VL / 2);
+                  vecF32H[i] = create.vec.loadIE(
+                      vecF32Type, input, inputAF, {iH.getValue()});
+                  vecF32L[i] = create.vec.loadIE(
+                      vecF32Type, input, inputAF, {iL.getValue()});
+                }
+                for (int64_t i = 0; i < U; ++i) {
+                  vecF16[i] = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                      loc, vecF32H[i], vecF32L[i]);
+                }
+                for (int64_t i = 0; i < U; ++i) {
+                  create.vec.storeIE(vecF16[i], allocAsTx64,
+                      {SymIE(allocTileIndex), l + (i*VL)}, {});
+                }
+              });
+#else
           // Loop over 64.
           create.affine.forIE(
               litZero, lit64, VL, [&](AffineBuilder &b, ValueRange loopInd) {
@@ -661,6 +691,7 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
                 create.vec.storeIE(
                     vecF16, allocAsTx64, {SymIE(allocTileIndex), l}, {});
               });
+#endif
         });
 
     rewriter.replaceOp(op, alloc);
