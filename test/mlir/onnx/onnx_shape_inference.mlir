@@ -3816,7 +3816,7 @@ func.func @test_parallel_fork_1(%arg0: tensor<8x64x32xf32>, %arg1: tensor<32x32x
       %00 = "onnx.Fork"() ({
         %01 = "onnx.MatMul"(%arg0, %c0) : (tensor<8x64x32xf32>, tensor<32x32xf32>) -> tensor<*xf32>
         onnx.Yield %01 : tensor<*xf32>
-      }) {id = 0 : si64} : () -> tensor<*xf32
+      }) {id = 0 : si64} : () -> tensor<*xf32>
       %01 = "onnx.Fork"() ({
         %01 = "onnx.MatMul"(%arg0, %c2) : (tensor<8x64x32xf32>, tensor<32x32xf32>) -> tensor<*xf32>
         onnx.Yield %01 : tensor<*xf32>
