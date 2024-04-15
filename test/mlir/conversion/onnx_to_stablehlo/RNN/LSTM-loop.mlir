@@ -145,10 +145,10 @@ func.func @test_lstm_loop(%arg0 : tensor<128x16x512xf32>, %arg1 : tensor<2x2048x
 // CHECK:             [[VAR_119_:%.+]] = stablehlo.multiply [[VAR_117_]], [[VAR_118_]] : tensor<16x256xf32>
 // CHECK-DAG:         [[VAR_120_:%.+]] = stablehlo.dynamic_reshape [[VAR_119_]], [[VAR_3_]] : (tensor<16x256xf32>, tensor<4xindex>) -> tensor<1x1x16x256xf32>
 // CHECK-DAG:         [[VAR_121_:%.+]] = stablehlo.dynamic_reshape [[VAR_iterArg_]], [[VAR_2_]] : (tensor<1xi64>, tensor<2xindex>) -> tensor<1x1xi64>
-// CHECK:             [[VAR_122_:%.+]] = "stablehlo.scatter"([[VAR_iterArg_0_]], [[VAR_121_]], [[VAR_120_]]) ({
+// CHECK:             [[VAR_122_:%.+]] = "stablehlo.scatter"([[VAR_iterArg_0_]], [[VAR_121_]], [[VAR_120_]]) <{indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1, 2, 3], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false}> ({
 // CHECK:             ^bb0([[arg4_:%.+]]: tensor<f32>, [[arg5_:%.+]]: tensor<f32>):
 // CHECK:               stablehlo.return [[arg5_]] : tensor<f32>
-// CHECK:             }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1, 2, 3], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false} : (tensor<128x1x16x256xf32>, tensor<1x1xi64>, tensor<1x1x16x256xf32>) -> tensor<128x1x16x256xf32>
+// CHECK:             }) : (tensor<128x1x16x256xf32>, tensor<1x1xi64>, tensor<1x1x16x256xf32>) -> tensor<128x1x16x256xf32>
 // CHECK-DAG:         [[VAR_123_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_iterArg_]], [[VAR_1_]], dims = [0] : (tensor<1xi64>, tensor<1xindex>) -> tensor<1xi64>
 // CHECK-DAG:         [[VAR_124_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_10_]], [[VAR_1_]], dims = [0] : (tensor<1xi64>, tensor<1xindex>) -> tensor<1xi64>
 // CHECK:             [[VAR_125_:%.+]] = stablehlo.add [[VAR_123_]], [[VAR_124_]] : tensor<1xi64>
@@ -225,10 +225,10 @@ func.func @test_lstm_loop(%arg0 : tensor<128x16x512xf32>, %arg1 : tensor<2x2048x
 // CHECK:             [[VAR_119_1_:%.+]] = stablehlo.multiply [[VAR_117_1_]], [[VAR_118_1_]] : tensor<16x256xf32>
 // CHECK-DAG:         [[VAR_120_1_:%.+]] = stablehlo.dynamic_reshape [[VAR_119_1_]], [[VAR_3_]] : (tensor<16x256xf32>, tensor<4xindex>) -> tensor<1x1x16x256xf32>
 // CHECK-DAG:         [[VAR_121_1_:%.+]] = stablehlo.dynamic_reshape [[VAR_iterArg_1_]], [[VAR_2_]] : (tensor<1xi64>, tensor<2xindex>) -> tensor<1x1xi64>
-// CHECK:             [[VAR_122_1_:%.+]] = "stablehlo.scatter"([[VAR_iterArg_0_1_]], [[VAR_121_1_]], [[VAR_120_1_]]) ({
+// CHECK:             [[VAR_122_1_:%.+]] = "stablehlo.scatter"([[VAR_iterArg_0_1_]], [[VAR_121_1_]], [[VAR_120_1_]]) <{indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1, 2, 3], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false}> ({
 // CHECK:             ^bb0([[arg4_:%.+]]: tensor<f32>, [[arg5_:%.+]]: tensor<f32>):
 // CHECK:               stablehlo.return [[arg5_]] : tensor<f32>
-// CHECK:             }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1, 2, 3], inserted_window_dims = [0], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false} : (tensor<128x1x16x256xf32>, tensor<1x1xi64>, tensor<1x1x16x256xf32>) -> tensor<128x1x16x256xf32>
+// CHECK:             }) : (tensor<128x1x16x256xf32>, tensor<1x1xi64>, tensor<1x1x16x256xf32>) -> tensor<128x1x16x256xf32>
 // CHECK-DAG:         [[VAR_123_1_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_iterArg_1_]], [[VAR_1_]], dims = [0] : (tensor<1xi64>, tensor<1xindex>) -> tensor<1xi64>
 // CHECK-DAG:         [[VAR_124_1_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_10_]], [[VAR_1_]], dims = [0] : (tensor<1xi64>, tensor<1xindex>) -> tensor<1xi64>
 // CHECK:             [[VAR_125_1_:%.+]] = stablehlo.subtract [[VAR_123_1_]], [[VAR_124_1_]] : tensor<1xi64>
