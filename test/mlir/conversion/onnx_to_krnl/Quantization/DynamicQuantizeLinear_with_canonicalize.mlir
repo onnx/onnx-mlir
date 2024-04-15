@@ -27,9 +27,7 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[CST_0_dot_000000_]], [[RES_4_]][] : memref<f32>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc() : memref<f32>
-// CHECK:           krnl.define_loops 0
 // CHECK:           krnl.iterate() with (){
-// CHECK:             krnl.get_induction_var_value() : () -> ()
 // CHECK:             krnl.store [[CST_0_1_]], [[RES_5_]][] : memref<f32>
 // CHECK:           }
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
@@ -43,9 +41,7 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:             krnl.store [[VAR_37_]], [[RES_5_]][] : memref<f32>
 // CHECK:           }
 // CHECK:           [[RES_6_:%.+]] = memref.alloc() : memref<f32>
-// CHECK:           krnl.define_loops 0
 // CHECK:           krnl.iterate() with (){
-// CHECK:             krnl.get_induction_var_value() : () -> ()
 // CHECK:             krnl.store [[CST_0_]], [[RES_6_]][] : memref<f32>
 // CHECK:           }
 // CHECK-DAG:       [[LOOP_1_:%.+]]:2 = krnl.define_loops 2

@@ -52,7 +52,7 @@ op_dialect_version_map_["DeformConv"] = {19};
 op_dialect_version_map_["DepthToSpace"] = {13};
 op_dialect_version_map_["DequantizeLinear"] = {19};
 op_dialect_version_map_["Det"] = {11};
-op_dialect_version_map_["DFT"] = {17};
+op_dialect_version_map_["DFT"] = {20, 17};
 op_dialect_version_map_["DictVectorizer"] = {1};
 op_dialect_version_map_["Div"] = {14};
 op_dialect_version_map_["Dropout"] = {13};
@@ -298,6 +298,8 @@ import_handler_map_["CumSum"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXCumSumOp>;
 import_handler_map_["DFT"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDFTOp>;
+import_handler_map_["DFTV17"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDFTV17Op>;
 import_handler_map_["DeformConv"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXDeformConvOp>;
 import_handler_map_["DepthToSpace"] = 

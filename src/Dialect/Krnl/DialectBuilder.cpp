@@ -92,6 +92,18 @@ void KrnlBuilder::storeIE(
   b().create<KrnlStoreOp>(loc(), val, memref, indexValues);
 }
 
+Value KrnlBuilder::getLinearOffsetIndex(
+    Value memref, ValueRange indices) const {
+  return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indices);
+}
+
+Value KrnlBuilder::getLinearOffsetIndexIE(
+    Value memref, ArrayRef<IndexExpr> indices) const {
+  SmallVector<Value, 4> indexValues;
+  IndexExpr::getValues(indices, indexValues);
+  return b().create<KrnlGetLinearOffsetIndexOp>(loc(), memref, indexValues);
+}
+
 void KrnlBuilder::seqstore(
     mlir::Value element, mlir::Value seq, mlir::Value index) const {
   b().create<KrnlSeqStoreOp>(loc(), element, seq, index);
@@ -104,6 +116,17 @@ void KrnlBuilder::seqstore(
 
 Value KrnlBuilder::vectorTypeCast(Value sourceMemref, int64_t vectorLen) const {
   return b().create<KrnlVectorTypeCastOp>(loc(), sourceMemref, vectorLen);
+}
+
+void KrnlBuilder::region(
+    function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const {
+  KrnlBuilder createKrnl(b(), loc());
+  KrnlRegionOp regionOp = b().create<KrnlRegionOp>(loc());
+  {
+    OpBuilder::InsertionGuard guard(b());
+    b().setInsertionPointToStart(&regionOp.getBodyRegion().front());
+    bodyBuilderFn(createKrnl);
+  }
 }
 
 ValueRange KrnlBuilder::defineLoops(int64_t originalLoopNum) const {
@@ -278,9 +301,14 @@ void KrnlBuilder::printf(
   b().create<KrnlPrintOp>(loc(), newFormat, input);
 }
 
-void KrnlBuilder::printf(Value input, Type inputType) const {
-  StringRef format = getFormat(inputType);
-  b().create<KrnlPrintOp>(loc(), format, input);
+void KrnlBuilder::printf(
+    StringRef msg, Value input, bool endsWithNewLine) const {
+  KrnlBuilder::printf(msg, input, input.getType(), endsWithNewLine);
+}
+
+void KrnlBuilder::printf(
+    StringRef msg, IndexExpr input, bool endsWithNewLine) const {
+  KrnlBuilder::printf(msg, input.getValue(), endsWithNewLine);
 }
 
 // =============================================================================

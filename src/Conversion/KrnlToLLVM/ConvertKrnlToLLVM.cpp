@@ -4,7 +4,7 @@
 
 //====------ ConvertKrnlToLLVM.cpp - Krnl Dialect Lowering  ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -361,7 +361,7 @@ void genSignatureFunction(ModuleOp &module,
     LLVM::LLVMFuncOp funcOp = create.llvm.func(
         "omQueryEntryPoints", llvmFnType, /*createUniqueFunc=*/true);
     // Emit the body of the function.
-    Block *entryBlock = funcOp.addEntryBlock();
+    Block *entryBlock = funcOp.addEntryBlock(b);
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);
     Value numOfEntryPoints = entryBlock->getArgument(0);
@@ -399,7 +399,7 @@ void genSignatureFunction(ModuleOp &module,
         create.llvm.func(funcNames[i], llvmFnType, /*createUniqueFunc=*/true);
 
     // 2. Emit the body of the function.
-    Block *entryBlock = funcOp.addEntryBlock();
+    Block *entryBlock = funcOp.addEntryBlock(b);
     OpBuilder::InsertionGuard bodyGuard(b);
     b.setInsertionPointToStart(entryBlock);
 
@@ -648,7 +648,7 @@ void loadConstantsFromFile(ModuleOp &module,
   }
 
   // Emit the body of the function.
-  Block *entryBlock = funcOp.addEntryBlock();
+  Block *entryBlock = funcOp.addEntryBlock(b);
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(entryBlock);
 
@@ -695,7 +695,7 @@ void loadConstantsFromFile(ModuleOp &module,
     // Get the global op for data.
     StringRef dataSymbol = dataGlobalOp.getSymName();
     std::string prefixData = EXTERNAL_CONSTANT_PREFIX + "data";
-    if (!dataSymbol.startswith(prefixData))
+    if (!dataSymbol.starts_with(prefixData))
       return WalkResult::advance();
     std::string constantName = dataSymbol.drop_front(prefixData.size()).str();
 
@@ -875,7 +875,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   customizeTypeConverter(typeConverter);
 
   // omp::ParallelOp can only be legalized when its region is legal
-  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsLoopOp>(
+  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsloopOp>(
       [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
   // Currently, only minimum required OpenMP Ops are marked as legal, in the
   // future integration of OpenMP, probably more OpenMP Ops are required to be

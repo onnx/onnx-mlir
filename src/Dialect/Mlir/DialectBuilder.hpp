@@ -334,6 +334,8 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::Value input, mlir::MemRefType outputType) const;
   mlir::Value reinterpretCast(
       mlir::Value input, llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
+  mlir::Value reinterpretCast(mlir::Value input, mlir::Value offset,
+      llvm::SmallVectorImpl<IndexExpr> &outputDims) const;
 
   // Does not support layouts at this time. Does only work for values that are
   // then loaded with affine or memref scalar load/store (MLIR limitations).
@@ -344,6 +346,13 @@ struct MemRefBuilder final : DialectBuilder {
   // shaped by outputType.
   mlir::memref::ViewOp view(mlir::Value input, int64_t byteOffset,
       mlir::MemRefType outputType, mlir::ValueRange outputDynSymbols) const;
+
+  // Create a subview of val.
+  mlir::memref::SubViewOp subView(mlir::Value val,
+      llvm::SmallVectorImpl<int64_t> &offsets, // Offset for each val dims.
+      llvm::SmallVectorImpl<int64_t> &sizes,   // Sizes for each val dims.
+      llvm::SmallVectorImpl<int64_t> &strides) // Stride for each val dims.
+      const;
 
   // Create a subview of val.
   mlir::memref::SubViewOp subView(mlir::MemRefType outputType, mlir::Value val,
@@ -361,6 +370,11 @@ struct MemRefBuilder final : DialectBuilder {
 
   mlir::Value dim(mlir::Value val, int64_t index) const;
   mlir::Value dim(mlir::Value val, mlir::Value index) const;
+
+  void prefetchIE(mlir::Value memref, llvm::SmallVectorImpl<IndexExpr> &indices,
+      bool isWrite, unsigned locality, bool isData = true);
+  void prefetch(mlir::Value memref, mlir::ValueRange indices, bool isWrite,
+      unsigned locality, bool isData = true);
 
 private:
   mlir::IntegerAttr computeAlignment(int64_t alignment) const;
@@ -509,6 +523,12 @@ struct GenericAffineBuilder final : DialectBuilder {
       mlir::ValueRange offsets) const;
   void storeIE(mlir::Value val, mlir::Value memref,
       llvm::ArrayRef<IndexExpr> indices, mlir::ValueRange offsets) const;
+
+  void prefetch(mlir::Value memref, mlir::AffineMap map,
+      llvm::ArrayRef<mlir::Value> operands, bool isWrite, unsigned localityHint,
+      bool isDataCache = true) const;
+  void prefetchIE(mlir::Value memref, llvm::ArrayRef<IndexExpr> indices,
+      bool isWrite, unsigned localityHint, bool isDataCache = true) const;
 
   void forIE(IndexExpr lb, IndexExpr ub, int64_t step,
       mlir::function_ref<void(GenericAffineBuilder &, mlir::Value)> builderFn)

@@ -49,10 +49,13 @@ typedef enum {
 } NNPAPlacementHeuristic;
 
 extern llvm::cl::OptionCategory OnnxMlirOptions;
+extern llvm::cl::OptionCategory OnnxMlirCommonOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::opt<bool> nnpaClipToDLFloatRange;
 extern llvm::cl::opt<bool> nnpaEnableZHighToOnnx;
 extern llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick;
+extern llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick;
+extern llvm::cl::opt<bool> nnpaEnableScalarBcastBinary;
 extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;

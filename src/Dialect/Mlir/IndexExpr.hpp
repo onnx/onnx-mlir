@@ -396,6 +396,7 @@ private:
   // live range analysis. ALl will be deleted upon scope destruction.
   llvm::SmallVector<IndexExprImpl *, 20> container;
 };
+#define DETAILED_DEBUG_OF_SCOPE 0
 
 //===----------------------------------------------------------------------===//
 // IndexExprExpr
@@ -497,6 +498,8 @@ public:
       llvm::SmallVectorImpl<mlir::Value> &valueList);
   static void getOpOrFoldResults(mlir::ArrayRef<IndexExpr> indexExprArray,
       llvm::SmallVectorImpl<mlir::OpFoldResult> &resList);
+  static void getAffineMapAndOperands(mlir::ArrayRef<IndexExpr> indexExprArray,
+      mlir::AffineMap &map, llvm::SmallVectorImpl<mlir::Value> &operands);
 
   // Possibly Affine Operations. Return a new IndexExpr
   IndexExpr operator+(IndexExpr const b) const;

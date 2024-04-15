@@ -1260,6 +1260,12 @@ memref::CastOp MemRefBuilder::cast(Value input, MemRefType outputType) const {
 
 Value MemRefBuilder::reinterpretCast(
     Value input, SmallVectorImpl<IndexExpr> &outputDims) const {
+  // IndexExpr zero = LiteralIndexExpr(0);
+  return reinterpretCast(input, nullptr, outputDims);
+}
+
+Value MemRefBuilder::reinterpretCast(
+    Value input, Value offset, SmallVectorImpl<IndexExpr> &outputDims) const {
   // Compute new sizes and strides.
   int64_t rank = outputDims.size();
   SmallVector<IndexExpr, 4> sizesIE, stridesIE;
@@ -1280,9 +1286,12 @@ Value MemRefBuilder::reinterpretCast(
   IndexExpr::getOpOrFoldResults(stridesIE, strides);
   Type elementType = input.getType().cast<ShapedType>().getElementType();
   MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
-
+  if (offset)
+    return b().create<memref::ReinterpretCastOp>(
+        loc(), outputMemRefType, input, offset, sizes, strides);
+  // Null offset: use zero attribute (remain compatible with old lit tests).
   return b().create<memref::ReinterpretCastOp>(loc(), outputMemRefType, input,
-      /*offset=*/b().getIndexAttr(0), sizes, strides);
+      /*offset*/ b().getIndexAttr(0), sizes, strides);
 }
 
 Value MemRefBuilder::collapseShape(
@@ -1333,6 +1342,13 @@ memref::ViewOp MemRefBuilder::view(Value input, int64_t byteOffset,
       loc(), outputType, input, offset, outputDynSymbols);
 }
 
+memref::SubViewOp MemRefBuilder::subView(Value val,
+    llvm::SmallVectorImpl<int64_t> &offsets,
+    llvm::SmallVectorImpl<int64_t> &sizes,
+    llvm::SmallVectorImpl<int64_t> &strides) const {
+  return b().create<memref::SubViewOp>(loc(), val, offsets, sizes, strides);
+}
+
 memref::SubViewOp MemRefBuilder::subView(MemRefType outputType, Value val,
     llvm::SmallVectorImpl<int64_t> &offsets,
     llvm::SmallVectorImpl<int64_t> &sizes,
@@ -1373,6 +1389,23 @@ Value MemRefBuilder::dim(Value val, Value index) const {
   //       "memref::DimOp expects input operand to have MemRefType or "
   //       "UnrankedMemRefType");
   return Value(b().createOrFold<memref::DimOp>(loc(), val, index));
+}
+
+//===----------------------------------------------------------------------===//
+// Prefetch.
+
+void MemRefBuilder::prefetch(Value memref, ValueRange indices, bool isWrite,
+    unsigned locality, bool isData) {
+  b().create<memref::PrefetchOp>(
+      loc(), memref, indices, isWrite, locality, isData);
+}
+
+void MemRefBuilder::prefetchIE(Value memref,
+    llvm::SmallVectorImpl<IndexExpr> &indices, bool isWrite, unsigned locality,
+    bool isData) {
+  SmallVector<Value, 4> indexVals;
+  IndexExpr::getValues(indices, indexVals);
+  prefetch(memref, indexVals, isWrite, locality, isData);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1603,7 +1636,7 @@ Value VectorBuilder::reduction(
           loc(), vector::CombiningKind::MAXSI, value);
     if (MathBuilder::isFloatWithVector(type))
       return b().create<vector::ReductionOp>(
-          loc(), vector::CombiningKind::MAXF, value);
+          loc(), vector::CombiningKind::MAXNUMF, value);
     llvm_unreachable("unknown type in max");
   }
   case CombiningKind::MIN: {
@@ -1615,7 +1648,7 @@ Value VectorBuilder::reduction(
           loc(), vector::CombiningKind::MINSI, value);
     if (MathBuilder::isFloatWithVector(type))
       return b().create<vector::ReductionOp>(
-          loc(), vector::CombiningKind::MINF, value);
+          loc(), vector::CombiningKind::MINNUMF, value);
     llvm_unreachable("unknown type in min");
   }
   case CombiningKind::AND: {
@@ -1897,7 +1930,7 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
       b().create<LLVM::LLVMFuncOp>(loc(), uniqueFuncName, uniqueFuncType);
 
   // Call uniqueFuncOp inside funcOp.
-  Block *entryBlock = funcOp.addEntryBlock();
+  Block *entryBlock = funcOp.addEntryBlock(b());
   OpBuilder::InsertionGuard bodyGuard(b());
   b().setInsertionPointToStart(entryBlock);
   ValueRange args = entryBlock->getArguments();

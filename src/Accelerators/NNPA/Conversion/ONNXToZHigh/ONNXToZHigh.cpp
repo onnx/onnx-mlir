@@ -22,6 +22,7 @@
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 
 using namespace mlir;
 
@@ -328,15 +329,12 @@ void getONNXToZHighMultipleOpPatterns(RewritePatternSet &patterns) {
   patterns.insert<replaceONNXMatMulAddPattern2>(context);
   patterns.insert<replaceONNXReluConvPattern>(context);
   patterns.insert<replaceONNXLogSoftmaxPattern>(context);
+  // Shape inference for newly-added operations.
+  getShapeInferencePatterns(patterns);
 }
 
 void ONNXToZHighLoweringPass::runOnOperation() {
   ModuleOp module = getOperation();
-
-  // Run the unknown dimension analysis to help check equality of unknown
-  // dimensions at compile time.
-  onnx_mlir::DimAnalysis dimAnalysis(module);
-  dimAnalysis.analyze();
 
   // The first thing to define is the conversion target. This will define the
   // final target for this lowering.
@@ -362,6 +360,11 @@ void ONNXToZHighLoweringPass::runOnOperation() {
 
   // It's ok to fail.
   (void)applyPatternsAndFoldGreedily(module, std::move(combinedPatterns));
+
+  // Run the unknown dimension analysis to help check equality of unknown
+  // dimensions at compile time.
+  onnx_mlir::DimAnalysis dimAnalysis(module);
+  dimAnalysis.analyze();
 
   // Single ONNX to ZHigh operation lowering.
   RewritePatternSet patterns(&getContext());
