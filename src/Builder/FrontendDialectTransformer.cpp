@@ -1389,10 +1389,8 @@ private:
   }
 
   void getParamStr(std::string envStr, Value arg, std::string &paramStr) {
-      fprintf(stderr, "XXXX getParamStr called envStr=%s\n", envStr.c_str());fflush(stdout);
     if (envStr != "*") {
       std::replace(envStr.begin(), envStr.end(), '=', ':');
-      fprintf(stderr, "XXXX getParamStr return envStr=%s\n", envStr.c_str());fflush(stdout);
       paramStr = envStr;
       return;
     }
@@ -1414,7 +1412,6 @@ private:
     paramStrStream << envInputString;
     std::string envStr;
     while (std::getline(paramStrStream, envStr, '|')) {
-      fprintf(stderr, "XXXX envStr=%s\n", envStr.c_str());
       size_t pos = envStr.find(':');
       assert((pos > 0) && "invalid IMPORTER_FORCE_DYNAMIC environment");
       int idx = stoi(envStr.substr(0, pos));
@@ -1422,11 +1419,9 @@ private:
       if (idx < 0) { // set all arguments
         for (size_t i = 0; i < numOfArgs; i++) {
           getParamStr(envStr, args[i], paramStrVec[i]);
-          fprintf(stderr, "XXXXA paramStrVec[%ld]=%s\n", i, paramStrVec[i].c_str());fflush(stderr);
         }
       } else {
         getParamStr(envStr, args[idx], paramStrVec[idx]);
-        fprintf(stderr, "XXXXB paramStrVec[%d]=%s\n", idx, paramStrVec[idx].c_str());fflush(stderr);
       }
     }
     return;

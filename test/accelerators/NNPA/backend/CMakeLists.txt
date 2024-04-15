@@ -363,7 +363,9 @@ set(NNPA_TESTS_ENVS TEST_MCPU=z16 TEST_MACCEL=NNPA TEST_CASE_BY_USER=${ENV_TEST_
 
 set(NNPA_TEST_LIST_DYNAMIC
     # ==OP== Add
-    test_add_cpu,zdnn_add,"{0:0=aa,1=bb,2=cc|1:0=aa,1=bb,2=cc}"
+    #test_add_cpu,zdnn_add,"0:0=aa,1=bb,2=cc|1:0=aa,1=bb,2=cc"
+    test_add_cpu,zdnn_add,"0:0=aa,1=bb,2=cc|1:0=aa,1=bb,2=cc"
+    #test_add_cpu,zdnn_add
 )
 set(NNPA_TEST_LIST_DYNAMIC_
     # ==OP== Add
