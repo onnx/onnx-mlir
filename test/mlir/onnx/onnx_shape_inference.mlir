@@ -3819,3 +3819,75 @@ func.func @test_RMSlayer_norm_2inputs(%arg0: tensor<12x3x5xf32>, %arg1: tensor<5
 // CHECK:         }
 }
 
+// -----
+
+// Test Grid Sample
+
+func.func @test_grid_sample_same_dims(%arg0: tensor<1x3x1152x1344xf32>, %arg1: tensor<1x1152x1344x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x3x1152x1344xf32>, tensor<1x1152x1344x2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_grid_sample_same_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x1152x1344xf32>, [[PARAM_1_:%.+]]: tensor<1x1152x1344x2xf32>) -> tensor<1x3x1152x1344xf32> {
+// CHECK:           [[GRID:%.+]] = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x3x1152x1344xf32>, tensor<1x1152x1344x2xf32>) -> tensor<1x3x1152x1344xf32>
+// CHECK:           return [[GRID]] : tensor<1x3x1152x1344xf32>
+// CHECK:         }
+}
+
+func.func @test_grid_sample_diff_dims(%arg0: tensor<1x1x4x4xf32>, %arg1: tensor<1x6x6x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x2xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_grid_sample_diff_dims
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x4x4xf32>, [[PARAM_1_:%.+]]: tensor<1x6x6x2xf32>) -> tensor<1x1x6x6xf32> {
+// CHECK:           [[GRID:%.+]] = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x1x4x4xf32>, tensor<1x6x6x2xf32>) -> tensor<1x1x6x6xf32>
+// CHECK:           return [[GRID]] : tensor<1x1x6x6xf32>
+// CHECK:         }
+}
+
+func.func @test_grid_sample_6d(%arg0: tensor<1x2x4x4x4x4xf32>, %arg1: tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x2x4x4x4x4xf32>, tensor<1x6x6x4x4x4xf32>) -> tensor<*xf32>
+  return %0 : tensor<*xf32>
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_grid_sample_6d
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x2x4x4x4x4xf32>, [[PARAM_1_:%.+]]: tensor<1x6x6x4x4x4xf32>) -> tensor<1x2x6x6x4x4xf32> {
+// CHECK:           [[GRID:%.+]] = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<1x2x4x4x4x4xf32>, tensor<1x6x6x4x4x4xf32>) -> tensor<1x2x6x6x4x4xf32>
+// CHECK:           return [[GRID]] : tensor<1x2x6x6x4x4xf32>
+// CHECK:         }
+}
+
+func.func @test_grid_sample_dim_shape(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x2xf32>) -> tensor<*xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_grid_sample_dim_shape
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x?x?x2xf32>) -> tensor<?x?x?x?xf32> {
+// CHECK:           [[GRID:%.+]] = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x2xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[GRID]] : tensor<?x?x?x?xf32>
+// CHECK:         }
+  return %0 : tensor<*xf32>
+}
+
+func.func @test_grid_sample_dim_shape2(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<*xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_grid_sample_dim_shape2
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
+// CHECK:           [[GRID:%.+]] = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[GRID]] : tensor<?x?x?x?xf32>
+// CHECK:         }
+  return %0 : tensor<*xf32>
+}
+
+func.func @test_grid_sample_dim_shape3(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x10x20x2xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x10x20x2xf32>) -> tensor<*xf32>
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_grid_sample_dim_shape3
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?x10x20x2xf32>) -> tensor<?x?x10x20xf32> {
+// CHECK:           [[GRID:%.+]] = "onnx.GridSample"(%arg0, %arg1) {align_corners = 1 : si64, mode = "bilinear", onnx_node_name = "GridSample_181", padding_mode = "border"} : (tensor<?x?x?x?xf32>, tensor<?x10x20x2xf32>) -> tensor<?x?x10x20xf32>
+// CHECK:           return [[GRID]] : tensor<?x?x10x20xf32>
+// CHECK:         }
+  return %0 : tensor<*xf32>
+}
