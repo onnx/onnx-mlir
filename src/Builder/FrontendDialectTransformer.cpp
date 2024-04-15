@@ -1388,18 +1388,9 @@ private:
     ret_vals.push_back(val);
   }
 
-  void getParamStr(std::string envStr, Value arg, std::string &paramStr) {
-    if (envStr != "*") {
-      std::replace(envStr.begin(), envStr.end(), '=', ':');
-      paramStr = envStr;
-      return;
-    }
-    auto tensorType = arg.getType().dyn_cast<RankedTensorType>();
-    assert(tensorType && "arg should be ranked tensor");
-    int64_t rank = tensorType.getRank();
-    for (int64_t i = 0; i < rank; i++)
-      paramStr +=
-          ((i == 0) ? "" : ",") + std::to_string(i) + ":" + char('a' + i);
+  void getParamStr(std::string envStr, std::string &paramStr) {
+    std::replace(envStr.begin(), envStr.end(), '=', ':');
+    paramStr = envStr;
     return;
   }
 
@@ -1407,7 +1398,6 @@ private:
   // string.
   void getInputDimParamStrVec(std::string envInputString, func::FuncOp funcOp,
       size_t numOfArgs, SmallVector<std::string> &paramStrVec) {
-    ArrayRef<BlockArgument> args = funcOp.getArguments();
     std::stringstream paramStrStream;
     paramStrStream << envInputString;
     std::string envStr;
@@ -1418,10 +1408,10 @@ private:
       envStr = envStr.substr(pos + 1);
       if (idx < 0) { // set all arguments
         for (size_t i = 0; i < numOfArgs; i++) {
-          getParamStr(envStr, args[i], paramStrVec[i]);
+          getParamStr(envStr, paramStrVec[i]);
         }
       } else {
-        getParamStr(envStr, args[idx], paramStrVec[idx]);
+        getParamStr(envStr, paramStrVec[idx]);
       }
     }
     return;
@@ -1432,7 +1422,6 @@ private:
       func::FuncOp funcOp, size_t numOfArgs) {
     SmallVector<NamedAttribute> argNamedAttrs;
     const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC");
-    fprintf(stderr, "IMPORTER_FORCE_DYNAMIC=%s\n", envInputString);fflush(stderr);
     if (envInputString == NULL)
       return argNamedAttrs;
     SmallVector<std::string> inputDimParamStrVec(numOfArgs);

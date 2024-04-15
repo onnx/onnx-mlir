@@ -37,7 +37,7 @@ def determine_dynamic_parameters(test_name):
         if test_name_cpu in test_to_enable_dynshape_dict:
             selected_list = variables.test_to_enable_dynshape_dict[test_name_cpu]
         elif len(variables.test_to_enable_dict[test_name_cpu]) > 1:
-            selected_list = variables.test_to_enable_dict[test_name_cpu].get( 
+            selected_list = variables.test_to_enable_dict[test_name_cpu].get(
                 DYNAMIC_SHAPE
             )
     return selected_list

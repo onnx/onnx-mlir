@@ -88,7 +88,9 @@ else:
         test_name_symbol_dynshape_list = test_name_symbol_dynshape.split(",")
         test_name = test_name_symbol_dynshape_list[0]
         if args.instruction_check and len(test_name_symbol_dynshape_list) >= 2:
-            variables.test_to_enable_symbol_dict[test_name] = test_name_symbol_dynshape_list[1]
+            variables.test_to_enable_symbol_dict[test_name] = (
+                test_name_symbol_dynshape_list[1]
+            )
         assert (
             test_name in all_test_names
         ), """test name {} not found, it is likely
@@ -98,7 +100,9 @@ else:
         )
         backend_test.include(r"^{}$".format(test_name))
         if len(test_name_symbol_dynshape_list) >= 3:
-            variables.test_to_enable_dynshape_dict[test_name] = ",".join(test_name_symbol_dynshape_list[2:])
+            variables.test_to_enable_dynshape_dict[test_name] = ",".join(
+                test_name_symbol_dynshape_list[2:]
+            )
 
 # import all test cases at global scope to make them visible to python.unittest
 globals().update(backend_test.test_cases)
