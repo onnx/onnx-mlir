@@ -801,6 +801,11 @@ struct InstanceNormIntoLayerNormPattern
     : public OpRewritePattern<ONNXInstanceNormalizationOp> {
   using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
 
+  static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
+    Type inputType = instanceNormOp.getInput().getType();
+    return onnx_mlir::isRankedShapedType(inputType);
+  }
+
   LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
       PatternRewriter &rewriter) const final {
     // Match.
@@ -849,6 +854,11 @@ struct InstanceNormIntoLayerNormPattern
 struct GroupNormIntoLayerNormPattern
     : public OpRewritePattern<ONNXGroupNormalizationOp> {
   using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
+
+  static bool isDecomposable(ONNXGroupNormalizationOp groupNormOp) {
+    Type inputType = groupNormOp.getX().getType();
+    return onnx_mlir::isRankedShapedType(inputType);
+  }
 
   LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
       PatternRewriter &rewriter) const final {
@@ -1003,8 +1013,18 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
-  target.addIllegalOp<ONNXGroupNormalizationOp>();
-  target.addIllegalOp<ONNXInstanceNormalizationOp>();
+  // In some instances the decompisition does not trigger and we are left these
+  // operations till. We need to see if these examples can be fixed upstream.
+  // However, for now allow these operations to pass and open a corresponding
+  // issue.
+  target.addDynamicallyLegalOp<ONNXGroupNormalizationOp>(
+      [](ONNXGroupNormalizationOp op) {
+        return !GroupNormIntoLayerNormPattern::isDecomposable(op);
+      });
+  target.addDynamicallyLegalOp<ONNXInstanceNormalizationOp>(
+      [](ONNXInstanceNormalizationOp op) {
+        return !InstanceNormIntoLayerNormPattern::isDecomposable(op);
+      });
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXPadV13Op>();
