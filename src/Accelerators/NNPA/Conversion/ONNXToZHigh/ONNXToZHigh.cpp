@@ -319,7 +319,7 @@ void getONNXToZHighOneOpDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMatMulOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXGemmOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(target, dimAnalysis);
-  addDynamicallyLegalOpFor<ONNXSoftplusOp>(target, dimAnalysis);
+  //addDynamicallyLegalOpFor<ONNXSoftplusOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXLSTMOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXGRUOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis);

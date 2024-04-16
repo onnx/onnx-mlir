@@ -83,6 +83,38 @@ def ReplaceONNXLeakyReluPattern: Pat<
    (SameLayout $X, $stickout)]
 >;
 
+// The pattern
+//   zhigh.Stick (onnx.Softplus (zhigh.Unstick (%X)))
+// can be replaced by
+//   %minusOne = zhigh.Stick(GetConstantOfType<"-1.0">, %X)
+//   %minusX = zhigh.Mul(%X, %minusOne)
+//   zhigh.Add (
+//       zhigh.Relu(%X),
+//       zhigh.log(zhigh.Sub(zhigh.Exp(zhigh.Min(%X,%minusX)), %minusOne)))
+//
+// Constraints:
+//   - %X should have static shape
+//
+def ReplaceONNXSoftplusPattern: Pattern<
+  (ZHighStickOp:$stickout (ONNXSoftplusOp:$out (ZHighUnstickOp $X)), $layout),
+  [
+   // Get stickified constant of minus one with input shape
+   (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $out), $layout),
+   // Get minus X with input shape
+   (ZHighMulOp:$minusX $X, $minusOne, (returnType $X)),
+
+   // Get Softplus
+   (ZHighAddOp
+      (ZHighReluOp $X, (returnType $X)),
+      (ZHighLogOp (ZHighSubOp (ZHighExpOp (ZHighMinOp $X, $minusX,
+                                                      (returnType $X)),
+                                          (returnType $X)),
+                              $minusOne, (returnType $X)),
+                  (returnType $X))),
+  ],
+  [(IsStaticShapeTensor $X), (SameLayout $X, $stickout)]
+>;
+
 // Calulation of `1/sqrt(X)` or reciprocal square root is often found in
 // deep learning models, but zDNN does not support it. Thus, we rewrite it into
 // zDNN-supported operations.

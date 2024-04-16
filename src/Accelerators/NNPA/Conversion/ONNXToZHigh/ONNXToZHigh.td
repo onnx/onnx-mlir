@@ -390,16 +390,27 @@ def replaceONNXReduceMeanV13Pattern : Pat<
 //      (ZHighLogOp (ZHighAddOp (ZHighExpOp (ZHighStickOp %X))),
 //                              (ZHighSticOp (GetConstantOfType<"1.0">, X))))
 //===----------------------------------------------------------------------===//
-def replaceONNXSoftplusPattern : Pat<
+def replaceONNXSoftplusPattern : Pattern<
   (ONNXSoftplusOp:$res $x),
-  (ZHighUnstickOp:$unstick
-      (ZHighLogOp
-          (ZHighAddOp (ZHighExpOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
-                                  (returnType $s_x)),
-                      (ZHighStickOp (GetConstantOfType<"1.0"> $res),
-                                    (NoneLayoutAttr)),
-                      (returnType $s_x)),
-          (returnType $s_x)))
+  [
+   // Get stickified constant of minus one with input shape
+   (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $res), (NoneLayoutAttr)),
+   // Get stickified X
+   (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
+   // Get minus X with input shape
+   (ZHighMulOp:$minusX $s_x, $minusOne, (returnType $s_x)),
+
+   // Get Softplus
+   (ZHighUnstickOp:$unstick
+      (ZHighAddOp
+         (ZHighReluOp $s_x, (returnType $s_x)),
+         (ZHighLogOp (ZHighSubOp (ZHighExpOp (ZHighMinOp $s_x, $minusX,
+                                                         (returnType $s_x)),
+                                             (returnType $s_x)),
+                                 $minusOne, (returnType $s_x)),
+                     (returnType $s_x)),
+         (returnType $s_x))),
+  ]
 >;
 
 //===----------------------------------------------------------------------===//
