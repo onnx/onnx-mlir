@@ -3763,6 +3763,47 @@ func.func @test_custom3(%arg0: tensor<1024xi32>, %arg1: tensor<4xf32>) -> tensor
 // CHECK:           return [[VAR_0_]] : tensor<4xf32>
 // CHECK:         }
 
+// -----
+
+func.func @test_batch_norm_3d(%arg0: tensor<1x256x512xf32>, %arg1: tensor<256xf32>,  %arg2: tensor<256xf32>, %arg3: tensor<256xf32>,  %arg4: tensor<256xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) {
+  %Y, %Mean, %Var = "onnx.BatchNormalization"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 9.99999974E-6 : f32, momentum = 1.000000e+00 : f32, training_mode = 1 : si64} : (tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y, %Mean, %Var : tensor<*xf32>, tensor<*xf32>, tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_batch_norm_3d
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256x512xf32>, [[PARAM_1_:%.+]]: tensor<256xf32>, [[PARAM_2_:%.+]]: tensor<256xf32>, [[PARAM_3_:%.+]]: tensor<256xf32>, [[PARAM_4_:%.+]]: tensor<256xf32>) -> (tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>) {
+// CHECK:           [[Y_:%.+]], [[running_mean_:%.+]], [[VAR_running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]]) {epsilon = 9.99999974E-6 : f32, momentum = 1.000000e+00 : f32, training_mode = 1 : si64} : (tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>)
+// CHECK:           return [[Y_]], [[running_mean_]], [[VAR_running_var_]] : tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>
+}
+
+func.func @test_batch_norm_4d(%arg0: tensor<1x256x512x2xf32>, %arg1: tensor<256xf32>,  %arg2: tensor<256xf32>, %arg3: tensor<256xf32>,  %arg4: tensor<256xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) {
+  %Y, %Mean, %Var = "onnx.BatchNormalization"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 9.99999974E-6 : f32, momentum = 2.000000e+00 : f32, training_mode = 1 : si64} : (tensor<1x256x512x2xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y, %Mean, %Var : tensor<*xf32>, tensor<*xf32>, tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_batch_norm_4d
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256x512x2xf32>, [[PARAM_1_:%.+]]: tensor<256xf32>, [[PARAM_2_:%.+]]: tensor<256xf32>, [[PARAM_3_:%.+]]: tensor<256xf32>, [[PARAM_4_:%.+]]: tensor<256xf32>) -> (tensor<1x256x512x2xf32>, tensor<256xf32>, tensor<256xf32>) {
+// CHECK:           [[Y_:%.+]], [[running_mean_:%.+]], [[VAR_running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]]) {epsilon = 9.99999974E-6 : f32, momentum = 2.000000e+00 : f32, training_mode = 1 : si64} : (tensor<1x256x512x2xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<1x256x512x2xf32>, tensor<256xf32>, tensor<256xf32>)
+// CHECK:           return [[Y_]], [[running_mean_]], [[VAR_running_var_]] : tensor<1x256x512x2xf32>, tensor<256xf32>, tensor<256xf32>
+}
+
+func.func @test_batch_norm_dyn_shape_input(%arg0: tensor<?x?x?xf32>, %arg1: tensor<256xf32>,  %arg2: tensor<256xf32>, %arg3: tensor<256xf32>,  %arg4: tensor<256xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) {
+  %Y, %Mean, %Var = "onnx.BatchNormalization"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 9.99999974E-6 : f32, momentum = 1.000000e+00 : f32, training_mode = 1 : si64} : (tensor<?x?x?xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y, %Mean, %Var : tensor<*xf32>, tensor<*xf32>, tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_batch_norm_dyn_shape_input
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<256xf32>, [[PARAM_2_:%.+]]: tensor<256xf32>, [[PARAM_3_:%.+]]: tensor<256xf32>, [[PARAM_4_:%.+]]: tensor<256xf32>) -> (tensor<?x?x?xf32>, tensor<256xf32>, tensor<256xf32>) {
+// CHECK:           [[Y_:%.+]], [[running_mean_:%.+]], [[VAR_running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]]) {epsilon = 9.99999974E-6 : f32, momentum = 1.000000e+00 : f32, training_mode = 1 : si64} : (tensor<?x?x?xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>, tensor<256xf32>) -> (tensor<?x?x?xf32>, tensor<256xf32>, tensor<256xf32>)
+// CHECK:           return [[Y_]], [[running_mean_]], [[VAR_running_var_]] : tensor<?x?x?xf32>, tensor<256xf32>, tensor<256xf32>
+}
+
+func.func @test_batch_norm_dyn_shape_mean_var(%arg0: tensor<1x256x512xf32>, %arg1: tensor<256xf32>,  %arg2: tensor<256xf32>, %arg3: tensor<?xf32>,  %arg4: tensor<?xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>) {
+  %Y, %Mean, %Var = "onnx.BatchNormalization"(%arg0, %arg1, %arg2, %arg3, %arg4) {epsilon = 9.99999974E-6 : f32, momentum = 1.000000e+00 : f32, training_mode = 1 : si64} : (tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>, tensor<?xf32>, tensor<?xf32>) -> (tensor<*xf32>, tensor<*xf32>, tensor<*xf32>)
+  return %Y, %Mean, %Var : tensor<*xf32>, tensor<*xf32>, tensor<*xf32>
+
+// CHECK-LABEL:  func.func @test_batch_norm_dyn_shape_mean_var
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x256x512xf32>, [[PARAM_1_:%.+]]: tensor<256xf32>, [[PARAM_2_:%.+]]: tensor<256xf32>, [[PARAM_3_:%.+]]: tensor<?xf32>, [[PARAM_4_:%.+]]: tensor<?xf32>) -> (tensor<1x256x512xf32>, tensor<?xf32>, tensor<?xf32>) {
+// CHECK:           [[Y_:%.+]], [[running_mean_:%.+]], [[VAR_running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]], [[PARAM_3_]], [[PARAM_4_]]) {epsilon = 9.99999974E-6 : f32, momentum = 1.000000e+00 : f32, training_mode = 1 : si64} : (tensor<1x256x512xf32>, tensor<256xf32>, tensor<256xf32>, tensor<?xf32>, tensor<?xf32>) -> (tensor<1x256x512xf32>, tensor<?xf32>, tensor<?xf32>)
+// CHECK:           return [[Y_]], [[running_mean_]], [[VAR_running_var_]] : tensor<1x256x512xf32>, tensor<?xf32>, tensor<?xf32>
+}
 
 // -----
 
