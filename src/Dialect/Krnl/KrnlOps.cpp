@@ -230,10 +230,17 @@ ParseResult KrnlDefineLoopsOp::parse(
  *   %i0 = 10 to N : %i1 = M to 20
  */
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
-    krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
+    krnl::KrnlIterateOperandPack operandPack, ValueRange iterArgInits,
+    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+        bodyBuilderFn) {
   // Record optimized loops and the number of such loops.
   result.addOperands(operandPack.getOperands());
+
+  // Add result based on iterArgInits.
+  result.addOperands(iterArgInits);
+  for (auto iterArgInit : iterArgInits)
+    result.addTypes(iterArgInit.getType());
+
   result.addAttribute(
       KrnlIterateOp::getBoundsAttrName(), operandPack.getAttributes());
   result.addAttribute(getNumOptimizedLoopsAttrName(),
@@ -249,6 +256,10 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   auto body_arg_locs = llvm::SmallVector<Location, 4>(
       operandPack.getNumInputLoops(), result.location);
   body->addArguments(body_args, body_arg_locs);
+  SmallVector<Value> iterArgs;
+  // Add iterArgs after loop args.
+  for (Value val : iterArgInits)
+    iterArgs.emplace_back(body->addArgument(val.getType(), val.getLoc()));
   bodyRegion->push_back(body);
 
   // If nonnull, invoke the lambda function that creates the loop body. This
@@ -258,7 +269,7 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   if (bodyBuilderFn) {
     PatternRewriter::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToStart(body);
-    bodyBuilderFn(builder, result.location, iterArgs);
+    bodyBuilderFn(builder, result.location, iterArgInits, iterArgs);
     ensureTerminator(*bodyRegion, builder, result.location);
   } else {
     ensureTerminator(*bodyRegion, builder, result.location);
@@ -268,7 +279,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops, ValueRange lbs,
     ValueRange ubs, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+        bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   // TODO: May want to change KrnlIterateOperandPack to use ValueRanges...
   SmallVector<Value, 4> origLoops, optLoops;
@@ -288,7 +300,8 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
 void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
     ValueRange originalLoops, ValueRange optimizedLoops,
     ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs, ValueRange iterArgs,
-    function_ref<void(OpBuilder &, Location, ValueRange)> bodyBuilderFn) {
+    function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>
+        bodyBuilderFn) {
   assert(lbs.size() == ubs.size() && "expected matching number of lb & ub");
   SmallVector<Value, 4> origLoops, optLoops;
   for (auto org : originalLoops)
@@ -304,6 +317,16 @@ void KrnlIterateOp::build(OpBuilder &builder, OperationState &result,
   build(builder, result, pack, iterArgs, bodyBuilderFn);
 }
 
+MutableArrayRef<OpOperand> KrnlIterateOp::getInitsMutable() {
+  size_t numControlOperands = getNumOperands() - getNumIterArgs();
+  return getOperation()->getOpOperands().drop_front(numControlOperands);
+}
+
+std::optional<::llvm::MutableArrayRef<::mlir::OpOperand>>
+KrnlIterateOp::getYieldedValuesMutable() {
+  return cast<KrnlYieldOp>(getBody()->getTerminator()).getOperandsMutable();
+}
+
 void KrnlIterateOp::print(OpAsmPrinter &printer) {
   printer << "(";
   // Print optimized loops:
@@ -316,7 +339,12 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
     printer << ")";
     return;
   }
-  auto inductionVars = getBodyRegion().begin()->getArguments();
+  auto entryBBArgs = getBodyRegion().begin()->getArguments();
+  auto numEntryBBArgs = entryBBArgs.size();
+  auto numIterArgs = getNumIterArgs();
+  auto numInductionVars = numEntryBBArgs - numIterArgs;
+  auto inductionVars = Block::BlockArgListType(
+      entryBBArgs.begin(), entryBBArgs.begin() + numInductionVars);
   auto boundItr =
       (*this)
           ->getAttrOfType<ArrayAttr>(KrnlIterateOp::getBoundsAttrName())
@@ -340,8 +368,48 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
   }
 
   printer << ")";
+
+  // iterArgs in format of iter_args(% arg = % init)
+  if (getNumIterArgs()) {
+    auto iterArgs = Block::BlockArgListType(
+        entryBBArgs.begin() + numInductionVars, entryBBArgs.end());
+    printer << " iter_args(";
+    for (auto it : llvm::zip(iterArgs, getIterArgInits())) {
+      printer.printOperand(std::get<0>(it));
+      printer << " = ";
+      printer.printOperand(std::get<1>(it));
+    }
+    printer << ") -> (";
+    // -> (f32)
+    for (auto it : getResults()) {
+      it.getType().print(printer.getStream());
+    }
+    printer << ")";
+  }
   printer.printRegion(getBodyRegion(), /*printEntryBlockArgs=*/false,
-      /*printBlockTerminators=*/false);
+      /*printBlockTerminators=*/getNumIterArgs());
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlYieldOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult KrnlYieldOp::verify() {
+  auto *parentOp = (*this)->getParentOp();
+  auto results = parentOp->getResults();
+  auto operands = getOperands();
+
+  if (!isa<KrnlIterateOp>(parentOp))
+    return emitOpError() << "only terminates krnl.iterate regions";
+  if (parentOp->getNumResults() != getNumOperands())
+    return emitOpError() << "parent of yield must have same number of "
+                            "results as the yield operands";
+  for (auto it : llvm::zip(results, operands)) {
+    if (std::get<0>(it).getType() != std::get<1>(it).getType())
+      return emitOpError() << "types mismatch between yield op and its parent";
+  }
+
+  return success();
 }
 
 namespace {
@@ -486,6 +554,10 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
   result.addAttribute(KrnlIterateOp::getBoundsAttrName(),
       builder.getArrayAttr(loopParser.boundMaps));
 
+  // Parse the optional initial iteration arguments.
+  SmallVector<OpAsmParser::Argument, 4> regionArgs;
+  SmallVector<OpAsmParser::UnresolvedOperand, 4> operands;
+
   Region *region = result.addRegion();
 
   SmallVector<OpAsmParser::Argument> entryArgs;
@@ -494,6 +566,23 @@ ParseResult KrnlIterateOp::parse(OpAsmParser &parser, OperationState &result) {
     arg.ssaName = name;
     arg.type = builder.getIndexType();
     entryArgs.push_back(arg);
+  }
+
+  if (succeeded(parser.parseOptionalKeyword("iter_args"))) {
+    // Parse assignment list and results type list.
+    if (parser.parseAssignmentList(regionArgs, operands) ||
+        parser.parseArrowTypeList(result.types))
+      return failure();
+    // Resolve input operands.
+    for (auto argOperandType : llvm::zip(regionArgs, operands, result.types)) {
+      Type type = std::get<2>(argOperandType);
+      std::get<0>(argOperandType).type = type;
+      if (parser.resolveOperand(
+              std::get<1>(argOperandType), type, result.operands))
+        return failure();
+      // Add to entryArgs.
+      entryArgs.push_back(std::get<0>(argOperandType));
+    }
   }
 
   if (parser.parseRegion(*region, entryArgs))
