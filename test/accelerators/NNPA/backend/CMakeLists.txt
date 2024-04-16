@@ -93,7 +93,14 @@ endif()
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
 # Only test cases for operations supported by zDNN are listed. Non-supported cases are
 # commented out. This list is set in the environment variable `TEST_CASE_BY_USER`. So,
-# instruction name is added after test case name in each test case.
+# instruction name and relationship among input arguments are added after test
+# case name in each test case if necessary. For example, 
+#    test_add_cpu,zdnn_add,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
+# means that (1) the test name is "test_add_cpu", (2) instruction name to be
+# checked if it is used is "zdnn_add", (3) relationship among input arguments
+# are "0:0=a,1=b,2=c|1:0=a,1=b,2=c", which means that the first ranks of the
+# first, second and third ranks of the first and second input arguments are the
+# same respectively.
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA
