@@ -42,8 +42,10 @@ namespace onnx_mlir {
 IndexExprScope::IndexExprScope(OpBuilder *rewriter, Location loc)
     : dims(), symbols(), rewriter(rewriter), parentScope(getCurrentScopePtr()),
       loc(loc), container() {
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG(
       llvm::dbgs() << "IES: build scope: " << ((long long)this) << "\n";);
+#endif
   getCurrentScopePtr() = this;
 }
 
@@ -56,8 +58,10 @@ IndexExprScope::IndexExprScope(
     : dims(), symbols(), rewriter(innerRewriter),
       parentScope(enclosingScope ? enclosingScope : getCurrentScopePtr()),
       loc(parentScope->loc), container() {
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG(
       llvm::dbgs() << "IES: build scope: " << ((long long)this) << "\n";);
+#endif
   // Check the provided enclosing scope is the current one.
   assert(parentScope == getCurrentScopePtr() &&
          "provided parent scope was not the enclosing active scope");
@@ -79,8 +83,10 @@ IndexExprScope::~IndexExprScope() {
   container.clear();
   // no need to clear the cached copies as they are also in the container.
   getCurrentScopePtr() = parentScope;
+#if DETAILED_DEBUG_OF_SCOPE
   LLVM_DEBUG(
       llvm::dbgs() << "IES: delete scope: " << ((long long)this) << "\n";);
+#endif
 }
 
 /*static*/ IndexExprScope &IndexExprScope::getCurrentScope() {
@@ -560,6 +566,29 @@ void IndexExpr::debugPrint(
   valueList.clear();
   for (IndexExpr expr : indexExprArray)
     valueList.emplace_back(expr.getValue());
+}
+
+/* static*/ void IndexExpr::getAffineMapAndOperands(
+    ArrayRef<IndexExpr> indexExprArray, AffineMap &map,
+    SmallVectorImpl<mlir::Value> &operands) {
+  assert(indexExprArray.size() > 0 && "expected at least one index expr");
+  SmallVector<AffineExpr, 8> affineExprList;
+  for (IndexExpr expr : indexExprArray) {
+    AffineMap tmpMap;
+    SmallVector<Value, 8> tmpOperands;
+    expr.getAffineMapAndOperands(tmpMap, tmpOperands);
+    operands = tmpOperands;
+    // Enqueue the affine expressions defined by this temp map.
+    for (AffineExpr affineExpr : tmpMap.getResults()) {
+      affineExprList.emplace_back(affineExpr);
+    }
+  }
+
+  // Now can generate a common map with all the results
+  unsigned dimCount = indexExprArray[0].getScope().getNumDims();
+  unsigned symCount = indexExprArray[0].getScope().getNumSymbols();
+  map = AffineMap::get(dimCount, symCount, affineExprList,
+      indexExprArray[0].getRewriter().getContext());
 }
 
 //===----------------------------------------------------------------------===//

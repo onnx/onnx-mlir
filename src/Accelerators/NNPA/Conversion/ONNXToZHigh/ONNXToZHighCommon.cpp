@@ -14,10 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 
 using namespace mlir;
 namespace onnx_mlir {
+
+bool isEnableScalarBcastBinary() { return nnpaEnableScalarBcastBinary; }
 
 /// Get transposed tensor by using a permutation array.
 Value emitONNXTranspose(

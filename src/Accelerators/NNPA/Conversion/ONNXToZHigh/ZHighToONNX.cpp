@@ -59,6 +59,8 @@ void ZHighToONNXLoweringPass::runOnOperation() {
 
   RewritePatternSet patterns(&getContext());
   populateWithGenerated(patterns);
+  zhigh::ZHighStickOp::getCanonicalizationPatterns(patterns, &getContext());
+  zhigh::ZHighUnstickOp::getCanonicalizationPatterns(patterns, &getContext());
 
   (void)applyPatternsAndFoldGreedily(function, std::move(patterns));
 }

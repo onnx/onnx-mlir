@@ -100,26 +100,34 @@ static inline void WinTimerSub(LARGE_INTEGER newTime, LARGE_INTEGER prevTime,
   *resultMicroseconds =
       ((elapsed * 1000000) / perfFrequency.QuadPart) % 1000000;
 }
-static void ReportTime() {
+static void ReportTime(char *instrumentReportOpName,
+    char *instrumentReportNodeName, int isBefore) {
   LARGE_INTEGER newTime;
-  LONGLONG resultSeconds, resultMicroseconds;
+  LONGLONG resultSeconds1, resultMicroseconds1;
+  LONGLONG resultSeconds2, resultMicroseconds2;
   QueryPerformanceCounter(&newTime);
-  WinTimerSub(newTime, globalTime, &resultSeconds, &resultMicroseconds);
-  fprintf(fout, ", %lld.%06lld", resultSeconds, resultMicroseconds);
-  WinTimerSub(newTime, initTime, &resultSeconds, &resultMicroseconds);
-  fprintf(fout, ", %lld.%06lld\n", resultSeconds, resultMicroseconds);
+  WinTimerSub(newTime, globalTime, &resultSeconds1, &resultMicroseconds1);
+  WinTimerSub(newTime, initTime, &resultSeconds2, &resultMicroseconds2);
+  // Print header and data for time.
+  fprintf(fout, "==PERF-REPORT==, %s, %s, %s, %lld.%06lld, %lld.%06lld\n",
+      instrumentReportOpName, instrumentReportNodeName,
+      (isBefore ? "before" : "after"), resultSeconds1, resultMicroseconds1,
+      resultSeconds2, resultMicroseconds2);
   globalTime = newTime;
 }
 #else
-static void ReportTime() {
-  struct timeval newTimeValue, result;
+static void ReportTime(char *instrumentReportOpName,
+    char *instrumentReportNodeName, int isBefore) {
+  struct timeval newTimeValue, result1, result2;
   gettimeofday(&newTimeValue, NULL);
-  timersub(&newTimeValue, &globalTimeVal, &result);
-  fprintf(
-      fout, ", %ld.%06ld", (long int)result.tv_sec, (long int)result.tv_usec);
-  timersub(&newTimeValue, &initTimeVal, &result);
-  fprintf(
-      fout, ", %ld.%06ld\n", (long int)result.tv_sec, (long int)result.tv_usec);
+  timersub(&newTimeValue, &globalTimeVal, &result1);
+  timersub(&newTimeValue, &initTimeVal, &result2);
+  // Print header and data for time.
+  fprintf(fout, "==PERF-REPORT==, %s, %s, %s, %ld.%06ld, %ld.%06ld\n",
+      instrumentReportOpName, instrumentReportNodeName,
+      (isBefore ? "before" : "after"), (long int)result1.tv_sec,
+      (long int)result1.tv_usec, (long int)result2.tv_sec,
+      (long int)result2.tv_usec);
   globalTimeVal = newTimeValue;
 }
 #endif
@@ -234,10 +242,7 @@ void OMInstrumentPoint(const char *opName, int64_t iTag, const char *nodeName) {
   instrumentReportNodeName[nodeNameLen] = '\0';
 
   if (reportTime) {
-    // Print header and data for time.
-    fprintf(fout, "==PERF-REPORT==, %s, %s, %s", instrumentReportOpName,
-        instrumentReportNodeName, (isBefore ? "before" : "after"));
-    ReportTime();
+    ReportTime(instrumentReportOpName, instrumentReportNodeName, isBefore);
   }
   if (reportMem && psErrorCount < 20) {
     // Print header and data for memory.

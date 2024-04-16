@@ -25,6 +25,7 @@ include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
+include "mlir/Dialect/Affine/IR/AffineMemoryOpInterfaces.td"
 include "src/Interface/SpecializedKernelOpInterface.td"
 
 def Krnl_Dialect : Dialect {
@@ -101,7 +102,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 
-def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
+def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops", [NoMemoryEffect]> {
   let summary = "define_loops operation";
   let description = [{
     The "krnl.define_loops" operation is used to define input loops,
@@ -129,8 +130,35 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
-    DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
+def KrnlYieldOp : Op<Krnl_Dialect, "yield", [Pure, Terminator, ReturnLike,
+    MemRefsNormalizable]> {
+  let summary = "Yield values to parent operation";
+  let description = [{
+    The `krnl.yield` yields zero or more SSA values from an krnl.iterate op region and
+    terminates the region. The semantics of how the values yielded are used
+    is defined by the parent operation.
+    If `krnl.yield` has any operands, the operands must match the parent
+    operation's results.
+    If the parent operation defines no values, then the `krnl.yield` may be
+    left out in the custom syntax and the builders will insert one implicitly.
+    Otherwise, it has to be present in the syntax to indicate which values are
+    yielded.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [
+    OpBuilder<(ins), [{ build($_builder, $_state, std::nullopt); }]>
+  ];
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+  let hasVerifier = 1;
+}
+
+def ImplicitKrnlYield : SingleBlockImplicitTerminator<"KrnlYieldOp">;
+
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, ImplicitKrnlYield,
+    DeclareOpInterfaceMethods<LoopLikeOpInterface, ["getInitsMutable", "getYieldedValuesMutable"]>]> {
   let summary = "iterate operation";
   let description = [{
     The "krnl.iterate" operation is conceptually equivalent to a nested for loops.
@@ -160,7 +188,7 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
   }];
 
   let arguments = (ins Variadic<AnyType>);
-
+  let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$bodyRegion);
 
   let skipDefaultBuilders = 1;
@@ -168,18 +196,18 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
     // Main builder.
     OpBuilder<(ins "onnx_mlir::krnl::KrnlIterateOperandPack":$operandPack,
       CArg<"ValueRange", "std::nullopt">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>", "nullptr">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op.
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ValueRange">:$lbs, CArg<"ValueRange">:$ubs, CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>,
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>">:$bodyBuilderFn)>,
     // Builder for the optimized iterate op with IndexExpr
     OpBuilder<(ins
       CArg<"ValueRange">:$originalLoops, CArg<"ValueRange">:$optimizedLoops,
       CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$lbs, CArg<"ArrayRef<onnx_mlir::IndexExpr>">:$ubs,
       CArg<"ValueRange">:$iterArgs,
-      CArg<"function_ref<void(OpBuilder &, Location, ValueRange)>">:$bodyBuilderFn)>
+      CArg<"function_ref<void(OpBuilder &, Location, ValueRange, ValueRange)>">:$bodyBuilderFn)>
   ];
 
   let hasCustomAssemblyFormat = 1;
@@ -200,6 +228,19 @@ def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
           .getValue()
           .getSExtValue();
       return num_optimized_loops;
+    }
+
+    int64_t getNumIterArgs() { return getNumResults(); }
+
+    Block::BlockArgListType getRegionIterArgs() {
+      return Block::BlockArgListType(getBody()->getArguments().begin() +
+                                         (getBody()->getArguments().size() - getNumIterArgs()),
+          getBody()->getArguments().end());
+    }
+    ValueRange getIterArgInits() {
+      return iterator_range(
+          operand_begin() + (getNumOperands() - getNumIterArgs()),
+          operand_end());
     }
 
     // Get name of the attribute for storing bound represented using affine maps.
@@ -270,8 +311,9 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
 
   let results = (outs AnyType:$output);
 }
-
-def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore",
+    [MemRefsNormalizable, DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
   let summary = "Krnl store into a seq";
   let description = [{
     This op is similar to KrnSeqInsertOp but assumes that the input seq has
@@ -286,7 +328,7 @@ def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
                        Index:$index);
 }
 
-def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator]> {
+def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator, NoMemoryEffect]> {
   let summary = "Krnl terminator operation";
   let description = [{
     Krnl terminator is a special terminator operation for blocks inside krnl
@@ -339,7 +381,8 @@ def KrnlEntryPointOp : Op<Krnl_Dialect, "entry_point"> {
   }];
 }
 
-def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable]> {
+def KrnlMemcpyOp : Op<Krnl_Dialect, "memcpy", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]> {
   let summary = "Krnl memcpy operation";
   let description = [{
     Copy `num_elems` elements from `src` to `dest` MemRef.
@@ -666,6 +709,54 @@ def KrnlStoreOp : Op<Krnl_Dialect, "store",
   }];
 }
 
+def KrnlGetLinearOffsetIndexOp : Op<Krnl_Dialect, "get_linear_offset_index",
+  [DeclareOpInterfaceMethods<AffineReadOpInterface>,
+  DeclareOpInterfaceMethods<AffineMapAccessInterface>, MemRefsNormalizable]> {
+  let summary = "A Krnl operation to compute a linear offset index from a N-D index.";
+
+  let description = [{
+    Given a MemRef and an N-D index (id_1, id_2, ..., id_n), where n is
+    the rank of the MemRef, this operation computes a linear offset index.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "the reference memref", [MemRead]>:$memref,
+                       Variadic<Index>:$indices,
+                       AffineMapAttr:$map);
+  let results = (outs Index:$result);
+
+  // let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+  let builders = [
+    /// Builds an op with the specified map and operands.
+    OpBuilder<(ins "AffineMap":$map, "ValueRange":$operands)>,
+    /// Builds an op with an identity map and operands.
+    OpBuilder<(ins "Value":$memref, CArg<"ValueRange", "{}">:$indices)>,
+    /// Builds an op with the specified map and its operands.
+    OpBuilder<(ins "Value":$memref, "AffineMap":$map,
+      "ValueRange":$mapOperands)>
+  ];
+  let extraClassDeclaration = [{
+    /// Returns the operand index of the memref.
+    unsigned getMemRefOperandIndex() { return 0; }
+
+    void setMemRef(Value value) { setOperand(getMemRefOperandIndex(), value); }
+
+    MemRefType getMemRefType() {
+      return getMemref().getType().cast<MemRefType>();
+    }
+
+    /// Returns the affine map used to index the memref for this operation.
+    AffineMapAttr getAffineMapAttr() {
+      return getMapAttr();
+    }
+
+    static StringRef getMapAttrStrName() { return "map"; }
+  }];
+
+  let hasCustomAssemblyFormat = 1;
+  // let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+
+}
+
 def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
   let summary = "Krnl movable operation";
   let description = [{
@@ -687,7 +778,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 
 }
 
-def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"> {
+def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value", [NoMemoryEffect]> {
   let summary = "Krnl ";
   let description = [{
      Krnl operation to convert loop references to corresponding induction
@@ -1126,6 +1217,7 @@ def KrnlInstrumentOp : Op<Krnl_Dialect, "runtime_instrument",
 }
 
 def KrnlMemsetOp : Op<Krnl_Dialect, "memset", [MemRefsNormalizable,
+    DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
     TypesMatchWith<"type of 'value' matches element type of 'dest'",
                    "dest", "value",
                    "$_self.cast<MemRefType>().getElementType()">]> {

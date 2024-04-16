@@ -43,10 +43,18 @@ struct KrnlBuilder : public DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
 
+  mlir::Value getLinearOffsetIndex(
+      mlir::Value memref, mlir::ValueRange indices = {}) const;
+  mlir::Value getLinearOffsetIndexIE(
+      mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
+
   void seqstore(mlir::Value element, mlir::Value seq, mlir::Value index) const;
   void seqstore(mlir::Value element, mlir::Value seq, IndexExpr index) const;
 
   mlir::Value vectorTypeCast(mlir::Value sourceMemref, int64_t vectorLen) const;
+
+  void region(
+      mlir::function_ref<void(KrnlBuilder &createKrnl)> bodyBuilderFn) const;
 
   mlir::ValueRange defineLoops(int64_t originalLoopNum) const;
   mlir::ValueRange block(mlir::Value loop, int64_t blockSize) const;
@@ -60,6 +68,12 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::function_ref<void(
           KrnlBuilder &createKrnl, mlir::ValueRange indices)>
           bodyBuilderFn) const;
+  mlir::KrnlIterateOp iterate(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ValueRange lbs,
+      mlir::ValueRange ubs, mlir::ValueRange inits,
+      mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
+          mlir::ValueRange blockIters)>
+          bodyBuilderFn) const;
   mlir::KrnlIterateOp iterate(
       const krnl::KrnlIterateOperandPack &operands) const;
 
@@ -70,6 +84,14 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::function_ref<void(
           KrnlBuilder &createKrnl, mlir::ValueRange indices)>
           bodyBuilderFn) const;
+  mlir::KrnlIterateOp iterateIE(mlir::ValueRange originalLoops,
+      mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
+      mlir::ArrayRef<IndexExpr> ubs, mlir::ValueRange inits,
+      mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
+          mlir::ValueRange blockIters)>
+          bodyBuilderFn) const;
+
+  void yield(mlir::ValueRange iterArgs) const;
 
   void copyToBuffer(
       // Buffer and source memory. Source memref may have a higher rank than
@@ -143,17 +165,21 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::Value strncmp(
       mlir::Value str1, mlir::Value str2, mlir::Value len) const;
   mlir::Value strlen(mlir::Value str) const;
+  // Debug: print messages, values, and tensors at runtime.
   void printf(mlir::StringRef msg) const;
+  void printf(mlir::StringRef msg, mlir::Value input, /* type from input */
+      bool endsWithNewLine = false) const;
+  void printf(
+      mlir::StringRef msg, IndexExpr input, bool endsWithNewLine = false) const;
   void printf(mlir::StringRef msg, mlir::Value input, mlir::Type inputType,
       bool endsWithNewLine = false) const;
-  void printf(mlir::Value input, mlir::Type inputType) const;
+  void printTensor(mlir::StringRef msg, mlir::Value input) const;
 
   // Onnx-mlir runtime functions.
   void randomNormal(mlir::Value alloc, mlir::Value numberOfRandomValues,
       mlir::Value mean, mlir::Value scale, mlir::Value seed) const;
   mlir::Value findIndex(
       mlir::Value input, mlir::Value G, mlir::Value V, mlir::Value len) const;
-  void printTensor(mlir::StringRef msg, mlir::Value input) const;
 };
 
 //====--- Support for Affine Builder with Krnl Mem Ops ------------------===//

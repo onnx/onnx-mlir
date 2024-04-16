@@ -468,8 +468,7 @@ struct ONNXConvTransposeOpShapeHelper : public ONNXOpShapeHelper {
   ONNXConvTransposeOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
       : ONNXOpShapeHelper(op, operands, ieBuilder, scope), kernelShape(),
-        pads(), strides(), dilations(), outputPadding(), dimsNoOutputPadding() {
-  }
+        pads(), strides(), dilations(), outputPadding() {}
   virtual ~ONNXConvTransposeOpShapeHelper() {}
   mlir::LogicalResult computeShape() final;
   // Values set by computeShape.
@@ -478,7 +477,6 @@ struct ONNXConvTransposeOpShapeHelper : public ONNXOpShapeHelper {
   llvm::SmallVector<int64_t, 2> strides;
   llvm::SmallVector<int64_t, 2> dilations;
   llvm::SmallVector<int64_t, 2> outputPadding;
-  llvm::SmallVector<IndexExpr, 2> dimsNoOutputPadding;
 };
 
 //===----------------------------------------------------------------------===//
@@ -721,6 +719,24 @@ using ONNXUnsqueezeV11OpShapeHelper = ONNXCommonUnsqueezeOpShapeHelper<mlir::ONN
 // clang-format on
 
 //===----------------------------------------------------------------------===//
+// DFT Ops
+//===----------------------------------------------------------------------===//
+
+// Generic DFT shape helper.
+template <typename OP_TYPE>
+struct ONNXGenericDFTOpShapeHelper : public ONNXOpShapeHelper {
+  ONNXGenericDFTOpShapeHelper(mlir::Operation *op, mlir::ValueRange operands,
+      IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr)
+      : ONNXOpShapeHelper(op, operands, ieBuilder, scope) {}
+  virtual ~ONNXGenericDFTOpShapeHelper() {}
+  mlir::LogicalResult computeShape() final;
+  mlir::LogicalResult customComputeShape(IndexExpr &axis);
+};
+
+// clang-format off
+using ONNXDFTOpShapeHelper = ONNXGenericDFTOpShapeHelper<mlir::ONNXDFTOp>;
+
+//===----------------------------------------------------------------------===//
 // Reduction Ops
 //===----------------------------------------------------------------------===//
 
@@ -751,10 +767,12 @@ using ONNXReduceLogSumExpOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir:
 using ONNXReduceLogSumExpV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceLogSumExpV13Op>;
 using ONNXReduceMaxOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxOp>;
 using ONNXReduceMaxV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxV13Op>;
+using ONNXReduceMaxV18OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMaxV18Op>;
 using ONNXReduceMeanOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanOp>;
 using ONNXReduceMeanV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMeanV13Op>;
 using ONNXReduceMinOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinOp>;
 using ONNXReduceMinV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinV13Op>;
+using ONNXReduceMinV18OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceMinV18Op>;
 using ONNXReduceProdOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdOp>;
 using ONNXReduceProdV13OpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceProdV13Op>;
 using ONNXReduceSumOpShapeHelper = ONNXGenericReductionOpShapeHelper<mlir::ONNXReduceSumOp>;
@@ -838,7 +856,6 @@ using ONNXConcatOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatOp>
 using ONNXConcatShapeTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConcatShapeTransposeOp>;
 using ONNXConstantOfShapeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOfShapeOp>;
 using ONNXConstantOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXConstantOp>;
-using ONNXDFTOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDFTOp>;
 using ONNXDepthToSpaceOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDepthToSpaceOp>;
 using ONNXDequantizeLinearOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDequantizeLinearOp>;
 using ONNXDimOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXDimOp>;

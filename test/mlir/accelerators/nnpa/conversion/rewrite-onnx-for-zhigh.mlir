@@ -390,8 +390,8 @@ func.func @test_matmul_broadcast_2(%arg0: tensor<256x256xf32>, %arg1: tensor<4x1
 
 // CONSTPROP-LABEL:  func.func @test_matmul_broadcast_2
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<256x256xf32>, [[PARAM_1_:%.+]]: tensor<4x12x256x64xf32>) -> tensor<4x12x256x64xf32> {
-// CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 64]> : tensor<3xi64>
 // CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 64]> : tensor<4xi64>
+// CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 64]> : tensor<3xi64>
 // CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_1_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x64xf32>, tensor<3xi64>) -> tensor<48x256x64xf32>
 // CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.MatMul"([[PARAM_0_]], [[VAR_1_]]) : (tensor<256x256xf32>, tensor<48x256x64xf32>) -> tensor<48x256x64xf32>
 // CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<48x256x64xf32>, tensor<4xi64>) -> tensor<4x12x256x64xf32>
@@ -556,8 +556,8 @@ func.func @softmax_nd_to_2d(%arg0: tensor<4x12x256x256xf32>) -> (tensor<4x12x256
 
 // CONSTPROP-LABEL:  func.func @softmax_nd_to_2d
 // CONSTPROP-SAME:   ([[PARAM_0_:%.+]]: tensor<4x12x256x256xf32>) -> tensor<4x12x256x256xf32> {
-// CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
 // CONSTPROP-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4, 12, 256, 256]> : tensor<4xi64>
+// CONSTPROP:           [[VAR_0_:%.+]] = onnx.Constant dense<[-1, 256, 256]> : tensor<3xi64>
 // CONSTPROP:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<4x12x256x256xf32>, tensor<3xi64>) -> tensor<48x256x256xf32>
 // CONSTPROP-DAG:       [[VAR_2_:%.+]] = "onnx.Softmax"([[VAR_1_]]) {axis = -1 : si64} : (tensor<48x256x256xf32>) -> tensor<48x256x256xf32>
 // CONSTPROP:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_2_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<48x256x256xf32>, tensor<4xi64>) -> tensor<4x12x256x256xf32>

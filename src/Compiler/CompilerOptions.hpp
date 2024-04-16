@@ -115,8 +115,8 @@ extern bool disableRecomposeOption;                           // onnx-mlir only
 extern bool enableSimdDataLayout;                             // onnx-mlir only
 extern bool verifyInputTensors;                               // onnx-mlir only
 extern bool allowSorting;                                     // onnx-mlir only
-extern std::string reportHeapBefore;                          // onnx-mlir only
-extern std::string reportHeapAfter;                           // onnx-mlir only
+extern std::vector<std::string> reportHeapBefore;             // onnx-mlir only
+extern std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 extern std::string modelTag;                                  // onnx-mlir only
 extern bool enableConvOptPass;                                // onnx-mlir only
 extern bool disableConstantProp;                              // onnx-mlir only

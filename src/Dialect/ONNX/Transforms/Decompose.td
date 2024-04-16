@@ -2,7 +2,7 @@
 
 //===- ONNXDecompose.td - Rewriting for decomposing ONNX Ops -*- tablegen -===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -264,6 +264,16 @@ def PadV18Pattern : Pat<
   (ONNXPadOp $x, $pads, $value, $axes, $mode)
 >;
 
+def ReduceMaxV18Pattern : Pat<
+  (ONNXReduceMaxV18Op $data, $axes, $keepdims, $noop_with_empty_axes),
+  (ONNXReduceMaxOp $data, $axes, $keepdims, $noop_with_empty_axes)
+>;
+
+def ReduceMinV18Pattern : Pat<
+  (ONNXReduceMinV18Op $data, $axes, $keepdims, $noop_with_empty_axes),
+  (ONNXReduceMinOp $data, $axes, $keepdims, $noop_with_empty_axes)
+>;
+
 def ResizeV10Pattern: Pat<
    (ONNXResizeV10Op:$res $x, $scales, $mode),
    (ONNXResizeOp $x, (CreateNoneValue),
@@ -342,6 +352,11 @@ def ClipV11Pattern : Pat<
 def ClipV12Pattern : Pat<
   (ONNXClipV12Op $x, $min, $max),
   (ONNXClipOp $x, $min, $max)
+>;
+
+def DFTV17Pattern : Pat<
+  (ONNXDFTV17Op $x, $dft_length, $axis, $inverse, $onesided),
+  (ONNXDFTOp $x, $dft_length, (ONNXConstantOpFromDenseAttr(createScalarDenseAttrRank0 $axis)), $inverse, $onesided)
 >;
 
 def SplitV11PatternNoAttr : Pat<

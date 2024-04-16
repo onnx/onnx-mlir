@@ -49,7 +49,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **Concat** |6 - * | | |
 | **ConcatFromSequence** |none | | | |
 | **Constant** |6 - * | | |
-| **ConstantOfShape** |9 - 19 | | |
+| **ConstantOfShape** |9 - * | | |
 | **Conv** |6 - * | | |
 | **ConvInteger** |none | | | |
 | **ConvTranspose** |6 - * |Unknown dimension in spatial dimensions (such as H and W) not supported. | |
@@ -98,8 +98,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **If** |16 - * |Sequence and Optional outputs are not supported. | |
 | **Imputer** |none | | | |
 | **InstanceNormalization** |6 - * | | |
-| **IsInf** |20 - * |Currently no support for float16 infinity value. Only for float32 and float64. | |
-| **IsNaN** |20 - * | | |
+| **IsInf** |10 - * |Currently no support for float16 infinity value. Only for float32 and float64. | |
+| **IsNaN** |9 - * | | |
 | **LRN** |6 - * | | |
 | **LSTM** |7 - * | | |
 | **LabelEncoder** |none | | | |
@@ -158,9 +158,9 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **ReduceL2** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceLogSum** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceLogSumExp** |13 - * |do_not_keep_dim not supported. | |
-| **ReduceMax** |6 - 19 |do_not_keep_dim not supported. | |
+| **ReduceMax** |6 - * |do_not_keep_dim not supported. | |
 | **ReduceMean** |6 - * |do_not_keep_dim not supported. | |
-| **ReduceMin** |6 - 19 |do_not_keep_dim not supported. | |
+| **ReduceMin** |6 - * |do_not_keep_dim not supported. | |
 | **ReduceProd** |13 - * |do_not_keep_dim not supported. | |
 | **ReduceSum** |6 - * |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
 | **ReduceSumSquare** |13 - * |Default axis and do_not_keep_dim not supported. | |

@@ -49,6 +49,19 @@ llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
         "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
+    "enable-compiler-stick-unstick",
+    llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
+                   "stick/unstick code. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+
+llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
+    "nnpa-enable-scalar-bcast-binary",
+    llvm::cl::desc("Enable the lowering to NNPA of binary operations with "
+                   "broadcasting of a scalar operand."
+                   "Currently only enable ONNXDiv. Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
 llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile{
     "nnpa-load-device-placement-file",
     llvm::cl::desc(
