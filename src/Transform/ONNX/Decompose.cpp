@@ -1013,10 +1013,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
-  // In some instances the decompisition does not trigger and we are left these
-  // operations till. We need to see if these examples can be fixed upstream.
-  // However, for now allow these operations to pass and open a corresponding
-  // issue.
+  // In some instances the decomposition does not trigger and we are left these
+  // operations. One reason is the input to the operation has unknown shapes.
+  // However, the decompose pass is executed multiple times in the pipeline and
+  // between the executions shape inference is called resolving the issue. That
+  // is why GroupNormalization and InstanceNormalization will be marked as
+  // dynamically legal.
   target.addDynamicallyLegalOp<ONNXGroupNormalizationOp>(
       [](ONNXGroupNormalizationOp op) {
         return !GroupNormIntoLayerNormPattern::isDecomposable(op);
