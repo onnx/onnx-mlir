@@ -19,8 +19,8 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "src/Dialect/ONNX/Transforms/ShapeInference.hpp"
 #include "src/Pass/Passes.hpp"
-#include "src/Transform/ONNX/ShapeInference.hpp"
 
 using namespace mlir;
 

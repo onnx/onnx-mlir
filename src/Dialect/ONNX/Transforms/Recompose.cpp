@@ -20,9 +20,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "src/Transform/ONNX/Recompose.hpp"
-#include "src/Pass/Passes.hpp"
-
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -33,6 +30,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/Transforms/Recompose.hpp"
+#include "src/Pass/Passes.hpp"
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "recompose"
@@ -41,7 +40,7 @@ using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-// #include "src/Transform/ONNX/ONNXRecompose.inc"
+// #include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
 
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;

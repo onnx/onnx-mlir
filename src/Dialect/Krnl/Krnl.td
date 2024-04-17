@@ -101,7 +101,7 @@ def KrnlCallOp : Op<Krnl_Dialect, "call",
       OpBuilder<(ins "std::string":$funcNameStr, "mlir::ValueRange":$results, "mlir::Operation *":$op, "mlir::ValueRange":$operands, "bool":$copyAttrs)>];
 }
 
-def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
+def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops", [NoMemoryEffect]> {
   let summary = "define_loops operation";
   let description = [{
     The "krnl.define_loops" operation is used to define input loops,
@@ -129,7 +129,7 @@ def KrnlDefineLoopsOp : Op<Krnl_Dialect, "define_loops"> {
   }];
 }
 
-def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [ImplicitKrnlTerminator,
+def KrnlIterateOp : Op<Krnl_Dialect, "iterate", [RecursiveMemoryEffects, ImplicitKrnlTerminator,
     DeclareOpInterfaceMethods<LoopLikeOpInterface>]> {
   let summary = "iterate operation";
   let description = [{
@@ -270,8 +270,9 @@ def KrnlSeqExtractOp : Op<Krnl_Dialect, "seqextract", [MemRefsNormalizable,
 
   let results = (outs AnyType:$output);
 }
-
-def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
+def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore",
+    [MemRefsNormalizable, DeclareOpInterfaceMethods<MemoryEffectsOpInterface>]
+  > {
   let summary = "Krnl store into a seq";
   let description = [{
     This op is similar to KrnSeqInsertOp but assumes that the input seq has
@@ -286,7 +287,7 @@ def KrnlSeqStoreOp : Op<Krnl_Dialect, "seqstore", [MemRefsNormalizable]> {
                        Index:$index);
 }
 
-def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator]> {
+def KrnlTerminatorOp : Op<Krnl_Dialect, "terminate", [ReturnLike, Terminator, NoMemoryEffect]> {
   let summary = "Krnl terminator operation";
   let description = [{
     Krnl terminator is a special terminator operation for blocks inside krnl
@@ -366,37 +367,6 @@ def KrnlGlobalOp : Op<Krnl_Dialect, "global", [Pure, MemRefsNormalizable]> {
     StrAttr:$name, OptionalAttr<AnyAttr>:$value, OptionalAttr<I64Attr>:$offset,
     OptionalAttr<I64Attr>:$alignment);
   let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
-}
-
-def KrnlGetRefOp : Op<Krnl_Dialect, "getref", [MemRefsNormalizable]> {
-  let summary = "Krnl a MemRef from within another MemRef starting at a specific offset.";
-  let description = [{
-    Retrieves a MemRef from within another MemRef:
-
-```
-    "krnl.getref"(%memref, %offset)
-```
-    The offset is an integer which is used as an index into the input MemRef. It works
-    just like an array index.
-  }];
-
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$mempool, AnyInteger:$offset,
-                   Variadic<Index>:$value);
-  let results = (outs AnyTypeOf<[AnyMemRef]>:$output);
-
-  let builders = [
-    OpBuilder<(ins "Type":$resultType, "Value":$mempool, "Value":$offset), [{
-      build($_builder, $_state, resultType, mempool, offset, {});
-    }]>,
-    ];
-
-  let extraClassDeclaration = [{
-    /// Returns the symbolic operands (the ones in square brackets), which bind
-    /// to the symbols of the memref's layout map.
-    operand_range getDynamicSizes() {
-      return {operand_begin() + 2, operand_end()};
-    }
-  }];
 }
 
 def KrnlBlockOp : Op<Krnl_Dialect, "block"> {
@@ -520,41 +490,6 @@ def KrnlParallelOp : Op<Krnl_Dialect, "parallel"> {
   let assemblyFormat = [{
       `(` $loops `)` attr-dict `:` type($loops)
   }];
-}
-
-
-def KrnlDimOp : Op<Krnl_Dialect, "dim", [MemRefsNormalizable]> {
-  let summary = "Krnl dimensions operation.";
-  let description = [{
-    Emits the dimension of a MemRef independent of the MemRef alloc:
-
-    ```
-    "krnl.dim"(%memref, %index)
-    ```
-
-    The index identifies the dimension within the shape which is going to be emitted.
-    Initially the krnl.dim operation depends on the alloc of the MemRef.
-    Unlike the std.dim operation which maintains a dependency on the alloc of the MemRef, the dimension emitted by krnl.dim will not depend on the alloc operation of the MemRef once the krnl.dim operation is lowered.
-
-    Any changes to the original MemRef size after the krnl.dim has been lowered will not be picked up by the emitted dimension. This allows the original MemRef to be safely modified via code transformations or affine map normalization without the risk of changing the value already emitted via krnl.dim.
-  }];
-
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc, Index:$index);
-  let results = (outs Index:$dimension);
-}
-
-def KrnlShapeOp : Op<Krnl_Dialect, "shape", [MemRefsNormalizable]> {
-  let summary = "Krnl operation to retrieve the shape of a MemRef.";
-  let description = [{
-    Extracts the shape of a MemRef:
-    ```
-      "krnl.shape"(%memref)
-    ```
-    The return result is of `shape.type`.
-  }];
-
-  let arguments = (ins AnyTypeOf<[AnyMemRef]>:$alloc);
-  let results = (outs AnyTypeOf<[AnyMemRef]>:$shape);
 }
 
 def KrnlErfOp : Op<Krnl_Dialect, "erf"> {
@@ -753,7 +688,7 @@ def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
 
 }
 
-def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value"> {
+def KrnlGetInductionVariableValueOp : Op<Krnl_Dialect, "get_induction_var_value", [NoMemoryEffect]> {
   let summary = "Krnl ";
   let description = [{
      Krnl operation to convert loop references to corresponding induction
