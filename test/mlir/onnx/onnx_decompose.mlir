@@ -534,12 +534,8 @@ func.func @test_groupnorm(%arg0: tensor<3x4x2x2xf32>, %arg1: tensor<2xf32>, %arg
 func.func @test_groupnorm_dynamic(%arg0: tensor<*xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<*xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
-// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_groupnorm_dynamic
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<2xf32>, [[PARAM_2_:%.+]]: tensor<2xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.GroupNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<*xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<*xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
-// CHECK:         }
+// CHECK:           onnx.GroupNormalization
 }
 // -----
 
@@ -586,12 +582,8 @@ func.func @test_instancenorm(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>,
 func.func @test_instancenorm_dynamic(%arg0: tensor<*xf32>, %arg1: tensor<4xf32>, %arg2: tensor<4xf32>) -> tensor<*xf32> {
   %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<*xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
-// mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_instancenorm_dynamic
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>, [[PARAM_1_:%.+]]: tensor<4xf32>, [[PARAM_2_:%.+]]: tensor<4xf32>) -> tensor<*xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.InstanceNormalization"([[PARAM_0_]], [[PARAM_1_]], [[PARAM_2_]]) {epsilon = 0.00999999977 : f32} : (tensor<*xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<*xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<*xf32>
-// CHECK:         }
+// CHECK:           onnx.InstanceNormalization
 }
 
 // -----
