@@ -43,17 +43,82 @@ static bool happensBefore(Operation *a, Operation *b) {
 }
 
 void moveAllocOpOperands(SmallVector<Operation *, 4> &opsToMove,
-    SmallVector<Operation *, 4> &globalOpsToMove, Operation *parentOp) {
+    SmallVector<Operation *, 4> &globalOpsToMove, Operation *returnValOp,
+    Operation *parentOp) {
   if (opsToMove.size() == 0)
     return;
 
   SmallVector<Operation *, 4> nextOpsToMove;
   for (Operation *op : opsToMove) {
+    LLVM_DEBUG(llvm::dbgs() << "@@START opsToMove op: = " << *op << "\n");
     // Added the op in ops list to move if it is still not added.
     if (llvm::find(globalOpsToMove, op) == globalOpsToMove.end()) {
       globalOpsToMove.push_back(op);
-      LLVM_DEBUG(llvm::dbgs() << "Added in ops list to move : " << *op << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "Added in opsToMove : " << *op << "\n");
     }
+
+    Region &parentOpRegion = parentOp->getRegions().front();
+    Block &parentOpBlock = parentOpRegion.getBlocks().front();
+
+    // AllocOp: If allocated value is used in KrnlStoreOp, the KrnlStoreOp need
+    // to be move.
+    if (op != returnValOp) {
+      if (auto allocOp = dyn_cast<memref::AllocOp>(op)) {
+        for (Operation *user : allocOp.getResult().getUsers()) {
+          if (auto krnlStoreOp = dyn_cast<KrnlStoreOp>(user)) {
+            if (user->getBlock() == &parentOpBlock) {
+              if ((llvm::find(nextOpsToMove, user) == nextOpsToMove.end()) and
+                  (llvm::find(globalOpsToMove, user) ==
+                      globalOpsToMove.end())) {
+                LLVM_DEBUG(llvm::dbgs()
+                           << "Added in nextOpsTomove (Single KrnlStore) = "
+                           << *user << "\n");
+                nextOpsToMove.push_back(user);
+              }
+            } else {
+              if ((llvm::find(nextOpsToMove, user->getParentOp()) ==
+                      nextOpsToMove.end()) and
+                  (llvm::find(globalOpsToMove, user->getParentOp()) ==
+                      globalOpsToMove.end())) {
+                LLVM_DEBUG(llvm::dbgs()
+                           << "Added in nextOpsTomove (KrnlIterateOp): "
+                           << *(user->getParentOp()) << "\n");
+                nextOpsToMove.push_back(user->getParentOp());
+              }
+            }
+          }
+        }
+      }
+    }
+    // KrnlIterateOp: Operations in the region of KrnlIterateOp are already
+    // added in opsToMove. So, add operands of operations in the region of
+    // KrnlIterateOp.
+    if (auto iterateOp = dyn_cast<KrnlIterateOp>(op)) {
+      Block &iterationBlock = iterateOp.getBodyRegion().front();
+      for (Operation &iop : iterationBlock.getOperations()) {
+        LLVM_DEBUG(llvm::dbgs() << "Ops in krnlIterateOp: " << *(&iop) << "\n");
+        for (unsigned i = 0; i < iop.getNumOperands(); ++i) {
+          Value oprd = iop.getOperand(i);
+          if (isa<BlockArgument>(oprd))
+            continue;
+          Operation *oprdDefOp = oprd.getDefiningOp();
+          if (oprdDefOp->getBlock() != &iterationBlock and
+              oprdDefOp->getBlock() == &parentOpBlock) {
+            if ((llvm::find(nextOpsToMove, oprdDefOp) ==
+                    nextOpsToMove.end()) and
+                (llvm::find(globalOpsToMove, oprdDefOp) ==
+                    globalOpsToMove.end())) {
+
+              LLVM_DEBUG(llvm::dbgs()
+                         << "Added in nextOpsTomove operand in KrnlIterateOp: "
+                         << *oprdDefOp << "\n");
+              nextOpsToMove.push_back(oprdDefOp);
+            }
+          }
+        }
+      }
+    }
+
     // Check if operands need to be moved. Need to move if defining op for the
     // operand exists in block in parentOp.
     for (unsigned i = 0; i < op->getNumOperands(); ++i) {
@@ -61,19 +126,19 @@ void moveAllocOpOperands(SmallVector<Operation *, 4> &opsToMove,
       if (isa<BlockArgument>(oprd))
         continue;
       Operation *oprdDefOp = oprd.getDefiningOp();
-      Region &parentOpRegion = parentOp->getRegions().front();
-      Block &parentOpBlock = parentOpRegion.getBlocks().front();
-      LLVM_DEBUG(
-          llvm::dbgs() << "Operand DefOp " << i << " = " << *oprdDefOp << "\n");
-      LLVM_DEBUG(llvm::dbgs()
-                 << "Operand DefOp need to be moved?:  "
-                 << (oprdDefOp->getBlock() == &parentOpBlock) << "\n");
-      if (oprdDefOp->getBlock() == &parentOpBlock)
-        nextOpsToMove.push_back(oprdDefOp);
+      if (oprdDefOp->getBlock() == &parentOpBlock) {
+        if ((llvm::find(nextOpsToMove, oprdDefOp) == nextOpsToMove.end()) and
+            (llvm::find(globalOpsToMove, oprdDefOp) == globalOpsToMove.end())) {
+          LLVM_DEBUG(llvm::dbgs() << "Added in nextOpsTomove operand for op: "
+                                  << i << " = " << *oprdDefOp << "\n");
+          nextOpsToMove.push_back(oprdDefOp);
+        }
+      }
     }
+    LLVM_DEBUG(llvm::dbgs() << "@@END\n");
   }
   // Check if operands of operandDefOp need to be moved recursively
-  moveAllocOpOperands(nextOpsToMove, globalOpsToMove, parentOp);
+  moveAllocOpOperands(nextOpsToMove, globalOpsToMove, returnValOp, parentOp);
 }
 
 LogicalResult moveAllocOpBeforeAndReplaceAllUses(
@@ -96,7 +161,7 @@ LogicalResult moveAllocOpBeforeAndReplaceAllUses(
     Operation *allocOpForReturnVal = returnVal.getDefiningOp();
     SmallVector<Operation *, 4> opsToMove;
     opsToMove.push_back(allocOpForReturnVal);
-    moveAllocOpOperands(opsToMove, globalOpsToMove, op);
+    moveAllocOpOperands(opsToMove, globalOpsToMove, allocOpForReturnVal, op);
     rewriter.replaceAllUsesWith(
         op->getResults()[ii], allocOpForReturnVal->getResult(0));
   }
@@ -122,7 +187,6 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
     Operation *op = parallelOp.getOperation();
     Location loc = ONNXLoc<ONNXParallelOp>(op);
     IndexExprScope ieScope(&rewriter, loc);
-    ValueRange operands = adaptor.getOperands();
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MemRefBuilder,
         MathBuilder>
         create(rewriter, loc);
