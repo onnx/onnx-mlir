@@ -871,6 +871,12 @@ static int emitOutput(mlir::OwningOpRef<ModuleOp> &module,
     outputModule(module, llvm::outs());
     return CompilerSuccess;
   }
+  if (printBytecode) {
+    if (failed(mlir::writeBytecodeToFile(*module, llvm::outs()))) {
+      return CompilerFailure;
+    }
+    return CompilerSuccess;
+  }
   return emitOutputFiles(outputNameNoExt, emissionTarget, context, module);
 }
 
