@@ -800,6 +800,11 @@ struct InstanceNormIntoLayerNormPattern
     : public OpRewritePattern<ONNXInstanceNormalizationOp> {
   using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
 
+  static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
+    Type inputType = instanceNormOp.getInput().getType();
+    return onnx_mlir::isRankedShapedType(inputType);
+  }
+
   LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
       PatternRewriter &rewriter) const final {
     // Match.
@@ -848,6 +853,11 @@ struct InstanceNormIntoLayerNormPattern
 struct GroupNormIntoLayerNormPattern
     : public OpRewritePattern<ONNXGroupNormalizationOp> {
   using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
+
+  static bool isDecomposable(ONNXGroupNormalizationOp groupNormOp) {
+    Type inputType = groupNormOp.getX().getType();
+    return onnx_mlir::isRankedShapedType(inputType);
+  }
 
   LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
       PatternRewriter &rewriter) const final {
@@ -1003,8 +1013,20 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXClipV12Op>();
   target.addIllegalOp<ONNXClipV6Op>();
   target.addIllegalOp<ONNXConstantOfShapeOp>();
-  target.addIllegalOp<ONNXGroupNormalizationOp>();
-  target.addIllegalOp<ONNXInstanceNormalizationOp>();
+  // In some instances the decomposition does not trigger and we are left these
+  // operations. One reason is the input to the operation has unknown shapes.
+  // However, the decompose pass is executed multiple times in the pipeline and
+  // between the executions shape inference is called resolving the issue. That
+  // is why GroupNormalization and InstanceNormalization will be marked as
+  // dynamically legal.
+  target.addDynamicallyLegalOp<ONNXGroupNormalizationOp>(
+      [](ONNXGroupNormalizationOp op) {
+        return !GroupNormIntoLayerNormPattern::isDecomposable(op);
+      });
+  target.addDynamicallyLegalOp<ONNXInstanceNormalizationOp>(
+      [](ONNXInstanceNormalizationOp op) {
+        return !InstanceNormIntoLayerNormPattern::isDecomposable(op);
+      });
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXPadV13Op>();
