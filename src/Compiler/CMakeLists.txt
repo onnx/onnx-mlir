@@ -166,6 +166,7 @@ add_onnx_mlir_library(OMCompilerUtils
   ${ONNX_MLIR_SRC_ROOT}/include
 
   LINK_LIBS PUBLIC
+  MLIRBytecodeWriter
   OMCompilerDialects
   OMCompilerPasses
   OMAccelerator
