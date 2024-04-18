@@ -15,7 +15,7 @@ func.func @test_gather_axis0(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_0_]], [[VAR_1_]],  NOTYPE : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi1>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.add [[VAR_0_]], [[VAR_2_]] : tensor<2x2xi64>
 // CHECK:           [[VAR_5_:%.+]] = stablehlo.select [[VAR_3_]], [[VAR_4_]], [[VAR_0_]] : tensor<2x2xi1>, tensor<2x2xi64>
-// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) <{batch_dims = 0 : i64, dim = 0 : i64}> : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
+// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) {batch_dims = 0 : i64, dim = 0 : i64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
 // CHECK:           return [[VAR_6_]] : tensor<2x2x2xf32>
 // CHECK:         }
 
@@ -42,7 +42,7 @@ func.func @test_gather_dynamic_axis0(%arg0 : tensor<?x?xf32>) -> tensor<2x2x?xf3
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_0_]], [[VAR_1_]],  NOTYPE : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi1>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.add [[VAR_0_]], [[VAR_2_]] : tensor<2x2xi64>
 // CHECK:           [[VAR_5_:%.+]] = stablehlo.select [[VAR_3_]], [[VAR_4_]], [[VAR_0_]] : tensor<2x2xi1>, tensor<2x2xi64>
-// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) <{batch_dims = 0 : i64, dim = 0 : i64}> : (tensor<?x?xf32>, tensor<2x2xi64>) -> tensor<2x2x?xf32>
+// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) {batch_dims = 0 : i64, dim = 0 : i64} : (tensor<?x?xf32>, tensor<2x2xi64>) -> tensor<2x2x?xf32>
 // CHECK:           return [[VAR_6_]] : tensor<2x2x?xf32>
 // CHECK:         }
 
@@ -63,7 +63,7 @@ func.func @test_gather_axis0neg(%arg0 : tensor<3x2xf32>) -> tensor<2x2x2xf32> {
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_0_]], [[VAR_1_]],  NOTYPE : (tensor<2x2xi64>, tensor<2x2xi64>) -> tensor<2x2xi1>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.add [[VAR_0_]], [[VAR_2_]] : tensor<2x2xi64>
 // CHECK:           [[VAR_5_:%.+]] = stablehlo.select [[VAR_3_]], [[VAR_4_]], [[VAR_0_]] : tensor<2x2xi1>, tensor<2x2xi64>
-// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) <{batch_dims = 0 : i64, dim = 0 : i64}> : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
+// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) {batch_dims = 0 : i64, dim = 0 : i64} : (tensor<3x2xf32>, tensor<2x2xi64>) -> tensor<2x2x2xf32>
 // CHECK:           return [[VAR_6_]] : tensor<2x2x2xf32>
 // CHECK:         }
 
@@ -84,6 +84,6 @@ func.func @test_gather_axis1(%arg0 : tensor<3x3xf32>) -> tensor<3x1x2xf32> {
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_0_]], [[VAR_1_]],  NOTYPE : (tensor<1x2xi64>, tensor<1x2xi64>) -> tensor<1x2xi1>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.add [[VAR_0_]], [[VAR_2_]] : tensor<1x2xi64>
 // CHECK:           [[VAR_5_:%.+]] = stablehlo.select [[VAR_3_]], [[VAR_4_]], [[VAR_0_]] : tensor<1x2xi1>, tensor<1x2xi64>
-// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) <{batch_dims = 0 : i64, dim = 1 : i64}> : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
+// CHECK:           [[VAR_6_:%.+]] = "stablehlo.torch_index_select"([[PARAM_0_]], [[VAR_5_]]) {batch_dims = 0 : i64, dim = 1 : i64} : (tensor<3x3xf32>, tensor<1x2xi64>) -> tensor<3x1x2xf32>
 // CHECK:           return [[VAR_6_]] : tensor<3x1x2xf32>
 // CHECK:         }
