@@ -326,8 +326,8 @@ except NameError:
 
 # test_to_enable_dict
 try:
-    _ = test_to_enable_dict, test_to_enable_symbol_dict, test_to_enable_dynshape_dict
+    _ = test_to_enable_dict, test_to_enable_symbol_dict, test_to_enable_dimparams_dict
 except NameError:
     test_to_enable_dict = {}
     test_to_enable_symbol_dict = {}
-    test_to_enable_dynshape_dict = {}
+    test_to_enable_dimparams_dict = {}

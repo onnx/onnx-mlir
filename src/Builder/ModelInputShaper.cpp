@@ -36,8 +36,7 @@ ModelInputShaper::ModelInputShaper() : force_dim_dynamic_enabled_(false) {
       std::string dimIndex;
       std::vector<int> dims;
       while (std::getline(dimIndices, dimIndex, ',')) {
-        pos = dimIndex.find('='); // Ignore symbol part after '='
-        dims.emplace_back(stoi(dimIndex.substr(0, pos)));
+        dims.emplace_back(stoi(dimIndex));
       }
       // Default to the all dimensions if dims are not specified.
       if (dims.empty())

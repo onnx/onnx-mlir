@@ -94,6 +94,7 @@ extern bool preserveMLIR;                                     // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only
+extern std::string dimParams;                                 // onnx-mlir only
 extern ModelSize modelSize;                                   // onnx-mlir only
 extern bool storeConstantsToFile;                             // onnx-mlir only
 extern float constantsToFileTotalThreshold;                   // onnx-mlir only

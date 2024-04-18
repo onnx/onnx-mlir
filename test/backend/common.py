@@ -34,9 +34,7 @@ def determine_dynamic_parameters(test_name):
     selected_list = {args.input: {args.dim}}
     test_name_cpu = test_name + "_cpu"
     if test_name_cpu in variables.test_for_dynamic:
-        if test_name_cpu in test_to_enable_dynshape_dict:
-            selected_list = variables.test_to_enable_dynshape_dict[test_name_cpu]
-        elif len(variables.test_to_enable_dict[test_name_cpu]) > 1:
+        if len(variables.test_to_enable_dict[test_name_cpu]) > 1:
             selected_list = variables.test_to_enable_dict[test_name_cpu].get(
                 DYNAMIC_SHAPE
             )
@@ -52,24 +50,27 @@ def execute_commands(cmds, dynamic_inputs_dims):
     env_string = ""
     if dynamic_inputs_dims is not None:
         first_input = True
-        if isinstance(dynamic_inputs_dims, dict):
-            for input_index, dim_indices in dynamic_inputs_dims.items():
-                if first_input:
-                    env_string += str(input_index)
-                    first_input = False
+        for input_index, dim_indices in dynamic_inputs_dims.items():
+            if first_input:
+                env_string += str(input_index)
+                first_input = False
+            else:
+                env_string += "|" + str(input_index)
+            first_dim = True
+            for dim_index in dim_indices:
+                if first_dim:
+                    env_string += ":" + str(dim_index)
+                    first_dim = False
                 else:
-                    env_string += "|" + str(input_index)
-                first_dim = True
-                for dim_index in dim_indices:
-                    if first_dim:
-                        env_string += ":" + str(dim_index)
-                        first_dim = False
-                    else:
-                        env_string += "," + str(dim_index)
-        else:
-            env_string = dynamic_inputs_dims
+                    env_string += "," + str(dim_index)
         my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
+
+def get_compile_option(test_name):
+    if args.dynamic and test_name in variables.test_to_enable_dimparams_dict:
+        return ["--dimParams=" + variables.test_to_enable_dimparams_dict[test_name]]
+    else:
+        return []
 
 
 def check_instruction(test_name, exec_name):
@@ -137,6 +138,7 @@ def compile_model(model, emit):
             "--constants-to-file-total-threshold="
             + str(args.constants_to_file_total_threshold)
         )
+    command_list += get_compile_option(name + "_cpu")
 
     command_list.append(target[emit])
     command_list.append(model_name)

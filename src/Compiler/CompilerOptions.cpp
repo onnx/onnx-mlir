@@ -51,6 +51,7 @@ bool preserveMLIR;                                     // onnx-mlir only
 bool useOnnxModelTypes;                                // onnx-mlir only
 int repeatOnnxTransform;                               // onnx-mlir only
 std::string shapeInformation;                          // onnx-mlir only
+std::string dimParams;                                 // onnx-mlir only
 ModelSize modelSize;                                   // onnx-mlir only
 bool storeConstantsToFile;                             // onnx-mlir only
 float constantsToFileTotalThreshold;                   // onnx-mlir only
@@ -279,6 +280,19 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
         "\"D1, D2, ...\" are dimension sizes (positive integers or -1 for "
         "unknown dimensions)"),
     llvm::cl::value_desc("value"), llvm::cl::location(shapeInformation),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<std::string, true> dimParamsOpt("dimParams",
+    llvm::cl::desc(
+        "Custom onnx.dim_params attributes for the inputs of the ONNX model for"
+        "specifying relationship among ranks of the inputs.\n"
+        "\"value\" is in the format of "
+        "\"INPUT_ID1:D1=S1,D2=S2,...,Dn=Sn|INPUT_ID2:D1=T1,D2=T2,...Dn=Tn\""
+        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
+        "0 or being -1 for all input indices), and\n"
+        "\"S1, S2, ...\" and \"T2, T2, ...\" are symbols to specify that same "
+        "symbols have the same value"),
+    llvm::cl::value_desc("value"), llvm::cl::location(dimParams),
     llvm::cl::cat(OnnxMlirOptions));
 
 // Default value is defined by the OnnxMlirEnvOptionName constant string

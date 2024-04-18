@@ -55,6 +55,16 @@ struct ImportOptions {
   //   - (arg0: tensor<3x4x5xf32>, arg1: tensor<10x5xf32>)
   //
   std::string shapeInformation = "";
+  // Custom onnx.dim_params attributes for the graph inputs for specifying
+  // relationship among their ranks.
+  // Its format is 'input_id:dim=sym,dim=sym,dim=sym|input_id:dim=sym,dim=sym..'
+  // E.g. An ONNX model has two dynamic inputs
+  //   - (arg0: tensor<?x5xf32>, arg1: tensor<?x5xf32>)
+  // If we want to specify that the first ranks of the first and second
+  // arguments are the same, we can use:
+  //   - dimParams = '0:0=batch|1:0=batch'
+  //
+  std::string dimParams = "";
   // Directory to look for external data if any tensor has external
   // data location. If empty then external data is disabled.
   std::string externalDataDir = "";

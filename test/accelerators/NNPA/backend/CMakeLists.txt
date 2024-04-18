@@ -93,14 +93,15 @@ endif()
 # Followings are test cases of test_to_enable_dict in test/backend/inference_backend.py.
 # Only test cases for operations supported by zDNN are listed. Non-supported cases are
 # commented out. This list is set in the environment variable `TEST_CASE_BY_USER`. So,
-# instruction name and relationship among input arguments are added after test
-# case name in each test case if necessary. For example, 
+# instruction name and dimParams are added after test case name if necessary.
+# For example, the following line
 #    test_add_cpu,zdnn_add,"0:0=a,1=b,2=c|1:0=a,1=b,2=c"
-# means that (1) the test name is "test_add_cpu", (2) instruction name to be
-# checked if it is used is "zdnn_add", (3) relationship among input arguments
-# are "0:0=a,1=b,2=c|1:0=a,1=b,2=c", which means that the first ranks of the
-# first, second and third ranks of the first and second input arguments are the
-# same respectively.
+# means that (1) the test name is "test_add_cpu", (2) instruction name is
+# "zdnn_add" to check the function is called, (3) when dimParams is
+# "NO_DYNAMIC_SHAPE_TEST", backend test is skipped, otherwise the string is
+# passed as --dimParams option. "0:0=a,1=b,2=c|1:0=a,1=b,2=c" means that the
+# first ranks of the first, second and third ranks of the first and second
+# input arguments are the same respectively.
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA
@@ -133,8 +134,8 @@ set(NNPA_TEST_LIST
     # ==OP== BatchNormalization
     # ==MIN== 6
     # ==LIM== Input and output tensor must be 4D(N x C x H x W).
-    test_batchnorm_epsilon_cpu,zdnn_mul,"0:0=a,1=b,2=c,3=d"
-    test_batchnorm_example_cpu,zdnn_mul,"0:0=a,1=b,2=c,3=d"
+    test_batchnorm_epsilon_cpu,zdnn_mul,NO_DYNAMIC_SHAPE_TEST
+    test_batchnorm_example_cpu,zdnn_mul,NO_DYNAMIC_SHAPE_TEST
 
     # ==OP== Conv
     # ==MIN== 1

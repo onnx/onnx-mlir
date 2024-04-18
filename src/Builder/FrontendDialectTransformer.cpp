@@ -452,6 +452,27 @@ private:
     return attributes;
   }
 
+  // Generate a string vector from the dimParams option string
+  void getInputDimParamsVecFromOption(std::string optionStr, size_t numOfArgs,
+      SmallVector<std::string> &paramStrVec) {
+    std::stringstream paramStrStream;
+    paramStrStream << optionStr;
+    std::string dimParamStr;
+    while (std::getline(paramStrStream, dimParamStr, '|')) {
+      size_t pos = dimParamStr.find(':');
+      assert((pos > 0) && "invalid dimParams option string");
+      int idx = stoi(dimParamStr.substr(0, pos));
+      dimParamStr = dimParamStr.substr(pos + 1);
+      std::replace(dimParamStr.begin(), dimParamStr.end(), '=', ':');
+      if (idx < 0) // set all arguments
+        for (size_t i = 0; i < numOfArgs; i++)
+          paramStrVec[i] = dimParamStr;
+      else
+        paramStrVec[idx] = dimParamStr;
+    }
+    return;
+  }
+
   /*!
    * An alternative graph importing procedure for importing ONNX subgraphs.
    * ONNX subgraphs, unlike the main computation graph, are imported as regions
@@ -492,6 +513,10 @@ private:
     // See https://github.com/onnx/onnx/blob/main/docs/IR.md for more
     // information about dim_param.
     llvm::SmallVector<std::string, 4> inputDimParams, outputDimParams;
+    size_t numOfArgs = graph.input().size();
+    llvm::SmallVector<std::string> inputDimParamsFromOption(numOfArgs);
+    getInputDimParamsVecFromOption(
+        options_.dimParams, numOfArgs, inputDimParamsFromOption);
 
     // Import the input tensor types that are not constant and not initialized.
     int inputIndex = 0;
@@ -502,7 +527,9 @@ private:
         std::string dimParams = "";
         Type argTy = ImportType(input.type(), &dimParams);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
-        if (!dimParams.empty())
+        if (!inputDimParamsFromOption[inputIndex].empty())
+          inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
+        else if (!dimParams.empty())
           inputDimParams.emplace_back(dimParams);
 
         argTypes.emplace_back(argTy);
@@ -1388,56 +1415,6 @@ private:
     ret_vals.push_back(val);
   }
 
-  void getParamStr(std::string envStr, std::string &paramStr) {
-    std::replace(envStr.begin(), envStr.end(), '=', ':');
-    paramStr = envStr;
-    return;
-  }
-
-  // Generate string for input_dim_params attr from the IMPORTER_FORCE_DYNAMIC
-  // string.
-  void getInputDimParamStrVec(std::string envInputString, func::FuncOp funcOp,
-      size_t numOfArgs, SmallVector<std::string> &paramStrVec) {
-    std::stringstream paramStrStream;
-    paramStrStream << envInputString;
-    std::string envStr;
-    while (std::getline(paramStrStream, envStr, '|')) {
-      size_t pos = envStr.find(':');
-      assert((pos > 0) && "invalid IMPORTER_FORCE_DYNAMIC environment");
-      int idx = stoi(envStr.substr(0, pos));
-      envStr = envStr.substr(pos + 1);
-      if (idx < 0) { // set all arguments
-        for (size_t i = 0; i < numOfArgs; i++) {
-          getParamStr(envStr, paramStrVec[i]);
-        }
-      } else {
-        getParamStr(envStr, paramStrVec[idx]);
-      }
-    }
-    return;
-  }
-
-  // Get named attributesfrom IMPORTER_FORCE_DYNAMIC environment.
-  SmallVector<NamedAttribute> getNamedAttrFromImporterForceDynamic(
-      func::FuncOp funcOp, size_t numOfArgs) {
-    SmallVector<NamedAttribute> argNamedAttrs;
-    const char *envInputString = std::getenv("IMPORTER_FORCE_DYNAMIC");
-    if (envInputString == NULL)
-      return argNamedAttrs;
-    SmallVector<std::string> inputDimParamStrVec(numOfArgs);
-    getInputDimParamStrVec(
-        envInputString, funcOp, numOfArgs, inputDimParamStrVec);
-    for (size_t i = 0; i < numOfArgs; ++i) {
-      if (inputDimParamStrVec[i].length() != 0) {
-        auto name = builder_.getStringAttr(inputDimParamStrVec[i]);
-        NamedAttribute namedAttr =
-            builder_.getNamedAttr("onnx.dim_params", name);
-        argNamedAttrs.emplace_back(namedAttr);
-      }
-    }
-    return argNamedAttrs;
-  }
-
   // Move function attributes for argument/result names and dim_params into
   // argument/result attributes.
   void moveFuncAttrsToArgAttrs(func::FuncOp funcOp,
@@ -1448,10 +1425,6 @@ private:
     Operation *op = funcOp.getOperation();
     size_t numOfArgs =
         (isArg) ? funcOp.getNumArguments() : funcOp.getNumResults();
-    SmallVector<NamedAttribute> argAttrsFromImporterForceDynamic;
-    if (isArg)
-      argAttrsFromImporterForceDynamic =
-          getNamedAttrFromImporterForceDynamic(funcOp, numOfArgs);
 
     // Only move attributes that exists.
     SmallVector<ArrayAttr, 2> funcAttrsToMove;
@@ -1476,8 +1449,6 @@ private:
             argAttrs.emplace_back(namedAttr);
           }
         }
-        if (isArg && (i < argAttrsFromImporterForceDynamic.size()))
-          argAttrs.emplace_back(argAttrsFromImporterForceDynamic[i]);
       }
       if (!argAttrs.empty()) {
         if (isArg)

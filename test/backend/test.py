@@ -82,14 +82,14 @@ else:
         quit()
 
     # Ensure that test names specified in test_to_enable actually exist.
-    for test_name_symbol_dynshape in (
+    for test_name_symbol_dimparam in (
         test_to_enable if not args.type else test_by_type[args.type]
     ):
-        test_name_symbol_dynshape_list = test_name_symbol_dynshape.split(",")
-        test_name = test_name_symbol_dynshape_list[0]
-        if args.instruction_check and len(test_name_symbol_dynshape_list) >= 2:
+        test_name_symbol_dimparam_list = test_name_symbol_dimparam.split(",")
+        test_name = test_name_symbol_dimparam_list[0]
+        if args.instruction_check and len(test_name_symbol_dimparam_list) >= 2:
             variables.test_to_enable_symbol_dict[test_name] = (
-                test_name_symbol_dynshape_list[1]
+                test_name_symbol_dimparam_list[1]
             )
         assert (
             test_name in all_test_names
@@ -99,9 +99,9 @@ else:
             test_name
         )
         backend_test.include(r"^{}$".format(test_name))
-        if len(test_name_symbol_dynshape_list) >= 3:
-            variables.test_to_enable_dynshape_dict[test_name] = ",".join(
-                test_name_symbol_dynshape_list[2:]
+        if len(test_name_symbol_dimparam_list) >= 3:
+            variables.test_to_enable_dimparams_dict[test_name] = ",".join(
+                test_name_symbol_dimparam_list[2:]
             )
 
 # import all test cases at global scope to make them visible to python.unittest
