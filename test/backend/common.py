@@ -66,6 +66,7 @@ def execute_commands(cmds, dynamic_inputs_dims):
         my_env["IMPORTER_FORCE_DYNAMIC"] = env_string
     subprocess.run(cmds, env=my_env, check=True)
 
+
 def get_compile_option(test_name):
     if args.dynamic and test_name in variables.test_to_enable_dimparams_dict:
         return ["--dimParams=" + variables.test_to_enable_dimparams_dict[test_name]]
