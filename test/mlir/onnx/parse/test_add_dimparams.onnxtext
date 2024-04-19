@@ -16,7 +16,8 @@ test_add (float[?,?,?] x, float[?,?,?] y) => (float[?,?,?] sum) {
 }
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<?x?x?xf32> {onnx.name = "y"}) -> (tensor<?x?x?xf32> {onnx.name = "sum"}) {
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32> {onnx.dim_params = "0:a,1:b,2:c", onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<?x?x?xf32> {onnx.dim_params = "0:a,1:b,2:c", onnx.name = "y"}) -> (tensor<?x?x?xf32> {onnx.dim_params = "0:unk__0,1:unk__1,2:unk__2", onnx.name = "sum"}) {
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?x?xf32>
 // CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
