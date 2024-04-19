@@ -16,7 +16,6 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHigh.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
-#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -319,7 +318,6 @@ void getONNXToZHighOneOpDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMatMulOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXGemmOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXReduceMeanV13Op>(target, dimAnalysis);
-  //addDynamicallyLegalOpFor<ONNXSoftplusOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXLSTMOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXGRUOp>(target, dimAnalysis);
   addDynamicallyLegalOpFor<ONNXConvOp>(target, dimAnalysis);

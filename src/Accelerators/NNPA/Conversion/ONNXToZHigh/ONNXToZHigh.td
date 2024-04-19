@@ -92,10 +92,6 @@ def GetI64ZeroAttr :
 class GetI64ArrayAttr<int n> :
         NativeCodeCall<"$_builder.getI64ArrayAttr(" # n # ")">;
 
-class GetConstantOfType<string v> : NativeCodeCall<
-  "::onnx_mlir::zhigh::getConstantOfType($_builder, $_loc, $0.getType(), " # v # ")"
->;
-
 def GetUnrankedTensorTypeOf : NativeCodeCall<
   "UnrankedTensorType::get($0.getType().cast<ShapedType>().getElementType())"
 >;
@@ -382,35 +378,6 @@ def replaceONNXLogSoftmaxPattern : Pattern<
 def replaceONNXReduceMeanV13Pattern : Pat<
   (ONNXReduceMeanV13Op:$res $x, $_, $_),
   (ZHighUnstickOp (ZHighMeanReduce2DOp (ZHighStickOp $x, (NHWCLayoutAttr))))
->;
-
-//===----------------------------------------------------------------------===//
-// ONNXSoftplusOp %X =
-//   (ZHighUnstickOp
-//      (ZHighLogOp (ZHighAddOp (ZHighExpOp (ZHighStickOp %X))),
-//                              (ZHighSticOp (GetConstantOfType<"1.0">, X))))
-//===----------------------------------------------------------------------===//
-def replaceONNXSoftplusPattern : Pattern<
-  (ONNXSoftplusOp:$res $x),
-  [
-   // Get stickified constant of minus one with input shape
-   (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $res), (NoneLayoutAttr)),
-   // Get stickified X
-   (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
-   // Get minus X with input shape
-   (ZHighMulOp:$minusX $s_x, $minusOne, (returnType $s_x)),
-
-   // Get Softplus
-   (ZHighUnstickOp:$unstick
-      (ZHighAddOp
-         (ZHighReluOp $s_x, (returnType $s_x)),
-         (ZHighLogOp (ZHighSubOp (ZHighExpOp (ZHighMinOp $s_x, $minusX,
-                                                         (returnType $s_x)),
-                                             (returnType $s_x)),
-                                 $minusOne, (returnType $s_x)),
-                     (returnType $s_x)),
-         (returnType $s_x))),
-  ]
 >;
 
 //===----------------------------------------------------------------------===//
