@@ -3,7 +3,6 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "extensions.verifySignature": false,
         "terminal.integrated.defaultProfile.linux": "bash",
         "cmake.mergedCompileCommands": "${workspaceFolder}/compile_commands.json",
         "cmakeExplorer.suiteDelimiter": ".",
@@ -11,7 +10,7 @@
         "editor.formatOnSave": true,
         "[cpp]": {
           "editor.defaultFormatter": "xaver.clang-format",
-          "editor.tabSize":2 
+          "editor.tabSize": 2
         },
         "clangd.path": "/usr/bin/clangd-15",
         "clangd.arguments": [

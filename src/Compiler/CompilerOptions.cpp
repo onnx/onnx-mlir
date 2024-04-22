@@ -548,8 +548,8 @@ static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
     llvm::cl::init(OptReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> enable_timing("enable-timing",
-    llvm::cl::desc("Enable pass timing (default is false)\n"
-                   "Set to 'true' if you want to enable pass timings."),
+    llvm::cl::desc("Enable compile timing (default is false)\n"
+                   "Set to 'true' if you want to enable compile timing."),
     llvm::cl::location(enableTiming), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
@@ -585,7 +585,6 @@ static llvm::cl::opt<bool, true> useOldBufferizationOpt("use-old-bufferization",
         "well in onnx-mlir"),
     llvm::cl::location(useOldBufferization), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
-
 
 // Configuration states associated with certain options.
 // For example, when maccel is specified, NNPA can register
