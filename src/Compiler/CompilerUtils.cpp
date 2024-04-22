@@ -333,9 +333,8 @@ std::string getTargetFilename(
 // Returns 0 on success, error code on failure.
 static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     std::string outputNameNoExt, std::string optimizedBitcodeNameWithExt) {
-  auto llvmTiming =
-      rootScope.nest("[onnx-mlir] Compiling to LLVM Optimized Bitcode");
-
+  auto llvmTiming = rootScope.nest(
+      "[onnx-mlir] Compiling MLIR module to LLVM Optimized Bitcode");
   std::error_code error;
 
   // Write bitcode to a file.
@@ -429,7 +428,6 @@ static int genModelObject(
 static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
     std::string jniSharedLibPath, std::string jniObjPath) {
   auto jniTiming = rootScope.nest("[onnx-mlir] Compiling JNI Object File");
-
   Command ar(/*exePath=*/getToolPath("ar", true));
   int rc = ar.appendStr("x")
                // old version of ar does not support --output so comment out
@@ -448,7 +446,6 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
 static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
     std::vector<std::string> libs, std::vector<std::string> libDirs) {
-  auto libraryTiming = rootScope.nest("[onnx-mlir] Linking Shared Library");
 #ifdef _WIN32
   std::vector<std::string> outputOpt = {"/Fe:" + sharedLibNameWithExt};
   // link has to be before libpath since they need to be passed through to the
@@ -499,7 +496,6 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     std::string modelSharedLibPath, std::string modelJniJarPath) {
   auto jniJarTiming = rootScope.nest("[onnx-mlir] Creating JNI Jar");
-
   llvm::SmallString<8> libraryPath(getLibraryPath());
   llvm::sys::path::append(libraryPath, "javaruntime.jar");
   std::string javaRuntimeJarPath = llvm::StringRef(libraryPath).str();
@@ -522,7 +518,6 @@ static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
 // Return 0 on success, error code on failure
 static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
     std::string outputNameWithoutExt, std::string &objectNameWithExt) {
-
   std::string bitcodeNameWithExt = outputNameWithoutExt + ".bc";
   int rc = genLLVMBitcode(module, outputNameWithoutExt, bitcodeNameWithExt);
   if (rc != CompilerSuccess)
@@ -537,7 +532,6 @@ static int compileModuleToObject(const mlir::OwningOpRef<ModuleOp> &module,
 static int compileModuleToSharedLibrary(
     const mlir::OwningOpRef<ModuleOp> &module, std::string outputNameNoExt,
     std::string &libNameWithExt) {
-
   std::string modelObjNameWithExt;
   int rc = compileModuleToObject(module, outputNameNoExt, modelObjNameWithExt);
   if (rc != CompilerSuccess)
@@ -584,8 +578,7 @@ static int compileModuleToJniJar(
 #define NOEXECSTACK                                                            \
   {}
 #else
-#define NOEXECSTACK                                                            \
-  { "-z", "noexecstack" }
+#define NOEXECSTACK {"-z", "noexecstack"}
 #endif
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,

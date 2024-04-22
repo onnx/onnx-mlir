@@ -44,11 +44,10 @@ int main(int argc, char *argv[]) {
   }
   initCompilerConfig();
 
-  // timing manager reporting enabled via "--enable-timing" compiler flag
-  // mlir::applyDefaultTimingManagerCLOptions(timingManager);
+  // Timing manager reporting enabled via "--enable-timing" compiler flag
   timingManager.setEnabled(enableTiming);
   rootScope = timingManager.getRootScope();
-  auto setupScope = rootScope.nest("[onnx-mlir] Preparing for Compilation");
+  auto setupTiming = rootScope.nest("[onnx-mlir] Loading Dialects");
 
   // Special handling of outputBaseName to derive output filename.
   // outputBaseName must specify a file, so ignore invalid values
@@ -74,8 +73,9 @@ int main(int argc, char *argv[]) {
     LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");
   }
   loadDialects(context);
-  setupScope.stop();
-  auto inputFileScope = rootScope.nest("[onnx-mlir] Processing of Input File");
+  setupTiming.stop();
+  auto inputFileTiming =
+      rootScope.nest("[onnx-mlir] Importing Input Model to MLIR");
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   int rc = processInputFile(inputFilename, context, module, &errorMessage);
@@ -84,6 +84,6 @@ int main(int argc, char *argv[]) {
       llvm::errs() << errorMessage << "\n";
     return 1;
   }
-  inputFileScope.stop();
+  inputFileTiming.stop();
   return compileModule(module, context, outputBaseName, emissionTarget);
 }
