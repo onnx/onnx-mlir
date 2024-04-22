@@ -46,8 +46,8 @@ int main(int argc, char *argv[]) {
 
   // Timing manager reporting enabled via "--enable-timing" compiler flag
   timingManager.setEnabled(enableTiming);
-  rootScope = timingManager.getRootScope();
-  auto setupTiming = rootScope.nest("[onnx-mlir] Loading Dialects");
+  rootTimingScope = timingManager.getRootScope();
+  auto setupTiming = rootTimingScope.nest("[onnx-mlir] Loading Dialects");
 
   // Special handling of outputBaseName to derive output filename.
   // outputBaseName must specify a file, so ignore invalid values
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
   loadDialects(context);
   setupTiming.stop();
   auto inputFileTiming =
-      rootScope.nest("[onnx-mlir] Importing Input Model to MLIR");
+      rootTimingScope.nest("[onnx-mlir] Importing Input Model to MLIR");
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
   int rc = processInputFile(inputFilename, context, module, &errorMessage);

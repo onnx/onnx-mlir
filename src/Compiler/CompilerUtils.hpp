@@ -27,7 +27,7 @@
 #include <vector>
 
 extern mlir::DefaultTimingManager timingManager;
-extern mlir::TimingScope rootScope;
+extern mlir::TimingScope rootTimingScope;
 
 namespace onnx_mlir {
 

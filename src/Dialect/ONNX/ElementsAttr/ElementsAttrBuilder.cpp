@@ -1073,8 +1073,8 @@ ElementsAttr ElementsAttrBuilder::nonZero(ElementsAttr elms) {
 }
 
 /*static*/
-auto ElementsAttrBuilder::getElementsProperties(
-    ElementsAttr elements) -> ElementsProperties {
+auto ElementsAttrBuilder::getElementsProperties(ElementsAttr elements)
+    -> ElementsProperties {
   static Transformer nullTransformer = nullptr;
   if (auto disposable = elements.dyn_cast<DisposableElementsAttr>()) {
     ArrayRef<int64_t> strides = disposable.getStrides();
