@@ -446,6 +446,7 @@ static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
 static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
     std::vector<std::string> libs, std::vector<std::string> libDirs) {
+auto sharedLibTiming = rootTimingScope.nest("[onnx-mlir] Linking Shared Library");
 #ifdef _WIN32
   std::vector<std::string> outputOpt = {"/Fe:" + sharedLibNameWithExt};
   // link has to be before libpath since they need to be passed through to the
