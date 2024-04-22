@@ -319,8 +319,6 @@ static void markLoopBodyAsMovable(
 
     // Delimeter ops are delimeter of a movable chunk of code.
     llvm::SmallVector<Operation *> delimeterOps(block.getOps<KrnlIterateOp>());
-    for (auto op : block.getOps<scf::IfOp>())
-      delimeterOps.push_back(op);
     delimeterOps.push_back(block.getTerminator());
     Operation *movableBeginOp = &block.front();
     for (Operation *delimeterOp : delimeterOps) {

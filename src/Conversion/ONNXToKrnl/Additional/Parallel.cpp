@@ -247,21 +247,24 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
       Value eq = create.math.eq(forkId, indices[0]);
       scf::IfOp ifOp = rewriter.create<scf::IfOp>(loc, eq, /*else=*/false);
       Block &ifBlock = ifOp.getThenRegion().back();
-      // Insert KrnlRegionOp within scf::IfOp
       rewriter.setInsertionPointToStart(&ifBlock);
-      KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-      Block &regionBlock = regionOp.getBodyRegion().front();
-      rewriter.setInsertionPointToStart(&regionBlock);
-      // Insert KrnlNoneOp. This op is used for inserting forkBlock into
-      // regionBlock. This op is deleted after doing it.
-      KrnlNoneOp noneOp = rewriter.create<KrnlNoneOp>(loc);
-      // Delete terminator of forkRegion.
+      // Insert KrnlRegionOp in every KrnlIterateOps. This needs to avoid errors
+      // in convertKrnlToAffinePass.
       Block &forkBlock = forkOp.getRegion().back();
+      for (auto kop : forkBlock.getOps<KrnlIterateOp>()) {
+        KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+        Block &regionBlock = regionOp.getBodyRegion().front();
+        Block &iterateBlock = kop.getBodyRegion().back();
+        rewriter.eraseOp(iterateBlock.getTerminator());
+        regionBlock.getOperations().splice(
+            regionBlock.end(), iterateBlock.getOperations());
+        rewriter.setInsertionPointToStart(&iterateBlock);
+        KrnlYieldOp krnlYieldOp = rewriter.create<KrnlYieldOp>(loc);
+        rewriter.moveOpBefore(regionOp, krnlYieldOp);
+      }
       Operation *forkYieldOp = forkBlock.getTerminator();
       rewriter.eraseOp(forkYieldOp);
-      // Insert forkBlock into regionBlock
-      rewriter.inlineBlockBefore(&forkOp.getRegion().back(), noneOp);
-      rewriter.eraseOp(noneOp);
+      rewriter.inlineBlockBefore(&forkBlock, ifBlock.getTerminator());
       rewriter.eraseOp(forkOp);
       id++;
     }
