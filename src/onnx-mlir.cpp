@@ -23,14 +23,11 @@
 
 using namespace onnx_mlir;
 
-mlir::DefaultTimingManager timingManager;
-
 int main(int argc, char *argv[]) {
   // Register MLIR command line options.
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
-  mlir::registerDefaultTimingManagerCLOptions();
   mlir::registerAsmPrinterCLOptions();
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
@@ -48,9 +45,9 @@ int main(int argc, char *argv[]) {
   initCompilerConfig();
 
   // timing manager reporting enabled via "--enable-timing" compiler flag
-  mlir::applyDefaultTimingManagerCLOptions(timingManager);
+  // mlir::applyDefaultTimingManagerCLOptions(timingManager);
   timingManager.setEnabled(enableTiming);
-  auto rootScope = timingManager.getRootScope();
+  rootScope = timingManager.getRootScope();
   auto setupScope = rootScope.nest("[onnx-mlir] Preparing for Compilation");
 
   // Special handling of outputBaseName to derive output filename.
