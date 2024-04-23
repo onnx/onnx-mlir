@@ -100,8 +100,7 @@ endif()
 # "zdnn_add" to check the function is called, (3) when dimParams is
 # "NO_DYNAMIC_SHAPE_TEST", backend test is skipped, otherwise the string is
 # passed as --dimParams option. "0:0=a,1=b,2=c|1:0=a,1=b,2=c" means that the
-# first ranks of the first, second and third ranks of the first and second
-# input arguments are the same respectively.
+# first, second and third dimensions of the first and second input arguments # are the same respectively.
 set(NNPA_TEST_LIST
 
     # ==ARCH== NNPA

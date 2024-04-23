@@ -285,11 +285,11 @@ static llvm::cl::opt<std::string, true> shapeInformationOpt("shapeInformation",
 static llvm::cl::opt<std::string, true> dimParamsOpt("dimParams",
     llvm::cl::desc(
         "Custom onnx.dim_params attributes for the inputs of the ONNX model for"
-        "specifying relationship among ranks of the inputs.\n"
+        "specifying relationship among dynamic dimensions of the inputs.\n"
         "\"value\" is in the format of "
-        "\"INPUT_ID1:D1=S1,D2=S2,...,Dn=Sn|INPUT_ID2:D1=T1,D2=T2,...Dn=Tn\""
-        "where \"INPUT_ID1, INPUT_ID2, ...\" are input indices (starting from "
-        "0 or being -1 for all input indices), and\n"
+        "\"INPUT_ID1:D1=S1,D2=S2,...,Dn=Sn|INPUT_ID2:D1=T1,D2=T2,...Dn=Tn|"
+        "...\" where \"INPUT_ID1, INPUT_ID2, ...\" are input indices "
+        "(starting from 0 or being -1 for all input indices), and\n"
         "\"S1, S2, ...\" and \"T2, T2, ...\" are symbols to specify that same "
         "symbols have the same value"),
     llvm::cl::value_desc("value"), llvm::cl::location(dimParams),

@@ -453,10 +453,9 @@ private:
   }
 
   // Generate a string vector from the dimParams option string
-  void getInputDimParamsVecFromOption(std::string optionStr, size_t numOfArgs,
-      SmallVector<std::string> &paramStrVec) {
-    std::stringstream paramStrStream;
-    paramStrStream << optionStr;
+  void getInputDimParamsVecFromOption(std::string optionStr,
+      SmallVector<std::string> &paramStrVec, std::string &paramStrForAllArgs) {
+    std::stringstream paramStrStream(optionStr);
     std::string dimParamStr;
     while (std::getline(paramStrStream, dimParamStr, '|')) {
       size_t pos = dimParamStr.find(':');
@@ -465,10 +464,12 @@ private:
       dimParamStr = dimParamStr.substr(pos + 1);
       std::replace(dimParamStr.begin(), dimParamStr.end(), '=', ':');
       if (idx < 0) // set all arguments
-        for (size_t i = 0; i < numOfArgs; i++)
-          paramStrVec[i] = dimParamStr;
-      else
+        paramStrForAllArgs = dimParamStr;
+      else {
+        while ((int)paramStrVec.size() <= idx) // Expand paramStrVec
+          paramStrVec.emplace_back("");
         paramStrVec[idx] = dimParamStr;
+      }
     }
     return;
   }
@@ -513,10 +514,10 @@ private:
     // See https://github.com/onnx/onnx/blob/main/docs/IR.md for more
     // information about dim_param.
     llvm::SmallVector<std::string, 4> inputDimParams, outputDimParams;
-    size_t numOfArgs = graph.input().size();
-    llvm::SmallVector<std::string> inputDimParamsFromOption(numOfArgs);
-    getInputDimParamsVecFromOption(
-        options_.dimParams, numOfArgs, inputDimParamsFromOption);
+    llvm::SmallVector<std::string> inputDimParamsFromOption;
+    std::string inputDimParamsFromOptionForAllArgs;
+    getInputDimParamsVecFromOption(options_.dimParams, inputDimParamsFromOption,
+        inputDimParamsFromOptionForAllArgs);
 
     // Import the input tensor types that are not constant and not initialized.
     int inputIndex = 0;
@@ -527,8 +528,11 @@ private:
         std::string dimParams = "";
         Type argTy = ImportType(input.type(), &dimParams);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
-        if (!inputDimParamsFromOption[inputIndex].empty())
+        if (inputIndex < (int)inputDimParamsFromOption.size() &&
+            !inputDimParamsFromOption[inputIndex].empty())
           inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
+        else if (!inputDimParamsFromOptionForAllArgs.empty())
+          inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
         else if (!dimParams.empty())
           inputDimParams.emplace_back(dimParams);
 

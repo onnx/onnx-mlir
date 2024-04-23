@@ -56,12 +56,14 @@ struct ImportOptions {
   //
   std::string shapeInformation = "";
   // Custom onnx.dim_params attributes for the graph inputs for specifying
-  // relationship among their ranks.
-  // Its format is 'input_id:dim=sym,dim=sym,dim=sym|input_id:dim=sym,dim=sym..'
+  // relationship among their dynamic dimensions.
+  // Its format is 'input_id:dim_id=sym,dim_id=sym,...|input_id:
+  // dim_id=sym,dim_id=sym,...|input_id...'
   // E.g. An ONNX model has two dynamic inputs
   //   - (arg0: tensor<?x5xf32>, arg1: tensor<?x5xf32>)
-  // If we want to specify that the first ranks of the first and second
-  // arguments are the same, we can use:
+  // If we want to specify that the first unknown dimension of arg0 and the
+  // first unknown dimension of arg1 are the same, we can assign the two
+  // dimensions to the same symbol "batch" as follows.
   //   - dimParams = '0:0=batch|1:0=batch'
   //
   std::string dimParams = "";
