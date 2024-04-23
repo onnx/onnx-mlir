@@ -528,6 +528,10 @@ private:
         std::string dimParams = "";
         Type argTy = ImportType(input.type(), &dimParams);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
+        // For each input tensor, use either all dimensions by the compiler
+        // option OR all dimensions in the original onnx model. Dimensions
+        // from the option and the model in a single input tensor are not
+        // merged.
         if (inputIndex < (int)inputDimParamsFromOption.size() &&
             !inputDimParamsFromOption[inputIndex].empty())
           inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);

@@ -291,7 +291,11 @@ static llvm::cl::opt<std::string, true> dimParamsOpt("dimParams",
         "...\" where \"INPUT_ID1, INPUT_ID2, ...\" are input indices "
         "(starting from 0 or being -1 for all input indices), and\n"
         "\"S1, S2, ...\" and \"T2, T2, ...\" are symbols to specify that same "
-        "symbols have the same value"),
+        "symbols have the same value. "
+        "All dimensions of onnx.dim_params for a specified input index in "
+        "the original onnx model are cleared and repalced by this option. "
+        "onnx.dim_params for other input indices in the original onnx model "
+        "are not cleared"),
     llvm::cl::value_desc("value"), llvm::cl::location(dimParams),
     llvm::cl::cat(OnnxMlirOptions));
 
