@@ -41,6 +41,7 @@ std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 bool enableONNXHybridPass;                             // common for both
 std::vector<std::string> functionsToDecompose;         // common for both
 std::string opsForCall;                                // common for both
+bool disableKrnlOpFusion;                              // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
 bool preserveLocations;                                // onnx-mlir only
@@ -83,6 +84,7 @@ std::vector<std::string> extraLibs;                    // onnx-mlir only
 ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
+bool enableTiming;                                     // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -200,6 +202,13 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::desc("Specify ONNX functions to decompose"),
         llvm::cl::location(functionsToDecompose),
         llvm::cl::cat(OnnxMlirCommonOptions));
+
+static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
+    "disable-krnl-op-fusion",
+    llvm::cl::desc("disable op fusion in onnx-to-krnl pass (default=false)\n"
+                   "Set to 'true' if you want to disable fusion."),
+    llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirCommonOptions));
 
 static llvm::cl::opt<bool, true> disableRecomposeOptionOpt("disable-recompose",
     llvm::cl::desc("Disable recomposition of ONNX operations."),
@@ -563,6 +572,12 @@ static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
             "Provide report on how OMP Parallel is applied to ONNX ops."),
         clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")),
     llvm::cl::init(OptReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enable_timing("enable-timing",
+    llvm::cl::desc("Enable compile timing (default is false)\n"
+                   "Set to 'true' if you want to enable compile timing."),
+    llvm::cl::location(enableTiming), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir-opt only
 static llvm::cl::opt<bool, true> split_input_file_opt("split-input-file",
