@@ -201,7 +201,8 @@ static llvm::cl::list<std::string, std::vector<std::string>>
         llvm::cl::location(functionsToDecompose),
         llvm::cl::cat(OnnxMlirCommonOptions));
 
-static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt("disable-krnl-op-fusion",
+static llvm::cl::opt<bool, true> disableKrnlOpFusionOpt(
+    "disable-krnl-op-fusion",
     llvm::cl::desc("disable op fusion in onnx-to-krnl pass (default=false)\n"
                    "Set to 'true' if you want to disable fusion."),
     llvm::cl::location(disableKrnlOpFusion), llvm::cl::init(false),
