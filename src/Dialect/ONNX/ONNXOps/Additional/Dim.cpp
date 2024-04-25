@@ -37,12 +37,16 @@ LogicalResult ONNXDimOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXDimOp::verify() {
-  // Input data must be ranked.
   if (!hasShapeAndRank(this->getData()))
-    return failure();
-  // Axis must be in [0, rank -1].
+    return emitOpError("input must have shape and rank.");
+
   int64_t axis = this->getAxis();
-  return failure((axis < 0) || (axis >= getRank(this->getData().getType())));
+  if ((axis < 0) || (axis >= getRank(this->getData().getType())))
+    return emitOpError("attribute ")
+           << ONNXDimOp::getAxisAttrName() << " value is " << axis
+           << ", accepted range is [0, "
+           << getRank(this->getData().getType()) - 1 << "].";
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

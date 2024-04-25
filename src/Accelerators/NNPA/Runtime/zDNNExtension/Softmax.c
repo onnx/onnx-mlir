@@ -42,19 +42,17 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   clock_t start_time = 0, end_time = 0;
 
   // We split e4 in (e4, e3, e2, e1) to reuse the full buffer.
-  SplitInfo splitInfoX = {.fullZTensor = input,
-      .axis = E4,
-      .numOfElemsPerTile = OMZTensorSplitSize};
-  SplitInfo splitInfoY = {.fullZTensor = output,
-      .axis = E4,
-      .numOfElemsPerTile = OMZTensorSplitSize};
-  initSplitInfo(&splitInfoX, true, "Softmax X");
-  initSplitInfo(&splitInfoY, true, "Softmax Y");
+  uint32_t splitSize = OMZTensorSplitSize;
+  SplitInfo siX, siY;
+  initSplitInfo(
+      &siX, input, E4, splitSize, /*allocTileBuffers=*/true, "Softmax X");
+  initSplitInfo(
+      &siY, output, E4, splitSize, /*allocTileBuffers=*/true, "Softmax Y");
 
   // Copy data from input to tiles.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  copyData(&splitInfoX, FULL_TO_TILES);
+  copyData(&siX, FULL_TO_TILES);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     splitTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
@@ -64,11 +62,11 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   // TODO: could we reuse save_area in particular in the parallel scenario?
   if (OMZTensorSplitDebug)
     start_time = clock();
-  for (uint32_t i = 0; i < splitInfoX.numOfTiles; ++i) {
-    zdnn_ztensor *zxTensor = splitInfoX.tiles + i;
-    zdnn_ztensor *zyTensor = splitInfoY.tiles + i;
-    zdnn_status status = zdnn_softmax(zxTensor,
-        (splitInfoX.reuseFullZTensor) ? save_area : NULL, act_func, zyTensor);
+  for (uint32_t i = 0; i < getNumOfTiles(&siX); ++i) {
+    zdnn_ztensor *zx = getTile(&siX, i);
+    zdnn_ztensor *zy = getTile(&siY, i);
+    zdnn_status status = zdnn_softmax(
+        zx, (siX.reuseFullZTensor) ? save_area : NULL, act_func, zy);
     assert(status == ZDNN_OK);
   }
   if (OMZTensorSplitDebug) {
@@ -80,14 +78,14 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
   // Copy data from tiles to the output.
   if (OMZTensorSplitDebug)
     start_time = clock();
-  copyData(&splitInfoY, TILES_TO_FULL);
+  copyData(&siY, TILES_TO_FULL);
   if (OMZTensorSplitDebug) {
     end_time = clock();
     mergeTime = ((float)(end_time - start_time) / (float)CLOCKS_PER_SEC) * 1000;
   }
 
-  FreeSplitInfoData(&splitInfoX);
-  FreeSplitInfoData(&splitInfoY);
+  freeSplitInfoData(&siX);
+  freeSplitInfoData(&siY);
 
   if (OMZTensorSplitDebug)
     printf("[Softmax] split, %f, compute, %f, merge, %f (milliseconds)\n",

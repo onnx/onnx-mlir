@@ -97,10 +97,6 @@ void registerOMPasses(int optLevel) {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createElideConstGlobalValuePass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertSeqToMemrefPass();
   });
 
@@ -110,14 +106,6 @@ void registerOMPasses(int optLevel) {
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return krnl::createConvertKrnlToLLVMPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createDisconnectKrnlDimFromAllocPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return createLowerKrnlShapePass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

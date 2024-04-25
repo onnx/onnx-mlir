@@ -1543,7 +1543,7 @@ int readAndStripComments(
   // but appear in lit tests in test/mlir/onnx/parse.
   for (llvm::line_iterator line(*buf, /*SkipBlanks=*/false), end; line != end;
        ++line) {
-    if (line->ltrim(" \t").startswith("//"))
+    if (line->ltrim(" \t").starts_with("//"))
       continue; // omit comment lines beginning with (whitespace and) //
     if (line->contains("//")) {
       // Not stripping end-of-line comments because there's no robust way to
@@ -1563,7 +1563,7 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
     OwningOpRef<ModuleOp> &module, std::string *errorMessage,
     ImportOptions options) {
   onnx::ModelProto model;
-  if (model_fname.endswith(".onnxtext")) {
+  if (model_fname.ends_with(".onnxtext")) {
     std::string text;
     int ret = readAndStripComments(model_fname, errorMessage, text);
     if (ret != CompilerSuccess)
@@ -1576,7 +1576,7 @@ int ImportFrontendModelFile(StringRef model_fname, MLIRContext &context,
                       " with error '" + status.ErrorMessage() + "'";
       return InvalidOnnxFormat;
     }
-  } else if (model_fname.endswith(".json")) {
+  } else if (model_fname.ends_with(".json")) {
     std::string json;
     int ret = readAndStripComments(model_fname, errorMessage, json);
     if (ret != CompilerSuccess)
