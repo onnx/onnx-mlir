@@ -152,7 +152,8 @@ int Command::exec(std::string wdir) const {
     llvm::errs() << llvm::join(argsRef, " ") << "\n"
                  << "Error message: " << errMsg << "\n"
                  << "Program path: " << _path << "\n"
-                 << "Command execution failed." << "\n";
+                 << "Command execution failed."
+                 << "\n";
     return rc;
   }
 
@@ -580,7 +581,8 @@ static int compileModuleToJniJar(
 #define NOEXECSTACK                                                            \
   {}
 #else
-#define NOEXECSTACK {"-z", "noexecstack"}
+#define NOEXECSTACK                                                            \
+  { "-z", "noexecstack" }
 #endif
   std::string modelSharedLibPath = getTargetFilename(jniLibBase, EmitLib);
   rc = genSharedLib(modelSharedLibPath, NOEXECSTACK,
