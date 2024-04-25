@@ -115,8 +115,6 @@ using ONNXSequenceEraseOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason
 using ONNXSequenceInsertOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
 using ONNXSequenceLengthOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
 using ONNXSplitToSequenceOpShapeHelper = ONNXUnimplementedOpShapeHelper; // Reason: Seq
-using ONNXForkOpShapeHelper = ONNXUnimplementedOpShapeHelper;
-using ONNXParallelOpShapeHelper = ONNXUnimplementedOpShapeHelper;
 // clang-format on
 
 //===----------------------------------------------------------------------===//
@@ -887,6 +885,8 @@ using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
+using ONNXForkOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXForkOp>;
+using ONNXParallelOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXParallelOp>;
 // clang-format on
 
 //===----------------------------------------------------------------------===//

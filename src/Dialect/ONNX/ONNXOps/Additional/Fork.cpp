@@ -18,6 +18,26 @@ using namespace mlir;
 using namespace onnx_mlir;
 
 //===----------------------------------------------------------------------===//
+// ShapeHelper
+//===----------------------------------------------------------------------===//
+
+template <>
+LogicalResult ONNXForkOpShapeHelper::computeShape() {
+  ONNXForkOp forkOp = llvm::cast<ONNXForkOp>(op);
+  (void)forkOp.inferShapes([](Region &region) {});
+  Operation *yieldOp = forkOp.getBody().front().getTerminator();
+  for (unsigned i = 0; i < yieldOp->getNumOperands(); ++i) {
+    DimsExpr outputDims;
+    Value returnVal = yieldOp->getOperands()[i];
+    int64_t outRank = returnVal.getType().cast<ShapedType>().getRank();
+    for (int64_t j = 0; j < outRank; ++j)
+      outputDims.emplace_back(createIE->getShapeAsDim(returnVal, j));
+    setOutputDims(outputDims, i);
+  }
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // Type Inference
 //===----------------------------------------------------------------------===//
 
