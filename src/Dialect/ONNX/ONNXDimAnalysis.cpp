@@ -875,6 +875,24 @@ void DimAnalysis::visitDim(
     return;
   }
 
+  // ParallelOp or ForkOp
+  // The result tensors are the same with the operand tensors for yieldOp in the
+  // region.
+  if (isa<ONNXParallelOp>(op) || isa<ONNXForkOp>(op)) {
+    for (unsigned i = 0; i < op->getNumResults(); ++i) {
+      if (tensor == op->getResults()[i]) {
+        Operation *yieldOp =
+            op->getRegions().front().getBlocks().front().getTerminator();
+        DimAnalysis::DimT newSameDim(yieldOp->getOperands()[i], dimIndex);
+        sameDims.insert(newSameDim);
+        LLVM_DEBUG(llvm::dbgs()
+                   << "  - Added a new dim(" << yieldOp->getOperands()[i]
+                   << ", " << dimIndex << ")\n");
+      }
+    }
+    return;
+  }
+
   // All dimensions in the analysis must be dynamic. If not, something really
   // wrong happened.
   ShapedType ty = tensor.getType().cast<ShapedType>();
