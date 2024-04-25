@@ -84,6 +84,7 @@ extern std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 extern bool enableONNXHybridPass;                             // common for both
 extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
+extern bool disableKrnlOpFusion;                              // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
