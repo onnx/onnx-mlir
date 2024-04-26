@@ -17,6 +17,7 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
@@ -1884,6 +1885,9 @@ bool OpFusionHelper::areInputsValidForFusion(
 // A successor op (user) is fusible if it is the only user, it is in the
 // fusible elementwise op list, and its inputs are valid for fusion.
 void OpFusionHelper::findFusibleOps() {
+  // Direct return if fusion is disabled
+  if (disableKrnlOpFusion)
+    return;
   Operation *defOp = rootOp;
   while (defOp->hasOneUse()) {
     // the possible ONNX Ops.
