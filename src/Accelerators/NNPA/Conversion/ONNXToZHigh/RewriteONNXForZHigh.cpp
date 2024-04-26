@@ -34,6 +34,7 @@
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
+#include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Dialect/ONNX/OnnxElementsAttrBuilder.hpp"
 #include "src/Support/TypeUtilities.hpp"
@@ -467,6 +468,31 @@ public:
   }
 };
 
+class RemoveReshapeWithIdentityPattern
+    : public OpRewritePattern<ONNXReshapeOp> {
+public:
+  using OpRewritePattern<ONNXReshapeOp>::OpRewritePattern;
+
+  DimAnalysis *dimAnalysis;
+
+  RemoveReshapeWithIdentityPattern(
+      MLIRContext *context, DimAnalysis *dimAnalysis)
+      : OpRewritePattern<ONNXReshapeOp>(context, 1001),
+        dimAnalysis(dimAnalysis) {}
+
+  LogicalResult matchAndRewrite(
+      ONNXReshapeOp reshapeOp, PatternRewriter &rewriter) const override {
+    if (!isIdentityReshape(reshapeOp, dimAnalysis))
+      return failure();
+
+    // Rewrite
+    Operation *op = reshapeOp.getOperation();
+    Value data = reshapeOp.getData();
+    rewriter.replaceOp(op, data);
+    return success();
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Rewrite ONNX ops to ZHigh ops and ONNX ops for ZHigh.
 //===----------------------------------------------------------------------===//
@@ -481,6 +507,8 @@ void getRewriteONNXForZHighPatterns(
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXAddOp>>(
       patterns.getContext(), dimAnalysis);
   patterns.insert<AddSubWithRHSZeroExpandPattern<ONNXSubOp>>(
+      patterns.getContext(), dimAnalysis);
+  patterns.insert<RemoveReshapeWithIdentityPattern>(
       patterns.getContext(), dimAnalysis);
 }
 
@@ -643,6 +671,15 @@ void getRewriteONNXForZHighDynamicallyLegal(
         return isSuitableForZDNN<ONNXConvOp>(op) ||
                !canInferencePadsForNNPAConv(op);
       });
+#if 1
+  addDynamicallyLegalOpFor<ONNXReshapeOp>(target, dimAnalysis,
+      [](ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {
+        // Get rid of identity reshape here, as it impacts stick/unstick.
+        // So all reshape are legal, unless it is an identity reshape, in which
+        // case there is a rule here to remove it.
+        return !isIdentityReshape(op, dimAnalysis);
+      });
+#endif
 }
 
 struct RewriteONNXForZHighPass

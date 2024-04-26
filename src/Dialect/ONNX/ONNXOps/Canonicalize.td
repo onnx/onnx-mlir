@@ -144,6 +144,10 @@ def HaveSameStaticShape: Constraint<
   CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
   "Two tensors have the same static shape">;
 
+def IsIdentityReshape: Constraint<
+  CPred<"onnx_mlir::isIdentityReshape($0, $1)">,
+  "Reshape is identity operation">;
+
 // Create a unit constant that will be used as none input.
 def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
@@ -652,7 +656,7 @@ def RemoveIdentityReshapePattern2:  Pat<
   // Remove the reshape.
   (replaceWithValue $val),
   // Check that val and out have the same static shape.
-  [(HaveSameStaticShape $out, $val)]>;
+  [(IsIdentityReshape $out, $val)]>;
 
 def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
