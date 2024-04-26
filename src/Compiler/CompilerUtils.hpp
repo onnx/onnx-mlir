@@ -18,12 +18,16 @@
 
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/OwningOpRef.h"
+#include "mlir/Support/Timing.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
 
 #include <optional>
 #include <string>
 #include <vector>
+
+extern mlir::DefaultTimingManager timingManager;
+extern mlir::TimingScope rootTimingScope;
 
 namespace onnx_mlir {
 
