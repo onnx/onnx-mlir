@@ -454,7 +454,8 @@ private:
 
   // Generate a string vector from the dimParams option string
   void getInputDimParamsMapFromOption(std::string optionStr,
-      std::map<int, std::string> &paramStrMap, std::string &paramStrForAllArgs) {
+      std::map<int, std::string> &paramStrMap,
+      std::string &paramStrForAllArgs) {
     std::stringstream paramStrStream(optionStr);
     std::string dimParamStr;
     while (std::getline(paramStrStream, dimParamStr, '|')) {
