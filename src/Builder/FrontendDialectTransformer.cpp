@@ -453,8 +453,8 @@ private:
   }
 
   // Generate a string vector from the dimParams option string
-  void getInputDimParamsVecFromOption(std::string optionStr,
-      SmallVector<std::string> &paramStrVec, std::string &paramStrForAllArgs) {
+  void getInputDimParamsMapFromOption(std::string optionStr,
+      std::map<int, std::string> &paramStrMap, std::string &paramStrForAllArgs) {
     std::stringstream paramStrStream(optionStr);
     std::string dimParamStr;
     while (std::getline(paramStrStream, dimParamStr, '|')) {
@@ -466,9 +466,7 @@ private:
       if (idx < 0) // set all arguments
         paramStrForAllArgs = dimParamStr;
       else {
-        while ((int)paramStrVec.size() <= idx) // Expand paramStrVec
-          paramStrVec.emplace_back("");
-        paramStrVec[idx] = dimParamStr;
+        paramStrMap[idx] = dimParamStr;
       }
     }
     return;
@@ -514,9 +512,9 @@ private:
     // See https://github.com/onnx/onnx/blob/main/docs/IR.md for more
     // information about dim_param.
     llvm::SmallVector<std::string, 4> inputDimParams, outputDimParams;
-    llvm::SmallVector<std::string> inputDimParamsFromOption;
+    std::map<int, std::string> inputDimParamsFromOption;
     std::string inputDimParamsFromOptionForAllArgs;
-    getInputDimParamsVecFromOption(options_.dimParams, inputDimParamsFromOption,
+    getInputDimParamsMapFromOption(options_.dimParams, inputDimParamsFromOption,
         inputDimParamsFromOptionForAllArgs);
 
     // Import the input tensor types that are not constant and not initialized.
@@ -532,8 +530,8 @@ private:
         // option OR all dimensions in the original onnx model. Dimensions
         // from the option and the model in a single input tensor are not
         // merged.
-        if (inputIndex < (int)inputDimParamsFromOption.size() &&
-            !inputDimParamsFromOption[inputIndex].empty())
+        if (inputDimParamsFromOption.find(inputIndex) !=
+            inputDimParamsFromOption.end())
           inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
         else if (!inputDimParamsFromOptionForAllArgs.empty())
           inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
