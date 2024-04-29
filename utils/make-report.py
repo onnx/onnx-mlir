@@ -524,14 +524,14 @@ def make_report(stat_message):
     print("")
     stat_details = ""
     if supported_only:
-        stat_details = ", supported ops"
+        stat_details = " supported ops"
     else:
-        stat_details = ", all ops"
+        stat_details = " all ops"
     if min_percent_reporting > 0:
         stat_details += ", " + str(min_percent_reporting) + "%+ exec time"
-    stat_details += ", ordered_by " + sorting_preference
+    stat_details += " ordered_by " + sorting_preference
     if has_timing:
-        stat_details += ", tot_time {:.7f}".format(tot_time * time_unit)
+        stat_details += ", tot_time,  {:.7f}".format(tot_time * time_unit)
     print("Statistics start" + stat_details)
     for key in sorted(sorted_output):
         print(sorted_output[key])
