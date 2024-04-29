@@ -636,11 +636,13 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
 #if PREFETCH_CSU_DIST > 0
+          // Prefetch current lines.
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
           create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
               /*locality*/ PREFETCH_LOCALITY);
 #endif
+          // Prefetch line in advance.
           prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
@@ -1114,6 +1116,24 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           // Allocate buffer for partial values (may not be used, its ok).
           Value bufferF32 = create.mem.alignedAlloca(bufferType);
 
+// Prefetch
+#if PREFETCH_CSU
+          DimsExpr prefetchAF = inputAF;
+#if PREFETCH_CSU_DIST > 0
+          // Prefetch current line
+          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
+              /*locality*/ PREFETCH_LOCALITY);
+          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
+              /*locality*/ PREFETCH_LOCALITY);
+#endif
+          // Prefetch line in advance.
+          prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
+          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
+              /*locality*/ PREFETCH_LOCALITY);
+          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
+              /*locality*/ PREFETCH_LOCALITY);
+#endif
+
           // I may process here up to [e1 ... e1 + m*64), make sure its
           // not going out of bound, i.e. beyond outputDIms[E1];
           IndexExpr ub1 = SymIE(outputDims[E1]);
@@ -1125,7 +1145,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
               // Then (is full).
               [&](SCFBuilder b) {
                 MDBuilder create(b);
-                // Prefetch
                 // Loop
                 const int64_t U = 4;
                 assert(U * VL <= 64 && "bad unroll");
