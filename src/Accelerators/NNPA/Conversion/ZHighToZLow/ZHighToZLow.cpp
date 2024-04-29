@@ -1111,6 +1111,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
           IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
 
+          // Allocate buffer for partial values (may not be used, its ok).
+          Value bufferF32 = create.mem.alignedAlloca(bufferType);
+
           // I may process here up to [e1 ... e1 + m*64), make sure its
           // not going out of bound, i.e. beyond outputDIms[E1];
           IndexExpr ub1 = SymIE(outputDims[E1]);
@@ -1124,26 +1127,37 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                 MDBuilder create(b);
                 // Prefetch
                 // Loop
-                create.scf.forLoop(litZero.getValue(), lit64.getValue(), VL,
+                const int64_t U = 4;
+                assert(U * VL <= 64 && "bad unroll");
+                create.scf.forLoop(litZero.getValue(), lit64.getValue(), U * VL,
                     [&](SCFBuilder b, Value loopIndex) {
                       MDBuilder create(b);
                       IndexExprScope innerScope(b, &outerScope);
                       IndexExpr l = DimIE(loopIndex);
+                      Value vecF16[U], vecF32H[U], vecF32L[U];
                       // Load f16 values from input via reinterpreted data tile.
-                      Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
-                          {SymIE(inputTileOffset), l}, {});
+                      for (int64_t i = 0; i < U; ++i) {
+                        vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
+                            {SymIE(inputTileOffset), l + (i * VL)}, {});
+                      }
                       // Convert back to f32.
-                      auto convertOp =
-                          rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
-                              loc, vecF16);
-                      Value vecF32H = convertOp.getResult(0);
-                      Value vecF32L = convertOp.getResult(1);
+                      for (int64_t i = 0; i < U; ++i) {
+                        auto convertOp =
+                            rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
+                                loc, vecF16[i]);
+                        vecF32H[i] = convertOp.getResult(0);
+                        vecF32L[i] = convertOp.getResult(1);
+                      }
                       // Store f32 values back to the (normal layout) output.
                       DimsExpr outputAF = SymListIE(inputAF);
                       outputAF[E1] = outputAF[E1] + l;
-                      create.vec.storeIE(vecF32H, alloc, outputAF, {});
-                      create.vec.storeIE(
-                          vecF32L, alloc, outputAF, {litVLHalf.getValue()});
+                      for (int64_t i = 0; i < U; ++i) {
+                        LiteralIndexExpr iH(i * VL), iL(i * VL + VL / 2);
+                        create.vec.storeIE(
+                            vecF32H[i], alloc, outputAF, {iH.getValue()});
+                        create.vec.storeIE(
+                            vecF32L[i], alloc, outputAF, {iL.getValue()});
+                      }
                     });
               },
               // else, we don't have a full (64 e1) tile.
@@ -1179,7 +1193,6 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                           vecF32L, alloc, outputAF, {litVLHalf.getValue()});
                     });
                 // Deal with the last values: compute f32 using simd.
-                Value bufferF32 = create.mem.alignedAlloca(bufferType);
                 IndexExpr remainingScalarValues = tripCount % VL;
                 IndexExpr lastL = tripCount - remainingScalarValues;
                 Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
