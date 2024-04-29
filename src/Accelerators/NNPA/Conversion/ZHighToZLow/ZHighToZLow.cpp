@@ -1052,6 +1052,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
     VectorType vecF16Type = VectorType::get({VL}, f16Type);
+    MemRefType bufferType = MemRefType::get({VL}, f32Type);
 
     // Define useful literals.
     IndexExpr litZero = LiteralIndexExpr(0);
@@ -1061,7 +1062,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     IndexExpr lit64 = LiteralIndexExpr(64);
 
     // Useful references for indexing dimensions (neg val are not used).
-    int64_t E4 = rank - 4, E3 = rank - 3, E2 = rank - 2, E1 = rank - 1;
+    int64_t E1 = rank - 1;
 
     // Create loop iterations. Note that we iterate over E1 as tiles of 64
     // elements.
@@ -1099,10 +1100,11 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
         loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           IndexExprScope outerScope(create.krnl, &allocScope);
-          DimsExpr outerIndices = DimListIE(outerIndices);
+          DimsExpr outerIndices = DimListIE(loopInd);
           // Computation for reading inputs.
           DimsExpr inputAF = outerIndices;
-          IndexExpr e1 = inputAF[E1] = outerIndices[E1] * 64;
+          IndexExpr e1 = outerIndices[E1] * 64;
+          inputAF[E1] = e1;
           // Translate the tile index t1 to the actual targetted data.
           Value inputOffset =
               create.krnl.getLinearOffsetIndexIE(input, inputAF);
@@ -1120,24 +1122,23 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
               // Then (is full).
               [&](SCFBuilder b) {
                 MDBuilder create(b);
-                IndexExprScope middleScope(b, &outerScope);
-                IndexExpr lb = SymIE(e1);
-                IndexExpr ub = e1 + 64;
                 // Prefetch
                 // Loop
                 create.scf.forLoop(litZero.getValue(), lit64.getValue(), VL,
                     [&](SCFBuilder b, Value loopIndex) {
                       MDBuilder create(b);
-                      IndexExprScope innerScope(b, &middleScope);
+                      IndexExprScope innerScope(b, &outerScope);
                       IndexExpr l = DimIE(loopIndex);
+                      // Load f16 values from input via reinterpreted data tile.
                       Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
                           {SymIE(inputTileOffset), l}, {});
+                      // Convert back to f32.
                       auto convertOp =
                           rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
                               loc, vecF16);
                       Value vecF32H = convertOp.getResult(0);
                       Value vecF32L = convertOp.getResult(1);
-                      // Store f32 values back to the output.
+                      // Store f32 values back to the (normal layout) output.
                       DimsExpr outputAF = SymListIE(inputAF);
                       outputAF[E1] = outputAF[E1] + l;
                       create.vec.storeIE(vecF32H, alloc, outputAF, {});
@@ -1145,9 +1146,66 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
                           vecF32L, alloc, outputAF, {litVLHalf.getValue()});
                     });
               },
-              // else
+              // else, we don't have a full (64 e1) tile.
               [&](SCFBuilder b) {
-
+                MDBuilder create(b);
+                IndexExprScope middleScope(b, &outerScope);
+                IndexExpr tripCount = SymIE(ub1) - SymIE(e1);
+                // Note: if we only have multiple of VL, loop below will handle
+                // all as we subtract (VL-1). Aka if VL=8 and tripCount = 16,
+                // tripCountWithoutPartialLastVL is 16 - 7 = 9. Thus we iterate
+                // over i=0 & i=8 as both are < 9.
+                IndexExpr tripCountWithoutPartialLastVL = tripCount - (VL - 1);
+                create.scf.forLoop(litZero.getValue(),
+                    tripCountWithoutPartialLastVL.getValue(), VL,
+                    [&](SCFBuilder b, Value loopIndex) {
+                      MDBuilder create(b);
+                      IndexExprScope innerScope(b, &middleScope);
+                      IndexExpr l = DimIE(loopIndex);
+                      // Load f16 values from input via reinterpreted data tile.
+                      Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
+                          {SymIE(inputTileOffset), l}, {});
+                      // Convert back to f32.
+                      auto convertOp =
+                          rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
+                              loc, vecF16);
+                      Value vecF32H = convertOp.getResult(0);
+                      Value vecF32L = convertOp.getResult(1);
+                      // Store f32 values back to the (normal layout) output.
+                      DimsExpr outputAF = SymListIE(inputAF);
+                      outputAF[E1] = outputAF[E1] + l;
+                      create.vec.storeIE(vecF32H, alloc, outputAF, {});
+                      create.vec.storeIE(
+                          vecF32L, alloc, outputAF, {litVLHalf.getValue()});
+                    });
+                // Deal with the last values: compute f32 using simd.
+                Value bufferF32 = create.mem.alignedAlloca(bufferType);
+                IndexExpr remainingScalarValues = tripCount % VL;
+                IndexExpr lastL = tripCount - remainingScalarValues;
+                Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
+                    {SymIE(inputTileOffset), lastL}, {});
+                // Convert back to f32.
+                auto convertOp =
+                    rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
+                Value vecF32H = convertOp.getResult(0);
+                Value vecF32L = convertOp.getResult(1);
+                // Save into VL value buffer.
+                create.vec.storeIE(vecF32H, bufferF32, {litZero}, {});
+                create.vec.storeIE(vecF32L, bufferF32, {litVLHalf}, {});
+                // Save the remaining values as scalars.
+                create.scf.forLoop(litZero.getValue(),
+                    remainingScalarValues.getValue(), 1,
+                    [&](SCFBuilder b, Value loopIndex) {
+                      MDBuilder create(b);
+                      IndexExprScope innerScope(b, &middleScope);
+                      IndexExpr l = DimIE(loopIndex);
+                      // Load converted value.
+                      Value f32 = create.krnl.loadIE(bufferF32, {l});
+                      DimsExpr outputAF = SymListIE(inputAF);
+                      outputAF[E1] = outputAF[E1] + SymIE(lastL);
+                      outputAF[E1] = outputAF[E1] + l;
+                      create.krnl.storeIE(f32, alloc, outputAF);
+                    });
               });
         });
     rewriter.replaceOp(op, alloc);
