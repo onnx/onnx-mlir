@@ -365,7 +365,7 @@ public:
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
 
-  // Debug (enable using --debug-only=index_expr, for example).
+  // Debug (enable using --debug-only=index-expr, for example).
   void debugPrint(const std::string &msg) const;
 
 private:

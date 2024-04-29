@@ -1137,6 +1137,7 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
           // I may process here up to [e1 ... e1 + m*64), make sure its
           // not going out of bound, i.e. beyond outputDIms[E1];
           IndexExpr ub1 = SymIE(outputDims[E1]);
+          IndexExpr lit64Bis = LiteralIndexExpr(64);
           IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
           IndexExpr isFullLogical = isFull >= 0;
           create.scf.ifThenElse(
