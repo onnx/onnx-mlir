@@ -635,19 +635,19 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
           IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
 #if PREFETCH_CSU
           DimsExpr prefetchAF = memAF;
-#if PREFETCH_CSU_DIST > 0
           // Prefetch current lines.
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
           create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
               /*locality*/ PREFETCH_LOCALITY);
-#endif
+#if PREFETCH_CSU_DIST > 0
           // Prefetch line in advance.
           prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
           create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
               /*locality*/ PREFETCH_LOCALITY);
+#endif
 #endif
 
           const int64_t U = 4;
@@ -1119,19 +1119,19 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 // Prefetch
 #if PREFETCH_CSU
           DimsExpr prefetchAF = inputAF;
-#if PREFETCH_CSU_DIST > 0
           // Prefetch current line
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
           create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
               /*locality*/ PREFETCH_LOCALITY);
-#endif
+#if PREFETCH_CSU_DIST > 0
           // Prefetch line in advance.
           prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
               /*locality*/ PREFETCH_LOCALITY);
           create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
               /*locality*/ PREFETCH_LOCALITY);
+#endif
 #endif
 
           // I may process here up to [e1 ... e1 + m*64), make sure its
