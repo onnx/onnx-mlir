@@ -636,6 +636,7 @@ int processInputFile(StringRef inputFilename, mlir::MLIRContext &context,
     options.useOnnxModelTypes = useOnnxModelTypes;
     options.invokeOnnxVersionConverter = invokeOnnxVersionConverter;
     options.shapeInformation = shapeInformation;
+    options.dimParams = dimParams;
     options.allowSorting = allowSorting;
     options.externalDataDir = dirName(inputFilename);
     options.functionsToDecompose.insert(options.functionsToDecompose.end(),
