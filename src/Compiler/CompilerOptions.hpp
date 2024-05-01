@@ -84,6 +84,7 @@ extern std::vector<std::string> onnxConstPropDisablePatterns; // common for both
 extern bool enableONNXHybridPass;                             // common for both
 extern std::vector<std::string> functionsToDecompose;         // common for both
 extern std::string opsForCall;                                // common for both
+extern bool disableKrnlOpFusion;                              // common for both
 extern EmissionTargetType emissionTarget;                     // onnx-mlir only
 extern bool invokeOnnxVersionConverter;                       // onnx-mlir only
 extern bool preserveLocations;                                // onnx-mlir only
@@ -94,6 +95,7 @@ extern bool preserveMLIR;                                     // onnx-mlir only
 extern bool useOnnxModelTypes;                                // onnx-mlir only
 extern int repeatOnnxTransform;                               // onnx-mlir only
 extern std::string shapeInformation;                          // onnx-mlir only
+extern std::string dimParams;                                 // onnx-mlir only
 extern ModelSize modelSize;                                   // onnx-mlir only
 extern bool storeConstantsToFile;                             // onnx-mlir only
 extern float constantsToFileTotalThreshold;                   // onnx-mlir only
