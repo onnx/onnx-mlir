@@ -13,7 +13,9 @@ add_onnx_mlir_library(OMZLowRewrite
   MLIRRewrite
   MLIRTransformUtils
   MLIRViewLikeInterface
+  OMONNXToKrnl
   OMZLowOps
+
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}

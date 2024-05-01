@@ -2,13 +2,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===-------- ZLowRewrite.cpp - ZLow Rewrite Patterns ---------------------===//
+//===--- ZLowStickExpansion.cpp - ZLow Stick/Unstick Expansion Patterns ---===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This pass implements optimizations for ZLow operations.
+// This pass implements optimizations for ZLow operations, by substituting calls
+// to stick / unstick with explict code to perform the transformation, when
+// applicable.
 //
 //===----------------------------------------------------------------------===//
 
@@ -50,18 +52,21 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilder, SCFBuilder>;
 
 /// Remove unstick if there is no use of its second operand except itself.
-class UnstickRemovalPattern : public OpRewritePattern<ZLowUnstickOp> {
-  UnstickRemovalPattern(bool enableParallelism = false)
-      : OpRewritePattern<ZLowUnstickOp>(), enableParallel(enableParallelism) {}
-
-  bool enableParallel;
-
+class UnstickExpansionPattern : public OpRewritePattern<ZLowUnstickOp> {
 public:
+  UnstickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
+      : OpRewritePattern<ZLowUnstickOp>(context, 1),
+        enableParallel(enableParallelism) {}
+
+  bool enableParallel = true;
+
   using OpRewritePattern<ZLowUnstickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
     StringAttr layout = unstickOp.getLayoutAttr();
+    fprintf(
+        stderr, "hi alex in unstick with layout %s\n", layout.str().c_str());
 
     // Generic way to handle all formats listed below.
     // Think we only come in here when condition below is true.
@@ -76,7 +81,8 @@ public:
 
   LogicalResult generateUnstickCodeNoBuffer(PatternRewriter &rewriter,
       ZLowUnstickOp unstickOp, StringAttr layout) const {
-    Location loc = op->getLoc();
+    Operation *op = unstickOp.getOperation();
+    Location loc = unstickOp.getLoc();
     MDBuilder create(rewriter, loc);
     IndexExprScope allocScope(create.krnl);
 
@@ -279,24 +285,26 @@ public:
                     });
               });
         });
-    rewriter.replaceOp(op, alloc);
+    rewriter.eraseOp(unstickOp);
     return success();
   }
 };
 
 /// Remove stick if there is no use of its second operand except itself.
-class StickRemovalPattern : public OpRewritePattern<ZLowStickOp> {
-  StickRemovalPattern(bool enableParallelism = false)
-      : OpRewritePattern<ZLowStickOp>(), enableParallelism(enableParallelism) {}
-
-  bool enableParallelism;
-
+class StickExpansionPattern : public OpRewritePattern<ZLowStickOp> {
 public:
+  StickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
+      : OpRewritePattern<ZLowStickOp>(context, 1),
+        enableParallel(enableParallelism) {}
+
+  bool enableParallel;
+
   using OpRewritePattern<ZLowStickOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
 
     StringAttr layout = stickOp.getLayoutAttr();
+    fprintf(stderr, "hi alex in stick with layout %s\n", layout.str().c_str());
 
     // Generic way to handle all formats listed below.
     // Think we only come in here when condition below is true.
@@ -306,13 +314,15 @@ public:
         layout.getValue().equals_insensitive("3DS")) {
       return generateStickCodeNoBuffer(rewriter, stickOp, layout);
     }
+    fprintf(stderr, "hi alex in stick, failure\n");
     return failure();
   }
 
   /* Version without buffer, more like zdnn */
   LogicalResult generateStickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowStickOp stickOp, StringAttr layout) const {
-    Location loc = op->getLoc();
+    Operation *op = stickOp.getOperation();
+    Location loc = stickOp.getLoc();
     MDBuilder create(rewriter, loc);
     IndexExprScope allocScope(create.krnl);
 
@@ -429,7 +439,7 @@ public:
               });
         });
 
-    rewriter.replaceOp(op, alloc);
+    rewriter.eraseOp(stickOp);
     return success();
   }
 };
@@ -440,9 +450,9 @@ public:
 class ZLowStickExpansionPass
     : public PassWrapper<ZLowStickExpansionPass, OperationPass<func::FuncOp>> {
 
+public:
   bool enableParallelism = true; // hi alex, fix this.
 
-public:
   StringRef getArgument() const override { return "zlow-stick-expansion"; }
 
   StringRef getDescription() const override {
@@ -455,11 +465,15 @@ public:
     llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<StickRemovalPattern>(&getContext(), enableParallelism);
-    patterns.insert<UnstickRemovalPattern>(&getContext(), enableParallelism);
+    patterns.insert<StickExpansionPattern>(&getContext(), enableParallelism);
+    patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallelism);
+    // patterns.insert<UnstickExpansionPattern>(&getContext());
 
+    fprintf(stderr, "hi alex, apply patterns in zlow stick expansion\n");
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
+
+    fprintf(stderr, "hi alex, apply patterns success\n");
 
     // Remove ZLowStickOp that were marked "removable".
     for (ZLowStickOp stickOp : removableStickOps) {
