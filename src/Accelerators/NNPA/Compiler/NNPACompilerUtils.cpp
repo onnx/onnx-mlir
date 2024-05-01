@@ -215,8 +215,9 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
         addKrnlToAffinePasses(pm);
         // Optimizations at ZLow that needs affine map in MemRef.
         pm.addPass(zlow::createZLowRewritePass());
-        if (nnpaEnableCompilerStickUnstick)
+        if (nnpaEnableCompilerStickUnstick) {
           pm.addPass(zlow::createZLowStickExpansionPass());
+        }
         pm.addPass(mlir::createCanonicalizerPass());
         // Normalize MemRefs.
         normalizeMemRefsPasses(pm);

@@ -451,7 +451,7 @@ class ZLowStickExpansionPass
     : public PassWrapper<ZLowStickExpansionPass, OperationPass<func::FuncOp>> {
 
 public:
-  bool enableParallelism = true; // hi alex, fix this.
+  bool enableParallelism = false; // hi alex, fix this.
 
   StringRef getArgument() const override { return "zlow-stick-expansion"; }
 
