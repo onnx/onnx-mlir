@@ -620,3 +620,108 @@ def ONNXRMSLayerNormalizationOp:ONNX_Op<"RMSLayerNormalization",
   }];
   let hasVerifier = 1;
 }
+
+//===----------------------------------------------------------------------===//
+// ONNXForkOp
+def ONNXForkOp:ONNX_Op<"Fork",
+    [Pure, HasParent<"ONNXParallelOp">,
+     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+     DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+     DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>,
+     OpInterface<"mlir::HasOnnxSubgraphOpInterface">]> {
+  let summary = "ONNX operation for creating a thread";
+  let description = [{
+    Create a thread to run the operations included in the `body` region.
+    This operation need to be in the `body` region of ONNXParallelOp.
+    The thread is synchronized with main thread at the end of the
+    ONNXParallelOp. The results to be used in following operations need
+    to be set as the results of this operation by using ONNXYieldOp.
+    In the following example, MatMul ops runs in parallel with two threads.
+
+    Example:
+    ```mlir
+       %0:2 = "onnx.Parallel"() ({
+           %00 = "onnx.Fork"() ({
+             %01 = "onnx.MatMul"(%arg0, %c0) : (tensor<64x32xf32>, tensor<32x32xf32>) -> tensor<64x32xf32>
+             onnx.Yield %01 : tensor<64x32xf32>
+           }) {id = 0 : si64} : () -> tensor<64x32xf32>
+           %01 = "onnx.Fork"() ({
+             %01 = "onnx.MatMul"(%arg0, %c2) : (tensor<64x32xf32>, tensor<32x32xf32>) -> tensor<64x32xf32>
+             onnx.Yield %01 : tensor<64x32xf32>
+           }) {id = 1 : si64} : () -> tensor<64x32xf32>
+           "onnx.Yield"(%00, %01) : (tensor<*xf32>, tensor<64x32xf32>) -> ()
+       }) : () ->  (tensor<64x32xf32>, tensor<64x32xf32>)
+    ```
+  }];
+  let arguments = (ins DefaultValuedAttr<SI64Attr, "0">:$id);
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
+  let regions = (region SizedRegion<1>:$body);
+  let skipDefaultBuilders = 1;
+  let extraClassDeclaration = [{
+      int64_t getSubgraphRegionIdx(const std::string& name) {
+        if (name == "body") return 0;
+        llvm_unreachable("region with the specified name does not exist");
+      }
+      using BodyBuilderFn =
+          llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>;
+  }];
+  let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * ONNXForkOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new ONNXForkOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+  }];
+  let builders = [
+    OpBuilder<(ins "mlir::TypeRange":$resultTypes,
+      "mlir::ValueRange":$operands,
+      CArg<"llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>",
+           "nullptr">:$bodyBuilder)>
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ONNXParallelOp
+def ONNXParallelOp:ONNX_Op<"Parallel",
+    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    DeclareOpInterfaceMethods<ShapeHelperOpInterface>,
+    DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>,
+    OpInterface<"mlir::HasOnnxSubgraphOpInterface">]> {
+  let summary = "ONNX operation to specify paralell region.";
+  let description = [{
+    Specify parallel region. ONNXForkOps are included in the `body` region.
+    The threads created by ONNXForkOp are synchronized with main thread
+    at the end of this operation. The results to be used in following
+    operations need to be set as the results of this operation by using
+    ONNXYieldOp.
+  }];
+  let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
+                  TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
+  let regions = (region SizedRegion<1>:$body);
+
+  let skipDefaultBuilders = 1;
+  let extraClassDeclaration = [{
+      int64_t getSubgraphRegionIdx(const std::string& name) {
+        if (name == "body") return 0;
+        llvm_unreachable("region with the specified name does not exist");
+      }
+      using BodyBuilderFn =
+          llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>;
+  }];
+  let extraClassDefinition = [{
+      onnx_mlir::ONNXOpShapeHelper * ONNXParallelOp::getShapeHelper(mlir::Operation *op, mlir::ArrayRef<mlir::Value> oper,
+          onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {
+        onnx_mlir::ONNXOpShapeHelper *sh = new ONNXParallelOpShapeHelper(op, oper, ieb, scope);
+        assert(sh && "failed to allocate shape helper");
+        return sh;
+      }
+  }];
+  let builders = [
+    OpBuilder<(ins "mlir::TypeRange":$resultTypes,
+      "mlir::ValueRange":$operands,
+      CArg<"llvm::function_ref<void(mlir::OpBuilder &, mlir::Location, mlir::ValueRange)>",
+           "nullptr">:$bodyBuilder)>
+  ];
+}
