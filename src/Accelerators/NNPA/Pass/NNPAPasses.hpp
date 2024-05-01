@@ -61,7 +61,8 @@ namespace zlow {
 std::unique_ptr<mlir::Pass> createZLowRewritePass();
 
 /// Add pass for rewriting ZLow ops.
-std::unique_ptr<mlir::Pass> createZLowStickExpansionPass();
+std::unique_ptr<mlir::Pass> createZLowStickExpansionPass(
+    bool enableParallel = false);
 
 /// Add pass for rewriting ZLow ops.
 std::unique_ptr<mlir::Pass> createZLowDummyOpForMultiDerefPass();

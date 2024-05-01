@@ -451,7 +451,11 @@ class ZLowStickExpansionPass
     : public PassWrapper<ZLowStickExpansionPass, OperationPass<func::FuncOp>> {
 
 public:
-  bool enableParallelism = false; // hi alex, fix this.
+  ZLowStickExpansionPass(bool enableParallel)
+      : PassWrapper<ZLowStickExpansionPass, OperationPass<func::FuncOp>>(),
+        enableParallel(enableParallel) {}
+
+  bool enableParallel;
 
   StringRef getArgument() const override { return "zlow-stick-expansion"; }
 
@@ -465,8 +469,8 @@ public:
     llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
-    patterns.insert<StickExpansionPattern>(&getContext(), enableParallelism);
-    patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallelism);
+    patterns.insert<StickExpansionPattern>(&getContext(), enableParallel);
+    patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallel);
     // patterns.insert<UnstickExpansionPattern>(&getContext());
 
     fprintf(stderr, "hi alex, apply patterns in zlow stick expansion\n");
@@ -484,8 +488,8 @@ public:
   }
 };
 
-std::unique_ptr<Pass> createZLowStickExpansionPass() {
-  return std::make_unique<ZLowStickExpansionPass>();
+std::unique_ptr<Pass> createZLowStickExpansionPass(bool enableParallel) {
+  return std::make_unique<ZLowStickExpansionPass>(enableParallel);
 }
 
 } // namespace zlow
