@@ -2,6 +2,7 @@
 
 add_onnx_mlir_library(OMZLowRewrite
   ZLowRewrite.cpp
+  ZLowStickExpansion.cpp
 
   DEPENDS
   OMLayoutHelper

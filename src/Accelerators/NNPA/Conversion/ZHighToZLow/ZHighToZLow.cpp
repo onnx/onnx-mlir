@@ -32,6 +32,8 @@
 #include "src/Support/TypeUtilities.hpp"
 
 #define DEBUG_TYPE "zhigh-to-zlow"
+
+// hi alex, cleanup
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
 #define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 1
@@ -2099,17 +2101,17 @@ struct ZHighToZLowDataConversionLowering
 
 void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
-    bool enableParallel, bool enableCompilerStickUnstickCodeGen) {
+    bool enableParallel) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx,
-      ENABLE_CSU_PAR && enableParallel, enableCompilerStickUnstickCodeGen);
+      ENABLE_CSU_PAR && enableParallel, false); // hi alex, fully disconnect
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
       typeConverter, ctx);
   patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx,
-      ENABLE_CSU_PAR && enableParallel, enableCompilerStickUnstickCodeGen);
+      ENABLE_CSU_PAR && enableParallel, false); // hi alex, fully disconnect
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
       typeConverter, ctx, /*fromF32=*/false, enableParallel);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
