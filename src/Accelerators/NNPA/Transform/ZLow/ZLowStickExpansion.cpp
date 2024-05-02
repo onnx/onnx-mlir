@@ -38,7 +38,7 @@
 
 #define DEBUG_TYPE "zlow-stick-expansion"
 
-// hi alex, cleanup
+// Todo: cleanup after we are done experimenting.
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
 #define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 1
@@ -64,18 +64,15 @@ public:
   LogicalResult matchAndRewrite(
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
-    StringAttr layout = unstickOp.getLayoutAttr();
-    fprintf(
-        stderr, "hi alex in unstick with layout %s\n", layout.str().c_str());
-
     // Generic way to handle all formats listed below.
-    // Think we only come in here when condition below is true.
+    StringAttr layout = unstickOp.getLayoutAttr();
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS")) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp, layout);
     }
+    // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
@@ -304,17 +301,15 @@ public:
       ZLowStickOp stickOp, PatternRewriter &rewriter) const override {
 
     StringAttr layout = stickOp.getLayoutAttr();
-    fprintf(stderr, "hi alex in stick with layout %s\n", layout.str().c_str());
 
     // Generic way to handle all formats listed below.
-    // Think we only come in here when condition below is true.
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS")) {
       return generateStickCodeNoBuffer(rewriter, stickOp, layout);
     }
-    fprintf(stderr, "hi alex in stick, failure\n");
+    // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
@@ -466,25 +461,14 @@ public:
   void runOnOperation() override {
     Operation *function = getOperation();
 
-    llvm::SmallDenseSet<ZLowStickOp, 4> removableStickOps;
     ConversionTarget target(getContext());
     RewritePatternSet patterns(&getContext());
     patterns.insert<StickExpansionPattern>(&getContext(), enableParallel);
     patterns.insert<UnstickExpansionPattern>(&getContext(), enableParallel);
     // patterns.insert<UnstickExpansionPattern>(&getContext());
 
-    fprintf(stderr, "hi alex, apply patterns in zlow stick expansion\n");
     if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
       return signalPassFailure();
-
-    fprintf(stderr, "hi alex, apply patterns success\n");
-
-    // Remove ZLowStickOp that were marked "removable".
-    for (ZLowStickOp stickOp : removableStickOps) {
-      if (!stickOp) // removed, continue.
-        continue;
-      stickOp.getOperation()->erase();
-    }
   }
 };
 

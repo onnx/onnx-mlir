@@ -33,11 +33,6 @@
 
 #define DEBUG_TYPE "zhigh-to-zlow"
 
-// hi alex, cleanup
-#define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
-#define PREFETCH_CSU_DIST 0
-#define PREFETCH_CSU 1
-
 using namespace mlir;
 using namespace onnx_mlir::zlow;
 
@@ -498,14 +493,9 @@ ZMemRefType convertZTensorToMemRefType(Type type) {
 // Support for flatten ztensor
 
 struct ZHighToZLowStickOpLowering : public ConversionPattern {
-  ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel, bool enableCompilerStickUnstickCodeGen)
+  ZHighToZLowStickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, ZHighStickOp::getOperationName(), 1, ctx),
-        enableParallel(enableParallel),
-        enableCompilerCodeGen(enableCompilerStickUnstickCodeGen) {}
-  bool enableParallel;
-  bool enableCompilerCodeGen;
+            typeConverter, ZHighStickOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -530,144 +520,8 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
-    if (enableCompilerCodeGen) {
-      // Generic way to handle all formats listed below.
-      // Think we only come in here when condition below is true.
-      if (layout.getValue().equals_insensitive("4D") ||
-          layout.getValue().equals_insensitive("3D") ||
-          layout.getValue().equals_insensitive("2D") ||
-          // layout.getValue().equals_insensitive("1D") ||
-          // layout.getValue().equals_insensitive("2DS") ||
-          layout.getValue().equals_insensitive("3DS")) {
-        return generateStickCodeNoBuffer(
-            rewriter, op, shapeHelper, alloc, input, layout);
-      }
-    }
-
     // Else, emit a ZLow operation.
     rewriter.create<ZLowStickOp>(loc, input, alloc, layout);
-    rewriter.replaceOp(op, alloc);
-    return success();
-  }
-
-  /* Version without buffer, more like zdnn */
-  LogicalResult generateStickCodeNoBuffer(ConversionPatternRewriter &rewriter,
-      Operation *op, ZHighStickOpShapeHelper &shapeHelper, Value alloc,
-      Value input, StringAttr layout) const {
-    Location loc = op->getLoc();
-    MDBuilder create(rewriter, loc);
-
-    // Compute output dims and rank.
-    IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
-    DimsExpr outputDims;
-    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
-    int64_t rank = outputDims.size();
-
-    // Info for SIMD Vector Length (VL) and associated types.
-    int64_t VL = 8;          // FP16 VL.
-    int64_t VLHalf = VL / 2; // FP32 VL.
-    assert(64 % VL == 0 && "SIMD vector length must divide 64");
-    Type f32Type = rewriter.getF32Type();
-    VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
-
-    // Define useful literals.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr lit1 = LiteralIndexExpr(1);
-    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr lit64 = LiteralIndexExpr(64);
-
-    // Useful references for indexing dimensions (neg val are not used).
-    int64_t E1 = rank - 1;
-
-    // Create loop iterations. Note that we iterate over E1 as tiles of 64
-    // elements.
-    ValueRange loopDefs = create.krnl.defineLoops(rank);
-    DimsExpr lbs(rank, litZero);
-    DimsExpr ubs = outputDims;
-    IndexExpr T1 = outputDims[E1].ceilDiv(64);
-    ubs[E1] = T1; // E1 dim is over tiles.
-
-    // Parallel...
-    if (enableParallel) {
-      int64_t parId;
-      // TODO: may want to check if ub of rank makes sense here.
-      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
-        create.krnl.parallel(loopDefs[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "compiler-generated stickify");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in compiler-generated stickify");
-      }
-    }
-
-    // Compute max tiles. It is actually not easy to compute the max number of
-    // tiles. Since we don't allocate, it is just a "view", we only need to
-    // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
-    // 64 elements.
-    IndexExpr T = LiteralIndexExpr(2);
-    DimsExpr reallocTileDims = {T, lit64};
-    Value allocAsTx64 =
-        create.mem.reinterpretCast(alloc, litZero.getValue(), reallocTileDims);
-
-    // Outer loop (E1 iterates over tiles of 64 elements).
-    create.krnl.iterateIE(
-        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
-          MDBuilder create(b);
-          IndexExprScope outerScope(create.krnl, &allocScope);
-          DimsExpr outerIndices;
-          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
-          DimsExpr memAF = outerIndices;
-          memAF[E1] = memAF[E1] * 64; // Loop index for E1 is in tiles of 64.
-          Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
-          IndexExpr allocTileIndex = SymIE(allocOffset).floorDiv(64);
-#if PREFETCH_CSU
-          DimsExpr prefetchAF = memAF;
-          // Prefetch current lines.
-          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
-              /*locality*/ 1);
-          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
-              /*locality*/ 1);
-#if PREFETCH_CSU_DIST > 0
-          // Prefetch line in advance.
-          prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
-          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
-              /*locality*/ 1);
-          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
-              /*locality*/ 1);
-#endif
-#endif
-
-          const int64_t U = 4;
-          assert(U * VL <= 64 && "bad unroll");
-          create.affine.forIE(litZero, lit64, U * VL,
-              [&](AffineBuilder &b, ValueRange loopInd) {
-                MDBuilder create(b);
-                DimsExpr inputAF;
-                IndexExprScope innerScope(create.krnl, &outerScope);
-                SymbolIndexExpr l(loopInd[0]);
-                getIndexExprList<SymbolIndexExpr>(memAF, inputAF);
-                // E1: add the "l" local E1 offset.
-                inputAF[E1] = inputAF[E1] + l;
-                Value vecF32H[U], vecF32L[U], vecF16[U];
-                for (int64_t i = 0; i < U; ++i) {
-                  LiteralIndexExpr iH(i * VL), iL(i * VL + VL / 2);
-                  vecF32H[i] = create.vec.loadIE(
-                      vecF32Type, input, inputAF, {iH.getValue()});
-                  vecF32L[i] = create.vec.loadIE(
-                      vecF32Type, input, inputAF, {iL.getValue()});
-                }
-                for (int64_t i = 0; i < U; ++i) {
-                  vecF16[i] = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                      loc, vecF32H[i], vecF32L[i]);
-                }
-                for (int64_t i = 0; i < U; ++i) {
-                  create.vec.storeIE(vecF16[i], allocAsTx64,
-                      {SymIE(allocTileIndex), l + (i * VL)}, {});
-                }
-              });
-        });
-
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -751,14 +605,9 @@ struct ZHighToZLowStickForGRUOpLowering : public ConversionPattern {
 //===----------------------------------------------------------------------===//
 
 struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
-  ZHighToZLowUnstickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableParallel, bool enableCompilerStickUnstickCodeGen)
+  ZHighToZLowUnstickOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(
-            typeConverter, ZHighUnstickOp::getOperationName(), 1, ctx),
-        enableParallel(enableParallel),
-        enableCompilerCodeGen(enableCompilerStickUnstickCodeGen) {}
-  bool enableParallel;
-  bool enableCompilerCodeGen;
+            typeConverter, ZHighUnstickOp::getOperationName(), 1, ctx) {}
 
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
@@ -790,228 +639,8 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     if (isNHWCLayout(layout))
       layout = getNCHWLayoutAttr(rewriter);
 
-    if (enableCompilerCodeGen) {
-      // Generic way to handle all formats listed below.
-      // Think we only come in here when condition below is true.
-      if (layout.getValue().equals_insensitive("4D") ||
-          layout.getValue().equals_insensitive("3D") ||
-          layout.getValue().equals_insensitive("2D") ||
-          layout.getValue().equals_insensitive("3DS")) {
-        return generateUnstickCodeNoBuffer(
-            rewriter, op, shapeHelper, alloc, input, layout);
-      }
-    }
-
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
-    rewriter.replaceOp(op, alloc);
-    return success();
-  }
-
-  LogicalResult generateUnstickCodeNoBuffer(ConversionPatternRewriter &rewriter,
-      Operation *op, ZHighUnstickOpShapeHelper &shapeHelper, Value alloc,
-      Value input, StringAttr layout) const {
-    Location loc = op->getLoc();
-    MDBuilder create(rewriter, loc);
-
-    // Compute output dims and rank.
-    IndexExprScope allocScope(create.krnl, shapeHelper.getScope());
-    DimsExpr outputDims;
-    getIndexExprList<SymbolIndexExpr>(shapeHelper.getOutputDims(), outputDims);
-    int64_t rank = outputDims.size();
-
-    // Info for SIMD Vector Length (VL) and associated types.
-    int64_t VL = 8;          // FP16 VL.
-    int64_t VLHalf = VL / 2; // FP32 VL.
-    assert(64 % VL == 0 && "SIMD vector length must divide 64");
-    Type f16Type = rewriter.getF16Type();
-    Type f32Type = rewriter.getF32Type();
-    VectorType vecF16Type = VectorType::get({VL}, f16Type);
-    MemRefType bufferType = MemRefType::get({VL}, f32Type);
-
-    // Define useful literals.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr lit1 = LiteralIndexExpr(1);
-    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr litVL = LiteralIndexExpr(VL);
-    IndexExpr lit64 = LiteralIndexExpr(64);
-
-    // Useful references for indexing dimensions (neg val are not used).
-    int64_t E1 = rank - 1;
-
-    // Create loop iterations. Note that we iterate over E1 as tiles of 64
-    // elements.
-    ValueRange loopDefs = create.krnl.defineLoops(rank);
-    DimsExpr lbs(rank, litZero);
-    DimsExpr ubs = outputDims;
-    IndexExpr T1 = outputDims[E1].ceilDiv(64);
-    ubs[E1] = T1; // E1 dim is over tiles.
-
-    // Parallel...
-    if (enableParallel) {
-      int64_t parId;
-      // TODO: may want to check if ub of rank makes sense here.
-      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
-        create.krnl.parallel(loopDefs[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "compiler-generated stickify");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in compiler-generated stickify");
-      }
-    }
-
-    // Compute max tiles. It is actually not easy to compute the max number of
-    // tiles. Since we don't allocate, it is just a "view", we only need to
-    // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
-    // 64.
-    IndexExpr T = LiteralIndexExpr(2);
-    DimsExpr reallocTileDims = {T, lit64};
-    Value inputAsTx64 =
-        create.mem.reinterpretCast(input, litZero.getValue(), reallocTileDims);
-
-    // Outer loop (E4, E3, E2, E1 iterates over tiles of 64 elements)
-    create.krnl.iterateIE(
-        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
-          MDBuilder create(b);
-          IndexExprScope outerScope(create.krnl, &allocScope);
-          DimsExpr outerIndices = DimListIE(loopInd);
-          // Computation for reading inputs.
-          DimsExpr inputAF = outerIndices;
-          IndexExpr e1 = outerIndices[E1] * 64;
-          inputAF[E1] = e1;
-          // Translate the tile index t1 to the actual targetted data.
-          Value inputOffset =
-              create.krnl.getLinearOffsetIndexIE(input, inputAF);
-          IndexExpr inputDataOffset = SymbolIndexExpr(inputOffset);
-          IndexExpr inputTileOffset = inputDataOffset.floorDiv(64);
-
-// Prefetch
-#if PREFETCH_CSU
-          DimsExpr prefetchAF = inputAF;
-          // Prefetch current line
-          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
-              /*locality*/ 1);
-          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
-              /*locality*/ 1);
-#if PREFETCH_CSU_DIST > 0
-          // Prefetch line in advance.
-          prefetchAF[E1] = prefetchAF[E1] + (PREFETCH_CSU_DIST * 64);
-          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
-              /*locality*/ 1);
-          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
-              /*locality*/ 1);
-#endif
-#endif
-
-          // I may process here up to [e1 ... e1 + m*64), make sure its
-          // not going out of bound, i.e. beyond outputDIms[E1];
-          IndexExpr ub1 = SymIE(outputDims[E1]);
-          IndexExpr lit64Bis = LiteralIndexExpr(64);
-          IndexExpr isFull = create.krnlIE.isTileFull(e1, lit64, ub1);
-          IndexExpr isFullLogical = isFull >= 0;
-          create.scf.ifThenElse(
-              // Condition
-              isFullLogical.getValue(),
-              // Then (is full).
-              [&](SCFBuilder b) {
-                MDBuilder create(b);
-                // Loop
-                const int64_t U = 4;
-                assert(U * VL <= 64 && "bad unroll");
-                create.scf.forLoop(litZero.getValue(), lit64.getValue(), U * VL,
-                    [&](SCFBuilder b, Value loopIndex) {
-                      MDBuilder create(b);
-                      IndexExprScope innerScope(b, &outerScope);
-                      IndexExpr l = DimIE(loopIndex);
-                      Value vecF16[U], vecF32H[U], vecF32L[U];
-                      // Load f16 values from input via reinterpreted data tile.
-                      for (int64_t i = 0; i < U; ++i) {
-                        vecF16[i] = create.vec.loadIE(vecF16Type, inputAsTx64,
-                            {SymIE(inputTileOffset), l + (i * VL)}, {});
-                      }
-                      // Convert back to f32.
-                      for (int64_t i = 0; i < U; ++i) {
-                        auto convertOp =
-                            rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
-                                loc, vecF16[i]);
-                        vecF32H[i] = convertOp.getResult(0);
-                        vecF32L[i] = convertOp.getResult(1);
-                      }
-                      // Store f32 values back to the (normal layout) output.
-                      DimsExpr outputAF = SymListIE(inputAF);
-                      outputAF[E1] = outputAF[E1] + l;
-                      for (int64_t i = 0; i < U; ++i) {
-                        LiteralIndexExpr iH(i * VL), iL(i * VL + VL / 2);
-                        create.vec.storeIE(
-                            vecF32H[i], alloc, outputAF, {iH.getValue()});
-                        create.vec.storeIE(
-                            vecF32L[i], alloc, outputAF, {iL.getValue()});
-                      }
-                    });
-              },
-              // else, we don't have a full (64 e1) tile.
-              [&](SCFBuilder b) {
-                MDBuilder create(b);
-                IndexExprScope middleScope(b, &outerScope);
-                IndexExpr tripCount = SymIE(ub1) - SymIE(e1);
-                // Note: if we only have multiple of VL, loop below will handle
-                // all as we subtract (VL-1). Aka if VL=8 and tripCount = 16,
-                // tripCountWithoutPartialLastVL is 16 - 7 = 9. Thus we iterate
-                // over i=0 & i=8 as both are < 9.
-                IndexExpr tripCountWithoutPartialLastVL = tripCount - (VL - 1);
-                create.scf.forLoop(litZero.getValue(),
-                    tripCountWithoutPartialLastVL.getValue(), VL,
-                    [&](SCFBuilder b, Value loopIndex) {
-                      MDBuilder create(b);
-                      IndexExprScope innerScope(b, &middleScope);
-                      IndexExpr l = DimIE(loopIndex);
-                      // Load f16 values from input via reinterpreted data tile.
-                      Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
-                          {SymIE(inputTileOffset), l}, {});
-                      // Convert back to f32.
-                      auto convertOp =
-                          rewriter.create<ZLowConvertDLF16ToF32VectorOp>(
-                              loc, vecF16);
-                      Value vecF32H = convertOp.getResult(0);
-                      Value vecF32L = convertOp.getResult(1);
-                      // Store f32 values back to the (normal layout) output.
-                      DimsExpr outputAF = SymListIE(inputAF);
-                      outputAF[E1] = outputAF[E1] + l;
-                      create.vec.storeIE(vecF32H, alloc, outputAF, {});
-                      create.vec.storeIE(
-                          vecF32L, alloc, outputAF, {litVLHalf.getValue()});
-                    });
-                // Deal with the last values: compute f32 using simd.
-                IndexExpr remainingScalarValues = tripCount % VL;
-                IndexExpr lastL = tripCount - remainingScalarValues;
-                Value vecF16 = create.vec.loadIE(vecF16Type, inputAsTx64,
-                    {SymIE(inputTileOffset), lastL}, {});
-                // Convert back to f32.
-                auto convertOp =
-                    rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
-                Value vecF32H = convertOp.getResult(0);
-                Value vecF32L = convertOp.getResult(1);
-                // Save into VL value buffer.
-                Value bufferF32 = create.mem.alignedAlloca(bufferType);
-                create.vec.storeIE(vecF32H, bufferF32, {litZero}, {});
-                create.vec.storeIE(vecF32L, bufferF32, {litVLHalf}, {});
-                // Save the remaining values as scalars.
-                create.scf.forLoop(litZero.getValue(),
-                    remainingScalarValues.getValue(), 1,
-                    [&](SCFBuilder b, Value loopIndex) {
-                      MDBuilder create(b);
-                      IndexExprScope innerScope(b, &middleScope);
-                      IndexExpr l = DimIE(loopIndex);
-                      // Load converted value.
-                      Value f32 = create.krnl.loadIE(bufferF32, {l});
-                      DimsExpr outputAF = SymListIE(inputAF);
-                      outputAF[E1] = outputAF[E1] + SymIE(lastL);
-                      outputAF[E1] = outputAF[E1] + l;
-                      create.krnl.storeIE(f32, alloc, outputAF);
-                    });
-              });
-        });
     rewriter.replaceOp(op, alloc);
     return success();
   }
@@ -2104,14 +1733,12 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     bool enableParallel) {
   // Stickify and unstickify operations.
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
-  patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx,
-      ENABLE_CSU_PAR && enableParallel, false); // hi alex, fully disconnect
+  patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForGRUOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOfShapeOpLowering>(
       typeConverter, ctx);
-  patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx,
-      ENABLE_CSU_PAR && enableParallel, false); // hi alex, fully disconnect
+  patterns.insert<ZHighToZLowUnstickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighDLF16ToF32Op>>(
       typeConverter, ctx, /*fromF32=*/false, enableParallel);
   patterns.insert<ZHighToZLowDataConversionLowering<ZHighF32ToDLF16Op>>(
