@@ -629,3 +629,98 @@ func.func @test_castlike(%arg0 : tensor<*xf32>, %arg1 : tensor<*xf16>) -> tensor
   // CHECK: onnx.Return [[RES]] : tensor<*xf16>
 }
 
+// -----
+
+func.func @test_batchnorm_f32(%arg0: tensor<100x3x10x10xf32>) -> tensor<100x3x10x10xf32> {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xf32>} : () -> tensor<3xf32>
+    %4, %5, %6 = "onnx.BatchNormalization"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<100x3x10x10xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> (tensor<100x3x10x10xf32>, tensor<3xf32>, tensor<3xf32>)
+    return %4 : tensor<100x3x10x10xf32>
+// CHECK-LABEL: func @test_batchnorm_f32
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]> : tensor<3xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<3xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[3.000000e+00, 4.000000e+00, 5.000000e+00]> : tensor<3xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4.000000e+00, 5.000000e+00, 6.000000e+00]> : tensor<3xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       "onnx.BatchNormalizationInferenceMode"(%arg0, [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {epsilon = 1.00000007E-5 : f32, momentum = 1.000000e-03 : f32} : (tensor<100x3x10x10xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<100x3x10x10xf32>
+// CHECK-DAG:       "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       "onnx.NoValue"() {value} : () -> none
+}
+
+// -----
+
+func.func @test_batchnorm_f16_dynamic(%arg0: tensor<100x3x?x?xf16>) -> tensor<*xf16> {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xf16>} : () -> tensor<3xf16>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xf16>} : () -> tensor<3xf16>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xf16>} : () -> tensor<3xf16>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xf16>} : () -> tensor<3xf16>
+    %4, %5, %6 = "onnx.BatchNormalization"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<100x3x?x?xf16>, tensor<3xf16>, tensor<3xf16>, tensor<3xf16>, tensor<3xf16>) -> (tensor<*xf16>, tensor<*xf16>, tensor<*xf16>)
+    return %4 : tensor<*xf16>
+// CHECK-LABEL: func @test_batchnorm_f16_dynamic
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 3.000000e+00, 4.000000e+00]>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[3.000000e+00, 4.000000e+00, 5.000000e+00]>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4.000000e+00, 5.000000e+00, 6.000000e+00]>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       "onnx.BatchNormalizationInferenceMode"(%arg0, [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {epsilon = 1.00000007E-5 : f32, momentum = 1.000000e-03 : f32}
+// CHECK-DAG:       "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       "onnx.NoValue"() {value} : () -> none
+}
+
+// -----
+
+func.func @test_batchnorm_bf16_dynamic(%arg0: tensor<100x3x?x?xbf16>) -> tensor<*xbf16> {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %4, %5, %6 = "onnx.BatchNormalization"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<100x3x?x?xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>, tensor<*xbf16>)
+    return %4 : tensor<*xbf16>
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00]>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[2.000000e+00, 3.000000e+00, 4.000000e+00]>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[3.000000e+00, 4.000000e+00, 5.000000e+00]>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[4.000000e+00, 5.000000e+00, 6.000000e+00]>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       "onnx.BatchNormalizationInferenceMode"(%arg0, [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {epsilon = 1.00000007E-5 : f32, momentum = 1.000000e-03 : f32}
+// CHECK-DAG:       "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       "onnx.NoValue"() {value} : () -> none
+}
+
+
+// -----
+
+func.func @test_batchnorm_bf16_use_mean_var(%arg0: tensor<100x3x?x?xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>, tensor<*xbf16>) {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %4, %5, %6 = "onnx.BatchNormalization"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<100x3x?x?xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>, tensor<*xbf16>)
+    return %4, %5, %6 : tensor<*xbf16>, tensor<*xbf16>, tensor<*xbf16>
+// CHECK:       onnx.BatchNormalization"
+}
+
+// -----
+
+func.func @test_batchnorm_bf16_use_mean(%arg0: tensor<100x3x?x?xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>) {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %4, %5, %6 = "onnx.BatchNormalization"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<100x3x?x?xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>, tensor<*xbf16>)
+    return %4, %5 : tensor<*xbf16>, tensor<*xbf16>
+// CHECK:       onnx.BatchNormalization"
+}
+
+// -----
+
+func.func @test_batchnorm_bf16_use_var(%arg0: tensor<100x3x?x?xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>) {
+    %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %1 = "onnx.Constant"() {value = dense<[2.0, 3.0, 4.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %2 = "onnx.Constant"() {value = dense<[3.0, 4.0, 5.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %3 = "onnx.Constant"() {value = dense<[4.0, 5.0, 6.0]> : tensor<3xbf16>} : () -> tensor<3xbf16>
+    %4, %5, %6 = "onnx.BatchNormalization"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, momentum = 1.00000007E-3 : f32} : (tensor<100x3x?x?xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>) -> (tensor<*xbf16>, tensor<*xbf16>, tensor<*xbf16>)
+    return %4, %6 : tensor<*xbf16>, tensor<*xbf16>
+// CHECK:       onnx.BatchNormalization"
+}

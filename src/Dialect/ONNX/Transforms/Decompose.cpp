@@ -626,6 +626,36 @@ struct DecomposeHardSwishPattern : public ConversionPattern {
   }
 };
 
+/// Decompose BatchNorm to BatchNormInferenceMode
+struct DecomposeBatchNormToBatchNormInferenceMode : public ConversionPattern {
+  DecomposeBatchNormToBatchNormInferenceMode(MLIRContext *context)
+      : ConversionPattern(
+            ONNXBatchNormalizationOp::getOperationName(), 4, context) {}
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+
+    ONNXBatchNormalizationOp batchNormOp =
+        ::llvm::dyn_cast<ONNXBatchNormalizationOp>(op);
+
+    auto meanRes = batchNormOp->getResult(1);
+    auto varianceRes = batchNormOp->getResult(2);
+    if (!meanRes.use_empty() || !varianceRes.use_empty()) {
+      return rewriter.notifyMatchFailure(
+          batchNormOp.getLoc(), "mean and variance must have no use.");
+    }
+
+    rewriter.replaceOp(
+        op, {rewriter.create<ONNXBatchNormalizationInferenceModeOp>(
+                 batchNormOp.getLoc(), batchNormOp.getResult(0).getType(),
+                 batchNormOp.getX(), batchNormOp.getScale(), batchNormOp.getB(),
+                 batchNormOp.getInputMean(), batchNormOp.getInputVar(),
+                 batchNormOp.getEpsilon(), batchNormOp.getMomentum()),
+                rewriter.create<ONNXNoneOp>(batchNormOp.getLoc()),
+                rewriter.create<ONNXNoneOp>(batchNormOp.getLoc())});
+    return success();
+  }
+};
+
 // Decompose the custom op FusedMatMul that is produced by ONNXRuntime.
 // According to FusedMatMul specification, it is the result of fusing MatMul and
 // Transpose:
@@ -1027,6 +1057,10 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       [](ONNXInstanceNormalizationOp op) {
         return !InstanceNormIntoLayerNormPattern::isDecomposable(op);
       });
+  target.addDynamicallyLegalOp<ONNXBatchNormalizationOp>(
+      [](ONNXBatchNormalizationOp op) {
+        return !op->getResult(1).use_empty() || !op->getResult(2).use_empty();
+      });
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();
   target.addIllegalOp<ONNXPadV13Op>();
@@ -1126,6 +1160,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<CustomOpFuseMatMulPattern>(context);
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern>(context);
+  patterns.insert<DecomposeBatchNormToBatchNormInferenceMode>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }
