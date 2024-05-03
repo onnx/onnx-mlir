@@ -3059,6 +3059,7 @@ def ONNXGridSampleOp:ONNX_Op<"GridSample",
       return sh;
     }
   }];
+  let hasVerifier = 1;
 }
 
 def ONNXGroupNormalizationOp:ONNX_Op<"GroupNormalization",
