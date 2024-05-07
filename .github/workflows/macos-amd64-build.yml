@@ -17,7 +17,8 @@ jobs:
         sudo rm -rf /Library/Frameworks/Python.framework/Versions/3* /usr/local/Frameworks/Python.framework/Versions/3* /usr/local/bin/python3* || true
     - name: install tools that are needed for compilation
       run: |
-        brew install automake ninja pybind11 libtool
+        brew install automake ninja pybind11
+        sudo brew libtool || true
     - name: install protobuf
       run: |
         cd ~/work
