@@ -671,7 +671,6 @@ void getRewriteONNXForZHighDynamicallyLegal(
         return isSuitableForZDNN<ONNXConvOp>(op) ||
                !canInferencePadsForNNPAConv(op);
       });
-#if 1
   addDynamicallyLegalOpFor<ONNXReshapeOp>(target, dimAnalysis,
       [](ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {
         // Get rid of identity reshape here, as it impacts stick/unstick.
@@ -679,7 +678,6 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // case there is a rule here to remove it.
         return !isIdentityReshape(op, dimAnalysis);
       });
-#endif
 }
 
 struct RewriteONNXForZHighPass

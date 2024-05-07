@@ -51,7 +51,8 @@ namespace zlow {
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MathBuilder, MemRefBuilder, VectorBuilder, AffineBuilder, SCFBuilder>;
 
-/// Remove unstick if there is no use of its second operand except itself.
+/// Expand unstick operation to compiler generated code for suitable patterns,
+/// aka all but the 1D and 2DS data layouts at this time.
 class UnstickExpansionPattern : public OpRewritePattern<ZLowUnstickOp> {
 public:
   UnstickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
@@ -287,7 +288,8 @@ public:
   }
 };
 
-/// Remove stick if there is no use of its second operand except itself.
+/// Expand stick operation to compiler generated code for suitable patterns, aka
+/// all but the 1D and 2DS data layouts at this time.
 class StickExpansionPattern : public OpRewritePattern<ZLowStickOp> {
 public:
   StickExpansionPattern(MLIRContext *context, bool enableParallelism = false)
