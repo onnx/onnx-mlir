@@ -12,9 +12,6 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    - name: remove system python
-      run: |
-        sudo rm -rf /Library/Frameworks/Python.framework/Versions/3* /usr/local/Frameworks/Python.framework/Versions/3* /usr/local/bin/python3* || true
     - name: install tools that are needed for compilation
       run: |
         brew install automake libtool ninja pybind11
