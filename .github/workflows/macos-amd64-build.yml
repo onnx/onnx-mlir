@@ -4,14 +4,14 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
     - uses: actions/checkout@v3
       with:
         submodules: recursive
     - uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.10'
     - name: install tools that are needed for compilation
       run: |
         brew install automake libtool ninja pybind11
