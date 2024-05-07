@@ -12,13 +12,16 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+    - name: remove system python
+      run: |
+        sudo rm -rf /Library/Frameworks/Python.framework/Versions/3* /usr/local/Frameworks/Python.framework/Versions/3* /usr/local/bin/python3* || true
     - name: install tools that are needed for compilation
       run: |
-        brew install automake libtool ninja pybind11
+        brew install automake ninja pybind11
     - name: install protobuf
       run: |
         cd ~/work
-        sudo sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
+        sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v3
