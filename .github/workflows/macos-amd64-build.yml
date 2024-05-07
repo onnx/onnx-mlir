@@ -20,7 +20,7 @@ jobs:
         brew install automake libtool ninja pybind11
     - name: install setuptools 
       run: |
-        python3 -m pip install setuptools
+        python3 -m pip --break-system-packages install setuptools
     - name: install protobuf
       run: |
         cd ~/work
