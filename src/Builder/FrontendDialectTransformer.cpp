@@ -868,6 +868,7 @@ private:
     std::vector<NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
+      // The 'to' attribute is an integer in ONNX that represents a type.
       if (attr.name() == "to") {
         auto mlir_type = convertONNXTypeToMLIRType(
             builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
