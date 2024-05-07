@@ -18,10 +18,6 @@ jobs:
     - name: install tools that are needed for compilation
       run: |
         brew install automake libtool ninja pybind11
-    - name: install protobuf
-      run: |
-        cd ~/work
-        sudo sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v3
@@ -39,6 +35,11 @@ jobs:
         cd ~/work/onnx-mlir/onnx-mlir
         python3 -m pip install --upgrade wheel
         python3 -m pip install -r requirements.txt
+        python3 -m pip install distutils 
+    - name: install protobuf
+      run: |
+        cd ~/work
+        sudo sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: install third_party/onnx
       run: |
         cd ~/work/onnx-mlir/onnx-mlir/third_party/onnx
