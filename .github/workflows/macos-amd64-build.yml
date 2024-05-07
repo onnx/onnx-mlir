@@ -21,7 +21,7 @@ jobs:
     - name: install protobuf
       run: |
         cd ~/work
-        sudo h ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
+        sudo sh ~/work/onnx-mlir/onnx-mlir/utils/install-protobuf.sh
     - name: cache MLIR directory
       id: cache-mlir
       uses: actions/cache@v3
