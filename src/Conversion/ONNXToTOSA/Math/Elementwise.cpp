@@ -435,7 +435,7 @@ public:
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
 
     auto resultTy =
-        dyn_cast<ShapedType>(getTypeConverter()->convertType(op.getType()));
+        dyn_cast_if_present<ShapedType>(getTypeConverter()->convertType(op.getType()));
     if (!resultTy) {
       return rewriter.notifyMatchFailure(op, "expected valid result type");
     }
