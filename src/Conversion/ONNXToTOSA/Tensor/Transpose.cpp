@@ -53,7 +53,7 @@ public:
 
     Type inputElementType = inputType.getElementType();
 
-    if (!isTOSAFloat(inputElementType) && !isTOSAInt(inputElementType) &&
+    if (!inputElementType.isa<FloatType>() && !isTOSAInt(inputElementType) &&
         !inputElementType.isInteger(1)) {
       return rewriter.notifyMatchFailure(
           op, "input element type not supported");

@@ -19,6 +19,7 @@
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
 
 #include <cstdint>
+#include <mlir/IR/BuiltinTypes.h>
 #include <numeric>
 
 using namespace mlir;
@@ -203,7 +204,7 @@ public:
     }
 
     auto elementType = inputType.getElementType();
-    if (!(isTOSAFloat(elementType) || isTOSAInt(elementType))) {
+    if (!(elementType.isa<FloatType>() || isTOSAInt(elementType))) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Element type is not supported by TOSA.");
     }
