@@ -21,6 +21,12 @@ jobs:
     - name: install tools that are needed for compilation
       run: |
         brew install automake ninja pybind11
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        # Create symlinks to intercept compiler calls without modifying the cmake invocation
+        create-symlink: true
+        key: ${{ runner.os }}-ccache
     - name: install protobuf
       run: |
         cd ~/work
