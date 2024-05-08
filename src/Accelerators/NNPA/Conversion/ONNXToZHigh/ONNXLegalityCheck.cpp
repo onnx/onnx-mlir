@@ -553,9 +553,9 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       bool returnVal = ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
       if (!returnVal)
-        emitLegalityCheckMessage(
-            op.getOperation(), "Stacked w/o bcast, dim A 0 not equal dim B 0 "
-                               "or dim A 2 not equal dim B 1.");
+        emitLegalityCheckMessage(op.getOperation(),
+            "Stacked w/o bcast, dim A 0 not equal dim B 0 "
+            "or dim A 2 not equal dim B 1.");
       return returnVal;
     } else
       return true;
