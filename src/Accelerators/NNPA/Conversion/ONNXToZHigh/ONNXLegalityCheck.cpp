@@ -20,6 +20,9 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "legality-check"
 
 using namespace mlir;
 using namespace onnx_mlir;
@@ -266,6 +269,11 @@ bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
   return true;
 }
 
+void emitLegalityCheckMessage(Operation *op, StringRef message) {
+  LLVM_DEBUG(llvm::outs() << "[NNPA Legality Check] Warning: " << op->getLoc()
+                          << " runs on CPU. Reason: " << message << "\n");
+}
+
 /// Default legality check.
 template <typename OP_TYPE>
 bool isSuitableForZDNN(OP_TYPE op, const DimAnalysis *dimAnalysis) {
@@ -489,23 +497,37 @@ bool isSuitableForZDNN<ONNXExpOp>(
 template <>
 bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
+
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return false;
-  int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
+  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+    emitLegalityCheckMessage(
+        op.getOperation(), "Not compatible with NNPA level.");
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getOperand(0)))
+  int64_t opnum = op.getNumOperands();
+  if (opnum != 2) {
+    emitLegalityCheckMessage(
+        op.getOperation(), "The number of operands not 2.");
     return false;
-  if (!isValidElementTypeAndRank(op.getOperand(1)))
+  }
+  if (!isValidElementTypeAndRank(op.getOperand(0))) {
+    emitLegalityCheckMessage(
+        op.getOperation(), "Operand 0 not valid element type and rank.");
     return false;
+  }
+  if (!isValidElementTypeAndRank(op.getOperand(1))) {
+    emitLegalityCheckMessage(
+        op.getOperation(), "Operand 1 not valid element type and rank.");
+    return false;
+  }
   ShapedType aType = op.getOperand(0).getType().cast<ShapedType>();
   ShapedType bType = op.getOperand(1).getType().cast<ShapedType>();
 
   // Illegal if A or B is unranked.
-  if (!aType.hasRank() || !bType.hasRank())
+  if (!aType.hasRank() || !bType.hasRank()) {
+    emitLegalityCheckMessage(op.getOperation(), "A or B is unranked.");
     return false;
+  }
 
   auto shapeA = aType.getShape();
   auto shapeB = bType.getShape();
@@ -518,21 +540,34 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   // by using broadcasting etc.
   if ((shapeA.size() == 2) && (shapeB.size() == 2)) {
     // unstacked case
-    if (aType.hasStaticShape() && bType.hasStaticShape())
-      return (shapeA[1] == shapeB[0]);
-    else
+    if (aType.hasStaticShape() && bType.hasStaticShape()) {
+      bool returnVal = (shapeA[1] == shapeB[0]);
+      if (!returnVal)
+        emitLegalityCheckMessage(
+            op.getOperation(), "Unstacked case, dim A 1 not equal dim B 0.");
+      return returnVal;
+    } else
       return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 3)) {
     // stacked w/o bcast case
-    if (aType.hasStaticShape() && bType.hasStaticShape())
-      return ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
-    else
+    if (aType.hasStaticShape() && bType.hasStaticShape()) {
+      bool returnVal = ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
+      if (!returnVal)
+        emitLegalityCheckMessage(
+            op.getOperation(), "Stacked w/o bcast, dim A 0 not equal dim B 0 "
+                               "or dim A 2 not equal dim B 1.");
+      return returnVal;
+    } else
       return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
     // stacked w/ bcast
-    if (aType.hasStaticShape() && bType.hasStaticShape())
-      return (shapeA[2] == shapeB[0]);
-    else
+    if (aType.hasStaticShape() && bType.hasStaticShape()) {
+      bool returnVal = (shapeA[2] == shapeB[0]);
+      if (!returnVal)
+        emitLegalityCheckMessage(
+            op.getOperation(), "Stacked w/ bcast, dim A 2 not equal dim B 0.");
+      return returnVal;
+    } else
       return true;
   }
   return false; // unsupported case

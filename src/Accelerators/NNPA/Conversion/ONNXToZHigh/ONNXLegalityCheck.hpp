@@ -45,3 +45,5 @@ mlir::StringRef getStrPaddingType(OP op);
 /// See "MaxPool2D/AvgPool2D Parameter Restrictions" in "zDNN API Reference"
 bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
     int64_t strides, int64_t outputShape, mlir::StringRef paddingType);
+
+void emitLegalityCheckMessage(mlir::Operation *op, mlir::StringRef message);

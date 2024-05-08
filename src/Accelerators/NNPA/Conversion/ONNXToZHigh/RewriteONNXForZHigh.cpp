@@ -589,14 +589,24 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic
         // or exceeds NNPA limitation.
         bool nExceeded, mExceeded;
-        if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded))
+        if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded)) {
+          emitLegalityCheckMessage(op.getOperation(),
+              "No input is N-D (N > 3) but dimension N or M (NxK * KxM) is "
+              "dynamic or exceeds NNPA limitation.");
           return false;
+        }
 
         // - one input is N-D (N > 3) and the other is 2-D.
-        if (aRank == 2 && bRank > 3)
+        if (aRank == 2 && bRank > 3) {
+          emitLegalityCheckMessage(op.getOperation(),
+              "one input is N-D (N > 3) and the other is 2-D.");
           return false;
-        if (bRank == 2 && aRank > 3)
+        }
+        if (bRank == 2 && aRank > 3) {
+          emitLegalityCheckMessage(op.getOperation(),
+              "one input is N-D (N > 3) and the other is 2-D.");
           return false;
+        }
 
         // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
         if (aRank > 3 && (aRank == bRank)) {
@@ -607,6 +617,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
               sameBatchDims =
                   dimAnalysis->sameDynDim(op.getA(), i, op.getB(), i);
           }
+          if (!sameBatchDims)
+            emitLegalityCheckMessage(
+                op.getOperation(), "both inputs are *the same* N-D, N > 3 and "
+                                   "there is no broadcasting.");
           return !sameBatchDims;
         }
 
