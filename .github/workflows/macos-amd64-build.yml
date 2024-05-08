@@ -1,6 +1,9 @@
 name: GitHub Action MacOS amd64
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [ main, feature/onnx-to-tosa ]
 
 jobs:
   build:
