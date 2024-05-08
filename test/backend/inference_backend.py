@@ -3538,10 +3538,10 @@ def get_test_models():
     if TEST_CASE_BY_USER is not None and TEST_CASE_BY_USER != "":
         variables.test_by_user = TEST_CASE_BY_USER.split()
         variables.node_test_by_user = [
-            x for x in variables.test_by_user if x in node_test_to_enable
+            x for x in variables.test_by_user if x.split(",")[0] in node_test_to_enable
         ]
         variables.model_test_by_user = [
-            x for x in variables.test_by_user if x in model_test_to_enable
+            x for x in variables.test_by_user if x.split(",")[0] in model_test_to_enable
         ]
 
         node_test_to_enable = variables.node_test_by_user
