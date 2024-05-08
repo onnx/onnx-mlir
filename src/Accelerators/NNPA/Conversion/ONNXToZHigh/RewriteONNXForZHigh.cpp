@@ -618,9 +618,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
                   dimAnalysis->sameDynDim(op.getA(), i, op.getB(), i);
           }
           if (!sameBatchDims)
-            emitLegalityCheckMessage(
-                op.getOperation(), "both inputs are *the same* N-D, N > 3 and "
-                                   "there is no broadcasting.");
+            emitLegalityCheckMessage(op.getOperation(),
+                "both inputs are *the same* N-D, N > 3 and "
+                "there is no broadcasting.");
           return !sameBatchDims;
         }
 
