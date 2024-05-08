@@ -1,0 +1,95 @@
+// RUN: onnx-mlir --EmitONNXBasic --dimParams="1:1=b" --printIR %s | FileCheck %s
+
+// dim_param.json is an onnx model that has a a single Add operations whose
+// operands and outputs use dim_param to represent unknown dimensions.
+
+// this json input is generated with utils/testing/dim_param.py
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32> {onnx.dim_params = "0:A,1:B", onnx.name = "X"}, [[PARAM_1_:%.+]]: tensor<?x?xf32> {onnx.dim_params = "1:b", onnx.name = "Y"}) -> (tensor<?x?xf32> {onnx.dim_params = "0:A,1:B", onnx.name = "Z"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()
+
+{
+  "irVersion": "9",
+  "producerName": "onnx-mlir",
+  "graph": {
+    "node": [
+      {
+        "input": [
+          "X",
+          "Y"
+        ],
+        "output": [
+          "Z"
+        ],
+        "opType": "Add"
+      }
+    ],
+    "name": "test-dim-param",
+    "input": [
+      {
+        "name": "X",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimParam": "A"
+                },
+                {
+                  "dimParam": "B"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "Y",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimParam": "A"
+                },
+                {
+                  "dimParam": "B"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "Z",
+        "type": {
+          "tensorType": {
+            "elemType": 1,
+            "shape": {
+              "dim": [
+                {
+                  "dimParam": "A"
+                },
+                {
+                  "dimParam": "B"
+                }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [
+    {
+      "version": "19"
+    }
+  ]
+}

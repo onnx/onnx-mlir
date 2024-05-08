@@ -1,0 +1,23 @@
+// RUN: onnx-mlir --EmitONNXBasic --dimParams="0:0=a,1=b,2=c|1:0=a,1=b,2=c" --printIR %s | FileCheck %s
+
+// test_add.onnxtext is an onnx model from the onnx backend test
+// third_party/onnx/onnx/backend/test/case/node/add.py
+
+// onnx text is generated with:
+// utils/onnx2text.py third_party/onnx/onnx/backend/test/data/node/test_add/model.onnx
+
+<
+   ir_version: 7,
+   opset_import: ["" : 14],
+   producer_name: "backend-test"
+>
+test_add (float[?,?,?] x, float[?,?,?] y) => (float[?,?,?] sum) {
+   sum = Add (x, y)
+}
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32> {onnx.dim_params = "0:a,1:b,2:c", onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<?x?x?xf32> {onnx.dim_params = "0:a,1:b,2:c", onnx.name = "y"}) -> (tensor<?x?x?xf32> {onnx.dim_params = "0:unk__0,1:unk__1,2:unk__2", onnx.name = "sum"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Add"([[PARAM_0_]], [[PARAM_1_]]) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?x?xf32>
+// CHECK:         }
+// CHECK:         "onnx.EntryPoint"() {func = @main_graph} : () -> ()

@@ -51,6 +51,8 @@ SUPPRESS_WARNINGS_POP
 #include <array>
 #include <fstream>
 #include <map>
+#include <sstream>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -450,6 +452,27 @@ private:
     return attributes;
   }
 
+  // Generate a string vector from the dimParams option string
+  void getInputDimParamsMapFromOption(std::string optionStr,
+      std::map<int, std::string> &paramStrMap,
+      std::string &paramStrForAllArgs) {
+    std::stringstream paramStrStream(optionStr);
+    std::string dimParamStr;
+    while (std::getline(paramStrStream, dimParamStr, '|')) {
+      size_t pos = dimParamStr.find(':');
+      assert((pos > 0) && "invalid dimParams option string");
+      int idx = stoi(dimParamStr.substr(0, pos));
+      dimParamStr = dimParamStr.substr(pos + 1);
+      std::replace(dimParamStr.begin(), dimParamStr.end(), '=', ':');
+      if (idx < 0) // set all arguments
+        paramStrForAllArgs = dimParamStr;
+      else {
+        paramStrMap[idx] = dimParamStr;
+      }
+    }
+    return;
+  }
+
   /*!
    * An alternative graph importing procedure for importing ONNX subgraphs.
    * ONNX subgraphs, unlike the main computation graph, are imported as regions
@@ -490,6 +513,10 @@ private:
     // See https://github.com/onnx/onnx/blob/main/docs/IR.md for more
     // information about dim_param.
     llvm::SmallVector<std::string, 4> inputDimParams, outputDimParams;
+    std::map<int, std::string> inputDimParamsFromOption;
+    std::string inputDimParamsFromOptionForAllArgs;
+    getInputDimParamsMapFromOption(options_.dimParams, inputDimParamsFromOption,
+        inputDimParamsFromOptionForAllArgs);
 
     // Import the input tensor types that are not constant and not initialized.
     int inputIndex = 0;
@@ -500,7 +527,16 @@ private:
         std::string dimParams = "";
         Type argTy = ImportType(input.type(), &dimParams);
         argTy = modelInputShaper_.reshape(inputIndex, argTy);
-        if (!dimParams.empty())
+        // For each input tensor, use either all dimensions by the compiler
+        // option OR all dimensions in the original onnx model. Dimensions
+        // from the option and the model in a single input tensor are not
+        // merged.
+        if (inputDimParamsFromOption.find(inputIndex) !=
+            inputDimParamsFromOption.end())
+          inputDimParams.emplace_back(inputDimParamsFromOption[inputIndex]);
+        else if (!inputDimParamsFromOptionForAllArgs.empty())
+          inputDimParams.emplace_back(inputDimParamsFromOptionForAllArgs);
+        else if (!dimParams.empty())
           inputDimParams.emplace_back(dimParams);
 
         argTypes.emplace_back(argTy);
