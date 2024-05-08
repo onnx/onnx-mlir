@@ -240,21 +240,3 @@ func.func @test_resize_cubic_disallowed(%arg0: tensor<1x1x2x4xf32>) -> tensor<1x
 // CHECK-LABEL:  func.func @test_resize_cubic_disallowed
 // CHECK-LABEL:  onnx.Resize
 }
-
-
-// -----
-
-func.func @test_resize_half_pixel_nearest_floor_downsample_axis_one_fp8(%arg0: tensor<1x1x1x12xf8E4M3FN>) -> tensor<1x1x1x6xf8E4M3FN> {
-    %0 = "onnx.NoValue"() {value} : () -> none
-    %1 = "onnx.Constant"() {value = dense<[6]> : tensor<1xi64>} : () -> tensor<1xi64>
-    %2 = "onnx.Resize"(%arg0, %0, %0, %1) {axes = [3], coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor"} : (tensor<1x1x1x12xf8E4M3FN>, none, none, tensor<1xi64>) -> tensor<1x1x1x6xf8E4M3FN>
-    return %2 : tensor<1x1x1x6xf8E4M3FN>
-// CHECK-LABEL: @test_resize_half_pixel_nearest_floor_downsample_axis_one_fp8
-// CHECK-SAME: ([[PARAM_0_:%.+]]: tensor<1x1x1x12xf8E4M3FN>) -> tensor<1x1x1x6xf8E4M3FN> {
-// CECK-NEXT: [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<[0, 2, 3, 1]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CECK-NEXT: [[VAR_1_:%.+]] = tosa.transpose [[PARAM_0_]], [[PARAM_0_]] : (tensor<1x1x1x12xf8E4M3FN>, tensor<4xi32>) -> tensor<1x1x12x1xf8E4M3FN>
-// CECK-NEXT: [[VAR_2_:%.+]] = tosa.resize [[VAR_1_]] {border = array<i64: -1, -2>, mode = "NEAREST_NEIGHBOR", offset = array<i64: -1, 0>, scale = array<i64: 2, 2, 2, 4>} : (tensor<1x1x12x1xf8E4M3FN>) -> tensor<1x1x6x1xf8E4M3FN>
-// CECK-NEXT: [[VAR_3_:%.+]] = "tosa.const"() <{value = dense<[0, 3, 1, 2]> : tensor<4xi32>}> : () -> tensor<4xi32>
-// CECK-NEXT: [[VAR_4_:%.+]] = tosa.transpose [[VAR_2_]], [[VAR_3_]] : (tensor<1x1x6x1xf8E4M3FN>, tensor<4xi32>) -> tensor<1x1x1x6xf8E4M3FN>
-// CECK-NEXT: return [[VAR_4_]] : tensor<1x1x1x6xf8E4M3FN>
-  }
