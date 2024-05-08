@@ -82,11 +82,6 @@ void populateONNXToTOSAConversionPattern(ConversionTarget &target,
       target, patterns, typeConverter, ctx);
 }
 
-inline bool isFloat8(mlir::Type type) {
-  return type.isa<mlir::FloatType>() &&
-         type.cast<mlir::FloatType>().getWidth() == 8;
-}
-
 // Performs lowering to TOSA dialect
 struct FrontendToTosaLoweringPass
     : public PassWrapper<FrontendToTosaLoweringPass, OperationPass<ModuleOp>> {
@@ -125,8 +120,8 @@ void FrontendToTosaLoweringPass::runOnOperation() {
   // conversion failures. Quantized types are not supported right now.
   TypeConverter typeConverter;
   typeConverter.addConversion([](Type type) -> std::optional<Type> {
-    if (isTOSAInt(type) || isTOSAFloat(type) || isFloat8(type) ||
-        type.isa<NoneType>() || isTOSABool(type))
+    if (isTOSAInt(type) || type.isa<FloatType>() || type.isa<NoneType>() ||
+        isTOSABool(type))
       return type;
     return std::nullopt;
   });

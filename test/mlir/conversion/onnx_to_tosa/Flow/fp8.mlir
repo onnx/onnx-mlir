@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-onnx-to-tosa %s -split-input-file | FileCheck %s
 
 func.func @test_f8E4M3FNUZ(%arg0: tensor<13x21x3xf8E4M3FNUZ>) -> tensor<13x21x3xf8E4M3FNUZ> {
   func.return %arg0 : tensor<13x21x3xf8E4M3FNUZ>
