@@ -10029,6 +10029,7 @@ def ONNXUpsampleV7Op:ONNX_Op<"UpsampleV7",
 
 def ONNXWhereOp:ONNX_Op<"Where",
   [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  let hasCanonicalizer = 1;
   let summary = "ONNX Where operation";
   let description = [{
   Return elements, either from X or Y, depending on condition.
