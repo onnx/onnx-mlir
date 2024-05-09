@@ -198,6 +198,56 @@ bool haveSameStaticShape(Value lhs, Value rhs) {
   return hasStaticShape(lhsT) && (getShape(lhsT) == getShape(rhsT));
 }
 
+/// Test if the input is a splat constant with a negative value or not.
+bool isNegativeSplatConstant(Value val) {
+  if (!isDenseONNXConstant(val))
+    return false;
+  ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
+  auto valAttr =
+      llvm::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+  if (!valAttr)
+    return false;
+
+  if (!valAttr.isSplat())
+    return false;
+
+  Type elemTy = val.getType().cast<ShapedType>().getElementType();
+  if (elemTy.isa<FloatType>()) {
+    double v = valAttr.getSplatValue<double>();
+    return (v < 0.0);
+  } else if (elemTy.isa<IntegerType>()) {
+    int64_t v = valAttr.getSplatValue<int64_t>();
+    return (v < 0);
+  }
+  return false;
+}
+
+/// Test if all values in the input ValueRange are dimension sizes.
+bool areAllDimSizes(ValueRange vals) {
+  return llvm::all_of(vals, [](Value val) {
+    // Block arguments.
+    if (val.isa<BlockArgument>())
+      return false;
+    // Defined by DimOp.
+    if (val.getDefiningOp<ONNXDimOp>())
+      return true;
+    // Defined by ConstantOp.
+    if (isDenseONNXConstant(val) && isScalarTensor(val)) {
+      Type elemTy = val.getType().cast<ShapedType>().getElementType();
+      if (!elemTy.isa<IntegerType>())
+        return false;
+      ONNXConstantOp constOp = val.getDefiningOp<ONNXConstantOp>();
+      auto valAttr =
+          llvm::dyn_cast_or_null<DenseElementsAttr>(constOp.getValueAttr());
+      if (!valAttr)
+        return false;
+      int64_t v = (*valAttr.getValues<APInt>().begin()).getSExtValue();
+      return (v > 0);
+    }
+    return false;
+  });
+}
+
 // Match v = shape_transform(X*A + B).
 // shape_transform is a sequence of operations like Reshape, Transpose,
 // Squeeze, Unsqueeze, etc. that do not change the numerical values by data
@@ -1798,4 +1848,10 @@ void ONNXPowOp::getCanonicalizationPatterns(
 void ONNXXorOp::getCanonicalizationPatterns(
     RewritePatternSet &result, MLIRContext *context) {
   result.insert<BinaryOpBroadcastAxisPattern<ONNXXorOp>>(context);
+}
+
+// on the ONNXWhereOp.
+void ONNXWhereOp::getCanonicalizationPatterns(
+    RewritePatternSet &result, MLIRContext *context) {
+  result.insert<AlwaysFalseWherePattern>(context);
 }
