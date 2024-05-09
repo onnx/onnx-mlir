@@ -270,8 +270,10 @@ bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
 }
 
 void emitLegalityCheckMessage(Operation *op, StringRef message) {
-  LLVM_DEBUG(llvm::outs() << "[NNPA Legality Check] Warning: " << op->getLoc()
-                          << " runs on CPU. Reason: " << message << "\n");
+  LLVM_DEBUG(llvm::outs() << "[NNPA Legality Check] Warning: "
+                          << op->getName().getStringRef() << "(onnx_node_name:"
+                          << op->getAttrOfType<StringAttr>("onnx_node_name")
+                          << ") runs on CPU. Reason: " << message << "\n");
 }
 
 /// Default legality check.
