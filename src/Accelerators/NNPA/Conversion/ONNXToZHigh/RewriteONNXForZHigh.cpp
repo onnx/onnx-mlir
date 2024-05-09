@@ -619,8 +619,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
           }
           if (!sameBatchDims)
             emitLegalityCheckMessage(op.getOperation(),
-                "both inputs are *the same* N-D, N > 3 and "
-                "there is no broadcasting.");
+                "Batch dimensions of A and B are not the same.");
           return !sameBatchDims;
         }
 
