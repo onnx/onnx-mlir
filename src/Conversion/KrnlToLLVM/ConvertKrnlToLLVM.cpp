@@ -745,6 +745,10 @@ struct ConvertKrnlToLLVMPass
     // Exclusive options. no option or only one option can be True.
     this->useLRODATA = useLRODATA;
     this->storeConstantsToFile = storeConstantsToFile;
+    // store-constants-to-file has not yet been supported on Windows.
+#ifdef _WIN32
+    this->storeConstantsToFile = false;
+#endif
     this->constantsToFileSingleThreshold = constantsToFileSingleThreshold;
     this->constantsToFileTotalThreshold = constantsToFileTotalThreshold;
     this->outputNameNoExt = outputNameNoExt;
