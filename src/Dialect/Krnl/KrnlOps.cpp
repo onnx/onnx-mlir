@@ -1119,6 +1119,111 @@ void KrnlGetLinearOffsetIndexOp::print(OpAsmPrinter &p) {
 }
 
 //===----------------------------------------------------------------------===//
+// KrnlPrefetchOp
+//===----------------------------------------------------------------------===//
+
+void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
+    Value memref, AffineMap map, ValueRange mapOperands, bool isWrite,
+    unsigned localityHint, bool isDataCache) {
+  assert(map.getNumInputs() == mapOperands.size() && "inconsistent index info");
+  result.addOperands(memref);
+  result.addOperands(mapOperands);
+  result.addAttribute(getMapAttrStrName(), AffineMapAttr::get(map));
+  result.addAttribute(getIsWriteAttrStrName(), builder.getBoolAttr(isWrite));
+  result.addAttribute(
+      getLocalityHintAttrStrName(), builder.getI32IntegerAttr(localityHint));
+  result.addAttribute(
+      getIsDataCacheAttrStrName(), builder.getBoolAttr(isDataCache));
+}
+
+void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
+    Value memref, ValueRange indices, bool isWrite, unsigned localityHint,
+    bool isDataCache) {
+  auto memrefType = llvm::cast<MemRefType>(memref.getType());
+  int64_t rank = memrefType.getRank();
+  // Create identity map for memrefs with at least one dimension or () -> ()
+  // for zero-dimensional memrefs.
+  auto map =
+      rank ? builder.getMultiDimIdentityMap(rank) : builder.getEmptyAffineMap();
+  build(builder, result, memref, map, indices, isWrite, localityHint,
+      isDataCache);
+}
+
+void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
+    Value memref, bool isWrite, unsigned localityHint, bool isDataCache) {
+  build(builder, result, memref, {}, isWrite, localityHint, isDataCache);
+}
+
+//
+// krnl.prefetch %0[%i, %j + 5], read, locality<3>, data : memref<400x400xi32>
+// Code lifted from affine prefetch as is.
+// I have seen parsing errors when multiple '#x' are used in the indices, could
+// not tell why.
+//   krnl.prefetch %arg0[%1#0, %1#1, %3], read, locality<3>, data :
+//     memref<8x256x512xf32>
+// With only one, it works.
+//
+
+ParseResult KrnlPrefetchOp::parse(OpAsmParser &parser, OperationState &result) {
+  auto &builder = parser.getBuilder();
+  auto indexTy = builder.getIndexType();
+
+  MemRefType type;
+  OpAsmParser::UnresolvedOperand memrefInfo;
+  IntegerAttr hintInfo;
+  auto i32Type = parser.getBuilder().getIntegerType(32);
+  StringRef readOrWrite, cacheType;
+
+  AffineMapAttr mapAttr;
+  SmallVector<OpAsmParser::UnresolvedOperand, 1> mapOperands;
+  if (parser.parseOperand(memrefInfo) ||
+      parser.parseAffineMapOfSSAIds(mapOperands, mapAttr,
+          KrnlPrefetchOp::getMapAttrStrName(), result.attributes) ||
+      parser.parseComma() || parser.parseKeyword(&readOrWrite) ||
+      parser.parseComma() || parser.parseKeyword("locality") ||
+      parser.parseLess() ||
+      parser.parseAttribute(hintInfo, i32Type,
+          KrnlPrefetchOp::getLocalityHintAttrStrName(), result.attributes) ||
+      parser.parseGreater() || parser.parseComma() ||
+      parser.parseKeyword(&cacheType) ||
+      parser.parseOptionalAttrDict(result.attributes) ||
+      parser.parseColonType(type) ||
+      parser.resolveOperand(memrefInfo, type, result.operands) ||
+      parser.resolveOperands(mapOperands, indexTy, result.operands))
+    return failure();
+
+  if (!readOrWrite.equals("read") && !readOrWrite.equals("write"))
+    return parser.emitError(
+        parser.getNameLoc(), "rw specifier has to be 'read' or 'write'");
+  result.addAttribute(KrnlPrefetchOp::getIsWriteAttrStrName(),
+      parser.getBuilder().getBoolAttr(readOrWrite.equals("write")));
+
+  if (!cacheType.equals("data") && !cacheType.equals("instr"))
+    return parser.emitError(
+        parser.getNameLoc(), "cache type has to be 'data' or 'instr'");
+
+  result.addAttribute(KrnlPrefetchOp::getIsDataCacheAttrStrName(),
+      parser.getBuilder().getBoolAttr(cacheType.equals("data")));
+
+  return success();
+}
+
+void KrnlPrefetchOp::print(OpAsmPrinter &p) {
+  p << " " << getMemref() << '[';
+  AffineMapAttr mapAttr =
+      (*this)->getAttrOfType<AffineMapAttr>(getMapAttrStrName());
+  if (mapAttr)
+    p.printAffineMapOfSSAIds(mapAttr, getMapOperands());
+  p << ']' << ", " << (getIsWrite() ? "write" : "read") << ", "
+    << "locality<" << getLocalityHint() << ">, "
+    << (getIsDataCache() ? "data" : "instr");
+  p.printOptionalAttrDict((*this)->getAttrs(),
+      /*elidedAttrs=*/{getMapAttrStrName(), getLocalityHintAttrStrName(),
+          getIsDataCacheAttrStrName(), getIsWriteAttrStrName()});
+  p << " : " << getMemRefType();
+}
+
+//===----------------------------------------------------------------------===//
 // KrnlMemcpyOp
 //===----------------------------------------------------------------------===//
 
