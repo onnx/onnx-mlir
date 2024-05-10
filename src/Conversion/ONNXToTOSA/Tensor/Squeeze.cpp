@@ -40,7 +40,8 @@ public:
     }
 
     TosaBuilder tosaBuilder(rewriter, loc);
-    rewriter.replaceOp(op, tosaBuilder.reshape(adaptor.getData(), resultTy.getShape()));
+    rewriter.replaceOp(
+        op, tosaBuilder.reshape(adaptor.getData(), resultTy.getShape()));
     return success();
   }
 };
