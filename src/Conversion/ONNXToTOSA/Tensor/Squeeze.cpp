@@ -36,24 +36,15 @@ public:
       ConversionPatternRewriter &rewriter) const override {
 
     Location loc = op->getLoc();
-    // Get shape.
-    IndexExprBuilderForTosa createTosaIE(rewriter, loc);
-    ShapeHelper shapeHelper(op, {}, &createTosaIE);
-    if (failed(shapeHelper.computeShape())) {
-      return rewriter.notifyMatchFailure(op, "could not compute shape.");
+
+    auto resultTy = dyn_cast<RankedTensorType>(op.getResult().getType());
+    if (!resultTy || !resultTy.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(
+          op, "expected ranked tensor type with static shape");
     }
 
     TosaBuilder tosaBuilder(rewriter, loc);
-
-    Value input = adaptor.getData();
-
-    DimsExpr outputDims = shapeHelper.getOutputDims();
-    llvm::SmallVector<int64_t, 4> outputDimsVec;
-    IndexExpr::getLiteral(outputDims, outputDimsVec);
-
-    Value newUnsqueezeOp = tosaBuilder.reshape(input, outputDimsVec);
-
-    rewriter.replaceOp(op, newUnsqueezeOp);
+    rewriter.replaceOp(op, tosaBuilder.reshape(adaptor.getData(), resultTy.getShape()));
     return success();
   }
 };

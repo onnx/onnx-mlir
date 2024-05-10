@@ -27,6 +27,6 @@ func.func @test_squeeze_unknown_dimensions(%arg0 : tensor<1x1x32x1x64xf32>) -> t
 func.func @squeeze_dynamic(%arg0: tensor<1x3x4x5xf32> , %arg1: tensor<1xi64> ) -> tensor<3x4x5xf32> {
   %0 = "onnx.Squeeze"(%arg0, %arg1) : (tensor<1x3x4x5xf32>, tensor<1xi64>) -> tensor<3x4x5xf32>
   return %0 : tensor<3x4x5xf32>
-// CHECK-LABEL:  func.func @squeeze_dynamic
-// CHECK: onnx.Squeeze
+// CHECK-LABEL: squeeze_dynamic
+// CHECK: tosa.reshape {{.*}} {new_shape = array<i64: 3, 4, 5>} : (tensor<1x3x4x5xf32>) -> tensor<3x4x5xf32>
 }
