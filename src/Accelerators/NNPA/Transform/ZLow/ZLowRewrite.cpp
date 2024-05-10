@@ -224,7 +224,7 @@ public:
 /// #map3D>
 /// ```
 /// `%stick` memref is unstickified and shuffled by the pair of (affine.load,affine.store),
-/// then stickified again. It said data are transfered from a stickified memref
+/// then stickified again. It said data are transferred from a stickified memref
 /// into another stickified memref via a chain of affine transformation.
 ///
 /// The above code can be rewritten into the following code:
@@ -245,7 +245,7 @@ public:
 /// maintain an affine map that maps one element in a memref to an element in
 /// another memref. Those maps are `#map2D` and `#map3D` in the above example.
 /// Combined with affine.load and affine.store, one element in a stickified
-/// memref can be forwarded directly into an element in another stickifired
+/// memref can be forwarded directly into an element in another stickified
 /// memref without `zlow.stick` and `zlow.unstick`.
 ///
 /// - The shape of the input and output memrefs of `zlow.stick`/`zlow.unstick`
@@ -314,7 +314,7 @@ public:
     // incorrect: https://github.com/onnx/onnx-mlir/issues/1940
     if ((unstickLayout == LAYOUT_1D) || (unstickLayout == LAYOUT_2DS))
       return rewriter.notifyMatchFailure(op, [&](::mlir::Diagnostic &diag) {
-        diag << "Unsupport layout 1D and 2DS";
+        diag << "Unsupported layout 1D and 2DS";
       });
 
     // 1. Match pattern: data flows from zlow.unstick to zlow.stick via

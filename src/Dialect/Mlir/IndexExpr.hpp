@@ -365,7 +365,7 @@ public:
   int getNumDims() const { return dims.size(); }
   int getNumSymbols() const { return symbols.size(); }
 
-  // Debug (enable using --debug-only=index_expr, for example).
+  // Debug (enable using --debug-only=index-expr, for example).
   void debugPrint(const std::string &msg) const;
 
 private:
@@ -821,6 +821,14 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
+// Shortcuts for Index Expr subclasses, to render code more readable.
+//===----------------------------------------------------------------------===//
+
+using LitIE = LiteralIndexExpr;
+using SymIE = SymbolIndexExpr;
+using DimIE = DimIndexExpr;
+
+//===----------------------------------------------------------------------===//
 // Additional operators with integer values in first position
 //===----------------------------------------------------------------------===//
 
@@ -857,6 +865,18 @@ void getIndexExprList(
     outputList.emplace_back(INDEX_EXPR(item));
 }
 
+inline llvm::SmallVector<IndexExpr, 4> DimListIE(mlir::ValueRange range) {
+  llvm::SmallVector<IndexExpr, 4> outputList;
+  getIndexExprList<DimIndexExpr>(range, outputList);
+  return outputList;
+}
+
+inline llvm::SmallVector<IndexExpr, 4> SymListIE(mlir::ValueRange range) {
+  llvm::SmallVector<IndexExpr, 4> outputList;
+  getIndexExprList<SymbolIndexExpr>(range, outputList);
+  return outputList;
+}
+
 // Create a list of IndexExpr of kind INDEX_EXPR from another list of IndexExpr.
 template <class INDEX_EXPR>
 void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
@@ -864,6 +884,20 @@ void getIndexExprList(llvm::SmallVectorImpl<IndexExpr> &inputList,
   outputList.clear();
   for (auto item : inputList)
     outputList.emplace_back(INDEX_EXPR(item));
+}
+
+inline llvm::SmallVector<IndexExpr, 4> DimListIE(
+    llvm::SmallVectorImpl<IndexExpr> &inputList) {
+  llvm::SmallVector<IndexExpr, 4> outputList;
+  getIndexExprList<DimIndexExpr>(inputList, outputList);
+  return outputList;
+}
+
+inline llvm::SmallVector<IndexExpr, 4> SymListIE(
+    llvm::SmallVectorImpl<IndexExpr> &inputList) {
+  llvm::SmallVector<IndexExpr, 4> outputList;
+  getIndexExprList<SymbolIndexExpr>(inputList, outputList);
+  return outputList;
 }
 
 // Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.

@@ -454,55 +454,10 @@ IndexExprKind IndexExpr::getKind() const { return getObj().getKind(); }
 
 void IndexExpr::debugPrint(const std::string &msg) const {
   LLVM_DEBUG({
-    llvm::dbgs() << msg.c_str();
-    if (!isDefined()) {
-      llvm::dbgs() << " undefined\n";
-      return;
-    }
-    if (isLiteral()) {
-      if (isFloat())
-        llvm::dbgs() << " floatLiteral(" << getFloatLiteral() << ")";
-      else
-        llvm::dbgs() << " literal(" << (long long)getLiteral() << ")";
-    }
-    if (isFloat())
-      llvm::dbgs() << " isFloat";
-    if (hasAffineExpr())
-      llvm::dbgs() << " hasAffine";
-    if (hasValue()) {
-      llvm::dbgs() << " hasValue";
-      auto op = getValue().getDefiningOp();
-      if (op) {
-        std::string str;
-        llvm::raw_string_ostream os(str);
-        op->print(os);
-        llvm::dbgs() << "( \"" << str.c_str() << "\")";
-      } else
-        llvm::dbgs() << "(op not found)";
-    }
-    if (isAffine())
-      llvm::dbgs() << " is affine";
-    switch (getKind()) {
-    case IndexExprKind::NonAffine:
-      llvm::dbgs() << " kind(non-affine)";
-      break;
-    case IndexExprKind::Questionmark:
-      llvm::dbgs() << " kind(questionmark)";
-      break;
-    case IndexExprKind::Predicate:
-      llvm::dbgs() << " kind(predicate)";
-      break;
-    case IndexExprKind::Affine:
-      llvm::dbgs() << " kind(affine)";
-      break;
-    case IndexExprKind::Dim:
-      llvm::dbgs() << " kind(dim)";
-      break;
-    case IndexExprKind::Symbol:
-      llvm::dbgs() << " kind(symbol)";
-      break;
-    }
-    llvm::dbgs() << " scope(0x " << (long long unsigned)getScopePtr() << ")\n";
+    if (!indexExprObj)
+      llvm::dbgs() << msg.c_str() << " undefined\n";
+    else
+      indexExprObj->debugPrint(msg);
   });
 }
 

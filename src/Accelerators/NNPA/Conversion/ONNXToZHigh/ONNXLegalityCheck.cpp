@@ -994,3 +994,11 @@ bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
 
   return true;
 }
+
+/// Check legality for ONNXReshapeOp.
+template <>
+bool isSuitableForZDNN<ONNXReshapeOp>(
+    ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {
+  // Noop Reshape is suitable for zAIU as this pass removes such reshape ops.
+  return isIdentityReshape(op, dimAnalysis);
+}
