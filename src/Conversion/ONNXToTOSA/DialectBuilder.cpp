@@ -179,7 +179,7 @@ std::optional<Value> TosaBuilder::gather(Value resultValue, Value inputValue,
   return tosa::convertGatherOp(rewriter(), loc(), resultValue, inputValue,
       indicesValue, batchDims, axis);
 };
-Value TosaBuilder::reshape(mlir::Value &value, llvm::ArrayRef<int64_t> shape) {
+Value TosaBuilder::reshape(mlir::Value value, llvm::ArrayRef<int64_t> shape) {
   auto shapeAttr = rewriter().getDenseI64ArrayAttr(shape);
   auto valueType = value.getType().cast<ShapedType>();
   Type newValueType = RankedTensorType::get(
