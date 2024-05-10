@@ -85,7 +85,6 @@ func.func @test_batchnorm_bf16_dynamic(%arg0: tensor<100x3x?x?xbf16>) -> tensor<
 }
 
 // -----
-// tosa doesn't support f64, but it is still lowered
 
 func.func @test_batchnorm_f64(%arg0: tensor<100x3x10x10xf64>) -> tensor<100x3x10x10xf64> {
     %0 = "onnx.Constant"() {value = dense<[1.0, 2.0, 3.0]> : tensor<3xf64>} : () -> tensor<3xf64>
