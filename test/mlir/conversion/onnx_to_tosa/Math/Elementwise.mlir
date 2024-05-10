@@ -103,6 +103,15 @@ func.func @test_add_ui32(%arg0: tensor<13x21x1xui32>, %arg1: tensor<13x21x1xui32
 // CHECK:           return [[VAR_0_]] : tensor<13x21x1xui32>
 }
 
+// -----
+
+func.func @test_add_f64(%arg0: tensor<13x21x1xf64>, %arg1: tensor<13x21x1xf64>) -> tensor<13x21x1xf64> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<13x21x1xf64>, tensor<13x21x1xf64>) -> tensor<13x21x1xf64>
+  "func.return"(%0) : (tensor<13x21x1xf64>) -> ()
+// CHECK-LABEL:  func.func @test_add_f64
+// CHECK-NOT:    onnx.Add
+// CHECK:        return {{.*}}: tensor<13x21x1xf64>
+}
 
 // -----
 
@@ -482,6 +491,14 @@ func.func @test_pow_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xf32>, [[PARAM_1_:%.+]]: tensor<1xf32>) -> tensor<13x21x1xf32> {
 // CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.reshape [[PARAM_1_]] {new_shape = array<i64: 1, 1, 1>} : (tensor<1xf32>) -> tensor<1x1x1xf32>
 // CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.pow [[PARAM_0_]], [[VAR_0_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
+}
+
+func.func @test_pow_f64(%arg0: tensor<13x21x1xf64>, %arg1: tensor<13x21x1xf64>) -> tensor<13x21x1xf64> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<13x21x1xf64>, tensor<13x21x1xf64>) -> tensor<13x21x1xf64>
+  "func.return"(%0) : (tensor<13x21x1xf64>) -> ()
+// CHECK-LABEL:  func @test_pow
+// CHECK-NOT:    onnx.Pow
+// CHECK:        return {{.*}}: tensor<13x21x1xf64>
 }
 
 // -----
