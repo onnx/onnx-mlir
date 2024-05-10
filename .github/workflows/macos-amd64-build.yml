@@ -66,7 +66,8 @@ jobs:
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-unittest.sh
-    - name: run onnx-mlir backend and numerical tests
-      run: |
-        cd ~/work/onnx-mlir
-        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
+    # Those tests are not relevant to the work on the xilinx fork, but take 40 min
+    #    - name: run onnx-mlir backend and numerical tests
+    #  run: |
+    #    cd ~/work/onnx-mlir
+    #    sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
