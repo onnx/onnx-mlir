@@ -1,6 +1,9 @@
 name: GitHub Action MacOS amd64
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [ main, feature/onnx-to-tosa ]
 
 jobs:
   build:
@@ -18,6 +21,12 @@ jobs:
     - name: install tools that are needed for compilation
       run: |
         brew install automake ninja pybind11
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        # Create symlinks to intercept compiler calls without modifying the cmake invocation
+        create-symlink: true
+        key: ${{ runner.os }}-ccache
     - name: install protobuf
       run: |
         cd ~/work
@@ -46,6 +55,7 @@ jobs:
         python3 -m pip install -v .
     - name: build onnx-mlir
       run: |
+        export EXTRA_CMAKE_ARGS="-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/install-onnx-mlir.sh
     - name: build and run docs/doc_example tests
@@ -57,6 +67,9 @@ jobs:
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-unittest.sh
     - name: run onnx-mlir backend and numerical tests
+      # Those tests are not relevant to the work on the xilinx fork, but take
+      # 40 min. Don't run them on PRs.
+      if: github.event_name != 'pull_request'
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
