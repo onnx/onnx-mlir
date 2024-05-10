@@ -558,6 +558,14 @@ func.func @test_erf_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 // CHECK-NEXT:   }
 }
 
+func.func @test_erf_f64(%arg0: tensor<3xf64>) -> tensor<3xf64> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<3xf64>) -> tensor<3xf64>
+  return %0 : tensor<3xf64>
+// CHECK-LABEL:  func @test_erf_f64
+// CHECK-NOT:    onnx.Erf
+// CHECK:        return %0 : tensor<3xf64>
+}
+
 // -----
 
 func.func @test_bitwise_not(%arg0 : tensor<10x10xi32>) -> tensor<10x10xi32> {

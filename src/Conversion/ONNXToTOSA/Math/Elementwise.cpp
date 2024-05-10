@@ -45,18 +45,6 @@ struct AbsIOSupportedTypes {
   }
 };
 
-struct ErfIOSupportedTypes {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!mlir::isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>(
-            scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only supports fp16, fp32 or bf16");
-    }
-    return success();
-  }
-};
-
 struct IsIntOrFloat {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
@@ -747,7 +735,7 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXAbsOp, mlir::tosa::AbsOp,
           AbsIOSupportedTypes, AbsIOSupportedTypes>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXErfOp, mlir::tosa::ErfOp,
-          ErfIOSupportedTypes, ErfIOSupportedTypes>>(typeConverter, ctx);
+          IsFloat, IsFloat>>(typeConverter, ctx);
 
 // Tosa custom ops
 #define INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(                            \
