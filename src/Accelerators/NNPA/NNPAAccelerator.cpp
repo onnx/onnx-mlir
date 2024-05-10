@@ -102,6 +102,10 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return onnx_mlir::zlow::createZLowStickExpansionPass();
+  });
+
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return onnx_mlir::zlow::createZLowDummyOpForMultiDerefPass();
   });
 
@@ -156,8 +160,8 @@ void NNPAAccelerator::conversionTargetONNXToKrnl(
 void NNPAAccelerator::rewritePatternONNXToKrnl(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
     mlir::MLIRContext *ctx) const {
-  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(patterns,
-      typeConverter, ctx, enableParallel, nnpaEnableCompilerStickUnstick);
+  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(
+      patterns, typeConverter, ctx, enableParallel);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(
