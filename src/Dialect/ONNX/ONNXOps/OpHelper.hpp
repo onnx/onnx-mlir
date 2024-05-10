@@ -287,6 +287,19 @@ bool areDimsFromConcat(mlir::Value val);
 void getDims(mlir::Value val, llvm::SmallVectorImpl<mlir::Value> &dims);
 
 //===----------------------------------------------------------------------===//
+// Support for ReshapeOp.
+//===----------------------------------------------------------------------===//
+
+// Return true if reshape does nothing, aka it returns the same as the input.
+// Use dimAnalysis if provided.
+
+bool isIdentityReshape(
+    mlir::ONNXReshapeOp reshapeOp, const DimAnalysis *dimAnalysis = nullptr);
+
+bool isIdentityReshape(mlir::Value input, mlir::Value output,
+    const DimAnalysis *dimAnalysis = nullptr);
+
+//===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//
 

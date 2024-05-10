@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMKrnlToAffine
   KrnlLoad.cpp
   KrnlMatmul.cpp
   KrnlMemset.cpp
+  KrnlPrefetch.cpp
   KrnlStore.cpp
   KrnlTerminator.cpp
   KrnlToAffineHelper.cpp

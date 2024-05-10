@@ -337,13 +337,18 @@ static llvm::cl::opt<bool, true> storeConstantsToFileOpt(
     "store-constants-to-file",
     llvm::cl::desc(
         "Constants will be stored on a binary file instead of be embedded "
-        "into the model.so. The binary file is in the same folder as the "
-        "model.so and has the same name as the model with the extension of "
-        ".constants.bin. For inference, model.constants.bin must be at the "
-        "same folder as the inference program. If model.constants.bin is at "
-        "another folder, use the environment variable OM_CONSTANT_PATH to set "
-        "the constant folder. Windows will be supported soon."),
-    llvm::cl::location(storeConstantsToFile), llvm::cl::init(false),
+        "into the model.so when compiling a big model. The binary file is in "
+        "the same folder as the model.so and has the same name as the model "
+        "with the extension of .constants.bin. For inference, "
+        "model.constants.bin must be at the same folder as the inference "
+        "program. If model.constants.bin is at another folder, use the "
+        "environment variable OM_CONSTANT_PATH to set the constant folder. "
+        "When using this option, two other options "
+        "constants-to-file-single-threshold and "
+        "constants-to-file-total-threshold can be used to finetune the amount "
+        "of constants stored on the file. Windows will be supported soon. "
+        "Default is True."),
+    llvm::cl::location(storeConstantsToFile), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<float, true> constantsToFileTotalThresholdOpt(
@@ -353,8 +358,9 @@ static llvm::cl::opt<float, true> constantsToFileTotalThresholdOpt(
         "bytes of constants is greater than this threshold. "
         "store-constants-to-file must be enabled for this to be effective. "
         "Only count constants whose size is greater than "
-        "constants-to-file-single-threshold. Value is in GB. Default is 2GB."),
-    llvm::cl::location(constantsToFileTotalThreshold), llvm::cl::init(2.0),
+        "constants-to-file-single-threshold. Value is in GB. Default is "
+        "1.5GB."),
+    llvm::cl::location(constantsToFileTotalThreshold), llvm::cl::init(1.5),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<float, true> constantsToFileSingleThresholdOpt(
