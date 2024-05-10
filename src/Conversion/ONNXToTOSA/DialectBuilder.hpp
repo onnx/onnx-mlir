@@ -96,9 +96,9 @@ struct TosaBuilder : DialectBuilder {
   // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set
   // to `value`.
   template <typename T>
-  mlir::Value getSplattedConst(T value, uint rank) {
+  mlir::Value getSplattedConst(T value, size_t rank) {
     llvm::SmallVector<int64_t, 4> tmpTensor;
-    for (uint i = 0; i < rank; ++i) {
+    for (size_t i = 0; i < rank; ++i) {
       tmpTensor.emplace_back(1);
     }
     std::vector zpVec = std::vector<T>{value};
