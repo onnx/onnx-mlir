@@ -25,11 +25,11 @@ default_number_of_lines = -1  # auto scale
 max_number_of_lines = 20
 default_start_time = 0.0
 default_period = 200.0
+default_min_parcent_of_time_for_legend = 1.0
+min_number_of_legend = 10
 max_number_of_legend = 18
-number_of_xticks = 5
 
-elapsed_time_min = -1.0
-elapsed_time_max = -1.0
+number_of_xticks = 5
 epsilon = 1.0e-10
 
 op_time_dic = {}
@@ -44,7 +44,8 @@ handle_tbl = []
 
 # Read instrumentation file
 def read_inst_file(inst_file, iteration, data_start_time, data_period):
-    global elapsed_time_min, elapsed_time_max
+    elapsed_time_min = -1.0
+    elapsed_time_max = -1.0
     data_end_time = data_start_time + data_period
     inst_data_tbl = []
     before_elapsed_time_dic = {}
@@ -96,27 +97,79 @@ def read_inst_file(inst_file, iteration, data_start_time, data_period):
                 op_count_dic[op] += 1
             # else:
             #    print("WARNING: no corresponding line for [{}]".format(line), file=sys.stderr)
-    return inst_data_tbl
+    return inst_data_tbl, elapsed_time_min, elapsed_time_max
 
 
-def write_line_for_op(op, start, end, ax, idx, xscale, number_of_lines):
+def get_xscales_and_number_of_lines(elapsed_time_min, elapsed_time_max):
+    xscale = args.xscale
+    if xscale < 0:  # set xscale with auto scale
+        for scale in default_xscales:
+            if scale * max_number_of_lines >= elapsed_time_max:
+                break
+        xscale = scale
+    number_of_lines = args.number_of_lines
+    if number_of_lines < 0:  # set number_of_lines with auto scale
+        number_of_lines = min(
+            int((elapsed_time_max + xscale - epsilon) / xscale), max_number_of_lines
+        )
+    return xscale, number_of_lines
+
+
+def gen_legend_table(inst_data_tbl, number_of_legends):
+    op_time_list = sorted(op_time_dic.items(), key=lambda x: x[1], reverse=True)
+    total_time = sum(list(map(lambda x: x[1], op_time_list)))
+    legend_tbl = []
+    other_time = 0.0
+    other_count = 0
+    color_tbl = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for idx, op_time in enumerate(op_time_list):
+        op, time = op_time
+        op_index_dic[op] = min(idx, number_of_legends + 1)
+        if args.print_summary:
+            print("{} {:.6f} {}".format(op, op_time_dic[op], op_count_dic[op]))
+        if idx < number_of_legends:
+            fgcolor = color_tbl[idx] # matplotlib.cm.tab20(idx)
+            bgcolor = (
+                "r"
+                if op.startswith("onnx.")
+                else "b" if op.startswith("zhigh.") else "k"
+            )
+            label = "{}: {:.3f}s / {}".format(
+                op[:13], op_time_dic[op], op_count_dic[op]
+            )
+            legend_tbl.append((op, time, fgcolor, bgcolor, label))
+        else:
+            other_time += time
+            other_count += 1
+    fgcolor = color_tbl[number_of_legends % len(color_tbl)] # matplotlib.cm.tab20(number_of_legends)
+    bgcolor = "k"
+    label = "{}: {:.3f}s / {}".format("Other", other_time, other_count)
+    legend_tbl.append(("Other", other_time, fgcolor, bgcolor, label))
+    return legend_tbl
+
+
+def write_line_for_op(
+    op, start, end, ax, idx, legend_tbl, handle_tbl, xscale, number_of_lines
+):
     line_height = number_of_lines * 0.02
-    color = colormap_tbl[idx]
+    number_of_legend = len(legend_tbl)
     handle = None
+    idx = min(idx, number_of_legend - 1)
     while start + epsilon < end:
         y, x = divmod(start + epsilon, xscale)
         next_start = min(end, (y + 1) * xscale)
+        _, _, fgcolor, bgcolor, _ = legend_tbl[idx]
         handle = ax.barh(
             left=x,
             y=number_of_lines - 1 - y,
             width=next_start - start,
             height=line_height,
             align="center",
-            color=color,
+            color=fgcolor,
             label=op,
             alpha=1.0,
-            linewidth=0.4,
-            ec="k",
+            linewidth=1.0,
+            ec=bgcolor,
         )
         start = next_start
     if handle:
@@ -126,6 +179,7 @@ def write_line_for_op(op, start, end, ax, idx, xscale, number_of_lines):
 
 def generate_timechart(
     inst_data_tbl,
+    legend_tbl,
     graph,
     xscale,
     number_of_lines,
@@ -136,32 +190,19 @@ def generate_timechart(
     frame_start_time = int(data_start_time / xscale) * xscale
     fig, ax = plt.subplots()
     plt.subplots_adjust(bottom=0.3, right=0.95)
-    # generate colormap
-    op_time_list = sorted(op_time_dic.items(), key=lambda x: x[1], reverse=True)
-    # color_table = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    total_time = sum(list(map(lambda x: x[1], op_time_list)))
-    for idx, op_time in enumerate(op_time_list):
-        op, time = op_time
-        op_index_dic[op] = idx
-        op_tbl.append(op)
-        time_tbl.append(time)
-        # colormap_tbl.append(color_table[idx % len(color_table)])
-        colormap_tbl.append(matplotlib.cm.tab20(idx % 20))
-        handle_tbl.append(None)
-        label_tbl.append(
-            "{}: {:.3f}s / {}".format(op[:13], op_time_dic[op], op_count_dic[op])
-        )
-        if args.print_summary:
-            print("{} {:.6f} {}".format(op, op_time_dic[op], op_count_dic[op]))
+
     # plot inst_data
     used_op_idx_list = []
+    handle_tbl = [None] * len(legend_tbl)
     for inst_data in inst_data_tbl:
         key, start, end = inst_data
         start = max(start, data_start_time) - frame_start_time
         end = min(end, data_end_time) - frame_start_time
         op = key[: key.find(":")]
         idx = op_index_dic[op]
-        write_line_for_op(op, start, end, ax, idx, xscale, number_of_lines)
+        write_line_for_op(
+            op, start, end, ax, idx, legend_tbl, handle_tbl, xscale, number_of_lines
+        )
 
     # ax.set_xlabel("Elapsed Time (sec)")
     ax.set_xlim(0.0, xscale)
@@ -186,7 +227,9 @@ def generate_timechart(
     for idx, hdl in enumerate(handle_tbl):
         if hdl:
             handles.append(handle_tbl[idx])
-            labels.append(label_tbl[idx])
+            _, _, _, _, label = legend_tbl[idx]
+            labels.append(label)
+    print("YYYY labels({}) = {}".format(len(labels), labels))
     ax.legend(
         handles=handles[:max_number_of_legend],
         labels=labels[:max_number_of_legend],
@@ -259,6 +302,18 @@ parser.add_argument(
     default=-1,
     help="Iteration number starting from 0 (default=last)",
 )
+parser.add_argument(
+    "-l",
+    "--number-of-legends",
+    type=int,
+    default=-1,
+    help="Number of legend. The default is number of operations occupying "
+    + "{} parcent of execution time (s.t. {} <= n <= {})".format(
+        default_min_parcent_of_time_for_legend,
+        min_number_of_legend,
+        max_number_of_legend,
+    ),
+)
 
 args = parser.parse_args()
 if not args.instrumentation:
@@ -272,22 +327,22 @@ if not args.graph:
 
 
 def main():
-    inst_data_tbl = read_inst_file(
+    # read instrumentation file
+    inst_data_tbl, elapsed_time_min, elapsed_time_max = read_inst_file(
         args.instrumentation, args.iteration, args.start_time, args.period
     )
-    xscale = args.xscale
-    if args.xscale < 0:  # set xscale with auto scale
-        for scale in default_xscales:
-            if scale * max_number_of_lines >= elapsed_time_max:
-                break
-        xscale = scale
-    number_of_lines = args.number_of_lines
-    if number_of_lines < 0:  # set number_of_lines with auto scale
-        number_of_lines = min(
-            int((elapsed_time_max + xscale - epsilon) / xscale), max_number_of_lines
-        )
+    # set xscale and number_of_lines
+    xscale, number_of_lines = get_xscales_and_number_of_lines(
+        elapsed_time_min, elapsed_time_max
+    )
+    # generate legend table
+    number_of_legends = 10
+    legend_tbl = gen_legend_table(inst_data_tbl, number_of_legends)
+    print("XXXX legend_tbl({}) = {}".format(len(legend_tbl), legend_tbl))
+    # generate timechart
     generate_timechart(
         inst_data_tbl,
+        legend_tbl,
         args.graph,
         xscale,
         number_of_lines,
