@@ -868,10 +868,16 @@ private:
     std::vector<NamedAttribute> attributes;
     for (int i = 0; i < node.attribute_size(); ++i) {
       auto attr = node.attribute(i);
-      auto mlir_type = convertONNXTypeToMLIRType(
-          builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
-      Attribute mlirAttr = TypeAttr::get(mlir_type);
-      attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
+      // The 'to' attribute is an integer in ONNX that represents a type.
+      if (attr.name() == "to") {
+        auto mlir_type = convertONNXTypeToMLIRType(
+            builder_, static_cast<onnx::TensorProto_DataType>(attr.i()));
+        Attribute mlirAttr = TypeAttr::get(mlir_type);
+        attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
+      } else {
+        attributes.push_back(
+            convertOnnxAttributeProtoToMlirNamedAttribute(attr));
+      }
     }
 
     // If the node has a name, then import it.

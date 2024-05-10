@@ -1,0 +1,13 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 9,
+   opset_import: ["" : 19],
+   producer_name: "backend-test"
+>
+test_cast_no_saturate_FLOAT16_to_FLOAT8E4M3FNUZ (float16[3,4] input) => (float8e4m3fnuz[3,4] output) {
+   output = Cast <saturate = 0, to = 18> (input)
+}
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<3x4xf16> {onnx.name = "input"}) -> (tensor<3x4xf8E4M3FNUZ> {onnx.name = "output"})
+// CHECK:           [[VAR_0_:%.+]] = "onnx.Cast"([[PARAM_0_]]) {saturate = 0 : si64, to = f8E4M3FNUZ} : (tensor<3x4xf16>) -> tensor<3x4xf8E4M3FNUZ>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<3x4xf8E4M3FNUZ>
