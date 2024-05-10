@@ -875,7 +875,8 @@ private:
         Attribute mlirAttr = TypeAttr::get(mlir_type);
         attributes.push_back(builder_.getNamedAttr(attr.name(), mlirAttr));
       } else {
-        attributes.push_back(convertOnnxAttributeProtoToMlirNamedAttribute(attr));
+        attributes.push_back(
+            convertOnnxAttributeProtoToMlirNamedAttribute(attr));
       }
     }
 
