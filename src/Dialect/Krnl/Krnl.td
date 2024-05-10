@@ -753,9 +753,68 @@ def KrnlGetLinearOffsetIndexOp : Op<Krnl_Dialect, "get_linear_offset_index",
   }];
 
   let hasCustomAssemblyFormat = 1;
-  // let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
 
 }
+
+def KrnlPrefetchOp : Op<Krnl_Dialect, "prefetch",
+  [ MemRefsNormalizable, DeclareOpInterfaceMethods<AffineMapAccessInterface>]> {
+  let summary = "A Krnl operation to compute a linear offset index from a N-D index.";
+
+  let description = [{
+    Given a MemRef and an N-D index (id_1, id_2, ..., id_n), prefetch the memory
+    location pointed by this memory reference.
+  }];
+
+  let arguments = (ins Arg<AnyMemRef, "the reference memref", [MemWrite]>:$memref,
+      Variadic<Index>:$indices,
+      BoolAttr:$isWrite,
+      ConfinedAttr<I32Attr, [IntMinValue<0>, IntMaxValue<3>]>:$localityHint,
+      BoolAttr:$isDataCache,
+      AffineMapAttr:$map
+   );
+
+  // let assemblyFormat = [{$memref `[` $indices `]` attr-dict `:` type($memref)}];
+  let builders = [
+    /// Builds an op with an identity map and operands.
+    OpBuilder<(ins "Value":$memref, "ValueRange":$indices, "bool":$isWrite,
+      "unsigned":$localityHint, "bool":$isDataCache)>,
+    OpBuilder<(ins "Value":$memref, "bool":$isWrite,
+      "unsigned":$localityHint, "bool":$isDataCache)>,
+    /// Builds an op with the specified map and its operands.
+    OpBuilder<(ins "Value":$memref, "AffineMap":$map,
+      "ValueRange":$mapOperands, "bool":$isWrite,
+      "unsigned":$localityHint, "bool":$isDataCache)>
+  ];
+
+  let extraClassDeclaration = [{
+    /// Returns the operand index of the memref.
+    unsigned getMemRefOperandIndex() { return 0; }
+    Value getMemRef() { return getOperand(getMemRefOperandIndex()); }
+    void setMemRef(Value value) { setOperand(getMemRefOperandIndex(), value); }
+    MemRefType getMemRefType() {
+      return getMemref().getType().cast<MemRefType>();
+    }
+
+    /// Implements the AffineMapAccessInterface.
+    /// Returns the AffineMapAttr associated with 'memref'.
+    // Default version is fine.
+
+    /// Returns the affine map used to index the memref for this operation.
+    AffineMapAttr getAffineMapAttr() { return getMapAttr(); }
+    AffineMap getAffineMap() { return getAffineMapAttr().getValue(); }
+
+    /// Get affine map operands.
+    operand_range getMapOperands() {  return getIndices(); }
+
+    static StringRef getMapAttrStrName() { return "map"; }
+    static StringRef getIsWriteAttrStrName() { return "isWrite"; }
+    static StringRef getLocalityHintAttrStrName() { return "localityHint"; }
+    static StringRef getIsDataCacheAttrStrName() { return "isDataCache"; }
+  }];
+
+  let hasCustomAssemblyFormat = 1;
+}
+
 
 def KrnlMovableOp : Op<Krnl_Dialect, "movable", [ImplicitKrnlTerminator]> {
   let summary = "Krnl movable operation";

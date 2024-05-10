@@ -23,6 +23,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
 
 #include <mutex>
 
@@ -375,7 +376,9 @@ AffineExpr IndexExprImpl::getAffineExpr() {
     return affineExpr;
   }
 
-  assert(isInCurrentScope() &&
+  // Literal never have to be in scope, so bypass in scope test when that is the
+  // case.
+  assert((isLiteral() || isInCurrentScope()) &&
          "create an affine expression only for index exprs in current scope");
 
   if (isLiteral()) {
@@ -523,6 +526,60 @@ void IndexExprImpl::setLiteral(const IndexExprImpl &obj) {
     setLiteral(obj.getFloatLiteral());
   else
     setLiteral(obj.getLiteral());
+}
+
+void IndexExprImpl::debugPrint(const std::string &msg) {
+  LLVM_DEBUG({
+    llvm::dbgs() << msg.c_str();
+    if (!isDefined()) {
+      llvm::dbgs() << " undefined\n";
+      return;
+    }
+    if (isLiteral()) {
+      if (isFloatType())
+        llvm::dbgs() << " floatLiteral(" << getFloatLiteral() << ")";
+      else
+        llvm::dbgs() << " literal(" << (long long)getLiteral() << ")";
+    }
+    if (isFloatType())
+      llvm::dbgs() << " isFloat";
+    if (hasAffineExpr())
+      llvm::dbgs() << " hasAffine";
+    if (hasValue()) {
+      llvm::dbgs() << " hasValue";
+      auto op = getValue().getDefiningOp();
+      if (op) {
+        std::string str;
+        llvm::raw_string_ostream os(str);
+        op->print(os);
+        llvm::dbgs() << "( \"" << str.c_str() << "\")";
+      } else
+        llvm::dbgs() << "(op not found)";
+    }
+    if (isAffine())
+      llvm::dbgs() << " is affine";
+    switch (getKind()) {
+    case IndexExprKind::NonAffine:
+      llvm::dbgs() << " kind(non-affine)";
+      break;
+    case IndexExprKind::Questionmark:
+      llvm::dbgs() << " kind(questionmark)";
+      break;
+    case IndexExprKind::Predicate:
+      llvm::dbgs() << " kind(predicate)";
+      break;
+    case IndexExprKind::Affine:
+      llvm::dbgs() << " kind(affine)";
+      break;
+    case IndexExprKind::Dim:
+      llvm::dbgs() << " kind(dim)";
+      break;
+    case IndexExprKind::Symbol:
+      llvm::dbgs() << " kind(symbol)";
+      break;
+    }
+    llvm::dbgs() << " scope(0x " << (long long unsigned)getScopePtr() << ")\n";
+  });
 }
 
 } // namespace onnx_mlir
