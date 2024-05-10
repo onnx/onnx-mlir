@@ -144,6 +144,10 @@ def HaveSameStaticShape: Constraint<
   CPred<"onnx_mlir::haveSameStaticShape($0, $1)">,
   "Two tensors have the same static shape">;
 
+def IsIdentityReshape: Constraint<
+  CPred<"onnx_mlir::isIdentityReshape($0, $1)">,
+  "Reshape is identity operation">;
+
 // Create a unit constant that will be used as none input.
 def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getResult()">;
 
@@ -204,6 +208,16 @@ def IsFromONNXConstantOpWithDenseElementsAttr: Constraint<
     And<[CPred<" $_self.getDefiningOp<ONNXConstantOp>() ">,
          CPred<" isa<DenseElementsAttr>(onnx_mlir::getONNXConstantOp($_self).getValueAttr()) ">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr">;
+
+def IsNegativeSplatConstant: Constraint<
+  CPred<"onnx_mlir::isNegativeSplatConstant($_self)">,
+  "Is a splat constant with a negative value."
+>;
+
+def AreAllDimSizes: Constraint<
+  CPred<"onnx_mlir::areAllDimSizes($_self)">,
+  "All values in the input ValueRange are dimension sizes."
+>;
 
 def AreTheSameAxesConstant: Constraint<
     CPred<"onnx_mlir::AreTheSameAxesConstant("
@@ -652,7 +666,7 @@ def RemoveIdentityReshapePattern2:  Pat<
   // Remove the reshape.
   (replaceWithValue $val),
   // Check that val and out have the same static shape.
-  [(HaveSameStaticShape $out, $val)]>;
+  [(IsIdentityReshape $out, $val)]>;
 
 def GetReturnTypeForMatMulOpND2D: NativeCodeCall<
   "onnx_mlir::getReturnTypeForMatMulOpND2D($0, $1)"
@@ -1022,6 +1036,23 @@ def ShapeTransformComposePattern : Pat<
   (ONNXShapeTransformOp (ONNXShapeTransformOp $arg, $map1), $map2),
   (ONNXShapeTransformOp $arg, (GetComposedMap $map2, $map1)),
   []
+>;
+
+//===----------------------------------------------------------------------===//
+// Canonicalization for ONNXWhere
+//===----------------------------------------------------------------------===//
+
+// In this pattern, the condition in onnx.Where is always false, so we can replace
+// onnx.Where by its "false" value.
+// Condition in this pattern is a comparision between dimension sizes and negative values.
+// Since dimension sizes are always positive, the condition is evaluated to false.
+
+// This pattern was found in xlm-roberta-base-language-detection model in HuggingFace.
+
+def AlwaysFalseWherePattern : Pat<
+ (ONNXWhereOp (ONNXEqualOp (ONNXConcatOp $dims, $_), $negative_constant), $true_val, $false_val),
+ (replaceWithValue $false_val),
+ [(IsNegativeSplatConstant:$negative_constant), (AreAllDimSizes:$dims)]
 >;
 
 #endif // ONNX_REWRITE
