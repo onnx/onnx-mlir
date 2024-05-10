@@ -31,20 +31,6 @@ struct TOSADialectOp<ONNXNegOp> {
   using Op = mlir::tosa::NegateOp;
 };
 
-struct AbsIOSupportedTypes {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!mlir::isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>(
-            scalarType) &&
-        !scalarType.isSignlessInteger(/*width=*/32)) {
-      return rewriter.notifyMatchFailure(op,
-          "this operation only supports signless 32 integer or fp16, fp32"
-          " or bf16");
-    }
-    return success();
-  }
-};
-
 struct IsIntOrFloat {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
@@ -733,7 +719,7 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNotOp, mlir::tosa::LogicalNotOp,
           IsBool, IsBool>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXAbsOp, mlir::tosa::AbsOp,
-          AbsIOSupportedTypes, AbsIOSupportedTypes>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXErfOp, mlir::tosa::ErfOp,
           IsFloat, IsFloat>>(typeConverter, ctx);
 

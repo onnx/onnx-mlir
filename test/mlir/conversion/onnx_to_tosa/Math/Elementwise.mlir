@@ -536,6 +536,14 @@ func.func @test_abs_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 // CHECK-NEXT:   }
 }
 
+func.func @test_abs_f64(%arg0: tensor<3xf64>) -> tensor<3xf64> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<3xf64>) -> tensor<3xf64>
+  return %0 : tensor<3xf64>
+// CHECK-LABEL:  func @test_abs_f64
+// CHECK-NOT:    onnx.Abs
+// CHECK:        return {{.*}}: tensor<3xf64>
+}
+
 // -----
 
 func.func @test_erf_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
