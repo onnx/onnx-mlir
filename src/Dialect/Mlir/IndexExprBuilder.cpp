@@ -434,7 +434,8 @@ IndexExpr IndexExprBuilder::isTileFull(
   }
   // True if i <= (UB - block), namely UB - block - i >= 0.
   // Affine expressions compared to >= 0
-  IndexExpr res = UB - block - i;
+  IndexExpr res = UB - block;
+  res = res - i;
   return res;
 }
 

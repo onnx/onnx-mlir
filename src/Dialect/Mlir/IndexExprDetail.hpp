@@ -88,6 +88,8 @@ public:
   void setLiteral(double val);
   void setLiteral(const IndexExprImpl &obj);
 
+  void debugPrint(const std::string &msg);
+
 private:
   // Init for internal use only.
   void init(bool isDefined, bool isIntLit, bool isFloatLit, IndexExprKind type,
