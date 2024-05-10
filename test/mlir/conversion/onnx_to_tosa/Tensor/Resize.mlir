@@ -102,6 +102,18 @@ func.func @test_resize_half_pixel_nearest_floor_downsample(%arg0: tensor<1x1x1x1
 
 // -----
 
+func.func @test_resize_f64(%arg0: tensor<1x1x1x4xf64>) -> tensor<1x1x1x12xf64> {
+    %0 = "onnx.NoValue"() {value} : () -> none
+    %1 = "onnx.Constant"() {value = dense<[1, 1, 1, 12]> : tensor<4xi64>} : () -> tensor<4xi64>
+    %2 = "onnx.Resize"(%arg0, %0, %0, %1) {coordinate_transformation_mode = "half_pixel", cubic_coeff_a = -7.500000e-01 : f32, exclude_outside = 0 : si64, extrapolation_value = 0.000000e+00 : f32, mode = "nearest", nearest_mode = "floor"} : (tensor<1x1x1x4xf64>, none, none, tensor<4xi64>) -> tensor<1x1x1x12xf64>
+    return %2 : tensor<1x1x1x12xf64>
+// CHECK-LABEL:  func.func @test_resize_f64
+// CHECK-NOT:    onnx.Resize
+// CHECK:        return {{.*}}: tensor<1x1x1x12xf64>
+}
+
+// -----
+
 func.func @test_resize_input_one(%arg0: tensor<1x1x1x1xf32>) -> tensor<1x1x4x4xf32> {
     %0 = "onnx.NoValue"() {value} : () -> none
     %1 = "onnx.Constant"() {value = dense<[1, 1, 4, 4]> : tensor<4xi64>} : () -> tensor<4xi64>
