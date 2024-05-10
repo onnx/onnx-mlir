@@ -57,18 +57,6 @@ struct ErfIOSupportedTypes {
   }
 };
 
-struct IsAnyLegalType {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isa<FloatType>(scalarType) && !isTOSAInt(scalarType) &&
-        !isTOSABool(scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only supports signed integer or float types");
-    }
-    return success();
-  }
-};
-
 struct IsIntOrFloat {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
