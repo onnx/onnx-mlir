@@ -204,7 +204,7 @@ public:
     }
 
     auto elementType = inputType.getElementType();
-    if (!(elementType.isa<FloatType>() || isTOSAInt(elementType))) {
+    if (!(isa<FloatType>(elementType) || isTOSAInt(elementType))) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Element type is not supported by TOSA.");
     }
