@@ -631,11 +631,11 @@ def ONNXForkOp:ONNX_Op<"Fork",
      OpInterface<"mlir::HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX operation for creating a thread";
   let description = [{
-    Create a thread to run the operations included in the `body` region.
-    This operation need to be in the `body` region of ONNXParallelOp.
-    The thread is synchronized with main thread at the end of the
-    ONNXParallelOp. The results to be used in following operations need
-    to be set as the results of this operation by using ONNXYieldOp.
+    "onnx.Fork" opeation Creates a thread to run the operations included in
+    the `body` region. The parent operation of "onnx.Fork" is the "onnx.Parallel"
+    operaiton. The thread is synchronized with main thread at the end of the
+    "onnx.Parallel" op. The results to be used in following operations need
+    to be set as the results of this operation.
     In the following example, MatMul ops runs in parallel with two threads.
 
     Example:
@@ -691,11 +691,16 @@ def ONNXParallelOp:ONNX_Op<"Parallel",
     OpInterface<"mlir::HasOnnxSubgraphOpInterface">]> {
   let summary = "ONNX operation to specify paralell region.";
   let description = [{
-    Specify parallel region. ONNXForkOps are included in the `body` region.
-    The threads created by ONNXForkOp are synchronized with main thread
-    at the end of this operation. The results to be used in following
+    The "onnx.Parallel" operation represents parallel region to run operations
+    in parallel using multiple threads. The threads are synchronized with main
+    thread at the end of this operation. The operation takes body region
+    where several "onnx.Fork" operataions are included to create threads
+    (see "onnx.Fork" for details). The i-th result is the result of the i-th
+    "onnx.Fork" operation. Consequently, the number of results of "onnx.Parallel"
+    op matches the number of "onnx.Fork" ops in the region.
     operations need to be set as the results of this operation by using
-    ONNXYieldOp.
+    The body region must contain "onnx.Yield" op whose operands are the results
+    of "onnx.Fork" ops.
   }];
   let results = (outs Variadic<AnyTypeOf<[TensorOf<[F16]>, TensorOf<[F32]>, TensorOf<[F64]>, TensorOf<[UI32]>,
                   TensorOf<[UI64]>, TensorOf<[I32]>, TensorOf<[I64]>, TensorOf<[BF16]>]>>:$results);
