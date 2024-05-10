@@ -66,8 +66,10 @@ jobs:
       run: |
         cd ~/work/onnx-mlir
         sh ~/work/onnx-mlir/onnx-mlir/utils/check-unittest.sh
-    # Those tests are not relevant to the work on the xilinx fork, but take 40 min
-    #    - name: run onnx-mlir backend and numerical tests
-    #  run: |
-    #    cd ~/work/onnx-mlir
-    #    sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
+    - name: run onnx-mlir backend and numerical tests
+      # Those tests are not relevant to the work on the xilinx fork, but take
+      # 40 min. Don't run them on PRs.
+      if: github.event_name != 'pull_request'
+      run: |
+        cd ~/work/onnx-mlir
+        sh ~/work/onnx-mlir/onnx-mlir/utils/check-onnx-backend-numerical.sh
