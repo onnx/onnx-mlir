@@ -5,12 +5,14 @@ if [[ -z "$pythonLocation" ]]; then
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
         -DMLIR_DIR=${MLIR_DIR} \
+        $EXTRA_CMAKE_ARGS \
         ..
 else
   cmake -G Ninja \
         -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
         -DPython3_ROOT_DIR=$pythonLocation \
         -DMLIR_DIR=${MLIR_DIR} \
+        $EXTRA_CMAKE_ARGS \
         ..
 fi
 cmake --build .
