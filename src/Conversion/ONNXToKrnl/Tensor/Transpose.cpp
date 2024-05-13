@@ -148,9 +148,17 @@ private:
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
     if (enableParallel) {
-      // TODO: consider flattening the outer dims.
-      create->krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(op, true, 0, lbs[0], ubs[0], "scalar transpose");
+      int64_t parId;
+      // TODO: consider flattening the outer dims, or along inner dims.
+      if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId, 8)) {
+        assert(parId == 0 && "only outermost at this time");
+        create->krnl.parallel(loopDef[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs[0], ubs[0], "scalar transpose");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, -1, -1, "no dim with enough work in scalar transpose");
+      }
     }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -215,12 +223,18 @@ private:
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LiteralIndexExpr(0));
     if (enableParallel) {
-      // TODO: consider flattening the outer dims.
-      create->krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, lbs[0], inUBs[0], "scalar transpose");
+      int64_t parId;
+      // TODO: consider flattening the outer dims, or along inner dims.
+      if (findSuitableParallelDimension(lbs, inUBs, 0, 1, parId, 8)) {
+        assert(parId == 0 && "only outermost at this time");
+        create->krnl.parallel(loopDef[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs[0], inUBs[0], "block transpose");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, -1, -1, "no dim with enough work in block transpose");
+      }
     }
-
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);
