@@ -47,8 +47,8 @@ number_of_xticks = 5
 epsilon = 1.0e-10
 
 # color table definition
-#color_map = plt.rcParams["axes.prop_cycle"].by_key()["color"] # 10 colors
-color_map = matplotlib.cm.tab20.colors # 20 colors
+# color_map = plt.rcParams["axes.prop_cycle"].by_key()["color"] # 10 colors
+color_map = matplotlib.cm.tab20.colors  # 20 colors
 
 op_time_dic = {}
 op_count_dic = {}
@@ -153,7 +153,7 @@ def gen_legend_table(inst_data_tbl, minimum_legend_parcent, number_of_legends):
         if args.print_summary:
             print("{} {:.6f} {}".format(op, op_time_dic[op], op_count_dic[op]))
         if idx < number_of_legends:
-            fgcolor = color_map[idx % len(color_map)] # matplotlib.cm.tab20(idx)
+            fgcolor = color_map[idx % len(color_map)]  # matplotlib.cm.tab20(idx)
             bgcolor = (
                 "r"
                 if op.startswith("onnx.")
@@ -258,8 +258,8 @@ def generate_timechart(
             _, _, _, _, label = legend_tbl[idx]
             labels.append(label)
     ax.legend(
-        handles=handles[:len(legend_tbl)],
-        labels=labels[:len(legend_tbl)],
+        handles=handles[: len(legend_tbl)],
+        labels=labels[: len(legend_tbl)],
         handler_map={tuple: HandlerTuple(ndivide=None)},
         frameon=False,
         loc="lower center",
@@ -372,7 +372,11 @@ def main():
     generate_timechart(
         inst_data_tbl,
         legend_tbl,
-        args.graph if args.graph else os.path.splitext(args.instrumentation)[0] + ".png",
+        (
+            args.graph
+            if args.graph
+            else os.path.splitext(args.instrumentation)[0] + ".png"
+        ),
         xscale,
         number_of_lines,
         args.start_time,
