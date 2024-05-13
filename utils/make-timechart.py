@@ -3,7 +3,7 @@
 
 ##################### make-timechart.py #######################################
 #
-# Copyright 2019-2023 The IBM Research Authors.
+# Copyright 2019-2024 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -20,13 +20,26 @@ import argparse
 import sys
 
 default_xscale = -1.0  # auto scale
-default_xscales = [0.01, 0.02, 0.05, 0.10, 0.20, 0.25, 0.50, 1.0, 2.0, 2.5, 5.0, 10.0]
+default_xscales = [
+    0.01,
+    0.02,
+    0.025,
+    0.05,
+    0.10,
+    0.20,
+    0.25,
+    0.50,
+    1.0,
+    2.0,
+    2.5,
+    5.0,
+    10.0,
+]
 default_number_of_lines = -1  # auto scale
 max_number_of_lines = 20
 default_start_time = 0.0
 default_period = 200.0
 default_min_parcent_of_time_for_legend = 1.0
-min_number_of_legend = 10
 max_number_of_legend = 18
 
 number_of_xticks = 5
@@ -115,9 +128,17 @@ def get_xscales_and_number_of_lines(elapsed_time_min, elapsed_time_max):
     return xscale, number_of_lines
 
 
-def gen_legend_table(inst_data_tbl, number_of_legends):
+def gen_legend_table(inst_data_tbl, minimum_legend_parcent, number_of_legends):
     op_time_list = sorted(op_time_dic.items(), key=lambda x: x[1], reverse=True)
     total_time = sum(list(map(lambda x: x[1], op_time_list)))
+    # calculate number_of_legend
+    if number_of_legends < 0:
+        for idx, op_time in enumerate(op_time_list):
+            op, time = op_time
+            if time < total_time * (minimum_legend_parcent / 100.0):
+                break
+        number_of_legends = idx
+    number_of_legends = min(max_number_of_legend, number_of_legends)
     legend_tbl = []
     other_time = 0.0
     other_count = 0
@@ -128,7 +149,7 @@ def gen_legend_table(inst_data_tbl, number_of_legends):
         if args.print_summary:
             print("{} {:.6f} {}".format(op, op_time_dic[op], op_count_dic[op]))
         if idx < number_of_legends:
-            fgcolor = color_tbl[idx] # matplotlib.cm.tab20(idx)
+            fgcolor = color_tbl[idx]  # matplotlib.cm.tab20(idx)
             bgcolor = (
                 "r"
                 if op.startswith("onnx.")
@@ -141,8 +162,11 @@ def gen_legend_table(inst_data_tbl, number_of_legends):
         else:
             other_time += time
             other_count += 1
-    fgcolor = color_tbl[number_of_legends % len(color_tbl)] # matplotlib.cm.tab20(number_of_legends)
-    bgcolor = "k"
+    # prepare legend for "other"
+    fgcolor = color_tbl[
+        number_of_legends % len(color_tbl)
+    ]  # matplotlib.cm.tab20(number_of_legends)
+    bgcolor = "y"
     label = "{}: {:.3f}s / {}".format("Other", other_time, other_count)
     legend_tbl.append(("Other", other_time, fgcolor, bgcolor, label))
     return legend_tbl
@@ -151,7 +175,7 @@ def gen_legend_table(inst_data_tbl, number_of_legends):
 def write_line_for_op(
     op, start, end, ax, idx, legend_tbl, handle_tbl, xscale, number_of_lines
 ):
-    line_height = number_of_lines * 0.02
+    line_height = 9.0 / number_of_lines
     number_of_legend = len(legend_tbl)
     handle = None
     idx = min(idx, number_of_legend - 1)
@@ -168,7 +192,7 @@ def write_line_for_op(
             color=fgcolor,
             label=op,
             alpha=1.0,
-            linewidth=1.0,
+            linewidth=0.8,
             ec=bgcolor,
         )
         start = next_start
@@ -229,7 +253,6 @@ def generate_timechart(
             handles.append(handle_tbl[idx])
             _, _, _, _, label = legend_tbl[idx]
             labels.append(label)
-    print("YYYY labels({}) = {}".format(len(labels), labels))
     ax.legend(
         handles=handles[:max_number_of_legend],
         labels=labels[:max_number_of_legend],
@@ -303,14 +326,22 @@ parser.add_argument(
     help="Iteration number starting from 0 (default=last)",
 )
 parser.add_argument(
+    "--minimum-legend-parcent",
+    type=int,
+    default=default_min_parcent_of_time_for_legend,
+    help="Minimum execution time of each operation to have a legend in parcent"
+    + "(default={}). This opion cannot be used with --number-of-legends option".format(
+        default_min_parcent_of_time_for_legend
+    ),
+)
+parser.add_argument(
     "-l",
     "--number-of-legends",
     type=int,
     default=-1,
     help="Number of legend. The default is number of operations occupying "
-    + "{} parcent of execution time (s.t. {} <= n <= {})".format(
+    + "{} parcent of execution time (s.t. n <= {})".format(
         default_min_parcent_of_time_for_legend,
-        min_number_of_legend,
         max_number_of_legend,
     ),
 )
@@ -336,9 +367,9 @@ def main():
         elapsed_time_min, elapsed_time_max
     )
     # generate legend table
-    number_of_legends = 10
-    legend_tbl = gen_legend_table(inst_data_tbl, number_of_legends)
-    print("XXXX legend_tbl({}) = {}".format(len(legend_tbl), legend_tbl))
+    legend_tbl = gen_legend_table(
+        inst_data_tbl, args.minimum_legend_parcent, args.number_of_legends
+    )
     # generate timechart
     generate_timechart(
         inst_data_tbl,
