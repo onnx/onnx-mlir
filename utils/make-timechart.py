@@ -18,6 +18,7 @@ from matplotlib.legend_handler import HandlerTuple
 import numpy as np
 import argparse
 import sys
+import os
 
 default_xscale = -1.0  # auto scale
 default_xscales = [
@@ -40,10 +41,14 @@ max_number_of_lines = 20
 default_start_time = 0.0
 default_period = 200.0
 default_min_parcent_of_time_for_legend = 1.0
-max_number_of_legend = 18
+max_number_of_legend = 11
 
 number_of_xticks = 5
 epsilon = 1.0e-10
+
+# color table definition
+#color_map = plt.rcParams["axes.prop_cycle"].by_key()["color"] # 10 colors
+color_map = matplotlib.cm.tab20.colors # 20 colors
 
 op_time_dic = {}
 op_count_dic = {}
@@ -142,14 +147,13 @@ def gen_legend_table(inst_data_tbl, minimum_legend_parcent, number_of_legends):
     legend_tbl = []
     other_time = 0.0
     other_count = 0
-    color_tbl = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     for idx, op_time in enumerate(op_time_list):
         op, time = op_time
         op_index_dic[op] = min(idx, number_of_legends + 1)
         if args.print_summary:
             print("{} {:.6f} {}".format(op, op_time_dic[op], op_count_dic[op]))
         if idx < number_of_legends:
-            fgcolor = color_tbl[idx]  # matplotlib.cm.tab20(idx)
+            fgcolor = color_map[idx % len(color_map)] # matplotlib.cm.tab20(idx)
             bgcolor = (
                 "r"
                 if op.startswith("onnx.")
@@ -163,8 +167,8 @@ def gen_legend_table(inst_data_tbl, minimum_legend_parcent, number_of_legends):
             other_time += time
             other_count += 1
     # prepare legend for "other"
-    fgcolor = color_tbl[
-        number_of_legends % len(color_tbl)
+    fgcolor = color_map[
+        number_of_legends % len(color_map)
     ]  # matplotlib.cm.tab20(number_of_legends)
     bgcolor = "y"
     label = "{}: {:.3f}s / {}".format("Other", other_time, other_count)
@@ -213,7 +217,7 @@ def generate_timechart(
     data_end_time = data_start_time + data_period
     frame_start_time = int(data_start_time / xscale) * xscale
     fig, ax = plt.subplots()
-    plt.subplots_adjust(bottom=0.3, right=0.95)
+    plt.subplots_adjust(bottom=0.25, right=0.93)
 
     # plot inst_data
     used_op_idx_list = []
@@ -254,14 +258,14 @@ def generate_timechart(
             _, _, _, _, label = legend_tbl[idx]
             labels.append(label)
     ax.legend(
-        handles=handles[:max_number_of_legend],
-        labels=labels[:max_number_of_legend],
+        handles=handles[:len(legend_tbl)],
+        labels=labels[:len(legend_tbl)],
         handler_map={tuple: HandlerTuple(ndivide=None)},
         frameon=False,
         loc="lower center",
         fontsize="x-small",
         ncol=3,
-        bbox_to_anchor=(0.5, -0.5),
+        bbox_to_anchor=(0.5, -0.3),
     )
     # handler_map={tuple: HandlerTuple(ndivide=None)}, ncol=1, colmnspacing=1
     plt.grid(True)
@@ -270,9 +274,7 @@ def generate_timechart(
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "-i",
-    "--instrumentation",
-    type=str,
+    "instrumentation",
     default="",
     help="Path to instrumentation file to be read",
 )
@@ -327,7 +329,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--minimum-legend-parcent",
-    type=int,
+    type=float,
     default=default_min_parcent_of_time_for_legend,
     help="Minimum execution time of each operation to have a legend in parcent"
     + "(default={}). This opion cannot be used with --number-of-legends option".format(
@@ -351,10 +353,6 @@ if not args.instrumentation:
     print("error: no instrumentation file, use argument --inst")
     print(parser.format_usage())
     exit(1)
-if not args.graph:
-    print("error: no graph file, use argument --graph")
-    print(parser.format_usage())
-    exit(1)
 
 
 def main():
@@ -374,7 +372,7 @@ def main():
     generate_timechart(
         inst_data_tbl,
         legend_tbl,
-        args.graph,
+        args.graph if args.graph else os.path.splitext(args.instrumentation)[0] + ".png",
         xscale,
         number_of_lines,
         args.start_time,
