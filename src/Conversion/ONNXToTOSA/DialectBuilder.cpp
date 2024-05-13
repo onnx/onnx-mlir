@@ -206,9 +206,8 @@ Value TosaBuilder::mul(mlir::Value &lhs, mlir::Value &rhs, int32_t shift) {
 Value TosaBuilder::intdiv(mlir::Value &lhs, mlir::Value &rhs) {
   Type lhsElementType = lhs.getType().cast<ShapedType>().getElementType();
   Type rhsElementType = rhs.getType().cast<ShapedType>().getElementType();
-  assert((lhsElementType.isSignlessInteger(32) &&
-             rhsElementType.isSignlessInteger(32)) &&
-         "Tosa DivOp needs 32-bit signless integer inputs");
+  assert(lhsElementType == rhsElementType &&
+         "Tosa DivOp needs matching element types on lhs and rhs");
 
   if (needsRankBroadcast({lhs, rhs})) {
     llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});

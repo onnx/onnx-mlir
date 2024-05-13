@@ -170,6 +170,16 @@ func.func @test_div(%arg0: tensor<13x21x1xi32>, %arg1: tensor<13x21x1xi32>) -> t
 
 // -----
 
+func.func @test_div_unsigned(%arg0: tensor<13x21x1xui8>, %arg1: tensor<13x21x1xui8>) -> tensor<13x21x1xui8> {
+  %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xui8>, tensor<13x21x1xui8>) -> tensor<13x21x1xui8>
+  "func.return"(%0) : (tensor<13x21x1xui8>) -> ()
+// CHECK-LABEL:  func @test_div_unsigned
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<13x21x1xui8>, [[PARAM_1_:%.+]]: tensor<13x21x1xui8>) -> tensor<13x21x1xui8> {
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.div [[PARAM_0_]], [[PARAM_1_]] : (tensor<13x21x1xui8>, tensor<13x21x1xui8>) -> tensor<13x21x1xui8>
+}
+
+// -----
+
 func.func @test_div_broadcast(%arg0: tensor<13x21x1xi32>, %arg1: tensor<1xi32>) -> tensor<13x21x1xi32> {
   %0 = "onnx.Div"(%arg0, %arg1) : (tensor<13x21x1xi32>, tensor<1xi32>) -> tensor<13x21x1xi32>
   "func.return"(%0) : (tensor<13x21x1xi32>) -> ()
