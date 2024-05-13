@@ -567,13 +567,9 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     return false;
   }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0))) {
-    emitLegalityCheckMessage(
-        op.getOperation(), "Operand 0 not valid element type and rank.");
     return false;
   }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1))) {
-    emitLegalityCheckMessage(
-        op.getOperation(), "Operand 1 not valid element type and rank.");
     return false;
   }
   ShapedType aType = op.getOperand(0).getType().cast<ShapedType>();
@@ -598,9 +594,13 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     // unstacked case
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       bool returnVal = (shapeA[1] == shapeB[0]);
-      if (!returnVal)
-        emitLegalityCheckMessage(
-            op.getOperation(), "Unstacked case, dim A 1 not equal dim B 0.");
+      if (!returnVal) {
+        std::string message = "Unstacked case: the 2nd dim of A (" +
+                              std::to_string(shapeA[1]) +
+                              ") and the 1st dim of B (" +
+                              std::to_string(shapeB[0]) + ") are not the same.";
+        emitLegalityCheckMessage(op.getOperation(), StringRef(message));
+      }
       return returnVal;
     } else
       return true;
@@ -608,10 +608,16 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     // stacked w/o bcast case
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       bool returnVal = ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
-      if (!returnVal)
-        emitLegalityCheckMessage(op.getOperation(),
-            "Stacked w/o bcast, dim A 0 not equal dim B 0 "
-            "or dim A 2 not equal dim B 1.");
+      if (!returnVal) {
+        std::string message =
+            "Stacked w/o bcast case: the 1st dim of A (" +
+            std::to_string(shapeA[0]) + ") and the 1st dim of B (" +
+            std::to_string(shapeB[0]) +
+            ") are not the same, or the 3rd dim of A (" +
+            std::to_string(shapeA[2]) + ") and the 2nd dim of B (" +
+            std::to_string(shapeB[1]) + ") are not the same.";
+        emitLegalityCheckMessage(op.getOperation(), StringRef(message));
+      }
       return returnVal;
     } else
       return true;
@@ -619,9 +625,13 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     // stacked w/ bcast
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
       bool returnVal = (shapeA[2] == shapeB[0]);
-      if (!returnVal)
-        emitLegalityCheckMessage(
-            op.getOperation(), "Stacked w/ bcast, dim A 2 not equal dim B 0.");
+      if (!returnVal) {
+        std::string message = "Stacked w/ bcast case: the 3rd dim of A (" +
+                              std::to_string(shapeA[2]) +
+                              ") and the 1st dim of B (" +
+                              std::to_string(shapeB[0]) + ") are not the same.";
+        emitLegalityCheckMessage(op.getOperation(), StringRef(message));
+      }
       return returnVal;
     } else
       return true;
