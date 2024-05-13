@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 #include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
@@ -203,7 +204,7 @@ public:
     }
 
     auto elementType = inputType.getElementType();
-    if (!(isTOSAFloat(elementType) || isTOSAInt(elementType))) {
+    if (!(isa<FloatType>(elementType) || isTOSAInt(elementType))) {
       return rewriter.notifyMatchFailure(
           resizeOp, "Element type is not supported by TOSA.");
     }

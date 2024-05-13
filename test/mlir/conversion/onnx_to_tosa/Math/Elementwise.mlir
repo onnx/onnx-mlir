@@ -103,6 +103,15 @@ func.func @test_add_ui32(%arg0: tensor<13x21x1xui32>, %arg1: tensor<13x21x1xui32
 // CHECK:           return [[VAR_0_]] : tensor<13x21x1xui32>
 }
 
+// -----
+
+func.func @test_add_f64(%arg0: tensor<13x21x1xf64>, %arg1: tensor<13x21x1xf64>) -> tensor<13x21x1xf64> {
+  %0 = "onnx.Add"(%arg0, %arg1) : (tensor<13x21x1xf64>, tensor<13x21x1xf64>) -> tensor<13x21x1xf64>
+  "func.return"(%0) : (tensor<13x21x1xf64>) -> ()
+// CHECK-LABEL:  func.func @test_add_f64
+// CHECK-NOT:    onnx.Add
+// CHECK:        return {{.*}}: tensor<13x21x1xf64>
+}
 
 // -----
 
@@ -484,6 +493,14 @@ func.func @test_pow_broadcast(%arg0: tensor<13x21x1xf32>, %arg1: tensor<1xf32>) 
 // CHECK-NEXT:      [[VAR_1_:%.+]] = tosa.pow [[PARAM_0_]], [[VAR_0_]] : (tensor<13x21x1xf32>, tensor<1x1x1xf32>) -> tensor<13x21x1xf32>
 }
 
+func.func @test_pow_f64(%arg0: tensor<13x21x1xf64>, %arg1: tensor<13x21x1xf64>) -> tensor<13x21x1xf64> {
+  %0 = "onnx.Pow"(%arg0, %arg1) : (tensor<13x21x1xf64>, tensor<13x21x1xf64>) -> tensor<13x21x1xf64>
+  "func.return"(%0) : (tensor<13x21x1xf64>) -> ()
+// CHECK-LABEL:  func @test_pow
+// CHECK-NOT:    onnx.Pow
+// CHECK:        return {{.*}}: tensor<13x21x1xf64>
+}
+
 // -----
 
 func.func @test_sqrt(%arg0: tensor<3xf32>) -> tensor<3xf32> {
@@ -519,6 +536,14 @@ func.func @test_abs_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 // CHECK-NEXT:   }
 }
 
+func.func @test_abs_f64(%arg0: tensor<3xf64>) -> tensor<3xf64> {
+  %0 = "onnx.Abs"(%arg0) : (tensor<3xf64>) -> tensor<3xf64>
+  return %0 : tensor<3xf64>
+// CHECK-LABEL:  func @test_abs_f64
+// CHECK-NOT:    onnx.Abs
+// CHECK:        return {{.*}}: tensor<3xf64>
+}
+
 // -----
 
 func.func @test_erf_f32(%arg0: tensor<3xf32>) -> tensor<3xf32> {
@@ -539,6 +564,14 @@ func.func @test_erf_bf16(%arg0: tensor<3xbf16>) -> tensor<3xbf16> {
 // CHECK-NEXT:     [[VAR_0_:%.+]] = tosa.erf [[PARAM_0_]] : (tensor<3xbf16>) -> tensor<3xbf16>
 // CHECK-NEXT:     return [[VAR_0_]] : tensor<3xbf16>
 // CHECK-NEXT:   }
+}
+
+func.func @test_erf_f64(%arg0: tensor<3xf64>) -> tensor<3xf64> {
+  %0 = "onnx.Erf"(%arg0) : (tensor<3xf64>) -> tensor<3xf64>
+  return %0 : tensor<3xf64>
+// CHECK-LABEL:  func @test_erf_f64
+// CHECK-NOT:    onnx.Erf
+// CHECK:        return %0 : tensor<3xf64>
 }
 
 // -----

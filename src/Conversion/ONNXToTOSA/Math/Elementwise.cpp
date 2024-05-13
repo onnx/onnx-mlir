@@ -31,48 +31,10 @@ struct TOSADialectOp<ONNXNegOp> {
   using Op = mlir::tosa::NegateOp;
 };
 
-struct AbsIOSupportedTypes {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!mlir::isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>(
-            scalarType) &&
-        !scalarType.isSignlessInteger(/*width=*/32)) {
-      return rewriter.notifyMatchFailure(op,
-          "this operation only supports signless 32 integer or fp16, fp32"
-          " or bf16");
-    }
-    return success();
-  }
-};
-
-struct ErfIOSupportedTypes {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!mlir::isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>(
-            scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only supports fp16, fp32 or bf16");
-    }
-    return success();
-  }
-};
-
-struct IsAnyLegalType {
-  static LogicalResult checkType(
-      ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType) && !isTOSAInt(scalarType) &&
-        !isTOSABool(scalarType)) {
-      return rewriter.notifyMatchFailure(
-          op, "this operation only supports signed integer or float types");
-    }
-    return success();
-  }
-};
-
 struct IsIntOrFloat {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType) && !isTOSAInt(scalarType)) {
+    if (!isa<FloatType>(scalarType) && !isTOSAInt(scalarType)) {
       return rewriter.notifyMatchFailure(
           op, "this operation only supports signed integer or float types");
     }
@@ -94,7 +56,7 @@ struct IsInt {
 struct IsFloat {
   static LogicalResult checkType(
       ConversionPatternRewriter &rewriter, Type scalarType, Operation *op) {
-    if (!isTOSAFloat(scalarType)) {
+    if (!isa<FloatType>(scalarType)) {
       return rewriter.notifyMatchFailure(
           op, "this operation only supports float types");
     }
@@ -757,9 +719,9 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXNotOp, mlir::tosa::LogicalNotOp,
           IsBool, IsBool>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXAbsOp, mlir::tosa::AbsOp,
-          AbsIOSupportedTypes, AbsIOSupportedTypes>,
+          IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXErfOp, mlir::tosa::ErfOp,
-          ErfIOSupportedTypes, ErfIOSupportedTypes>>(typeConverter, ctx);
+          IsFloat, IsFloat>>(typeConverter, ctx);
 
 // Tosa custom ops
 #define INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(                            \
