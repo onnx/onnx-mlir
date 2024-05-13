@@ -534,7 +534,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
           return true;
         }
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -551,7 +551,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
           return true;
         }
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -566,7 +566,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
           return true;
         }
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -581,7 +581,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
           return true;
         }
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -614,9 +614,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
           return true;
         // Check element type.
-        if (!isValidElementTypeAndRank(A, true))
+        if (!isValidElementTypeAndRank(op.getOperation(), A, true))
           return true;
-        if (!isValidElementTypeAndRank(B, true))
+        if (!isValidElementTypeAndRank(op.getOperation(), B, true))
           return true;
 
         int64_t aRank = getRank(aType);
@@ -679,7 +679,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
         Value input = op.getInput();
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
           // Check element type.
-          if (!isValidElementTypeAndRank(input, true))
+          if (!isValidElementTypeAndRank(op.getOperation(), input, true))
             return true;
           // Check rank.
           if ((shapedType.getRank() > 3) &&

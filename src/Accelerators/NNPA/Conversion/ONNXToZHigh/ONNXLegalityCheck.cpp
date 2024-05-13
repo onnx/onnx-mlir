@@ -53,7 +53,7 @@ bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
 /// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
-bool isValidElementTypeAndRank(Value val, bool donotCheckRank) {
+bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
   if (val.getType().isa<NoneType>())
     return true;
   if (auto valueType = val.getType().dyn_cast_or_null<ShapedType>()) {
@@ -65,10 +65,25 @@ bool isValidElementTypeAndRank(Value val, bool donotCheckRank) {
       if (donotCheckRank)
         return true;
       // Rank must be in range of (0, 4].
-      if (!valueType.hasRank())
+      if (!valueType.hasRank()) {
+        std::string message = "Value does not have rank.";
+        emitLegalityCheckMessage(op, StringRef(message));
         return false;
+      }
       int64_t rank = valueType.getRank();
-      return ((rank > 0) && (rank <= 4));
+      if ((rank > 0) && (rank <= 4)) {
+        return true;
+      } else {
+        std::string message =
+            "Rank " + std::to_string(rank) +
+            " is not supported. zAIU only supports rank in range of (0, 4].";
+        emitLegalityCheckMessage(op, StringRef(message));
+        return false;
+      }
+    } else {
+      std::string message = "Element type is not F16 or F32.";
+      emitLegalityCheckMessage(op, StringRef(message));
+      return false;
     }
   }
   return false;
@@ -301,9 +316,9 @@ bool isSuitableForZDNN<ONNXAddOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getA()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
-  if (!isValidElementTypeAndRank(op.getB()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
   return dimAnalysis->sameShape(op.getA(), op.getB());
 }
@@ -317,9 +332,9 @@ bool isSuitableForZDNN<ONNXSubOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getA()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
-  if (!isValidElementTypeAndRank(op.getB()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
   return dimAnalysis->sameShape(op.getA(), op.getB());
 }
@@ -333,9 +348,9 @@ bool isSuitableForZDNN<ONNXMulOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getA()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
-  if (!isValidElementTypeAndRank(op.getB()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
   return dimAnalysis->sameShape(op.getA(), op.getB());
 }
@@ -353,15 +368,17 @@ bool isSuitableForZDNN<ONNXDivOp>(
   }
   // Broadcast with a scalar operand.
   if (isEnableScalarBcastBinary()) {
-    if (isF32ScalarConstantTensor(A) && isValidElementTypeAndRank(B))
+    if (isF32ScalarConstantTensor(A) &&
+        isValidElementTypeAndRank(op.getOperation(), B))
       return true;
-    if (isF32ScalarConstantTensor(B) && isValidElementTypeAndRank(A))
+    if (isF32ScalarConstantTensor(B) &&
+        isValidElementTypeAndRank(op.getOperation(), A))
       return true;
   }
   // Non-broadcast cases.
-  if (!isValidElementTypeAndRank(A))
+  if (!isValidElementTypeAndRank(op.getOperation(), A))
     return false;
-  if (!isValidElementTypeAndRank(B))
+  if (!isValidElementTypeAndRank(op.getOperation(), B))
     return false;
   return dimAnalysis->sameShape(A, B);
 }
@@ -379,12 +396,12 @@ bool isSuitableForZDNN<ONNXSumOp>(
   if (op.getData_0().size() < 2)
     return false;
   // Check data type.
-  if (!isValidElementTypeAndRank(op.getData_0()[0]))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getData_0()[0]))
     return false;
   // All inputs must have the same static shape.
   for (unsigned int i = 1; i < op.getData_0().size(); ++i) {
     // Check data type.
-    if (!isValidElementTypeAndRank(op.getData_0()[i]))
+    if (!isValidElementTypeAndRank(op.getOperation(), op.getData_0()[i]))
       return false;
     if (!dimAnalysis->sameShape(op.getData_0()[0], op.getData_0()[i]))
       return false;
@@ -404,11 +421,13 @@ bool isSuitableForZDNN<ONNXMinOp>(
   }
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
+    emitLegalityCheckMessage(op.getOperation(),
+        "The number of operands is " + std::to_string(opnum) + ", not 2.");
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getOperand(0)))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0)))
     return false;
-  if (!isValidElementTypeAndRank(op.getOperand(1)))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1)))
     return false;
   return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
 }
@@ -425,11 +444,13 @@ bool isSuitableForZDNN<ONNXMaxOp>(
   }
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
+    emitLegalityCheckMessage(op.getOperation(),
+        "The number of operands is " + std::to_string(opnum) + ", not 2.");
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getOperand(0)))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0)))
     return false;
-  if (!isValidElementTypeAndRank(op.getOperand(1)))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1)))
     return false;
   return dimAnalysis->sameShape(op.getOperand(0), op.getOperand(1));
 }
@@ -445,7 +466,7 @@ bool isSuitableForZDNN<ONNXSoftmaxOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getInput()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
   if (!inputType.hasRank())
@@ -464,7 +485,7 @@ bool isSuitableForZDNN<ONNXReluOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getX()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
   return xType.hasRank() && (xType.getRank() <= 4);
@@ -479,7 +500,7 @@ bool isSuitableForZDNN<ONNXTanhOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getInput()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
@@ -494,7 +515,7 @@ bool isSuitableForZDNN<ONNXSigmoidOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getX()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
   return xType.hasRank() && (xType.getRank() <= 4);
@@ -509,7 +530,7 @@ bool isSuitableForZDNN<ONNXLogOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getInput()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
@@ -524,7 +545,7 @@ bool isSuitableForZDNN<ONNXExpOp>(
     emitLegalityCheckMessageCompatibility(op.getOperation());
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getInput()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
   return inputType.hasRank() && (inputType.getRank() <= 4);
@@ -541,16 +562,16 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   }
   int64_t opnum = op.getNumOperands();
   if (opnum != 2) {
-    emitLegalityCheckMessage(
-        op.getOperation(), "The number of operands not 2.");
+    emitLegalityCheckMessage(op.getOperation(),
+        "The number of operands is " + std::to_string(opnum) + ", not 2.");
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getOperand(0))) {
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0))) {
     emitLegalityCheckMessage(
         op.getOperation(), "Operand 0 not valid element type and rank.");
     return false;
   }
-  if (!isValidElementTypeAndRank(op.getOperand(1))) {
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1))) {
     emitLegalityCheckMessage(
         op.getOperation(), "Operand 1 not valid element type and rank.");
     return false;
@@ -623,11 +644,11 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   }
 
   // Check data type.
-  if (!isValidElementTypeAndRank(A))
+  if (!isValidElementTypeAndRank(op.getOperation(), A))
     return false;
-  if (!isValidElementTypeAndRank(B))
+  if (!isValidElementTypeAndRank(op.getOperation(), B))
     return false;
-  if (!isValidElementTypeAndRank(C))
+  if (!isValidElementTypeAndRank(op.getOperation(), C))
     return false;
 
   ShapedType aType = A.getType().cast<ShapedType>();
@@ -681,7 +702,7 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   }
 
   // Check data type.
-  if (!isValidElementTypeAndRank(op.getData()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getData()))
     return false;
 
   std::optional<mlir::ArrayAttr> axes = op.getAxes();
@@ -733,11 +754,11 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
     return false;
 
   // Check data type.
-  if (!isValidElementTypeAndRank(W))
+  if (!isValidElementTypeAndRank(op.getOperation(), W))
     return false;
-  if (!isValidElementTypeAndRank(R))
+  if (!isValidElementTypeAndRank(op.getOperation(), R))
     return false;
-  if (!isValidElementTypeAndRank(B))
+  if (!isValidElementTypeAndRank(op.getOperation(), B))
     return false;
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
@@ -814,11 +835,11 @@ bool isSuitableForZDNN<ONNXGRUOp>(
     return false;
 
   // Check data type.
-  if (!isValidElementTypeAndRank(W))
+  if (!isValidElementTypeAndRank(op.getOperation(), W))
     return false;
-  if (!isValidElementTypeAndRank(R))
+  if (!isValidElementTypeAndRank(op.getOperation(), R))
     return false;
-  if (!isValidElementTypeAndRank(B))
+  if (!isValidElementTypeAndRank(op.getOperation(), B))
     return false;
 
   int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
@@ -882,7 +903,7 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
   }
 
   // Check data type.
-  if (!isValidElementTypeAndRank(op.getX()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
 
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
@@ -911,7 +932,7 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
   }
 
   // Check data type.
-  if (!isValidElementTypeAndRank(op.getX()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
 
   // count_include_pad not supported.
@@ -974,11 +995,11 @@ bool isSuitableForZDNN<ONNXConvOp>(
   }
 
   // Check data type.
-  if (!isValidElementTypeAndRank(op.getX()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
-  if (!isValidElementTypeAndRank(op.getW()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getW()))
     return false;
-  if (!isValidElementTypeAndRank(op.getB()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
     return false;
 
   ONNXConvOpAdaptor operandAdaptor = ONNXConvOpAdaptor(op);
