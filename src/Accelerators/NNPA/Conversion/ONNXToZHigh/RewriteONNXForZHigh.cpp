@@ -529,8 +529,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXAddOp>(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+          emitLegalityCheckMessageCompatibility(op.getOperation());
           return true;
+        }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getA(), true))
           return true;
@@ -544,8 +546,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXDivOp>(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+          emitLegalityCheckMessageCompatibility(op.getOperation());
           return true;
+        }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getA(), true))
           return true;
@@ -557,8 +561,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMulOp>(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+          emitLegalityCheckMessageCompatibility(op.getOperation());
           return true;
+        }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getA(), true))
           return true;
@@ -570,8 +576,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXSubOp>(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+          emitLegalityCheckMessageCompatibility(op.getOperation());
           return true;
+        }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getA(), true))
           return true;
@@ -594,8 +602,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMatMulOp>(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+          emitLegalityCheckMessageCompatibility(op.getOperation());
           return true;
+        }
 
         Value A = op.getA();
         Value B = op.getB();
@@ -662,8 +672,10 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
+          emitLegalityCheckMessageCompatibility(op.getOperation());
           return true;
+        }
         Value input = op.getInput();
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
           // Check element type.
