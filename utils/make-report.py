@@ -451,7 +451,7 @@ def get_percent(n, d):
 def get_sorting_key(count, name, time):
     global sorting_preference
     if sorting_preference == "num":
-        key = -count
+        return -count
     if sorting_preference == "name":
         return name
     return -time
@@ -523,18 +523,26 @@ def make_report(stat_message):
             sorted_output[output_key] = output
         # Add plot name/val tuple to sorted_plot_output.
         if len(plot_name_val) == 2:
-            sorted_plot_output[output_key] = plot_name_val
+            if output_key in sorted_plot_output:
+                curr_list = sorted_plot_output[output_key]
+                curr_list.append(plot_name_val)
+                sorted_plot_output[output_key] = curr_list
+            else:
+                sorted_plot_output[output_key] = [plot_name_val]
 
     # Print legend and stats.
     num_desc = "num"
     if has_timing:
         if time_unit == 1:
-            unit_str = "(s)"
+            unit_str = "s"
         elif time_unit == 1000:
-            unit_str = "(ms)"
+            unit_str = "ms"
         elif time_unit == 1000 * 1000:
-            unit_str = "(us)"
-        plot_x_axis = "time " + unit_str
+            unit_str = "us"
+        plot_x_axis = "execution time ({}) out of total time of {:.2f}{}".format(
+            unit_str, tot_time * time_unit, unit_str
+        )
+        unit_str = "(" + unit_str + ")"
         num_desc += ", average time " + unit_str
         num_desc += ", cumulative time " + unit_str
         num_desc += ", percent of total "
@@ -560,9 +568,9 @@ def make_report(stat_message):
     for key in sorted(sorted_output):
         print(sorted_output[key])
         if key in sorted_plot_output:
-            name_value_tuple = sorted_plot_output[key]
-            plot_names = np.append(plot_names, name_value_tuple[0])
-            plot_values = np.append(plot_values, name_value_tuple[1])
+            for t in sorted_plot_output[key]:
+                plot_names = np.append(plot_names, t[0])
+                plot_values = np.append(plot_values, t[1])
     print("Statistics end" + stat_details)
 
     # Report spurious node name if any.
