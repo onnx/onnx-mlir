@@ -611,8 +611,11 @@ void getRewriteONNXForZHighDynamicallyLegal(
         Value B = op.getB();
         Type aType = A.getType();
         Type bType = B.getType();
-        if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
+        if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
+          std::string message = "A or B is not shaped type with rank";
+          emitLegalityCheckMessage(op.getOperation(), StringRef(message));
           return true;
+        }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), A, true))
           return true;
@@ -627,37 +630,38 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // No input is N-D (N > 3) but dimension N or M (NxK * KxM) is dynamic
         // or exceeds NNPA limitation.
         bool nExceeded, mExceeded;
-        if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded)) {
-          emitLegalityCheckMessage(op.getOperation(),
-              "No input is N-D (N > 3) but dimension N or M (NxK * KxM) is "
-              "dynamic or exceeds NNPA limitation.");
+        if (SplitLargeMatMulPattern::canBeRewritten(op, nExceeded, mExceeded))
           return false;
-        }
 
         // - one input is N-D (N > 3) and the other is 2-D.
-        if (aRank == 2 && bRank > 3) {
-          emitLegalityCheckMessage(op.getOperation(),
-              "one input is N-D (N > 3) and the other is 2-D.");
+        if (aRank == 2 && bRank > 3)
           return false;
-        }
-        if (bRank == 2 && aRank > 3) {
-          emitLegalityCheckMessage(op.getOperation(),
-              "one input is N-D (N > 3) and the other is 2-D.");
+
+        if (bRank == 2 && aRank > 3)
           return false;
-        }
 
         // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
         if (aRank > 3 && (aRank == bRank)) {
           bool sameBatchDims = true;
+          std::string message = "";
           for (int64_t i = 0; i < aRank - 2; ++i) {
             sameBatchDims &= (aShape[i] == bShape[i]);
-            if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-              sameBatchDims =
+            if (aShape[i] != bShape[i])
+              message += "The dim " + std::to_string(i) + " of A and dim " +
+                         std::to_string(i) + " of B are not the same.";
+
+            if (sameBatchDims && ShapedType::isDynamic(aShape[i])) {
+              sameBatchDims &=
                   dimAnalysis->sameDynDim(op.getA(), i, op.getB(), i);
+              if (!sameBatchDims)
+                message += "The dynamic dimension analysis couldn't identify "
+                           "that dim " +
+                           std::to_string(i) + " of A and dim " +
+                           std::to_string(i) + " of B are the same.";
+            }
           }
           if (!sameBatchDims)
-            emitLegalityCheckMessage(op.getOperation(),
-                "Batch dimensions of A and B are not the same.");
+            emitLegalityCheckMessage(op.getOperation(), message);
           return !sameBatchDims;
         }
 
