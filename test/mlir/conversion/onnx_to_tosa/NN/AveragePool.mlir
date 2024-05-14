@@ -198,6 +198,20 @@ func.func @test_averagepool_strides_nonunifpad_ceil_with_count_include_pad(%arg0
 
 // -----
 
+func.func @test_averagepool_dilations_one(%arg0 : tensor<1x1x4x4xf32>) -> tensor<1x1x3x3xf32> {
+ %0 = "onnx.AveragePool"(%arg0) { auto_pad = "NOTSET",
+                                  ceil_mode = 1 : si64,
+                                  count_include_pad = 0 : si64,
+                                  dilations = [1, 1],
+                                  kernel_shape = [2, 2],
+                                  strides = [1, 1]} : (tensor<1x1x4x4xf32>) -> tensor<1x1x3x3xf32>
+  "func.return"(%0) : (tensor<1x1x3x3xf32>) -> ()
+}
+// CHECK-LABEL: test_averagepool_dilations_one
+// CHECK: tosa.avg_pool2d
+
+// -----
+
 func.func @test_averagepool_dilations(%arg0 : tensor<1x1x4x4xf32>) -> tensor<1x1x2x2xf32> {
  %0 = "onnx.AveragePool"(%arg0) { auto_pad = "NOTSET",
                                   ceil_mode = 1 : si64,

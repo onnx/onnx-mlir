@@ -153,6 +153,7 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   mlir::Location loc = op->getLoc();
   OpAdaptor adaptor(op->getOperands(), op->getAttrDictionary());
 
+  // If the attribute is absent, the default dilations are 1.
   if (std::optional<mlir::ArrayAttr> dilations = adaptor.getDilations()) {
     auto intDilations = mlir::extractFromIntegerArrayAttr<int64_t>(*dilations);
     if (llvm::any_of(intDilations, [](int64_t d) { return d != 1; }))
