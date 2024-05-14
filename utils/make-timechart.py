@@ -40,7 +40,7 @@ default_number_of_lines = -1  # auto scale
 max_number_of_lines = 20
 default_start_time = 0.0
 default_period = 200.0
-default_min_parcent_of_time_for_legend = 1.0
+default_min_percent_of_time_for_legend = 1.0
 max_number_of_legend = 11
 
 number_of_xticks = 5
@@ -133,14 +133,14 @@ def get_xscales_and_number_of_lines(elapsed_time_min, elapsed_time_max):
     return xscale, number_of_lines
 
 
-def gen_legend_table(inst_data_tbl, minimum_legend_parcent, number_of_legends):
+def gen_legend_table(inst_data_tbl, minimum_legend_percent, number_of_legends):
     op_time_list = sorted(op_time_dic.items(), key=lambda x: x[1], reverse=True)
     total_time = sum(list(map(lambda x: x[1], op_time_list)))
     # calculate number_of_legend
     if number_of_legends < 0:
         for idx, op_time in enumerate(op_time_list):
             op, time = op_time
-            if time < total_time * (minimum_legend_parcent / 100.0):
+            if time < total_time * (minimum_legend_percent / 100.0):
                 break
         number_of_legends = idx
     number_of_legends = min(max_number_of_legend, number_of_legends)
@@ -328,12 +328,12 @@ parser.add_argument(
     help="Iteration number starting from 0 (default=last)",
 )
 parser.add_argument(
-    "--minimum-legend-parcent",
+    "--minimum-legend-percent",
     type=float,
-    default=default_min_parcent_of_time_for_legend,
-    help="Minimum execution time of each operation to have a legend in parcent"
-    + "(default={}). This opion cannot be used with --number-of-legends option".format(
-        default_min_parcent_of_time_for_legend
+    default=default_min_percent_of_time_for_legend,
+    help="Minimum execution time of each operation to have a legend in percent"
+    + "(default={}). This option cannot be used with --number-of-legends option".format(
+        default_min_percent_of_time_for_legend
     ),
 )
 parser.add_argument(
@@ -342,8 +342,8 @@ parser.add_argument(
     type=int,
     default=-1,
     help="Number of legend. The default is number of operations occupying "
-    + "{} parcent of execution time (s.t. n <= {})".format(
-        default_min_parcent_of_time_for_legend,
+    + "{} percent of execution time (s.t. n <= {})".format(
+        default_min_percent_of_time_for_legend,
         max_number_of_legend,
     ),
 )
@@ -366,7 +366,7 @@ def main():
     )
     # generate legend table
     legend_tbl = gen_legend_table(
-        inst_data_tbl, args.minimum_legend_parcent, args.number_of_legends
+        inst_data_tbl, args.minimum_legend_percent, args.number_of_legends
     )
     # generate timechart
     generate_timechart(
