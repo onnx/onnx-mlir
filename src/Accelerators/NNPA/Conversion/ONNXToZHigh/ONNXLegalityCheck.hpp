@@ -47,6 +47,7 @@ mlir::StringRef getStrPaddingType(OP op);
 bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
     int64_t strides, int64_t outputShape, mlir::StringRef paddingType);
 
-void emitLegalityCheckMessage(mlir::Operation *op, mlir::StringRef message);
+bool emitWarningMessageNNPAUnsupported(
+    mlir::Operation *op, mlir::StringRef message);
 
-void emitLegalityCheckMessageCompatibility(mlir::Operation *op);
+bool emitWarningMessageInCompatibility(mlir::Operation *op);

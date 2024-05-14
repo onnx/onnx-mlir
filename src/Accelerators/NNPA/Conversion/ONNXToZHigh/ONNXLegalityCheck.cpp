@@ -67,8 +67,7 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
       // Rank must be in range of (0, 4].
       if (!valueType.hasRank()) {
         std::string message = "Value does not have rank.";
-        emitLegalityCheckMessage(op, StringRef(message));
-        return false;
+        return emitWarningMessageNNPAUnsupported(op, StringRef(message));
       }
       int64_t rank = valueType.getRank();
       if ((rank > 0) && (rank <= 4)) {
@@ -77,16 +76,15 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
         std::string message =
             "Rank " + std::to_string(rank) +
             " is not supported. zAIU only supports rank in range of (0, 4].";
-        emitLegalityCheckMessage(op, StringRef(message));
-        return false;
+        return emitWarningMessageNNPAUnsupported(op, StringRef(message));
       }
     } else {
       std::string message = "Element type is not F16 or F32.";
-      emitLegalityCheckMessage(op, StringRef(message));
-      return false;
+      return emitWarningMessageNNPAUnsupported(op, StringRef(message));
     }
   }
-  return false;
+  std::string message = "Value is not shaped type.";
+  return emitWarningMessageNNPAUnsupported(op, StringRef(message));
 }
 
 /// Common legality check for pooling ops.
@@ -284,20 +282,21 @@ bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
   return true;
 }
 
-void emitLegalityCheckMessage(Operation *op, StringRef message) {
+bool emitWarningMessageNNPAUnsupported(Operation *op, StringRef message) {
   LLVM_DEBUG(llvm::outs() << "[NNPA Legality Check] Warning: "
                           << op->getName().getStringRef() << "(onnx_node_name:"
                           << op->getAttrOfType<StringAttr>("onnx_node_name")
                           << ") runs on CPU. Reason: " << message << "\n");
+  return false;
 }
 
-void emitLegalityCheckMessageCompatibility(Operation *op) {
+bool emitWarningMessageInCompatibility(Operation *op) {
   std::string onnxMlirNnpaLevel(NNPA_Z16);
   std::string message =
       "onnx-mlir NNPA level (" + onnxMlirNnpaLevel +
       ") is not compatible with  NNPA level specified by '-mcpu'(" + mcpu +
       ").";
-  emitLegalityCheckMessage(op, StringRef(message));
+  return emitWarningMessageNNPAUnsupported(op, StringRef(message));
 }
 
 /// Default legality check.
@@ -313,8 +312,7 @@ bool isSuitableForZDNN<ONNXAddOp>(
     ONNXAddOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
+    return emitWarningMessageInCompatibility(op.getOperation());
   }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
@@ -328,10 +326,8 @@ template <>
 bool isSuitableForZDNN<ONNXSubOp>(
     ONNXSubOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
@@ -344,10 +340,8 @@ template <>
 bool isSuitableForZDNN<ONNXMulOp>(
     ONNXMulOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
@@ -362,10 +356,8 @@ bool isSuitableForZDNN<ONNXDivOp>(
   Value A = op.getA();
   Value B = op.getB();
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   // Broadcast with a scalar operand.
   if (isEnableScalarBcastBinary()) {
     if (isF32ScalarConstantTensor(A) &&
@@ -388,10 +380,8 @@ template <>
 bool isSuitableForZDNN<ONNXSumOp>(
     ONNXSumOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   // Do not support a single input.
   if (op.getData_0().size() < 2)
     return false;
@@ -415,16 +405,12 @@ template <>
 bool isSuitableForZDNN<ONNXMinOp>(
     ONNXMinOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
-    emitLegalityCheckMessage(op.getOperation(),
+  if (opnum != 2)
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
         "The number of operands is " + std::to_string(opnum) + ", not 2.");
-    return false;
-  }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0)))
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1)))
@@ -438,16 +424,12 @@ template <>
 bool isSuitableForZDNN<ONNXMaxOp>(
     ONNXMaxOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
-    emitLegalityCheckMessage(op.getOperation(),
+  if (opnum != 2)
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
         "The number of operands is " + std::to_string(opnum) + ", not 2.");
-    return false;
-  }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0)))
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1)))
@@ -462,10 +444,8 @@ template <>
 bool isSuitableForZDNN<ONNXSoftmaxOp>(
     ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
@@ -481,10 +461,8 @@ template <>
 bool isSuitableForZDNN<ONNXReluOp>(
     ONNXReluOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
@@ -496,10 +474,8 @@ template <>
 bool isSuitableForZDNN<ONNXTanhOp>(
     ONNXTanhOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getType().cast<ShapedType>();
@@ -511,10 +487,8 @@ template <>
 bool isSuitableForZDNN<ONNXSigmoidOp>(
     ONNXSigmoidOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   ShapedType xType = op.getX().getType().cast<ShapedType>();
@@ -526,10 +500,8 @@ template <>
 bool isSuitableForZDNN<ONNXLogOp>(
     ONNXLogOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
@@ -541,10 +513,8 @@ template <>
 bool isSuitableForZDNN<ONNXExpOp>(
     ONNXExpOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = op.getInput().getType().cast<ShapedType>();
@@ -556,16 +526,12 @@ template <>
 bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
   int64_t opnum = op.getNumOperands();
-  if (opnum != 2) {
-    emitLegalityCheckMessage(op.getOperation(),
+  if (opnum != 2)
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
         "The number of operands is " + std::to_string(opnum) + ", not 2.");
-    return false;
-  }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(0))) {
     return false;
   }
@@ -576,10 +542,9 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   ShapedType bType = op.getOperand(1).getType().cast<ShapedType>();
 
   // Illegal if A or B is unranked.
-  if (!aType.hasRank() || !bType.hasRank()) {
-    emitLegalityCheckMessage(op.getOperation(), "A or B is unranked.");
-    return false;
-  }
+  if (!aType.hasRank() || !bType.hasRank())
+    return emitWarningMessageNNPAUnsupported(
+        op.getOperation(), "A or B is unranked.");
 
   auto shapeA = aType.getShape();
   auto shapeB = bType.getShape();
@@ -593,22 +558,24 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   if ((shapeA.size() == 2) && (shapeB.size() == 2)) {
     // unstacked case
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
-      bool returnVal = (shapeA[1] == shapeB[0]);
-      if (!returnVal) {
+      if (shapeA[1] == shapeB[0]) {
+        return true;
+      } else {
         std::string message = "Unstacked case: the 2nd dim of A (" +
                               std::to_string(shapeA[1]) +
                               ") and the 1st dim of B (" +
                               std::to_string(shapeB[0]) + ") are not the same.";
-        emitLegalityCheckMessage(op.getOperation(), StringRef(message));
+        return emitWarningMessageNNPAUnsupported(
+            op.getOperation(), StringRef(message));
       }
-      return returnVal;
     } else
       return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 3)) {
     // stacked w/o bcast case
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
-      bool returnVal = ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1]));
-      if (!returnVal) {
+      if ((shapeA[0] == shapeB[0]) && (shapeA[2] == shapeB[1])) {
+        return true;
+      } else {
         std::string message =
             "Stacked w/o bcast case: the 1st dim of A (" +
             std::to_string(shapeA[0]) + ") and the 1st dim of B (" +
@@ -616,23 +583,24 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
             ") are not the same, or the 3rd dim of A (" +
             std::to_string(shapeA[2]) + ") and the 2nd dim of B (" +
             std::to_string(shapeB[1]) + ") are not the same.";
-        emitLegalityCheckMessage(op.getOperation(), StringRef(message));
+        return emitWarningMessageNNPAUnsupported(
+            op.getOperation(), StringRef(message));
       }
-      return returnVal;
     } else
       return true;
   } else if ((shapeA.size() == 3) && (shapeB.size() == 2)) {
     // stacked w/ bcast
     if (aType.hasStaticShape() && bType.hasStaticShape()) {
-      bool returnVal = (shapeA[2] == shapeB[0]);
-      if (!returnVal) {
+      if (shapeA[2] == shapeB[0]) {
+        return true;
+      } else {
         std::string message = "Stacked w/ bcast case: the 3rd dim of A (" +
                               std::to_string(shapeA[2]) +
                               ") and the 1st dim of B (" +
                               std::to_string(shapeB[0]) + ") are not the same.";
-        emitLegalityCheckMessage(op.getOperation(), StringRef(message));
+        return emitWarningMessageNNPAUnsupported(
+            op.getOperation(), StringRef(message));
       }
-      return returnVal;
     } else
       return true;
   }
@@ -648,10 +616,8 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   Value C = op.getC();
 
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), A))
@@ -706,10 +672,8 @@ template <>
 bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
     ONNXReduceMeanV13Op op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getData()))
@@ -753,10 +717,8 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   Value B = op.getB();
 
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
@@ -834,10 +796,8 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   Value B = op.getB();
 
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
@@ -907,10 +867,8 @@ template <>
 bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
@@ -936,10 +894,8 @@ template <>
 bool isSuitableForZDNN<ONNXAveragePoolOp>(
     ONNXAveragePoolOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
@@ -999,10 +955,8 @@ template <>
 bool isSuitableForZDNN<ONNXConvOp>(
     ONNXConvOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
@@ -1087,10 +1041,8 @@ bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 
   // Check NNPA level.
-  if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    emitLegalityCheckMessageCompatibility(op.getOperation());
-    return false;
-  }
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return emitWarningMessageInCompatibility(op.getOperation());
 
   // 4D tensors(N x C x H x W) are supported as input and output.
   if (shapeInput.size() != 4 || shapeOutput.size() != 4)

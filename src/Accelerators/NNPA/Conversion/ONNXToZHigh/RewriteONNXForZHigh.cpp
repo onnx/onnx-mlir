@@ -529,10 +529,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXAddOp>(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-          emitLegalityCheckMessageCompatibility(op.getOperation());
-          return true;
-        }
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return !emitWarningMessageInCompatibility(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -546,10 +544,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXDivOp>(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-          emitLegalityCheckMessageCompatibility(op.getOperation());
-          return true;
-        }
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return !emitWarningMessageInCompatibility(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -561,10 +557,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMulOp>(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-          emitLegalityCheckMessageCompatibility(op.getOperation());
-          return true;
-        }
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return !emitWarningMessageInCompatibility(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -576,10 +570,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXSubOp>(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-          emitLegalityCheckMessageCompatibility(op.getOperation());
-          return true;
-        }
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return !emitWarningMessageInCompatibility(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -602,10 +594,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXMatMulOp>(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-          emitLegalityCheckMessageCompatibility(op.getOperation());
-          return true;
-        }
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return !emitWarningMessageInCompatibility(op.getOperation());
 
         Value A = op.getA();
         Value B = op.getB();
@@ -613,8 +603,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
         Type bType = B.getType();
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
           std::string message = "A or B is not shaped type with rank";
-          emitLegalityCheckMessage(op.getOperation(), StringRef(message));
-          return true;
+          return !emitWarningMessageNNPAUnsupported(
+              op.getOperation(), StringRef(message));
         }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), A, true))
@@ -660,9 +650,11 @@ void getRewriteONNXForZHighDynamicallyLegal(
                            std::to_string(i) + " of B are the same.";
             }
           }
-          if (!sameBatchDims)
-            emitLegalityCheckMessage(op.getOperation(), message);
-          return !sameBatchDims;
+          if (sameBatchDims)
+            return false;
+          else
+            return !emitWarningMessageNNPAUnsupported(
+                op.getOperation(), message); /* true */
         }
 
         // Make other cases legal.
@@ -676,10 +668,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
   addDynamicallyLegalOpFor<ONNXSoftmaxOp>(target, dimAnalysis,
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
-        if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-          emitLegalityCheckMessageCompatibility(op.getOperation());
-          return true;
-        }
+        if (!isCompatibleWithNNPALevel(NNPA_Z16))
+          return !emitWarningMessageInCompatibility(op.getOperation());
+
         Value input = op.getInput();
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
           // Check element type.
