@@ -742,20 +742,31 @@ bool isIdentityReshape(
     Value inputTensor, Value outputTensor, const DimAnalysis *dimAnalysis) {
   if (!hasShapeAndRank(inputTensor) || !hasShapeAndRank(outputTensor))
     return false;
-  // Check if same rank.
   Type inputType = inputTensor.getType();
   Type outputType = outputTensor.getType();
-  int64_t inputRank = getRank(inputType);
-  int64_t outputRank = getRank(outputType);
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+  int64_t inputRank = inputShape.size();
+  int64_t outputRank = outputShape.size();
+
+  // Check if same rank.
   if (inputRank != outputRank)
+    return false;
+
+  // Check if same shape in the sense that both dimensions at the same index
+  // must be both static or dynamic. Otherwise, written rules may fail with the
+  // following error due to shape mismatched:
+  // ```
+  // error: failed to materialize conversion for result #0 of operation
+  // 'onnx.Reshape' that remained live after conversion
+  // ```
+  if (inputShape != outputShape)
     return false;
 
   // Reshape is an identity if at least (N-1) out of N dimensions are equal. We
   // don't need to care about the different dimension, it is maybe because of
   // DimAnalysis failed to handle it.
   int nSameDims = 0;
-  ArrayRef<int64_t> inputShape = getShape(inputType);
-  ArrayRef<int64_t> outputShape = getShape(outputType);
   for (int64_t i = 0; i < inputRank; ++i) {
     if (inputShape[i] != ShapedType::kDynamic &&
         inputShape[i] == outputShape[i])
