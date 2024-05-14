@@ -438,14 +438,13 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
 
-    if (resultElementType.isSignlessInteger(32)) {
-      // tosa::DivOp takes 32-but signless integers as inputs
+    if (isa<IntegerType>(resultElementType)) {
       Value divOp = tosaBuilder.intdiv(lhs, rhs);
       rewriter.replaceOp(op, {divOp});
       return success();
     }
-    // If it is not a 32-bit signless integer, decompose ONNXDivOp into
-    // tosa::ReciprocalOp and tosa::MulOp
+    // For floating point types, decompose ONNXDivOp into
+    // tosa::ReciprocalOp and tosa::MulOp.
     Value reciprocalOp = tosaBuilder.unaryOp<mlir::tosa::ReciprocalOp>(rhs);
     Value mulOp = tosaBuilder.mul(lhs, reciprocalOp);
     rewriter.replaceOp(op, {mulOp});
