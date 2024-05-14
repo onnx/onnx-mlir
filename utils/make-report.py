@@ -65,7 +65,7 @@ Parameters on inputs:
 Parameters to focus analysis:
   -f/--focus <regexp>: Focus only on ops that match the regexp pattern.
   -m/--min <num>:      Focus on operations with at least <num>% of exec time.
-  -supported:          Focus only on ops that are supported. Namely, the report
+  --supported:         Focus only on ops that are supported. Namely, the report
                        will skip ops for which compile-time statistics list
                        the 'unsupported' keyword in its printout.
                        For SIMD/parallel statistics, this include all ops that
