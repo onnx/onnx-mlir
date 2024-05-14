@@ -195,3 +195,31 @@ func.func @test_averagepool_strides_nonunifpad_ceil_with_count_include_pad(%arg0
 // CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<5x16x17x5xf32>, tensor<4xi32>) -> tensor<5x5x16x17xf32>
 // CHECK:           return [[VAR_7_]] : tensor<5x5x16x17xf32>
 // CHECK:         }
+
+// -----
+
+func.func @test_averagepool_dilations_one(%arg0 : tensor<1x1x4x4xf32>) -> tensor<1x1x3x3xf32> {
+ %0 = "onnx.AveragePool"(%arg0) { auto_pad = "NOTSET",
+                                  ceil_mode = 1 : si64,
+                                  count_include_pad = 0 : si64,
+                                  dilations = [1, 1],
+                                  kernel_shape = [2, 2],
+                                  strides = [1, 1]} : (tensor<1x1x4x4xf32>) -> tensor<1x1x3x3xf32>
+  "func.return"(%0) : (tensor<1x1x3x3xf32>) -> ()
+}
+// CHECK-LABEL: test_averagepool_dilations_one
+// CHECK: tosa.avg_pool2d
+
+// -----
+
+func.func @test_averagepool_dilations(%arg0 : tensor<1x1x4x4xf32>) -> tensor<1x1x2x2xf32> {
+ %0 = "onnx.AveragePool"(%arg0) { auto_pad = "NOTSET",
+                                  ceil_mode = 1 : si64,
+                                  count_include_pad = 0 : si64,
+                                  dilations = [2, 2],
+                                  kernel_shape = [2, 2],
+                                  strides = [1, 1]} : (tensor<1x1x4x4xf32>) -> tensor<1x1x2x2xf32>
+  "func.return"(%0) : (tensor<1x1x2x2xf32>) -> ()
+}
+// CHECK-LABEL: test_averagepool_dilations
+// CHECK: onnx.AveragePool

@@ -152,6 +152,14 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   using OpAdaptor = typename ONNXPoolOp::Adaptor;
   mlir::Location loc = op->getLoc();
   OpAdaptor adaptor(op->getOperands(), op->getAttrDictionary());
+
+  // If the attribute is absent, the default dilations are 1.
+  if (std::optional<mlir::ArrayAttr> dilations = adaptor.getDilations()) {
+    auto intDilations = mlir::extractFromIntegerArrayAttr<int64_t>(*dilations);
+    if (llvm::any_of(intDilations, [](int64_t d) { return d != 1; }))
+      return rewriter.notifyMatchFailure(op, "TOSA does not support dilations");
+  }
+
   // Get shape.
   IndexExprBuilderForTosa createTosaIE(rewriter, loc);
   ONNXGenericPoolOpShapeHelper<ONNXPoolOp> shapeHelper(op, {}, &createTosaIE);
