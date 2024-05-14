@@ -1302,10 +1302,26 @@ public:
         {firstReshapeOp.getLoc(), secondReshapeOp.getLoc()});
     OnnxBuilder createONNX(rewriter, loc);
 
+    auto eraseTriviallyDeadValues = [&](PatternRewriter &rewriter,
+                                        SmallVector<Value, 4> &values) {
+      for (auto val : values) {
+        auto *op = val.getDefiningOp();
+        if (!op || !isOpTriviallyDead(op))
+          continue;
+        rewriter.eraseOp(op);
+      }
+    };
+
     // Try to compute a new shape tensor by fusing the two old shapes.
     SmallVector<Value, 4> firstDims, secondDims, fusedDims;
     if (!getValuesFromShape(createONNX, firstShape, firstDims) ||
         !getValuesFromShape(createONNX, secondShape, secondDims)) {
+      // New values may be created by getValuesFromShape. Erase newly-created
+      // values before failing. This avoids that the PatternRewriter notify
+      // changes and prevent convergence issue.
+      eraseTriviallyDeadValues(rewriter, firstDims);
+      eraseTriviallyDeadValues(rewriter, secondDims);
+
       // Not rewrite if we can not read dimension values (0, -1, L) from a shape
       // tensor.
       return rewriter.notifyMatchFailure(
@@ -1346,6 +1362,12 @@ public:
         minusOnes++;
     }
     if (minusOnes > 1) {
+      // New values may be created by getValuesFromShape. Erase newly-created
+      // values before failing. This avoids that the PatternRewriter notify
+      // changes and prevent convergence issue.
+      eraseTriviallyDeadValues(rewriter, firstDims);
+      eraseTriviallyDeadValues(rewriter, secondDims);
+
       // The fused shape is invalid because it has two -1s.
       return rewriter.notifyMatchFailure(op, "Failed to compute a fused shape");
     }

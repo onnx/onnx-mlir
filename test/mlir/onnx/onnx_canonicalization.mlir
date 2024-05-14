@@ -1,4 +1,4 @@
-// RUN: onnx-mlir-opt --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --canonicalize="test-convergence=true" %s -split-input-file | FileCheck %s
 
 // -----
 
@@ -398,6 +398,30 @@ func.func @test_reshape_fusion3(%arg0: tensor<?x4x2x2xf32>) -> tensor<?x2x?xf32>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Concat"([[VAR_2_]], [[VAR_1_]], [[VAR_0_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>, tensor<1xi64>) -> tensor<3xi64>
 // CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_3_]]) {allowzero = 0 : si64} : (tensor<?x4x2x2xf32>, tensor<3xi64>) -> tensor<?x2x?xf32>
 // CHECK:           onnx.Return [[VAR_4_]] : tensor<?x2x?xf32>
+// CHECK:         }
+}
+
+// -----
+
+// No fusion should happen if multiple unknown dimensions (-1) are given.
+func.func @test_reshape_no_fusion(%arg0: tensor<1x3x1152x1x1344xf32>) -> (tensor<1x3x576x2x326x326x2xf32>) {
+  %0 = onnx.Constant dense<[0, 0, -1, 2, 0]> : tensor<5xi64> loc(unknown)
+  %1 = onnx.Constant dense<[0, 0, 0, 0, -1, 2]> : tensor<6xi64> loc(unknown)
+  %5 = onnx.Constant dense<[0, 0, -1, 0, -1, 326, 2]> : tensor<7xi64> loc(unknown)
+  %2 = "onnx.Reshape"(%arg0, %0) {allowzero = 0 : si64} : (tensor<1x3x1152x1x1344xf32>, tensor<5xi64>) -> tensor<1x3x576x2x1344xf32>
+  %3 = "onnx.Reshape"(%2, %1) {allowzero = 0 : si64} : (tensor<1x3x576x2x1344xf32>, tensor<6xi64>) -> tensor<1x3x576x2x672x2xf32>
+  %7 = "onnx.Reshape"(%3, %5) {allowzero = 0 : si64} : (tensor<1x3x576x2x672x2xf32>, tensor<7xi64>) -> tensor<1x3x576x2x326x326x2xf32>
+  onnx.Return %7 : tensor<1x3x576x2x326x326x2xf32>
+
+// CHECK-LABEL:  func.func @test_reshape_no_fusion
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x3x1152x1x1344xf32>) -> tensor<1x3x576x2x326x326x2xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, -1, 2, 0]> : tensor<5xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0, 0, 0, 0, -1, 2]> : tensor<6xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[0, 0, -1, 0, -1, 326, 2]> : tensor<7xi64>
+// CHECK:           [[VAR_3_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<1x3x1152x1x1344xf32>, tensor<5xi64>) -> tensor<1x3x576x2x1344xf32>
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Reshape"([[VAR_3_]], [[VAR_1_]]) {allowzero = 0 : si64} : (tensor<1x3x576x2x1344xf32>, tensor<6xi64>) -> tensor<1x3x576x2x672x2xf32>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Reshape"([[VAR_4_]], [[VAR_2_]]) {allowzero = 0 : si64} : (tensor<1x3x576x2x672x2xf32>, tensor<7xi64>) -> tensor<1x3x576x2x326x326x2xf32>
+// CHECK:           onnx.Return [[VAR_5_]] : tensor<1x3x576x2x326x326x2xf32>
 // CHECK:         }
 }
 
