@@ -1095,9 +1095,15 @@ IndexExpr IndexExpr::clamp(IndexExpr const min, IndexExpr const max) const {
   assert(trueVal.canBeUsedInScope() && "trueVal incompatible scope");
   assert(falseVal.canBeUsedInScope() && "falseVal incompatible scope");
   // When compare result is literal, just feed forward the right value.
+  // Do not deep copy the question mark to keep it unchanged.
   if (compare.isLiteral()) {
-    if (compare.getLiteral())
+    if (compare.getLiteral()) {
+      if (trueVal.isQuestionmark())
+        return trueVal;
       return trueVal.deepCopy();
+    }
+    if (falseVal.isQuestionmark())
+      return falseVal;
     return falseVal.deepCopy();
   }
   // Dynamic value, just set as undefined during shape inference pass.
