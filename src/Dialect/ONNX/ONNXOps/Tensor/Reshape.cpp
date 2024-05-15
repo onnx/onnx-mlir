@@ -63,8 +63,14 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
     IndexExpr dim;
     if (i < dataRank)
       // dimShape == 0: use dim from the input.
-      dim = dimShape.selectOrSelf(
-          dimShape == 0, createIE->getShapeAsDim(data, i));
+      // Current selectOrSelf is not able to forward the input dim as it is
+      // during shape inference, which does not help DimAnalysis. So check
+      // dimShape == 0 manually.
+      if (dimShape.isLiteralAndIdenticalTo(0))
+        dim = createIE->getShapeAsDim(data, i);
+      else
+        dim = dimShape.selectOrSelf(
+            dimShape == 0, createIE->getShapeAsDim(data, i));
     else
       dim = dimShape;
 
@@ -83,8 +89,13 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // should be -1 (represented as QuestionmarkIndexExpr)
   for (unsigned i = 0; i < outputRank; ++i) {
     if (hasShapeAndRank(data)) {
-      outputDims[i] = outputDims[i].selectOrSelf(
-          outputDims[i] == -1, numOfElements.floorDiv(numOfElementsFromShape));
+      IndexExpr dimShape = createIE->getIntFromArrayAsSymbol(shape, i);
+      // Current selectOrSelf is not able to forward the input dim as it is
+      // during shape inference, which does not help DimAnalysis. So check
+      // dimShape == 0 manually.
+      if (!dimShape.isLiteralAndIdenticalTo(0))
+        outputDims[i] = outputDims[i].selectOrSelf(outputDims[i] == -1,
+            numOfElements.floorDiv(numOfElementsFromShape));
     } else {
       // ToFix: can not check getAllowzero because the operandAdaptor is
       // constructed without attributes
