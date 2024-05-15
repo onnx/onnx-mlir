@@ -608,34 +608,28 @@ struct ConcatFusePattern : public OpRewritePattern<ONNXConcatOp> {
 
 // ONNXHardSwishOp(input) can be decomposed as:
 //   input * ONNXHardSigmoid input, with alpha = 1/6 and beta = 0.5.
-struct DecomposeHardSwishPattern : public ConversionPattern {
-  DecomposeHardSwishPattern(MLIRContext *context)
-      : ConversionPattern(ONNXHardSwishOp::getOperationName(), 4, context) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
+struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
+  using OpRewritePattern::OpRewritePattern;
 
-    ONNXHardSwishOp hardSwishOp = ::llvm::dyn_cast<ONNXHardSwishOp>(op);
+  LogicalResult matchAndRewrite(
+      ONNXHardSwishOp hardSwishOp, PatternRewriter &rewriter) const final {
 
     auto input = hardSwishOp.getX();
-    auto hardSigmoid = rewriter.create<ONNXHardSigmoidOp>(op->getLoc(),
+    auto hardSigmoid = rewriter.create<ONNXHardSigmoidOp>(hardSwishOp->getLoc(),
         hardSwishOp.getType(), input, rewriter.getF32FloatAttr(1.0 / 6.0),
         rewriter.getF32FloatAttr(0.5));
     rewriter.replaceOpWithNewOp<ONNXMulOp>(
-        op, hardSwishOp.getType(), hardSigmoid, input);
+        hardSwishOp, hardSwishOp.getType(), hardSigmoid, input);
     return success();
   }
 };
 
 /// Decompose BatchNorm to BatchNormInferenceMode
-struct DecomposeBatchNormToBatchNormInferenceMode : public ConversionPattern {
-  DecomposeBatchNormToBatchNormInferenceMode(MLIRContext *context)
-      : ConversionPattern(
-            ONNXBatchNormalizationOp::getOperationName(), 4, context) {}
-  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-      ConversionPatternRewriter &rewriter) const final {
-
-    ONNXBatchNormalizationOp batchNormOp =
-        ::llvm::dyn_cast<ONNXBatchNormalizationOp>(op);
+struct DecomposeBatchNormToBatchNormInferenceMode
+    : public OpRewritePattern<ONNXBatchNormalizationOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(ONNXBatchNormalizationOp batchNormOp,
+      PatternRewriter &rewriter) const final {
 
     auto meanRes = batchNormOp->getResult(1);
     auto varianceRes = batchNormOp->getResult(2);
@@ -644,14 +638,14 @@ struct DecomposeBatchNormToBatchNormInferenceMode : public ConversionPattern {
           batchNormOp.getLoc(), "mean and variance must have no use.");
     }
 
-    rewriter.replaceOp(
-        op, {rewriter.create<ONNXBatchNormalizationInferenceModeOp>(
-                 batchNormOp.getLoc(), batchNormOp.getResult(0).getType(),
-                 batchNormOp.getX(), batchNormOp.getScale(), batchNormOp.getB(),
-                 batchNormOp.getInputMean(), batchNormOp.getInputVar(),
-                 batchNormOp.getEpsilon(), batchNormOp.getMomentum()),
-                rewriter.create<ONNXNoneOp>(batchNormOp.getLoc()),
-                rewriter.create<ONNXNoneOp>(batchNormOp.getLoc())});
+    rewriter.replaceOp(batchNormOp,
+        {rewriter.create<ONNXBatchNormalizationInferenceModeOp>(
+             batchNormOp.getLoc(), batchNormOp.getResult(0).getType(),
+             batchNormOp.getX(), batchNormOp.getScale(), batchNormOp.getB(),
+             batchNormOp.getInputMean(), batchNormOp.getInputVar(),
+             batchNormOp.getEpsilon(), batchNormOp.getMomentum()),
+            rewriter.create<ONNXNoneOp>(batchNormOp.getLoc()),
+            rewriter.create<ONNXNoneOp>(batchNormOp.getLoc())});
     return success();
   }
 };
