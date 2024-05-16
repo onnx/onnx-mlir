@@ -44,8 +44,9 @@ mlir::StringRef getStrPaddingType(OP op);
 /// Check if input, output, kernel, strides, and paddingYype for each axis meet
 /// parameter restrictions for maxpool and avgpool.
 /// See "MaxPool2D/AvgPool2D Parameter Restrictions" in "zDNN API Reference"
-bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
-    int64_t strides, int64_t outputShape, mlir::StringRef paddingType);
+bool meetPoolParamRestrictions(mlir::Operation *op, int64_t inputShape,
+    int64_t kernelShape, int64_t strides, int64_t outputShape,
+    mlir::StringRef paddingType);
 
 bool emitWarningMessageNNPAUnsupported(
     mlir::Operation *op, mlir::StringRef message);
