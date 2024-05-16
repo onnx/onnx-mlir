@@ -603,8 +603,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
         Type bType = B.getType();
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
           std::string message = "A or B is not shaped type with rank";
-          return !emitWarningMessageNNPAUnsupported(
-              op.getOperation(), StringRef(message));
+          return !emitWarningMessageNNPAUnsupported(op.getOperation(), message);
         }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), A, true))
@@ -650,11 +649,11 @@ void getRewriteONNXForZHighDynamicallyLegal(
                            std::to_string(i) + " of B are the same.";
             }
           }
-          if (sameBatchDims)
-            return false;
-          else
+          if (!sameBatchDims)
             return !emitWarningMessageNNPAUnsupported(
                 op.getOperation(), message); /* true */
+
+          return false;
         }
 
         // Make other cases legal.

@@ -49,6 +49,6 @@ bool meetPoolParamRestrictions(mlir::Operation *op, int64_t inputShape,
     mlir::StringRef paddingType);
 
 bool emitWarningMessageNNPAUnsupported(
-    mlir::Operation *op, mlir::StringRef message);
+    mlir::Operation *op, const std::string &message);
 
 bool emitWarningMessageInCompatibility(mlir::Operation *op);
