@@ -837,8 +837,13 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   auto shapeData = dataType.getShape();
 
   // Check keepdims.
-  if ((shapeData.size() != 4) || (keepdims == 0) || !axes)
-    return false;
+  if ((shapeData.size() != 4) || (keepdims == 0) || !axes) {
+    std::string message = "The rank of `data` (" +
+                          std::to_string(shapeData.size()) +
+                          ") must be 4 and `keepdims`(" +
+                          std::to_string(keepdims) + ") must be 1.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
 
   // Check axes.
   mlir::ArrayAttr axesVal = axes.value();
@@ -846,14 +851,33 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   if ((axesAttrs.size() != 2) ||
       (axesAttrs[0].dyn_cast<IntegerAttr>().getInt() != 2) ||
       (axesAttrs[1].dyn_cast<IntegerAttr>().getInt() != 3)) {
-    return false;
+    std::string message =
+        axesAttrs.size() != 2
+            ? ("The size of `axes`(" + std::to_string(axesAttrs.size()) +
+                  ") must be 2.")
+            : "The `axes`[0] (" +
+                  std::to_string(
+                      axesAttrs[0].dyn_cast<IntegerAttr>().getInt()) +
+                  ") must be 2, and `axes`[1] (" +
+                  std::to_string(
+                      axesAttrs[1].dyn_cast<IntegerAttr>().getInt()) +
+                  ") must be 3.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
   }
 
   // Check dimensions.
   if ((shapeData[2] == ShapedType::kDynamic) ||
-      (shapeData[3] == ShapedType::kDynamic) || (shapeData[2] > 1024) ||
-      (shapeData[3] > 1024))
-    return false;
+      (shapeData[3] == ShapedType::kDynamic)) {
+    std::string message =
+        "Height and Width dimension must be static dimension.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
+  if ((shapeData[2] > 1024) || (shapeData[3] > 1024)) {
+    std::string message = "Height (" + std::to_string(shapeData[2]) +
+                          ") and Width (" + std::to_string(shapeData[3]) +
+                          ") dimension must be less than or equal to 1024.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
 
   return true;
 }
