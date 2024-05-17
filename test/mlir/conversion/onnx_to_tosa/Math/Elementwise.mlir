@@ -870,7 +870,7 @@ func.func @test_sin(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 // CHECK-LABEL:  func @test_sin
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.custom [[PARAM_0_]] {domain_name = "UNDEF", implementation_attrs = "linalg.generic", operator_name = "math.sin"} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.sin [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
 // CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
 // CHECK-NEXT:    }
 }
@@ -882,7 +882,7 @@ func.func @test_sin_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_sin_dynamic
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.custom [[PARAM_0_]] {domain_name = "UNDEF", implementation_attrs = "linalg.generic", operator_name = "math.sin"} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.sin [[PARAM_0_]]  : (tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK-NEXT:      return [[VAR_0_]] : tensor<?x10xf32>
 // CHECK-NEXT:    }
 }
@@ -894,7 +894,7 @@ func.func @test_cos(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
   "func.return"(%0) : (tensor<10x10xf32>) -> ()
 // CHECK-LABEL:  func @test_cos
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<10x10xf32>) -> tensor<10x10xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.custom [[PARAM_0_]] {domain_name = "UNDEF", implementation_attrs = "linalg.generic", operator_name = "math.cos"} : (tensor<10x10xf32>) -> tensor<10x10xf32>
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.cos [[PARAM_0_]] : (tensor<10x10xf32>) -> tensor<10x10xf32>
 // CHECK-NEXT:      return [[VAR_0_]] : tensor<10x10xf32>
 // CHECK-NEXT:    }
 }
@@ -906,7 +906,7 @@ func.func @test_cos_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<*xf32> {
   "func.return"(%0) : (tensor<*xf32>) -> ()
 // CHECK-LABEL:  func @test_cos_dynamic
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x10xf32>) -> tensor<?x10xf32> {
-// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.custom [[PARAM_0_]] {domain_name = "UNDEF", implementation_attrs = "linalg.generic", operator_name = "math.cos"} : (tensor<?x10xf32>) -> tensor<?x10xf32>
+// CHECK-NEXT:      [[VAR_0_:%.+]] = tosa.cos [[PARAM_0_]] : (tensor<?x10xf32>) -> tensor<?x10xf32>
 // CHECK-NEXT:      return [[VAR_0_]] : tensor<?x10xf32>
 // CHECK-NEXT:    }
 }
