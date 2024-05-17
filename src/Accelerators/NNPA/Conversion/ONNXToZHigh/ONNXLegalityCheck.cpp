@@ -141,21 +141,28 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   StringRef paddingType =
       getStrPaddingType<POOLOP, POOLOPAdaptor, POOLOPShapeHelper>(op);
   if (paddingType.empty()) {
-    std::string message = "Padding type must be `SAME_PADDING` or "
-                          "`VALID_PADDING`, but it is neither of those(empty).";
+    std::string message =
+        "Padding type must be `SAME_PADDING` or `VALID_PADDING`, but it is "
+        "neither of them. When attribute `auto_pad` is `NOTSET`, padding is "
+        "computed from input dimention etc, but when input has unknown "
+        "dimensions, it can't be computed.";
     return emitWarningMessageNNPAUnsupported(op, message);
   }
 
   // Check "MaxPool2D/AvgPool2D Parameter Restrictions". These restrictions are
   // described in "zDNN API Reference". Input tensor N(batchNum) and C(Channel)
   // dimensions must always match the output tensor's respective dimensions.
+  // When unknown dimensions are included, the restrictions are not checked and
+  // error messages are generated at runtime in zDNN if it doesn't meet.
+  // if ((inputType.hasStaticShape() && outputType.hasStaticShape()) &&
+  //    (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1])) {
   if (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1]) {
     std::string message =
         "Batch dimension in input tensor (" + std::to_string(shapeInput[0]) +
         ") and in output tensor (" + std::to_string(shapeOutput[0]) +
         ") are not the same, or channel dimension in input tensor (" +
         std::to_string(shapeInput[1]) + ") and in output tensor (" +
-        std::to_string(shapeOutput[1]) + " are not the same.";
+        std::to_string(shapeOutput[1]) + ") are not the same.";
     return emitWarningMessageNNPAUnsupported(op, message);
   }
 
@@ -1022,11 +1029,6 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
 
-  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-          op, op.getO_Y()))
-    return false;
-
   // dilations not supported. Only default one is accepted.
   if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1) {
     std::string message =
@@ -1035,6 +1037,11 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
         ") is not supported. Only default `dilations` (1, 1) is supported.";
     return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
   }
+
+  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
+          op, op.getO_Y()))
+    return false;
 
   return true;
 }
