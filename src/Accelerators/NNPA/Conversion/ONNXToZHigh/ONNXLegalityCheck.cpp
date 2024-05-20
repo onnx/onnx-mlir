@@ -169,7 +169,7 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   // Check if kernelShape is literal. Only static value is supported.
   if (llvm::any_of(shapeHelper.kernelShape,
           [](IndexExpr val) { return !val.isLiteral(); })) {
-    std::string message = "The kernel_shape are not static value.";
+    std::string message = "The kernel_shape must be static value.";
     return emitWarningMessageNNPAUnsupported(op, message);
   }
 
@@ -188,9 +188,12 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
     int64_t stridesW = shapeHelper.strides[1];
     bool checkH = meetPoolParamRestrictions(op.getOperation(), inputShapeH,
         kernelShapeH, stridesH, outputShapeH, paddingType);
+    if (!checkH)
+      return false;
     bool checkW = meetPoolParamRestrictions(op.getOperation(), inputShapeW,
         kernelShapeW, stridesW, outputShapeW, paddingType);
-    return checkH && checkW;
+    if (!checkW)
+      return false;
   }
 
   // No check for tensors with unknown dimensions.
@@ -301,9 +304,9 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
     // must match
     if (inputShape != kernelShape) {
       std::string message = "When the strides is zero, both input tensor's "
-                            "Height/Width dimension (" +
+                            "Height or Width dimension (" +
                             std::to_string(inputShape) +
-                            ")  and the kernel_height/width (" +
+                            ")  and the kernel_height or width (" +
                             std::to_string(kernelShape) + ") must match.";
       return emitWarningMessageNNPAUnsupported(op, message);
     }
@@ -317,7 +320,7 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
     // Output tensor's height and width dimensions must be 1.
     if (outputShape != 1) {
       std::string message = "When the strides is zero, output tensor's height "
-                            "and width dimensions (" +
+                            "or width dimensions (" +
                             std::to_string(outputShape) + ") must be 1.";
       return emitWarningMessageNNPAUnsupported(op, message);
     }
@@ -331,7 +334,8 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
     // strides are greater than zero
     // kernel_width and kernel_height must be less than or equal to 64.
     if (kernelShape > 64) {
-      std::string message = "When the strides are greater than zero, the "
+      std::string message = "When the strides (" + std::to_string(strides) +
+                            ") are greater than zero, the "
                             "kernel_width and kernel_height (" +
                             std::to_string(kernelShape) +
                             ") must be less than or equal to 64.";
@@ -341,7 +345,9 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
       int64_t reqOutputShape = ceil((float)inputShape / strides);
       if (outputShape != reqOutputShape) {
         std::string message =
-            "When the padding type is SAME_PADDING, output tensor's height and "
+            "When the strides (" + std::to_string(strides) +
+            ") and the padding type is `SAME_PADDING`, output tensor's height "
+            "or "
             "width dimensions (" +
             std::to_string(outputShape) +
             ") must be equal with ceil((float)inputShape / strides)) (=" +
@@ -352,8 +358,9 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
       int64_t reqOutputShape =
           ceil((float)(inputShape - kernelShape + 1) / strides);
       if (outputShape != reqOutputShape) {
-        std::string message = "When the padding type is VALID_PADDING, output "
-                              "tensor's height and width dimensions (" +
+        std::string message = "When the strides (" + std::to_string(strides) +
+                              ") and the padding type is VALID_PADDING, output "
+                              "tensor's height or width dimensions (" +
                               std::to_string(outputShape) +
                               ") must be equal with ceil((float)(inputShape - "
                               "kernelShape + 1) / strides)) (= " +
@@ -868,13 +875,12 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   // Check dimensions.
   if ((shapeData[2] == ShapedType::kDynamic) ||
       (shapeData[3] == ShapedType::kDynamic)) {
-    std::string message =
-        "Height and Width dimension must be static dimension.";
+    std::string message = "Height or Width dimension must be static dimension.";
     return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
   }
   if ((shapeData[2] > 1024) || (shapeData[3] > 1024)) {
     std::string message = "Height (" + std::to_string(shapeData[2]) +
-                          ") and Width (" + std::to_string(shapeData[3]) +
+                          ") or Width (" + std::to_string(shapeData[3]) +
                           ") dimension must be less than or equal to 1024.";
     return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
   }
@@ -1095,40 +1101,100 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
 /// Check if input, output, kernel, strides, and paddingType for each axis meet
 /// parameter restrictions for conv2d. See "Conv2D Parameter Restrictions"
 /// in "zDNN API Reference"
-static bool checkConv2DParamRestrictions(int64_t inputDim, int64_t kernelDim,
-    int64_t stride, int64_t outputDim, StringRef paddingType) {
+static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
+    int64_t kernelDim, int64_t stride, int64_t outputDim,
+    StringRef paddingType) {
   if (stride == 0) {
     // paddingType must be VALID_PADDING.
-    if (!paddingType.equals("VALID_PADDING"))
-      return false;
+    if (!paddingType.equals("VALID_PADDING")) {
+      std::string message = "When the strides (" + std::to_string(stride) +
+                            ") is zero, padding type (" + paddingType.str() +
+                            ") must be VALID_PADDING.";
+      return emitWarningMessageNNPAUnsupported(op, message);
+    }
     // inputDim must be = kernel dim.
-    if (inputDim != kernelDim)
-      return false;
+    if (inputDim != kernelDim) {
+      std::string message = "When the strides (" + std::to_string(stride) +
+                            ") is zero, both input tensor's "
+                            "Height or Width dimension (" +
+                            std::to_string(inputDim) +
+                            ")  and the kernel_height or width (" +
+                            std::to_string(kernelDim) + ") must match.";
+      return emitWarningMessageNNPAUnsupported(op, message);
+    }
     // inputDim and kernelDim are less than or equal to 448.
-    if (inputDim > 448)
-      return false;
+    if (inputDim > 448) {
+      std::string message =
+          "When the strides (" + std::to_string(stride) +
+          ") is zero, the input tensor's Height or Width dimension (" +
+          std::to_string(inputDim) + ") must be less than or equal to 448.";
+      return emitWarningMessageNNPAUnsupported(op, message);
+    }
     // outputDim must be 1.
-    if (outputDim != 1)
-      return false;
+    if (outputDim != 1) {
+      std::string message = "When the strides (" + std::to_string(stride) +
+                            ") is zero, output tensor's height "
+                            "or width dimensions (" +
+                            std::to_string(outputDim) + ") must be 1.";
+      return emitWarningMessageNNPAUnsupported(op, message);
+    }
   } else if (stride > 0 && stride <= 13) {
     // stride is greater than zero and less than or equal to 13.
     // kernel dim must be less than or equal to 64.
-    if (kernelDim > 64)
-      return false;
+    if (kernelDim > 64) {
+      std::string message =
+          "When the strides (" + std::to_string(stride) +
+          ") is greater than zero and less than or equal to 13, "
+          "kernel_width and kernel_height (" +
+          std::to_string(kernelDim) + ") must be less than or equal to 64.";
+      return emitWarningMessageNNPAUnsupported(op, message);
+    }
     if (paddingType.equals("SAME_PADDING")) {
       // height_out restriction.
-      if (outputDim != ceil((float)inputDim / stride))
-        return false;
+      int64_t reqOutputShape = ceil((float)inputDim / stride);
+      if (outputDim != reqOutputShape) {
+        std::string message =
+            "When the strides (" + std::to_string(stride) +
+            ")  is greater than zero and less than or equal to 13, output "
+            "tensor's height or width dimensions (" +
+            std::to_string(outputDim) +
+            ") must be equal with ceil((float)inputShape / stride)) (=" +
+            std::to_string(reqOutputShape) + ").";
+        return emitWarningMessageNNPAUnsupported(op, message);
+      }
     } else { // VALID_PADDING
       // inputDim must be >= kernelDim.
-      if (inputDim < kernelDim)
-        return false;
+      if (inputDim < kernelDim) {
+        std::string message =
+            "When the strides (" + std::to_string(stride) +
+            ") is greater than zero and less than or equal to 13 and the "
+            "padding type is VALID_PADDING, input tensor's height or width "
+            "dimensions (" +
+            std::to_string(inputDim) +
+            ") must be less than kernel height or width dimension (" +
+            std::to_string(kernelDim) + ").";
+        return emitWarningMessageNNPAUnsupported(op, message);
+      }
       // height_out restriction.
-      if (outputDim != ceil((float)(inputDim - kernelDim + 1) / stride))
-        return false;
+      int64_t reqOutputShape = ceil((float)(inputDim - kernelDim + 1) / stride);
+      if (outputDim != reqOutputShape) {
+        std::string message =
+            "When the strides (" + std::to_string(stride) +
+            ") is greater than zero and less than or equal to "
+            "13 and the padding type is VALID_PADDING, output "
+            "tensor's height or width dimensions (" +
+            std::to_string(outputDim) +
+            ") must be equal with ceil((float)(inputShape - "
+            "kernelShape + 1) / strides)) (= " +
+            std::to_string(reqOutputShape) + ").";
+        return emitWarningMessageNNPAUnsupported(op, message);
+      }
     }
-  } else
-    return false;
+  } else {
+    std::string message = "When the strides (" + std::to_string(stride) +
+                          ") must be less than or equal to 13.";
+    return emitWarningMessageNNPAUnsupported(op, message);
+  }
 
   return true;
 }
@@ -1159,24 +1225,37 @@ bool isSuitableForZDNN<ONNXConvOp>(
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 
   // 4D tensors(N x C x H x W) are supported as input and output.
-  if (shapeInput.size() != 4 || shapeOutput.size() != 4)
-    return false;
+  if (shapeInput.size() != 4 || shapeOutput.size() != 4) {
+    std::string message = "4D tensors(N x C x H x W) are supported as input "
+                          "and output, but the input dim size (" +
+                          std::to_string(shapeInput.size()) +
+                          ") is not 4, or output dim size (" +
+                          std::to_string(shapeOutput.size()) + ") is not 4.";
+    return emitWarningMessageNNPAUnsupported(op, message);
+  }
 
-  // Do not support dynamic height and weight dimensions since we can not check
+  // Do not support dynamic height and width dimensions since we can not check
   // them at compile time.
   if (ShapedType::isDynamic(shapeInput[2]) ||
       ShapedType::isDynamic(shapeInput[3]) ||
       ShapedType::isDynamic(shapeOutput[2]) ||
       ShapedType::isDynamic(shapeOutput[3]))
-    return false;
+    return emitWarningMessageNNPAUnsupported(op,
+        "Height and/or width have dynamic dimensions. They are not support.");
 
   // Do not support group.
   if (operandAdaptor.getGroup() != 1)
-    return false;
+    return emitWarningMessageNNPAUnsupported(
+        op, "`group` must be 1 (default).");
 
   // Do not support non-default dilations.
-  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1)
-    return false;
+  if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1) {
+    std::string message =
+        "The `dilations` (" + std::to_string(shapeHelper.dilations[0]) + ", " +
+        std::to_string(shapeHelper.dilations[1]) +
+        ") is not supported. Only default `dilations` (1, 1) is supported.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
 
   // `getStrPaddingType` returns `SAME_PADDING`, `VALID_PADDING`, or empty.
   // `zdnn_conv2d` only support padding for `SAME_PADDING` and `VALID_PADDING`.
@@ -1184,13 +1263,21 @@ bool isSuitableForZDNN<ONNXConvOp>(
       getStrPaddingType<ONNXConvOp, ONNXConvOpAdaptor, ONNXConvOpShapeHelper>(
           op);
 
-  if (paddingType.empty())
-    return false;
+  if (paddingType.empty()) {
+    std::string message =
+        "Padding type must be `SAME_PADDING` or `VALID_PADDING`, but it is "
+        "neither of them. When attribute `auto_pad` is `NOTSET`, padding is "
+        "computed from input dimention etc, but when input has unknown "
+        "dimensions, it can't be computed.";
+    return emitWarningMessageNNPAUnsupported(op, message);
+  }
 
   // Check if kernelShape is literal. Only static value is supported.
   if (llvm::any_of(shapeHelper.kernelShape,
-          [](IndexExpr val) { return !val.isLiteral(); }))
-    return false;
+          [](IndexExpr val) { return !val.isLiteral(); })) {
+    std::string message = "The kernel_shape must be static value.";
+    return emitWarningMessageNNPAUnsupported(op, message);
+  }
 
   int64_t inputShapeH = shapeInput[2];
   int64_t inputShapeW = shapeInput[3];
@@ -1203,11 +1290,11 @@ bool isSuitableForZDNN<ONNXConvOp>(
 
   // Check parameter restrictions for conv2d for each axis.
   bool isHOK = checkConv2DParamRestrictions(
-      inputShapeH, kernelShapeH, stridesH, outputShapeH, paddingType);
+      op, inputShapeH, kernelShapeH, stridesH, outputShapeH, paddingType);
   if (!isHOK)
     return false;
   bool isWOK = checkConv2DParamRestrictions(
-      inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
+      op, inputShapeW, kernelShapeW, stridesW, outputShapeW, paddingType);
   if (!isWOK)
     return false;
 
