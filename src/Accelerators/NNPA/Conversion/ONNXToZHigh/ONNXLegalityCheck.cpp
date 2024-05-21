@@ -154,8 +154,9 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   // dimensions must always match the output tensor's respective dimensions.
   // When unknown dimensions are included, the restrictions are not checked and
   // error messages are generated at runtime in zDNN if it doesn't meet.
-  // if ((inputType.hasStaticShape() && outputType.hasStaticShape()) &&
-  //    (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1])) {
+  //  if ((inputType.hasStaticShape() && outputType.hasStaticShape()) &&
+  //      (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1]))
+  //      {
   if (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1]) {
     std::string message =
         "Batch dimension in input tensor (" + std::to_string(shapeInput[0]) +
