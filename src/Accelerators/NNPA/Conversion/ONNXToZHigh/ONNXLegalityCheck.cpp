@@ -1060,6 +1060,11 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
   ONNXMaxPoolSingleOutOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
 
+  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
+          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
+          op, op.getO_Y()))
+    return false;
+
   // dilations not supported. Only default one is accepted.
   if (shapeHelper.dilations[0] != 1 || shapeHelper.dilations[1] != 1) {
     std::string message =
@@ -1068,11 +1073,6 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
         ") is not supported. Only default `dilations` (1, 1) is supported.";
     return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
   }
-
-  if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
-          ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-          op, op.getO_Y()))
-    return false;
 
   return true;
 }
