@@ -193,7 +193,7 @@ struct ONNXInstanceNormalizationOpLowering
     Value resMemRef;
     if (hasStaticShape(instanceOp.getOutput().getType())) {
       // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      MemRefType memRefType  =
+      MemRefType memRefType =
           typeConverter->convertType(instanceOp.getOutput().getType())
               .cast<MemRefType>();
       resMemRef = create.mem.alignedAlloc(memRefType);
@@ -709,14 +709,14 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     Value memRef;
     if (hasStaticShape(lnOp.getOutput().getType())) {
       // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      MemRefType memRefType  =
+      MemRefType memRefType =
           typeConverter->convertType(lnOp.getOutput().getType())
               .cast<MemRefType>();
       memRef = create.mem.alignedAlloc(memRefType);
     } else {
       memRef = create.mem.alignedAlloc(memRefType, inputDims);
     }
-      
+
     // Flatten (do not keep flatten dims at this time).
     DimsExpr flatDims;
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
@@ -973,9 +973,10 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
           Value tmpRedMemRef;
-          Value tmpRedMemRef2;  
+          Value tmpRedMemRef2;
           if (hasStaticShape(lnOp.getY().getType())) {
-            // This is a patch related to https://github.com/onnx/onnx/issues/6133
+            // This is a patch related to
+            // https://github.com/onnx/onnx/issues/6133
             MemRefType tmpRedType =
                 typeConverter->convertType(lnOp.getY().getType())
                     .cast<MemRefType>();
