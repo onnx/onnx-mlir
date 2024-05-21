@@ -649,11 +649,8 @@ void getRewriteONNXForZHighDynamicallyLegal(
                            std::to_string(i) + " of B are the same.";
             }
           }
-          if (!sameBatchDims)
-            return !emitWarningMessageNNPAUnsupported(
-                op.getOperation(), message); /* true */
-
-          return false;
+          return (!sameBatchDims) ||
+                 emitWarningMessageNNPAUnsupported(op.getOperation(), message);
         }
 
         // Make other cases legal.
