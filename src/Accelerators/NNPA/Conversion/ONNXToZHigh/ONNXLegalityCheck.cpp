@@ -103,7 +103,8 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   // Check "MaxPool2D/AvgPool2D Parameter Restrictions". These restrictions are
   // described in "zDNN API Reference". Input tensor N(batchNum) and C(Channel)
   // dimensions must always match the output tensor's respective dimensions.
-  if (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1])
+  if ((inputType.hasStaticShape() && outputType.hasStaticShape()) &&
+      (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1]))
     return false;
 
   // Check if kernelShape is literal. Only static value is supported.
