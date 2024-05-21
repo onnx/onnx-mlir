@@ -906,7 +906,8 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
       (direction != BIDIRECTIONAL))
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `direction` must be `forward`, `reverse`, or `bidirectional`.");
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), W))
@@ -920,32 +921,52 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   std::optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic)
-    return false;
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic) {
+    std::string message =
+        "The first dimension of weight tensor `W` for `num_directions` (" +
+        std::to_string(wShape[0]) +
+        ") must be 1 or 2, and the second dimension of it for `hidden_size` (" +
+        std::to_string(wShape[1]) + ") must be static.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // Check if R has static dimensions, and the direction dim is 1 or 2.
   ArrayRef<int64_t> rShape = R.getType().cast<ShapedType>().getShape();
   if (!R.getType().cast<ShapedType>().hasStaticShape() ||
-      (rShape[0] != 1 && rShape[0] != 2))
-    return false;
+      (rShape[0] != 1 && rShape[0] != 2)) {
+    std::string message =
+        "The recurrence weight tensor `R` must have static dimension, and the "
+        "first dimension of it must be 1 or 2.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // Check hidden_size.
-  if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM)
-    return false;
+  if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_LSTM) {
+    std::string message = "The `hidden_size` (" + std::to_string(hidden_size) +
+                          ") must be less than or equal to " +
+                          std::to_string(MAXIMUM_NUM_HIDDEN_SIZE_LSTM) + ".";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // zDNN does not support sequence_lens.
   if (!isNoneValue(op.getSequenceLens()))
     return false;
   // check if B, initial_h and initial_c have static dimensions if given.
   if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
-    return false;
+    return emitWarningMessageNNPAUnsupported(
+        op.getOperation(), "The bias tensor `B` must be static.");
   // check if B's direction dim is 1 or 2.
   if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
-    if (bShape[0] != 1 && bShape[0] != 2)
-      return false;
+    if (bShape[0] != 1 && bShape[0] != 2) {
+      std::string message = "The first dimension of the bias tensor `B` (" +
+                            std::to_string(bShape[0]) + ") must be 1 or 2.";
+      return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+    }
   }
   // zDNN does not support P(peepholes), activation_alpha and activation_beta.
   if (!isNoneValue(op.getP()) || op.getActivationAlpha() ||
       op.getActivationBeta())
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `activation_alpha`, `activation_beta`, and the "
+        "weight tensor for peepoles are not supported.");
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
   if ((activations && (activations.value().size() > 0) &&
           (activations.value()[0].cast<StringAttr>().getValue() !=
@@ -954,17 +975,28 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
           (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
       (activations && (activations.value().size() > 2) &&
           (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `activations` must be the default activations "
+        "([Sigmoid, Tanh, Tanh]).");
   // zDNN does not support clip(Cell clip threshold).
   if (op.getClip())
-    return false;
+    return emitWarningMessageNNPAUnsupported(
+        op.getOperation(), "The `clip` is not supported.");
   // zDNN does not support hidden_size not equal to the hidden size in
   // other inputs.
-  if (op.getHiddenSize() && (op.getHiddenSize().value() != hidden_size))
-    return false;
+  if (op.getHiddenSize() && (op.getHiddenSize().value() != hidden_size)) {
+    std::string message = "The `hidden_size` in attribute (" +
+                          std::to_string(op.getHiddenSize().value()) +
+                          ") must be the same as the third dimension of the "
+                          "recurrence weight tensor `W` (" +
+                          std::to_string(hidden_size) + ").";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // zDNN does not support input_forget.
   if (op.getInputForget() != 0)
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `input_forget` (" + std::to_string(op.getInputForget()) +
+            ") must be default value(0).");
   return true;
 }
 
@@ -985,7 +1017,8 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
       (direction != BIDIRECTIONAL))
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `direction` must be `forward`, `reverse`, or `bidirectional`.");
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), W))
@@ -999,26 +1032,44 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   std::optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
   ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic)
-    return false;
+  if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic) {
+    std::string message =
+        "The first dimension of weight tensor `W` for `num_directions` (" +
+        std::to_string(wShape[0]) +
+        ") must be 1 or 2, and the second dimension of it for `hidden_size` (" +
+        std::to_string(wShape[1]) + ") must be static.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // Check if R has static dimensions.
-  if (!R.getType().cast<ShapedType>().hasStaticShape())
-    return false;
+  if (!R.getType().cast<ShapedType>().hasStaticShape()) {
+    std::string message =
+        "The recurrence weight tensor `R` must have static dimension.";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // Check hidden_size.
-  if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU)
-    return false;
+  if (hidden_size > MAXIMUM_NUM_HIDDEN_SIZE_GRU) {
+    std::string message = "The `hidden_size` (" + std::to_string(hidden_size) +
+                          ") must be less than or equal to " +
+                          std::to_string(MAXIMUM_NUM_HIDDEN_SIZE_GRU) + ".";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // check if B and initial_h have static dimensions if given.
   if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
-    return false;
+    return emitWarningMessageNNPAUnsupported(
+        op.getOperation(), "The bias tensor `B` must be static.");
   // check if B's direction dim is 1 or 2.
   if (!isNoneValue(B)) {
     ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
-    if (bShape[0] != 1 && bShape[0] != 2)
-      return false;
+    if (bShape[0] != 1 && bShape[0] != 2) {
+      std::string message = "The first dimension of the bias tensor `B` (" +
+                            std::to_string(bShape[0]) + ") must be 1 or 2.";
+      return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+    }
   }
   // zDNN does not support activation_alpha and activation_beta.
   if (op.getActivationAlpha() || op.getActivationBeta())
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `activation_alpha` and `activation_beta` are not supported.");
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
   if ((activations && (activations.value().size() > 0) &&
           (activations.value()[0].cast<StringAttr>().getValue() !=
@@ -1027,21 +1078,34 @@ bool isSuitableForZDNN<ONNXGRUOp>(
           (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
       (activations && (activations.value().size() > 2) &&
           (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `activations` must be the default activations "
+        "([Sigmoid, Tanh, Tanh]).");
   // zDNN does not support clip(Cell clip threshold).
   if (op.getClip())
-    return false;
+    return emitWarningMessageNNPAUnsupported(
+        op.getOperation(), "The `clip` is not supported.");
   // zDNN does not support hidden_size not equal to the hidden size in
   // other inputs.
-  if (op.getHiddenSize() && (op.getHiddenSize().value() != hidden_size))
-    return false;
+  if (op.getHiddenSize() && (op.getHiddenSize().value() != hidden_size)) {
+    std::string message = "The `hidden_size` in attribute (" +
+                          std::to_string(op.getHiddenSize().value()) +
+                          ") must be the same as the third dimension of the "
+                          "recurrence weight tensor `W` (" +
+                          std::to_string(hidden_size) + ").";
+    return emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+  }
   // zDNN support the "linear_before_reset==1" case only.
   if (op.getLinearBeforeReset() != 1)
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `linear_before_reset` (" +
+            std::to_string(op.getLinearBeforeReset()) + ") must be 1.");
   // zDNN does not support sequence_lens and we cannot fix the result.
   // For one direction, we fix the result afterward
   if (!isNoneValue(op.getSequenceLens()) && direction == BIDIRECTIONAL)
-    return false;
+    return emitWarningMessageNNPAUnsupported(op.getOperation(),
+        "The `sequence_lens` is not supported when "
+        "`direction` is `bidirectional`.");
   return true;
 }
 
