@@ -4,7 +4,7 @@
 
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -61,7 +61,16 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     Value variance = adaptor.getVar();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc = create.mem.alignedAlloc(operand, memRefType);
+    Value alloc;
+    if (hasStaticShape(batchNormOp.getOutput().getType())) {
+      // This is a patch related to https://github.com/onnx/onnx/issues/6133
+      MemRefType memRefType =
+          typeConverter->convertType(batchNormOp.getOutput().getType())
+              .cast<MemRefType>();
+      alloc = create.mem.alignedAlloc(memRefType);
+    } else {
+      alloc = create.mem.alignedAlloc(operand, memRefType);
+    }
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
@@ -181,7 +190,16 @@ struct ONNXInstanceNormalizationOpLowering
     Value biasMemRef = adaptor.getB();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
+    Value resMemRef;
+    if (hasStaticShape(instanceOp.getOutput().getType())) {
+      // This is a patch related to https://github.com/onnx/onnx/issues/6133
+      MemRefType memRefType  =
+          typeConverter->convertType(instanceOp.getOutput().getType())
+              .cast<MemRefType>();
+      resMemRef = create.mem.alignedAlloc(memRefType);
+    } else {
+      resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
+    }
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn
     // Shapes of scale, bias must be C.
@@ -688,7 +706,17 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     // Allocate.
-    memRef = create.mem.alignedAlloc(memRefType, inputDims);
+    Value memRef;
+    if (hasStaticShape(lnOp.getOutput().getType())) {
+      // This is a patch related to https://github.com/onnx/onnx/issues/6133
+      MemRefType memRefType  =
+          typeConverter->convertType(lnOp.getOutput().getType())
+              .cast<MemRefType>();
+      memRef = create.mem.alignedAlloc(memRefType);
+    } else {
+      memRef = create.mem.alignedAlloc(memRefType, inputDims);
+    }
+      
     // Flatten (do not keep flatten dims at this time).
     DimsExpr flatDims;
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
@@ -944,8 +972,19 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
-          Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
-          Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
+          Value tmpRedMemRef;
+          Value tmpRedMemRef2;  
+          if (hasStaticShape(lnOp.getY().getType())) {
+            // This is a patch related to https://github.com/onnx/onnx/issues/6133
+            MemRefType tmpRedType =
+                typeConverter->convertType(lnOp.getY().getType())
+                    .cast<MemRefType>();
+            tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
+            tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
+          } else {
+            tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
+            tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
+          }
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
           IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0]);
           IndexExpr isFull = create.krnlIE.isTileFull(
