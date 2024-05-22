@@ -962,20 +962,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {
           MDBuilder create(ck);
           IndexExprScope innerScope(ck);
-          Value tmpRedMemRef;
-          Value tmpRedMemRef2;
-          if (hasStaticShape(lnOp.getY().getType())) {
-            // This is a patch related to
-            // https://github.com/onnx/onnx/issues/6133
-            MemRefType tmpRedType =
-                typeConverter->convertType(lnOp.getY().getType())
-                    .cast<MemRefType>();
-            tmpRedMemRef = create.mem.alignedAlloc(tmpRedType);
-            tmpRedMemRef2 = create.mem.alignedAlloc(tmpRedType);
-          } else {
-            tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
-            tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
-          }
+          Value tmpRedMemRef = create.mem.alignedAlloca(tmpRedType);
+          Value tmpRedMemRef2 = create.mem.alignedAlloca(tmpRedType);
           IndexExpr blockedCurrIndex = DimIndexExpr(blockedLoopIndices[0]);
           IndexExpr blockedUB = SymbolIndexExpr(XFlatDims[0]);
           IndexExpr isFull = create.krnlIE.isTileFull(
