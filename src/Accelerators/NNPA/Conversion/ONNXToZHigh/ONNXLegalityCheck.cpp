@@ -646,8 +646,7 @@ bool isSuitableForZDNN<ONNXSoftplusOp>(
     return false;
   if (!isValidElementTypeAndRank(op.getX()))
     return false;
-  ShapedType inputType = op.getX().getType().cast<ShapedType>();
-  return inputType.hasRank() && (inputType.getRank() <= 4);
+  return true;
 }
 
 /// Check legality for ONNXLSTM.

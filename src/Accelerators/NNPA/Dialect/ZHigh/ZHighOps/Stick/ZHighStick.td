@@ -91,7 +91,11 @@ def ReplaceONNXLeakyReluPattern: Pat<
 //   zhigh.Add (
 //       zhigh.Relu(%X),
 //       zhigh.log(zhigh.Sub(zhigh.Exp(zhigh.Min(%X,%minusX)), %minusOne)))
-//
+// References:
+// http://www.beam2d.net/blog/2014/03/02/softplus/ (Japanese)
+// https://www-beam2d-net.translate.goog/blog/2014/03/02/softplus/?_x_tr_sch=http&_x_tr_sl=ja&_x_tr_tl=en&_x_tr_hl=ja&_x_tr_pto=wapp (Translated English)
+// c.f.
+// -|x| is replaced by min(x, -x), since NNPA does not have the abs(x) function.
 // Constraints:
 //   - %X should have static shape
 //
