@@ -62,10 +62,10 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
-    if (hasStaticShape(batchNormOp.getOutput().getType())) {
+    if (hasStaticShape(batchNormOp.getO_Y.getType())) {
       // This is a patch related to https://github.com/onnx/onnx/issues/6133
       MemRefType memRefType =
-          typeConverter->convertType(batchNormOp.getOutput().getType())
+          typeConverter->convertType(batchNormOp.getO_Y.getType())
               .cast<MemRefType>();
       alloc = create.mem.alignedAlloc(memRefType);
     } else {
@@ -706,17 +706,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
     // Allocate.
-    Value memRef;
-    if (hasStaticShape(lnOp.getOutput().getType())) {
-      // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      MemRefType memRefType =
-          typeConverter->convertType(lnOp.getOutput().getType())
-              .cast<MemRefType>();
-      memRef = create.mem.alignedAlloc(memRefType);
-    } else {
-      memRef = create.mem.alignedAlloc(memRefType, inputDims);
-    }
-
+    memRef = create.mem.alignedAlloc(memRefType, inputDims);
     // Flatten (do not keep flatten dims at this time).
     DimsExpr flatDims;
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
