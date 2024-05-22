@@ -62,10 +62,10 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     // Insert an allocation and deallocation for the result of this operation.
     Value alloc;
-    if (hasStaticShape(batchNormOp.getO_Y.getType())) {
+    if (hasStaticShape(batchNormOp.getO_Y().getType())) {
       // This is a patch related to https://github.com/onnx/onnx/issues/6133
       MemRefType memRefType =
-          typeConverter->convertType(batchNormOp.getO_Y.getType())
+          typeConverter->convertType(batchNormOp.getO_Y().getType())
               .cast<MemRefType>();
       alloc = create.mem.alignedAlloc(memRefType);
     } else {
