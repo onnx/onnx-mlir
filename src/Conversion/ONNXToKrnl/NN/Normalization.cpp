@@ -386,12 +386,11 @@ LogicalResult generateGenericLayerNormOpONNXCode(
   if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
     // Reduction of input
     meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+    Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
+    Value XPow2 = create.onnx.mul(X, X);
+    Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
+    var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
     d = create.onnx.sub(X, meanOfX);
-    Value XPow2 = create.onnx.mul(d, d);
-    // Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
-    // Value XPow2 = create.onnx.mul(X, X);
-    var = create.onnx.reduceMean(reductionType, XPow2, axes);
-    // var = create.onnx.sub(meanOfXPow2, pow2OfMeanOfX);
   } else if constexpr (std::is_same<OP_TYPE,
                            ONNXRMSLayerNormalizationOp>::value) {
     // For RMS, just take X as the input minus mean.
