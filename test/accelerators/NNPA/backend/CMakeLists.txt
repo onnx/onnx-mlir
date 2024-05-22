@@ -334,9 +334,10 @@ set(NNPA_TEST_LIST
 
     # ==OP== Softplus
     # ==MIN== 1
-    # ==LIM== - `axis` must be the last dimension, i.e. `rank - 1` or -1.
-    test_softplus_cpu,zdnn_log
-    test_softplus_example_cpu,zdnn_log
+    # ==LIM== The operations immediately before and after the Softplus operation must be executed on the NNPA. Otherwise, Softplus is executed on the CPU. This limitation is set to avoid performance degradation.
+    # Softplus op in following test cases doesn't run on NNPA because single Softplus op is included. Softplus is tested not by backend tests but by the TestSoftplus numerical test
+    # test_softplus_cpu,zdnn_log
+    # test_softplus_example_cpu,zdnn_log
 
     # ==OP== Sub
     # ==MIN== 6
