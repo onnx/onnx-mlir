@@ -332,6 +332,13 @@ set(NNPA_TEST_LIST
     test_softmax_example_cpu,zdnn_softmax_ext
     # test_softmax_large_number_cpu #  accuracy error
 
+    # ==OP== Softplus
+    # ==MIN== 1
+    # ==LIM== The operations immediately before and after the Softplus operation must be executed on the NNPA. Otherwise, Softplus is executed on the CPU. This limitation is set to avoid performance degradation.
+    # Softplus op in following test cases doesn't run on NNPA because single Softplus op is included. Softplus is tested not by backend tests but by the TestSoftplus numerical test
+    # test_softplus_cpu,zdnn_log
+    # test_softplus_example_cpu,zdnn_log
+
     # ==OP== Sub
     # ==MIN== 6
     # ==LIM== - Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions.
