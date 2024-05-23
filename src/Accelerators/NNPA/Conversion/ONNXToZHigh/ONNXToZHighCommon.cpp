@@ -102,4 +102,11 @@ Value getDynShape(Location loc, PatternRewriter &rewriter, Value x) {
       RankedTensorType::get({r}, rewriter.getI64Type()), dims, 0);
 }
 
+int OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
+    0; // 0: no reporting.
+void configureOnnxToZHighLoweringPass(bool reportOnNNPAUnsupportedOps) {
+  OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps =
+      reportOnNNPAUnsupportedOps;
+}
+
 } // namespace onnx_mlir

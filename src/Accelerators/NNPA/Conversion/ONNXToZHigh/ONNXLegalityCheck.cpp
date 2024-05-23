@@ -30,10 +30,13 @@ using namespace onnx_mlir;
 /// Emit warning message for NNPA unsupported case.
 bool emitWarningMessageNNPAUnsupported(
     Operation *op, const std::string &message) {
-  LLVM_DEBUG(llvm::outs() << "[NNPA Legality Check] Warning: "
-                          << op->getName().getStringRef() << "(onnx_node_name:"
-                          << op->getAttrOfType<StringAttr>("onnx_node_name")
-                          << ") runs on CPU. Reason: " << message << "\n");
+  if (OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps &&
+      !message.empty()) {
+    StringAttr opName = op->getName().getIdentifier();
+    std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
+    printf("==NNPA-UNSUPPORTEDOPS-REPORT== %s, %s, %s\n", opName.data(),
+        nodeNameStr.c_str(), message.c_str());
+  }
   return false;
 }
 

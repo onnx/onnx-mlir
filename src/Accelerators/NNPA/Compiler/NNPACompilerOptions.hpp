@@ -48,6 +48,13 @@ typedef enum {
   MuchFasterOpsWSU, /* FasterOpsWSU only if significantly faster. */
 } NNPAPlacementHeuristic;
 
+typedef enum {
+  // clang-format off
+  NNPANoReport,
+  NNPAUnsupportedOps,  // Generates diagnostic reporting for nnpa-unsupported ops (onnx-to-zhigh lowering)
+  // clang-format on
+} NNPAOptReport;
+
 extern llvm::cl::OptionCategory OnnxMlirOptions;
 extern llvm::cl::OptionCategory OnnxMlirCommonOptions;
 extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
@@ -60,5 +67,6 @@ extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;
 extern llvm::cl::opt<bool> profileZHighIR;
 extern llvm::cl::opt<std::string> nnpaLoadDevicePlacementFile;
 extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
+extern llvm::cl::opt<NNPAOptReport> nnpaOptReport;
 
 } // namespace onnx_mlir

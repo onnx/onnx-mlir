@@ -29,6 +29,10 @@ const std::string NNPA_DEVICE = "nnpa";
 
 bool isEnableScalarBcastBinary();
 
+struct OnnxToZHighLoweringConfiguration {
+  static int reportOnNNPAUnsupportedOps;
+};
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,

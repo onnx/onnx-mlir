@@ -91,4 +91,13 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
             "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
+llvm::cl::opt<NNPAOptReport> nnpaOptReport{"nnpa-opt-report",
+    llvm::cl::desc(
+        "Provide information on a specific compiler optimization for NNPA."),
+    llvm::cl::values(clEnumVal(NNPANoReport, "No report. Default value."),
+        clEnumVal(NNPAUnsupportedOps,
+            "Provide report on why ONNX ops did not run on NNPA.")),
+    llvm::cl::init(NNPAOptReport::NNPANoReport),
+    llvm::cl::cat(OnnxMlirOptions)};
+
 } // namespace onnx_mlir
