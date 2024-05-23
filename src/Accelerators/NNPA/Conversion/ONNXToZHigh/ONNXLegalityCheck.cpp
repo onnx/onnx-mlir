@@ -899,7 +899,7 @@ bool isSuitableForZDNN<ONNXSoftplusOp>(
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
     return false;
-  if (!isValidElementTypeAndRank(op.getX()))
+  if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   return true;
 }
