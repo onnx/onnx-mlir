@@ -92,3 +92,8 @@ add_numerical_test(TestScan
   TestElementwise.cpp
   LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
   )
+
+add_numerical_test(TestSoftplus
+  TestSoftplus.cpp
+  LINK_LIBS PRIVATE ${TEST_LINK_LIBS}
+  )
