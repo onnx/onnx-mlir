@@ -139,26 +139,26 @@ set(NNPA_TEST_LIST
     # ==OP== Conv
     # ==MIN== 1
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- Dimension in Height and weight must be static.<br>- `group` must be default value(1).<br>- `dilations` must be default value(1).<br>- Input and output tensors must have 4D (N x C x H x W).<br>- `kernel_shape` must be static.
-    test_basic_conv_with_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Height and/or width must be static dimensions.
-    test_basic_conv_without_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Height and/or width must be static dimensions.
+    test_basic_conv_with_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_basic_conv_without_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     # test_conv_with_autopad_same_cpu
-    test_conv_with_strides_no_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Height and/or width must be static dimensions.
-    test_conv_with_strides_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Height and/or width must be static dimensions.
+    test_conv_with_strides_no_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_conv_with_strides_padding_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     # test_conv_with_strides_and_asymmetric_padding_cpu
 
     # ==OP== ConvTranspose
     # ==MIN== 1
     # ==LIM== - 1D and 3D not supported because Conv1D and Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN.
-    # Disable backend tests for ConvTranspose, because they do not work on CPU.
+    # Spatial dims must be static.
     # test_convtranspose_1d_cpu,zdnn_conv1d
     # test_convtranspose_3d_cpu
-    test_convtranspose_autopad_same_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Spatial dims must be static even on CPU.
-    test_convtranspose_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Spatial dims must be static even on CPU.
+    test_convtranspose_autopad_same_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
     # test_convtranspose_dilations_cpu,zdnn_conv2d
-    test_convtranspose_kernel_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Spatial dims must be static even on CPU.
-    test_convtranspose_output_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Spatial dims must be static even on CPU.
-    test_convtranspose_pad_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Spatial dims must be static even on CPU.
-    test_convtranspose_pads_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # Spatial dims must be static even on CPU.
+    test_convtranspose_kernel_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_output_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_pad_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
+    test_convtranspose_pads_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST
 
     # ==OP== Div
     # ==MIN== 6
