@@ -20,9 +20,6 @@
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
-#include "llvm/Support/Debug.h"
-
-#define DEBUG_TYPE "legality-check"
 
 using namespace mlir;
 using namespace onnx_mlir;

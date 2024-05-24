@@ -47,8 +47,7 @@ using namespace onnx_mlir;
 namespace onnx_mlir {
 
 void configurePassesNNPA() {
-  configureOnnxToZHighLoweringPass(
-      nnpaOptReport == NNPAOptReport::NNPAUnsupportedOps);
+  configureOnnxToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps);
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
