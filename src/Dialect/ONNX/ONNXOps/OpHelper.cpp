@@ -732,6 +732,65 @@ bool hasIntegerPowerExponent(ONNXPowOp *op, int64_t &exponentValue) {
 }
 
 //===----------------------------------------------------------------------===//
+// Support for ReshapeOp.
+//===----------------------------------------------------------------------===//
+
+// Return true if reshape does nothing, aka it returns the same as the input.
+// Use dimAnalysis if provided.
+
+bool isIdentityReshape(
+    Value inputTensor, Value outputTensor, const DimAnalysis *dimAnalysis) {
+  if (!hasShapeAndRank(inputTensor) || !hasShapeAndRank(outputTensor))
+    return false;
+  Type inputType = inputTensor.getType();
+  Type outputType = outputTensor.getType();
+  ArrayRef<int64_t> inputShape = getShape(inputType);
+  ArrayRef<int64_t> outputShape = getShape(outputType);
+  int64_t inputRank = inputShape.size();
+  int64_t outputRank = outputShape.size();
+
+  // Check if same rank.
+  if (inputRank != outputRank)
+    return false;
+
+  // Check if same shape in the sense that both dimensions at the same index
+  // must be both static or dynamic. Otherwise, written rules may fail with the
+  // following error due to shape mismatched:
+  // ```
+  // error: failed to materialize conversion for result #0 of operation
+  // 'onnx.Reshape' that remained live after conversion
+  // ```
+  if (inputShape != outputShape)
+    return false;
+
+  // Reshape is an identity if at least (N-1) out of N dimensions are equal. We
+  // don't need to care about the different dimension, it is maybe because of
+  // DimAnalysis failed to handle it.
+  int nSameDims = 0;
+  for (int64_t i = 0; i < inputRank; ++i) {
+    if (inputShape[i] != ShapedType::kDynamic &&
+        inputShape[i] == outputShape[i])
+      nSameDims++;
+    else if (dimAnalysis &&
+             dimAnalysis->sameDim(inputTensor, i, outputTensor, i))
+      nSameDims++;
+  }
+  // Its basically ok to miss one as it then must be equal.
+  if (nSameDims >= inputRank - 1)
+    return true;
+
+  return false;
+}
+
+bool isIdentityReshape(
+    ONNXReshapeOp reshapeOp, const DimAnalysis *dimAnalysis) {
+  // Check if ranked and shaped.
+  Value inputTensor = reshapeOp.getData();
+  Value outputTensor = reshapeOp.getReshaped();
+  return isIdentityReshape(inputTensor, outputTensor, dimAnalysis);
+}
+
+//===----------------------------------------------------------------------===//
 // Support for location.
 //===----------------------------------------------------------------------===//
 
