@@ -327,7 +327,7 @@ bool hasStaticSpatialDims(Value v) {
   // so we're left with D1 x D2 ... x Dn.
   ArrayRef<int64_t> Ds = NxCxDs.drop_front(2);
   // These must all be static for decomposition to work.
-  return !llvm::any_of(Ds, ShapedType::isDynamic);
+  return llvm::none_of(Ds, ShapedType::isDynamic);
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
@@ -422,12 +422,13 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
   (void)convShapeHelper.computeShapeAndUpdateType(elementType);
   int inputRank = convShapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
+
+  ShapedType yType = op.getY().getType().cast<ShapedType>();
   for (int i = 0; i < inputRank; ++i) {
-    int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
-                    ? convShapeHelper.getOutputDims()[i].getLiteral()
-                    : ShapedType::kDynamic;
-    inputShape.emplace_back(d);
+    inputShape.emplace_back(yType.getShape()[i]);
+    llvm::dbgs() << "yType.getShape()[i]: " << yType.getShape()[i] << "\n";
   }
+
   ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 2> padSize;
