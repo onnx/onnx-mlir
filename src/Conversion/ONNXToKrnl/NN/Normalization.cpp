@@ -705,8 +705,17 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
-    // Allocate.
-    memRef = create.mem.alignedAlloc(memRefType, inputDims);
+
+    if (hasStaticShape(inputVal.getType())) {
+      // This is a patch related to https://github.com/onnx/onnx/issues/6133
+      MemRefType memType =
+          typeConverter->convertType(inputVal.getType()).cast<MemRefType>();
+      memRef = create.mem.alignedAlloc(memType);
+    } else {
+      // Allocate.
+      memRef = create.mem.alignedAlloc(memRefType, inputDims);
+    }
+
     // Flatten (do not keep flatten dims at this time).
     DimsExpr flatDims;
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
