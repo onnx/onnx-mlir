@@ -1,0 +1,75 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===------------- Split.cpp - Split Op---------===//
+//
+// Copyright (c) 2023 Advanced Micro Devices, Inc.
+//
+// =============================================================================
+//
+// This file lowers ONNX SplitOp operator to TOSA dialect.
+//
+//===----------------------------------------------------------------------===//
+
+#include "src/Conversion/ONNXToTOSA/DialectBuilder.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSACommon.hpp"
+#include "src/Conversion/ONNXToTOSA/ONNXToTOSALegalizeUtils.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
+
+using namespace mlir;
+namespace onnx_mlir {
+namespace {
+class ONNXSplitOpLoweringToTOSA : public OpConversionPattern<ONNXSplitOp> {
+public:
+  using OpConversionPattern::OpConversionPattern;
+  using OpAdaptor = typename ONNXSplitOp::Adaptor;
+  LogicalResult matchAndRewrite(ONNXSplitOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+    Value input = adaptor.getInput();
+    if (!onnx_mlir::hasShapeAndRank(input)) {
+      return rewriter.notifyMatchFailure(
+          op, "input is not a ranked shaped tensor");
+    }
+
+    ShapedType inputType = input.getType().cast<ShapedType>();
+    uint64_t rank = inputType.getRank();
+    int64_t splitAxis = adaptor.getAxis();
+    if (splitAxis < 0)
+      splitAxis += rank;
+
+    IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
+    ONNXSplitOpShapeHelper shapeHelper(
+        op, adaptor.getOperands(), &createTosaIE);
+    shapeHelper.computeShapeAndAssertOnFailure();
+
+    TosaBuilder tosaBuilder(rewriter, op->getLoc());
+    uint64_t outputNum = op.getNumResults();
+    SmallVector<Value, 4> slices;
+    slices.reserve(outputNum);
+
+    llvm::SmallVector<int64_t, 4> size;
+    llvm::SmallVector<int64_t, 4> starts(rank, 0);
+    int64_t start = 0;
+
+    for (uint64_t i = 0; i < outputNum; i++) {
+      DimsExpr outputDim = shapeHelper.getOutputDims(i);
+      IndexExpr::getShape(outputDim, size);
+      starts[splitAxis] = start;
+      slices.push_back(tosaBuilder.slice(input, size, starts));
+      start += size[splitAxis];
+    }
+    rewriter.replaceOp(op, slices);
+
+    return success();
+  }
+};
+} // namespace
+
+void populateLoweringONNXSplitOpToTOSAPattern(ConversionTarget &target,
+    RewritePatternSet &patterns, TypeConverter &typeConverter,
+    MLIRContext *ctx) {
+  patterns.insert<ONNXSplitOpLoweringToTOSA>(typeConverter, ctx);
+}
+
+} // namespace onnx_mlir
