@@ -12,6 +12,7 @@ add_onnx_mlir_library(ModelLib
   ModelLib.cpp
   RNNModel.cpp
   ScanModel.cpp
+  SoftplusModel.cpp
 
   EXCLUDE_FROM_OM_LIBS
 

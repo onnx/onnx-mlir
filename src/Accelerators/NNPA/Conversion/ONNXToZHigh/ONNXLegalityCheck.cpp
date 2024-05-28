@@ -637,6 +637,18 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   return true;
 }
 
+/// Check legality for ONNXSoftplus.
+template <>
+bool isSuitableForZDNN<ONNXSoftplusOp>(
+    ONNXSoftplusOp op, const DimAnalysis *dimAnalysis) {
+  // Check NNPA level.
+  if (!isCompatibleWithNNPALevel(NNPA_Z16))
+    return false;
+  if (!isValidElementTypeAndRank(op.getX()))
+    return false;
+  return true;
+}
+
 /// Check legality for ONNXLSTM.
 /// TODO: current ONNX-to-zhigh conversion does not support bi-direction
 template <>
@@ -980,4 +992,12 @@ bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
     return false;
 
   return true;
+}
+
+/// Check legality for ONNXReshapeOp.
+template <>
+bool isSuitableForZDNN<ONNXReshapeOp>(
+    ONNXReshapeOp op, const DimAnalysis *dimAnalysis) {
+  // Noop Reshape is suitable for zAIU as this pass removes such reshape ops.
+  return isIdentityReshape(op, dimAnalysis);
 }

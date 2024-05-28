@@ -510,5 +510,24 @@ private:
   const int inputNum;
 };
 
+class SoftplusLibBuilder : public ModelLibBuilder {
+public:
+  SoftplusLibBuilder(
+      const std::string &modelName, const int N);
+  bool build() final;
+  bool prepareInputs() final;
+  bool prepareInputs(float dataRangeLB, float dataRangeUB);
+  bool prepareInputsFromEnv(const std::string envDataRange);
+  bool verifyOutputs() final;
+
+private:
+  // Data that defines model.
+  const int N;
+  // Derived data that defines model.
+  llvm::SmallVector<int64_t, 2> xShape, yShape;
+  // model definition in std::string
+  std::string moduleIR;
+};
+
 } // namespace test
 } // namespace onnx_mlir
