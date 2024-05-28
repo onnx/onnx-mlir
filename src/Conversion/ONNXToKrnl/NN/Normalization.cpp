@@ -708,9 +708,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
 
     if (hasStaticShape(inputVal.getType())) {
       // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      MemRefType memType =
-          typeConverter->convertType(inputVal.getType()).cast<MemRefType>();
-      memRef = create.mem.alignedAlloc(memType);
+      memRef = create.mem.alignedAlloc(memRefType);
     } else {
       // Allocate.
       memRef = create.mem.alignedAlloc(memRefType, inputDims);
