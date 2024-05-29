@@ -61,16 +61,7 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
     Value variance = adaptor.getVar();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value alloc;
-    if (hasStaticShape(batchNormOp.getO_Y().getType())) {
-      // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      MemRefType memRefType =
-          typeConverter->convertType(batchNormOp.getO_Y().getType())
-              .cast<MemRefType>();
-      alloc = create.mem.alignedAlloc(memRefType);
-    } else {
-      alloc = create.mem.alignedAlloc(operand, memRefType);
-    }
+    Value alloc = create.mem.alignedAlloc(operand, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn or N.
     // In case of N, C is assumed to be 1.
@@ -190,16 +181,7 @@ struct ONNXInstanceNormalizationOpLowering
     Value biasMemRef = adaptor.getB();
 
     // Insert an allocation and deallocation for the result of this operation.
-    Value resMemRef;
-    if (hasStaticShape(instanceOp.getOutput().getType())) {
-      // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      MemRefType memRefType =
-          typeConverter->convertType(instanceOp.getOutput().getType())
-              .cast<MemRefType>();
-      resMemRef = create.mem.alignedAlloc(memRefType);
-    } else {
-      resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
-    }
+    Value resMemRef = create.mem.alignedAlloc(inputMemRef, memRefType);
 
     // Operand's dimensions can be in the form of NxCxD1xD2x...xDn
     // Shapes of scale, bias must be C.
@@ -357,7 +339,8 @@ static inline void replaceGenericLayerNormOp(
 // TODO: conversions of types are not handled.
 template <typename OP_TYPE>
 LogicalResult generateGenericLayerNormOpONNXCode(
-    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp) {
+    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp,
+    const TypeConverter *const typeConverter) {
   MDBuilder create(rewriter, loc);
   Value X = lnOp.getX(); // Original value, not translated.
   TensorType XType = X.getType().cast<TensorType>();
@@ -386,6 +369,10 @@ LogicalResult generateGenericLayerNormOpONNXCode(
   if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
     // Reduction of input
     meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+    Type originType = lnOp.getMean().getType();
+    if (hasStaticShape(originType)) {
+      meanOfX.setType(typeConverter->convertType(originType));
+    }
     Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
     Value XPow2 = create.onnx.mul(X, X);
     Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
@@ -401,19 +388,30 @@ LogicalResult generateGenericLayerNormOpONNXCode(
   Value varWithEpsilon = create.onnx.add(var, epsilon);
   Value stdDev = create.onnx.sqrt(varWithEpsilon);
   Value invStdDev = create.onnx.reciprocal(stdDev);
+  Type originType = lnOp.getInvStdDev().getType();
+  if (hasStaticShape(originType)) {
+    invStdDev.setType(typeConverter->convertType(originType));
+  }
   Value normalized = create.onnx.mul(d, invStdDev);
   Value Y = create.onnx.mul(normalized, lnOp.getScale());
-  if (!isNoneValue(lnOp.getB()))
+  if (!isNoneValue(lnOp.getB())) {
     Y = create.onnx.add(Y, lnOp.getB());
+    Type originYType = lnOp.getY().getType();
+    if (hasStaticShape(originYType)) {
+      Y.setType(typeConverter->convertType(originYType));
+    }
+  }
   replaceGenericLayerNormOp<OP_TYPE>(rewriter, lnOp, Y, meanOfX, invStdDev);
   return success();
 }
 
+/*
 LogicalResult generateONNXLayerNormalizationOpONNXCode(
     ConversionPatternRewriter &rewriter, Location loc,
     ONNXLayerNormalizationOp lnOp) {
   return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
 }
+*/
 
 template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
 struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
@@ -685,7 +683,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, VL,
           scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
     }
-    return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
+    return generateGenericLayerNormOpONNXCode(
+        rewriter, loc, lnOp, this->typeConverter);
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
@@ -705,15 +704,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     assert(convertedType && convertedType.isa<MemRefType>() &&
            "Failed to convert type to MemRefType");
     MemRefType memRefType = convertedType.cast<MemRefType>();
-
-    if (hasStaticShape(inputVal.getType())) {
-      // This is a patch related to https://github.com/onnx/onnx/issues/6133
-      memRef = create.mem.alignedAlloc(memRefType);
-    } else {
-      // Allocate.
-      memRef = create.mem.alignedAlloc(memRefType, inputDims);
-    }
-
+    // Allocate.
+    memRef = create.mem.alignedAlloc(memRefType, inputDims);
     // Flatten (do not keep flatten dims at this time).
     DimsExpr flatDims;
     flatMemRef = create.mem.reshapeToFlat2D(memRef, inputDims, flatDims, axis);
