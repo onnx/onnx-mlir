@@ -32,7 +32,7 @@ public:
           op, "input is not a ranked shaped tensor");
     }
 
-    ShapedType inputType = input.getType().cast<ShapedType>();
+    ShapedType inputType = cast<ShapedType>(input.getType());
     uint64_t rank = inputType.getRank();
     int64_t splitAxis = adaptor.getAxis();
     if (splitAxis < 0)
