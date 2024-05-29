@@ -33,6 +33,11 @@ public:
     }
 
     ShapedType inputType = cast<ShapedType>(input.getType());
+
+    // tosa.slice does not allow a dynamic entry in the size attribute
+    if (!hasStaticShape(inputType))
+      return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
+
     uint64_t rank = inputType.getRank();
     int64_t splitAxis = adaptor.getAxis();
     if (splitAxis < 0)
@@ -41,7 +46,10 @@ public:
     IndexExprBuilderForTosa createTosaIE(rewriter, op->getLoc());
     ONNXSplitOpShapeHelper shapeHelper(
         op, adaptor.getOperands(), &createTosaIE);
-    shapeHelper.computeShapeAndAssertOnFailure();
+
+    // compute shape
+    if (failed(shapeHelper.computeShape()))
+      return rewriter.notifyMatchFailure(op, "could not compute shape.");
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     uint64_t outputNum = op.getNumResults();
@@ -60,7 +68,6 @@ public:
       start += size[splitAxis];
     }
     rewriter.replaceOp(op, slices);
-
     return success();
   }
 };
