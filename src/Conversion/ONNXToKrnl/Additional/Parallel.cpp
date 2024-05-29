@@ -176,6 +176,26 @@ LogicalResult moveAllocOpBeforeAndReplaceAllUses(
   return success();
 }
 
+void insertRegionInIterateOp(
+    ConversionPatternRewriter &rewriter, Location &loc, Block &block) {
+  for (auto iterateOp : block.getOps<KrnlIterateOp>()) {
+    // Currently KrnlRegionOp does not support input and output to the region.
+    // So, if KrnlIterateOp has output (by krnl.yield), can't use KrnlRegionOp.
+    if (iterateOp.getNumResults() == 0) {
+      KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
+      Block &regionBlock = regionOp.getBodyRegion().front();
+      Block &iterateBlock = iterateOp.getRegion().back();
+      insertRegionInIterateOp(rewriter, loc, iterateBlock); // recursive call
+      rewriter.eraseOp(iterateBlock.getTerminator());
+      regionBlock.getOperations().splice(
+          regionBlock.end(), iterateBlock.getOperations());
+      rewriter.setInsertionPointToStart(&iterateBlock);
+      KrnlYieldOp krnlYieldOp = rewriter.create<KrnlYieldOp>(loc);
+      rewriter.moveOpBefore(regionOp, krnlYieldOp);
+    }
+  }
+}
+
 struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
   explicit ONNXParallelOpLowering(
       TypeConverter &typeConverter, MLIRContext *ctx)
@@ -248,20 +268,10 @@ struct ONNXParallelOpLowering : public OpConversionPattern<ONNXParallelOp> {
       scf::IfOp ifOp = rewriter.create<scf::IfOp>(loc, eq, /*else=*/false);
       Block &ifBlock = ifOp.getThenRegion().back();
       rewriter.setInsertionPointToStart(&ifBlock);
-      // Insert KrnlRegionOp in every KrnlIterateOps. This needs to avoid errors
-      // in convertKrnlToAffinePass.
+      // Insert KrnlRegionOp in every KrnlIterateOps. This needs to avoid
+      // errors in convertKrnlToAffinePass.
       Block &forkBlock = forkOp.getRegion().back();
-      for (auto kop : forkBlock.getOps<KrnlIterateOp>()) {
-        KrnlRegionOp regionOp = rewriter.create<KrnlRegionOp>(loc);
-        Block &regionBlock = regionOp.getBodyRegion().front();
-        Block &iterateBlock = kop.getBodyRegion().back();
-        rewriter.eraseOp(iterateBlock.getTerminator());
-        regionBlock.getOperations().splice(
-            regionBlock.end(), iterateBlock.getOperations());
-        rewriter.setInsertionPointToStart(&iterateBlock);
-        KrnlYieldOp krnlYieldOp = rewriter.create<KrnlYieldOp>(loc);
-        rewriter.moveOpBefore(regionOp, krnlYieldOp);
-      }
+      insertRegionInIterateOp(rewriter, loc, forkBlock);
       Operation *forkYieldOp = forkBlock.getTerminator();
       rewriter.eraseOp(forkYieldOp);
       rewriter.inlineBlockBefore(&forkBlock, ifBlock.getTerminator());
