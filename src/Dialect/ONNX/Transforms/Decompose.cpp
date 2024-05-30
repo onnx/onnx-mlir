@@ -334,7 +334,8 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
   ONNXConvTransposeOp op =
       cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
-  return hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
+  return hasShapeAndRank(convTransposeResult) &&
+         hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 #else
   // Disable the ONNXConvTransposeOp decomposition patterns.
   return false;
@@ -422,13 +423,12 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
   (void)convShapeHelper.computeShapeAndUpdateType(elementType);
   int inputRank = convShapeHelper.getOutputDims().size();
   SmallVector<int64_t, 4> inputShape;
-
-  ShapedType yType = op.getY().getType().cast<ShapedType>();
   for (int i = 0; i < inputRank; ++i) {
-    inputShape.emplace_back(yType.getShape()[i]);
-    llvm::dbgs() << "yType.getShape()[i]: " << yType.getShape()[i] << "\n";
+    int64_t d = convShapeHelper.getOutputDims()[i].isLiteral()
+                    ? convShapeHelper.getOutputDims()[i].getLiteral()
+                    : ShapedType::kDynamic;
+    inputShape.emplace_back(d);
   }
-
   ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 2> padSize;
