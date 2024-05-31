@@ -49,8 +49,7 @@ Value OnnxBuilder::cast(
     return cast(input, saturate, to);
   } else {
     Type resultType = UnrankedTensorType::get(to.getValue());
-    return b().create<ONNXCastOp>(loc(),
-        resultType, input, saturate, to);
+    return b().create<ONNXCastOp>(loc(), resultType, input, saturate, to);
   }
 }
 
