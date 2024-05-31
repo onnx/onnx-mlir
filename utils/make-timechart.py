@@ -89,7 +89,7 @@ def read_inst_file(inst_file, iteration, data_start_time, data_period):
                 print("SKIP incomplete line [{}]".format(line), file=sys.stderr)
                 continue
             op = columns[1].strip()
-            if op == 'Total':
+            if op == "Total":
                 continue
             node = columns[2].strip()
             before_after = columns[3].strip()
