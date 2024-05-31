@@ -44,6 +44,8 @@ struct OnnxBuilder : DialectBuilder {
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
   // ONNXCastOp
+  mlir::Value cast(mlir::Value input, mlir::Value output,
+      mlir::IntegerAttr saturate, mlir::TypeAttr to) const;
   mlir::Value cast(
       mlir::Value input, mlir::IntegerAttr saturate, mlir::TypeAttr to) const;
   mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;
