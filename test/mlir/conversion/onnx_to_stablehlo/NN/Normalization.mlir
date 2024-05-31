@@ -13,7 +13,7 @@ func.func @test_batch_normalization(%arg0 : tensor<1x3x10x10xf32>) -> tensor<1x3
 // CHECK-NEXT:    [[VAR_1_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<3xf32>
 // CHECK-NEXT:    [[VAR_2_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<3xf32>
 // CHECK-NEXT:    [[VAR_3_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<3xf32>
-// CHECK-NEXT:    [[VAR_4_:%.+]] = "stablehlo.batch_norm_inference"(%arg0, %0, %1, %2, %3) {epsilon = 1.00000007E-5 : f32, feature_index = 1 : i64} : (tensor<1x3x10x10xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3x10x10xf32>
+// CHECK-NEXT:    [[VAR_4_:%.+]] = "stablehlo.batch_norm_inference"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {epsilon = 1.00000007E-5 : f32, feature_index = 1 : i64} : (tensor<1x3x10x10xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<1x3x10x10xf32>
 // CHECK-NEXT:   return [[VAR_4_]] : tensor<1x3x10x10xf32>
 // CHECK-NEXT:   }
 }
