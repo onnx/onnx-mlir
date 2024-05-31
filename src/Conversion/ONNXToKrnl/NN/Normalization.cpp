@@ -339,7 +339,8 @@ static inline void replaceGenericLayerNormOp(
 // TODO: conversions of types are not handled.
 template <typename OP_TYPE>
 LogicalResult generateGenericLayerNormOpONNXCode(
-    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp) {
+    ConversionPatternRewriter &rewriter, Location loc, OP_TYPE lnOp,
+    const TypeConverter *const typeConverter) {
   MDBuilder create(rewriter, loc);
   Value X = lnOp.getX(); // Original value, not translated.
   TensorType XType = X.getType().cast<TensorType>();
@@ -368,6 +369,10 @@ LogicalResult generateGenericLayerNormOpONNXCode(
   if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value) {
     // Reduction of input
     meanOfX = create.onnx.reduceMean(reductionType, X, axes);
+    Type originType = lnOp.getMean().getType();
+    if (hasStaticShape(originType)) {
+      meanOfX.setType(typeConverter->convertType(originType));
+    }
     Value pow2OfMeanOfX = create.onnx.mul(meanOfX, meanOfX);
     Value XPow2 = create.onnx.mul(X, X);
     Value meanOfXPow2 = create.onnx.reduceMean(reductionType, XPow2, axes);
@@ -383,19 +388,30 @@ LogicalResult generateGenericLayerNormOpONNXCode(
   Value varWithEpsilon = create.onnx.add(var, epsilon);
   Value stdDev = create.onnx.sqrt(varWithEpsilon);
   Value invStdDev = create.onnx.reciprocal(stdDev);
+  Type originType = lnOp.getInvStdDev().getType();
+  if (hasStaticShape(originType)) {
+    invStdDev.setType(typeConverter->convertType(originType));
+  }
   Value normalized = create.onnx.mul(d, invStdDev);
   Value Y = create.onnx.mul(normalized, lnOp.getScale());
-  if (!isNoneValue(lnOp.getB()))
+  if (!isNoneValue(lnOp.getB())) {
     Y = create.onnx.add(Y, lnOp.getB());
+    Type originYType = lnOp.getY().getType();
+    if (hasStaticShape(originYType)) {
+      Y.setType(typeConverter->convertType(originYType));
+    }
+  }
   replaceGenericLayerNormOp<OP_TYPE>(rewriter, lnOp, Y, meanOfX, invStdDev);
   return success();
 }
 
+/*
 LogicalResult generateONNXLayerNormalizationOpONNXCode(
     ConversionPatternRewriter &rewriter, Location loc,
     ONNXLayerNormalizationOp lnOp) {
   return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
 }
+*/
 
 template <typename OP_TYPE, typename SHAPE_HELPER_TYPE>
 struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
@@ -667,7 +683,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, VL,
           scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
     }
-    return generateGenericLayerNormOpONNXCode(rewriter, loc, lnOp);
+    return generateGenericLayerNormOpONNXCode(
+        rewriter, loc, lnOp, this->typeConverter);
   }
 
   using F1 = std::function<void(int64_t offsetInt, Value offsetVal)>;
