@@ -1794,7 +1794,8 @@ def get_test_models():
         # ==MIN== 1
         "test_loop11_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            # Need to enable ConvertSeqToMemrefPass for dynamic test.
+            # DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # "test_loop13_seq_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
