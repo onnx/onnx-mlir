@@ -659,59 +659,49 @@ def get_test_models():
         # ==OP== ConvTranspose
         # ==MIN== 1
         # ==LIM== Unknown dimension in spatial dimensions (such as H and W) not supported.
-        # TODO: Support unknown dimensions in spatial dimensions
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_3d_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_autopad_same_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_dilations_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_kernel_shape_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_output_shape_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pad_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         "test_convtranspose_pads_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
-            # DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
+            DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
             CONSTANT_INPUT: {1},
         },
         # ==OP== Cos
