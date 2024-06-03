@@ -84,7 +84,7 @@ struct ONNXLayoutTransformOpLowering
     ValueRange loopDef = create.krnl.defineLoops(rank);
     if (enableParallel) {
       create.krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(op, /*successful*/ true, rank, -1,
+      onnxToKrnlParallelReport(op, /*successful*/ true, 0, -1,
           "LayoutTransform op fully parallelized with perfectly nested loops");
     }
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
