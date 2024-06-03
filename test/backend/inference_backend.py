@@ -436,35 +436,35 @@ def get_test_models():
         # ==LIM== CastLike only between float and double types. Only ppc64le and MacOS platforms support float16.
         "test_castlike_FLOAT_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_DOUBLE_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_castlike_FLOAT_to_FLOAT16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_FLOAT16_to_FLOAT_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_FLOAT16_to_DOUBLE_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
         "test_castlike_DOUBLE_to_FLOAT16_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
             FLOAT16: {},
         },
@@ -554,62 +554,62 @@ def get_test_models():
         # ==MIN== 4
         "test_concat_1d_axis_0_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_2d_axis_0_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_2d_axis_1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_3d_axis_0_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_3d_axis_1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_3d_axis_2_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_1d_axis_negative_1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_2d_axis_negative_1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_2d_axis_negative_2_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_3d_axis_negative_1_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_3d_axis_negative_2_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_concat_3d_axis_negative_3_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Constant
@@ -875,7 +875,7 @@ def get_test_models():
         },
         # ==OP== Einsum
         # ==MIN== 12
-        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32
+        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. Unknownd dimension is not supported in `inputs`.
         "test_einsum_batch_diagonal_cpu": {
             STATIC_SHAPE: {},
             # Issue #2639: Dynamic test fails. Need to be fixed.
@@ -967,6 +967,7 @@ def get_test_models():
         },
         # ==OP== Expand
         # ==MIN== 8
+        # ==LIM== Unknown dimension in `shape` of inputs is not supported.
         "test_expand_dim_changed_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -1278,6 +1279,7 @@ def get_test_models():
         },
         # ==OP== GRU
         # ==MIN== 7
+        # ==LIM== Only `X` of inputs supports unknown dimensions.
         # CONSTANT_INPUT for W and R.
         "test_gru_defaults_cpu": {
             STATIC_SHAPE: {},
@@ -1782,6 +1784,7 @@ def get_test_models():
         },
         # ==OP== Loop
         # ==MIN== 1
+        # ==LIM== Unknown dimension is not supported.
         "test_loop11_cpu": {
             STATIC_SHAPE: {},
             # Need to enable ConvertSeqToMemrefPass for dynamic test.
@@ -1804,6 +1807,7 @@ def get_test_models():
         },
         # ==OP== LSTM
         # ==MIN== 7
+        # ==LIM== Only `X` of inputs supports unknown dimensions.
         # CONSTANT_INPUT for W and R.
         "test_lstm_defaults_cpu": {
             STATIC_SHAPE: {},
@@ -2272,7 +2276,6 @@ def get_test_models():
         },
         "test_reflect_pad_cpu": {
             STATIC_SHAPE: {},
-            # Issue #2639: Dynamic test fails. Need to be fixed.
             DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
@@ -2619,7 +2622,7 @@ def get_test_models():
         },
         # ==OP== Reshape
         # ==MIN== 5
-        # ==LIM== allowzero not supported.
+        # ==LIM== allowzero not supported. Unknown dimension in `shape` of inputs is not supported.
         "test_reshape_extended_dims_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -2667,7 +2670,7 @@ def get_test_models():
         },
         # ==OP== Resize
         # ==MIN== 10
-        # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported.
+        # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. Unknown dimension in `shape` of inputs is not supported.
         # Resize
         # All test cases in onnx v1.11.0. yes for currently supported
         # yes name='test_resize_upsample_scales_nearest')
@@ -2767,6 +2770,7 @@ def get_test_models():
         },
         # ==OP== RNN
         # ==MIN== 7
+        # ==LIM== Only inputs `X` supports unknown dimensions.
         "test_simple_rnn_defaults_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {0, 1, 2}},
@@ -2791,7 +2795,7 @@ def get_test_models():
         # ==MIN== 11
         "test_round_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Scan
@@ -3117,6 +3121,7 @@ def get_test_models():
         },
         # ==OP== TopK
         # ==MIN== 10
+        # ==LIM== Unknown dimension in `X` of inputs is supported.
         "test_top_k_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -3254,27 +3259,27 @@ def get_test_models():
         # ==MIN== 11
         "test_unique_not_sorted_without_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_unique_sorted_without_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_unique_sorted_with_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_unique_sorted_with_negative_axis_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         "test_unique_sorted_with_axis_3d_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Unsqueeze
@@ -3301,6 +3306,7 @@ def get_test_models():
         "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT: {1}},
         # ==OP== Upsample
         # ==MIN== 7
+        # ==LIM== Only `condition` of inputs supports Unknown dimension.
         "test_upsample_nearest_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
