@@ -159,6 +159,8 @@ void populateLoweringONNXFlattenOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSliceOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXSplitOpToTOSAPattern(mlir::ConversionTarget &,
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXSqueezeOpToTOSAPattern(mlir::ConversionTarget &,
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTileOpToTOSAPattern(mlir::ConversionTarget &,
