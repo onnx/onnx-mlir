@@ -940,11 +940,12 @@ public:
     IntegerAttr saturate = castLikeOp.getSaturateAttr();
 
     // The output type will be the same as the target_type or the second input
-    Type outputType = target.getType().cast<ShapedType>().getElementType();
+    Type targetType = target.getType().cast<ShapedType>().getElementType();
 
     // Replace
-    Value res = onnx_mlir::OnnxBuilder(rewriter, loc)
-                    .cast(input, output, saturate, TypeAttr::get(outputType));
+    Value res =
+        onnx_mlir::OnnxBuilder(rewriter, loc)
+            .cast(output.getType(), input, saturate, TypeAttr::get(targetType));
     rewriter.replaceOp(castLikeOp, res);
     return success();
   }

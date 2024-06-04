@@ -44,8 +44,8 @@ Value OnnxBuilder::add(Value A, Value B) const {
 }
 
 Value OnnxBuilder::cast(
-    Value input, Value output, IntegerAttr saturate, TypeAttr to) const {
-  if (output.getType().cast<ShapedType>().hasRank()) {
+    Type outputType, Value input, IntegerAttr saturate, TypeAttr to) const {
+  if (outputType.cast<ShapedType>().hasRank()) {
     return cast(input, saturate, to);
   } else {
     Type resultType = UnrankedTensorType::get(to.getValue());
