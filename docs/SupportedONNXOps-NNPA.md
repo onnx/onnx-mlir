@@ -39,6 +39,7 @@ NNPA has hardware limitations in dimension index size and tensor size, which are
 | **Relu** |6 - * |Input tensor must be less than or equal to 4 dimensions. | |
 | **Sigmoid** |6 - * |Input tensor must be less than or equal to 4 dimensions. | |
 | **Softmax** |6 - * |- `axis` must be the last dimension, i.e. `rank - 1` or -1. | |
+| **Softplus** |6 - * |The operations immediately before and after the Softplus operation must be executed on the NNPA. Otherwise, Softplus is executed on the CPU. This limitation is set to avoid performance degradation. | |
 | **Sub** |6 - * |- Shape of input tensors should be the same since broadcasting is not supported.<br>- Input tensors must have static dimensions. | |
 | **Sum** |6 - * |- All inputs must have the same static shape (Broadcasting not supported.)<br>- Single input not supported. | |
 | **Tanh** |6 - * |Input tensor must be less than or equal to 4 dimensions. | |

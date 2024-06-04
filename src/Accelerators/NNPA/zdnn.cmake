@@ -14,9 +14,7 @@ function(setup_zdnn version)
       GIT_TAG ${version}
       PREFIX ${ZDNN_PREFIX}
       BUILD_IN_SOURCE ON
-
-      # Skip autoconf and configure if config.make already exists
-      CONFIGURE_COMMAND sh -c "[ -f config.make ] || (autoconf && ./configure)"
+      CONFIGURE_COMMAND sh -c "autoconf && ./configure"
 
       # We build libzdnn.so so that obj/*.o are compiled with -fPIC
       # Then we create libzdnn.a ourselves from these PIC .o since
