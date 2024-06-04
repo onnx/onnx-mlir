@@ -875,7 +875,7 @@ def get_test_models():
         },
         # ==OP== Einsum
         # ==MIN== 12
-        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. Unknownd dimension is not supported in `inputs`.
+        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. Unknown dimension is not supported in `inputs`.
         "test_einsum_batch_diagonal_cpu": {
             STATIC_SHAPE: {},
             # Issue #2639: Dynamic test fails. Need to be fixed.
@@ -3306,7 +3306,7 @@ def get_test_models():
         "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT: {1}},
         # ==OP== Upsample
         # ==MIN== 7
-        # ==LIM== Only `condition` of inputs supports Unknown dimension.
+        # ==LIM== Only `condition` of inputs supports unknown dimension.
         "test_upsample_nearest_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
