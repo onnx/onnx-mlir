@@ -27,16 +27,12 @@ public:
   LogicalResult matchAndRewrite(ONNXSplitOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     Value input = adaptor.getInput();
-    if (!onnx_mlir::hasShapeAndRank(input)) {
-      return rewriter.notifyMatchFailure(
-          op, "input is not a ranked shaped tensor");
-    }
-
     ShapedType inputType = cast<ShapedType>(input.getType());
 
     // tosa.slice does not allow a dynamic entry in the size attribute
     if (!hasStaticShape(inputType))
-      return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
+      return rewriter.notifyMatchFailure(
+          op, "only static shapes are supported");
 
     uint64_t rank = inputType.getRank();
     int64_t splitAxis = adaptor.getAxis();
