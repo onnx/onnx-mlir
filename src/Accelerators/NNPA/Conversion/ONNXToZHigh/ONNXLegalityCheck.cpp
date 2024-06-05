@@ -24,7 +24,7 @@
 using namespace mlir;
 using namespace onnx_mlir;
 
-/// Emit warning message for NNPA unsupported case.
+/// Report NNPA unsupported case.
 bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
   if (OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps &&
       !message.empty()) {
@@ -36,7 +36,7 @@ bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
   return false;
 }
 
-/// Emit warning message for incompatibility with NNPA Level.
+/// Report incompatibility with NNPA Level.
 bool onnxToZHighInCompatibilityReport(Operation *op) {
   std::string onnxMlirNnpaLevel(NNPA_Z16);
   std::string message =

@@ -30,6 +30,7 @@ const std::string NNPA_DEVICE = "nnpa";
 bool isEnableScalarBcastBinary();
 
 struct OnnxToZHighLoweringConfiguration {
+  static int optReportNNPAUnsupportedOps;
   static int reportOnNNPAUnsupportedOps;
 };
 
