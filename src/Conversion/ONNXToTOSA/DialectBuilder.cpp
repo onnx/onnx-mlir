@@ -187,7 +187,7 @@ Value TosaBuilder::intdiv(mlir::Value &lhs, mlir::Value &rhs) {
   Type rhsElementType = rhs.getType().cast<ShapedType>().getElementType();
   assert((lhsElementType.isSignlessInteger(32) &&
              rhsElementType.isSignlessInteger(32)) &&
-         "Tosa DivOp needs 32-bit signless integer inputs");
+         "Tosa IntDivOp needs 32-bit signless integer inputs");
 
   if (needsRankBroadcast({lhs, rhs})) {
     llvm::SmallVector<Value, 4> valueVec = equalizeRanks({lhs, rhs});
@@ -199,7 +199,7 @@ Value TosaBuilder::intdiv(mlir::Value &lhs, mlir::Value &rhs) {
   Type newValueType = RankedTensorType::get(
       llvm::SmallVector<int64_t, 4>(lhsType.getRank(), ShapedType::kDynamic),
       lhsElementType);
-  return tosa::CreateOpAndInfer<mlir::tosa::DivOp>(
+  return tosa::CreateOpAndInfer<mlir::tosa::IntDivOp>(
       rewriter(), loc(), newValueType, lhs, rhs);
 }
 

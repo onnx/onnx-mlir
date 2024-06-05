@@ -133,6 +133,8 @@ struct ONNXGatherElementsOpLoweringToStablehlo : public ConversionPattern {
         stablehlo::GatherDimensionNumbersAttr::get(rewriter.getContext(),
             /*offsetDims=*/{},
             /*collapsedSliceDims=*/collapsedDims,
+            /*operandBatchingDims=*/{},
+            /*startIndicesBatchingDims=*/{},
             /*startIndexMap=*/startIndexMap,
             /*indexVecDim=*/rank);
     SmallVector<int64_t> sliceSizes(inputType.getRank(), 1);

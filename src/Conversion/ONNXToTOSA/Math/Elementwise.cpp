@@ -143,7 +143,7 @@ public:
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
 
     if (resultElementType.isSignlessInteger(32)) {
-      // tosa::DivOp takes 32-but signless integers as inputs
+      // tosa::IntDivOp takes 32-but signless integers as inputs
       Value divOp = tosaBuilder.intdiv(lhs, rhs);
       rewriter.replaceOp(op, {divOp});
       return success();

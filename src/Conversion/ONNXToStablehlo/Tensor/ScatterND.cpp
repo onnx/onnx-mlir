@@ -60,6 +60,8 @@ struct ONNXScatterNDOpLoweringToStablehlo
             llvm::to_vector<4>(llvm::seq<int64_t>(partialIdxDim, dataRank)),
             /*insertedWindowDims*/
             llvm::to_vector<4>(llvm::seq<int64_t>(0, partialIdxDim)),
+            /*inputBatchingDims=*/{},
+            /*scatterIndicesBatchingDims=*/{},
             /*scatterDimsToOperandDims*/
             llvm::to_vector<4>(llvm::seq<int64_t>(0, partialIdxDim)),
             /*indexVectorDim=*/indicesRank - 1);
