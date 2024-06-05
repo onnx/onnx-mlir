@@ -343,15 +343,7 @@ LogicalResult ONNXOrOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPowOp::verify() {
-  ShapedType lhsTy = getX().getType().cast<ShapedType>();
-  ShapedType rhsTy = getY().getType().cast<ShapedType>();
-  Type rhsETy = rhsTy.getElementType();
-  Type lhsETy = lhsTy.getElementType();
-  if (rhsETy != lhsETy)
-    return emitOpError("Pow with different input type not implemented yet");
-  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
-    return emitOpError("Integer power not implemented yet");
-  return success();
+  return verifyShapeForBroadcastingOps(getOperation());
 }
 
 LogicalResult ONNXPowOp::inferShapes(
