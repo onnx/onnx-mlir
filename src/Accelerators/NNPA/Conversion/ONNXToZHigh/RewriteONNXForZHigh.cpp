@@ -530,7 +530,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !emitWarningMessageInCompatibility(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -545,7 +545,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !emitWarningMessageInCompatibility(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -558,7 +558,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !emitWarningMessageInCompatibility(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -571,7 +571,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !emitWarningMessageInCompatibility(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -595,7 +595,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !emitWarningMessageInCompatibility(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
 
         Value A = op.getA();
         Value B = op.getB();
@@ -603,7 +603,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
         Type bType = B.getType();
         if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
           std::string message = "A or B is not shaped type with rank";
-          return !emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+          return !onnxToZHighUnsupportedReport(op.getOperation(), message);
         }
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), A, true))
@@ -650,7 +650,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
             }
           }
           return (!sameBatchDims) ||
-                 emitWarningMessageNNPAUnsupported(op.getOperation(), message);
+                 onnxToZHighUnsupportedReport(op.getOperation(), message);
         }
 
         // Make other cases legal.
@@ -665,18 +665,27 @@ void getRewriteONNXForZHighDynamicallyLegal(
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !emitWarningMessageInCompatibility(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
 
         Value input = op.getInput();
+        // std::string message = "The `input` is not reshaped to 3D because it
+        // is not ranked tensor type.";
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
           // Check element type.
           if (!isValidElementTypeAndRank(op.getOperation(), input, true))
             return true;
           // Check rank.
-          if ((shapedType.getRank() > 3) &&
-              ((op.getAxis() == shapedType.getRank() - 1) ||
-                  (op.getAxis() == -1))) {
+          bool isAxisLastDim = (op.getAxis() == shapedType.getRank() - 1) ||
+                               (op.getAxis() == -1);
+          if ((shapedType.getRank() > 3) && isAxisLastDim)
             return false;
+          else {
+            if ((shapedType.getRank() > 3) && !isAxisLastDim) {
+              std::string message = "the `axis`(" +
+                                    std::to_string(op.getAxis()) +
+                                    ") is not the last dimension.";
+              return !onnxToZHighUnsupportedReport(op.getOperation(), message);
+            }
           }
         }
         return true;

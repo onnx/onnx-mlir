@@ -76,7 +76,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
             return false;
           });
       if (exceedLimit)
-        emitWarningMessageNNPAUnsupported(
+        onnxToZHighUnsupportedReport(
             op.getOperation(), "Exceed maximum dimension index size.");
       isLegalForNNPA =
           !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);

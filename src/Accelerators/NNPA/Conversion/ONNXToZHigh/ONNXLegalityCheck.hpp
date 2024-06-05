@@ -48,7 +48,7 @@ bool meetPoolParamRestrictions(mlir::Operation *op, int64_t inputShape,
     int64_t kernelShape, int64_t strides, int64_t outputShape,
     mlir::StringRef paddingType);
 
-bool emitWarningMessageNNPAUnsupported(
+bool onnxToZHighUnsupportedReport(
     mlir::Operation *op, const std::string &message);
 
-bool emitWarningMessageInCompatibility(mlir::Operation *op);
+bool onnxToZHighInCompatibilityReport(mlir::Operation *op);
