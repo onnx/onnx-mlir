@@ -164,8 +164,9 @@ data_group.add_argument(
     "--load-ref-from-numpy",
     metavar="PATH",
     type=str,
-    help='Path to a python script that define the variables "inputs" and "outputs" that is a list of inputs/outputs. '
-    " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]",
+    help="Path to a python script that defines variables inputs and outputs that are a list of numpy arrays. "
+    " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]."
+    " Variable outputs can be omitted if --verify is not used.",
 )
 data_group.add_argument(
     "--shape-info",
