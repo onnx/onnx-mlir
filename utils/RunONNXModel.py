@@ -161,7 +161,7 @@ data_group.add_argument(
     " If --verify=ref, inputs and outputs are reference data for verification",
 )
 data_group.add_argument(
-    "--load-ref-from-python",
+    "--load-ref-from-numpy",
     metavar="PATH",
     type=str,
     help='Path to a python script that define the variables "inputs" and "outputs" that is a list of inputs/outputs. '
@@ -379,7 +379,7 @@ def read_input_from_refs(num_inputs, load_ref):
             input_np = numpy_helper.to_array(input_ts)
             inputs += [input_np]
             i += 1
-    elif args.load_ref_from_python:
+    elif args.load_ref_from_numpy:
         spec = importlib.util.spec_from_file_location("om_load_ref", load_ref)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -411,7 +411,7 @@ def read_output_from_refs(num_outputs, load_ref):
                 output_ts.ParseFromString(f.read())
             output_np = numpy_helper.to_array(output_ts)
             reference_output += [output_np]
-    elif args.load_ref_from_python:
+    elif args.load_ref_from_numpy:
         spec = importlib.util.spec_from_file_location("om_load_ref_output", load_ref)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -663,9 +663,7 @@ def main():
                 command_str += args.compile_args.split()
             if args.compile_using_input_shape:
                 # Use shapes of the reference inputs to compile the model.
-                assert (
-                    args.load_ref or args.load_ref_from_python
-                ), "No data folder given"
+                assert args.load_ref or args.load_ref_from_numpy, "No data folder given"
                 assert "shapeInformation" not in command_str, "shape info was set"
                 shape_info = "--shapeInformation="
                 for i in range(len(inputs)):
@@ -729,8 +727,8 @@ def main():
         inputs = []
         if args.load_ref:
             inputs = read_input_from_refs(len(input_names), args.load_ref)
-        elif args.load_ref_from_python:
-            inputs = read_input_from_refs(len(input_names), args.load_ref_from_python)
+        elif args.load_ref_from_numpy:
+            inputs = read_input_from_refs(len(input_names), args.load_ref_from_numpy)
         else:
             inputs = generate_random_input(input_signature, input_shapes)
 
@@ -833,9 +831,9 @@ def main():
                 # Reference output available in protobuf.
                 if args.load_ref:
                     ref_outs = read_output_from_refs(len(output_names), args.load_ref)
-                elif args.load_ref_from_python:
+                elif args.load_ref_from_numpy:
                     ref_outs = read_output_from_refs(
-                        len(output_names), args.load_ref_from_python
+                        len(output_names), args.load_ref_from_numpy
                     )
             else:
                 print("Invalid verify option")
