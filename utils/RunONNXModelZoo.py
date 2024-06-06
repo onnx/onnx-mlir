@@ -170,9 +170,7 @@ def get_args():
         default=1,
         help="The number of inference runs excluding warmup",
     )
-    parser.add_argument(
-        "--output-message", action="store_true", help="Output message"
-    )
+    parser.add_argument("--output-message", action="store_true", help="Output message")
     parser.add_argument(
         "-P",
         "--oplevel-parallel",

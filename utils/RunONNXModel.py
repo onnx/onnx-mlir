@@ -201,9 +201,7 @@ parser.add_argument(
     default="42",
     help="seed to initialize the random num generator for inputs",
 )
-parser.add_argument(
-    "--output-message", action="store_true", help="Output message"
-)
+parser.add_argument("--output-message", action="store_true", help="Output message")
 parser.add_argument(
     "-P",
     "--oplevel-parallel",
