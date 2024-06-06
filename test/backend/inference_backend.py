@@ -1279,7 +1279,7 @@ def get_test_models():
         },
         # ==OP== GRU
         # ==MIN== 7
-        # ==LIM== Only `X` of inputs supports unknown dimensions.
+        # ==LIM== Unknown dimensions are not supported except `X` of inputs.
         # CONSTANT_INPUT for W and R.
         "test_gru_defaults_cpu": {
             STATIC_SHAPE: {},
@@ -1807,7 +1807,7 @@ def get_test_models():
         },
         # ==OP== LSTM
         # ==MIN== 7
-        # ==LIM== Only `X` of inputs supports unknown dimensions.
+        # ==LIM== Unknown dimensions are not supported except `X` of inputs.
         # CONSTANT_INPUT for W and R.
         "test_lstm_defaults_cpu": {
             STATIC_SHAPE: {},
@@ -2770,10 +2770,10 @@ def get_test_models():
         },
         # ==OP== RNN
         # ==MIN== 7
-        # ==LIM== Only inputs `X` supports unknown dimensions.
+        # ==LIM== Unknown dimensions are not supported except `X` of inputs.
         "test_simple_rnn_defaults_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_simple_rnn_with_initial_bias_cpu": {
@@ -2788,7 +2788,7 @@ def get_test_models():
         },
         "test_simple_rnn_batchwise_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         # ==OP== Round
