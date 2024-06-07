@@ -51,6 +51,10 @@
 
 #define ACCEL_PROFILEIR_CL_ENUM(name) PROFILEIR_CL_ENUM_##name
 
+#define ACCEL_OPTREPORT_ENUM(name) OPTREPORT_ENUM_##name
+
+#define ACCEL_OPTREPORT_CL_ENUM(name) OPTREPORT_CL_ENUM_##name
+
 namespace onnx_mlir {
 namespace accel {
 
