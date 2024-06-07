@@ -27,26 +27,26 @@ Type getElementType(Type ty) { return getElementTypeOrSelf(ty); }
 
 /// Check if a type is ShapedType and has rank.
 bool isRankedShapedType(Type ty) {
-  return (ty.isa<ShapedType>() && ty.cast<ShapedType>().hasRank());
+  return (mlir::isa<ShapedType>(ty) && mlir::cast<ShapedType>(ty).hasRank());
 }
 
 /// Check if a type has static shape.
 bool hasStaticShape(mlir::Type ty) {
   if (!isRankedShapedType(ty))
     return false;
-  return ty.cast<ShapedType>().hasStaticShape();
+  return mlir::cast<ShapedType>(ty).hasStaticShape();
 }
 
 /// Get shape.
 ArrayRef<int64_t> getShape(Type ty) {
   assert(isRankedShapedType(ty) && "Type must be ranked");
-  return ty.cast<ShapedType>().getShape();
+  return mlir::cast<ShapedType>(ty).getShape();
 }
 
 /// Get rank.
 int64_t getRank(Type ty) {
   assert(isRankedShapedType(ty) && "Type must be ranked");
-  return ty.cast<ShapedType>().getRank();
+  return mlir::cast<ShapedType>(ty).getRank();
 }
 
 /// Get the number of elements.
@@ -63,7 +63,7 @@ int64_t getEltSizeInBytes(Type ty) {
   if (elementType.isIntOrFloat()) {
     sizeInBits = elementType.getIntOrFloatBitWidth();
   } else {
-    auto vectorType = elementType.cast<VectorType>();
+    auto vectorType = mlir::cast<VectorType>(elementType);
     sizeInBits =
         vectorType.getElementTypeBitWidth() * vectorType.getNumElements();
   }

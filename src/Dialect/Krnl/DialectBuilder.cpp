@@ -365,11 +365,11 @@ ElementsAttr IndexExprBuilderForKrnl::getConst(mlir::Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<mlir::KrnlGlobalOp>(definingOp)) {
     if (globalOp.getValue().has_value())
-      return globalOp.getValueAttr().dyn_cast<ElementsAttr>();
+      return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
   } else if (auto globalOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
     if (globalOp.getValue().has_value())
-      return globalOp.getValueAttr().dyn_cast<ElementsAttr>();
+      return mlir::dyn_cast<ElementsAttr>(globalOp.getValueAttr());
   }
   return nullptr;
 }

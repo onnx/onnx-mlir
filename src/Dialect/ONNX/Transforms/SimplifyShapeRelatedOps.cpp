@@ -80,7 +80,7 @@ void getDimsInt64(Value val, SmallVectorImpl<int64_t> &result) {
   getDims(val, dims);
   for (Value v : dims) {
     if (auto constOp = dyn_cast<ONNXConstantOp>(v.getDefiningOp())) {
-      auto valueAttr = constOp.getValueAttr().cast<ElementsAttr>();
+      auto valueAttr = mlir::cast<ElementsAttr>(constOp.getValueAttr());
       int64_t dim = valueAttr.getSplatValue<int64_t>();
       result.emplace_back(dim);
     } else {
@@ -96,7 +96,7 @@ Value emitConcatOpForDims(MultiDialectBuilder<OnnxBuilder> create,
   if (rank == 1) {
     // Input is tensor<1xf32>, squeeze it if the output type is scalar i.e.
     // tensor<f32>
-    if (auto tensorType = outputType.dyn_cast<RankedTensorType>()) {
+    if (auto tensorType = mlir::dyn_cast<RankedTensorType>(outputType)) {
       if (tensorType.getRank() == 0) {
         Value zero = create.onnx.constantInt64({0});
         return create.onnx.squeeze(outputType, inputs[0], zero);

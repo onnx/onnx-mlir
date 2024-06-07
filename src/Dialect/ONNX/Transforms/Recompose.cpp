@@ -237,7 +237,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     // Check axes.
     if (!hasShapeAndRank(dd))
       return reportFailure("RMS need rank and shape for input dd");
-    int64_t ddRank = dd.getType().cast<ShapedType>().getRank();
+    int64_t ddRank = mlir::cast<ShapedType>(dd.getType()).getRank();
     int64_t varAxis;
     if (!suitableAxis(vReduceOp, ddRank, varAxis))
       return reportFailure("RMS unsuitable var reduce axes");
@@ -278,7 +278,7 @@ struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
     if (hasFullPattern) {
       if (!hasShapeAndRank(x1))
         return reportFailure("LN need rank and shape for input x");
-      int64_t x1Rank = x1.getType().cast<ShapedType>().getRank();
+      int64_t x1Rank = mlir::cast<ShapedType>(x1.getType()).getRank();
       int64_t meanAxis;
       if (!suitableAxis(mReduceOp, x1Rank, meanAxis))
         hasFullPattern = reportFailure("LN unsuitable mean reduce axes");

@@ -67,7 +67,8 @@ LogicalResult ONNXGatherOp::verify() {
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  auto dataType = operandAdaptor.getData().getType().cast<RankedTensorType>();
+  auto dataType =
+      mlir::cast<RankedTensorType>(operandAdaptor.getData().getType());
   ArrayRef<int64_t> dataShape = dataType.getShape();
   int64_t dataRank = dataShape.size();
   int64_t axisValue = getAxis();
@@ -90,7 +91,8 @@ LogicalResult ONNXGatherOp::inferShapes(
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
   ONNXGatherOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -168,7 +168,8 @@ LogicalResult ONNXGRUOp::inferShapes(
       !hasShapeAndRank(getR())) {
     return success();
   }
-  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
+  Type elementType =
+      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
   ONNXGRUOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -183,7 +184,8 @@ LogicalResult ONNXLSTMOp::inferShapes(
       !hasShapeAndRank(getR())) {
     return success();
   }
-  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
+  Type elementType =
+      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
   ONNXLSTMOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -198,7 +200,8 @@ LogicalResult ONNXRNNOp::inferShapes(
       !hasShapeAndRank(getR())) {
     return success();
   }
-  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
+  Type elementType =
+      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
   ONNXRNNOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

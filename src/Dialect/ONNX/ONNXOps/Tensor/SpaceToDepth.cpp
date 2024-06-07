@@ -73,7 +73,7 @@ LogicalResult ONNXSpaceToDepthOp::verify() {
     // Won't be able to do any checking at this stage.
     return success();
   }
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
   auto inputShape = inputType.getShape();
   if (inputShape.size() != 4)
     return emitOpError("Input should have a rank of four");
@@ -106,7 +106,8 @@ LogicalResult ONNXSpaceToDepthOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getInput().getType()).getElementType();
   ONNXSpaceToDepthOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

@@ -52,7 +52,7 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
 
   // Check operands.
   if (hasShapeAndRank(boxes)) {
-    auto shape = boxes.getType().cast<ShapedType>().getShape();
+    auto shape = mlir::cast<ShapedType>(boxes.getType()).getShape();
     if (shape.size() != 3)
       return emitOpError("boxes should have a rank of three");
     if (!ShapedType::isDynamic(shape[2]) && shape[2] != 4)
@@ -60,20 +60,20 @@ LogicalResult ONNXNonMaxSuppressionOp::verify() {
   }
 
   if (hasShapeAndRank(scores))
-    if (scores.getType().cast<ShapedType>().getRank() != 3)
+    if (mlir::cast<ShapedType>(scores.getType()).getRank() != 3)
       return emitOpError("scores should have a rank of three");
 
   if (hasShapeAndRank(MOPC))
-    if (MOPC.getType().cast<ShapedType>().getRank() > 1)
+    if (mlir::cast<ShapedType>(MOPC.getType()).getRank() > 1)
       return emitOpError(
           "max_output_boxex_per_class should have a rank of zero or one");
 
   if (hasShapeAndRank(scoreThreshold))
-    if (scoreThreshold.getType().cast<ShapedType>().getRank() > 1)
+    if (mlir::cast<ShapedType>(scoreThreshold.getType()).getRank() > 1)
       return emitOpError("score_threshold should have a rank of zero or one");
 
   if (hasShapeAndRank(iouThreshold))
-    if (iouThreshold.getType().cast<ShapedType>().getRank() > 1)
+    if (mlir::cast<ShapedType>(iouThreshold.getType()).getRank() > 1)
       return emitOpError("iou_threshold should have a rank of zero or one");
 
   return success();

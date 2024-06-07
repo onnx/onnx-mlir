@@ -75,7 +75,7 @@ public:
     std::optional<StringRef> stickLayout = stickOp.getLayout();
 
     // Input is a block argument, ignore it.
-    if (stickInput.dyn_cast<BlockArgument>())
+    if (mlir::dyn_cast<BlockArgument>(stickInput))
       return failure();
 
     // Get UnstickOp that produced the stick input.
@@ -141,7 +141,7 @@ public:
       return failure();
 
     // Input is a block argument, ignore it.
-    if (stickInput.dyn_cast<BlockArgument>())
+    if (mlir::dyn_cast<BlockArgument>(stickInput))
       return failure();
 
     // Input must have no affine layout. In other words, it has been normalized.
@@ -182,8 +182,9 @@ public:
     // Match shapes.
     Value stickRes = stickOp.getOut();
     Value unstickInput = unstickOp.getX();
-    MemRefType stickResType = stickRes.getType().dyn_cast<MemRefType>();
-    MemRefType unstickInputType = unstickInput.getType().dyn_cast<MemRefType>();
+    MemRefType stickResType = mlir::dyn_cast<MemRefType>(stickRes.getType());
+    MemRefType unstickInputType =
+        mlir::dyn_cast<MemRefType>(unstickInput.getType());
     if (!stickResType.hasStaticShape() ||
         (stickResType.getShape() != unstickInputType.getShape()))
       return failure();
@@ -213,7 +214,7 @@ public:
 ///
 /// * Example:
 ///
-/// Consider the following code: 
+/// Consider the following code:
 /// ```mlir
 /// zlow.unstick(%stick, %A) {layout = "2D"}: memref<2x3xf16, #map2D>, memref<2x3xf32>
 /// affine.for
@@ -240,7 +241,7 @@ public:
 /// as Transpose, Concat, and Split.
 ///
 /// * Why does this rewriting work?
-/// 
+///
 /// - This rewriting depends on the fact that `zlow.stick` and `zlow.unstick`
 /// maintain an affine map that maps one element in a memref to an element in
 /// another memref. Those maps are `#map2D` and `#map3D` in the above example.
@@ -294,9 +295,9 @@ public:
 
     // Common types.
     Type stickifiedElementType =
-        stickifiedMemRef.getType().cast<MemRefType>().getElementType();
+        mlir::cast<MemRefType>(stickifiedMemRef.getType()).getElementType();
     Type cpuElementType =
-        cpuMemRef.getType().cast<MemRefType>().getElementType();
+        mlir::cast<MemRefType>(cpuMemRef.getType()).getElementType();
 
     // Stickified Memref must have affine layout to access elements.
     if (!hasNonIdentityLayout(stickifiedMemRef.getType()))
@@ -558,7 +559,7 @@ private:
     Value storeValue = storeOp.getValue();
 
     // Store's input must be defined by a memref.alloc.
-    if (destMemref.isa<BlockArgument>())
+    if (mlir::isa<BlockArgument>(destMemref))
       return false;
     Operation *allocOp = destMemref.getDefiningOp();
     if (!isa<memref::AllocOp>(allocOp))

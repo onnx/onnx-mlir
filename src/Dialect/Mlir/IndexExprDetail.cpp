@@ -106,14 +106,14 @@ void IndexExprImpl::initAsLiteral(double const val, const IndexExprKind kind) {
 static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
   // From lib/Dialect/LinAlg/Transform/Promotion.cpp
   if (auto constantOp = value.getDefiningOp<arith::ConstantOp>()) {
-    if (constantOp.getType().isa<IndexType>())
-      intLit = constantOp.getValue().cast<IntegerAttr>().getInt();
+    if (mlir::isa<IndexType>(constantOp.getType()))
+      intLit = mlir::cast<IntegerAttr>(constantOp.getValue()).getInt();
     return true;
   }
   // Since ConstantIndexOp is a subclass of ConstantOp, not sure if this one is
   // needed.
   if (auto constantOp = value.getDefiningOp<arith::ConstantIndexOp>()) {
-    if (constantOp.getType().isa<IndexType>())
+    if (mlir::isa<IndexType>(constantOp.getType()))
       intLit = constantOp.value();
     return true;
   }
@@ -123,14 +123,15 @@ static bool getIntegerLiteralFromValue(Value value, int64_t &intLit) {
 static bool getFloatLiteralFromValue(Value value, double &floatLit) {
   // From lib/Dialect/LinAlg/Transform/Promotion.cpp
   if (auto constantOp = value.getDefiningOp<arith::ConstantOp>()) {
-    if (constantOp.getType().isa<FloatType>())
-      floatLit = constantOp.getValue().cast<FloatAttr>().getValueAsDouble();
+    if (mlir::isa<FloatType>(constantOp.getType()))
+      floatLit =
+          mlir::cast<FloatAttr>(constantOp.getValue()).getValueAsDouble();
     return true;
   }
   // Since ConstantFloatOp is a subclass of ConstantOp, not sure if this one is
   // needed.
   if (auto constantOp = value.getDefiningOp<arith::ConstantFloatOp>()) {
-    if (constantOp.getType().isa<FloatType>())
+    if (mlir::isa<FloatType>(constantOp.getType()))
       floatLit = constantOp.value().convertToDouble();
     return true;
   }
@@ -143,7 +144,7 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
   assert(val != nullptr && "expected a defined value");
   // Check that the value is of the right type.
   auto type = val.getType();
-  bool valIsFloat = (type.isa<FloatType>());
+  bool valIsFloat = (mlir::isa<FloatType>(type));
   // Questionmark
   if (newKind == IndexExprKind::Questionmark) {
     initAsQuestionmark(valIsFloat);
@@ -170,24 +171,24 @@ void IndexExprImpl::initAsKind(Value const val, IndexExprKind const newKind) {
     return;
   }
   Value newVal = val;
-  if (type.isa<IntegerType>()) {
+  if (mlir::isa<IntegerType>(type)) {
     if (newKind != IndexExprKind::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
       newVal = scope->getRewriter().create<arith::IndexCastOp>(
           scope->getLoc(), scope->getRewriter().getIndexType(), newVal);
     }
-  } else if (type.isa<IndexType>()) {
+  } else if (mlir::isa<IndexType>(type)) {
     if (newKind == IndexExprKind::Predicate) {
       // We need to convert the int into an index, since we are dealing with
       // index expressions.
       newVal = scope->getRewriter().create<arith::IndexCastOp>(
           scope->getLoc(), scope->getRewriter().getI1Type(), newVal);
     }
-  } else if (type.isa<FloatType>()) {
+  } else if (mlir::isa<FloatType>(type)) {
     assert(newKind != IndexExprKind::Predicate && "float cannot be predicate");
     // Assume its a single precision float.
-    unsigned width = type.cast<FloatType>().getWidth();
+    unsigned width = mlir::cast<FloatType>(type).getWidth();
     assert(width == 32 && "Index expression only support f32 at this time");
   } else {
     llvm_unreachable("unsupported element type");
@@ -227,9 +228,9 @@ void IndexExprImpl::init(bool newIsDefined, bool newIsIntLit, bool isFloatLit,
   if (value != nullptr) {
     // We have a value initialized index expr. Determine if we have an integer
     // or float expression.
-    if (value.getType().isa<FloatType>()) {
+    if (mlir::isa<FloatType>(value.getType())) {
       // Assume its a single precision float.
-      unsigned width = value.getType().cast<FloatType>().getWidth();
+      unsigned width = mlir::cast<FloatType>(value.getType()).getWidth();
       assert(width == 32 && "Index expression only support f32 at this time");
       isFloat = true;
     }

@@ -39,9 +39,9 @@ struct ONNXLRNOpLowering : public OpConversionPattern<ONNXLRNOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     auto outputMemRefShape = outputMemRefType.getShape();
     Type elementType = outputMemRefType.getElementType();

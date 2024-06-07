@@ -37,8 +37,8 @@ struct ONNXShapeOpLoweringToStablehlo : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     Type outputType = *op->result_type_begin();
-    assert(outputType.isa<ShapedType>() && "Expected ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    assert(mlir::isa<ShapedType>(outputType) && "Expected ShapedType");
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     Type elementType = outputShapedType.getElementType();
     Type resultOutputType = RankedTensorType::get(
         shapeHelper.getOutputDims(0)[0].getLiteral(), elementType);

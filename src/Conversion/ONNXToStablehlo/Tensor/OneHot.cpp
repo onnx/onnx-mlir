@@ -47,7 +47,7 @@ struct ONNXOneHotOpLoweringToStablehlo
     int64_t axis = shapeHelper.axis;
 
     RankedTensorType indicesType =
-        indices.getType().dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(indices.getType());
     if (!indicesType || !indicesType.hasStaticShape())
       return failure();
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
@@ -80,7 +80,8 @@ struct ONNXOneHotOpLoweringToStablehlo
     Value broadcastZero = rewriter.create<stablehlo::BroadcastInDimOp>(
         loc, indexType, zero, rewriter.getDenseI64ArrayAttr({}));
     Value broadcastDepth;
-    int64_t depthRank = depthValue.getType().cast<RankedTensorType>().getRank();
+    int64_t depthRank =
+        mlir::cast<RankedTensorType>(depthValue.getType()).getRank();
     if (depthRank == 1)
       broadcastDepth = rewriter.create<stablehlo::BroadcastInDimOp>(
           loc, indexType, depthValue, rewriter.getDenseI64ArrayAttr({0}));
@@ -95,7 +96,7 @@ struct ONNXOneHotOpLoweringToStablehlo
         loc, indexType, compareGeZero, broadcastIndices, positiveIndices);
     Value compare = rewriter.create<stablehlo::CompareOp>(
         loc, normalizedIndices, iota, stablehlo::ComparisonDirection::EQ);
-    Type valueType = values.getType().cast<ShapedType>().getElementType();
+    Type valueType = mlir::cast<ShapedType>(values.getType()).getElementType();
     Value offValue = rewriter.create<stablehlo::SliceOp>(loc,
         RankedTensorType::get({1}, valueType), values,
         DenseI64ArrayAttr::get(context, ArrayRef<int64_t>{0}),

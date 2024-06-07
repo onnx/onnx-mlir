@@ -76,7 +76,7 @@ static LogicalResult inferShapeForBroadcastingOps(
 
   if (!elementType)
     elementType =
-        op.getOperand(0).getType().template cast<ShapedType>().getElementType();
+        mlir::cast<ShapedType>(op.getOperand(0).getType()).getElementType();
   ONNXBroadcastOpShapeHelper shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -290,18 +290,18 @@ LogicalResult ONNXMinOp::inferShapes(
 
 LogicalResult ONNXModOp::verify() {
   Type elementType;
-  if (getA().getType().isa<ShapedType>())
-    elementType = getA().getType().cast<ShapedType>().getElementType();
+  if (mlir::isa<ShapedType>(getA().getType()))
+    elementType = mlir::cast<ShapedType>(getA().getType()).getElementType();
   else
     return emitOpError("Input type must be TensorType or MemRefType");
 
   // Verify that when the input type is floating point, then `fmod` attribute
   // must be set to 1.
-  if (elementType.isa<FloatType>() && (getFmod() != 1))
+  if (mlir::isa<FloatType>(elementType) && (getFmod() != 1))
     return emitOpError("fmod must be 1 when the input type is floating point");
   // Verify that when the input type is integer, then `fmod` attribute
   // must be set to 0.
-  if (elementType.isa<IntegerType>() && (getFmod() != 0))
+  if (mlir::isa<IntegerType>(elementType) && (getFmod() != 0))
     return emitOpError("fmod must be 0 when the input type is an integer");
 
   return success();
@@ -343,13 +343,13 @@ LogicalResult ONNXOrOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPowOp::verify() {
-  ShapedType lhsTy = getX().getType().cast<ShapedType>();
-  ShapedType rhsTy = getY().getType().cast<ShapedType>();
+  ShapedType lhsTy = mlir::cast<ShapedType>(getX().getType());
+  ShapedType rhsTy = mlir::cast<ShapedType>(getY().getType());
   Type rhsETy = rhsTy.getElementType();
   Type lhsETy = lhsTy.getElementType();
   if (rhsETy != lhsETy)
     return emitOpError("Pow with different input type not implemented yet");
-  if (lhsETy.isa<IntegerType>() || lhsETy.isa<IntegerType>())
+  if (mlir::isa<IntegerType>(lhsETy) || mlir::isa<IntegerType>(lhsETy))
     return emitOpError("Integer power not implemented yet");
   return success();
 }
@@ -369,9 +369,10 @@ LogicalResult ONNXPReluOp::verify() {
   if (!hasShapeAndRank(getSlope()))
     return success();
 
-  ArrayRef<int64_t> xShape = getX().getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> xShape =
+      mlir::cast<ShapedType>(getX().getType()).getShape();
   ArrayRef<int64_t> slopeShape =
-      getSlope().getType().cast<ShapedType>().getShape();
+      mlir::cast<ShapedType>(getSlope().getType()).getShape();
   // PRelu supports unidirectional broadcasting, that is slope should be
   // unidirectional broadcast to input X.
   if (slopeShape.size() > xShape.size())
@@ -384,7 +385,7 @@ LogicalResult ONNXPReluOp::inferShapes(
   if (!hasShapeAndRank(getOperation()))
     return success();
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
   ONNXPReluOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -425,7 +426,8 @@ LogicalResult ONNXWhereOp::verify() {
 
 LogicalResult ONNXWhereOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type resultElementType = getX().getType().cast<ShapedType>().getElementType();
+  Type resultElementType =
+      mlir::cast<ShapedType>(getX().getType()).getElementType();
   return inferShapeForBroadcastingOps<ONNXWhereOp>(*this, resultElementType);
 }
 

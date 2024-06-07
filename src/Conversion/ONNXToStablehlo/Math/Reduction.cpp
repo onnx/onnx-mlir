@@ -120,7 +120,7 @@ llvm::SmallVector<int64_t, 4> getDefinedAxes(Operation *op) {
   ArrayAttr axisAttrs = llvm::dyn_cast<ONNXReductionOp>(op).getAxesAttr();
   if (axisAttrs) {
     for (Attribute axisAttr : axisAttrs.getValue()) {
-      int64_t axis = axisAttr.cast<IntegerAttr>().getInt();
+      int64_t axis = mlir::cast<IntegerAttr>(axisAttr).getInt();
       definedAxes.push_back(axis);
     }
   }
@@ -133,9 +133,8 @@ llvm::SmallVector<int64_t, 4> getDefinedAxesFromConstAxes(
   // Assume it is verified that axes are known. Convert DenseElementsAttr to
   // ArrayAttr.
   if (!isNoneValue(axesValue) && getONNXConstantOp(axesValue)) {
-    mlir::ElementsAttr constAxes = getONNXConstantOp(axesValue)
-                                       .getValueAttr()
-                                       .dyn_cast_or_null<mlir::ElementsAttr>();
+    mlir::ElementsAttr constAxes = mlir::dyn_cast_or_null<mlir::ElementsAttr>(
+        getONNXConstantOp(axesValue).getValueAttr());
     for (mlir::IntegerAttr element : constAxes.getValues<IntegerAttr>())
       definedAxes.push_back(element.getInt());
     return definedAxes;
@@ -144,9 +143,9 @@ llvm::SmallVector<int64_t, 4> getDefinedAxesFromConstAxes(
     return definedAxes;
   // Dynamic axes
   RankedTensorType inputType =
-      op->getOperands()[0].getType().dyn_cast<RankedTensorType>();
+      mlir::dyn_cast<RankedTensorType>(op->getOperands()[0].getType());
   RankedTensorType outputType =
-      op->getResultTypes()[0].dyn_cast<RankedTensorType>();
+      mlir::dyn_cast<RankedTensorType>(op->getResultTypes()[0]);
   assert(inputType != nullptr && outputType != nullptr &&
          "not implemented for dynamic axes when either input or output is not "
          "ranked");
@@ -308,7 +307,7 @@ SmallVector<int64_t> getReductionShape(ShapedType inputType,
 
 Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
     Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
-  int64_t rank = operand.getType().cast<RankedTensorType>().getRank();
+  int64_t rank = mlir::cast<RankedTensorType>(operand.getType()).getRank();
   // Mark reduction axes.
   llvm::SmallVector<bool, 4> isReductionAxis;
   for (int64_t i = 0; i < rank; ++i) {
@@ -363,7 +362,8 @@ template <typename BlockReduceOp>
 Value createReduce(Location loc, Value operand, Value identity,
     SmallVector<int64_t> &reduceShape, llvm::SmallVector<int64_t, 4> axes,
     PatternRewriter &rewriter, bool keepDims, ShapedType outputType) {
-  RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
+  RankedTensorType operandType =
+      mlir::cast<RankedTensorType>(operand.getType());
   Type reduceResultType =
       RankedTensorType::get(reduceShape, operandType.getElementType());
   stablehlo::ReduceOp reduce = rewriter.create<stablehlo::ReduceOp>(loc,
@@ -411,11 +411,11 @@ struct ONNXReductionOpLoweringToStablehlo : public ConversionPattern {
     Location loc = op->getLoc();
     Value input = operands[0];
     // Type
-    RankedTensorType inputType = input.getType().cast<RankedTensorType>();
+    RankedTensorType inputType = mlir::cast<RankedTensorType>(input.getType());
     if (inputType == nullptr)
       return failure();
     Type resultType = *op->result_type_begin();
-    ShapedType outputType = resultType.cast<ShapedType>();
+    ShapedType outputType = mlir::cast<ShapedType>(resultType);
     if (outputType == nullptr)
       return failure();
     Type elemType = inputType.getElementType();
@@ -457,7 +457,7 @@ struct ONNXReductionOpLoweringToStablehlo : public ConversionPattern {
             loc, reduceResult, reduceFactorValue);
       } else {
         Value ones;
-        if (elemType.isa<IntegerType>())
+        if (mlir::isa<IntegerType>(elemType))
           ones = getShapedInt(loc, rewriter, 1, input);
         else
           ones = getShapedFloat(loc, rewriter, 1.0, input);

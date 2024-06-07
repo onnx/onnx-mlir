@@ -38,8 +38,8 @@ LogicalResult ONNXGatherNDOpShapeHelper::computeShape() {
   // int64_t b = op->getBatchDims();
   int64_t b = operandAdaptor.getBatchDims();
 
-  assert(indices.getType().isa<ShapedType>() && "Expecting a shaped type");
-  auto indicesType = indices.getType().cast<ShapedType>();
+  assert(mlir::isa<ShapedType>(indices.getType()) && "Expecting a shaped type");
+  auto indicesType = mlir::cast<ShapedType>(indices.getType());
   ArrayRef<int64_t> indicesShape = indicesType.getShape();
   int64_t indicesLastDim = indicesShape[indicesRank - 1];
   int64_t outputRank = dataRank + indicesRank - indicesLastDim - 1 - b;
@@ -94,8 +94,8 @@ LogicalResult ONNXGatherNDOp::verify() {
   // Get operands and attributes.
   Value data = operandAdaptor.getData();
   Value indices = operandAdaptor.getIndices();
-  auto dataType = data.getType().cast<ShapedType>();
-  auto indicesType = indices.getType().cast<ShapedType>();
+  auto dataType = mlir::cast<ShapedType>(data.getType());
+  auto indicesType = mlir::cast<ShapedType>(indices.getType());
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t b = getBatchDims();
@@ -179,12 +179,13 @@ LogicalResult ONNXGatherNDOp::inferShapes(
   // Therefore 'indices.shape[-1]' must be known in order to compute the output
   // shape.
   ArrayRef<int64_t> indicesShape =
-      getIndices().getType().cast<ShapedType>().getShape();
+      mlir::cast<ShapedType>(getIndices().getType()).getShape();
   int64_t indicesRank = indicesShape.size();
   if (indicesShape[indicesRank - 1] == ShapedType::kDynamic)
     return success(); // cannot infer the output shape yet.
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
   ONNXGatherNDOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

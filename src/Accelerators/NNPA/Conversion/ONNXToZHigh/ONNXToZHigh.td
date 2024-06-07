@@ -31,21 +31,21 @@ include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 
 def IsEnableScalarBcastBinary: Constraint<CPred<"isEnableScalarBcastBinary()">>;
 
-def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
+def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
-def IsNotNoneType : Constraint<CPred<"(!($_self).getType().isa<NoneType>())">>;
+def IsNotNoneType : Constraint<CPred<"!mlir::isa<NoneType>($_self)">>;
 
 class HasRankOf<int rank> : Constraint<
-  CPred<"$0.getType().isa<ShapedType>() && "
-        "$0.getType().cast<ShapedType>().hasRank() && "
-        "$0.getType().cast<ShapedType>().getRank() == " # rank>
+  CPred<"mlir::isa<ShapedType>($0.getType()) && "
+        "mlir::cast<ShapedType>($0.getType()).hasRank() && "
+        "mlir::cast<ShapedType>($0.getType()).getRank() == " # rank>
 >;
 
 def IsBiasNoneOr1D : Constraint<
-  CPred<"$_self.getType().isa<NoneType>() || "
-        " ($_self.getType().isa<ShapedType>() && "
-	"  $_self.getType().cast<ShapedType>().hasRank() && "
-	"  $_self.getType().cast<ShapedType>().getRank() == 1)">
+  CPred<"mlir::isa<NoneType>($_self.getType()) || "
+        "mlir::isa<ShapedType>($_self.getType()) && "
+	"  mlir::cast<ShapedType>($_self.getType()).hasRank() && "
+	"  mlir::cast<ShapedType>($_self.getType()).getRank() == 1)">
 >;
 
 class VariadicSizeIs<int N> : Constraint<
@@ -66,16 +66,16 @@ class GetNthVariadicOperand<int n> : NativeCodeCall<"$0[" # n # "]">;
 class getNthVariadicResults<int n, string x> : NativeCodeCall<x # ".getResults()[" # n # "]">;
 
 def GetShape :
-	NativeCodeCall<"$0.getType().cast<ShapedType>().getShape()">;
+	NativeCodeCall<"mlir::cast<ShapedType>($0.getType()).getShape()">;
 
 def GetDynShape:
         NativeCodeCall<"getDynShape($_loc, $_builder, $0)">;
 
 def GetRank :
-	NativeCodeCall<"$0.getType().cast<RankedTensorType>().getRank()">;
+	NativeCodeCall<"mlir::cast<RankedTensorType>($0.getType()).getRank()">;
 
 def GetSInt :
-        NativeCodeCall<"$0.cast<IntegerAttr>().getSInt()">;
+        NativeCodeCall<"mlir::cast<IntegerAttr>($0).getSInt()">;
 
 class GetStrAttr<string s> :
         NativeCodeCall<"$_builder.getStringAttr(\"" # s # "\")">;
@@ -93,7 +93,7 @@ class GetI64ArrayAttr<int n> :
         NativeCodeCall<"$_builder.getI64ArrayAttr(" # n # ")">;
 
 def GetUnrankedTensorTypeOf : NativeCodeCall<
-  "UnrankedTensorType::get($0.getType().cast<ShapedType>().getElementType())"
+  "UnrankedTensorType::get(mlir::cast<ShapedType>($0.getType()).getElementType())"
 >;
 
 class EmitOp3<string s> :
@@ -135,7 +135,7 @@ def replaceONNXSigmoidPattern : Pat<
   (ONNXSigmoidOp $x),
   (ZHighUnstickOp (ZHighSigmoidOp (ZHighStickOp:$s_x $x, (NoneLayoutAttr)),
                                   (returnType $s_x)))
->; 
+>;
 
 //===----------------------------------------------------------------------===//
 // ONNXAddOp %X = ZHighUnstickOp (ZHighAddOp (ZHighStickOp %X),
@@ -158,7 +158,7 @@ def replaceONNXAddPattern : Pat<
 def GetONNXSumOpWithoutFirst : NativeCodeCall<
   "$_builder.create<ONNXSumOp>("
   "  $_loc,"
-  "  $0[0].getType().cast<ShapedType>(),"
+  "  mlir::cast<ShapedType>($0[0].getType()),"
   "  ValueRange(OperandRange{$0.begin() + 1, $0.end()}))"
 >;
 
@@ -290,7 +290,7 @@ def replaceONNXMaxPattern : Pat<
                                             (NoneLayoutAttr)),
                               (returnType $s_x)))
 >;
- 
+
 //===----------------------------------------------------------------------===//
 // ONNXSoftmaxOp %X = ONNXSqueezeOp
 //                        (ZHighUnstickOp
@@ -343,7 +343,7 @@ def replaceONNXSoftmax3DPattern : Pat<
 //     0)
 //===----------------------------------------------------------------------===//
 def IsSoftmaxLegalForZDNN: Constraint<
-  CPred<"isSuitableForZDNN<ONNXSoftmaxOp>(" # 
+  CPred<"isSuitableForZDNN<ONNXSoftmaxOp>(" #
              "dyn_cast_or_null<ONNXSoftmaxOp>($0.getDefiningOp()))">,
   "Softmax is legal for zDNN"
 >;
@@ -381,7 +381,7 @@ def replaceONNXReduceMeanV13Pattern : Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXMaxPoolSingleOutOp %X = 
+// ONNXMaxPoolSingleOutOp %X =
 //                 (ZHighUnstickOp
 //                     (ZHighMaxPoolOp
 //                         (ZHighStickOp %X),
@@ -423,7 +423,7 @@ def replaceONNXMaxPoolSingleOutPattern : Pattern<
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXAveragePoolOp %X = 
+// ONNXAveragePoolOp %X =
 //                 (ZHighUnstickOp
 //                     (ZHighAvgPoolOp
 //                         (ZHighStickOp %X),
@@ -503,22 +503,22 @@ def replaceONNXMatMulPattern : Pat<
 //===----------------------------------------------------------------------===//
 
 def IsMatMulLegalForZDNN: Constraint<
-  CPred<"isSuitableForZDNN<ONNXMatMulOp>(" # 
+  CPred<"isSuitableForZDNN<ONNXMatMulOp>(" #
              "dyn_cast_or_null<ONNXMatMulOp>($0.getDefiningOp()))">,
   "MatMul is legal for zDNN"
 >;
 
 // Be careful, this check is very specific to '$0' of rank 2 and '$1' of rank 1.
 def HaveSameLastDimR2R1: Constraint<
-  CPred<"(!$0.getType().cast<ShapedType>().isDynamicDim(1))" #
-        " && (!$1.getType().cast<ShapedType>().isDynamicDim(0))" #
-        " && ($0.getType().cast<ShapedType>().getShape()[1]" # 
-              " == $1.getType().cast<ShapedType>().getShape()[0])">,
+  CPred<"(!mlir::cast<ShapedType>($0.getType()).isDynamicDim(1))" #
+        " && (!mlir::cast<ShapedType>($1.getType()).isDynamicDim(0))" #
+        " && (mlir::cast<ShapedType>($0.getType()).getShape()[1]" #
+              " == mlir::cast<ShapedType>($1.getType()).getShape()[0])">,
   "Have the same last dimension"
 >;
 
-// Only 1D bias is suitable for this transformation since only then 
-// the semantics of bias addition is the same for both ONNX and zDNN. 
+// Only 1D bias is suitable for this transformation since only then
+// the semantics of bias addition is the same for both ONNX and zDNN.
 def replaceONNXMatMulAddPattern1 : Pat<
   // From Add $b, (MatMul $x, $y)
   (ONNXAddOp $b, (ONNXMatMulOp:$m $x, $y)),
@@ -552,14 +552,14 @@ def replaceONNXMatMulAddPattern2 : Pat<
 //===----------------------------------------------------------------------===//
 // GEMM
 //===----------------------------------------------------------------------===//
-def IsTransposed: Constraint<CPred<"($_self.cast<IntegerAttr>().getSInt() == 1)">>;
+def IsTransposed: Constraint<CPred<"(mlir::cast<IntegerAttr>($_self).getSInt() == 1)">>;
 
 def Transpose2D: NativeCodeCall<
   "emitONNXTranspose($_loc, $_builder, $0, SmallVector<int64_t, 2>({1, 0}))">;
 
 //===----------------------------------------------------------------------===//
 // NNPA does not directly support cases with alpha != 1.0 or beta != 1.0 or bias's rank == 2.
-// Since alpha and beta were legalized by the pass configuration, we check rank only. 
+// Since alpha and beta were legalized by the pass configuration, we check rank only.
 //
 // If bias's rank is 1, directly lower ONNX GEMM to ZHigh MatMul.
 // ONNXGemmOp %A %B %C = ZHighUnstickOp
@@ -672,7 +672,7 @@ def replaceONNXLSTMPattern1 : Pattern<
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
-   // 
+   //
    (EmitONNXSplitOp8Results:$splitB $b, (GetI64NAttr<1>), (GetLSTMGRUBiasSplitShape (GetShape $r))),
    (ZHighStickForLSTMOp:$input_bias $splitB__2, $splitB__0, $splitB__3, $splitB__1),
    (ZHighStickForLSTMOp:$hidden_bias $splitB__6, $splitB__4, $splitB__7, $splitB__5),
@@ -828,12 +828,12 @@ def replaceONNXGRUPattern1 : Pattern<
   [
    //
    // Pre-process to prepare input_bias and hidden_bias.
-   // 
+   //
    (EmitONNXSplitOp6Results:$splitB $b, (GetI64NAttr<1>),
       (GetLSTMGRUBiasSplitShape (GetShape $r))),
    (ZHighStickForGRUOp:$input_bias $splitB__0, $splitB__1, $splitB__2),
    (ZHighStickForGRUOp:$hidden_bias $splitB__3, $splitB__4, $splitB__5),
-  
+
    //
    // Main-process to lower ONNXGRUOp into ZHighGRUOp.
    //
@@ -847,7 +847,7 @@ def replaceONNXGRUPattern1 : Pattern<
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
       (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
-  
+
    //
    // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
@@ -917,7 +917,7 @@ def replaceONNXGRUPattern3 : Pattern<
       $hidden_size,                                      // hidden_size
       $direction,                                        // direction
       (GetLSTMGRUReturnAllStepsAttr $res__0, $res__1)),  // return_all_steps
-  
+
    //
    // Post-process to generate two return values of ONNXGRUOp
    // from two return values of ZHighGRUOp(=$zHighGRU).
@@ -964,7 +964,7 @@ def replaceONNXGRUPattern4 : Pattern<
 // Rewrite
 //
 // ONNXConvOp %X, %W, %B
-// 
+//
 // to
 //
 // (ZHighUnstickOp
@@ -976,7 +976,7 @@ def replaceONNXGRUPattern4 : Pattern<
 //      strides,
 //      GetPaddingType,
 //      ACT_NONE)))
-//        
+//
 //===----------------------------------------------------------------------===//
 
 def GetStrAttrPaddingtypeConv: NativeCodeCall<
@@ -998,7 +998,7 @@ def replaceONNXConv2DPattern : Pattern<
    (GetStrAttrPaddingtypeConv:$padtype $res),
    (GetI64ArrayAttrKernelShapeConv:$kernel_shape $res),
    (GetI64ArrayAttrStridesConv:$strides $res),
- 
+
    (ZHighUnstickOp
     (ZHighConv2DOp
        (ZHighStickOp $x, (NHWCLayoutAttr)),
@@ -1043,7 +1043,7 @@ def replaceONNXReluConvPattern : Pattern<
    (GetStrAttrPaddingtypeConv:$padtype $res),
    (GetI64ArrayAttrKernelShapeConv:$kernel_shape $res),
    (GetI64ArrayAttrStridesConv:$strides $res),
- 
+
    (ZHighUnstickOp
     (ZHighConv2DOp
        (ZHighStickOp $x, (NHWCLayoutAttr)),

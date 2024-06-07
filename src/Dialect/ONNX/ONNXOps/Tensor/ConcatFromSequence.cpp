@@ -28,10 +28,10 @@ LogicalResult ONNXConcatFromSequenceOp::verify() {
     return success(); // Won't be able to do any checking at this stage.
 
   Value inputSequence = operandAdaptor.getInputSequence();
-  assert(inputSequence.getType().isa<SeqType>() &&
+  assert(mlir::isa<SeqType>(inputSequence.getType()) &&
          "Incorrect type for a sequence");
-  auto seqType = inputSequence.getType().cast<SeqType>();
-  auto elemType = seqType.getElementType().cast<ShapedType>();
+  auto seqType = mlir::cast<SeqType>(inputSequence.getType());
+  auto elemType = mlir::cast<ShapedType>(seqType.getElementType());
   int64_t rank = elemType.getShape().size();
   int64_t axisIndex = getAxis();
   int64_t newAxisIndex = getNewAxis();

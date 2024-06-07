@@ -61,15 +61,15 @@ public:
     StringRef nodeName;
     if (instrumentOp.getNodeName().has_value())
       nodeName = instrumentOp.getNodeName().value();
-    else if (auto nameLoc = loc.dyn_cast<NameLoc>())
+    else if (auto nameLoc = mlir::dyn_cast<NameLoc>(loc))
       nodeName = nameLoc.getName();
-    else if (auto fusedLoc = loc.dyn_cast<FusedLoc>()) {
+    else if (auto fusedLoc = mlir::dyn_cast<FusedLoc>(loc)) {
       // Combine each location name and set it as nodeName, appended by "-".
       std::string name;
       for (Location locIt : fusedLoc.getLocations()) {
-        if (auto nameLocIt = locIt.dyn_cast<NameLoc>())
+        if (auto nameLocIt = mlir::dyn_cast<NameLoc>(locIt))
           name += nameLocIt.getName().str() + "-";
-        else if (auto fileLineColLoc = locIt.dyn_cast<FileLineColLoc>()) {
+        else if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(locIt)) {
           std::string filename =
               llvm::sys::path::filename(fileLineColLoc.getFilename().str())
                   .str();
@@ -83,7 +83,7 @@ public:
         name.pop_back(); // remove last "-"
       Location newLoc = NameLoc::get(rewriter.getStringAttr(name));
       nodeName = cast<NameLoc>(newLoc).getName();
-    } else if (auto fileLineColLoc = loc.dyn_cast<FileLineColLoc>()) {
+    } else if (auto fileLineColLoc = mlir::dyn_cast<FileLineColLoc>(loc)) {
       std::string filename =
           llvm::sys::path::filename(fileLineColLoc.getFilename().str()).str();
       std::string name =

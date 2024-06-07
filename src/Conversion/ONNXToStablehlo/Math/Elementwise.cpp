@@ -188,7 +188,7 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXEluOp>
 
     Type resultType = *op->result_type_begin();
     Value inp = operandAdaptor.getX();
-    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    ShapedType inpType = mlir::dyn_cast_or_null<ShapedType>(inp.getType());
     if (inpType == nullptr)
       return failure();
     Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
@@ -220,7 +220,7 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXHardSigmoidOp>
     double alpha = HardSigmoidOp.getAlpha().convertToDouble();
     double beta = HardSigmoidOp.getBeta().convertToDouble();
     Value inp = operandAdaptor.getX();
-    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    ShapedType inpType = mlir::dyn_cast_or_null<ShapedType>(inp.getType());
     if (inpType == nullptr)
       return failure();
     Value alphaVal = getShapedFloat(loc, rewriter, alpha, inp);
@@ -247,7 +247,7 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXReluOp>
     Location loc = op->getLoc();
     ONNXReluOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.getX();
-    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    ShapedType inpType = mlir::dyn_cast_or_null<ShapedType>(inp.getType());
     if (inpType == nullptr)
       return failure();
     Type resultType = *op->result_type_begin();
@@ -271,7 +271,7 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXLeakyReluOp>
     ONNXLeakyReluOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.getX();
     llvm::APFloat alpha = adaptor.getAlpha();
-    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    ShapedType inpType = mlir::dyn_cast_or_null<ShapedType>(inp.getType());
     if (inpType == nullptr)
       return failure();
     Type resultType = *op->result_type_begin();
@@ -299,7 +299,7 @@ struct ONNXElementwiseUnaryOpLoweringToStablehlo<ONNXCastOp>
     ONNXCastOpAdaptor adaptor(operands, op->getAttrDictionary());
     Value inp = adaptor.getInput();
     Type elementToType = adaptor.getTo();
-    ShapedType inpType = inp.getType().dyn_cast_or_null<ShapedType>();
+    ShapedType inpType = mlir::dyn_cast_or_null<ShapedType>(inp.getType());
     if (inpType == nullptr)
       return failure();
     Value resultOp =

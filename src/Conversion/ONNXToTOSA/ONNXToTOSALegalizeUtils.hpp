@@ -37,14 +37,14 @@ mlir::RankedTensorType reduceAxisToOne(llvm::ArrayRef<int64_t> shape,
 // Returns the value TOSA ConstOp
 template <typename T>
 T getValueFromTosaConst(mlir::Value &val) {
-  return val.getDefiningOp<mlir::tosa::ConstOp>().getValue().cast<T>();
+  return mlir::cast<T>(val.getDefiningOp<mlir::tosa::ConstOp>().getValue());
 }
 
 // Creates a TOSA operation and performs shape inference on the individual
 // op. This allows shape inference during the framework to TOSA lowering.
 template <typename TosaOp, typename... Args>
 TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
-    mlir::Type result_ty, Args &&... args) {
+    mlir::Type result_ty, Args &&...args) {
   auto op = rewriter.create<TosaOp>(loc, result_ty, args...);
 
   mlir::InferShapedTypeOpInterface shapeInterface =
@@ -67,13 +67,13 @@ TosaOp CreateOpAndInfer(mlir::PatternRewriter &rewriter, mlir::Location loc,
   auto predictedShape = returnedShapes[0];
   if (predictedShape.hasRank())
     updateType(nullptr, op, predictedShape.getDims(),
-        result_ty.cast<mlir::ShapedType>().getElementType());
+        mlir::cast<mlir::ShapedType>(result_ty).getElementType());
   return op;
 }
 
 template <typename TosaOp, typename... Args>
 void CreateReplaceOpAndInfer(mlir::PatternRewriter &rewriter,
-    mlir::Operation *op, mlir::Type result_ty, Args &&... args) {
+    mlir::Operation *op, mlir::Type result_ty, Args &&...args) {
   auto result =
       CreateOpAndInfer<TosaOp>(rewriter, op->getLoc(), result_ty, args...);
   rewriter.replaceOp(op, result->getResults());

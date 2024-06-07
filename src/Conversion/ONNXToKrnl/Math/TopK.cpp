@@ -35,9 +35,9 @@ struct ONNXTopKOpLowering : public OpConversionPattern<ONNXTopKOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+    MemRefType resMemRefType = mlir::cast<MemRefType>(convertedType);
 
     // Common types.
     Type i64Type = rewriter.getI64Type();

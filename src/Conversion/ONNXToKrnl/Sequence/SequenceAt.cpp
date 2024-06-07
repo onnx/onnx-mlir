@@ -34,7 +34,7 @@ struct ONNXSequenceAtOpLowering : public OpConversionPattern<ONNXSequenceAtOp> {
     IndexExprScope IEScope(&rewriter, loc);
 
     Type outputMemRefType =
-        input_sequence.getType().cast<MemRefType>().getElementType();
+        mlir::cast<MemRefType>(input_sequence.getType()).getElementType();
 
     auto dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);

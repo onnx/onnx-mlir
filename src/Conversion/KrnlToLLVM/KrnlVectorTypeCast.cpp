@@ -43,7 +43,7 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     auto krnlVectorTypeCastOp = cast<KrnlVectorTypeCastOp>(op);
     MemRefType sourceType =
-        krnlVectorTypeCastOp.getOperand().getType().cast<MemRefType>();
+        mlir::cast<MemRefType>(krnlVectorTypeCastOp.getOperand().getType());
     MemRefType targetType = krnlVectorTypeCastOp.getType();
     if (!isSupportedMemRefType(targetType) ||
         !isSupportedMemRefType(sourceType))
@@ -114,7 +114,7 @@ public:
       // There is the implicit expectation that the last dimension of the
       // original memory is a multiple of the vector length.
       Value vecWidth = createIndexAttrConstant(rewriter, loc, indexType,
-          targetType.getElementType().cast<ShapedType>().getNumElements());
+          mlir::cast<ShapedType>(targetType.getElementType()).getNumElements());
       sizes.push_back(rewriter.create<LLVM::UDivOp>(loc,
           srcMemRefDesc.size(rewriter, loc, sourceType.getRank() - 1),
           vecWidth));

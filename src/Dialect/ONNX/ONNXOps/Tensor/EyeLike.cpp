@@ -48,7 +48,8 @@ LogicalResult ONNXEyeLikeOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::cast<RankedTensorType>(getInput().getType());
   Type elementType;
   if (getDtypeAttr()) {
     auto builder = OpBuilder(getContext());
