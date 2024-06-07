@@ -952,10 +952,18 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     ValueRange blockedLoopDefs = create.krnl.block(loopDefs[0], B);
     Value blockedLoopDef = blockedLoopDefs[0];
     if (enableParallel) {
-      create.krnl.parallel(blockedLoopDef);
-      onnxToKrnlParallelReport(op, true, 0, zero, XFlatDims[0], "layer-norm");
+      int64_t parId;
+      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)), ub(1, XFlatDims[0]);
+      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
+              /*min iter for going parallel*/ 4)) {
+        create.krnl.parallel(blockedLoopDef);
+        onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "in layer-norm");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, 0, lb[0], ub[0], "not enough work in layer-norm");
+      }
     } else {
-      onnxToKrnlParallelReport(op, false, -1, -1, "layer norm");
+      onnxToKrnlParallelReport(op, false, -1, -1, "no parallel in layer norm");
     }
     create.krnl.iterateIE({loopDefs[0]}, {blockedLoopDef}, {zero},
         {XFlatDims[0]}, [&](KrnlBuilder &ck, ValueRange blockedLoopIndices) {

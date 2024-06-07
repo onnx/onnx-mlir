@@ -775,9 +775,17 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
       if (enableParallel) {
-        create.krnl.parallel(loop3Def[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
+        int64_t parId;
+        if (findSuitableParallelDimension(lbs3, ubs3, 0, 1, parId,
+                /*min iter for going parallel*/ 4)) {
+
+          create.krnl.parallel(loop3Def[0]);
+          onnxToKrnlParallelReport(
+              op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
+        } else {
+          onnxToKrnlParallelReport(op, false, 0, lbs3[0], ubs3[0],
+              "not enough work in reduction scalar mean");
+        }
       }
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
           [&](KrnlBuilder &kb, ValueRange loopInd) {
@@ -879,9 +887,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
-      create.krnl.parallel(outLoopDef[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
+              /*min iter for going parallel*/ 128)) {
+        create.krnl.parallel(outLoopDef[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
+            "not enough work for reduction h-simd");
+      }
     }
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange outLoopInd) {
@@ -1012,9 +1027,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Iterate only over all but the inner loop of the flattened input.
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
-      create.krnl.parallel(optimizedOutLoopDef[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
+              /*min iter for going parallel*/ 64 * VL)) {
+        create.krnl.parallel(optimizedOutLoopDef[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
+            "not enough work for reduction shuffle h-simd");
+      }
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange blockedOutLoopInd) {
