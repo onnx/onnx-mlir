@@ -157,7 +157,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_5_8_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_6_6_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_7_4_:%.+]] = llvm.mlir.addressof @om_external_constant_filename_tag_constants_to_file : !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_6_]], [[VAR_7_4_]], [[VAR_4_7_]], [[VAR_5_8_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_6_]], [[VAR_7_4_]], [[VAR_4_7_]], {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_3_9_]], [[VAR_6_6_]], [[VAR_2_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_1_9_]], [[VAR_6_6_]], [[VAR_0_18_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.return

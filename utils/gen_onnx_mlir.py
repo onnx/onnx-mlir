@@ -1268,9 +1268,7 @@ def gen_op_def(schema, with_version=False):
                 + (", " + elTy if elTy else "")
                 + ");\n"
             )
-            r += (
-                "{indent}auto shapedType = mlir::dyn_cast_or_null<ShapedType>(resultType);\n"
-            )
+            r += "{indent}auto shapedType = mlir::dyn_cast_or_null<ShapedType>(resultType);\n"
             r += "{indent}if (!shapedType || !shapedType.hasStaticShape())\n"
             r += (
                 "{indent}  resultType = UnrankedTensorType::get("
