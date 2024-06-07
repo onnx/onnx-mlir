@@ -79,7 +79,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         onnxToKrnlParallelReport(
             op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
       } else {
-        onnxToKrnlParallelReport(op, true, 0, loopLbs[0], loopUbs[0],
+        onnxToKrnlParallelReport(op, false, 0, loopLbs[0], loopUbs[0],
             "not enough work for matmul generic");
       }
     }
@@ -335,7 +335,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
         onnxToKrnlParallelReport(
             op, true, 0, zeroIE, dimI, "matmul no broadcast");
       } else {
-        onnxToKrnlParallelReport(op, true, 0, zeroIE, dimI,
+        onnxToKrnlParallelReport(op, false, 0, zeroIE, dimI,
             "not enough work for matmul no broadcast");
       }
     }

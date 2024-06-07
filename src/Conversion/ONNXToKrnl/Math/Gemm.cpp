@@ -78,7 +78,7 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
         onnxToKrnlParallelReport(op, true, parId, loopLbs[parId],
             loopUbs[parId], "generic GEMM on outer loop");
       } else {
-        onnxToKrnlParallelReport(op, true, parId, loopLbs[parId],
+        onnxToKrnlParallelReport(op, false, parId, loopLbs[parId],
             loopUbs[parId], "not enough work for parallel generic GEMM");
       }
     }
@@ -305,9 +305,9 @@ struct ONNXGemmOpLowering : public OpConversionPattern<GemmOp> {
                 /*min iter for going parallel*/ 4 * jCacheTile)) {
           create.krnl.parallel(jj1);
           onnxToKrnlParallelReport(
-              op, true, 1, zeroIE, J, "GEMM tiled no copy J parallel");
+              op, true, 0, zeroIE, J, "GEMM tiled no copy J parallel");
         } else {
-          onnxToKrnlParallelReport(op, false, 1, zeroIE, J,
+          onnxToKrnlParallelReport(op, false, 0, zeroIE, J,
               "not enough work for GEMM tiled no copy J parallel");
         }
       }
