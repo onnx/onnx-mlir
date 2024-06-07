@@ -406,9 +406,18 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     for (int64_t i = 0; i < broadcastRank; ++i)
       broadcastUB.emplace_back(create.mem.dim(C, i));
     if (enableParallel) {
-      create.krnl.parallel(broadcastLoop[0]);
-      onnxToKrnlParallelReport(op, true, 0, LiteralIndexExpr(0),
-          shapeHelper.getOutputDims()[0], "matmul broadcast");
+      int64_t parId;
+      // Could check out more than the outer dim of the broadcasts...
+      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)),
+          ub(1, shapeHelper.getOutputDims()[0]);
+      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
+              /*min iter for going parallel*/ 4)) {
+        create.krnl.parallel(broadcastLoop[0]);
+        onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "matmul broadcast");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, 0, lb[0], ub[0], "not enough work in matmul broadcast");
+      }
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
