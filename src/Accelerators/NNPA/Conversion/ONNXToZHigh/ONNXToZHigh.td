@@ -33,7 +33,7 @@ def IsEnableScalarBcastBinary: Constraint<CPred<"isEnableScalarBcastBinary()">>;
 
 def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
-def IsNotNoneType : Constraint<CPred<"!mlir::isa<NoneType>($_self)">>;
+def IsNotNoneType : Constraint<CPred<"!mlir::isa<NoneType>(($_self).getType())">>;
 
 class HasRankOf<int rank> : Constraint<
   CPred<"mlir::isa<ShapedType>($0.getType()) && "
@@ -43,7 +43,7 @@ class HasRankOf<int rank> : Constraint<
 
 def IsBiasNoneOr1D : Constraint<
   CPred<"mlir::isa<NoneType>($_self.getType()) || "
-        "mlir::isa<ShapedType>($_self.getType()) && "
+        "(mlir::isa<ShapedType>($_self.getType()) && "
 	"  mlir::cast<ShapedType>($_self.getType()).hasRank() && "
 	"  mlir::cast<ShapedType>($_self.getType()).getRank() == 1)">
 >;

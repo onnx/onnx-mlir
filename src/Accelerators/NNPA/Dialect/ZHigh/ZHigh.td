@@ -84,10 +84,8 @@ def ZTensorEncodingAttr : ZHigh_Attr<"ZTensorEncoding"> {
 // Whether a ztensor type has the specified layout.
 class DataLayoutOfPred<string layout> : And<[
   CPred<"(mlir::cast<::mlir::RankedTensorType>($_self)) &&"
-        "(mlir::cast<::mlir::RankedTensorType>($_self)."
-        "mlir::dyn_cast_or_null<ZTensorEncodingAttr>(getEncoding())) &&"
-        "(mlir::cast<::mlir::RankedTensorType>($_self)."
-        "mlir::cast<ZTensorEncodingAttr>(getEncoding()).getDataLayout()"
+        "(mlir::dyn_cast_or_null<ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding())) &&"
+        "(mlir::cast<ZTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding()).getDataLayout()"
         " == ZTensorEncodingAttr::DataLayout::" # layout # ")">
 ]>;
 
