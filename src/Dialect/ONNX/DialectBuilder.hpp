@@ -34,18 +34,19 @@ struct OnnxBuilder : DialectBuilder {
 
   // Create operation and infer shape.
   template <typename OnnxOpType, typename... Args>
-  OnnxOpType createOpAndInferShapes(Args &&... args) const;
+  OnnxOpType createOpAndInferShapes(Args &&...args) const;
 
   template <typename OnnxOpType, typename... Args>
   OnnxOpType createTypedOpAndInferShapes(
-      mlir::Type result_ty, Args &&... args) const;
+      mlir::Type result_ty, Args &&...args) const;
 
   // ONNXAddOp
   mlir::Value add(mlir::Value A, mlir::Value B) const;
 
   // ONNXCastOp
   mlir::Value cast(mlir::Type outputType, mlir::Value input,
-      mlir::IntegerAttr saturate, mlir::TypeAttr to) const;
+      mlir::IntegerAttr saturate, mlir::TypeAttr to,
+      bool inferShape = true) const;
   mlir::Value cast(
       mlir::Value input, mlir::IntegerAttr saturate, mlir::TypeAttr to) const;
   mlir::Value cast(mlir::Value input, mlir::TypeAttr to) const;

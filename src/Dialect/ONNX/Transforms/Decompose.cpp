@@ -935,7 +935,6 @@ public:
     Location loc = castLikeOp.getLoc();
 
     Value input = castLikeOp.getInput();
-    Value output = castLikeOp.getOutput();
     Value target = castLikeOp.getTargetType();
     IntegerAttr saturate = castLikeOp.getSaturateAttr();
 
@@ -943,9 +942,10 @@ public:
     Type targetType = target.getType().cast<ShapedType>().getElementType();
 
     // Replace
-    Value res =
-        onnx_mlir::OnnxBuilder(rewriter, loc)
-            .cast(output.getType(), input, saturate, TypeAttr::get(targetType));
+    Type resultType = UnrankedTensorType::get(targetType);
+    Value res = onnx_mlir::OnnxBuilder(rewriter, loc)
+                    .cast(resultType, input, saturate,
+                        TypeAttr::get(targetType), false);
     rewriter.replaceOp(castLikeOp, res);
     return success();
   }

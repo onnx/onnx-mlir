@@ -43,14 +43,13 @@ Value OnnxBuilder::add(Value A, Value B) const {
   return createOpAndInferShapes<ONNXAddOp>(toTensor(A), toTensor(B));
 }
 
-Value OnnxBuilder::cast(
-    Type outputType, Value input, IntegerAttr saturate, TypeAttr to) const {
-  if (outputType.cast<ShapedType>().hasRank()) {
-    return cast(input, saturate, to);
-  } else {
-    Type resultType = UnrankedTensorType::get(to.getValue());
-    return b().create<ONNXCastOp>(loc(), resultType, input, saturate, to);
-  }
+Value OnnxBuilder::cast(Type outputType, Value input, IntegerAttr saturate,
+    TypeAttr to, bool inferShape) const {
+  if (inferShape)
+    return createTypedOpAndInferShapes<ONNXCastOp>(
+        outputType, input, saturate, to);
+  else
+    return b().create<ONNXCastOp>(loc(), outputType, input, saturate, to);
 }
 
 Value OnnxBuilder::cast(Value input, IntegerAttr saturate, TypeAttr to) const {
