@@ -23,7 +23,8 @@
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
 /// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
-bool isValidElementTypeAndRank(mlir::Value val, bool donotCheckRank = false);
+bool isValidElementTypeAndRank(
+    mlir::Operation *op, mlir::Value val, bool donotCheckRank = false);
 
 /// A function to check whether an ONNX op is suitable for being lowered to zDNN
 /// or not.
@@ -43,5 +44,11 @@ mlir::StringRef getStrPaddingType(OP op);
 /// Check if input, output, kernel, strides, and paddingYype for each axis meet
 /// parameter restrictions for maxpool and avgpool.
 /// See "MaxPool2D/AvgPool2D Parameter Restrictions" in "zDNN API Reference"
-bool meetPoolParamRestrictions(int64_t inputShape, int64_t kernelShape,
-    int64_t strides, int64_t outputShape, mlir::StringRef paddingType);
+bool meetPoolParamRestrictions(mlir::Operation *op, int64_t inputShape,
+    int64_t kernelShape, int64_t strides, int64_t outputShape,
+    mlir::StringRef paddingType);
+
+bool onnxToZHighUnsupportedReport(
+    mlir::Operation *op, const std::string &message);
+
+bool onnxToZHighInCompatibilityReport(mlir::Operation *op);
