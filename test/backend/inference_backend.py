@@ -1279,26 +1279,26 @@ def get_test_models():
         },
         # ==OP== GRU
         # ==MIN== 7
-        # ==LIM== Unknown dimensions are not supported except `X` of inputs.
+        # ==LIM== W, B and R must be constants.
         # CONSTANT_INPUT for W and R.
         "test_gru_defaults_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_gru_with_initial_bias_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_gru_seq_length_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_gru_batchwise_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         # ==OP== Hardmax
@@ -1807,26 +1807,26 @@ def get_test_models():
         },
         # ==OP== LSTM
         # ==MIN== 7
-        # ==LIM== Unknown dimensions are not supported except `X` of inputs.
+        # ==LIM==  W, B and R must be constants.
         # CONSTANT_INPUT for W and R.
         "test_lstm_defaults_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_lstm_with_initial_bias_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_lstm_with_peepholes_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_lstm_batchwise_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         # ==OP== MatMul
@@ -2770,25 +2770,26 @@ def get_test_models():
         },
         # ==OP== RNN
         # ==MIN== 7
-        # ==LIM== Unknown dimensions are not supported except `X` of inputs.
+        # ==LIM== W, B and R must be constants.
+        # CONSTANT_INPUT for W and R.
         "test_simple_rnn_defaults_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_simple_rnn_with_initial_bias_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_rnn_seq_length_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {0, 1, 2}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         "test_simple_rnn_batchwise_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {1, 2},
         },
         # ==OP== Round
