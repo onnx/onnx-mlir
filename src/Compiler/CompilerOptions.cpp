@@ -85,6 +85,7 @@ ProfileIRs profileIR;                                  // onnx-mlir only
 OptReport optReport;                                   // onnx-mlir only
 bool useOldBufferization;                              // onnx-mlir only
 bool enableTiming;                                     // onnx-mlir only
+bool enableBoundCheck;                                 // onnx-mlir only
 bool split_input_file;                                 // onnx-mlir-opt only
 bool verify_diagnostics;                               // onnx-mlir-opt only
 bool verify_passes;                                    // onnx-mlir-opt only
@@ -583,6 +584,12 @@ static llvm::cl::opt<bool, true> enable_timing("enable-timing",
     llvm::cl::desc("Enable compile timing (default is false)\n"
                    "Set to 'true' if you want to enable compile timing."),
     llvm::cl::location(enableTiming), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+
+static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
+    llvm::cl::desc("Enable runtime bound check for memrefs (default is false)\n"
+                   "Set to 'true' if you want to enable the check."),
+    llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
 // Options for onnx-mlir-opt only
