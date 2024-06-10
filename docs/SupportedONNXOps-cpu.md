@@ -218,7 +218,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **Trilu** |14 - * | | |
 | **Unique** |11 - * | | |
 | **Unsqueeze** |6 - * |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
-| **Upsample** |7 - * | | |
+| **Upsample** |7 - * |Input `X` and `Y` must have static shape. | |
 | **Where** |9 - * | | |
 | **Xor** |7 - * | | |
 | **ZipMap** |none | | | |

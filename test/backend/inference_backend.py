@@ -3307,9 +3307,10 @@ def get_test_models():
         "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT: {1}},
         # ==OP== Upsample
         # ==MIN== 7
+        # ==LIM== Input `X` and `Y` must have static shape.
         "test_upsample_nearest_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
+            DYNAMIC_SHAPE: {0: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Where
