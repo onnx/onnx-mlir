@@ -150,11 +150,10 @@ private:
     if (enableParallel) {
       int64_t parId;
       // TODO: consider flattening the outer dims, or along inner dims.
-      if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId, 8)) {
-        assert(parId == 0 && "only outermost at this time");
-        create->krnl.parallel(loopDef[0]);
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
+        create->krnl.parallel(loopDef[parId]);
         onnxToKrnlParallelReport(
-            op, true, 0, lbs[0], ubs[0], "scalar transpose");
+            op, true, parId, lbs[parId], ubs[parId], "scalar transpose");
       } else {
         onnxToKrnlParallelReport(
             op, false, -1, -1, "no dim with enough work in scalar transpose");
@@ -224,12 +223,12 @@ private:
     SmallVector<IndexExpr, 4> lbs(outerRank, LiteralIndexExpr(0));
     if (enableParallel) {
       int64_t parId;
-      // TODO: consider flattening the outer dims, or along inner dims.
-      if (findSuitableParallelDimension(lbs, inUBs, 0, 1, parId, 8)) {
-        assert(parId == 0 && "only outermost at this time");
-        create->krnl.parallel(loopDef[0]);
+      // Note that if there is only 1 dim, lastExclusiveDim is automatically
+      // reduced to 1 in the findSuitableParallelDimension call.
+      if (findSuitableParallelDimension(lbs, inUBs, 0, 2, parId, 8)) {
+        create->krnl.parallel(loopDef[parId]);
         onnxToKrnlParallelReport(
-            op, true, 0, lbs[0], inUBs[0], "block transpose");
+            op, true, parId, lbs[parId], inUBs[parId], "block transpose");
       } else {
         onnxToKrnlParallelReport(
             op, false, -1, -1, "no dim with enough work in block transpose");
