@@ -658,7 +658,7 @@ def get_test_models():
         },
         # ==OP== ConvTranspose
         # ==MIN== 1
-        # ==LIM== Unknown dimension in spatial dimensions (such as H and W) not supported.
+        # ==LIM== Spatial dimensions (H and W in input `X`, and kH and kW in input `W`) must be static dimension.
         "test_convtranspose_1d_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {0, 1}, 1: {0, 1}},
@@ -875,7 +875,7 @@ def get_test_models():
         },
         # ==OP== Einsum
         # ==MIN== 12
-        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. Unknown dimension is not supported in `inputs`.
+        # ==LIM== Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. `inputs` must have static dimensions.
         "test_einsum_batch_diagonal_cpu": {
             STATIC_SHAPE: {},
             # Issue #2639: Dynamic test fails. Need to be fixed.
@@ -967,7 +967,7 @@ def get_test_models():
         },
         # ==OP== Expand
         # ==MIN== 8
-        # ==LIM== Unknown dimension in `shape` of inputs is not supported.
+        # ==LIM== Input `shape` must have static shape.
         "test_expand_dim_changed_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -1784,7 +1784,7 @@ def get_test_models():
         },
         # ==OP== Loop
         # ==MIN== 1
-        # ==LIM== Unknown dimension is not supported.
+        # ==LIM== Input must have static shape.
         "test_loop11_cpu": {
             STATIC_SHAPE: {},
             # Need to enable ConvertSeqToMemrefPass for dynamic test.
@@ -2622,7 +2622,7 @@ def get_test_models():
         },
         # ==OP== Reshape
         # ==MIN== 5
-        # ==LIM== allowzero not supported. Unknown dimension in `shape` of inputs is not supported.
+        # ==LIM== allowzero not supported. Input `shape` must have static dimension.
         "test_reshape_extended_dims_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -2670,7 +2670,7 @@ def get_test_models():
         },
         # ==OP== Resize
         # ==MIN== 10
-        # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. Unknown dimension in `shape` of inputs is not supported.
+        # ==LIM== Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. `scales` and `sizes` must have static dimension.
         # Resize
         # All test cases in onnx v1.11.0. yes for currently supported
         # yes name='test_resize_upsample_scales_nearest')
@@ -3122,7 +3122,7 @@ def get_test_models():
         },
         # ==OP== TopK
         # ==MIN== 10
-        # ==LIM== Unknown dimension in `X` of inputs is supported.
+        # ==LIM== `K`, the number of top elements to retrieve, must have static shape.
         "test_top_k_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {0: {-1}},
@@ -3307,10 +3307,9 @@ def get_test_models():
         "test_unsqueeze_unsorted_axes_cpu": {CONSTANT_INPUT: {1}},
         # ==OP== Upsample
         # ==MIN== 7
-        # ==LIM== Only `condition` of inputs supports unknown dimension.
         "test_upsample_nearest_cpu": {
             STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
+            DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
         # ==OP== Where
