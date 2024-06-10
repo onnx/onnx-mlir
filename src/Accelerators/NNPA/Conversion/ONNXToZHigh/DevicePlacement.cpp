@@ -159,6 +159,10 @@ void DevicePlacementPass::runOnOperation() {
   this->module = getOperation();
   this->context = &getContext();
 
+  // Disable reporting on NNPA unsupported ops in this pass even if
+  // `-opt-report=NNPAUnsupportedOps` is specified..
+  OnnxToZHighLoweringConfiguration::reportOnNNPAUnsupportedOps = 0;
+
   // Run the unknown dimension analysis to help check equality of unknown
   // dimensions at compile time.
   DimAnalysis dimAnalysis(module);
