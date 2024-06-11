@@ -52,11 +52,11 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **ConstantOfShape** |9 - * | | |
 | **Conv** |6 - * | | |
 | **ConvInteger** |none | | | |
-| **ConvTranspose** |6 - * |Unknown dimension in spatial dimensions (such as H and W) not supported. | |
+| **ConvTranspose** |6 - * |Spatial dimensions (H and W in input `X`, and kH and kW in input `W`) must be static dimension. | |
 | **Cos** |7 - * | | |
 | **Cosh** |9 - * | | |
 | **CumSum** |11 - * | | |
-| **DFT** |17 - 19 | | |
+| **DFT** |17 - * | | |
 | **DeformConv** |none | | | |
 | **DepthToSpace** |13 - * | | |
 | **DequantizeLinear** |10 - * |Only support for per-tensor or layer dequantization. No support for per-axis dequantization. | |
@@ -65,17 +65,17 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **Div** |6 - * |No support for short integers. | |
 | **Dropout** |6 - * |Does not support masked and training. | |
 | **DynamicQuantizeLinear** |11 - * | | |
-| **Einsum** |12 - * |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. | |
+| **Einsum** |12 - * |Limited to the types supported by ReduceSum and MatMul (which we decompose to in most cases) which exclude integers with width < 32. `inputs` must have static dimensions. | |
 | **Elu** |6 - * | | |
 | **Equal** |7 - * | | |
 | **Erf** |9 - * | | |
 | **Exp** |6 - * | | |
-| **Expand** |8 - * | | |
+| **Expand** |8 - * |Input `shape` must have static shape. | |
 | **EyeLike** |none | | | |
 | **FeatureVectorizer** |none | | | |
 | **Flatten** |6 - * | | |
 | **Floor** |6 - * | | |
-| **GRU** |7 - * | | |
+| **GRU** |7 - * |W, B and R must be constants. | |
 | **Gather** |6 - * | | |
 | **GatherElements** |11 - * | | |
 | **GatherND** |11 - * | | |
@@ -98,10 +98,10 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **If** |16 - * |Sequence and Optional outputs are not supported. | |
 | **Imputer** |none | | | |
 | **InstanceNormalization** |6 - * | | |
-| **IsInf** |10 - * |Currently no support for float16 infinity value. Only for float32 and float64. | |
-| **IsNaN** |9 - * | | |
+| **IsInf** |20 - * |Currently no support for float16 infinity value. Only for float32 and float64. | |
+| **IsNaN** |20 - * | | |
 | **LRN** |6 - * | | |
-| **LSTM** |7 - * | | |
+| **LSTM** |7 - * |W, B and R must be constants. | |
 | **LabelEncoder** |none | | | |
 | **LayerNormalization** |17 - * | | |
 | **LeakyRelu** |6 - * | | |
@@ -111,7 +111,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **LinearRegressor** |none | | | |
 | **Log** |6 - * | | |
 | **LogSoftmax** |13 - * |Axis 0, 1, and default currently disabled due to changes in ONNX 1.8.1/Opset 13. |Temporally removed due to changes in onnx 1.8.1. |
-| **Loop** |6 - * | | |
+| **Loop** |6 - * |Input must have static shape. | |
 | **LpNormalization** |none | | | |
 | **LpPool** |none | | | |
 | **MatMul** |6 - * | | |
@@ -147,7 +147,7 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **QLinearConv** |none | | | |
 | **QLinearMatMul** |none | | | |
 | **QuantizeLinear** |10 - * |Do not support per-axis and i8 quantization. | |
-| **RNN** |7 - * | | |
+| **RNN** |7 - * |W, B and R must be constants. | |
 | **RandomNormal** |none | | | |
 | **RandomNormalLike** |none | | | |
 | **RandomUniform** |none | | | |
@@ -165,8 +165,8 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **ReduceSum** |6 - * |Default axis and do_not_keep_dim not supported. |Default axis and do_not_keep_dim temporarily removed due to changes in onnx 1.8.1. |
 | **ReduceSumSquare** |13 - * |Default axis and do_not_keep_dim not supported. | |
 | **Relu** |6 - * | | |
-| **Reshape** |6 - * |allowzero not supported. | |
-| **Resize** |10 - * |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. | |
+| **Reshape** |6 - * |allowzero not supported. Input `shape` must have static dimension. | |
+| **Resize** |10 - * |Missing support for linear, cubic, crop, pytorch_half_pixel, and floor. Attributes antialias, axes and keep_aspect_ratio_policy are not supported. `scales` and `sizes` must have static dimension. | |
 | **ReverseSequence** |10 - * | | |
 | **RoiAlign** |none | | | |
 | **Round** |11 - * | | |
@@ -211,14 +211,14 @@ Onnx-mlir currently supports ONNX operations targeting up to opset 20. Limitatio
 | **TfIdfVectorizer** |none | | | |
 | **ThresholdedRelu** |none | | | |
 | **Tile** |6 - * | | |
-| **TopK** |10 - * | | |
+| **TopK** |10 - * |`K`, the number of top elements to retrieve, must have static shape. | |
 | **Transpose** |6 - * | | |
 | **TreeEnsembleClassifier** |none | | | |
 | **TreeEnsembleRegressor** |none | | | |
 | **Trilu** |14 - * | | |
 | **Unique** |11 - * | | |
 | **Unsqueeze** |6 - * |Does not support static and dynamic shape. |Temporally removed due to changes in onnx 1.8.1. |
-| **Upsample** |7 - * | | |
+| **Upsample** |7 - * |Input `X` and `Y` must have static shape. | |
 | **Where** |9 - * | | |
 | **Xor** |7 - * | | |
 | **ZipMap** |none | | | |
