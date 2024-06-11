@@ -34,4 +34,6 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
     mlir::PassManager &pm, onnx_mlir::EmissionTargetType &emissionTarget,
     std::string outputNameNoExt);
 
+void configurePassesNNPA();
+
 } // namespace onnx_mlir
