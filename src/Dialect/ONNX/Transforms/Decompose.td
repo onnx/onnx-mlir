@@ -99,6 +99,11 @@ def ONNXDataType : NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
   "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
 
+// Check if value has a type that is ranked with a shape.
+def HasRankAndShape:
+  Constraint<CPred<"::onnx_mlir::isRankedShapedType($_self.getType())">,
+  "A value has rank and shape">;
+
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
 //===----------------------------------------------------------------------===//
@@ -537,7 +542,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
+   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
    (addBenefit 1)
 >;
 
@@ -554,7 +559,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
-   [(ShouldDecomposeConvTransposeOp:$res)], [],
+   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res)], [],
    (addBenefit 0)
 >;
 
