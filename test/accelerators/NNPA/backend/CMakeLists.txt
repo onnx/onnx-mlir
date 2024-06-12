@@ -122,7 +122,7 @@ set(NNPA_TEST_LIST
     # test_averagepool_2d_pads_count_include_pad_cpu
     # test_averagepool_2d_pads_cpu
     # test_averagepool_2d_precomputed_pads_count_include_pad_cpu
-    test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST # Padding type is not `SAME_PADDING` or `VALID_PADDING`
+    test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
     test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
     test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d
     # test_averagepool_2d_same_lower_cpu
@@ -191,8 +191,8 @@ set(NNPA_TEST_LIST
     # ==OP== GlobalAveragePool
     # ==MIN== 1
     # ==LIM== - Input shape must be 4D tensor(NCHW).<br>- Dimensions in `H` and `W` must be static.
-    test_globalaveragepool_cpu,zdnn_meanreduce2d,NO_DYNAMIC_SHAPE_TEST # Height and Width dimension must be static dimension.
-    test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d,NO_DYNAMIC_SHAPE_TEST # Height and Width dimension must be static dimension.
+    test_globalaveragepool_cpu,zdnn_meanreduce2d,NO_DYNAMIC_SHAPE_TEST
+    test_globalaveragepool_precomputed_cpu,zdnn_meanreduce2d,NO_DYNAMIC_SHAPE_TEST
     # GlobalMaxPool
     # test_globalmaxpool_cpu
     # test_globalmaxpool_precomputed_cpu
