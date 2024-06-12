@@ -75,7 +75,7 @@ struct IsBool {
   }
 };
 
-template <typename OpAdaptorT, typename TypeChecker>
+template <typename OpAdaptorT, typename TypeChecker, typename TosaOpT>
 LogicalResult checkBasicTosaRequirementsForBinaryOps(
     ConversionPatternRewriter &rewriter, Operation *op, OpAdaptorT adaptor,
     Type resultType) {
@@ -91,6 +91,15 @@ LogicalResult checkBasicTosaRequirementsForBinaryOps(
   }
 
   Type resultElementType = resultTensorType.getElementType();
+
+  if (TosaOpT::template hasTrait<
+          ::mlir::OpTrait::SameOperandsAndResultElementType>()) {
+    if (lhsType.getElementType() != rhsType.getElementType() ||
+        lhsType.getElementType() != resultElementType) {
+      return rewriter.notifyMatchFailure(
+          op, "lhs, rhs and result must have the same type");
+    }
+  }
 
   if (failed(TypeChecker::checkType(rewriter, resultElementType, op))) {
     return failure();
@@ -144,8 +153,8 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, TypeChecker>(
-            rewriter, op, adaptor, op.getResult().getType())))
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, TypeChecker,
+            TosaOpT>(rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
     auto loc = op.getLoc();
@@ -179,7 +188,8 @@ public:
   using OpConversionPattern::OpConversionPattern;
   LogicalResult matchAndRewrite(ONNXMulOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, IsIntOrFloat>(
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, IsIntOrFloat,
+            mlir::tosa::MulOp>(
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 

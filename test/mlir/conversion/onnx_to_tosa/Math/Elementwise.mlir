@@ -513,6 +513,16 @@ func.func @test_pow_f64(%arg0: tensor<13x21x1xf64>, %arg1: tensor<13x21x1xf64>) 
 
 // -----
 
+func.func @test_pow_mixed_types(%arg0: tensor<3xf32>, %arg1: tensor<3xi32>) -> (tensor<3xf32>) {
+  // CHECK-LABEL:  func @test_pow_mixed_types
+  // CHECK-SAME:   ([[PARAM_0:%.*]]: tensor<3xf32>, [[PARAM_1:%.*]]: tensor<3xi32>) -> tensor<3xf32> 
+  // CHECK: "onnx.Pow"([[PARAM_0]], [[PARAM_1]]) {onnx_node_name = "onnx.Pow_0"} : (tensor<3xf32>, tensor<3xi32>) -> tensor<3xf32>
+  %0 = "onnx.Pow"(%arg0, %arg1) {onnx_node_name = "onnx.Pow_0"} : (tensor<3xf32>, tensor<3xi32>) -> tensor<3xf32>
+  return %0 : tensor<3xf32>
+}
+
+// -----
+
 func.func @test_sqrt(%arg0: tensor<3xf32>) -> tensor<3xf32> {
   %0 = "onnx.Sqrt"(%arg0) : (tensor<3xf32>) -> tensor<3xf32>
   return %0 : tensor<3xf32>
