@@ -778,7 +778,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         int64_t parId;
         if (findSuitableParallelDimension(lbs3, ubs3, 0, 1, parId,
                 /*min iter for going parallel*/ 4)) {
-
           create.krnl.parallel(loop3Def[0]);
           onnxToKrnlParallelReport(
               op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
