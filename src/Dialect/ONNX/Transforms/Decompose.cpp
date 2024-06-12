@@ -327,7 +327,7 @@ bool hasStaticSpatialDims(Value v) {
   // so we're left with D1 x D2 ... x Dn.
   ArrayRef<int64_t> Ds = NxCxDs.drop_front(2);
   // These must all be static for decomposition to work.
-  return !llvm::any_of(Ds, ShapedType::isDynamic);
+  return llvm::none_of(Ds, ShapedType::isDynamic);
 }
 
 bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {

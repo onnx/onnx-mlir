@@ -118,23 +118,23 @@ set(NNPA_TEST_LIST
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors (N x C x H x W).<br>- `kernel_shape` must be static.<br>- `count_include_pad` must be default value(0).<br>- `ceil_mode` must be default value(0).
     # test_averagepool_1d_default_cpu
     # test_averagepool_2d_ceil_cpu
-    test_averagepool_2d_default_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_default_cpu,zdnn_avgpool2d
     # test_averagepool_2d_pads_count_include_pad_cpu
     # test_averagepool_2d_pads_cpu
     # test_averagepool_2d_precomputed_pads_count_include_pad_cpu
     test_averagepool_2d_precomputed_pads_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d
+    test_averagepool_2d_precomputed_strides_cpu,zdnn_avgpool2d
     # test_averagepool_2d_same_lower_cpu
-    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_averagepool_2d_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_averagepool_2d_same_upper_cpu,zdnn_avgpool2d
+    test_averagepool_2d_strides_cpu,zdnn_avgpool2d
     # test_averagepool_3d_default_cpu
 
     # ==OP== BatchNormalization
     # ==MIN== 6
     # ==LIM== Input and output tensor must be 4D(N x C x H x W).
-    test_batchnorm_epsilon_cpu,zdnn_mul_ext,NO_DYNAMIC_SHAPE_TEST
-    test_batchnorm_example_cpu,zdnn_mul_ext,NO_DYNAMIC_SHAPE_TEST
+    test_batchnorm_epsilon_cpu,zdnn_mul_ext,"0:0=a,1=b,2=c,3=d|1:0=b|2:0=b|3:0=b|4:0=b"
+    test_batchnorm_example_cpu,zdnn_mul_ext,"0:0=a,1=b,2=c,3=d|1:0=b|2:0=b|3:0=b|4:0=b"
 
     # ==OP== Conv
     # ==MIN== 1
@@ -149,16 +149,16 @@ set(NNPA_TEST_LIST
     # ==OP== ConvTranspose
     # ==MIN== 1
     # ==LIM== - 1D and 3D not supported because Conv1D and Conv3D not supported in zDNN. non-default `dilations` not supported because dilated convolution not supported in zDNN.
-    # Disable backend tests for ConvTranspose, because they do not work on CPU.
+    # Spatial dims must be static.
     # test_convtranspose_1d_cpu,zdnn_conv1d
     # test_convtranspose_3d_cpu
-    test_convtranspose_autopad_same_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # not work on CPU
-    test_convtranspose_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # not work on CPU
+    test_convtranspose_autopad_same_cpu,zdnn_conv2d
+    test_convtranspose_cpu,zdnn_conv2d
     # test_convtranspose_dilations_cpu,zdnn_conv2d
-    test_convtranspose_kernel_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # not work on CPU
-    test_convtranspose_output_shape_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # not work on CPU
-    test_convtranspose_pad_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # not work on CPU
-    test_convtranspose_pads_cpu,zdnn_conv2d,NO_DYNAMIC_SHAPE_TEST # not work on CPU
+    test_convtranspose_kernel_shape_cpu,zdnn_conv2d
+    test_convtranspose_output_shape_cpu,zdnn_conv2d
+    test_convtranspose_pad_cpu,zdnn_conv2d
+    test_convtranspose_pads_cpu,zdnn_conv2d
 
     # ==OP== Div
     # ==MIN== 6
@@ -222,7 +222,7 @@ set(NNPA_TEST_LIST
     # test_logsoftmax_axis_0_cpu
     # test_logsoftmax_axis_1_cpu
     # test_logsoftmax_axis_2_cpu,zdnn_log_ext
-    test_logsoftmax_example_1_cpu,zdnn_softmax_ext,NO_DYNAMIC_SHAPE_TEST
+    test_logsoftmax_example_1_cpu,zdnn_softmax_ext
     # test_logsoftmax_default_axis_cpu
     # test_logsoftmax_negative_axis_cpu,zdnn_log_ext
     # test_logsoftmax_large_number_cpu #  accuracy error in test_logsoftmax_large_number_cpu
@@ -248,7 +248,7 @@ set(NNPA_TEST_LIST
     #test_max_one_input_cpu
     test_max_two_inputs_cpu,zdnn_max_ext,"0:0=a|1:0=a"
     # test_max_float16_cpu
-    test_max_float32_cpu,zdnn_max_ext,NO_DYNAMIC_SHAPE_TEST
+    test_max_float32_cpu,zdnn_max_ext,"0:0=a|1:0=a"
     # test_max_float64_cpu
     # test_max_int8_cpu
     # test_max_int16_cpu
@@ -264,15 +264,15 @@ set(NNPA_TEST_LIST
     # ==LIM== - `auto_pad` must be `NOTSET`, `VALID`, and `SAME_UPPER`. If `NOTSET` is used, `pads` must be set so that the padding valid type or same upper.<br>- `ceil_mode` must be default value(0) <br>- Input and output tensors must be 4D tensors(N x C x H x W).<br>- `kernel_shape` must be static.<br>- `ceil_mode` must be default value(0).<br>- `dilations` must be default value(1).
     # test_maxpool_1d_default_cpu
     # test_maxpool_2d_ceil_cpu
-    test_maxpool_2d_default_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_default_cpu,zdnn_maxpool2d
     # test_maxpool_2d_dilations_cpu
     # test_maxpool_2d_pads_cpu
-    # test_maxpool_2d_precomputed_pads_cpu
-    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_maxpool_2d_precomputed_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_precomputed_pads_cpu,zdnn_maxpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_precomputed_same_upper_cpu,zdnn_maxpool2d
+    test_maxpool_2d_precomputed_strides_cpu,zdnn_maxpool2d
     # test_maxpool_2d_same_lower_cpu
-    test_maxpool_2d_same_upper_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
-    test_maxpool_2d_strides_cpu,zdnn_avgpool2d,NO_DYNAMIC_SHAPE_TEST
+    test_maxpool_2d_same_upper_cpu,zdnn_maxpool2d
+    test_maxpool_2d_strides_cpu,zdnn_maxpool2d
     # test_maxpool_3d_default_cpu
 
     # ==OP== Min
@@ -282,7 +282,7 @@ set(NNPA_TEST_LIST
     # test_min_one_input_cpu
     test_min_two_inputs_cpu,zdnn_min_ext,"0:0=a|1:0=a"
     # test_min_float16_cpu
-    test_min_float32_cpu,zdnn_min_ext,NO_DYNAMIC_SHAPE_TEST
+    test_min_float32_cpu,zdnn_min_ext,"0:0=a|1:0=a"
     # test_min_float64_cpu
     # test_min_int8_cpu
     # test_min_int16_cpu
@@ -329,7 +329,7 @@ set(NNPA_TEST_LIST
     # test_softmax_axis_1_cpu
     # test_softmax_axis_2_cpu
     # test_softmax_default_axis_cpu
-    test_softmax_example_cpu,zdnn_softmax_ext,NO_DYNAMIC_SHAPE_TEST
+    test_softmax_example_cpu,zdnn_softmax_ext
     # test_softmax_large_number_cpu #  accuracy error
 
     # ==OP== Softplus
