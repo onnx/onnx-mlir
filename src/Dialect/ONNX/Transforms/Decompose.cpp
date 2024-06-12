@@ -334,7 +334,8 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
 #ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
   ONNXConvTransposeOp op =
       cast<ONNXConvTransposeOp>(convTransposeResult.getDefiningOp());
-  return hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
+  return hasShapeAndRank(convTransposeResult) &&
+         hasStaticSpatialDims(op.getX()) && hasStaticSpatialDims(op.getW());
 #else
   // Disable the ONNXConvTransposeOp decomposition patterns.
   return false;
@@ -934,15 +935,24 @@ public:
     Location loc = castLikeOp.getLoc();
 
     Value input = castLikeOp.getInput();
+    Value output = castLikeOp.getOutput();
     Value target = castLikeOp.getTargetType();
     IntegerAttr saturate = castLikeOp.getSaturateAttr();
 
     // The output type will be the same as the target_type or the second input
-    Type outputType = target.getType().cast<ShapedType>().getElementType();
+    Type targetType = target.getType().cast<ShapedType>().getElementType();
 
     // Replace
-    Value res = onnx_mlir::OnnxBuilder(rewriter, loc)
-                    .cast(input, saturate, TypeAttr::get(outputType));
+    Value res;
+    if (output.getType().cast<ShapedType>().hasRank())
+      res = onnx_mlir::OnnxBuilder(rewriter, loc)
+                .cast(input, saturate, TypeAttr::get(targetType));
+    else {
+      Type resultType = UnrankedTensorType::get(targetType);
+      res = onnx_mlir::OnnxBuilder(rewriter, loc)
+                .cast(resultType, input, saturate, TypeAttr::get(targetType),
+                    false);
+    }
     rewriter.replaceOp(castLikeOp, res);
     return success();
   }

@@ -224,7 +224,7 @@ def print_md():
     )
     print(
         "* **Supported Opsets** indicates the lowest and highest opset a model"
-        + " may have for onnx-mlir to support compiling a model with the operator. "
+        + " may have for onnx-mlir to support compiling a model with the operator."
     )
     print(
         "   * A * indicates onnx-mlir is compatible with the latest"

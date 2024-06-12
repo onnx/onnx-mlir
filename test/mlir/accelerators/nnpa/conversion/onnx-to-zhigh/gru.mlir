@@ -249,9 +249,9 @@ func.func @test_onnx_to_zhigh_gru0_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<2
 
 // COM : Maximum hidden_size in GRU is 10880. Not lowered when using 10881.
 
-func.func @test_onnx_to_zhigh_gru_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: tensor<1x32643x204xf32>, %R: tensor<1x32643x10881xf32>, %B: tensor<1x65280xf32>) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>) {
+func.func @test_onnx_to_zhigh_gru_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: tensor<1x16384x204xf32>, %R: tensor<1x16384x10881xf32>, %B: tensor<1x16386xf32>) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
- %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 10881 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x32643x204xf32>, tensor<1x32643x10881xf32>, tensor<1x65280xf32>, none, none) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>)
+ %Y, %Y_h = "onnx.GRU"(%X, %W, %R, %B, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 10881 : si64, linear_before_reset = 1 : si64, onnx_node_name = "gru" } : (tensor<7x2000x204xf32>, tensor<1x16384x204xf32>, tensor<1x16384x10881xf32>, tensor<1x16386xf32>, none, none) -> (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>)
  "func.return"(%Y, %Y_h) : (tensor<7x1x2000x10881xf32>, tensor<1x2000x10881xf32>) -> ()
 
   // CHECK-LABEL: test_onnx_to_zhigh_gru_exceed_num_hidden

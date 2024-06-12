@@ -29,6 +29,11 @@ const std::string NNPA_DEVICE = "nnpa";
 
 bool isEnableScalarBcastBinary();
 
+struct OnnxToZHighLoweringConfiguration {
+  static int optReportNNPAUnsupportedOps;
+  static int reportOnNNPAUnsupportedOps;
+};
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
@@ -71,6 +76,9 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
             }
             return false;
           });
+      if (exceedLimit)
+        onnxToZHighUnsupportedReport(
+            op.getOperation(), "Exceed maximum dimension index size.");
       isLegalForNNPA =
           !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
     }
