@@ -946,7 +946,7 @@ public:
 
     // Replace
     Value res;
-    if (output.getType().cast<ShapedType>().hasRank())
+    if (mlir::cast<ShapedType>(output.getType()).hasRank())
       res = onnx_mlir::OnnxBuilder(rewriter, loc)
                 .cast(input, saturate, TypeAttr::get(targetType));
     else {
