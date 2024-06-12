@@ -415,15 +415,14 @@ func.func @test_onnx_to_zhigh_ccfd1_bidir_dyn(%X: tensor<?x?x?xf32>, %W: tensor<
 
 // COM : Maximum hidden_size in LSTM is 8192. Not lowered when using 8193.
 
-func.func @test_onnx_to_zhigh_lstm_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: tensor<1x32768x204xf32>, %R: tensor<1x32768x8193xf32>, %B: tensor<1x65544xf32>) -> (tensor<7x1x2000x8193xf32>, tensor<1x2000x8193xf32>, tensor<1x2000x8193xf32>) {
+func.func @test_onnx_to_zhigh_lstm_exceed_num_hidden(%X: tensor<7x2000x204xf32>, %W: tensor<1x16384x204xf32>, %R: tensor<1x16384x8193xf32>, %B: tensor<1x16386xf32>) -> (tensor<7x1x2000x8193xf32>, tensor<1x2000x8193xf32>, tensor<1x2000x8193xf32>) {
  %cst = "onnx.NoValue"() {value} : () -> none
- %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %cst, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 8193 : si64, onnx_node_name = "lstm" } : (tensor<7x2000x204xf32>, tensor<1x32768x204xf32>, tensor<1x32768x8193xf32>, tensor<1x65544xf32>, none, none, none, none) -> (tensor<7x1x2000x8193xf32>, tensor<1x2000x8193xf32>, tensor<1x2000x8193xf32>)
+ %Y, %Y_h, %Y_c = "onnx.LSTM"(%X, %W, %R, %B, %cst, %cst, %cst, %cst) { activations = ["Sigmoid", "Tanh", "Tanh"], direction = "forward", hidden_size = 8193 : si64, onnx_node_name = "lstm" } : (tensor<7x2000x204xf32>, tensor<1x16384x204xf32>, tensor<1x16384x8193xf32>, tensor<1x16386xf32>, none, none, none, none) -> (tensor<7x1x2000x8193xf32>, tensor<1x2000x8193xf32>, tensor<1x2000x8193xf32>)
  "func.return"(%Y, %Y_h, %Y_c) : (tensor<7x1x2000x8193xf32>, tensor<1x2000x8193xf32>, tensor<1x2000x8193xf32>) -> ()
 
   // CHECK-LABEL: test_onnx_to_zhigh_lstm_exceed_num_hidden
   // CHECK: "onnx.LSTM"
 }
-
 
 // -----
 

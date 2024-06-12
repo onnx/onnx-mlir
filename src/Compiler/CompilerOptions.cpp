@@ -577,7 +577,8 @@ static llvm::cl::opt<OptReport, true> optReportOpt("opt-report",
     llvm::cl::values(clEnumVal(NoReport, "No report. Default value."),
         clEnumVal(Parallel,
             "Provide report on how OMP Parallel is applied to ONNX ops."),
-        clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")),
+        clEnumVal(Simd, "Provide report on how SIMD is applied to ONNX ops.")
+            APPLY_TO_ACCELERATORS(ACCEL_OPTREPORT_CL_ENUM)),
     llvm::cl::init(OptReport::NoReport), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<bool, true> enable_timing("enable-timing",

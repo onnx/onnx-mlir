@@ -530,9 +530,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -545,9 +545,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -558,9 +558,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -571,9 +571,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -595,18 +595,20 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
 
         Value A = op.getA();
         Value B = op.getB();
         Type aType = A.getType();
         Type bType = B.getType();
-        if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
-          return true;
+        if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
+          std::string message = "A or B is not shaped type with rank";
+          return !onnxToZHighUnsupportedReport(op.getOperation(), message);
+        }
         // Check element type.
-        if (!isValidElementTypeAndRank(A, true))
+        if (!isValidElementTypeAndRank(op.getOperation(), A, true))
           return true;
-        if (!isValidElementTypeAndRank(B, true))
+        if (!isValidElementTypeAndRank(op.getOperation(), B, true))
           return true;
 
         int64_t aRank = getRank(aType);
@@ -623,19 +625,32 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // - one input is N-D (N > 3) and the other is 2-D.
         if (aRank == 2 && bRank > 3)
           return false;
+
         if (bRank == 2 && aRank > 3)
           return false;
 
         // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
         if (aRank > 3 && (aRank == bRank)) {
           bool sameBatchDims = true;
+          std::string message = "";
           for (int64_t i = 0; i < aRank - 2; ++i) {
             sameBatchDims &= (aShape[i] == bShape[i]);
-            if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-              sameBatchDims =
+            if (aShape[i] != bShape[i])
+              message += "The dim " + std::to_string(i) + " of A and dim " +
+                         std::to_string(i) + " of B are not the same.";
+
+            if (sameBatchDims && ShapedType::isDynamic(aShape[i])) {
+              sameBatchDims &=
                   dimAnalysis->sameDynDim(op.getA(), i, op.getB(), i);
+              if (!sameBatchDims)
+                message += "The dynamic dimension analysis couldn't identify "
+                           "that dim " +
+                           std::to_string(i) + " of A and dim " +
+                           std::to_string(i) + " of B are the same.";
+            }
           }
-          return !sameBatchDims;
+          return (!sameBatchDims) ||
+                 onnxToZHighUnsupportedReport(op.getOperation(), message);
         }
 
         // Make other cases legal.
@@ -650,17 +665,27 @@ void getRewriteONNXForZHighDynamicallyLegal(
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
+
         Value input = op.getInput();
+        // std::string message = "The `input` is not reshaped to 3D because it
+        // is not ranked tensor type.";
         if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
           // Check element type.
-          if (!isValidElementTypeAndRank(input, true))
+          if (!isValidElementTypeAndRank(op.getOperation(), input, true))
             return true;
           // Check rank.
-          if ((shapedType.getRank() > 3) &&
-              ((op.getAxis() == shapedType.getRank() - 1) ||
-                  (op.getAxis() == -1))) {
+          bool isAxisLastDim = (op.getAxis() == shapedType.getRank() - 1) ||
+                               (op.getAxis() == -1);
+          if ((shapedType.getRank() > 3) && isAxisLastDim)
             return false;
+          else {
+            if ((shapedType.getRank() > 3) && !isAxisLastDim) {
+              std::string message = "the `axis`(" +
+                                    std::to_string(op.getAxis()) +
+                                    ") is not the last dimension.";
+              return !onnxToZHighUnsupportedReport(op.getOperation(), message);
+            }
           }
         }
         return true;
