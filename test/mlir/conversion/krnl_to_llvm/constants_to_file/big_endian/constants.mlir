@@ -65,10 +65,9 @@ func.func @test_constants_to_file() -> memref<10xi64> {
 // CHECK-DAG:       [[VAR_2_3_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-DAG:       [[VAR_3_3_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1 : !llvm.ptr
 // CHECK-DAG:       [[VAR_4_3_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
-// CHECK-DAG:       [[VAR_5_3_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-DAG:       [[VAR_6_3_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst : !llvm.ptr
 // CHECK-DAG:       [[VAR_7_3_:%.+]] = llvm.mlir.addressof @om_external_constant_filename : !llvm.ptr
-// CHECK:           llvm.call @omMMapBinaryFile([[VAR_6_3_]], [[VAR_7_3_]], [[VAR_4_3_]], [[VAR_5_3_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK:           llvm.call @omMMapBinaryFile([[VAR_6_3_]], [[VAR_7_3_]], [[VAR_4_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_3_3_]], [[VAR_6_3_]], [[VAR_2_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.call @omGetExternalConstantAddr([[VAR_1_3_]], [[VAR_6_3_]], [[VAR_0_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK:           llvm.return

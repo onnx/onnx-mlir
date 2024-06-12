@@ -62,6 +62,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:         }
 
 // CHECK:         llvm.func @omInputSignature_tag_symbols([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
+// CHECK-DAG:       [[VAR_0_6_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-DAG:       [[VAR_0_7_:%.+]] = llvm.mlir.addressof @_entry_point_1_in_sig_tag_symbols : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_5_:%.+]] = llvm.mlir.constant(27 : i64) : i64
 // CHECK-DAG:       [[VAR_2_5_:%.+]] = llvm.mlir.addressof @_entry_point_1_tag_symbols : !llvm.ptr
@@ -72,15 +73,12 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_7_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_6_3_]], [[VAR_4_3_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_1_:%.+]] = llvm.icmp "eq" [[VAR_7_1_]], [[VAR_5_4_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_1_]], ^bb1([[VAR_3_5_]] : !llvm.ptr), ^bb2
-// CHECK:         ^bb1([[VAR_9_:%.+]]: !llvm.ptr):  // 2 preds: ^bb0, ^bb2
+// CHECK:         ^bb1([[VAR_9_:%.+]]: !llvm.ptr):  // 3 preds: ^bb0, ^bb2, ^bb2
 // CHECK:           llvm.return [[VAR_9_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_10_1_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_2_5_]], [[VAR_1_5_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_11_1_:%.+]] = llvm.icmp "eq" [[VAR_10_1_]], [[VAR_5_4_]] : i32
-// CHECK:           llvm.cond_br [[VAR_11_1_]], ^bb1([[VAR_0_7_]] : !llvm.ptr), ^bb3
-// CHECK:         ^bb3:  // pred: ^bb2
-// CHECK:           [[VAR_12_1_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK:           llvm.return [[VAR_12_1_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_11_1_]], ^bb1([[VAR_0_7_]] : !llvm.ptr), ^bb1([[VAR_0_6_]] : !llvm.ptr)
 // CHECK:         }
 
 // CHECK:         llvm.func @omInputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
@@ -89,6 +87,7 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:         }
 
 // CHECK:         llvm.func @omOutputSignature_tag_symbols([[arg0_]]: !llvm.ptr) -> !llvm.ptr {
+// CHECK-DAG:       [[VAR_0_8_:%.+]] = llvm.mlir.zero : !llvm.ptr
 // CHECK-DAG:       [[VAR_0_9_:%.+]] = llvm.mlir.addressof @_entry_point_1_out_sig_tag_symbols : !llvm.ptr
 // CHECK-DAG:       [[VAR_1_6_:%.+]] = llvm.mlir.constant(27 : i64) : i64
 // CHECK-DAG:       [[VAR_2_6_:%.+]] = llvm.mlir.addressof @_entry_point_1_tag_symbols : !llvm.ptr
@@ -99,15 +98,12 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_7_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_6_4_]], [[VAR_4_4_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_2_:%.+]] = llvm.icmp "eq" [[VAR_7_2_]], [[VAR_5_5_]] : i32
 // CHECK:           llvm.cond_br [[VAR_8_2_]], ^bb1([[VAR_3_6_]] : !llvm.ptr), ^bb2
-// CHECK:         ^bb1([[VAR_9_]]: !llvm.ptr):  // 2 preds: ^bb0, ^bb2
+// CHECK:         ^bb1([[VAR_9_]]: !llvm.ptr):  // 3 preds: ^bb0, ^bb2, ^bb2
 // CHECK:           llvm.return [[VAR_9_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_10_2_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_2_6_]], [[VAR_1_6_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_11_2_:%.+]] = llvm.icmp "eq" [[VAR_10_2_]], [[VAR_5_5_]] : i32
-// CHECK:           llvm.cond_br [[VAR_11_2_]], ^bb1([[VAR_0_9_]] : !llvm.ptr), ^bb3
-// CHECK:         ^bb3:  // pred: ^bb2
-// CHECK:           [[VAR_12_2_:%.+]] = llvm.mlir.zero : !llvm.ptr
-// CHECK:           llvm.return [[VAR_12_2_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_11_2_]], ^bb1([[VAR_0_9_]] : !llvm.ptr), ^bb1([[VAR_0_8_]] : !llvm.ptr)
 // CHECK:         }
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
 // CHECK:           [[VAR_0_9_:%.+]] = llvm.call @omOutputSignature_tag_symbols([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr
@@ -154,10 +150,9 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_2_9_:%.+]] = llvm.mlir.constant(0 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_3_9_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1_tag_constants_to_file : !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_4_7_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
-// CHECK-CONST-TO-FILE-DAG:       [[VAR_5_8_:%.+]] = llvm.mlir.constant(1 : i64) : i64
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_6_6_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr
 // CHECK-CONST-TO-FILE-DAG:       [[VAR_7_4_:%.+]] = llvm.mlir.addressof @om_external_constant_filename_tag_constants_to_file : !llvm.ptr
-// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_6_]], [[VAR_7_4_]], [[VAR_4_7_]], {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_6_]], [[VAR_7_4_]], [[VAR_2_9_]], {{.*}}) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_3_9_]], [[VAR_6_6_]], [[VAR_2_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_1_9_]], [[VAR_6_6_]], [[VAR_0_18_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
 // CHECK-CONST-TO-FILE:           llvm.return
