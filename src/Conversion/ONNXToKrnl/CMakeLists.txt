@@ -8,6 +8,7 @@ add_onnx_mlir_library(OMONNXToKrnl
   Additional/Custom.cpp
   Additional/LayoutTransform.cpp
   Additional/ShapeTransform.cpp
+  Additional/Parallel.cpp
   ControlFlow/If.cpp
   ControlFlow/Loop.cpp
   ControlFlow/Scan.cpp
