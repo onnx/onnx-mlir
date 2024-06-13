@@ -32,8 +32,8 @@ void ZHighStickOp::build(
     OpBuilder &builder, OperationState &state, Value input, StringAttr layout) {
   Type resType = builder.getNoneType();
   Type resElementType = builder.getF16Type();
-  if (!input.getType().isa<NoneType>()) {
-    ShapedType inputType = input.getType().cast<ShapedType>();
+  if (!mlir::isa<NoneType>(input.getType())) {
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     int64_t rank = -1;
     if (inputType.hasRank()) {
       rank = inputType.getRank();
@@ -111,7 +111,7 @@ LogicalResult ZHighStickOp::inferShapes(
   if (isa<NoneType>(input.getType()) || !hasRankedType(input))
     return success();
 
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = mlir::cast<RankedTensorType>(input.getType());
   StringAttr layout = getLayoutAttr();
   int64_t rank = inputType.getRank();
 
@@ -123,7 +123,8 @@ LogicalResult ZHighStickOp::inferShapes(
   auto encoding = ZTensorEncodingAttr::get(this->getContext(), dataLayout);
 
   ZHighStickOpShapeHelper shapeHelper(getOperation());
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 

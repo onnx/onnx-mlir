@@ -55,19 +55,19 @@ public:
 
     // The element type of the array.
     const Type type = op->getResult(0).getType();
-    const MemRefType memRefTy = type.cast<mlir::MemRefType>();
+    const MemRefType memRefTy = mlir::cast<mlir::MemRefType>(type);
     const Type constantElementType =
         typeConverter->convertType(memRefTy.getElementType());
     Type globalType = constantElementType;
 
     // The llvm type of the global (example: [2 x [8 x float]]).
-    const auto shape = (krnlGlobalOp.getShape()).dyn_cast<ArrayAttr>();
+    const auto shape = mlir::dyn_cast<ArrayAttr>(krnlGlobalOp.getShape());
     if (shape.empty())
-      globalType = LLVM::LLVMArrayType::get(globalType.cast<Type>(), 1);
+      globalType = LLVM::LLVMArrayType::get(mlir::cast<Type>(globalType), 1);
     else {
       for (int i = shape.size() - 1; i >= 0; i--)
         globalType = LLVM::LLVMArrayType::get(
-            globalType.cast<Type>(), ArrayAttrIntVal(shape, i));
+            mlir::cast<Type>(globalType), ArrayAttrIntVal(shape, i));
     }
 
     // Create the global at the entry of the module.
@@ -112,15 +112,16 @@ public:
 
 private:
   static int64_t ArrayAttrIntVal(ArrayAttr a, int i) {
-    return (a.getValue()[i]).cast<IntegerAttr>().getInt();
+    return mlir::cast<IntegerAttr>(a.getValue()[i]).getInt();
   }
 
   LLVM::GlobalOp lowerDenseResourceConstant(KrnlGlobalOp &krnlGlobalOp,
       Type globalType, ConversionPatternRewriter &rewriter) const {
     assert(krnlGlobalOp.getValue().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.getValue().value().isa<DenseResourceElementsAttr>() &&
-           "Expecting a global with an dense resource elements attribute");
+    assert(
+        mlir::isa<DenseResourceElementsAttr>(krnlGlobalOp.getValue().value()) &&
+        "Expecting a global with an dense resource elements attribute");
 
     MLIRContext *context = krnlGlobalOp.getContext();
     Location loc = krnlGlobalOp.getLoc();
@@ -130,11 +131,10 @@ private:
     OpBuilder::InsertionGuard insertGuard(rewriter);
     rewriter.setInsertionPointToStart(module.getBody());
 
-    auto blob = krnlGlobalOp.getValue()
-                    .value()
-                    .cast<DenseResourceElementsAttr>()
-                    .getRawHandle()
-                    .getBlob();
+    auto blob =
+        mlir::cast<DenseResourceElementsAttr>(krnlGlobalOp.getValue().value())
+            .getRawHandle()
+            .getBlob();
     assert(blob && "Expecting dense resource with a valid blob");
     ArrayRef<char> rawData = blob->getData();
 
@@ -158,7 +158,7 @@ private:
       ConversionPatternRewriter &rewriter) const {
     assert(krnlGlobalOp.getValue().has_value() &&
            "Expecting KrnlGlobalOp with a valid value");
-    assert(krnlGlobalOp.getValue().value().isa<DenseElementsAttr>() &&
+    assert(mlir::isa<DenseElementsAttr>(krnlGlobalOp.getValue().value()) &&
            "Expecting a global with an dense elements attribute");
 
     Location loc = krnlGlobalOp.getLoc();
@@ -172,11 +172,11 @@ private:
     rewriter.setInsertionPointToStart(module.getBody());
 
     DenseElementsAttr denseAttr =
-        krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
+        mlir::cast<DenseElementsAttr>(krnlGlobalOp.getValue().value());
 
     uint64_t sizeInBytes = computeSizeInBytes(krnlGlobalOp);
     LLVM::GlobalOp global;
-    if ((!denseAttr.getElementType().isa<StringType>()) &&
+    if (!(mlir::isa<StringType>(denseAttr.getElementType())) &&
         (!denseAttr.isSplat()) && (sizeInBytes > 1024)) {
       ArrayRef<char> rawData = denseAttr.getRawData();
       assert(
@@ -189,7 +189,7 @@ private:
           /*isConstant=*/true, LLVM::Linkage::Internal, krnlGlobalOp.getName(),
           llvmStringAttr);
     } else {
-      if (denseAttr.getElementType().isa<StringType>())
+      if (mlir::isa<StringType>(denseAttr.getElementType()))
         global = lowerStringLiteral(krnlGlobalOp, globalType, rewriter);
       else
         global = create.llvm.globalOp(globalType,
@@ -246,13 +246,13 @@ private:
 
   uint64_t computeSizeInBytes(KrnlGlobalOp &krnlGlobalOp) const {
     // Compute total number of elements.
-    const auto shape = (krnlGlobalOp.getShape()).dyn_cast<ArrayAttr>();
+    const auto shape = mlir::dyn_cast<ArrayAttr>(krnlGlobalOp.getShape());
     uint64_t numElements = 1;
     for (unsigned int i = 0; i < shape.size(); ++i)
       numElements *= ArrayAttrIntVal(shape, i);
 
     const auto type = krnlGlobalOp.getResult().getType();
-    const auto memRefTy = type.cast<mlir::MemRefType>();
+    const auto memRefTy = mlir::cast<mlir::MemRefType>(type);
 
     // Special handling for bool.
     if (memRefTy.getElementType().isInteger(1))
@@ -283,14 +283,14 @@ private:
   // the address of the global strings into an array. Return the array address.
   LLVM::GlobalOp lowerStringLiteral(
       KrnlGlobalOp &krnlGlobalOp, Type globalType, OpBuilder &builder) const {
-    assert(krnlGlobalOp.getValue().value().isa<DenseElementsAttr>() &&
+    assert(mlir::isa<DenseElementsAttr>(krnlGlobalOp.getValue().value()) &&
            "Expecting a dense value");
 
     Location loc = krnlGlobalOp.getLoc();
     MultiDialectBuilder<LLVMBuilder> create(builder, loc);
 
     DenseElementsAttr denseAttr =
-        krnlGlobalOp.getValue().value().cast<DenseElementsAttr>();
+        mlir::cast<DenseElementsAttr>(krnlGlobalOp.getValue().value());
 
     Type i8PtrType = getI8PointerType(builder.getContext());
 

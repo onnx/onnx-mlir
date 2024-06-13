@@ -45,7 +45,7 @@ public:
     StringRef msg = printTensorOp.getMsg();
     Value input = operandAdaptor.getInput();
     Value originalInput = printTensorOp.getInput();
-    assert(input.getType().isa<LLVM::LLVMStructType>() &&
+    assert(mlir::isa<LLVM::LLVMStructType>(input.getType()) &&
            "expecting LLVMStructType");
 
     ModuleOp module = printTensorOp->getParentOfType<ModuleOp>();
@@ -55,13 +55,14 @@ public:
     // Get a symbol reference to the runtime function to use, creating one if
     // necessary.
     auto int64Ty = IntegerType::get(context, 64);
-    auto memRefTy = input.getType().dyn_cast<LLVM::LLVMStructType>();
+    auto memRefTy = mlir::dyn_cast<LLVM::LLVMStructType>(input.getType());
     auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
     Value memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
     Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
         RuntimeAPI::API::CREATE_OMTENSOR, {memRefRankVal});
 
-    Type elemTy = originalInput.getType().cast<MemRefType>().getElementType();
+    Type elemTy =
+        mlir::cast<MemRefType>(originalInput.getType()).getElementType();
     krnl::fillOMTensorWithMemRef(input, elemTy, omTensor, false /*outOwning*/,
         rewriter, loc, apiRegistry, module);
     LLVM::GlobalOp globalStr = krnl::getOrCreateGlobalString(

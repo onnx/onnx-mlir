@@ -55,7 +55,7 @@ LogicalResult ONNXConcatShapeTransposeOpShapeHelper::computeShape() {
   unsigned numInputs = concatOp.getNumOperands();
   Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =
-      firstInput.getType().cast<ShapedType>().getShape();
+      mlir::cast<ShapedType>(firstInput.getType()).getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = concatOp.getAxis();
 
@@ -154,8 +154,8 @@ LogicalResult ONNXConcatShapeTransposeOp::inferShapes(
   // If any input is not ranked tensor, do nothing.
   if (!hasShapeAndRank(getOperation()))
     return success();
-  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
-  Type intType = IntegerType::get(getContext(), 64).cast<Type>();
+  auto commonType = mlir::cast<RankedTensorType>(getOperand(0).getType());
+  Type intType = mlir::cast<Type>(IntegerType::get(getContext(), 64));
   SmallVector<Type> elementTypes = {intType, commonType.getElementType()};
   ONNXConcatShapeTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes(elementTypes);

@@ -6,13 +6,13 @@
 
 template <typename X>
 ArrayBuffer<X> getElementsArray(mlir::ElementsAttr elms) {
-  if (auto disposable = elms.dyn_cast<mlir::DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<mlir::DisposableElementsAttr>(elms))
     return disposable.getArray<X>();
   if (elms.isSplat())
     return
         typename ArrayBuffer<X>::Vector(elms.size(), elms.getSplatValue<X>());
   if (!elms.getElementType().isInteger(1)) {
-    if (auto dense = elms.dyn_cast<mlir::DenseElementsAttr>()) {
+    if (auto dense = mlir::dyn_cast<mlir::DenseElementsAttr>(elms)) {
       llvm::ArrayRef<X> data = castArrayRef<X>(dense.getRawData());
       assert(data.size() == static_cast<size_t>(elms.size()));
       return data;
@@ -25,14 +25,14 @@ ArrayBuffer<X> getElementsArray(mlir::ElementsAttr elms) {
 
 template <typename X>
 void readElementsArray(mlir::ElementsAttr elms, llvm::MutableArrayRef<X> dst) {
-  if (auto disposable = elms.dyn_cast<mlir::DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<mlir::DisposableElementsAttr>(elms))
     return disposable.readArray<X>(dst);
   if (elms.isSplat()) {
     assert(dst.size() == static_cast<size_t>(elms.size()));
     return std::fill(dst.begin(), dst.end(), elms.getSplatValue<X>());
   }
   if (!elms.getElementType().isInteger(1)) {
-    if (auto dense = elms.dyn_cast<mlir::DenseElementsAttr>()) {
+    if (auto dense = mlir::dyn_cast<mlir::DenseElementsAttr>(elms)) {
       llvm::ArrayRef<X> data = castArrayRef<X>(dense.getRawData());
       auto end = std::copy(data.begin(), data.end(), dst.begin());
       assert(end == dst.end());

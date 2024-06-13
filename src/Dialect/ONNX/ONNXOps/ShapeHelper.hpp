@@ -30,7 +30,6 @@
 #include "src/Dialect/Mlir/IndexExprBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
-#define GET_OP_FWD_DEFINES 1
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
 
 // ONNXOpShapeHelper is defined in the interface file below.

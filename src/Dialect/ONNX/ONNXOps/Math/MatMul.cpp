@@ -169,7 +169,7 @@ LogicalResult ONNXMatMulOp::inferShapes(
   if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()))
     return success();
 
-  Type elementType = getA().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getA().getType()).getElementType();
   ONNXMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -184,7 +184,8 @@ LogicalResult ONNXMatMulIntegerOp::inferShapes(
   if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()))
     return success();
 
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   ONNXMatMulIntegerOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
@@ -200,8 +201,8 @@ LogicalResult ONNXMatMulIntegerOp::verify() {
   Value A = operandAdaptor.getA();
   Value aZeroPoint = this->getAZeroPoint();
   if (!isNoneValue(aZeroPoint)) {
-    auto aType = A.getType().cast<ShapedType>();
-    auto aZeroPointType = aZeroPoint.getType().cast<ShapedType>();
+    auto aType = mlir::cast<ShapedType>(A.getType());
+    auto aZeroPointType = mlir::cast<ShapedType>(aZeroPoint.getType());
     uint64_t aRank = aType.getRank();
     uint64_t aZeroPointRank = aZeroPointType.getRank();
     ArrayRef<int64_t> aShape = aType.getShape();
@@ -292,7 +293,8 @@ LogicalResult ONNXQLinearMatMulOp::inferShapes(
   if (!hasShapeAndRank(getA()) || !hasShapeAndRank(getB()))
     return success();
 
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   ONNXQLinearMatMulOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

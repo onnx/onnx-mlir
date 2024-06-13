@@ -75,7 +75,7 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     Type indexElementType = outputShapedType.getElementType();
     Value indexInitValue = rewriter.create<stablehlo::ConstantOp>(
         loc, rewriter.getZeroAttr(indexElementType));
@@ -84,7 +84,7 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     Value data = operandAdaptor.getData();
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
-    ShapedType dataType = data.getType().cast<ShapedType>();
+    ShapedType dataType = mlir::cast<ShapedType>(data.getType());
     Type elementType = dataType.getElementType();
     int64_t dataRank = dataType.getRank();
 
@@ -96,10 +96,11 @@ struct ONNXArgMaxOpLoweringToStablehlo : public ConversionPattern {
     int64_t keepdims = argMaxOp.getKeepdims();
     bool isKeepdims = (keepdims == 1) ? true : false;
 
-    Value initValue = rewriter.create<stablehlo::ConstantOp>(loc,
-        rewriter.getFloatAttr(elementType,
-            APFloat::getInf(elementType.cast<FloatType>().getFloatSemantics(),
-                /*isNegative=*/true)));
+    Value initValue = rewriter.create<stablehlo::ConstantOp>(
+        loc, rewriter.getFloatAttr(elementType,
+                 APFloat::getInf(
+                     mlir::cast<FloatType>(elementType).getFloatSemantics(),
+                     /*isNegative=*/true)));
     RankedTensorType indexType =
         RankedTensorType::get(dataType.getShape(), indexElementType);
 

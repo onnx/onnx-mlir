@@ -73,14 +73,14 @@ bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
 /// we check F16 and F32 here only. zAIU only supports rank in range of (0, 4].
 bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
-  if (val.getType().isa<NoneType>())
+  if (mlir::isa<NoneType>(val.getType()))
     return true;
-  if (auto valueType = val.getType().dyn_cast_or_null<ShapedType>()) {
+  if (auto valueType = mlir::dyn_cast_or_null<ShapedType>(val.getType())) {
     Type elementType = (valueType) ? valueType.getElementType() : val.getType();
     // Element type must be in 16 or F32.
-    if (elementType.isa<FloatType>() &&
-        (elementType.cast<FloatType>().getWidth() == 16 ||
-            elementType.cast<FloatType>().getWidth() == 32)) {
+    if (mlir::isa<FloatType>(elementType) &&
+        (mlir::cast<FloatType>(elementType).getWidth() == 16 ||
+            mlir::cast<FloatType>(elementType).getWidth() == 32)) {
       if (donotCheckRank)
         return true;
       // Rank must be in range of (0, 4].
@@ -113,8 +113,8 @@ bool checkLegalityPoolOpsCommon(
   shapeHelper.computeShapeAndAssertOnFailure();
   Value X = op.getX();
   int64_t ceilMode = op.getCeilMode();
-  ShapedType inputType = X.getType().cast<ShapedType>();
-  ShapedType outputType = Y.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(X.getType());
+  ShapedType outputType = mlir::cast<ShapedType>(Y.getType());
   ArrayRef<int64_t> shapeInput = inputType.getShape();
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 
@@ -321,7 +321,7 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
       return onnxToZHighUnsupportedReport(op, message);
     }
     // padding_type must be VALID_PADDING.
-    if (!paddingType.equals("VALID_PADDING")) {
+    if (!(paddingType == "VALID_PADDING")) {
       std::string message = "When the strides is zero, padding type (" +
                             paddingType.str() + ") must be VALID_PADDING.";
       return onnxToZHighUnsupportedReport(op, message);
@@ -337,7 +337,7 @@ bool meetPoolParamRestrictions(Operation *op, int64_t inputShape,
                             ") must be less than or equal to 64.";
       return onnxToZHighUnsupportedReport(op, message);
     }
-    if (paddingType.equals("SAME_PADDING")) {
+    if (paddingType == "SAME_PADDING") {
       int64_t reqOutputShape = ceil((float)inputShape / strides);
       if (outputShape != reqOutputShape) {
         std::string message =
@@ -547,7 +547,7 @@ bool isSuitableForZDNN<ONNXSoftmaxOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(op.getType());
   if (!inputType.hasRank())
     return onnxToZHighUnsupportedReport(
         op.getOperation(), "The `input` tensor doesn't have the rank.");
@@ -641,8 +641,8 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
   if (!isValidElementTypeAndRank(op.getOperation(), op.getOperand(1))) {
     return false;
   }
-  ShapedType aType = op.getOperand(0).getType().cast<ShapedType>();
-  ShapedType bType = op.getOperand(1).getType().cast<ShapedType>();
+  ShapedType aType = mlir::cast<ShapedType>(op.getOperand(0).getType());
+  ShapedType bType = mlir::cast<ShapedType>(op.getOperand(1).getType());
 
   // Illegal if A or B is unranked.
   if (!aType.hasRank() || !bType.hasRank())
@@ -721,8 +721,8 @@ bool isSuitableForZDNN<ONNXGemmOp>(
   if (!isValidElementTypeAndRank(op.getOperation(), C))
     return false;
 
-  ShapedType aType = A.getType().cast<ShapedType>();
-  ShapedType bType = B.getType().cast<ShapedType>();
+  ShapedType aType = mlir::cast<ShapedType>(A.getType());
+  ShapedType bType = mlir::cast<ShapedType>(B.getType());
   ShapedType cType;
   ArrayRef<int64_t> aShape = aType.getShape();
   ArrayRef<int64_t> bShape = bType.getShape();
@@ -730,7 +730,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(
 
   bool hasC = !isNoneValue(C);
   if (hasC) {
-    cType = C.getType().cast<ShapedType>();
+    cType = mlir::cast<ShapedType>(C.getType());
     cShape = cType.getShape();
   }
 
@@ -793,7 +793,7 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
 
   std::optional<mlir::ArrayAttr> axes = op.getAxes();
   int64_t keepdims = op.getKeepdims();
-  ShapedType dataType = op.getData().getType().cast<ShapedType>();
+  ShapedType dataType = mlir::cast<ShapedType>(op.getData().getType());
   auto shapeData = dataType.getShape();
 
   // Check keepdims.
@@ -809,18 +809,18 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
   mlir::ArrayAttr axesVal = axes.value();
   SmallVector<Attribute> axesAttrs(axesVal.begin(), axesVal.end());
   if ((axesAttrs.size() != 2) ||
-      (axesAttrs[0].dyn_cast<IntegerAttr>().getInt() != 2) ||
-      (axesAttrs[1].dyn_cast<IntegerAttr>().getInt() != 3)) {
+      (mlir::dyn_cast<IntegerAttr>(axesAttrs[0]).getInt() != 2) ||
+      (mlir::dyn_cast<IntegerAttr>(axesAttrs[1]).getInt() != 3)) {
     std::string message =
         axesAttrs.size() != 2
             ? ("The size of `axes`(" + std::to_string(axesAttrs.size()) +
                   ") must be 2.")
             : "The `axes`[0] (" +
                   std::to_string(
-                      axesAttrs[0].dyn_cast<IntegerAttr>().getInt()) +
+                      mlir::dyn_cast<IntegerAttr>(axesAttrs[0]).getInt()) +
                   ") must be 2, and `axes`[1] (" +
                   std::to_string(
-                      axesAttrs[1].dyn_cast<IntegerAttr>().getInt()) +
+                      mlir::dyn_cast<IntegerAttr>(axesAttrs[1]).getInt()) +
                   ") must be 3.";
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
@@ -881,10 +881,10 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   if (!isValidElementTypeAndRank(op.getOperation(), B))
     return false;
 
-  int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
+  int64_t hidden_size = mlir::cast<ShapedType>(R.getType()).getShape()[2];
   std::optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
-  ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> wShape = mlir::cast<ShapedType>(W.getType()).getShape();
   if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic) {
     std::string message =
         "The first dimension of weight tensor `W` for `num_directions` (" +
@@ -894,8 +894,8 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
   // Check if R has static dimensions, and the direction dim is 1 or 2.
-  ArrayRef<int64_t> rShape = R.getType().cast<ShapedType>().getShape();
-  if (!R.getType().cast<ShapedType>().hasStaticShape() ||
+  ArrayRef<int64_t> rShape = mlir::cast<ShapedType>(R.getType()).getShape();
+  if (!mlir::cast<ShapedType>(R.getType()).hasStaticShape() ||
       (rShape[0] != 1 && rShape[0] != 2)) {
     std::string message =
         "The recurrence weight tensor `R` must have static dimension, and the "
@@ -913,12 +913,12 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
   if (!isNoneValue(op.getSequenceLens()))
     return false;
   // check if B, initial_h and initial_c have static dimensions if given.
-  if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
+  if (!isNoneValue(B) && !mlir::cast<ShapedType>(B.getType()).hasStaticShape())
     return onnxToZHighUnsupportedReport(
         op.getOperation(), "The bias tensor `B` must be static.");
   // check if B's direction dim is 1 or 2.
   if (!isNoneValue(B)) {
-    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    ArrayRef<int64_t> bShape = mlir::cast<ShapedType>(B.getType()).getShape();
     if (bShape[0] != 1 && bShape[0] != 2) {
       std::string message = "The first dimension of the bias tensor `B` (" +
                             std::to_string(bShape[0]) + ") must be 1 or 2.";
@@ -933,12 +933,14 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
         "weight tensor for peepoles are not supported.");
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
   if ((activations && (activations.value().size() > 0) &&
-          (activations.value()[0].cast<StringAttr>().getValue() !=
+          (mlir::cast<StringAttr>(activations.value()[0]).getValue() !=
               "Sigmoid")) ||
       (activations && (activations.value().size() > 1) &&
-          (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
+          (mlir::cast<StringAttr>(activations.value()[1]).getValue() !=
+              "Tanh")) ||
       (activations && (activations.value().size() > 2) &&
-          (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
+          (mlir::cast<StringAttr>(activations.value()[2]).getValue() !=
+              "Tanh")))
     return onnxToZHighUnsupportedReport(op.getOperation(),
         "The `activations` must be the default activations "
         "([Sigmoid, Tanh, Tanh]).");
@@ -992,10 +994,10 @@ bool isSuitableForZDNN<ONNXGRUOp>(
   if (!isValidElementTypeAndRank(op.getOperation(), B))
     return false;
 
-  int64_t hidden_size = R.getType().cast<ShapedType>().getShape()[2];
+  int64_t hidden_size = mlir::cast<ShapedType>(R.getType()).getShape()[2];
   std::optional<ArrayAttr> activations = op.getActivations();
   // Check if direction and hidden_size in W have static dimensions.
-  ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> wShape = mlir::cast<ShapedType>(W.getType()).getShape();
   if ((wShape[0] != 1 && wShape[0] != 2) || wShape[1] == ShapedType::kDynamic) {
     std::string message =
         "The first dimension of weight tensor `W` for `num_directions` (" +
@@ -1005,7 +1007,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
   // Check if R has static dimensions.
-  if (!R.getType().cast<ShapedType>().hasStaticShape()) {
+  if (!mlir::cast<ShapedType>(R.getType()).hasStaticShape()) {
     std::string message =
         "The recurrence weight tensor `R` must have static dimension.";
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
@@ -1018,12 +1020,12 @@ bool isSuitableForZDNN<ONNXGRUOp>(
     return onnxToZHighUnsupportedReport(op.getOperation(), message);
   }
   // check if B and initial_h have static dimensions if given.
-  if (!isNoneValue(B) && !B.getType().cast<ShapedType>().hasStaticShape())
+  if (!isNoneValue(B) && !mlir::cast<ShapedType>(B.getType()).hasStaticShape())
     return onnxToZHighUnsupportedReport(
         op.getOperation(), "The bias tensor `B` must be static.");
   // check if B's direction dim is 1 or 2.
   if (!isNoneValue(B)) {
-    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
+    ArrayRef<int64_t> bShape = mlir::cast<ShapedType>(B.getType()).getShape();
     if (bShape[0] != 1 && bShape[0] != 2) {
       std::string message = "The first dimension of the bias tensor `B` (" +
                             std::to_string(bShape[0]) + ") must be 1 or 2.";
@@ -1036,12 +1038,14 @@ bool isSuitableForZDNN<ONNXGRUOp>(
         "The `activation_alpha` and `activation_beta` are not supported.");
   // zDNN support the default activations (["Sigmoid", "Tanh", "Tanh"]) only.
   if ((activations && (activations.value().size() > 0) &&
-          (activations.value()[0].cast<StringAttr>().getValue() !=
+          (mlir::cast<StringAttr>(activations.value()[0]).getValue() !=
               "Sigmoid")) ||
       (activations && (activations.value().size() > 1) &&
-          (activations.value()[1].cast<StringAttr>().getValue() != "Tanh")) ||
+          (mlir::cast<StringAttr>(activations.value()[1]).getValue() !=
+              "Tanh")) ||
       (activations && (activations.value().size() > 2) &&
-          (activations.value()[2].cast<StringAttr>().getValue() != "Tanh")))
+          (mlir::cast<StringAttr>(activations.value()[2]).getValue() !=
+              "Tanh")))
     return onnxToZHighUnsupportedReport(op.getOperation(),
         "The `activations` must be the default activations "
         "([Sigmoid, Tanh, Tanh]).");
@@ -1135,7 +1139,7 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
     StringRef paddingType) {
   if (stride == 0) {
     // paddingType must be VALID_PADDING.
-    if (!paddingType.equals("VALID_PADDING")) {
+    if (!(paddingType == "VALID_PADDING")) {
       std::string message = "When the strides (" + std::to_string(stride) +
                             ") is zero, padding type (" + paddingType.str() +
                             ") must be VALID_PADDING.";
@@ -1178,7 +1182,7 @@ static bool checkConv2DParamRestrictions(Operation *op, int64_t inputDim,
           std::to_string(kernelDim) + ") must be less than or equal to 64.";
       return onnxToZHighUnsupportedReport(op, message);
     }
-    if (paddingType.equals("SAME_PADDING")) {
+    if (paddingType == "SAME_PADDING") {
       // height_out restriction.
       int64_t reqOutputShape = ceil((float)inputDim / stride);
       if (outputDim != reqOutputShape) {
@@ -1248,8 +1252,8 @@ bool isSuitableForZDNN<ONNXConvOp>(
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
 
-  ShapedType inputType = op.getX().getType().cast<ShapedType>();
-  ShapedType outputType = op.getY().getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(op.getX().getType());
+  ShapedType outputType = mlir::cast<ShapedType>(op.getY().getType());
   ArrayRef<int64_t> shapeInput = inputType.getShape();
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 
@@ -1333,8 +1337,8 @@ bool isSuitableForZDNN<ONNXConvOp>(
 template <>
 bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
     ONNXBatchNormalizationInferenceModeOp op, const DimAnalysis *dimAnalysis) {
-  ShapedType inputType = op.getX().getType().cast<ShapedType>();
-  ShapedType outputType = op.getO_Y().getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(op.getX().getType());
+  ShapedType outputType = mlir::cast<ShapedType>(op.getO_Y().getType());
   ArrayRef<int64_t> shapeInput = inputType.getShape();
   ArrayRef<int64_t> shapeOutput = outputType.getShape();
 

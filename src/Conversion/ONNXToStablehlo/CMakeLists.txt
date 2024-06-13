@@ -8,6 +8,7 @@ set(STABLEHLO_LIBS
   StablehloAssemblyFormat
   StablehloBase
   StablehloBroadcastUtils
+  StablehloLinalgTransforms
   StablehloOps
   StablehloPasses
   StablehloReferenceAxes

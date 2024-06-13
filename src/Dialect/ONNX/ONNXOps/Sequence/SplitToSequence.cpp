@@ -28,7 +28,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
   if (!hasShapeAndRank(inputValue))
     return success(); // Won't be able to do any checking at this stage.
 
-  auto inputType = inputValue.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(inputValue.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
 
@@ -52,7 +52,7 @@ LogicalResult ONNXSplitToSequenceOp::verify() {
           onnx_mlir::Diagnostic::Range<int64_t>(0, 1));
     return success();
   }
-  auto splitType = splitValue.getType().cast<ShapedType>();
+  auto splitType = mlir::cast<ShapedType>(splitValue.getType());
   ArrayRef<int64_t> splitShape = splitType.getShape();
   int64_t splitRank = splitShape.size();
   if (splitRank > 1)
@@ -92,7 +92,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
 
   // NOTE: all the asserts below are conditions checked in verify()
 
-  auto inputType = inputValue.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(inputValue.getType());
   ArrayRef<int64_t> shape = inputType.getShape();
   int64_t rank = shape.size();
   int64_t axisIndex = getAxis();
@@ -120,7 +120,7 @@ LogicalResult ONNXSplitToSequenceOp::inferShapes(
       dims.erase(dims.begin() + axisIndex);
     }
   } else {
-    auto splitType = splitValue.getType().cast<ShapedType>();
+    auto splitType = mlir::cast<ShapedType>(splitValue.getType());
     ArrayRef<int64_t> splitShape = splitType.getShape();
     int64_t splitRank = splitShape.size();
     assert(splitRank <= 1 && "invalid split tensor rank");

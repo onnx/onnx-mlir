@@ -30,7 +30,7 @@ LogicalResult ONNXFlattenOpShapeHelper::computeShape() {
   ONNXFlattenOpAdaptor operandAdaptor(operands);
   ONNXFlattenOp flattenOp = llvm::cast<ONNXFlattenOp>(op);
   Value input = operandAdaptor.getInput();
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputType.getRank();
   int64_t axis = flattenOp.getAxis();
@@ -74,7 +74,7 @@ LogicalResult ONNXFlattenOp::verify() {
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = getInput().getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(getInput().getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   int64_t inputRank = inputShape.size();
   int64_t axisValue = getAxis();
@@ -98,7 +98,8 @@ LogicalResult ONNXFlattenOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getInput().getType()).getElementType();
   ONNXFlattenOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

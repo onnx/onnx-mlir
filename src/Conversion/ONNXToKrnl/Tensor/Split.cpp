@@ -46,9 +46,9 @@ LogicalResult ONNXSplitOpLoweringCommon(OP_TYPE splitOp, OP_ADAPTOR adaptor,
     // Convert the output type to MemRefType.
     Type convertedType =
         typeConverter->convertType(splitOp.getOutputs()[i].getType());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     Value alloc =
         create.mem.alignedAlloc(memRefType, shapeHelper.getOutputDims(i));
     allocs.emplace_back(alloc);

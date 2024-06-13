@@ -31,7 +31,7 @@ Value StablehloBuilder::constant(Type type, double val) const {
   Value constant = nullptr;
   // Could be a vector type; look at the element type.
   Type elementType = type;
-  VectorType vectorType = type.dyn_cast<VectorType>();
+  VectorType vectorType = mlir::dyn_cast<VectorType>(type);
   if (vectorType)
     elementType = vectorType.getElementType();
   TypeSwitch<Type>(elementType)
@@ -133,7 +133,7 @@ Value OnnxToStablehloBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
   assert(!shapeDims.empty() && "Shape dimensions should not be empty");
 
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   Type elementType = inputType.getElementType();
   MultiDialectBuilder<StablehloBuilder, OnnxBuilder, ShapeBuilder> create(
       b(), loc());
@@ -190,7 +190,7 @@ Value OnnxToStablehloBuilder::transpose(const Value input,
     shape.push_back(dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
 
   // Create the "onnx.Transpose" operation.
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   Value transposeRes = create.onnx.transpose(
       RankedTensorType::get(shape, inputType.getElementType()), input,
       b().getI64ArrayAttr(perm));
@@ -213,19 +213,19 @@ ElementsAttr IndexExprBuilderForStablehlo::getConst(Value value) {
   }
   if (auto constOp = dyn_cast_or_null<stablehlo::ConstantOp>(definingOp)) {
     if (constOp.getValueAttr())
-      return constOp.getValueAttr().dyn_cast<ElementsAttr>();
+      return mlir::dyn_cast<ElementsAttr>(constOp.getValueAttr());
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (constOp.getValue().has_value())
-      return constOp.getValueAttr().dyn_cast<ElementsAttr>();
+      return mlir::dyn_cast<ElementsAttr>(constOp.getValueAttr());
   }
   return nullptr;
 }
 
 Value IndexExprBuilderForStablehlo::getVal(Value intArrayVal, uint64_t i) {
   Type elemType = getElementType(intArrayVal.getType());
-  if (!elemType.isa<IndexType>()) {
+  if (!mlir::isa<IndexType>(elemType)) {
     Type indexTensorType = RankedTensorType::get(
-        intArrayVal.getType().cast<ShapedType>().getShape(),
+        mlir::cast<ShapedType>(intArrayVal.getType()).getShape(),
         b().getIndexType());
     intArrayVal =
         b().create<arith::IndexCastOp>(loc(), indexTensorType, intArrayVal);

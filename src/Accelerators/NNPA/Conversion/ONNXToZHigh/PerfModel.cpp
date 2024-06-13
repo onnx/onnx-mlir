@@ -61,7 +61,7 @@ inline int64_t summarizeHigherDims(
 void processDim(Value oper, int64_t &e4, int64_t &e3, int64_t &e2, int64_t &e1,
     std::string &msg) {
   // At this time, use only 1 of the two operands.
-  ShapedType operType = oper.getType().dyn_cast_or_null<ShapedType>();
+  ShapedType operType = mlir::dyn_cast_or_null<ShapedType>(oper.getType());
   assert(operType && operType.hasRank() && "expected shaped type with rank");
   int64_t operRank = operType.getRank();
   assert(operRank <= 4 && "expected rank <= 4");
@@ -117,7 +117,7 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
     bool bTransposed, const DimAnalysis *dimAnalysis, double &cpuEstimatedTime,
     double &nnpaEstimatedTime) {
   // Scanning A.
-  ShapedType aType = a.getType().dyn_cast_or_null<ShapedType>();
+  ShapedType aType = mlir::dyn_cast_or_null<ShapedType>(a.getType());
   assert(aType && aType.hasRank() && "expected shaped type with A rank");
   int64_t aRank = aType.getRank();
   llvm::ArrayRef<int64_t> aShape = aType.getShape();
@@ -128,7 +128,7 @@ void estimateTimeForMatMulOp(Operation *op, Value a, Value b, bool aTransposed,
   int64_t aN = aShape[aNIndex];
   int64_t aM = aShape[aMIndex];
   // Scanning B.
-  ShapedType bType = b.getType().dyn_cast_or_null<ShapedType>();
+  ShapedType bType = mlir::dyn_cast_or_null<ShapedType>(b.getType());
   assert(bType && bType.hasRank() && "expected shaped type with B rank");
   int64_t bRank = bType.getRank();
   llvm::ArrayRef<int64_t> bShape = bType.getShape();

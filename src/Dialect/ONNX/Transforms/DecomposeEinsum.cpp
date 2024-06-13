@@ -143,7 +143,7 @@ public:
       const einsum::Signature &signature, ValueRange values)
       : builder(builder), loc(loc), create(builder, loc) {
     assert(values.size() >= 1 && "Einsum must have >= 1 inputs");
-    elementType = values[0].getType().cast<ShapedType>().getElementType();
+    elementType = mlir::cast<ShapedType>(values[0].getType()).getElementType();
     result = signature.output;
     assert(values.size() == signature.inputs.size() &&
            "Einsum signature inputs (from equation) must match actual inputs");
@@ -532,9 +532,9 @@ private:
 // currently limited to the types supported by ReduceSum and MatMul (which
 // we decompose to in most cases) which exclude integers with width < 32
 bool isDecomposableElementType(Type elementType) {
-  if (elementType.isa<FloatType>())
+  if (mlir::isa<FloatType>(elementType))
     return true;
-  if (IntegerType intType = elementType.dyn_cast<IntegerType>())
+  if (IntegerType intType = mlir::dyn_cast<IntegerType>(elementType))
     return intType.getWidth() >= 32;
   return false;
 }
@@ -551,7 +551,8 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
   Location loc = einsumOp.getLoc();
   ValueRange inputs = einsumOp.getInputs();
 
-  Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(inputs[0].getType()).getElementType();
   if (!isDecomposableElementType(elementType))
     return rewriter.notifyMatchFailure(
         loc, "unsupported element type prevents Einsum decomposition");
@@ -589,7 +590,8 @@ LogicalResult DecomposeEinsumPattern::matchAndRewrite(
 bool DecomposeEinsumPattern::isDecomposable(mlir::ONNXEinsumOp einsumOp) {
   // TODO: deduplicate repeated logic from matchAndRewrite()
   ValueRange inputs = einsumOp.getInputs();
-  Type elementType = inputs[0].getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(inputs[0].getType()).getElementType();
   return isDecomposableElementType(elementType) &&
          llvm::all_of(inputs.getTypes(), hasStaticShape) &&
          hasStaticShape(einsumOp.getOutput().getType());

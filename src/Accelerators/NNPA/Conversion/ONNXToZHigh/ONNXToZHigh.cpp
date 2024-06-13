@@ -46,7 +46,7 @@ ArrayAttr getLSTMGRUBiasSplitShape(
 Value getLSTMGRUZDNNWeightFromONNXWeight(
     Location loc, PatternRewriter &rewriter, Value weight, int isLSTM) {
   int64_t splitNum = isLSTM ? 4 : 3;
-  RankedTensorType weightType = weight.getType().cast<RankedTensorType>();
+  RankedTensorType weightType = mlir::cast<RankedTensorType>(weight.getType());
   Type elementType = weightType.getElementType();
   ArrayRef<int64_t> weightShape = weightType.getShape();
   int64_t direction = weightShape[0];
@@ -124,7 +124,7 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
   if (isNoneValue(resYh) || isNoneValue(val))
     return noneValue;
 
-  ArrayRef<int64_t> shapeX = X.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shapeX = mlir::cast<ShapedType>(X.getType()).getShape();
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   // Generate Y_h for onnx.LSTM from hn_output for all timestep
   Value minusOne = create.onnx.constantInt64({-1});
@@ -136,12 +136,12 @@ Value getLSTMGRUGetYh(Location loc, PatternRewriter &rewriter, Value val,
   Value intMax = create.onnx.constantInt64({INT_MAX});
   StringRef directionStr = direction.getValue();
   ArrayRef<int64_t> resYhShape =
-      resYh.getType().cast<RankedTensorType>().getShape();
+      mlir::cast<RankedTensorType>(resYh.getType()).getShape();
   int64_t T = isNoneValue(resY) ? 1 : shapeX[0];
   int64_t D = resYhShape[0];
   int64_t B = resYhShape[1];
   int64_t H = resYhShape[2];
-  Type elementType = resYh.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(resYh.getType()).getElementType();
   Value axis = zero;
   Value step = one;
   Value ret;
@@ -205,19 +205,20 @@ Value getLSTMGRUGetYc(
 
 SmallVector<Value, 4> emitONNXSplitOp(Location loc, PatternRewriter &rewriter,
     Value input, IntegerAttr axis, ArrayAttr split) {
-  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
   SmallVector<mlir::Type> outputTypes;
   int64_t splitNum = split.size();
   ArrayRef<int64_t> inputShape =
-      input.getType().cast<RankedTensorType>().getShape();
-  int64_t splitAxis = axis.cast<IntegerAttr>().getSInt();
+      mlir::cast<RankedTensorType>(input.getType()).getShape();
+  int64_t splitAxis = mlir::cast<IntegerAttr>(axis).getSInt();
   assert(splitAxis >= 0 && "Negative axis");
   for (int i = 0; i < splitNum; i++) {
     SmallVector<int64_t> outputShape;
     for (size_t dim = 0; dim < inputShape.size(); dim++) {
-      outputShape.emplace_back((dim == (unsigned int)splitAxis)
-                                   ? split[dim].cast<IntegerAttr>().getInt()
-                                   : inputShape[dim]);
+      outputShape.emplace_back(
+          (dim == (unsigned int)splitAxis)
+              ? mlir::cast<IntegerAttr>(split[dim]).getInt()
+              : inputShape[dim]);
     }
     outputTypes.emplace_back(RankedTensorType::get(outputShape, elementType));
   }

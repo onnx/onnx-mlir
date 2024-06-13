@@ -30,7 +30,7 @@ inline bool isNoneValue(mlir::Value value) {
 /// Check the defining operation of a value.
 template <typename OP>
 bool definedBy(mlir::Value v) {
-  return !v.isa<mlir::BlockArgument>() && llvm::isa<OP>(v.getDefiningOp());
+  return !mlir::isa<mlir::BlockArgument>(v) && llvm::isa<OP>(v.getDefiningOp());
 }
 
 // Support for recognizing patterns. Detects if the operation "op" has an input
@@ -61,7 +61,7 @@ bool operandOfOpDefinedBy(mlir::Operation *&matchOp, mlir::Operation *op,
   mlir::Value operand = op->getOperand(matchThisOperandIndex);
   // operand.dump();
   //  Check for a match with definition of operand.
-  if (!operand.isa<mlir::BlockArgument>() &&
+  if (!mlir::isa<mlir::BlockArgument>(operand) &&
       llvm::isa<OP>(operand.getDefiningOp())) {
     matchOperand = operand;
     matchOp = operand.getDefiningOp();

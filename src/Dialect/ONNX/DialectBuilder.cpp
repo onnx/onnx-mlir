@@ -37,8 +37,8 @@ IntegerAttr OnnxBuilder::getSignedInt64Attr(int64_t n) const {
 // =============================================================================
 
 Value OnnxBuilder::add(Value A, Value B) const {
-  assert((A.getType().cast<ShapedType>().getElementType() ==
-             B.getType().cast<ShapedType>().getElementType()) &&
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
          "A and B must have the same element type");
   return createOpAndInferShapes<ONNXAddOp>(toTensor(A), toTensor(B));
 }
@@ -54,9 +54,9 @@ Value OnnxBuilder::cast(Type outputType, Value input, IntegerAttr saturate,
 
 Value OnnxBuilder::cast(Value input, IntegerAttr saturate, TypeAttr to) const {
   Type resultType;
-  if (input.getType().cast<ShapedType>().hasRank())
+  if (mlir::cast<ShapedType>(input.getType()).hasRank())
     resultType = RankedTensorType::get(
-        input.getType().cast<ShapedType>().getShape(), to.getValue());
+        mlir::cast<ShapedType>(input.getType()).getShape(), to.getValue());
   else
     resultType = UnrankedTensorType::get(to.getValue());
   return createTypedOpAndInferShapes<ONNXCastOp>(
@@ -65,9 +65,9 @@ Value OnnxBuilder::cast(Value input, IntegerAttr saturate, TypeAttr to) const {
 
 Value OnnxBuilder::cast(Value input, TypeAttr to) const {
   Type resultType;
-  if (input.getType().cast<ShapedType>().hasRank())
+  if (mlir::cast<ShapedType>(input.getType()).hasRank())
     resultType = RankedTensorType::get(
-        input.getType().cast<ShapedType>().getShape(), to.getValue());
+        mlir::cast<ShapedType>(input.getType()).getShape(), to.getValue());
   else
     resultType = UnrankedTensorType::get(to.getValue());
   IntegerAttr saturate = nullptr;
@@ -139,8 +139,8 @@ void OnnxBuilder::dimGroup(Value input, int axis, int groupID) const {
 }
 
 Value OnnxBuilder::div(Value A, Value B) const {
-  assert((A.getType().cast<ShapedType>().getElementType() ==
-             B.getType().cast<ShapedType>().getElementType()) &&
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
          "A and B must have the same element type");
   return createOpAndInferShapes<ONNXDivOp>(toTensor(A), toTensor(B));
 }
@@ -181,12 +181,12 @@ Value OnnxBuilder::RMSLayerNorm(Type outputType, Value input, Value scale,
 
 Value OnnxBuilder::matmul(Type Y, Value A, Value B, bool useGemm) const {
   // Gemm only supports rank 2.
-  bool canUseGemm = useGemm && A.getType().isa<ShapedType>() &&
-                    A.getType().cast<ShapedType>().hasRank() &&
-                    (A.getType().cast<ShapedType>().getRank() == 2) &&
-                    B.getType().isa<ShapedType>() &&
-                    B.getType().cast<ShapedType>().hasRank() &&
-                    (B.getType().cast<ShapedType>().getRank() == 2);
+  bool canUseGemm = useGemm && mlir::isa<ShapedType>(A.getType()) &&
+                    mlir::cast<ShapedType>(A.getType()).hasRank() &&
+                    (mlir::cast<ShapedType>(A.getType()).getRank() == 2) &&
+                    mlir::isa<ShapedType>(B.getType()) &&
+                    mlir::cast<ShapedType>(B.getType()).hasRank() &&
+                    (mlir::cast<ShapedType>(B.getType()).getRank() == 2);
   auto aValue = toTensor(A);
   auto bValue = toTensor(B);
   if (canUseGemm)
@@ -212,15 +212,15 @@ Value OnnxBuilder::min(ValueRange inputs) const {
 }
 
 Value OnnxBuilder::mul(Value A, Value B) const {
-  assert((A.getType().cast<ShapedType>().getElementType() ==
-             B.getType().cast<ShapedType>().getElementType()) &&
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
          "A and B must have the same element type");
   return createOpAndInferShapes<ONNXMulOp>(toTensor(A), toTensor(B));
 }
 
 Value OnnxBuilder::mul(Type resultType, Value A, Value B) const {
-  assert((A.getType().cast<ShapedType>().getElementType() ==
-             B.getType().cast<ShapedType>().getElementType()) &&
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
          "A and B must have the same element type");
   return createTypedOpAndInferShapes<ONNXMulOp>(
       resultType, toTensor(A), toTensor(B));
@@ -232,7 +232,7 @@ Value OnnxBuilder::pad(
     Value input, Value pads, Value constantValue, std::string mode) const {
   Type elementType = getElementType(input.getType());
   Type outputType = UnrankedTensorType::get(elementType);
-  Value constant = constantValue.getType().isa<NoneType>()
+  Value constant = mlir::isa<NoneType>(constantValue.getType())
                        ? constantValue
                        : toTensor(constantValue);
   return createTypedOpAndInferShapes<ONNXPadOp>(toTensor(outputType),
@@ -365,8 +365,8 @@ Value OnnxBuilder::squeeze(Type outputType, Value data, Value axes) const {
 }
 
 Value OnnxBuilder::sub(Value A, Value B) const {
-  assert((A.getType().cast<ShapedType>().getElementType() ==
-             B.getType().cast<ShapedType>().getElementType()) &&
+  assert((mlir::cast<ShapedType>(A.getType()).getElementType() ==
+             mlir::cast<ShapedType>(B.getType()).getElementType()) &&
          "A and B must have the same element type");
   return createOpAndInferShapes<ONNXSubOp>(toTensor(A), toTensor(B));
 }
@@ -392,9 +392,9 @@ Value OnnxBuilder::toTensor(Value input) const {
   // None input.
   if (isNoneValue(input))
     return input;
-  if (input.getType().isa<TensorType>())
+  if (mlir::isa<TensorType>(input.getType()))
     return input;
-  assert(input.getType().isa<MemRefType>() &&
+  assert(mlir::isa<MemRefType>(input.getType()) &&
          "expect RankedMemref type when not a TensorType");
   auto aTensorTy = toTensor(input.getType());
   // No shape inference for this op.
@@ -404,13 +404,13 @@ Value OnnxBuilder::toTensor(Value input) const {
 }
 
 TensorType OnnxBuilder::toTensor(Type input) const {
-  if (auto tensorType = input.dyn_cast<TensorType>())
+  if (auto tensorType = mlir::dyn_cast<TensorType>(input))
     return tensorType;
-  assert(input.isa<MemRefType>() &&
+  assert(mlir::isa<MemRefType>(input) &&
          "expect RankedMemref type when not a TensorType");
-  auto aTy = input.cast<ShapedType>();
+  auto aTy = mlir::cast<ShapedType>(input);
   Type elementTy = aTy.getElementType();
-  if (elementTy.isa<IndexType>()) {
+  if (mlir::isa<IndexType>(elementTy)) {
     elementTy = b().getIntegerType(64);
   }
   return RankedTensorType::get(aTy.getShape(), elementTy);
@@ -418,15 +418,16 @@ TensorType OnnxBuilder::toTensor(Type input) const {
 
 TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
   assert(inputs.size() >= 2 && "Expect at least two inputs");
-  if (llvm::all_of(inputs, [](Type t) { return (t.isa<TensorType>()); }))
+  if (llvm::all_of(inputs, [](Type t) { return (mlir::isa<TensorType>(t)); }))
     return inputs;
-  assert(llvm::all_of(inputs, [](Type t) { return (t.isa<MemRefType>()); }) &&
-         "All inputs expect RankedMemref type when not a TensorType");
+  assert(llvm::all_of(inputs, [](Type t) {
+    return (mlir::isa<MemRefType>(t));
+  }) && "All inputs expect RankedMemref type when not a TensorType");
   llvm::SmallVector<Type, 4> resultTypes;
   for (uint64_t i = 0; i < inputs.size(); ++i) {
-    ShapedType aTy = inputs[i].cast<ShapedType>();
+    ShapedType aTy = mlir::cast<ShapedType>(inputs[i]);
     Type elementTy = aTy.getElementType();
-    if (elementTy.isa<IndexType>()) {
+    if (mlir::isa<IndexType>(elementTy)) {
       elementTy = b().getIntegerType(64);
     }
     resultTypes.emplace_back(RankedTensorType::get(aTy.getShape(), elementTy));
@@ -435,11 +436,11 @@ TypeRange OnnxBuilder::toTensors(TypeRange inputs) const {
 }
 
 Value OnnxBuilder::toMemref(Value input) const {
-  if (input.getType().isa<MemRefType>())
+  if (mlir::isa<MemRefType>(input.getType()))
     return input;
-  assert(input.getType().isa<RankedTensorType>() &&
+  assert(mlir::isa<RankedTensorType>(input.getType()) &&
          "expect RankedMemref type when not a TensorType");
-  auto aTy = input.getType().cast<ShapedType>();
+  auto aTy = mlir::cast<ShapedType>(input.getType());
   auto aTensorTy = MemRefType::get(aTy.getShape(), aTy.getElementType());
   // No shape inference for this op.
   return b()
@@ -477,14 +478,15 @@ Value OnnxBuilder::where(
 Value OnnxBuilder::reshapeToNDim(
     Value val, int64_t N, bool collapseMostSignificant) const {
   // Get rank of the original shape and determine if we have anything to do.
-  int64_t rank = val.getType().cast<RankedTensorType>().getRank();
+  int64_t rank = mlir::cast<RankedTensorType>(val.getType()).getRank();
   int64_t keep = N - 1; // 1 dim for collapsed dims, keep N -1 from original.
   assert(rank >= N && "Require rank >= N");
   if (rank == N)
     // No collapse is needed, return self.
     return val;
   // Compute types.
-  ArrayRef<int64_t> inputShape = val.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> inputShape =
+      mlir::cast<ShapedType>(val.getType()).getShape();
   Type elementType = getElementType(val.getType());
   Type inputShapeType = RankedTensorType::get({rank}, b().getI64Type());
   Type keepShapeType = RankedTensorType::get({keep}, b().getI64Type());
@@ -636,7 +638,7 @@ std::vector<Value> OnnxBuilder::foldOrEmitONNXSplitOp(
     SmallVector<int64_t> splitSizesI64;
     for (auto t : resultTypes) {
       convertedTypes.emplace_back(create.onnx.toTensor(t));
-      splitSizesI64.emplace_back(t.cast<ShapedType>().getShape()[axis]);
+      splitSizesI64.emplace_back(mlir::cast<ShapedType>(t).getShape()[axis]);
     }
     Value splitSizes = create.onnx.constantInt64(splitSizesI64);
     ONNXSplitOp split = rewriter.create<ONNXSplitOp>(loc, convertedTypes,
@@ -702,7 +704,7 @@ Value OnnxBuilder::foldOrEmitONNXTransposeOp(
           getDenseElementAttrFromConstValue(input)) {
     SmallVector<uint64_t, 4> perm;
     for (auto permVal : permAttr.getValue())
-      perm.emplace_back(permVal.cast<IntegerAttr>().getInt());
+      perm.emplace_back(mlir::cast<IntegerAttr>(permVal).getInt());
 
     OnnxElementsAttrBuilder elementsBuilder(rewriter.getContext());
     ElementsAttr transposedElements =

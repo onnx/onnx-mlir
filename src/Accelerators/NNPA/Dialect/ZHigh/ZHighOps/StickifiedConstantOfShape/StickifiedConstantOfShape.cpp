@@ -26,7 +26,7 @@ namespace zhigh {
 void ZHighStickifiedConstantOfShapeOp::build(OpBuilder &builder,
     OperationState &state, Value shape, FloatAttr value, StringAttr layout) {
   Type resType = builder.getNoneType();
-  ShapedType shapeType = shape.getType().cast<ShapedType>();
+  ShapedType shapeType = mlir::cast<ShapedType>(shape.getType());
   Type elementType = builder.getF16Type();
 
   if (shapeType.hasRank()) {
@@ -61,7 +61,7 @@ LogicalResult ZHighStickifiedConstantOfShapeOpShapeHelper::computeShape() {
   if (!hasRankedType(shape))
     return success();
 
-  auto shapeType = shape.getType().cast<ShapedType>();
+  auto shapeType = mlir::cast<ShapedType>(shape.getType());
   int64_t rank = shapeType.getShape()[0];
 
   // Output dims of result.
@@ -97,7 +97,7 @@ LogicalResult ZHighStickifiedConstantOfShapeOp::inferShapes(
   if (!hasRankedType(shape))
     return success();
 
-  auto shapeType = shape.getType().cast<RankedTensorType>();
+  auto shapeType = mlir::cast<RankedTensorType>(shape.getType());
   StringAttr layout = getLayoutAttr();
   int64_t rank = shapeType.getShape()[0];
 
@@ -109,7 +109,8 @@ LogicalResult ZHighStickifiedConstantOfShapeOp::inferShapes(
   auto encoding = ZTensorEncodingAttr::get(this->getContext(), dataLayout);
 
   ZHighStickifiedConstantOfShapeOpShapeHelper shapeHelper(getOperation());
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   return shapeHelper.computeShapeAndUpdateType(elementType, encoding);
 }
 

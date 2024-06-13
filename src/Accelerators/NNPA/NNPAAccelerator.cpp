@@ -136,9 +136,8 @@ void NNPAAccelerator::registerPasses(int optLevel) const {
 mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
     const mlir::TensorType tensorType) const {
   assert(tensorType.hasRank() && "expected only ranked shapes");
-  if (tensorType.cast<mlir::RankedTensorType>()
-          .getEncoding()
-          .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>()) {
+  if (mlir::dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>(
+          mlir::cast<mlir::RankedTensorType>(tensorType).getEncoding())) {
     onnx_mlir::zhigh::ZMemRefType zMemRefType =
         onnx_mlir::zhigh::convertZTensorToMemRefType(tensorType);
     return zMemRefType.value;
@@ -149,9 +148,8 @@ mlir::MemRefType NNPAAccelerator::convertTensorTypeToMemRefType(
 int64_t NNPAAccelerator::getDefaultAllocAlignment(
     const mlir::TensorType tensorType) const {
   assert(tensorType.hasRank() && "expected only ranked shapes");
-  if (tensorType.cast<mlir::RankedTensorType>()
-          .getEncoding()
-          .dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>())
+  if (mlir::dyn_cast_or_null<onnx_mlir::zhigh::ZTensorEncodingAttr>(
+          mlir::cast<mlir::RankedTensorType>(tensorType).getEncoding()))
     return gAlignment;
   return -1;
 }

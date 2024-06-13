@@ -53,12 +53,12 @@ public:
 
     auto loc = op.getLoc();
     Value lhs = adaptor.getA();
-    auto lhsType = lhs.getType().dyn_cast<TensorType>();
+    auto lhsType = mlir::dyn_cast<TensorType>(lhs.getType());
 
     Value rhs = adaptor.getB();
-    auto rhsType = rhs.getType().dyn_cast<TensorType>();
+    auto rhsType = mlir::dyn_cast<TensorType>(rhs.getType());
 
-    auto resultType = op.getResult().getType().template dyn_cast<TensorType>();
+    auto resultType = mlir::dyn_cast<TensorType>(op.getResult().getType());
     if (!lhsType || !rhsType || !resultType) {
       return rewriter.notifyMatchFailure(op, "Tosa only supports TensorTypes");
     }
@@ -137,13 +137,13 @@ public:
       ConversionPatternRewriter &rewriter) const override {
     Value lhs = adaptor.getA();
     Value rhs = adaptor.getB();
-    auto resultType = op.getResult().getType().template cast<TensorType>();
+    auto resultType = mlir::cast<TensorType>(op.getResult().getType());
     Type resultElementType = resultType.getElementType();
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
 
     if (resultElementType.isSignlessInteger(32)) {
-      // tosa::DivOp takes 32-but signless integers as inputs
+      // tosa::IntDivOp takes 32-but signless integers as inputs
       Value divOp = tosaBuilder.intdiv(lhs, rhs);
       rewriter.replaceOp(op, {divOp});
       return success();

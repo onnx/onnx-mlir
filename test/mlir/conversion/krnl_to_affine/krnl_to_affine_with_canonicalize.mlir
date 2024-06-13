@@ -82,7 +82,7 @@ func.func @krnl_get_linear_offset_index_1(%arg0: memref<?x128x256xf32, #map>, %a
   %c10 = arith.constant 10: index
   %0 = memref.alloc(%arg1) : memref<?x128x256xf32, #map>
   %1 = krnl.get_linear_offset_index %arg0 at [%arg2, %c5, %c10] : memref<?x128x256xf32, #map>
-  return %1: index 
+  return %1: index
 
 // CHECK-LABEL:  func.func @krnl_get_linear_offset_index
 // CHECK:           [[VAR_0_:%.+]] = krnl.get_linear_offset_index {{.*}} at {{.*}} : memref<?x128x256xf32, #map>
@@ -127,7 +127,7 @@ func.func @prefetch(%arg0: memref<256x512xf32>) -> memref<256x512xf32> attribute
 // CHECK:           affine.for [[I_0_:%.+]] = 0 to 256 {
 // CHECK:             affine.for [[I_1_:%.+]] = 0 to 512 {
 // CHECK:               [[LOAD_PARAM_0_MEM_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<256x512xf32>
-// CHECK:               affine.prefetch [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]] + 64], write, locality<0>, data : memref<256x512xf32>
+// CHECK:               affine.prefetch [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]] + 64], read, locality<3>, data : memref<256x512xf32>
 // CHECK:               [[LOAD_PARAM_0_MEM_1_:%.+]] = affine.load [[PARAM_0_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<256x512xf32>
 // CHECK:               [[VAR_2_:%.+]] = arith.addf [[LOAD_PARAM_0_MEM_]], [[LOAD_PARAM_0_MEM_1_]] : f32
 // CHECK:               affine.store [[VAR_2_]], [[RES_]]{{.}}[[I_0_]], [[I_1_]]{{.}} : memref<256x512xf32>

@@ -47,12 +47,12 @@ struct ONNXConvOpLoweringToStablehlo : public ConversionPattern {
     Value inputOperand = operandAdaptor.getX();
     Value filterOperand = operandAdaptor.getW();
     Value biasOperand = operandAdaptor.getB();
-    bool hasBias = !biasOperand.getType().isa<NoneType>();
+    bool hasBias = !mlir::isa<NoneType>(biasOperand.getType());
     int64_t groupNum = convOp.getGroup();
 
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
-    ShapedType inputType = inputOperand.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(inputOperand.getType());
     llvm::ArrayRef<int64_t> inputShape = inputType.getShape();
     Type outputType = *op->result_type_begin();
     // Onnx Input is NCHW
