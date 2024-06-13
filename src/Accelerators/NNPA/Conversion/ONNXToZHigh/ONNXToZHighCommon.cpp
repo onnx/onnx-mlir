@@ -4,7 +4,7 @@
 
 //====----- ONNXToZHighCommon.cpp - Common functions to ZHigh lowering ----===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //

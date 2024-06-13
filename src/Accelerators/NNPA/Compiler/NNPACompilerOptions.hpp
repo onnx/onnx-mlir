@@ -4,7 +4,7 @@
 
 //===------------------------ NNPACompilerOptions.hpp ---------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022, 2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -60,6 +60,7 @@ extern llvm::cl::opt<onnx_mlir::NNPAEmissionTargetType> nnpaEmissionTarget;
 extern llvm::cl::opt<bool> nnpaClipToDLFloatRange;
 extern llvm::cl::opt<bool> nnpaEnableZHighToOnnx;
 extern llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick;
+extern llvm::cl::opt<bool> nnpaEnableStatusMessages;
 extern llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick;
 extern llvm::cl::opt<bool> nnpaEnableScalarBcastBinary;
 extern llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic;

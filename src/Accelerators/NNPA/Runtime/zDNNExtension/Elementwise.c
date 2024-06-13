@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "zDNNExtension.h"
 #include "zdnn.h"
 
@@ -49,6 +50,10 @@ typedef enum ElemementwiseOp {
   ZDNN_TANH_EXT = 53,
   ZDNN_SIGMOID_EXT = 54,
 } ElemementwiseOp;
+
+// We want to enable nnpa status messages when a user
+// manually specifies the "enable-status-message" flag.
+bool isStatusMessagesEnabled() { return nnpaEnableStatusMessages; }
 
 static SplitAxis selectSplitAxis(const zdnn_ztensor *t) {
   // We prefer to split E1 over E2 if E1 >= E2, because we can reuse the full
@@ -222,54 +227,99 @@ static zdnn_status zdnn_binary_elementwise_common(const zdnn_ztensor *inputA,
 
 zdnn_status zdnn_add_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
-  return zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_ADD_EXT);
+  zdnn_status status = zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_ADD_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_add: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_sub_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
-  return zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_SUB_EXT);
+  zdnn_status status = zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_SUB_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_sub: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_mul_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
-  return zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MUL_EXT);
+  zdnn_status status = zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MUL_EXT);
+    if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_mul: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_div_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
-  return zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_DIV_EXT);
+  zdnn_status status = zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_DIV_EXT);
+   if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_div: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_min_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
-  return zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MIN_EXT);
+  zdnn_status status = zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MIN_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_min: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_max_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
-  return zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MAX_EXT);
+  zdnn_status status = zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MAX_EXT);
+   if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_max: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_exp_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
-  return zdnn_unary_elementwise_common(input, NULL, output, ZDNN_EXP_EXT);
+  zdnn_status status = zdnn_unary_elementwise_common(input, NULL, output, ZDNN_EXP_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_exp: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_log_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
-  return zdnn_unary_elementwise_common(input, NULL, output, ZDNN_LOG_EXT);
+  zdnn_status status = zdnn_unary_elementwise_common(input, NULL, output, ZDNN_LOG_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_log: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_relu_ext(const zdnn_ztensor *input, const void *clippingValue,
     zdnn_ztensor *output) {
-  return zdnn_unary_elementwise_common(
+  zdnn_status status = zdnn_unary_elementwise_common(
       input, clippingValue, output, ZDNN_RELU_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_relu: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
-  return zdnn_unary_elementwise_common(input, NULL, output, ZDNN_SIGMOID_EXT);
+  zdnn_status status = zdnn_unary_elementwise_common(input, NULL, output, ZDNN_SIGMOID_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(
+        stderr, "[zdnnx] zdnn_sigmoid: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
-  return zdnn_unary_elementwise_common(input, NULL, output, ZDNN_TANH_EXT);
+  zdnn_status status = zdnn_unary_elementwise_common(input, NULL, output, ZDNN_TANH_EXT);
+  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+    fprintf(stderr, "[zdnnx] zdnn_tanh: %s\n", zdnn_get_status_message(status));
+  }
+  return status;
 }
 
 #ifdef __cplusplus
