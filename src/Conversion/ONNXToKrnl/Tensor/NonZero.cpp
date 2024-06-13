@@ -87,12 +87,12 @@ struct ONNXNonZeroOpLowering : public OpConversionPattern<ONNXNonZeroOp> {
 
     // Frequently used MemRefType.
     Value X = adaptor.getX();
-    MemRefType xMemRefType = X.getType().cast<MemRefType>();
+    MemRefType xMemRefType = mlir::cast<MemRefType>(X.getType());
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType resMemRefType = convertedType.cast<MemRefType>();
+    MemRefType resMemRefType = mlir::cast<MemRefType>(convertedType);
     int64_t xRank = xMemRefType.getRank();
 
     // Frequently used element types.

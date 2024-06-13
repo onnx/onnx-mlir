@@ -45,7 +45,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     auto inputOperand = operandAdaptor.getX();
     auto filterOperand = operandAdaptor.getW();
     auto biasOperand = operandAdaptor.getB();
-    bool hasBias = !biasOperand.getType().isa<NoneType>();
+    bool hasBias = !mlir::isa<NoneType>(biasOperand.getType());
     int64_t groupNum = convOp.getGroup();
     IndexExpr G = LiteralIndexExpr(groupNum);
     Value fZero = create.math.constant(memRefType.getElementType(), 0);
@@ -252,7 +252,7 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
     // Insert allocation for the result of this operation.
     Value alloc = allocForONNXOp<ONNXConvOp>(
         convOp, rewriter, typeConverter, shapeHelper)[0];
-    MemRefType memRefType = alloc.getType().cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(alloc.getType());
     convUnoptimized(rewriter, convOp, adaptor, shapeHelper, memRefType, alloc);
 
     rewriter.replaceOp(op, alloc);

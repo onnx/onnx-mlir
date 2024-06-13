@@ -39,7 +39,7 @@ static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
   if (!denseAttr.isSplat()) {
     data = denseAttr.getRawData();
   } else {
-    ShapedType denseShapeType = denseAttr.getType().cast<ShapedType>();
+    ShapedType denseShapeType = mlir::cast<ShapedType>(denseAttr.getType());
     std::vector<char> rawData = denseAttr.getRawData();
     int64_t numElements = denseShapeType.getNumElements();
     for (int i = 0; i < numElements; i++)
@@ -49,8 +49,8 @@ static void getRawData(DenseElementsAttr denseAttr, std::vector<char> &data) {
 
 /// MLIR type to zDNN type.
 zdnn_data_types mlirTypeToZDNNType(Type elementType) {
-  if (elementType.isa<FloatType>()) {
-    FloatType floatTy = elementType.cast<FloatType>();
+  if (mlir::isa<FloatType>(elementType)) {
+    FloatType floatTy = mlir::cast<FloatType>(elementType);
     if (floatTy.getWidth() == 16) {
       return FP16;
     } else if (floatTy.getWidth() == 32) {
@@ -91,13 +91,13 @@ ZHighStickifiedConstantOp createConstantForStick(PatternRewriter &rewriter,
     Value replacingValue, Value input, StringAttr layout) {
   Location loc = replacingValue.getLoc();
   Operation *op = input.getDefiningOp();
-  ArrayRef<int64_t> shape = input.getType().cast<ShapedType>().getShape();
-  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  ArrayRef<int64_t> shape = mlir::cast<ShapedType>(input.getType()).getShape();
+  Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
   int rank = shape.size();
 
   // Read dense attributes.
-  DenseElementsAttr dataAttr = op->getAttrOfType<::mlir::Attribute>("value")
-                                   .dyn_cast_or_null<mlir::DenseElementsAttr>();
+  DenseElementsAttr dataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      op->getAttrOfType<::mlir::Attribute>("value"));
   assert(dataAttr && "Attribute is null");
   // Read attributes's raw data.
   std::vector<char> rawData;
@@ -141,23 +141,20 @@ ZHighStickifiedConstantOp createConstantForStickForLSTM(
   Operation *cOp = inputC.getDefiningOp();
   Operation *oOp = inputO.getDefiningOp();
 
-  ArrayRef<int64_t> fShape = inputF.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> fShape =
+      mlir::cast<ShapedType>(inputF.getType()).getShape();
   assert((fShape.size() == 2 || fShape.size() == 3) && "Wrong tensor shape");
-  Type elementType = inputF.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(inputF.getType()).getElementType();
 
   // Read dense attributes.
-  DenseElementsAttr fDataAttr =
-      fOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
-  DenseElementsAttr iDataAttr =
-      iOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
-  DenseElementsAttr cDataAttr =
-      cOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
-  DenseElementsAttr oDataAttr =
-      oOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
+  DenseElementsAttr fDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      fOp->getAttrOfType<::mlir::Attribute>("value"));
+  DenseElementsAttr iDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      iOp->getAttrOfType<::mlir::Attribute>("value"));
+  DenseElementsAttr cDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      cOp->getAttrOfType<::mlir::Attribute>("value"));
+  DenseElementsAttr oDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      oOp->getAttrOfType<::mlir::Attribute>("value"));
   assert((fDataAttr && iDataAttr && cDataAttr && oDataAttr) &&
          "Attribute is null");
   // Read attributes's raw data.
@@ -205,20 +202,18 @@ ZHighStickifiedConstantOp createConstantForStickForGRU(
   Operation *rOp = inputR.getDefiningOp();
   Operation *hOp = inputH.getDefiningOp();
 
-  ArrayRef<int64_t> zShape = inputZ.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> zShape =
+      mlir::cast<ShapedType>(inputZ.getType()).getShape();
   assert((zShape.size() == 2 || zShape.size() == 3) && "Wrong tensor shape");
-  Type elementType = inputZ.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(inputZ.getType()).getElementType();
 
   // Read dense attributes.
-  DenseElementsAttr zDataAttr =
-      zOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
-  DenseElementsAttr rDataAttr =
-      rOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
-  DenseElementsAttr hDataAttr =
-      hOp->getAttrOfType<::mlir::Attribute>("value")
-          .dyn_cast_or_null<mlir::DenseElementsAttr>();
+  DenseElementsAttr zDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      zOp->getAttrOfType<::mlir::Attribute>("value"));
+  DenseElementsAttr rDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      rOp->getAttrOfType<::mlir::Attribute>("value"));
+  DenseElementsAttr hDataAttr = mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+      hOp->getAttrOfType<::mlir::Attribute>("value"));
   assert((zDataAttr && rDataAttr && hDataAttr) && "Attribute is null");
   // Read attributes's raw data.
   std::vector<char> rawZData, rawHData, rawRData, rawOData;

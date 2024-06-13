@@ -8,13 +8,13 @@ func.func @test_default_maxpoolsingleout(%arg0 : tensor<5x5x32x32xf32>) -> tenso
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x30x30xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x30x30xf32>
 // CHECK:         }
 
 // -----
@@ -27,13 +27,13 @@ func.func @test_default_maxpoolsingleout_defpad(%arg0 : tensor<5x5x32x32xf32>) -
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_defpad
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x30x30xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x30x30xf32>
 // CHECK:         }
 
 // -----
@@ -46,13 +46,13 @@ func.func @test_default_maxpoolsingleout_pad(%arg0 : tensor<5x5x32x32xf32>) -> t
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_pad
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x32x32xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x32x32xf32>
 // CHECK:         }
 
 // -----
@@ -65,13 +65,13 @@ func.func @test_default_maxpoolsingleout_pad_nonunif(%arg0 : tensor<5x5x32x32xf3
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_pad_nonunif
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x31x31xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [2, 1], [1, 0]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 5, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x31x31xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x31x31xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [2, 1], [1, 0]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 5, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x31x31xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x31x31xf32>
 // CHECK:         }
 
 // -----
@@ -84,13 +84,13 @@ func.func @test_default_maxpoolsingleout_strides(%arg0 : tensor<5x5x32x32xf32>) 
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_strides
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x16x16xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 2, 2>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x16x16xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 2, 2>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x16x16xf32>
 // CHECK:         }
 
 // -----
@@ -103,13 +103,13 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad(%arg0 : tensor<5x5x3
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_strides_nonunifpad
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x30x32xf32>) -> tensor<5x5x15x16xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [1, 0], [0, 0]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 2, 2>} : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x15x16xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x15x16xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [1, 0], [0, 0]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 2, 2>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x15x16xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x15x16xf32>
 // CHECK:         }
 
 // -----
@@ -122,13 +122,13 @@ func.func @test_default_maxpoolsingleout_strides_nonunifpad_ceil(%arg0 : tensor<
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_strides_nonunifpad_ceil
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x30x32xf32>) -> tensor<5x5x16x16xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [0, 0]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 2, 2>} : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x16x16xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [0, 0]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 2, 2>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x30x32xf32>, tensor<f32>) -> tensor<5x5x16x16xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x16x16xf32>
 // CHECK:         }
 
 // -----
@@ -141,13 +141,13 @@ func.func @test_default_maxpoolsingleout_strides_dilatation(%arg0 : tensor<5x5x8
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_strides_dilatation
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x8x8xf32>) -> tensor<5x5x2x2xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 2, 2>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 3, 3>} : (tensor<5x5x8x8xf32>, tensor<f32>) -> tensor<5x5x2x2xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x2x2xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 2, 2>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 3, 3>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x8x8xf32>, tensor<f32>) -> tensor<5x5x2x2xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x2x2xf32>
 // CHECK:         }
 
 // -----
@@ -160,13 +160,13 @@ func.func @test_default_maxpoolsingleout_upper(%arg0 : tensor<5x5x16x13xf32>) ->
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_upper
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [0, 0], [1, 2]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 4, 4>, window_strides = array<i64: 1, 1, 4, 4>} : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x4x4xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [0, 0], [1, 2]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 4, 4>, window_strides = array<i64: 1, 1, 4, 4>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x4x4xf32>
 // CHECK:         }
 
 // -----
@@ -179,13 +179,13 @@ func.func @test_default_maxpoolsingleout_lower(%arg0 : tensor<5x5x16x13xf32>) ->
 
 // CHECK-LABEL:  func.func @test_default_maxpoolsingleout_lower
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x16x13xf32>) -> tensor<5x5x4x4xf32> {
-// CHECK:           [[VAR_0_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
-// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_0_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_2_:%.+]] = stablehlo.maximum %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [0, 0], [2, 1]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 4, 4>, window_strides = array<i64: 1, 1, 4, 4>} : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
-// CHECK:           return [[VAR_1_]] : tensor<5x5x4x4xf32>
+// CHECK:           [[VAR_cst_:%.+]] = stablehlo.constant dense<0xFF800000> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [0, 0], [2, 1]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 4, 4>, window_strides = array<i64: 1, 1, 4, 4>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_1_:%.+]] = stablehlo.maximum [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x16x13xf32>, tensor<f32>) -> tensor<5x5x4x4xf32>
+// CHECK:           return [[VAR_0_]] : tensor<5x5x4x4xf32>
 // CHECK:         }
 
 // -----
@@ -198,20 +198,20 @@ func.func @test_averagepool_default(%arg0 : tensor<5x5x32x32xf32>) -> tensor<5x5
 
 // CHECK-LABEL:  func.func @test_averagepool_default
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<5x5x32x32xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:           [[VAR_2_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_5_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_5_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
-// CHECK:           [[VAR_3_:%.+]] = "stablehlo.reduce_window"([[VAR_0_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_5_1_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_5_1_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
-// CHECK:           [[VAR_4_:%.+]] = stablehlo.divide [[VAR_2_]], [[VAR_3_]] : tensor<5x5x30x30xf32>
-// CHECK:           return [[VAR_4_]] : tensor<5x5x30x30xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<5x5x32x32xf32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_0_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_3_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_3_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[VAR_cst_]], [[VAR_cst_]]_0) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_]]: tensor<f32>, [[arg2_]]: tensor<f32>):
+// CHECK:             [[VAR_3_1_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_3_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.divide [[VAR_0_]], [[VAR_1_]] : tensor<5x5x30x30xf32>
+// CHECK:           return [[VAR_2_]] : tensor<5x5x30x30xf32>
 // CHECK:         }
 
 // -----
@@ -224,20 +224,20 @@ func.func @test_averagepool_pad(%arg0 : tensor<5x5x32x32xf32>) -> tensor<5x5x32x
 
 // CHECK-LABEL:  func.func @test_averagepool_pad
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x32x32xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<5x5x32x32xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:           [[VAR_2_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_5_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_5_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
-// CHECK:           [[VAR_3_:%.+]] = "stablehlo.reduce_window"([[VAR_0_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_5_1_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_5_1_]] : tensor<f32>
-// CHECK:           }) {padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]]> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
-// CHECK:           [[VAR_4_:%.+]] = stablehlo.divide [[VAR_2_]], [[VAR_3_]] : tensor<5x5x32x32xf32>
-// CHECK:           return [[VAR_4_]] : tensor<5x5x32x32xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<5x5x32x32xf32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_0_]]) <{padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_3_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_3_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
+// CHECK:           [[VAR_1_:%.+]] = "stablehlo.reduce_window"([[VAR_cst_]], [[VAR_cst_]]_0) <{padding = dense<{{.}}[0, 0], [0, 0], [1, 1], [1, 1]{{.}}> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_]]: tensor<f32>, [[arg2_]]: tensor<f32>):
+// CHECK:             [[VAR_3_1_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_3_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x32x32xf32>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.divide [[VAR_0_]], [[VAR_1_]] : tensor<5x5x32x32xf32>
+// CHECK:           return [[VAR_2_]] : tensor<5x5x32x32xf32>
 // CHECK:         }
 
 // -----
@@ -250,15 +250,15 @@ func.func @test_averagepool_count_include_pad(%arg0 : tensor<5x5x32x32xf32>) -> 
 
 // CHECK-LABEL:  func.func @test_averagepool_count_include_pad
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<5x5x32x32xf32>) -> tensor<5x5x30x30xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<9.000000e+00> : tensor<5x5x30x30xf32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:           [[VAR_2_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_4_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_4_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
-// CHECK:           [[VAR_3_:%.+]] = stablehlo.divide [[VAR_2_]], [[VAR_0_]] : tensor<5x5x30x30xf32>
-// CHECK:           return [[VAR_3_]] : tensor<5x5x30x30xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = stablehlo.constant dense<9.000000e+00> : tensor<5x5x30x30xf32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_0_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_2_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_2_]] : tensor<f32>
+// CHECK:           }) : (tensor<5x5x32x32xf32>, tensor<f32>) -> tensor<5x5x30x30xf32>
+// CHECK:           [[VAR_1_:%.+]] = stablehlo.divide [[VAR_0_]], [[VAR_cst_]] : tensor<5x5x30x30xf32>
+// CHECK:           return [[VAR_1_]] : tensor<5x5x30x30xf32>
 // CHECK:         }
 
 // -----
@@ -271,20 +271,20 @@ func.func @test_averagepool_dynamic_shape(%arg0 : tensor<?x5x32x32xf32>) -> tens
 
 // CHECK-LABEL:  func.func @test_averagepool_dynamic_shape
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x5x32x32xf32>) -> tensor<?x5x30x30xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<f32>
-// CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:           [[VAR_2_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_7_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_7_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<?x5x32x32xf32>, tensor<f32>) -> tensor<?x5x30x30xf32>
-// CHECK:           [[VAR_3_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x5x32x32xf32> -> tensor<4xindex>
-// CHECK:           [[VAR_4_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_0_]], [[VAR_3_]], dims = [] : (tensor<f32>, tensor<4xindex>) -> tensor<?x5x32x32xf32>
-// CHECK:           [[VAR_5_:%.+]] = "stablehlo.reduce_window"([[VAR_4_]], [[VAR_1_]]) ({
-// CHECK:           ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
-// CHECK:             [[VAR_7_1_:%.+]] = stablehlo.add %arg1, %arg2 : tensor<f32>
-// CHECK:             stablehlo.return [[VAR_7_1_]] : tensor<f32>
-// CHECK:           }) {padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>} : (tensor<?x5x32x32xf32>, tensor<f32>) -> tensor<?x5x30x30xf32>
-// CHECK:           [[VAR_6_:%.+]] = stablehlo.divide [[VAR_2_]], [[VAR_5_]] : tensor<?x5x30x30xf32>
-// CHECK:           return [[VAR_6_]] : tensor<?x5x30x30xf32>
+// CHECK-DAG:       [[VAR_cst_:%.+]] = stablehlo.constant dense<1.000000e+00> : tensor<f32>
+// CHECK-DAG:       [[VAR_cst_0_:%.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+// CHECK:           [[VAR_0_:%.+]] = "stablehlo.reduce_window"([[PARAM_0_]], [[VAR_cst_0_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_:%.+]]: tensor<f32>, [[arg2_:%.+]]: tensor<f32>):
+// CHECK:             [[VAR_5_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_5_]] : tensor<f32>
+// CHECK:           }) : (tensor<?x5x32x32xf32>, tensor<f32>) -> tensor<?x5x30x30xf32>
+// CHECK:           [[VAR_1_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x5x32x32xf32> -> tensor<4xindex>
+// CHECK:           [[VAR_2_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_cst_]], [[VAR_1_]], dims = [] : (tensor<f32>, tensor<4xindex>) -> tensor<?x5x32x32xf32>
+// CHECK:           [[VAR_3_:%.+]] = "stablehlo.reduce_window"([[VAR_2_]], [[VAR_cst_0_]]) <{padding = dense<0> : tensor<4x2xi64>, window_dilations = array<i64: 1, 1, 1, 1>, window_dimensions = array<i64: 1, 1, 3, 3>, window_strides = array<i64: 1, 1, 1, 1>}> ({
+// CHECK:           ^bb0([[arg1_]]: tensor<f32>, [[arg2_]]: tensor<f32>):
+// CHECK:             [[VAR_5_1_:%.+]] = stablehlo.add [[arg1_]], [[arg2_]] : tensor<f32>
+// CHECK:             stablehlo.return [[VAR_5_1_]] : tensor<f32>
+// CHECK:           }) : (tensor<?x5x32x32xf32>, tensor<f32>) -> tensor<?x5x30x30xf32>
+// CHECK:           [[VAR_4_:%.+]] = stablehlo.divide [[VAR_0_]], [[VAR_3_]] : tensor<?x5x30x30xf32>
+// CHECK:           return [[VAR_4_]] : tensor<?x5x30x30xf32>
 // CHECK:         }

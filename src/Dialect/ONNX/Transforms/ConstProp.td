@@ -45,7 +45,7 @@ def HasOneUse : Constraint<CPred<"$_self.hasOneUse()">, "op has exactly one use"
 
 def IsNoneType : Constraint<CPred<"isa<NoneType>(($_self).getType())">>;
 
-def IsIntOrFloatType : Constraint<CPred<"isa<IntegerType, FloatType>(($_self).getType().cast<ShapedType>().getElementType())">>;
+def IsIntOrFloatType : Constraint<CPred<"isa<IntegerType, FloatType>(mlir::cast<ShapedType>(($_self).getType()).getElementType())">>;
 
 def IsNotAConstant :
   Constraint<CPred<"! isa_and_nonnull<ONNXConstantOp>(($_self).getDefiningOp())">,
@@ -58,7 +58,7 @@ def IsFromDenseONNXConstantOp:
 
 def IsFromDenseONNXConstantOpOrNone:
   Constraint<
-    CPred<"isDenseONNXConstant($_self) || ($_self.getType().isa<NoneType>())">,
+    CPred<"isDenseONNXConstant($_self) || mlir::isa<NoneType>($_self.getType())">,
     "Value is none or produced by a true dense ONNXConstantOp"
   >;
 
@@ -112,7 +112,7 @@ class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
 // Creation helpers:
 
 def CreateZeroTensorOfType: NativeCodeCall<
-  "ConstZeroTensor($_builder, $_loc, $0.getType().cast<mlir::ShapedType>())"
+  "ConstZeroTensor($_builder, $_loc, mlir::cast<mlir::ShapedType>($0.getType()))"
 >;
 
 def CreateAddOfTwoConst :
@@ -594,10 +594,10 @@ def GreaterOrEqualConstPropPattern : NamedPat<"GreaterOrEqualConstPropPattern",
 def ModConstPropPattern : NamedPat<"ModConstPropPattern",
     (ONNXModOp:$modOp
       (ONNXConstantOp:$A $_, $_, $_, $_, $_, $_, $_, $_),
-      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_), 
+      (ONNXConstantOp:$B $_, $_, $_, $_, $_, $_, $_, $_),
       $fmod),
     (CreateModOfTwoConst  $modOp, $A, $B),
-    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B), 
+    [(IsFromDenseONNXConstantOp:$A), (IsFromDenseONNXConstantOp:$B),
     (SatisfiesExpansionBound:$modOp)]>;
 
 //===----------------------------------------------------------------------===//

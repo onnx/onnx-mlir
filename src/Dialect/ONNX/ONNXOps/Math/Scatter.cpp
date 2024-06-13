@@ -40,9 +40,9 @@ LogicalResult ONNXScatterElementsOp::verify() {
   Value data = operandAdaptor.getData();
   Value indices = operandAdaptor.getIndices();
   Value updates = operandAdaptor.getUpdates();
-  auto dataType = data.getType().cast<ShapedType>();
-  auto indicesType = indices.getType().cast<ShapedType>();
-  auto updatesType = updates.getType().cast<ShapedType>();
+  auto dataType = mlir::cast<ShapedType>(data.getType());
+  auto indicesType = mlir::cast<ShapedType>(indices.getType());
+  auto updatesType = mlir::cast<ShapedType>(updates.getType());
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t updatesRank = updatesType.getRank();
@@ -110,9 +110,9 @@ LogicalResult ONNXScatterNDOp::verify() {
   Value data = operandAdaptor.getData();
   Value indices = operandAdaptor.getIndices();
   Value updates = operandAdaptor.getUpdates();
-  auto dataType = data.getType().cast<ShapedType>();
-  auto indicesType = indices.getType().cast<ShapedType>();
-  auto updatesType = updates.getType().cast<ShapedType>();
+  auto dataType = mlir::cast<ShapedType>(data.getType());
+  auto indicesType = mlir::cast<ShapedType>(indices.getType());
+  auto updatesType = mlir::cast<ShapedType>(updates.getType());
   int64_t dataRank = dataType.getRank();
   int64_t indicesRank = indicesType.getRank();
   int64_t updatesRank = updatesType.getRank();

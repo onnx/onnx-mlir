@@ -44,7 +44,7 @@ LogicalResult ONNXCustomOp::inferShapes(
   std::optional<ArrayAttr> inputIndexAttrs = getInputsForInfer();
   int64_t inputIdx = 0;
   if (inputIndexAttrs.has_value())
-    inputIdx = (inputIndexAttrs->getValue()[0]).cast<IntegerAttr>().getInt();
+    inputIdx = mlir::cast<IntegerAttr>(inputIndexAttrs->getValue()[0]).getInt();
 
   Type elementType = getOutputElementType().value_or(
       getElementType(getInputs()[inputIdx].getType()));

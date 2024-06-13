@@ -23,7 +23,7 @@ std::optional<mlir::Value> convertReduceOpCommon(
     mlir::ElementsAttr axesElems, bool keepDims, mlir::Type reduceElementType) {
   TosaBuilder tosaBuilder(rewriter, op->getLoc());
   mlir::RankedTensorType inputType =
-      inputValue.getType().dyn_cast<mlir::RankedTensorType>();
+      mlir::dyn_cast<mlir::RankedTensorType>(inputValue.getType());
   if (!inputType)
     return std::nullopt;
 
@@ -140,7 +140,7 @@ inline mlir::LogicalResult getAvgPool2dAccType(mlir::PatternRewriter &rewriter,
   // Tosa supports FP16 and FP32 accumulator type for FP16 input. When the time
   // FP16 is supported, the accumulator type can be selected based on trade-off
   // between performance and accuracy. Set to FP32 by default.
-  accType = inputETy.isa<mlir::FloatType>()
+  accType = mlir::isa<mlir::FloatType>(inputETy)
                 ? mlir::TypeAttr::get(rewriter.getF32Type())
                 : mlir::TypeAttr::get(rewriter.getIntegerType(32));
 
@@ -162,7 +162,7 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
   TosaBuilder tosaBuilder(rewriter, loc);
 
   mlir::Value input = adaptor.getX();
-  auto inputType = input.getType().cast<mlir::TensorType>();
+  auto inputType = mlir::cast<mlir::TensorType>(input.getType());
   if (inputType.getShape().size() != 4) {
     (void)rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
     return mlir::failure();

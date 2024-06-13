@@ -28,7 +28,7 @@ LogicalResult ONNXShapeTransformOpShapeHelper::computeShape() {
   Value input = operandAdaptor.getInput();
   AffineMap indexMap = operandAdaptor.getIndexMap();
 
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputDims = inputType.getShape();
   int64_t outputRank = indexMap.getNumResults();
@@ -73,7 +73,7 @@ LogicalResult ONNXShapeTransformOp::inferShapes(
   if (!hasShapeAndRank(op))
     return success();
   // Input and output have the same element type and encoding.
-  auto inputType = getOperand().getType().cast<RankedTensorType>();
+  auto inputType = mlir::cast<RankedTensorType>(getOperand().getType());
   ONNXShapeTransformOpShapeHelper shapeHelper(op, {});
   return shapeHelper.computeShapeAndUpdateTypes(
       inputType.getElementType(), inputType.getEncoding());

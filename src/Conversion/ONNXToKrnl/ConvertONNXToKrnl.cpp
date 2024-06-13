@@ -85,7 +85,7 @@ private:
         .Case<ShapedType>([&](ShapedType tensorTy) {
           auto et = tensorTy.getElementType();
           dstream << "   { \"type\" : ";
-          if (et.isa<krnl::StringType>()) {
+          if (mlir::isa<krnl::StringType>(et)) {
             // If use "et.print(dstream)", the output is !krnl.StringType.
             // The missing of quotation will fail the jason parser.
             // Use just "string" for brief
@@ -106,7 +106,7 @@ private:
           } else {
           }
           dstream << "] ";
-          auto name = attr.cast<mlir::StringAttr>().getValue().str();
+          auto name = mlir::cast<mlir::StringAttr>(attr).getValue().str();
           dstream << ", \"name\" : \"" << name << "\"";
         })
         .Default([&](Type type) { llvm_unreachable("input is not a tensor"); });
@@ -133,10 +133,8 @@ private:
       if (argAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(argAttrs[i]);
         if (dictAttrs && dictAttrs.contains("onnx.name"))
-          inputName = dictAttrs.getNamed("onnx.name")
-                          .value()
-                          .getValue()
-                          .cast<StringAttr>();
+          inputName = mlir::cast<StringAttr>(
+              dictAttrs.getNamed("onnx.name").value().getValue());
       }
       concatTypeString(inputs[i], inputName, dstream);
       comma = std::string(" , ");
@@ -152,10 +150,8 @@ private:
       if (argAttrs) {
         DictionaryAttr dictAttrs = llvm::dyn_cast<DictionaryAttr>(resAttrs[i]);
         if (dictAttrs && dictAttrs.contains("onnx.name"))
-          outputName = dictAttrs.getNamed("onnx.name")
-                           .value()
-                           .getValue()
-                           .cast<StringAttr>();
+          outputName = mlir::cast<StringAttr>(
+              dictAttrs.getNamed("onnx.name").value().getValue());
       }
       concatTypeString(outputs[i], outputName, dstream);
       comma = std::string(" , ");
@@ -440,7 +436,7 @@ void FrontendToKrnlLoweringPass::runOnOperation() {
   // Operations that are legal only if types are not tensors.
   target.addDynamicallyLegalOp<mlir::func::ReturnOp>([&](Operation *op) {
     return llvm::none_of(op->getOperandTypes(),
-        [](Type type) { return type.isa<TensorType>(); });
+        [](Type type) { return mlir::isa<TensorType>(type); });
   });
 
   // Define patterns.

@@ -41,12 +41,12 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     Type elementType = outputShapedType.getElementType();
 
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB());
-    auto aRank = A.getType().cast<ShapedType>().getRank();
-    auto bRank = B.getType().cast<ShapedType>().getRank();
+    auto aRank = mlir::cast<ShapedType>(A.getType()).getRank();
+    auto bRank = mlir::cast<ShapedType>(B.getType()).getRank();
     // Size all the arrays to padded length.
     int paddedRank = std::max(aRank, bRank);
     paddedRank = std::max(paddedRank, 2);
@@ -87,7 +87,8 @@ struct ONNXMatMulOpLoweringToStablehlo : public ConversionPattern {
                            const Value &operandToMatch,
                            ArrayRef<int64_t> shapeInts, int64_t oneDPad) {
       Value broadcasted;
-      auto rank = operandToBroadcast.getType().cast<ShapedType>().getRank();
+      auto rank =
+          mlir::cast<ShapedType>(operandToBroadcast.getType()).getRank();
       RankedTensorType broadCastedType =
           RankedTensorType::get(shapeInts, elementType);
       SmallVector<int64_t, 4> broadcastDimensions =

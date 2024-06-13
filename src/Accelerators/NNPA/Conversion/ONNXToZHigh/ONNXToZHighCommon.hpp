@@ -65,7 +65,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
       bool exceedLimit =
           llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
             if (auto valueType =
-                    operand.getType().dyn_cast<mlir::ShapedType>()) {
+                    mlir::dyn_cast<mlir::ShapedType>(operand.getType())) {
               // Check if static dimension size exceeds zDNN limitations
               llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
               if (llvm::any_of(valueShape, [](int64_t dim) {

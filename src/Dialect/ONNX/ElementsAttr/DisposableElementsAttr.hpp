@@ -112,7 +112,7 @@ public:
 
   // Allow implicit conversion to ElementsAttr.
   operator ElementsAttr() const {
-    return *this ? cast<ElementsAttr>() : nullptr;
+    return *this ? mlir::cast<ElementsAttr>(*this) : nullptr;
   }
 
 private:

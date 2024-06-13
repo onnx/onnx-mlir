@@ -74,7 +74,8 @@ LogicalResult ONNXTransposeOp::inferShapes(
   if (!hasShapeAndRank(getData()))
     return success();
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
   ONNXTransposeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

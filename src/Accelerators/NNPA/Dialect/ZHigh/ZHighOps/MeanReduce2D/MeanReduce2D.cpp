@@ -56,7 +56,7 @@ LogicalResult ZHighMeanReduce2DOp::inferShapes(
   if (!hasRankedType(getInput()))
     return success();
 
-  auto inputType = getInput().getType().cast<RankedTensorType>();
+  auto inputType = mlir::cast<RankedTensorType>(getInput().getType());
   ZHighMeanReduce2DOpShapeHelper shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());

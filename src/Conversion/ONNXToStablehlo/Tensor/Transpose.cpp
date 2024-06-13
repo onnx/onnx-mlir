@@ -39,8 +39,8 @@ struct ONNXTransposeOpLoweringToStablehlo : public ConversionPattern {
 
     // Convert the output type
     Type outputType = *op->result_type_begin();
-    assert(outputType.isa<ShapedType>() && "Expected ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    assert(mlir::isa<ShapedType>(outputType) && "Expected ShapedType");
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     int64_t rank = outputShapedType.getShape().size();
 
     // Attributes

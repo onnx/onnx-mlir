@@ -30,7 +30,7 @@ LogicalResult ONNXHardmaxOp::verify() {
 
   // axis attribute must be in the range [-r,r-1], where r = rank(input).
   int64_t axisValue = getAxis();
-  int64_t inputRank = input.getType().cast<ShapedType>().getRank();
+  int64_t inputRank = mlir::cast<ShapedType>(input.getType()).getRank();
   if (axisValue < -inputRank || axisValue >= inputRank)
     return onnx_mlir::Diagnostic::emitAttributeOutOfRangeError(
         *this->getOperation(), "axis", axisValue,
@@ -48,7 +48,7 @@ LogicalResult ONNXHardmaxOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = getInput().getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(getInput().getType());
   int64_t inputRank = inputType.getRank();
   int64_t axisValue = getAxis();
 

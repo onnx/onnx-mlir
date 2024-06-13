@@ -118,7 +118,7 @@ int64_t Z16VectorMachineSupport::getVectorLength(
     GenericOps Gop, Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
-  bool isFloat = elementType.isa<FloatType>();
+  bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
   switch (Gop) {
@@ -192,7 +192,7 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
     GenericOps Gop, mlir::Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
-  bool isFloat = elementType.isa<FloatType>();
+  bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
   switch (Gop) {
@@ -277,7 +277,7 @@ int64_t NeonVectorMachineSupport::getVectorLength(
     GenericOps Gop, mlir::Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
-  bool isFloat = elementType.isa<FloatType>();
+  bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
   switch (Gop) {

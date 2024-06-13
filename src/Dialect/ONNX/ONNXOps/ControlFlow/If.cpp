@@ -26,23 +26,24 @@ namespace {
 bool areCompatibleIfTypes(Type ifResultType, Type branchResultType) {
   // ifResultType must be tensor/seq/opt type because that's checked in
   // ONNXIfOp::verifyInvariantsImpl()
-  if (ShapedType ifShapedType = ifResultType.dyn_cast<ShapedType>()) {
-    if (ShapedType branchShapedType = branchResultType.dyn_cast<ShapedType>()) {
+  if (ShapedType ifShapedType = mlir::dyn_cast<ShapedType>(ifResultType)) {
+    if (ShapedType branchShapedType =
+            mlir::dyn_cast<ShapedType>(branchResultType)) {
       return ifShapedType.getElementType() == branchShapedType.getElementType();
     } else {
       return false;
     }
   }
-  if (SeqType ifSeqType = ifResultType.dyn_cast<SeqType>()) {
-    if (SeqType branchSeqType = branchResultType.dyn_cast<SeqType>()) {
+  if (SeqType ifSeqType = mlir::dyn_cast<SeqType>(ifResultType)) {
+    if (SeqType branchSeqType = mlir::dyn_cast<SeqType>(branchResultType)) {
       return areCompatibleIfTypes(
           ifSeqType.getElementType(), branchSeqType.getElementType());
     } else {
       return false;
     }
   }
-  if (OptType ifOptType = ifResultType.dyn_cast<OptType>()) {
-    if (OptType branchOptType = branchResultType.dyn_cast<OptType>()) {
+  if (OptType ifOptType = mlir::dyn_cast<OptType>(ifResultType)) {
+    if (OptType branchOptType = mlir::dyn_cast<OptType>(branchResultType)) {
       return areCompatibleIfTypes(
           ifOptType.getElementType(), branchOptType.getElementType());
     } else {
@@ -56,8 +57,8 @@ bool areCompatibleIfTypes(Type ifResultType, Type branchResultType) {
 // rhs)
 Type unionOfIfTypes(Type lhs, Type rhs) {
   // All asserts below are checked in areCompatibleIfTypes().
-  if (ShapedType lhsShapedType = lhs.dyn_cast<ShapedType>()) {
-    ShapedType rhsShapedType = rhs.cast<ShapedType>();
+  if (ShapedType lhsShapedType = mlir::dyn_cast<ShapedType>(lhs)) {
+    ShapedType rhsShapedType = mlir::cast<ShapedType>(rhs);
     Type elementType = lhsShapedType.getElementType();
     assert(elementType == rhsShapedType.getElementType() &&
            "tensor element types mismatch");
@@ -76,8 +77,8 @@ Type unionOfIfTypes(Type lhs, Type rhs) {
       return UnrankedTensorType::get(elementType);
     }
   }
-  if (SeqType lhsSeqType = lhs.dyn_cast<SeqType>()) {
-    SeqType rhsSeqType = rhs.cast<SeqType>();
+  if (SeqType lhsSeqType = mlir::dyn_cast<SeqType>(lhs)) {
+    SeqType rhsSeqType = mlir::cast<SeqType>(rhs);
     int64_t length = lhsSeqType.getLength() == rhsSeqType.getLength()
                          ? lhsSeqType.getLength()
                          : -1;
@@ -85,8 +86,8 @@ Type unionOfIfTypes(Type lhs, Type rhs) {
                             rhsSeqType.getElementType()),
         length);
   }
-  if (OptType lhsOptType = lhs.dyn_cast<OptType>()) {
-    OptType rhsOptType = rhs.cast<OptType>();
+  if (OptType lhsOptType = mlir::dyn_cast<OptType>(lhs)) {
+    OptType rhsOptType = mlir::cast<OptType>(rhs);
     return OptType::get(unionOfIfTypes(
         lhsOptType.getElementType(), rhsOptType.getElementType()));
   }

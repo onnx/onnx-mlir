@@ -67,9 +67,9 @@ LogicalResult ONNXEinsumOp::verify() {
   }
 
   Type firstElementType =
-      inputs[0].getType().cast<ShapedType>().getElementType();
+      mlir::cast<ShapedType>(inputs[0].getType()).getElementType();
   for (Value input : inputs) {
-    ShapedType type = input.getType().cast<ShapedType>();
+    ShapedType type = mlir::cast<ShapedType>(input.getType());
     if (type.getElementType() != firstElementType) {
       return emitOpError() << "different input element types";
     }
@@ -90,7 +90,7 @@ LogicalResult ONNXEinsumOp::inferShapes(
     return success(); // Can only infer once operand shapes are known.
 
   Type elementType =
-      getOperand(0).getType().cast<ShapedType>().getElementType();
+      mlir::cast<ShapedType>(getOperand(0).getType()).getElementType();
   ONNXEinsumOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

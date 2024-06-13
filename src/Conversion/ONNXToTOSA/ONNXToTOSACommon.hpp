@@ -77,14 +77,15 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
 //===----------------------------------------------------------------------===//
 
 inline bool isTOSASignedInt(mlir::Type type) {
-  mlir::IntegerType intType = type.dyn_cast<mlir::IntegerType>();
+  mlir::IntegerType intType = mlir::dyn_cast<mlir::IntegerType>(type);
   std::set<unsigned> intWidth{1, 8, 16, 32, 48, 64};
   return intType && intType.isSignless() &&
          (intWidth.find(intType.getWidth()) != intWidth.end());
 }
 
 inline bool isTOSAFloat(mlir::Type type) {
-  return type.isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>();
+  return mlir::isa<mlir::BFloat16Type, mlir::Float16Type, mlir::Float32Type>(
+      type);
 }
 
 //===----------------------------------------------------------------------===//

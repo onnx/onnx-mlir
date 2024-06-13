@@ -46,21 +46,21 @@ using namespace onnx_mlir;
 //===----------------------------------------------------------------------===//
 Type getBroadcastedRankedType(
     Type type1, Type type2, Type elementType = nullptr) {
-  if (type1.isa<RankedTensorType>() && type2.isa<RankedTensorType>())
+  if (mlir::isa<RankedTensorType>(type1) && mlir::isa<RankedTensorType>(type2))
     return OpTrait::util::getBroadcastedType(type1, type2, elementType);
-  if (type1.isa<MemRefType>() && type2.isa<MemRefType>()) {
+  if (mlir::isa<MemRefType>(type1) && mlir::isa<MemRefType>(type2)) {
     // Construct RankedTensorType(s).
     if (!elementType)
-      elementType = type1.cast<MemRefType>().getElementType();
-    RankedTensorType ty1 =
-        RankedTensorType::get(type1.cast<MemRefType>().getShape(), elementType);
-    RankedTensorType ty2 =
-        RankedTensorType::get(type2.cast<MemRefType>().getShape(), elementType);
+      elementType = mlir::cast<MemRefType>(type1).getElementType();
+    RankedTensorType ty1 = RankedTensorType::get(
+        mlir::cast<MemRefType>(type1).getShape(), elementType);
+    RankedTensorType ty2 = RankedTensorType::get(
+        mlir::cast<MemRefType>(type2).getShape(), elementType);
     // Compute a broadcasted type.
     Type outputType = OpTrait::util::getBroadcastedType(ty1, ty2);
     // Construct a MemRefType.
     return MemRefType::get(
-        outputType.cast<RankedTensorType>().getShape(), elementType);
+        mlir::cast<RankedTensorType>(outputType).getShape(), elementType);
   } else
     return {};
 }
@@ -86,7 +86,7 @@ namespace {
 // DisposableElementsAttr is an internal representation, so we hide it
 // in this way.
 void printAttribute(OpAsmPrinter &printer, Attribute attr) {
-  if (auto disposable = attr.dyn_cast<DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(attr))
     disposable.printAsDenseElementsAttr(printer);
   else
     printer.printAttribute(attr);
@@ -97,7 +97,7 @@ void printNamedAttribute(OpAsmPrinter &printer, NamedAttribute namedAttr) {
   printer.printKeywordOrString(namedAttr.getName().strref());
 
   // Pretty printing elides the attribute value for unit attributes.
-  if (namedAttr.getValue().isa<UnitAttr>())
+  if (mlir::isa<UnitAttr>(namedAttr.getValue()))
     return;
 
   printer << " = ";
@@ -152,8 +152,8 @@ void ONNXConstantOp::print(OpAsmPrinter &printer) {
   Type resultType = getResult().getType();
   if (auto attr = getValue()) {
     // ONNXConstantOp value must be ElementsAttr, but not SparseElementsAttr.
-    auto elements = attr->cast<ElementsAttr>();
-    assert(!elements.isa<SparseElementsAttr>() &&
+    auto elements = mlir::cast<ElementsAttr>(*attr);
+    assert(!mlir::isa<SparseElementsAttr>(elements) &&
            "ONNXConstantOp value cannot be sparse");
     if (elements.getType() == resultType) {
       printer << ' ';
@@ -163,7 +163,7 @@ void ONNXConstantOp::print(OpAsmPrinter &printer) {
   }
   if (auto attr = getSparseValue()) {
     // ONNXConstantOp sparse_value must be SparseElementsAttr.
-    auto sparseElements = attr->cast<SparseElementsAttr>();
+    auto sparseElements = mlir::cast<SparseElementsAttr>(*attr);
     if (sparseElements.getType() == resultType) {
       printer << ' ';
       printer.printAttribute(sparseElements);
@@ -191,9 +191,9 @@ ParseResult ONNXConstantOp::parse(OpAsmParser &parser, OperationState &result) {
       if (*opt)
         return failure();
       const char *name =
-          attr.isa<SparseElementsAttr>() ? "sparse_value" : "value";
+          mlir::isa<SparseElementsAttr>(attr) ? "sparse_value" : "value";
       result.addAttribute(name, attr);
-      result.addTypes({attr.cast<ElementsAttr>().getType()});
+      result.addTypes({mlir::cast<ElementsAttr>(attr).getType()});
       return success();
     }
     // No sparse_value or value attr, so attribute dictionary really is empty.

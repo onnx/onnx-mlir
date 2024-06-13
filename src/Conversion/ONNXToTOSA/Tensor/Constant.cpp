@@ -39,13 +39,13 @@ public:
           op, "tosa.const does not support sparse value");
     }
     Attribute currentAttr = valueAttr.value();
-    if (!currentAttr.isa<ElementsAttr>()) {
+    if (!mlir::isa<ElementsAttr>(currentAttr)) {
       return rewriter.notifyMatchFailure(
           op, "tosa.const does not support non-tensor types");
     }
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     rewriter.replaceOpWithNewOp<mlir::tosa::ConstOp>(
-        op, resultType, currentAttr.cast<ElementsAttr>());
+        op, resultType, mlir::cast<ElementsAttr>(currentAttr));
     return success();
   }
 };

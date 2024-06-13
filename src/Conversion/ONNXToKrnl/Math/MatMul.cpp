@@ -486,9 +486,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
@@ -499,9 +499,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     Value zero = create.math.constant(elementType, 0);
 
     Value A(adaptor.getA()), B(adaptor.getB());
-    int aRank = A.getType().cast<MemRefType>().getShape().size();
-    int bRank = B.getType().cast<MemRefType>().getShape().size();
-    int cRank = alloc.getType().cast<MemRefType>().getShape().size();
+    int aRank = mlir::cast<MemRefType>(A.getType()).getShape().size();
+    int bRank = mlir::cast<MemRefType>(B.getType()).getShape().size();
+    int cRank = mlir::cast<MemRefType>(alloc.getType()).getShape().size();
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");

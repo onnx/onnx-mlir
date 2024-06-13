@@ -83,7 +83,7 @@ You will need to add the implementation code in the `src/Dialect/ONNX/ONNXOps.cp
 Tips:
 * Use `operandAdaptor` object to get the inputs (must use  `operandAdaptor` to get the current values of the inputs) and the `op` object to get the attributes (can use `op` because attributes are typically immutable).
 * Use `hasShapeAndRank(X)` to test if `X` input is currently shaped and ranked. If not, return success as we will get a chance later to test the operation with this info. Note that some inputs may be scalar too, in which case they may or may not be encoded as a shape type.
-* You can then use MLIR call `X.getType().cast<ShapedType>()` to get a shape types, for which you can get the rank and the dimensions. At this time, we only check dimension validity for values known at runtime. Unknown dimensions are encoded as a negative number. Please only use the cast when you are sure that it will not assert, i.e. the type is indeed a `ShapedType`.
+* You can then use MLIR call `mlir::cast<ShapedType>(X.getType())` to get a shape types, for which you can get the rank and the dimensions. At this time, we only check dimension validity for values known at runtime. Unknown dimensions are encoded as a negative number. Please only use the cast when you are sure that it will not assert, i.e. the type is indeed a `ShapedType`.
 * When you find an error, report it with a friendly error message using `op->emitError(msg)`.
 
 ## Customize importer

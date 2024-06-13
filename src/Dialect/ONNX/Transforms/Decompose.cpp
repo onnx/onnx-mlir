@@ -48,24 +48,25 @@ DenseElementsAttr createDenseArrayAttr(
     PatternRewriter &rewriter, ArrayAttr origAttrs) {
   assert(origAttrs && "handle EXISTING ArrayAttr only");
 
-  if (origAttrs.getValue()[0].dyn_cast<FloatAttr>()) {
+  if (mlir::dyn_cast<FloatAttr>(origAttrs.getValue()[0])) {
     Type elementType = rewriter.getF32Type();
     int nElements = origAttrs.getValue().size();
     SmallVector<float, 4> wrapper(nElements, 0);
     for (int i = 0; i < nElements; ++i)
-      wrapper[i] = origAttrs.getValue()[i].cast<FloatAttr>().getValueAsDouble();
+      wrapper[i] =
+          mlir::cast<FloatAttr>(origAttrs.getValue()[i]).getValueAsDouble();
 
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
         llvm::ArrayRef(wrapper));
   }
 
-  if (origAttrs.getValue()[0].dyn_cast<IntegerAttr>()) {
+  if (mlir::dyn_cast<IntegerAttr>(origAttrs.getValue()[0])) {
     Type elementType = rewriter.getIntegerType(64);
     int nElements = origAttrs.getValue().size();
     SmallVector<int64_t, 4> wrapper(nElements, 0);
     for (int i = 0; i < nElements; ++i)
-      wrapper[i] = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+      wrapper[i] = mlir::cast<IntegerAttr>(origAttrs.getValue()[i]).getInt();
 
     return DenseElementsAttr::get(
         RankedTensorType::get(wrapper.size(), elementType),
@@ -79,18 +80,18 @@ DenseElementsAttr createDenseArrayAttr(
 /// This is used to create an ONNXConstant of rank 0, e.g. tensor<f32>.
 DenseElementsAttr createScalarDenseAttr(
     PatternRewriter &rewriter, Attribute attr) {
-  if (attr.dyn_cast<FloatAttr>()) {
+  if (mlir::dyn_cast<FloatAttr>(attr)) {
     Type elementType = rewriter.getF32Type();
     SmallVector<float, 1> wrapper;
-    wrapper.emplace_back(attr.cast<FloatAttr>().getValueAsDouble());
+    wrapper.emplace_back(mlir::cast<FloatAttr>(attr).getValueAsDouble());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
 
-  if (attr.dyn_cast<IntegerAttr>()) {
+  if (mlir::dyn_cast<IntegerAttr>(attr)) {
     Type elementType = rewriter.getIntegerType(64);
     SmallVector<int64_t, 1> wrapper;
-    wrapper.emplace_back(attr.cast<IntegerAttr>().getSInt());
+    wrapper.emplace_back(mlir::cast<IntegerAttr>(attr).getSInt());
     return DenseElementsAttr::get(
         RankedTensorType::get({}, elementType), llvm::ArrayRef(wrapper));
   }
@@ -133,7 +134,7 @@ Value createSequenceConstructOp(
 Value reverseAllElements(
     PatternRewriter &rewriter, Location loc, Value input, int64_t dimension) {
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   SmallVector<int64_t, 4> sLens;
   assert((dimension == 0 or dimension == 1) &&
@@ -154,7 +155,7 @@ Value reverseAllElements(
   for (int i = 0; i < inputShape[batchAxis]; ++i)
     sLens.emplace_back(inputShape[timeAxis]);
   Value sLensVal = create.onnx.constantInt64(sLens);
-  Type resultType = input.getType().cast<RankedTensorType>();
+  Type resultType = mlir::cast<RankedTensorType>(input.getType());
   Value result = create.onnx.reverseSequence(
       resultType, input, sLensVal, batchAxis, timeAxis);
   return result;
@@ -179,7 +180,7 @@ Value reverseAllElements(
 Value reverseWeightTensor(
     PatternRewriter &rewriter, Location loc, Value input) {
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   Type elementType = inputType.getElementType();
   assert(inputType.hasRank() && "Need rank to reverse weight tensor.");
   // 1. Transpose NxCxD0xD1xD2x... to D0xD1xD2x ... xNxC.
@@ -193,7 +194,7 @@ Value reverseWeightTensor(
   ArrayRef<int64_t> perms(permsVal);
   Value transposedInput = create.onnx.transposeInt64(input, perms);
   // 2. Reverse the first and second spatial dimensions.
-  ShapedType tInputType = transposedInput.getType().cast<ShapedType>();
+  ShapedType tInputType = mlir::cast<ShapedType>(transposedInput.getType());
   for (int i = 0; i < spatialRank / 2; i += 2) {
     // TODO: Support dynamic dim in reverseAllElements().
     assert((!tInputType.isDynamicDim(0) && !tInputType.isDynamicDim(1)) &&
@@ -213,7 +214,7 @@ Value reverseWeightTensor(
   }
   // 3. Reverse the rest of dimension if spatial rank is odd.
   if (spatialRank % 2 != 0) {
-    ShapedType tInType = transposedInput.getType().cast<ShapedType>();
+    ShapedType tInType = mlir::cast<ShapedType>(transposedInput.getType());
     ArrayRef<int64_t> tInShape = tInType.getShape();
     Value reverse0;
     if (tInShape[1] == ShapedType::kDynamic) {
@@ -346,7 +347,7 @@ bool shouldDecomposeConvTransposeOp(Value convTransposeResult) {
 ValueRange emitSplitAxisOutputLength1(
     PatternRewriter &rewriter, Location loc, Value input, int64_t axis) {
   onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> create(rewriter, loc);
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   Type elementType = inputType.getElementType();
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // Create `split` to split each output in `axis` into length 1.
@@ -386,7 +387,7 @@ Value insertPadAxis(PatternRewriter &rewriter, Location loc, Value input,
   ValueRange padInputs = splitResults.drop_back();
   SmallVector<Value, 4> padResults;
   for (Value v : padInputs) {
-    ArrayRef<int64_t> vShape = v.getType().cast<ShapedType>().getShape();
+    ArrayRef<int64_t> vShape = mlir::cast<ShapedType>(v.getType()).getShape();
     padResults.emplace_back(
         emitPadsAxisEnd(rewriter, loc, v, vShape, axis, padSize));
   }
@@ -432,7 +433,7 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
   ONNXConvTransposeOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   SmallVector<int64_t, 2> padSize;
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   int64_t spatialOffset = 2;
   int64_t spatialRank = inputType.getRank() - spatialOffset;
   DimsExpr outputDims = shapeHelper.getOutputDims();
@@ -448,7 +449,7 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
       rewriter, loc, input, ArrayRef(inputShape), /*axis*/ 2, padSize[0]);
   for (int i = 1; i < spatialRank; ++i) {
     ArrayRef<int64_t> paddedInputShape =
-        paddedInput.getType().cast<ShapedType>().getShape();
+        mlir::cast<ShapedType>(paddedInput.getType()).getShape();
     paddedInput = emitPadsAxisEnd(rewriter, loc, paddedInput, paddedInputShape,
         /*axis*/ 2 + i, padSize[i]);
   }
@@ -458,21 +459,21 @@ Value insertAdditionalPadsConvTranspose(PatternRewriter &rewriter, Location loc,
 
 Value normalizeConstantOp(
     PatternRewriter &rewriter, Value output, Attribute attr) {
-  ShapedType outputType = output.getType().cast<ShapedType>();
+  ShapedType outputType = mlir::cast<ShapedType>(output.getType());
   Type elementType = outputType.getElementType();
 
   DenseElementsAttr denseAttr;
-  if (ArrayAttr arrayAttr = attr.dyn_cast<ArrayAttr>()) {
+  if (ArrayAttr arrayAttr = mlir::dyn_cast<ArrayAttr>(attr)) {
     int64_t dim = arrayAttr.size();
     auto tensorType = RankedTensorType::get({dim}, elementType);
     denseAttr = DenseElementsAttr::get(tensorType, arrayAttr.getValue());
   } else {
     auto tensorType = RankedTensorType::get({}, elementType);
-    if (FloatAttr floatAttr = attr.dyn_cast<FloatAttr>()) {
+    if (FloatAttr floatAttr = mlir::dyn_cast<FloatAttr>(attr)) {
       denseAttr = DenseElementsAttr::get(tensorType, {floatAttr.getValue()});
-    } else if (IntegerAttr intAttr = attr.dyn_cast<IntegerAttr>()) {
+    } else if (IntegerAttr intAttr = mlir::dyn_cast<IntegerAttr>(attr)) {
       denseAttr = DenseElementsAttr::get(tensorType, intAttr.getSInt());
-    } else if (StringAttr strAttr = attr.dyn_cast<StringAttr>()) {
+    } else if (StringAttr strAttr = mlir::dyn_cast<StringAttr>(attr)) {
       denseAttr = DenseElementsAttr::get(tensorType, {strAttr.getValue()});
     } else {
       llvm_unreachable("unexpected Attribute");
@@ -492,7 +493,8 @@ namespace {
 
 RankedTensorType createResultType(
     Type outputType, int64_t axisValue, bool keepDims) {
-  RankedTensorType outputShapeType = outputType.dyn_cast<RankedTensorType>();
+  RankedTensorType outputShapeType =
+      mlir::dyn_cast<RankedTensorType>(outputType);
   llvm::ArrayRef<int64_t> shapeVector = outputShapeType.getShape();
   int64_t rank = outputShapeType.getRank();
   if (axisValue < 0)
@@ -733,7 +735,7 @@ public:
     // A must have rank 4 as perm has 4 indices.
     if (isTransA) {
       if (onnx_mlir::hasShapeAndRank(A)) {
-        rankA = A.getType().cast<ShapedType>().getRank();
+        rankA = mlir::cast<ShapedType>(A.getType()).getRank();
       } else {
         if (isa<BlockArgument>(A))
           return false;
@@ -750,7 +752,7 @@ public:
       rankA = -1;
     if (isTransB) {
       if (onnx_mlir::hasShapeAndRank(B)) {
-        rankB = B.getType().cast<ShapedType>().getRank();
+        rankB = mlir::cast<ShapedType>(B.getType()).getRank();
       } else {
         if (isa<BlockArgument>(B))
           return false;
@@ -791,7 +793,7 @@ struct InstanceNormIntoLayerNormPattern
     // Get info.
     Value scale = instanceNormOp.getScale();
     Value bias = instanceNormOp.getB();
-    ShapedType inputType = input.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     Type elementType = inputType.getElementType();
     auto inputShape = inputType.getShape();
     int64_t C = inputShape[1];
@@ -843,7 +845,7 @@ struct GroupNormIntoLayerNormPattern
     // Get info.
     Value scale = groupNormOp.getScale();
     Value bias = groupNormOp.getBias();
-    ShapedType inputType = input.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     Type elementType = inputType.getElementType();
     auto inputShapeVal = inputType.getShape();
     int64_t C = inputShapeVal[1];
@@ -940,11 +942,11 @@ public:
     IntegerAttr saturate = castLikeOp.getSaturateAttr();
 
     // The output type will be the same as the target_type or the second input
-    Type targetType = target.getType().cast<ShapedType>().getElementType();
+    Type targetType = mlir::cast<ShapedType>(target.getType()).getElementType();
 
     // Replace
     Value res;
-    if (output.getType().cast<ShapedType>().hasRank())
+    if (mlir::cast<ShapedType>(output.getType()).hasRank())
       res = onnx_mlir::OnnxBuilder(rewriter, loc)
                 .cast(input, saturate, TypeAttr::get(targetType));
     else {
