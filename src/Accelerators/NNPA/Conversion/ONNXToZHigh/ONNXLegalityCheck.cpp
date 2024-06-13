@@ -573,15 +573,7 @@ bool isSuitableForZDNN<ONNXReluOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
-  ShapedType xType = op.getX().getType().cast<ShapedType>();
-  if (xType.hasRank() && (xType.getRank() <= 4))
-    return true;
-
-  std::string message = xType.hasRank() ? ("The rank of input tensor (" +
-                                              std::to_string(xType.getRank()) +
-                                              ") needs to be 4 or less.")
-                                        : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXTanh.
@@ -593,16 +585,7 @@ bool isSuitableForZDNN<ONNXTanhOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getType().cast<ShapedType>();
-  if (inputType.hasRank() && (inputType.getRank() <= 4))
-    return true;
-
-  std::string message = inputType.hasRank()
-                            ? ("The rank of input tensor (" +
-                                  std::to_string(inputType.getRank()) +
-                                  ") needs to be 4 or less.")
-                            : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXSigmoid.
@@ -614,15 +597,7 @@ bool isSuitableForZDNN<ONNXSigmoidOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
-  ShapedType xType = op.getX().getType().cast<ShapedType>();
-  if (xType.hasRank() && (xType.getRank() <= 4))
-    return true;
-
-  std::string message = xType.hasRank() ? ("The rank of input tensor (" +
-                                              std::to_string(xType.getRank()) +
-                                              ") needs to be 4 or less.")
-                                        : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXLog.
@@ -634,16 +609,7 @@ bool isSuitableForZDNN<ONNXLogOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getInput().getType().cast<ShapedType>();
-  if (inputType.hasRank() && (inputType.getRank() <= 4))
-    return true;
-
-  std::string message = inputType.hasRank()
-                            ? ("The rank of input tensor (" +
-                                  std::to_string(inputType.getRank()) +
-                                  ") needs to be 4 or less.")
-                            : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXExp.
@@ -655,16 +621,7 @@ bool isSuitableForZDNN<ONNXExpOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getInput().getType().cast<ShapedType>();
-  if (inputType.hasRank() && (inputType.getRank() <= 4))
-    return true;
-
-  std::string message = inputType.hasRank()
-                            ? ("The rank of input tensor (" +
-                                  std::to_string(inputType.getRank()) +
-                                  ") needs to be 4 or less.")
-                            : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXMatMul.
