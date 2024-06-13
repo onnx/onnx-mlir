@@ -18,6 +18,7 @@
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
 #include "src/Dialect/ONNX/ONNXDialect.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Dialect/ONNX/ONNXTraits.hpp"
 #include "src/Dialect/ONNX/ONNXTypes.hpp"
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp"
 #include "src/Interface/ResultTypeInferenceOpInterface.hpp"
