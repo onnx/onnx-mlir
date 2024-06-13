@@ -1,0 +1,110 @@
+// RUN: onnx-mlir --EmitONNXIR --useOnnxModelTypes=false --printIR %s | FileCheck %s
+
+// Semi hand-written model.
+// When converted to onnxtext, onnx-mlir didn't like the result.
+
+// CHECK: [[SCALE:%.+]] = onnx.Constant dense<-1.08420217E-19> : tensor<f32>
+// CHECK: [[ZERO_P:%.+]] = onnx.Constant dense<0> : tensor<i8>
+// CHECK: [[DQ:%.+]] = "onnx.Custom"(%arg0, [[SCALE]], [[ZERO_P]]) {domain_name = "com.microsoft", function_name = "DequantizeLinear", onnx_node_name = "myDequantizeLinear", output_element_type = f32, shape_infer_pattern = "MDBroadcast"} : (tensor<1x64x112x112xi8>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xf32>
+// CHECK: [[RELU:%.+]] = "onnx.Relu"([[DQ]]) {onnx_node_name = "myrelu1Relu"} : (tensor<1x64x112x112xf32>) -> tensor<1x64x112x112xf32>
+// CHECK: [[Q:%.+]] = "onnx.Custom"([[RELU]], [[SCALE]], [[ZERO_P]]) {domain_name = "com.microsoft", function_name = "QuantizeLinear", onnx_node_name = "myQuantizeLinear_1", output_element_type = i8, shape_infer_pattern = "MDBroadcast"} : (tensor<1x64x112x112xf32>, tensor<f32>, tensor<i8>) -> tensor<1x64x112x112xi8>
+// CHECK: return [[Q]] : tensor<1x64x112x112xi8>
+{
+  "irVersion": "8",
+  "producerName": "pytorch",
+  "producerVersion": "2.1.2",
+  "graph": {
+    "node": [
+      {
+        "output": ["scale_output_0"],
+        "name": "scale",
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {"dataType": 1, "rawData": "AAAAoD8="},
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "output": ["zeropoint_output_0"],
+        "name": "zeropoint",
+        "opType": "Constant",
+        "attribute": [
+          {
+            "name": "value",
+            "t": {"dataType": 3, "rawData": "AAA="},
+            "type": "TENSOR"
+          }
+        ]
+      },
+      {
+        "input": [
+          "myQuantizeLinear_output_0",
+          "scale_output_0",
+          "zeropoint_output_0"
+        ],
+        "output": ["myDequantizeLinear_output_0"],
+        "name": "myDequantizeLinear",
+        "opType": "DequantizeLinear",
+        "domain": "com.microsoft"
+      },
+      {
+        "input": ["myDequantizeLinear_output_0"],
+        "output": ["myrelu1Relu_output_0"],
+        "name": "myrelu1Relu",
+        "opType": "Relu"
+      },
+      {
+        "input": [
+          "myrelu1Relu_output_0",
+          "scale_output_0",
+          "zeropoint_output_0"
+        ],
+        "output": ["myQuantizeLinear_1_output_0"],
+        "name": "myQuantizeLinear_1",
+        "opType": "QuantizeLinear",
+        "domain": "com.microsoft"
+      }
+    ],
+    "name": "main_graph",
+    "input": [
+      {
+        "name": "myQuantizeLinear_output_0",
+        "type": {
+          "tensorType": {
+            "elemType": 3,
+            "shape": {
+              "dim": [
+                {"dimValue": "1"},
+                {"dimValue": "64"},
+                {"dimValue": "112"},
+                {"dimValue": "112"}
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "output": [
+      {
+        "name": "myQuantizeLinear_1_output_0",
+        "type": {
+          "tensorType": {
+            "elemType": 3,
+            "shape": {
+              "dim": [
+                {"dimValue": "1"},
+                {"dimValue": "64"},
+                {"dimValue": "112"},
+                {"dimValue": "112"}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "opsetImport": [{"version": "17"}]
+}
