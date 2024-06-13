@@ -38,8 +38,8 @@
 extern "C" {
 #endif
 
-//We want to enable nnpa status messages when a user
-// manually specifies the "enable-status-message" flag.
+// We want to enable nnpa status messages when a user
+//  manually specifies the "enable-status-message" flag.
 bool isStatusMessagesEnabled() { return nnpaEnableStatusMessages; }
 
 static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
@@ -49,13 +49,13 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
   if (isBcast)
     status = zdnn_matmul_bcast_op(
         inputA, inputB, inputC, (zdnn_matmul_bcast_ops)opType, output);
-  else 
-    status = zdnn_matmul_op(
-        inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
+  else
+    status =
+        zdnn_matmul_op(inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
   if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
-      fprintf(stderr, "[zdnnx] zdnn_softmax: %s\n",
-          zdnn_get_status_message(status));
-    }
+    fprintf(
+        stderr, "[zdnnx] zdnn_softmax: %s\n", zdnn_get_status_message(status));
+  }
   return status;
 }
 
@@ -173,7 +173,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     fprintf(
         stderr, "[zdnnx] zdnn_matmul: %s\n", zdnn_get_status_message(status));
   }
-  return status; 
+  return status;
 }
 
 zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,

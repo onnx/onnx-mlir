@@ -35,8 +35,8 @@
 extern "C" {
 #endif
 
-//We want to enable nnpa status messages when a user
-// manually specifies the "enable-status-message" flag.
+// We want to enable nnpa status messages when a user
+//  manually specifies the "enable-status-message" flag.
 bool isStatusMessagesEnabled() { return nnpaEnableStatusMessages; }
 
 // -----------------------------------------------------------------------------
