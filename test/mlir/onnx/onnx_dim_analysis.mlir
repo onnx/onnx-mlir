@@ -221,6 +221,25 @@ func.func @test_reshape_single_dyn_dim(%arg0: tensor<8x?x16x4xf32>) -> tensor<?x
 
 // -----
 
+func.func @test_reshape_allowzero(%arg0: tensor<?x?x768xf32>) -> tensor<?x?x12x64xf32> {
+  %184 = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
+  %494 = "onnx.Reshape"(%arg0, %184) {allowzero = 0 : si64} : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
+  "onnx.Return"(%494) : (tensor<?x?x12x64xf32>) -> ()
+
+// CHECK-LABEL:  func.func @test_reshape_allowzero
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xf32>) -> tensor<?x?x12x64xf32> {
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?x768xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x768xf32>) -> ()
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?x12x64xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x12x64xf32>) -> ()
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x?x12x64xf32>
+// CHECK:         }
+}
+
+// -----
+
 func.func @test_expand_from_concat_dims(%arg0: tensor<1x256xi64>, %arg1: tensor<?x256xi64>) -> tensor<?x256xi64> {
   %0 = onnx.Constant dense<256> : tensor<1xi64>
   %1 = "onnx.Dim"(%arg1) {axis = 0 : si64} : (tensor<?x256xi64>) -> tensor<1xi64>
