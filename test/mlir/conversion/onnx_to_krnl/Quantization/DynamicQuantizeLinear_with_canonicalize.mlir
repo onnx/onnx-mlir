@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --convert-onnx-to-krnl --canonicalize %s -split-input-file | FileCheck %s
 
+// -----
+
 // Adding canonicalize is important here as this is the only way to check the values of the map,
 // which are otherwise before the function, and thus are hard to test.
 
@@ -7,6 +9,7 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
   %y, %y_scale, %y_zero_point = "onnx.DynamicQuantizeLinear"(%arg0) : (tensor<?x2xf32>) -> (tensor<?x2xui8>, tensor<f32>, tensor<ui8>)
   return %y, %y_scale, %y_zero_point:  tensor<?x2xui8>, tensor<f32>, tensor<ui8>
 
+// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0) -> (d0)>
 // CHECK-LABEL:  func.func @test_dynamic_quantize_linear
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<?x2xf32>) -> (memref<?x2xui8>, memref<f32>, memref<ui8>) {
@@ -27,9 +30,7 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:           [[RES_4_:%.+]] = memref.alloc() : memref<f32>
 // CHECK:           krnl.store [[CST_0_dot_000000_]], [[RES_4_]][] : memref<f32>
 // CHECK:           [[RES_5_:%.+]] = memref.alloc() : memref<f32>
-// CHECK:           krnl.iterate() with (){
-// CHECK:             krnl.store [[CST_0_1_]], [[RES_5_]][] : memref<f32>
-// CHECK:           }
+// CHECK:           krnl.memset [[RES_5_]], [[CST_0_1_]] : memref<f32>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[VAR_dim_11_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x2xf32>
 // CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to [[VAR_dim_11_]], [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 2){
@@ -41,9 +42,7 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:             krnl.store [[VAR_37_]], [[RES_5_]][] : memref<f32>
 // CHECK:           }
 // CHECK:           [[RES_6_:%.+]] = memref.alloc() : memref<f32>
-// CHECK:           krnl.iterate() with (){
-// CHECK:             krnl.store [[CST_0_]], [[RES_6_]][] : memref<f32>
-// CHECK:           }
+// CHECK:           krnl.memset [[RES_6_]], [[CST_0_]] : memref<f32>
 // CHECK-DAG:       [[LOOP_1_:%.+]]:2 = krnl.define_loops 2
 // CHECK-DAG:       [[VAR_dim_13_:%.+]] = memref.dim [[PARAM_0_]], [[CST_0_2_]] : memref<?x2xf32>
 // CHECK:           krnl.iterate([[LOOP_1_]]#0, [[LOOP_1_]]#1) with ([[LOOP_1_]]#0 -> [[I_2_:%.+]] = 0 to [[VAR_dim_13_]], [[LOOP_1_]]#1 -> [[I_3_:%.+]] = 0 to 2){
@@ -121,3 +120,4 @@ func.func @test_dynamic_quantize_linear(%arg0: tensor<?x2xf32>) -> (tensor<?x2xu
 // CHECK:           return [[RES_]], [[RES_]]_6, [[RES_]]_7 : memref<?x2xui8>, memref<f32>, memref<ui8>
 // CHECK:         }
 }
+

@@ -107,7 +107,8 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
 
 /// Common legality check for pooling ops.
 template <typename POOLOP, typename POOLOPAdaptor, typename POOLOPShapeHelper>
-bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
+bool checkLegalityPoolOpsCommon(
+    POOLOP op, Value Y, const DimAnalysis *dimAnalysis) {
   POOLOPShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
   Value X = op.getX();
@@ -151,12 +152,7 @@ bool checkLegalityPoolOpsCommon(POOLOP op, Value Y) {
   // Check "MaxPool2D/AvgPool2D Parameter Restrictions". These restrictions are
   // described in "zDNN API Reference". Input tensor N(batchNum) and C(Channel)
   // dimensions must always match the output tensor's respective dimensions.
-  // When unknown dimensions are included, the restrictions are not checked and
-  // error messages are generated at runtime in zDNN if it doesn't meet.
-  //  if ((inputType.hasStaticShape() && outputType.hasStaticShape()) &&
-  //      (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1]))
-  //      {
-  if (shapeInput[0] != shapeOutput[0] || shapeInput[1] != shapeOutput[1]) {
+  if (!dimAnalysis->sameDim(X, 0, Y, 0) || !dimAnalysis->sameDim(X, 1, Y, 1)) {
     std::string message =
         "Batch dimension in input tensor (" + std::to_string(shapeInput[0]) +
         ") and in output tensor (" + std::to_string(shapeOutput[0]) +
@@ -577,15 +573,7 @@ bool isSuitableForZDNN<ONNXReluOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
-  ShapedType xType = op.getX().getType().cast<ShapedType>();
-  if (xType.hasRank() && (xType.getRank() <= 4))
-    return true;
-
-  std::string message = xType.hasRank() ? ("The rank of input tensor (" +
-                                              std::to_string(xType.getRank()) +
-                                              ") needs to be 4 or less.")
-                                        : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXTanh.
@@ -597,16 +585,7 @@ bool isSuitableForZDNN<ONNXTanhOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getType().cast<ShapedType>();
-  if (inputType.hasRank() && (inputType.getRank() <= 4))
-    return true;
-
-  std::string message = inputType.hasRank()
-                            ? ("The rank of input tensor (" +
-                                  std::to_string(inputType.getRank()) +
-                                  ") needs to be 4 or less.")
-                            : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXSigmoid.
@@ -618,15 +597,7 @@ bool isSuitableForZDNN<ONNXSigmoidOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
-  ShapedType xType = op.getX().getType().cast<ShapedType>();
-  if (xType.hasRank() && (xType.getRank() <= 4))
-    return true;
-
-  std::string message = xType.hasRank() ? ("The rank of input tensor (" +
-                                              std::to_string(xType.getRank()) +
-                                              ") needs to be 4 or less.")
-                                        : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXLog.
@@ -638,16 +609,7 @@ bool isSuitableForZDNN<ONNXLogOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getInput().getType().cast<ShapedType>();
-  if (inputType.hasRank() && (inputType.getRank() <= 4))
-    return true;
-
-  std::string message = inputType.hasRank()
-                            ? ("The rank of input tensor (" +
-                                  std::to_string(inputType.getRank()) +
-                                  ") needs to be 4 or less.")
-                            : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXExp.
@@ -659,16 +621,7 @@ bool isSuitableForZDNN<ONNXExpOp>(
     return onnxToZHighInCompatibilityReport(op.getOperation());
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
-  ShapedType inputType = op.getInput().getType().cast<ShapedType>();
-  if (inputType.hasRank() && (inputType.getRank() <= 4))
-    return true;
-
-  std::string message = inputType.hasRank()
-                            ? ("The rank of input tensor (" +
-                                  std::to_string(inputType.getRank()) +
-                                  ") needs to be 4 or less.")
-                            : "The input tensor doesn't have rank.";
-  return onnxToZHighUnsupportedReport(op.getOperation(), message);
+  return true;
 }
 
 /// Check legality for ONNXMatMul.
@@ -1137,7 +1090,7 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
 
   if (!checkLegalityPoolOpsCommon<ONNXMaxPoolSingleOutOp,
           ONNXMaxPoolSingleOutOpAdaptor, ONNXMaxPoolSingleOutOpShapeHelper>(
-          op, op.getO_Y()))
+          op, op.getO_Y(), dimAnalysis))
     return false;
 
   // dilations not supported. Only default one is accepted.
@@ -1171,7 +1124,7 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
             ") must be default one (0).");
 
   return checkLegalityPoolOpsCommon<ONNXAveragePoolOp, ONNXAveragePoolOpAdaptor,
-      ONNXAveragePoolOpShapeHelper>(op, op.getY());
+      ONNXAveragePoolOpShapeHelper>(op, op.getY(), dimAnalysis);
 }
 
 /// Check if input, output, kernel, strides, and paddingType for each axis meet

@@ -729,21 +729,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       enableParallel = false;
 
     // 1. Define loops to initialize the result.
-    // Todo: consider using a krnl.memset
-    ValueRange loop1Def = create.krnl.defineLoops(outRank);
-    SmallVector<IndexExpr, 4> lbs1(outRank, LiteralIndexExpr(0));
-    SmallVector<IndexExpr, 4> ubs1;
-    create.krnlIE.getShapeAsSymbols(alloc, ubs1);
-    if (enableParallel) {
-      create.krnl.parallel(loop1Def[0]);
-      onnxToKrnlParallelReport(op, true, 0, lbs1[0], ubs1[0], "reduction");
-    }
-    create.krnl.iterateIE(loop1Def, loop1Def, lbs1, ubs1,
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          Value identity = getIdentityValue<ONNXReductionOp>(
-              rewriter, create.getLoc(), elementType);
-          createKrnl.store(identity, alloc, loopInd);
-        });
+    Value identity = getIdentityValue<ONNXReductionOp>(
+        rewriter, create.getLoc(), elementType);
+    create.krnl.memset(alloc, identity);
 
     ValueRange loop2Def = create.krnl.defineLoops(inRank);
     SmallVector<IndexExpr, 4> lbs2(inRank, LiteralIndexExpr(0));
@@ -787,9 +775,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       SmallVector<IndexExpr, 4> ubs3;
       create.krnlIE.getShapeAsSymbols(alloc, ubs3);
       if (enableParallel) {
-        create.krnl.parallel(loop3Def[0]);
-        onnxToKrnlParallelReport(
-            op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
+        int64_t parId;
+        if (findSuitableParallelDimension(lbs3, ubs3, 0, 1, parId,
+                /*min iter for going parallel*/ 4)) {
+          create.krnl.parallel(loop3Def[0]);
+          onnxToKrnlParallelReport(
+              op, true, 0, lbs3[0], ubs3[0], "reduction scalar mean");
+        } else {
+          onnxToKrnlParallelReport(op, false, 0, lbs3[0], ubs3[0],
+              "not enough work in reduction scalar mean");
+        }
       }
       create.krnl.iterateIE(loop3Def, loop3Def, lbs3, ubs3,
           [&](KrnlBuilder &kb, ValueRange loopInd) {
@@ -891,9 +886,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
-      create.krnl.parallel(outLoopDef[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
+              /*min iter for going parallel*/ 128)) {
+        create.krnl.parallel(outLoopDef[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs[0], flatOutDims[0], "reduction h-simd");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
+            "not enough work for reduction h-simd");
+      }
     }
     create.krnl.iterateIE(outLoopDef, outLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange outLoopInd) {
@@ -1024,9 +1026,16 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Iterate only over all but the inner loop of the flattened input.
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
-      create.krnl.parallel(optimizedOutLoopDef[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
+              /*min iter for going parallel*/ 64 * VL)) {
+        create.krnl.parallel(optimizedOutLoopDef[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, lbs[0], flatOutDims[0],
+            "not enough work for reduction shuffle h-simd");
+      }
     }
     create.krnl.iterateIE(outLoopDef, optimizedOutLoopDef, lbs, flatOutDims,
         [&](KrnlBuilder &ck, ValueRange blockedOutLoopInd) {

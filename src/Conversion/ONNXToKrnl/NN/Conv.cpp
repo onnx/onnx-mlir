@@ -220,8 +220,15 @@ struct ONNXConvOpLowering : public OpConversionPattern<ONNXConvOp> {
 
     ValueRange outerLoops = create.krnl.defineLoops(3);
     if (enableParallel) {
-      create.krnl.parallel(outerLoops[0]);
-      onnxToKrnlParallelReport(op, true, 0, outerLbs[0], outerUbs[0], "conv");
+      int64_t parId;
+      if (findSuitableParallelDimension(outerLbs, outerUbs, 0, 1, parId,
+              /*min iter for going parallel*/ 4)) {
+        create.krnl.parallel(outerLoops[0]);
+        onnxToKrnlParallelReport(op, true, 0, outerLbs[0], outerUbs[0], "conv");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, 0, outerLbs[0], outerUbs[0], "not enough work in conv");
+      }
     }
     create.krnl.iterateIE(outerLoops, outerLoops, outerLbs, outerUbs,
         [&](KrnlBuilder &create, ValueRange outerIndices) {

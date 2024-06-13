@@ -47,6 +47,8 @@ public:
         !destMemRef.getType().cast<MemRefType>().getLayout().isIdentity())
       return failure();
 
+    // TODO, Flatten, and possibly parallelize/simd. Maybe add a mode to detect
+    // if/when mem override is allowed.
     MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
         rewriter, loc);
     IndexExprScope indexScope(create.affineKMem);
