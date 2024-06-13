@@ -39,15 +39,15 @@ struct ONNXRangeOpLowering : public OpConversionPattern<ONNXRangeOp> {
     Value limit = adaptor.getLimit();
     Value delta = adaptor.getDelta();
 
-    auto startShape = start.getType().cast<MemRefType>().getShape();
-    auto limitShape = limit.getType().cast<MemRefType>().getShape();
-    auto deltaShape = delta.getType().cast<MemRefType>().getShape();
+    auto startShape = mlir::cast<MemRefType>(start.getType()).getShape();
+    auto limitShape = mlir::cast<MemRefType>(limit.getType()).getShape();
+    auto deltaShape = mlir::cast<MemRefType>(delta.getType()).getShape();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     Type elementType = memRefType.getElementType();
 
     // Insert an allocation and deallocation for the result of this operation.

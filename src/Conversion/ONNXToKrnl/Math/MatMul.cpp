@@ -72,11 +72,16 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     loopUbs.emplace_back(innerUb);
     SmallVector<Value, 1> innerLoop{loopDef[totLoopNum - 1]}; // Last loop def.
     if (enableParallel) {
-      create.krnl.parallel(outerLoops[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
-    } else {
-      onnxToKrnlParallelReport(op, false, -1, -1, "matmul generic");
+      int64_t parId;
+      if (findSuitableParallelDimension(loopLbs, loopUbs, 0, 1, parId,
+              /*min iter for going parallel*/ 16)) {
+        create.krnl.parallel(outerLoops[0]);
+        onnxToKrnlParallelReport(
+            op, true, 0, loopLbs[0], loopUbs[0], "matmul generic");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, loopLbs[0], loopUbs[0],
+            "not enough work for matmul generic");
+      }
     }
 
     // Non-reduction loop iterations: output-rank.
@@ -297,6 +302,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     // Define blocking, with simdization along the j axis.
     DimIndexExpr dimI(I), dimJ(J), dimK(K);
+    LiteralIndexExpr zeroIE(0);
     int64_t iRegTile, jRegTile, kRegTile;
     bool isMatVectorProduct =
         !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
@@ -321,11 +327,17 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     Value kk1(kRegBlock[0]), kk2(kRegBlock[1]);
     create.krnl.permute({ii1, ii2, jj1, jj2, kk1, kk2}, {0, 3, 1, 4, 2, 5});
     if (enableParallel) {
-      create.krnl.parallel(ii1);
-      onnxToKrnlParallelReport(
-          op, true, 0, LiteralIndexExpr(0), dimI, "matmul no broadcast");
-    } else {
-      onnxToKrnlParallelReport(op, false, -1, -1, "matmul no broadcast");
+      int64_t parId;
+      SmallVector<IndexExpr, 1> lb(1, zeroIE), ub(1, dimI);
+      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
+              /*min iter for going parallel*/ 4 * iRegTile)) {
+        create.krnl.parallel(ii1);
+        onnxToKrnlParallelReport(
+            op, true, 0, zeroIE, dimI, "matmul no broadcast");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, zeroIE, dimI,
+            "not enough work for matmul no broadcast");
+      }
     }
     create.krnl.iterate({ii, jj, kk}, {ii1, jj1, kk1}, {zero, zero, zero},
         {I, J, K}, [&](KrnlBuilder &createKrnl, ValueRange indices) {
@@ -394,9 +406,18 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     for (int64_t i = 0; i < broadcastRank; ++i)
       broadcastUB.emplace_back(create.mem.dim(C, i));
     if (enableParallel) {
-      create.krnl.parallel(broadcastLoop[0]);
-      onnxToKrnlParallelReport(op, true, 0, LiteralIndexExpr(0),
-          shapeHelper.getOutputDims()[0], "matmul broadcast");
+      int64_t parId;
+      // Could check out more than the outer dim of the broadcasts...
+      SmallVector<IndexExpr, 1> lb(1, LiteralIndexExpr(0)),
+          ub(1, shapeHelper.getOutputDims()[0]);
+      if (findSuitableParallelDimension(lb, ub, 0, 1, parId,
+              /*min iter for going parallel*/ 4)) {
+        create.krnl.parallel(broadcastLoop[0]);
+        onnxToKrnlParallelReport(op, true, 0, lb[0], ub[0], "matmul broadcast");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, 0, lb[0], ub[0], "not enough work in matmul broadcast");
+      }
     }
     create.krnl.iterate(broadcastLoop, broadcastLoop, broadcastLB, broadcastUB,
         [&](KrnlBuilder &createKrnl, ValueRange broadcastIndices) {
@@ -465,9 +486,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     // Insert an allocation and deallocation for the output of this operation.
     Type elementType = outputMemRefType.getElementType();
@@ -478,9 +499,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     Value zero = create.math.constant(elementType, 0);
 
     Value A(adaptor.getA()), B(adaptor.getB());
-    int aRank = A.getType().cast<MemRefType>().getShape().size();
-    int bRank = B.getType().cast<MemRefType>().getShape().size();
-    int cRank = alloc.getType().cast<MemRefType>().getShape().size();
+    int aRank = mlir::cast<MemRefType>(A.getType()).getShape().size();
+    int bRank = mlir::cast<MemRefType>(B.getType()).getShape().size();
+    int cRank = mlir::cast<MemRefType>(alloc.getType()).getShape().size();
     if (enableTiling && aRank == 2 && bRank == 2) {
       // Optimized Matmul only when 2D and allowed to tile and unroll.
       assert(cRank == 2 && "expected IxK * KxJ = IxJ 2D result");

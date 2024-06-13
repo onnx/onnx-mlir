@@ -23,7 +23,7 @@ using namespace mlir;
 namespace onnx_mlir {
 
 WideNum getElementsSplatWideNum(ElementsAttr elms) {
-  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elms))
     return disposable.getSplatValue<WideNum>();
   Type elementType = elms.getElementType();
   if (isa<FloatType>(elementType))
@@ -57,11 +57,11 @@ void readDenseElementsWideNums(
 // everything aligns, otherwise makes and returns a copy.
 // Precondition: elms.getElementType.isIntOrFloat().
 ArrayBuffer<WideNum> getElementsWideNums(ElementsAttr elms) {
-  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elms))
     return disposable.getWideNums();
 
   // Return raw data if non-splat DenseElementsAttr and element type is wide.
-  if (auto dense = elms.dyn_cast<DenseElementsAttr>()) {
+  if (auto dense = mlir::dyn_cast<DenseElementsAttr>(elms)) {
     auto isWideType = [](Type t) { return t.isInteger(64) || t.isF64(); };
     if (isWideType(dense.getElementType()) && !dense.isSplat())
       return castArrayRef<WideNum>(dense.getRawData());
@@ -76,7 +76,7 @@ ArrayBuffer<WideNum> getElementsWideNums(ElementsAttr elms) {
 // Copies out the elements in a flat WideNum array in row-major order.
 // Precondition: elms.getElementType.isIntOrFloat().
 void readElementsWideNums(ElementsAttr elms, MutableArrayRef<WideNum> dst) {
-  if (auto disposable = elms.dyn_cast<DisposableElementsAttr>())
+  if (auto disposable = mlir::dyn_cast<DisposableElementsAttr>(elms))
     return disposable.readWideNums(dst);
   assert(dst.size() == static_cast<size_t>(elms.size()));
   readDenseElementsWideNums(elms, dst);

@@ -33,7 +33,7 @@ Value OnnxToKrnlBuilder::reshape(
     const Value input, const ArrayRef<DimIndexExpr> shapeDims) const {
   assert(!shapeDims.empty() && "Shape dimensions should not be empty");
 
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   Type elementType = inputType.getElementType();
   MultiDialectBuilder<OnnxBuilder, MemRefBuilder, KrnlBuilder, MathBuilder>
       create(b(), loc());
@@ -101,7 +101,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
     shape.push_back(dim.isLiteral() ? dim.getLiteral() : ShapedType::kDynamic);
 
   // Create the "onnx.Transpose" operation.
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   Value transposeRes =
       create.onnx.transpose(MemRefType::get(shape, inputType.getElementType()),
           input, b().getI64ArrayAttr(perm));
@@ -110,7 +110,7 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
 }
 
 bool isScalarValue(Value value) {
-  ShapedType stype = value.getType().dyn_cast<ShapedType>();
+  ShapedType stype = mlir::dyn_cast<ShapedType>(value.getType());
   assert(stype && "expected shaped type");
   return stype.getRank() == 0;
 }
@@ -131,7 +131,7 @@ bool hasAllScalarValues(ValueRange values) {
 bool hasOneElement(Value value) {
   if (isScalarValue(value))
     return true;
-  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
   assert(type && "expected shaped type");
   for (int64_t s : type.getShape())
     if (s != 1)
@@ -143,7 +143,7 @@ bool hasOneElement(Value value) {
 bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
   if (isScalarValue(value))
     return true;
-  ShapedType type = value.getType().dyn_cast<ShapedType>();
+  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
   assert(type && "expected shaped type");
   mlir::ArrayRef<int64_t> shape = type.getShape();
   int64_t rank = type.getRank();
@@ -158,7 +158,8 @@ bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
 bool indicesAreNonNegativeConstants(Value indices) {
   DenseElementsAttr valueAttribute =
       krnl::getDenseElementAttributeFromKrnlValue(indices);
-  if (!valueAttribute || !valueAttribute.getElementType().isa<IntegerType>())
+  if (!valueAttribute ||
+      !mlir::isa<IntegerType>(valueAttribute.getElementType()))
     return false;
 
   return llvm::all_of(valueAttribute.getValues<IntegerAttr>(),
@@ -208,7 +209,7 @@ std::map<int64_t, int64_t> getReductionMapping(
 // Dynamic dimension are supported.
 void addDimensionToPack(ConversionPatternRewriter &rewriter, Location loc,
     krnl::KrnlIterateOperandPack &pack, Value operand, int index) {
-  auto shape = operand.getType().cast<MemRefType>().getShape();
+  auto shape = mlir::cast<MemRefType>(operand.getType()).getShape();
   assert(shape[index] != -1 && "expected kDynamic, not -1");
   if (shape[index] == ShapedType::kDynamic) {
     MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
@@ -233,7 +234,8 @@ void defineLoops(ConversionPatternRewriter &rewriter, Location loc,
 Value getDimOrConstant(ConversionPatternRewriter &rewriter, Location loc,
     Value operand, int64_t axis, Type type) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
-  ArrayRef<int64_t> shape = operand.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shape =
+      mlir::cast<ShapedType>(operand.getType()).getShape();
   assert(shape[axis] != -1 && "expected kDynamic, not -1");
   return (shape[axis] == ShapedType::kDynamic)
              ? create.math.cast(type, create.mem.dim(operand, axis))
@@ -275,10 +277,10 @@ DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
   }
   if (auto globalOp = dyn_cast_or_null<KrnlGlobalOp>(definingOp)) {
     if (globalOp.getValue().has_value())
-      return globalOp.getValueAttr().dyn_cast<DenseElementsAttr>();
+      return mlir::dyn_cast<DenseElementsAttr>(globalOp.getValueAttr());
   } else if (auto constOp = dyn_cast_or_null<ONNXConstantOp>(definingOp)) {
     if (constOp.getValue().has_value())
-      return constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
+      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
   }
   return nullptr;
 }
@@ -351,7 +353,7 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
       create(rewriter, loc);
   IndexExprScope scope(create.krnl);
 
-  MemRefType inputMemRefType = input.getType().cast<MemRefType>();
+  MemRefType inputMemRefType = mlir::cast<MemRefType>(input.getType());
   Type indexType = rewriter.getIndexType();
   int64_t rank = inputMemRefType.getRank();
   assert(axis >= 0 && axis < rank && "axis is out of bound");
@@ -430,9 +432,9 @@ Value emitArgSort(ConversionPatternRewriter &rewriter, Location loc,
 Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
     Value optionalScalar, Type elementType, double defaultValue) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
-  if (optionalScalar.getType().isa<NoneType>()) {
+  if (mlir::isa<NoneType>(optionalScalar.getType())) {
     return create.math.constant(elementType, defaultValue);
-  } else if (optionalScalar.getType().cast<ShapedType>().getRank() == 0) {
+  } else if (mlir::cast<ShapedType>(optionalScalar.getType()).getRank() == 0) {
     return create.krnl.load(optionalScalar, {});
   } else {
     Value zero = create.math.constantIndex(0);
@@ -446,7 +448,7 @@ Value getOptionalScalarValue(ConversionPatternRewriter &rewriter, Location loc,
 
 MemRefType convertTypeWithCustomONNXDataLayoutToMemRef(Type type) {
   // Get tensor rank, shape, and element type.
-  RankedTensorType tensorType = type.dyn_cast<RankedTensorType>();
+  RankedTensorType tensorType = mlir::dyn_cast<RankedTensorType>(type);
   assert(tensorType && "expected only ranked shapes");
   ArrayRef<int64_t> shape = tensorType.getShape();
   int64_t rank = shape.size();
@@ -526,7 +528,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
   addConversion([](TensorType tensorType) {
     assert(tensorType.hasRank() && "expected only ranked shapes");
-    if (tensorType.getElementType().isa<ONNXStringType>()) {
+    if (mlir::isa<ONNXStringType>(tensorType.getElementType())) {
       Type elementType = krnl::StringType::get(tensorType.getContext());
       return MemRefType::get(tensorType.getShape(), elementType);
     }
@@ -543,7 +545,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
   });
 
   addConversion([](SeqType seqType) {
-    auto seqElementType = seqType.getElementType().cast<ShapedType>();
+    auto seqElementType = mlir::cast<ShapedType>(seqType.getElementType());
     Type elementType = seqElementType.getElementType();
     Type seqElementConvertedType;
     if (seqElementType.hasRank()) {
@@ -581,7 +583,7 @@ KrnlTypeConverter::KrnlTypeConverter() {
 
 int64_t KrnlTypeConverter::getDefaultAllocAlignment(Type type) {
   int64_t alignment = -1;
-  if (auto tensorType = type.dyn_cast<TensorType>()) {
+  if (auto tensorType = mlir::dyn_cast<TensorType>(type)) {
     // Accelerators may have special versions of TensorType. Call the
     // conversions of accelerators.
     for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators()) {
@@ -601,7 +603,7 @@ bool hasNonIdentityLayout(Value val) {
   if (isNoneValue(val))
     return false;
   // Expect a memref now.
-  MemRefType type = val.getType().dyn_cast<MemRefType>();
+  MemRefType type = mlir::dyn_cast<MemRefType>(val.getType());
   assert(type && "expected a memref type");
   return hasNonIdentityLayout(type);
 }
@@ -617,17 +619,23 @@ bool hasNonIdentityLayout(ValueRange operands) {
 // Support functions for parallel region.
 //===----------------------------------------------------------------------===//
 
-// Return the outermost loop within [firstDim, lastDim) for which (ub-lb) >
-// minSize. Runtime dimensions are assumed to satisfy the size requirement by
-// definition. If found one, it is parDim and the function returns true.
+// Return the outermost loop within [firstInclusiveDim, lastExclusiveDim) for
+// which (ub-lb) > minSize. Runtime dimensions are assumed to satisfy the size
+// requirement by definition. If found one, it is parDim and the function
+// returns true.
 
 bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
-    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim, int64_t lastDim,
-    int64_t &parDim, int64_t minSize) {
-  for (int64_t i = firstDim; i < lastDim; ++i) {
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstInclusiveDim,
+    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize) {
+  assert(lb.size() == ub.size() && "expected identical ranks for lb/ub");
+  if (firstInclusiveDim < 0)
+    firstInclusiveDim = 0;
+  if (lastExclusiveDim > (int64_t)lb.size())
+    lastExclusiveDim = lb.size();
+  for (int64_t i = firstInclusiveDim; i < lastExclusiveDim; ++i) {
     IndexExpr tripCount = ub[i] - lb[i];
     if (!tripCount.isLiteral() || tripCount.getLiteral() >= minSize) {
-      // Got one
+      // Got one.
       parDim = i;
       return true;
     }

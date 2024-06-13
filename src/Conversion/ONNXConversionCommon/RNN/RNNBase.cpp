@@ -21,7 +21,7 @@ namespace onnx_mlir {
 
 // Get a dimension of the tensor's shape.
 int64_t dimAt(Value val, int index) {
-  return val.getType().cast<ShapedType>().getShape()[index];
+  return mlir::cast<ShapedType>(val.getType()).getShape()[index];
 }
 
 // Apply an activation function on a given scalar operand.

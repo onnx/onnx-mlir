@@ -107,9 +107,12 @@ LogicalResult ZHighConv2DOp::verify() {
     return failure();
 
   // Verify bias shape.
-  if (!B.getType().isa<NoneType>() && hasRankedType(B) && hasRankedType(K)) {
-    int64_t channelOutB = B.getType().cast<RankedTensorType>().getShape()[0];
-    int64_t channelOutK = K.getType().cast<RankedTensorType>().getShape()[3];
+  if (!mlir::isa<NoneType>(B.getType()) && hasRankedType(B) &&
+      hasRankedType(K)) {
+    int64_t channelOutB =
+        mlir::cast<RankedTensorType>(B.getType()).getShape()[0];
+    int64_t channelOutK =
+        mlir::cast<RankedTensorType>(K.getType()).getShape()[3];
     if (!ShapedType::isDynamic(channelOutB) &&
         !ShapedType::isDynamic(channelOutK) && (channelOutB != channelOutK))
       return failure();
@@ -117,11 +120,11 @@ LogicalResult ZHighConv2DOp::verify() {
 
   // Verify kernel shape.
   ArrayAttr kernelShape = getKernelShape();
-  int64_t attrKH = kernelShape[0].cast<IntegerAttr>().getInt();
-  int64_t attrKW = kernelShape[1].cast<IntegerAttr>().getInt();
+  int64_t attrKH = mlir::cast<IntegerAttr>(kernelShape[0]).getInt();
+  int64_t attrKW = mlir::cast<IntegerAttr>(kernelShape[1]).getInt();
   if (hasRankedType(K)) {
-    int64_t KH = K.getType().cast<RankedTensorType>().getShape()[0];
-    int64_t KW = K.getType().cast<RankedTensorType>().getShape()[1];
+    int64_t KH = mlir::cast<RankedTensorType>(K.getType()).getShape()[0];
+    int64_t KW = mlir::cast<RankedTensorType>(K.getType()).getShape()[1];
     if (!ShapedType::isDynamic(KH) && KH != attrKH)
       return failure();
     if (!ShapedType::isDynamic(KW) && KW != attrKW)
@@ -140,7 +143,8 @@ LogicalResult ZHighConv2DOp::inferShapes(
   if (!hasRankedType(getInput()) || !hasRankedType(getInputKernel()))
     return success();
 
-  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::cast<RankedTensorType>(getInput().getType());
   ZHighConv2DOpShapeHelper shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());

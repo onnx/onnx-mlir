@@ -73,9 +73,9 @@ public:
     Value input = adaptor.getInput();
     // softmax = exp(logits) / reduce_sum(exp(logits), -1)
     auto outputType =
-        op.getResult().getType().template dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(op.getResult().getType());
     auto inputType =
-        adaptor.getInput().getType().template dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(adaptor.getInput().getType());
 
     // Not a ranked tensor input/output
     if (!outputType || !inputType) {

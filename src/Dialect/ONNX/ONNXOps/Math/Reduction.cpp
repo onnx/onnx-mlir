@@ -130,7 +130,7 @@ LogicalResult ONNXGenericReductionOpShapeHelper<OP_TYPE>::computeShape() {
       // there, from input putting question mark in there. Not sure if
       // successful, if it is, it should be generalized to all ops.
       OP_TYPE reduceOp = llvm::cast<OP_TYPE>(op);
-      if (reduceOp.getResult().getType().template isa<RankedTensorType>()) {
+      if (mlir::isa<RankedTensorType>(reduceOp.getResult().getType())) {
         // Have already some shapes, keep them in ShapeHelper
         DimsExpr outputDims;
         createIE->getShapeAsDims(reduceOp.getResult(), outputDims);
@@ -163,7 +163,7 @@ static LogicalResult inferShapeForReductionOps_old(OP_TYPE &op) {
     return success();
 
   ShapedType dataType =
-      operandAdaptor.getData().getType().template cast<ShapedType>();
+      mlir::cast<ShapedType>(operandAdaptor.getData().getType());
   ONNXGenericReductionOpShapeHelper<OP_TYPE> shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
 }
@@ -181,7 +181,7 @@ static LogicalResult inferShapeForReductionOps(OP_TYPE &op) {
     return success();
 
   ShapedType dataType =
-      operandAdaptor.getData().getType().template cast<ShapedType>();
+      mlir::cast<ShapedType>(operandAdaptor.getData().getType());
   ONNXGenericReductionOpShapeHelper<OP_TYPE> shapeHelper(op.getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(dataType.getElementType());
 }

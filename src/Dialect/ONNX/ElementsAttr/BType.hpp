@@ -191,10 +191,10 @@ mlir::Type toMlirType(mlir::MLIRContext *ctx) {
 //       llvm_unreachable("not a supported datatype")
 //       when called with BType::STRING or BType::COMPLEX64/128.
 
-// == mlirTypeOfBType(btype, ctx).isa<FloatType>()
+// == mlir::isa<FloatType>(mlirTypeOfBType(btype, ctx))
 bool isFloatBType(BType);
 
-// == mlirTypeOfBType(btype, ctx).isa<IntegerType>()
+// == mlir::isa<IntegerType>(mlirTypeOfBType(btype, ctx))
 bool isIntBType(BType);
 
 // == mlirTypeOfBType(btype, ctx).isIntOrFloat()

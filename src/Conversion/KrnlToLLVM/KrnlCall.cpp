@@ -60,9 +60,9 @@ public:
     // Handle the Attributes
     for (auto namedAttr : op->getAttrs()) {
       // Avoid the funcName() Attribute
-      if (namedAttr.getName().getValue().equals("funcName"))
+      if (namedAttr.getName().getValue() == "funcName")
         continue;
-      if (namedAttr.getName().getValue().equals("numOfOutput"))
+      if (namedAttr.getName().getValue() == "numOfOutput")
         continue;
       handleOneAttribute(
           rewriter, op, namedAttr.getValue(), parameterTypeList, parameterList);
@@ -104,7 +104,7 @@ private:
     Type ty = original.getType();
     if (auto originalMemRef = dyn_cast<MemRefType>(ty)) {
       auto int64Ty = IntegerType::get(context, 64);
-      auto memRefTy = parameter.getType().dyn_cast<LLVM::LLVMStructType>();
+      auto memRefTy = mlir::dyn_cast<LLVM::LLVMStructType>(parameter.getType());
       auto memRefRank = krnl::getRankFromMemRefType(memRefTy);
       auto memRefRankVal = create.llvm.constant(int64Ty, (int64_t)memRefRank);
       Value omTensor = RuntimeAPI::callApi(rewriter, loc, apiRegistry,
@@ -119,7 +119,7 @@ private:
       parameterTypeList.emplace_back(opaquePtrTy);
       parameterList.emplace_back(omTensor);
       omTensors.emplace_back(omTensor);
-    } else if (ty.isa<NoneType>()) {
+    } else if (mlir::isa<NoneType>(ty)) {
       // Generate llvm null pinter for NoneType
       auto int8Ty = IntegerType::get(context, 8);
       auto opaquePtrTy = getPointerType(context, int8Ty);
@@ -176,7 +176,7 @@ private:
           // In future, the attributes should be converted in krnl.call builder.
           // This code passed onnx-mlir-opt --convert-krnl-to-llvm test case,
           // but failed in onnx-milr for the tensor type for the attribute
-          auto tensorTy = denseAttr.getType().cast<TensorType>();
+          auto tensorTy = mlir::cast<TensorType>(denseAttr.getType());
           auto memRefTy =
               MemRefType::get(tensorTy.getShape(), tensorTy.getElementType());
           Value constantGlobal =

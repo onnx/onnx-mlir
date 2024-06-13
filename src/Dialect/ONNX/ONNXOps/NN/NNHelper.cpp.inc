@@ -181,7 +181,7 @@ static LogicalResult verifyKernelShape(T *op, Value filterOperand,
   // 1) Get shape of filter. Shape is not guaranteed to be compile time
   // constant.
   ArrayRef<int64_t> filterShape =
-      filterOperand ? filterOperand.getType().cast<ShapedType>().getShape()
+      filterOperand ? mlir::cast<ShapedType>(filterOperand.getType()).getShape()
                     : ArrayRef<int64_t>();
   // 2) Get kernel_shape attribute
   if (!kernelShapeOpt.has_value()) {

@@ -68,7 +68,8 @@ LogicalResult ONNXScanOp::inferShapes(
   assert(!getScanOutputAxes() && "scan_output_axes are unsupported");
 
   assert(!scan_inputs().empty() && "there must be 1 or more scan inputs");
-  auto firstScanInputType = scan_inputs().front().getType().cast<ShapedType>();
+  auto firstScanInputType =
+      mlir::cast<ShapedType>(scan_inputs().front().getType());
   // Number of body iterations is the dim size of the scan input sequence axis,
   // which is also the dim size of the scan outputs concat axis.
   int64_t sequence_length = firstScanInputType.hasRank()
@@ -93,7 +94,8 @@ LogicalResult ONNXScanOp::inferShapes(
   auto bodyScanInputs = llvm::drop_begin(bodyInputs, numStateVariables);
   for (auto [opScanInput, bodyScanInput] :
       llvm::zip(scan_inputs(), bodyScanInputs)) {
-    if (auto rankedTy = opScanInput.getType().dyn_cast<RankedTensorType>()) {
+    if (auto rankedTy =
+            mlir::dyn_cast<RankedTensorType>(opScanInput.getType())) {
       ArrayRef<int64_t> squeezedShape(rankedTy.getShape().drop_front(1));
       updateType(getOperation(), bodyScanInput, squeezedShape,
           rankedTy.getElementType(), /*encoding=*/nullptr,
@@ -121,7 +123,7 @@ LogicalResult ONNXScanOp::inferShapes(
   // with an extra leading dimension.
   auto bodyScanOutputTys = llvm::drop_begin(bodyOuputTys, numStateVariables);
   for (auto [opScanOutput, ty] : llvm::zip(scan_outputs(), bodyScanOutputTys)) {
-    if (auto rankedTy = ty.dyn_cast<RankedTensorType>()) {
+    if (auto rankedTy = mlir::dyn_cast<RankedTensorType>(ty)) {
       SmallVector<int64_t, 4> unsqueezedShape(rankedTy.getShape());
       unsqueezedShape.insert(unsqueezedShape.begin(), sequence_length);
       updateType(getOperation(), opScanOutput, unsqueezedShape,

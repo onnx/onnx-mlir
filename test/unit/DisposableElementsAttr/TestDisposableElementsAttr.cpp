@@ -113,9 +113,9 @@ public:
         cpptype one(1);
         Attribute a = elmsBuilder.toDisposableElementsAttr(
             DenseElementsAttr::get(type, one));
-        ElementsAttr e = a.cast<ElementsAttr>();
+        ElementsAttr e = mlir::cast<ElementsAttr>(a);
         assert(e.isSplat());
-        DisposableElementsAttr i = e.cast<DisposableElementsAttr>();
+        DisposableElementsAttr i = mlir::cast<DisposableElementsAttr>(e);
         assert(i.isSplat());
 
         assert(eq<cpptype>(i.getSplatValue<cpptype>(), one));

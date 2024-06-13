@@ -26,7 +26,7 @@ Value insertAllocForFlatten(MemRefType memRefType, Location loc,
     ConversionPatternRewriter &rewriter, Value input, int64_t axisValue) {
   MultiDialectBuilder<MathBuilder, MemRefBuilder> create(rewriter, loc);
   memref::AllocOp alloc;
-  auto inputShape = input.getType().cast<MemRefType>().getShape();
+  auto inputShape = mlir::cast<MemRefType>(input.getType()).getShape();
   int64_t inputRank = inputShape.size();
 
   SmallVector<Value, 2> allocOperands;
@@ -62,7 +62,7 @@ struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
     Location loc = ONNXLoc<ONNXFlattenOp>(op);
 
     Value input = adaptor.getInput();
-    auto inputTy = input.getType().cast<MemRefType>();
+    auto inputTy = mlir::cast<MemRefType>(input.getType());
     auto inputShape = inputTy.getShape();
     size_t inputRank = inputShape.size();
     int64_t axisValue = flattenOp.getAxis();
@@ -72,9 +72,9 @@ struct ONNXFlattenOpLowering : public OpConversionPattern<ONNXFlattenOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     // Insert alloc and dealloc
     Value alloc = (hasAllConstantDimensions(outputMemRefType))

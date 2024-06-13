@@ -156,7 +156,7 @@ LogicalResult ONNXSqueezeV11OpShapeHelper::computeShape() {
 
 LogicalResult ONNXSqueezeOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
+  auto dataType = mlir::dyn_cast<RankedTensorType>(getData().getType());
   if (!dataType)
     return success();
 
@@ -167,7 +167,7 @@ LogicalResult ONNXSqueezeOp::inferShapes(
 
 LogicalResult ONNXSqueezeV11Op::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto dataType = getData().getType().dyn_cast<RankedTensorType>();
+  auto dataType = mlir::dyn_cast<RankedTensorType>(getData().getType());
   if (!dataType)
     return success();
 
@@ -203,7 +203,7 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
          "Shape should be static when the inputs are constant");
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
-  return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),
+  return elementsBuilder.reshape(mlir::cast<ElementsAttr>(adaptor.getData()),
       getShape(getSqueezed().getType()));
 }
 
@@ -222,6 +222,6 @@ OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
          "Shape should be static when the inputs are constant");
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
-  return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),
+  return elementsBuilder.reshape(mlir::cast<ElementsAttr>(adaptor.getData()),
       getShape(getSqueezed().getType()));
 }

@@ -44,7 +44,7 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
 
     assert(isRankedShapedType(data.getType()) &&
            "data must be ranked Shaped Type");
-    ShapedType dataType = data.getType().cast<ShapedType>();
+    ShapedType dataType = mlir::cast<ShapedType>(data.getType());
     int64_t rank = dataType.getRank();
     Type indexElementType = rewriter.getI64Type();
     Value zero = rewriter.create<stablehlo::ConstantOp>(loc,
@@ -59,7 +59,7 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
     SmallVector<int64_t, 2> axesIntLitToIdx(rank, -1);
     SmallVector<Value, 4> indices;
 
-    if (axes.getType().isa<NoneType>()) {
+    if (mlir::isa<NoneType>(axes.getType())) {
       // If `axes` are omitted, they are set to `[0, ..., nDim-1]`."
       for (int64_t i = 0; i < rank; ++i)
         axesIntLitToIdx[i] = i;
@@ -67,7 +67,7 @@ struct ONNXSliceOpLoweringToStablehlo : public ConversionPattern {
       // If `axes` are constants, read them."
       int64_t idx = 0;
       for (IntegerAttr value : valueAttribute.getValues<IntegerAttr>()) {
-        int64_t axis = value.cast<IntegerAttr>().getInt();
+        int64_t axis = mlir::cast<IntegerAttr>(value).getInt();
         if (axis < 0)
           axis += rank;
         assert((axis >= 0 && axis < (int64_t)rank) &&

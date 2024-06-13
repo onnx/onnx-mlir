@@ -27,16 +27,16 @@ func @foo() -> tensor<1xf32> {
 }
 ```
 
-## Remark 
+## Remark
 
 ONNXConstantOp uses MLIR DenseElementsAttr to store constant values. It is
-important to note that, once a DenseElementsAttr is created, it is alive and 
+important to note that, once a DenseElementsAttr is created, it is alive and
 consumes memory until the end of compilation. In [Example](#example), all the
 three DenseElementsAttrs in the three ONNXConstantOps exist until the end of
 compilation. Especially, two intermediate DenseElementsAttrs in the two
 ONNXConstantOps produced by folding the two ONNXAddOps also exist. For a
 real world model, the number of intermediate DenseElementsAttrs will increase
-quickly, which leads to a large memory footprint during compilation. 
+quickly, which leads to a large memory footprint during compilation.
 
 To avoid creating too many DenseElementsAttrs for intermediate ONNXConstantOps
 during `--constprop-onnx`, we designed a mechanism that dynamically allocates and
@@ -93,7 +93,7 @@ def AddConstProp : Pat<
     // source patten: From add(lhs, rhs).
     (ONNXAddOp:$addOp (ONNXConstantOp:$lhs $_, $_, $_, $_, $_, $_, $_, $_),
                       (ONNXConstantOp:$rhs $_, $_, $_, $_, $_, $_, $_, $_)),
-    // result pattern: To c = lhs + rhs 
+    // result pattern: To c = lhs + rhs
     (CreateAddOfTwoConst $addOp, $lhs, $rhs),
     // Additional constraints: if both lhs and rhs are dense constants.
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs)]>;
@@ -127,7 +127,7 @@ template <typename ElementwiseBinaryOp>
 Value ConstPropElementwiseBinary(PatternRewriter &rewriter,
     Value replacingValue, Value lhsValue, Value rhsValue) {
   ConstPropCounters::count("ElementwiseBinary", {lhsValue, rhsValue});
-  Type replacingType = replacingValue.getType().cast<ShapedType>();
+  Type replacingType = mlir::cast<ShapedType>(replacingValue.getType());
 
   // Get lhs and rhs ElementsAttr from the values' defining constant ops.
   ElementsAttr lhs = getConstValueElements(lhsValue);

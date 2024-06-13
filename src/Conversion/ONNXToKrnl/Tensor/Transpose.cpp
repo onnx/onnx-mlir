@@ -48,12 +48,12 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     auto permAttr = adaptor.getPerm();
 
     // Input and output types.
-    MemRefType inMemRefType = data.getType().cast<MemRefType>();
+    MemRefType inMemRefType = mlir::cast<MemRefType>(data.getType());
     Type outConvertedType =
         typeConverter->convertType(*op->result_type_begin());
-    assert(outConvertedType && outConvertedType.isa<MemRefType>() &&
+    assert(outConvertedType && mlir::isa<MemRefType>(outConvertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
+    MemRefType outMemRefType = mlir::cast<MemRefType>(outConvertedType);
 
     // Get shape.
     ONNXTransposeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -141,16 +141,23 @@ private:
   void scalarTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create,
       bool enableParallel) const {
-    uint64_t rank = outputMemRef.getType().cast<MemRefType>().getRank();
+    uint64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> ubs;
     create->krnlIE.getShapeAsDims(inputMemRef, ubs);
 
     if (enableParallel) {
-      // TODO: consider flattening the outer dims.
-      create->krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(op, true, 0, lbs[0], ubs[0], "scalar transpose");
+      int64_t parId;
+      // TODO: consider flattening the outer dims, or along inner dims.
+      if (findSuitableParallelDimension(lbs, ubs, 0, 2, parId, 8)) {
+        create->krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], ubs[parId], "scalar transpose");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, -1, -1, "no dim with enough work in scalar transpose");
+      }
     }
 
     create->krnl.iterateIE(loopDef, loopDef, lbs, ubs,
@@ -172,7 +179,7 @@ private:
       std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims,
       bool enableParallel) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
-    MemRefType inMemRefType = inputMemRef.getType().cast<MemRefType>();
+    MemRefType inMemRefType = mlir::cast<MemRefType>(inputMemRef.getType());
     uint64_t rank = inMemRefType.getRank();
     uint64_t outerRank = rank - numLastDims;
 
@@ -215,12 +222,18 @@ private:
     ValueRange loopDef = create->krnl.defineLoops(outerRank);
     SmallVector<IndexExpr, 4> lbs(outerRank, LiteralIndexExpr(0));
     if (enableParallel) {
-      // TODO: consider flattening the outer dims.
-      create->krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(
-          op, true, 0, lbs[0], inUBs[0], "scalar transpose");
+      int64_t parId;
+      // Note that if there is only 1 dim, lastExclusiveDim is automatically
+      // reduced to 1 in the findSuitableParallelDimension call.
+      if (findSuitableParallelDimension(lbs, inUBs, 0, 2, parId, 8)) {
+        create->krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(
+            op, true, parId, lbs[parId], inUBs[parId], "block transpose");
+      } else {
+        onnxToKrnlParallelReport(
+            op, false, -1, -1, "no dim with enough work in block transpose");
+      }
     }
-
     create->krnl.iterateIE(loopDef, loopDef, lbs, inUBs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           MultiDialectBuilder<MathBuilder, KrnlBuilder> create(createKrnl);

@@ -74,7 +74,7 @@ LogicalResult ONNXTopKOp::verify() {
   Value K = operandAdaptor.getK();
   if (hasShapeAndRank(K)) {
     // K's rank must be zero or one.
-    int64_t KRank = K.getType().cast<ShapedType>().getRank();
+    int64_t KRank = mlir::cast<ShapedType>(K.getType()).getRank();
     if (KRank > 1)
       return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
           *this->getOperation(), K, KRank, "< 2");
@@ -83,7 +83,7 @@ LogicalResult ONNXTopKOp::verify() {
   // axis attribute must be in the range [-r,r-1], where r = rank(X).
   Value X = operandAdaptor.getX();
   if (hasShapeAndRank(X)) {
-    int64_t Xrank = X.getType().cast<ShapedType>().getRank();
+    int64_t Xrank = mlir::cast<ShapedType>(X.getType()).getRank();
     int64_t axis = this->getAxis();
 
     if (axis < -Xrank || axis >= Xrank)
@@ -106,7 +106,7 @@ LogicalResult ONNXTopKOp::inferShapes(
     return success();
 
   Builder b(getContext());
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
   ONNXTopKOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateTypes({elementType, b.getI64Type()});
 }
