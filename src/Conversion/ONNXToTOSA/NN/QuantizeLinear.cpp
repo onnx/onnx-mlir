@@ -35,8 +35,6 @@ public:
   LogicalResult matchAndRewrite(ONNXQuantizeLinearOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Value x = op.getX();
-    Type xType = x.getType();
     auto resultType = dyn_cast_if_present<ShapedType>(
         getTypeConverter()->convertType(op.getResult().getType()));
     if (!resultType || !resultType.hasStaticShape()) {
@@ -78,6 +76,9 @@ public:
     auto scaleFactorConst = tosa::expandShape(
         rewriter, loc, adaptor.getYScale(), axis, resultType.getRank());
 
+    Value x = adaptor.getX();
+    Type xType = x.getType();
+
     // Quantization formula is ((x / y_scale) + y_zero_point)
     // Replace the division by a reciprocal followed by a mul
     Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
@@ -86,15 +87,20 @@ public:
     Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
         rewriter, loc, xType, x, recOp, 0)
                       .getResult();
-    // Cast into the result type
-    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
-        rewriter, loc, resultType, mulOp)
+    // zpConst has the same type as the result of QLinear which is always
+    // smaller than the input type. Cast it to the input type.
+    Value castZp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
+        rewriter, loc, scaleFactorConst.getType(), zpConst)
                        .getResult();
     Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(
-        rewriter, loc, resultType, castOp, zpConst)
+        rewriter, loc, xType, mulOp, castZp)
                       .getResult();
+    // Cast into the result type
+    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
+        rewriter, loc, resultType, addOp)
+                       .getResult();
 
-    rewriter.replaceOp(op, addOp);
+    rewriter.replaceOp(op, castOp);
     return success();
   }
 };

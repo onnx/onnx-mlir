@@ -1166,7 +1166,7 @@ def gen_op_def(schema, with_version=False):
                 regions[attr.name] = "AnyRegion"
 
     # Generate decl for op traits.
-    traits = ["Pure"]
+    traits = ["Pure", f"OpVersionTrait<{schema.since_version}>"]
 
     # Generate ConstantLike traits.
     if opName in OpsWithConstantLike:

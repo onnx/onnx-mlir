@@ -73,17 +73,24 @@ public:
 
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
-    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(
-        rewriter, loc, x.getType(), x, zpConst)
-                      .getResult();
-    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
-        rewriter, loc, resultType, subOp)
-                       .getResult();
-    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-        rewriter, loc, resultType, castOp, scaleFactorConst, 0)
-                      .getResult();
 
-    rewriter.replaceOp(op, mulOp);
+    // Cast the operands of (x - zero_point) to float32 to avoid underflows
+    Type arithType = rewriter.getF32Type();
+    Value subOpA = tosaBuilder.castToNewTensorElementType(x, arithType);
+    Value subOpB = tosaBuilder.castToNewTensorElementType(zpConst, arithType);
+    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(
+        rewriter, loc, subOpA.getType(), subOpA, subOpB)
+                      .getResult();
+    // There are no guarantees about the bitwith of the scale factor
+    Value scaleFactorCast =
+        tosaBuilder.castToNewTensorElementType(scaleFactorConst, arithType);
+    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
+        rewriter, loc, subOp.getType(), subOp, scaleFactorCast, 0)
+                      .getResult();
+    Value castOp = tosaBuilder.castToNewTensorElementType(
+        mulOp, resultType.getElementType());
+
+    rewriter.replaceOp(op, castOp);
     return success();
   }
 };

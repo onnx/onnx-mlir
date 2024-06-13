@@ -75,7 +75,7 @@ struct IsBool {
   }
 };
 
-template <typename OpAdaptorT, typename TypeChecker>
+template <typename OpAdaptorT, typename TypeChecker, typename TosaOpT>
 LogicalResult checkBasicTosaRequirementsForBinaryOps(
     ConversionPatternRewriter &rewriter, Operation *op, OpAdaptorT adaptor,
     Type resultType) {
@@ -92,49 +92,21 @@ LogicalResult checkBasicTosaRequirementsForBinaryOps(
 
   Type resultElementType = resultTensorType.getElementType();
 
+  if (TosaOpT::template hasTrait<
+          ::mlir::OpTrait::SameOperandsAndResultElementType>()) {
+    if (lhsType.getElementType() != rhsType.getElementType() ||
+        lhsType.getElementType() != resultElementType) {
+      return rewriter.notifyMatchFailure(
+          op, "lhs, rhs and result must have the same type");
+    }
+  }
+
   if (failed(TypeChecker::checkType(rewriter, resultElementType, op))) {
     return failure();
   }
 
   return success();
 }
-
-// Element-wise unary ops lowering to custom op of TOSA dialect.
-//===----------------------------------------------------------------------===//
-template <typename ONNXOp>
-class ConvertONNXUnaryOpToTosaCustomOp : public OpConversionPattern<ONNXOp> {
-public:
-  using OpConversionPattern<ONNXOp>::OpConversionPattern;
-  using OpAdaptor = typename ONNXOp::Adaptor;
-
-  ConvertONNXUnaryOpToTosaCustomOp(TypeConverter &typeConverter,
-      MLIRContext *context, std::string opName,
-      std::string implementedWithOpAttr = "UNDEF")
-      : OpConversionPattern<ONNXOp>(typeConverter, context),
-        opName(std::move(opName)),
-        implementedWithOpAttr(std::move(implementedWithOpAttr)) {}
-
-  LogicalResult matchAndRewrite(ONNXOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override {
-
-    // Set tosa.custom_op attributes.
-    // Only identifier needs to be known. Other attributes are not used.
-    auto *ctx = op->getContext();
-    auto identifier = StringAttr::get(ctx, opName);
-    auto implementAttr = StringAttr::get(ctx, implementedWithOpAttr);
-    auto config = StringAttr::get(ctx, "UNDEF");
-
-    rewriter.replaceOpWithNewOp<mlir::tosa::CustomOp>(op,
-        TypeRange{OpConversionPattern<ONNXOp>::getTypeConverter()->convertType(
-            op.getType())},
-        identifier, config, implementAttr, adaptor.getOperands());
-    return success();
-  }
-
-private:
-  std::string opName;
-  std::string implementedWithOpAttr;
-};
 
 // Element-wise unary ops lowering to TOSA dialect.
 //===----------------------------------------------------------------------===//
@@ -181,8 +153,8 @@ public:
   LogicalResult matchAndRewrite(ONNXOpT op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
-    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, TypeChecker>(
-            rewriter, op, adaptor, op.getResult().getType())))
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, TypeChecker,
+            TosaOpT>(rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
     auto loc = op.getLoc();
@@ -216,7 +188,8 @@ public:
   using OpConversionPattern::OpConversionPattern;
   LogicalResult matchAndRewrite(ONNXMulOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
-    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, IsIntOrFloat>(
+    if (failed(checkBasicTosaRequirementsForBinaryOps<OpAdaptor, IsIntOrFloat,
+            mlir::tosa::MulOp>(
             rewriter, op, adaptor, op.getResult().getType())))
       return failure();
 
@@ -720,19 +693,11 @@ static void populateLoweringONNXElementwiseUnaryTemplateOpToTOSAPattern(
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXAbsOp, mlir::tosa::AbsOp,
           IsIntOrFloat, IsIntOrFloat>,
       ONNXElementwiseUnaryOpLoweringToTOSA<ONNXErfOp, mlir::tosa::ErfOp,
+          IsFloat, IsFloat>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXSinOp, mlir::tosa::SinOp,
+          IsFloat, IsFloat>,
+      ONNXElementwiseUnaryOpLoweringToTOSA<ONNXCosOp, mlir::tosa::CosOp,
           IsFloat, IsFloat>>(typeConverter, ctx);
-
-// Tosa custom ops
-#define INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(                            \
-    ONNXOp, opName, implementedWith)                                           \
-  patterns.add<ConvertONNXUnaryOpToTosaCustomOp<ONNXOp>>(                      \
-      typeConverter, ctx, opName, implementedWith);
-
-  INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(
-      ONNXSinOp, "math.sin", "linalg.generic");
-  INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN(
-      ONNXCosOp, "math.cos", "linalg.generic");
-#undef INSERT_ONNX_UNARY_TO_TOSA_CUSTOMOP_PATTERN
 }
 
 void populateLoweringONNXElementwiseOpToTOSAPattern(ConversionTarget &target,

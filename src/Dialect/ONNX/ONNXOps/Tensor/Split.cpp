@@ -108,8 +108,8 @@ LogicalResult ONNXSplitOpShapeHelper::computeShape() {
     // None is fine, indexExprArray will be empty.
   } else {
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
-    assert(IndexExpr::isLiteral(indexExprArray) &&
-           "dynamic split not yet supported");
+    if (!IndexExpr::isLiteral(indexExprArray))
+      return failure();
   }
   return customComputeShape(indexExprArray);
 }
@@ -124,8 +124,8 @@ LogicalResult ONNXSplitV13OpShapeHelper::computeShape() {
     // None is fine, indexExprArray will be empty.
   } else {
     createIE->getIntFromArrayAsSymbols(split, indexExprArray);
-    assert(IndexExpr::isLiteral(indexExprArray) &&
-           "dynamic split not yet supported");
+    if (!IndexExpr::isLiteral(indexExprArray))
+      return failure();
   }
   return customComputeShape(indexExprArray);
 }
