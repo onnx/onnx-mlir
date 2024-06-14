@@ -46,9 +46,9 @@ LogicalResult ONNXCategoryMapperOp::verify() {
     return success();
   }
 
-  ShapedType inputType = X.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(X.getType());
   Type elementType = inputType.getElementType();
-  if (!elementType.isInteger(64) && !elementType.isa<ONNXStringType>())
+  if (!elementType.isInteger(64) && !mlir::isa<ONNXStringType>(elementType))
     return emitOpError("input must be a tensor of int64 or string");
 
   // Check attributes.
@@ -61,7 +61,7 @@ LogicalResult ONNXCategoryMapperOp::verify() {
 
   if (elementType.isInteger(64) && !getDefaultStringAttr())
     return emitOpError("'default_string' attribute is missing.");
-  if (elementType.isa<ONNXStringType>() && !getDefaultInt64Attr())
+  if (mlir::isa<ONNXStringType>(elementType) && !getDefaultInt64Attr())
     return emitOpError("'default_int64' attribute is missing.");
 
   return success();
@@ -77,9 +77,10 @@ LogicalResult ONNXCategoryMapperOp::inferShapes(
   if (!hasShapeAndRank(getX()))
     return success();
 
-  Type inputElementType = getX().getType().cast<ShapedType>().getElementType();
+  Type inputElementType =
+      mlir::cast<ShapedType>(getX().getType()).getElementType();
   assert((inputElementType.isInteger(64) ||
-             inputElementType.isa<ONNXStringType>()) &&
+             mlir::isa<ONNXStringType>(inputElementType)) &&
          "Input tensor must have int64 or string element type.");
 
   Type outputElementType;

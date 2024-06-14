@@ -70,7 +70,7 @@ template <typename T>
 Value getShapedFloat(Location loc, ConversionPatternRewriter &rewriter,
     const T &value, Value &inp) {
   Value broadcastedValue;
-  ShapedType inpType = inp.getType().cast<ShapedType>();
+  ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
   if (inpType.hasStaticShape())
     broadcastedValue = rewriter.create<stablehlo::ConstantOp>(
         loc, DenseElementsAttr::get(inpType,
@@ -92,7 +92,7 @@ template <typename T>
 Value getShapedInt(Location loc, ConversionPatternRewriter &rewriter,
     const T &value, Value &inp) {
   Value broadcastedValue;
-  ShapedType inpType = inp.getType().cast<ShapedType>();
+  ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
   if (inpType.hasStaticShape())
     broadcastedValue = rewriter.create<stablehlo::ConstantOp>(
         loc, DenseElementsAttr::get(inpType,

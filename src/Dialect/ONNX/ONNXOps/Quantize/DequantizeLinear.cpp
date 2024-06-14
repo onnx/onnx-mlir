@@ -47,17 +47,17 @@ LogicalResult ONNXDequantizeLinearOpShapeHelper::computeShape() {
   ONNXDequantizeLinearOpAdaptor operandAdaptor(
       operands, op->getAttrDictionary());
   RankedTensorType xTy =
-      operandAdaptor.getX().getType().dyn_cast<RankedTensorType>();
+      mlir::dyn_cast<RankedTensorType>(operandAdaptor.getX().getType());
   DimsExpr outputDims;
   createIE->getShapeAsDims(operandAdaptor.getX(), outputDims);
 
   // Get d.
-  int64_t d =
-      nonScalar1DLen(operandAdaptor.getXScale().getType().cast<ShapedType>());
+  int64_t d = nonScalar1DLen(
+      mlir::cast<ShapedType>(operandAdaptor.getXScale().getType()));
   if (d == ShapedType::kDynamic &&
       !isNoneValue(operandAdaptor.getXZeroPoint())) {
     d = nonScalar1DLen(
-        operandAdaptor.getXZeroPoint().getType().cast<ShapedType>());
+        mlir::cast<ShapedType>(operandAdaptor.getXZeroPoint().getType()));
   }
 
   if (d != ShapedType::kDynamic) {
@@ -97,7 +97,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   };
 
   Value scale = getXScale();
-  auto scaleTy = scale.getType().cast<ShapedType>();
+  auto scaleTy = mlir::cast<ShapedType>(scale.getType());
   if (scaleTy.hasRank() && scaleTy.getRank() > 1)
     return emitOpError("x_scale must be a scalar or 1-D tensor");
   int64_t scaleLen = nonScalar1DLen(scaleTy);
@@ -105,11 +105,11 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
   Value zero = getXZeroPoint();
   int64_t zeroLen = ShapedType::kDynamic;
   if (!isNoneValue(zero)) {
-    if (auto zeroTy = zero.getType().dyn_cast<RankedTensorType>()) {
+    if (auto zeroTy = mlir::dyn_cast<RankedTensorType>(zero.getType())) {
       if (zeroTy.getRank() > 1)
         return emitOpError("x_zero_point must be a scalar or 1-D tensor");
       zeroLen = nonScalar1DLen(zeroTy);
-      if (auto scaleTy = scale.getType().dyn_cast<RankedTensorType>()) {
+      if (auto scaleTy = mlir::dyn_cast<RankedTensorType>(scale.getType())) {
         if ((isScalar(scaleTy) && scaleLen != ShapedType::kDynamic) ||
             (zeroLen != ShapedType::kDynamic && isScalar(zeroTy)) ||
             (zeroLen != ShapedType::kDynamic &&
@@ -142,7 +142,7 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
     // If x_scale or x_zero_point is a non-scalar 1-D tensor then quantization
     // is per-axis.
     int64_t d = scaleLen != ShapedType::kDynamic ? scaleLen : zeroLen;
-    if (auto xTy = getX().getType().dyn_cast<RankedTensorType>()) {
+    if (auto xTy = mlir::dyn_cast<RankedTensorType>(getX().getType())) {
       int64_t r = xTy.getRank();
       // axis attribute must be in the range [-r,rShapedType::kDynamic].
       int64_t a = getAxis();
@@ -169,9 +169,9 @@ LogicalResult ONNXDequantizeLinearOp::verify() {
 
 LogicalResult ONNXDequantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  if (!getX().getType().dyn_cast<RankedTensorType>())
+  if (!mlir::dyn_cast<RankedTensorType>(getX().getType()))
     return success();
-  Type elementType = getY().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getY().getType()).getElementType();
   ONNXDequantizeLinearOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

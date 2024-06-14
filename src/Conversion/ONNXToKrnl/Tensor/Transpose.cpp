@@ -48,12 +48,12 @@ struct ONNXTransposeOpLowering : public OpConversionPattern<ONNXTransposeOp> {
     auto permAttr = adaptor.getPerm();
 
     // Input and output types.
-    MemRefType inMemRefType = data.getType().cast<MemRefType>();
+    MemRefType inMemRefType = mlir::cast<MemRefType>(data.getType());
     Type outConvertedType =
         typeConverter->convertType(*op->result_type_begin());
-    assert(outConvertedType && outConvertedType.isa<MemRefType>() &&
+    assert(outConvertedType && mlir::isa<MemRefType>(outConvertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
+    MemRefType outMemRefType = mlir::cast<MemRefType>(outConvertedType);
 
     // Get shape.
     ONNXTransposeOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -141,7 +141,7 @@ private:
   void scalarTranspose(Operation *op, Value inputMemRef, Value outputMemRef,
       std::optional<ArrayAttr> permAttr, MDBuilder *create,
       bool enableParallel) const {
-    uint64_t rank = outputMemRef.getType().cast<MemRefType>().getRank();
+    uint64_t rank = mlir::cast<MemRefType>(outputMemRef.getType()).getRank();
     ValueRange loopDef = create->krnl.defineLoops(rank);
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
     SmallVector<IndexExpr, 4> ubs;
@@ -179,7 +179,7 @@ private:
       std::optional<ArrayAttr> permAttr, MDBuilder *create, int numLastDims,
       bool enableParallel) const {
     Type i64Ty = create->math.getBuilder().getI64Type();
-    MemRefType inMemRefType = inputMemRef.getType().cast<MemRefType>();
+    MemRefType inMemRefType = mlir::cast<MemRefType>(inputMemRef.getType());
     uint64_t rank = inMemRefType.getRank();
     uint64_t outerRank = rank - numLastDims;
 

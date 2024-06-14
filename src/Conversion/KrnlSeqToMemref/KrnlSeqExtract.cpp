@@ -58,10 +58,10 @@ public:
       rewriter.replaceOp(op, output);
       return success();
     } else {
-      if (!output.getType().isa<MemRefType>())
+      if (!mlir::isa<MemRefType>(output.getType()))
         llvm_unreachable(
             "Not implemented: type of onnx seq element is not tensor");
-      auto outputType = output.getType().cast<MemRefType>();
+      auto outputType = mlir::cast<MemRefType>(output.getType());
       SmallVector<mlir::Value, 4> allocParams;
       for (size_t i = 0; i < outputType.getShape().size(); i++) {
         if (outputType.isDynamicDim(i)) {

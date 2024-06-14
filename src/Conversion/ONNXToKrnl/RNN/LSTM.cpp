@@ -46,8 +46,8 @@ getWeightPack<ONNXLSTMOp, LstmWeightPack>(
   // direction
   StringRef direction = op->getDirection();
 
-  ArrayRef<int64_t> wShape = W.getType().cast<ShapedType>().getShape();
-  Type elementType = W.getType().cast<ShapedType>().getElementType();
+  ArrayRef<int64_t> wShape = mlir::cast<ShapedType>(W.getType()).getShape();
+  Type elementType = mlir::cast<ShapedType>(W.getType()).getElementType();
   int64_t hiddenSize = wShape[1] / 4;
   int64_t inputSize = wShape[2];
 
@@ -127,8 +127,8 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
 
   // Split B.
   if (!isNoneValue(B)) {
-    ArrayRef<int64_t> bShape = B.getType().cast<ShapedType>().getShape();
-    Type elementType = B.getType().cast<ShapedType>().getElementType();
+    ArrayRef<int64_t> bShape = mlir::cast<ShapedType>(B.getType()).getShape();
+    Type elementType = mlir::cast<ShapedType>(B.getType()).getElementType();
     int64_t hiddenSize = bShape[1] / 8;
 
     // MemRef types.
@@ -186,8 +186,8 @@ std::tuple<LstmBiasPack, LstmBiasPack> getBiasPack<ONNXLSTMOp, LstmBiasPack>(
 
   // Split P.
   if (!isNoneValue(P)) {
-    ArrayRef<int64_t> pShape = P.getType().cast<ShapedType>().getShape();
-    Type elementType = P.getType().cast<ShapedType>().getElementType();
+    ArrayRef<int64_t> pShape = mlir::cast<ShapedType>(P.getType()).getShape();
+    Type elementType = mlir::cast<ShapedType>(P.getType()).getElementType();
     int64_t hiddenSize = pShape[1] / 3;
 
     // MemRef types.
@@ -282,7 +282,7 @@ LstmState allocAndInitializeStates<ONNXLSTMOp, LstmState>(
   initializeIntermediateStates(rewriter, loc, state.forwardHt, state.reverseHt,
       state.forwardCt, state.reverseCt, operandAdaptor.getInitialH(),
       operandAdaptor.getInitialC(),
-      operandAdaptor.getX().getType().cast<MemRefType>().getElementType(),
+      mlir::cast<MemRefType>(operandAdaptor.getX().getType()).getElementType(),
       direction, /*onlyHidden=*/false);
   return state;
 }
@@ -312,18 +312,18 @@ void calculateState<LstmState, LstmActivationPack, LstmWeightPack,
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder, OnnxBuilder>
       create(rewriter, loc);
 
-  ArrayRef<int64_t> xtShape = Xt.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> xtShape = mlir::cast<ShapedType>(Xt.getType()).getShape();
   int64_t batchSize = xtShape[0];
 
   // Get Ht, Ct.
   Value Ht = (isForward) ? state.forwardHt : state.reverseHt;
   Value Ct = (isForward) ? state.forwardCt : state.reverseCt;
 
-  ArrayRef<int64_t> htShape = Ht.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> htShape = mlir::cast<ShapedType>(Ht.getType()).getShape();
   int64_t hiddenSize = htShape[1];
 
   // Frequently used types.
-  MemRefType matrixType = Ht.getType().cast<MemRefType>();
+  MemRefType matrixType = mlir::cast<MemRefType>(Ht.getType());
   Type elementType = matrixType.getElementType();
   MemRefType matrixAllGatesType =
       MemRefType::get({batchSize, 4 * hiddenSize}, elementType);

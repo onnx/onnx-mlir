@@ -25,7 +25,7 @@ namespace onnx_mlir {
 
 Value getShapedZero(
     Location loc, ConversionPatternRewriter &rewriter, Value &inp) {
-  ShapedType inpType = inp.getType().cast<ShapedType>();
+  ShapedType inpType = mlir::cast<ShapedType>(inp.getType());
   Value broadcastedZero;
   if (inpType.hasStaticShape())
     broadcastedZero = rewriter.create<stablehlo::ConstantOp>(
@@ -45,19 +45,19 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(Operation *op,
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank) {
   llvm::SmallVector<Value, 4> broadcastedOperands;
   Type outputType = *op->result_type_begin();
-  assert(outputType.isa<ShapedType>() && "output type is not shaped");
-  ShapedType outputShapedType = outputType.cast<ShapedType>();
+  assert(mlir::isa<ShapedType>(outputType) && "output type is not shaped");
+  ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
   Value resultExtents =
       mlir::hlo::computeNaryElementwiseBroadcastingResultExtents(
           loc, op->getOperands(), rewriter);
   for (Value operand : op->getOperands()) {
     RankedTensorType operandType =
-        operand.getType().dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(operand.getType());
     assert(operandType != nullptr && "operand type is not ranked");
     SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
         llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
     Type elementType =
-        operand.getType().dyn_cast<ShapedType>().getElementType();
+        mlir::dyn_cast<ShapedType>(operand.getType()).getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
     Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
@@ -72,19 +72,19 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
     llvm::SmallVector<Value, 4> &operands, Type outputType,
     ConversionPatternRewriter &rewriter, Location loc, int64_t outputRank) {
   llvm::SmallVector<Value, 4> broadcastedOperands;
-  assert(outputType.isa<ShapedType>() && "output type is not shaped");
-  ShapedType outputShapedType = outputType.cast<ShapedType>();
+  assert(mlir::isa<ShapedType>(outputType) && "output type is not shaped");
+  ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
   Value resultExtents =
       mlir::hlo::computeNaryElementwiseBroadcastingResultExtents(
           loc, operands, rewriter);
   for (Value operand : operands) {
     RankedTensorType operandType =
-        operand.getType().dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(operand.getType());
     assert(operandType != nullptr && "operand type is not ranked");
     SmallVector<int64_t, 4> broadcastDimensions = llvm::to_vector<4>(
         llvm::seq<int64_t>(outputRank - operandType.getRank(), outputRank));
     Type elementType =
-        operands[0].getType().dyn_cast<ShapedType>().getElementType();
+        mlir::dyn_cast<ShapedType>(operands[0].getType()).getElementType();
     RankedTensorType broadcastedOutputType =
         RankedTensorType::get(outputShapedType.getShape(), elementType);
     Value broadcast = rewriter.create<stablehlo::DynamicBroadcastInDimOp>(loc,
@@ -98,11 +98,11 @@ llvm::SmallVector<Value, 4> getBroadcastedOperands(
 ElementsAttr getElementAttributeFromConstValue(Value value) {
   auto definingOp = value.getDefiningOp();
   if (auto constantOp = dyn_cast_or_null<stablehlo::ConstantOp>(definingOp)) {
-    return constantOp.getValue().dyn_cast<ElementsAttr>();
+    return mlir::dyn_cast<ElementsAttr>(constantOp.getValue());
   } else if (auto constantOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
     if (constantOp.getValue().has_value())
-      return constantOp.getValueAttr().dyn_cast<ElementsAttr>();
+      return mlir::dyn_cast<ElementsAttr>(constantOp.getValueAttr());
   }
   return nullptr;
 }
@@ -120,11 +120,11 @@ namespace {
 DenseElementsAttr getDenseElementAttrFromConstValue(mlir::Value value) {
   Operation *definingOp = value.getDefiningOp();
   if (auto globalOp = dyn_cast_or_null<stablehlo::ConstantOp>(definingOp)) {
-    return globalOp.getValueAttr().dyn_cast<DenseElementsAttr>();
+    return mlir::dyn_cast<DenseElementsAttr>(globalOp.getValueAttr());
   } else if (auto constOp =
                  dyn_cast_or_null<mlir::ONNXConstantOp>(definingOp)) {
     if (constOp.getValue().has_value())
-      return constOp.getValueAttr().dyn_cast<DenseElementsAttr>();
+      return mlir::dyn_cast<DenseElementsAttr>(constOp.getValueAttr());
   }
   return nullptr;
 }

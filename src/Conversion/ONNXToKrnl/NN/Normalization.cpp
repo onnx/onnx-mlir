@@ -48,9 +48,9 @@ struct ONNXBatchNormalizationInferenceModeOpLowering
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     Value epsilon = create.math.constant(
         memRefType.getElementType(), adaptor.getEpsilon().convertToDouble());
@@ -170,9 +170,9 @@ struct ONNXInstanceNormalizationOpLowering
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     Type elementType = memRefType.getElementType();
     Value epsilon = create.math.constant(
         elementType, adaptor.getEpsilon().convertToDouble());
@@ -343,7 +343,7 @@ LogicalResult generateGenericLayerNormOpONNXCode(
     const TypeConverter *const typeConverter) {
   MDBuilder create(rewriter, loc);
   Value X = lnOp.getX(); // Original value, not translated.
-  TensorType XType = X.getType().cast<TensorType>();
+  TensorType XType = mlir::cast<TensorType>(X.getType());
   Type elementType = XType.getElementType();
   int64_t XRank = XType.getRank();
   int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
@@ -464,7 +464,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       Value operand, int64_t operandIndex, int64_t axis, int64_t XRank,
       IndexExpr &modFactor) const {
     DimsExpr &operandDims = shapeHelper.inputsDims[operandIndex];
-    int64_t operandRank = operand.getType().cast<MemRefType>().getRank();
+    int64_t operandRank = mlir::cast<MemRefType>(operand.getType()).getRank();
     modFactor = LiteralIndexExpr(1);
 
     // X:     X0  X1  X2 | X3  X4  X5  .
@@ -596,7 +596,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
 
     // Get info.
     Value X = adaptor.getX();
-    MemRefType XMemRefType = X.getType().cast<MemRefType>();
+    MemRefType XMemRefType = mlir::cast<MemRefType>(X.getType());
     DimsExpr XDims = shapeHelper.inputsDims[0];
     int64_t XRank = XMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
@@ -701,9 +701,9 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       /*output*/ Value &flatMemRef) const {
     // Convert input.
     Type convertedType = this->typeConverter->convertType(inputVal.getType());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     // Allocate.
     memRef = create.mem.alignedAlloc(memRefType, inputDims);
     // Flatten (do not keep flatten dims at this time).
@@ -768,7 +768,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     if constexpr (std::is_same<OP_TYPE, ONNXLayerNormalizationOp>::value)
       isTraditionalLayerNorm = true;
     // Vector type.
-    Type elementType = YMemRef.getType().cast<ShapedType>().getElementType();
+    Type elementType =
+        mlir::cast<ShapedType>(YMemRef.getType()).getElementType();
     VectorType vecType = VectorType::get({VL}, elementType);
     // Init the two reductions.
     Value init = create.math.constant(elementType, 0.0);
@@ -889,7 +890,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     MDBuilder create(rewriter, loc);
     Operation *op = lnOp.getOperation();
     Value XMemRef = adaptor.getX();
-    MemRefType XMemRefType = XMemRef.getType().cast<MemRefType>();
+    MemRefType XMemRefType = mlir::cast<MemRefType>(XMemRef.getType());
     Type elementType = XMemRefType.getElementType();
     int64_t XRank = XMemRefType.getRank();
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
@@ -906,7 +907,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
 
     // Fully flatten scale input.
     int64_t scaleRank =
-        adaptor.getScale().getType().template cast<MemRefType>().getRank();
+        mlir::cast<MemRefType>(adaptor.getScale().getType()).getRank();
     DimsExpr scaleDims;
     for (int64_t i = XRank - scaleRank; i < XRank; ++i)
       scaleDims.emplace_back(shapeHelper.inputsDims[1][i]);
@@ -919,7 +920,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Fully flatten bias input, if present.
     if (!isNoneValue(lnOp.getB())) {
       int64_t biasRank =
-          adaptor.getB().getType().template cast<MemRefType>().getRank();
+          mlir::cast<MemRefType>(adaptor.getB().getType()).getRank();
       DimsExpr biasDims;
       for (int64_t i = XRank - biasRank; i < XRank; ++i)
         biasDims.emplace_back(shapeHelper.inputsDims[2][i]);
@@ -1056,28 +1057,28 @@ def layer_norm_simd2_v3(x, a, scale, b):
     y = np.zeros((a1, s2))
     for i1 in range(0, a1, b1):
         # iterate over blocks of b1 values
-        
+
         # MEAN(x), MEAN(x2)
         # iterate over a_block, s_block: parallel add
         r = np.zeros((b1, b2))
         r_square = np.zeros((b1, b2))
-        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2, 
+        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2,
             xx = x[i1:i1+b1, i2:i2+b2]
             xxx = np.multiply(xx, xx)
             r = np.add(r, xx)
             r_square = np.add(r_square, xxx)
-            
+
         # simd reduction; res B1 x 1
         # 2 B1 div
         mean_b = np.sum(r, axis=1, keepdims=True) # SIMD reduction to (B1x1) values.
-        mean_b = np.divide(mean_b, s2) # (B2x1) values... so scalar is ok. 
+        mean_b = np.divide(mean_b, s2) # (B2x1) values... so scalar is ok.
         mean_square_b = np.sum(r_square, axis=1, keepdims=True) # Same.
-        mean_square_b = np.divide(mean_square_b, s2) 
+        mean_square_b = np.divide(mean_square_b, s2)
 
         # var = mean_square - mean**2; all compute here are on (B1x1): B1 mul, B1 add
         mean2_b = np.multiply(mean_b, mean_b) # B1 values, ok to do scalar
         var_b = np.subtract(mean_square_b, mean2_b)
-        
+
         # ADD eps, sqrt, inverse
         # computations on B1x1, scalar ok: B1 add, B1 sqrt, B1 div
         var_eps_b = np.add(var_b, 1e-05)
@@ -1087,7 +1088,7 @@ def layer_norm_simd2_v3(x, a, scale, b):
         # tot ops up to here (on B1x1): div: 3*B1, sqrt: B1, mul B1, add/sub 2 B1, sqrt B1: tot 8 B1
 
         # SIMD on entire S2 size
-        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2, 
+        for i2 in range(0, s2, b2): # Unroll B1, SIMD by B2,
             x_b = x[i1:i1+b1, i2:i2+b2]
             d_b = np.subtract(x_b, mean_b) # broadcast of mean_b of 1 -> s2
             normalized_b = np.multiply(d_b, inv_std_dev_b)  # broadcast of mean_b of 1 -> s2

@@ -98,7 +98,8 @@ LogicalResult ZHighMaxPool2DOp::inferShapes(
   if (!hasRankedType(getInput()))
     return success();
 
-  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::cast<RankedTensorType>(getInput().getType());
   ZHighPoolingOpShapeHelper<ZHighMaxPool2DOp> shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());
@@ -113,7 +114,8 @@ LogicalResult ZHighAvgPool2DOp::inferShapes(
   if (!hasRankedType(getInput()))
     return success();
 
-  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::cast<RankedTensorType>(getInput().getType());
   ZHighPoolingOpShapeHelper<ZHighAvgPool2DOp> shapeHelper(getOperation());
   return shapeHelper.computeShapeAndUpdateType(
       inputType.getElementType(), inputType.getEncoding());

@@ -28,7 +28,7 @@ Value allocAllHidden(
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
   RankedTensorType zeroType =
       RankedTensorType::get({dimAt(X, 0), 1, dimAt(X, 1), dimAt(R, 2)},
-          X.getType().cast<ShapedType>().getElementType());
+          mlir::cast<ShapedType>(X.getType()).getElementType());
   DenseElementsAttr zeroAttr = DenseElementsAttr::get(zeroType, 0.0f);
   return create.onnx.constant(zeroAttr);
 }
@@ -40,7 +40,7 @@ mlir::Value allocHiddenOrCell(mlir::ConversionPatternRewriter &rewriter,
   RankedTensorType zeroType = RankedTensorType::get(
       {/*num_directions=*/dimAt(W, 0), /*batch_size=*/dimAt(X, 1),
           /*hidden_size=*/dimAt(R, 2)},
-      X.getType().cast<ShapedType>().getElementType());
+      mlir::cast<ShapedType>(X.getType()).getElementType());
   DenseElementsAttr zeroAttr = DenseElementsAttr::get(zeroType, 0.0f);
   return create.onnx.constant(zeroAttr);
 }
@@ -53,7 +53,7 @@ Value allocIntermediateState(
   RankedTensorType zeroType =
       RankedTensorType::get({/*batch_size=*/dimAt(X, 1),
                                 /*hidden_size=*/dimAt(R, 2)},
-          X.getType().cast<ShapedType>().getElementType());
+          mlir::cast<ShapedType>(X.getType()).getElementType());
   DenseElementsAttr zeroAttr = DenseElementsAttr::get(zeroType, 0.0f);
   return create.onnx.constant(zeroAttr);
 }
@@ -73,12 +73,12 @@ void initializeIntermediateStates(ConversionPatternRewriter &rewriter,
   Value boundVal = (direction == FORWARD || direction == BIDIRECTIONAL)
                        ? forwardHt
                        : reverseHt;
-  auto valShape = boundVal.getType().cast<ShapedType>().getShape();
+  auto valShape = mlir::cast<ShapedType>(boundVal.getType()).getShape();
   SmallVector<int64_t> sliceSizes = {1, valShape[0], valShape[1]};
   SmallVector<Value> firstStartIndices = {zeroIndex, zeroIndex, zeroIndex};
   SmallVector<Value> secondStartIndices = {oneIndex, zeroIndex, zeroIndex};
 
-  RankedTensorType valType = boundVal.getType().cast<RankedTensorType>();
+  RankedTensorType valType = mlir::cast<RankedTensorType>(boundVal.getType());
   if (direction == FORWARD || direction == BIDIRECTIONAL) {
     if (!isNoneValue(initialH)) {
       forwardHt = create.stablehlo.dynamic_slice(
@@ -129,16 +129,16 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     output = val;
   } else { // BIDIRECTIONAL
     SmallVector<int64_t, 4> bForwardValShape(
-        forwardVal.getType().cast<ShapedType>().getShape());
+        mlir::cast<ShapedType>(forwardVal.getType()).getShape());
     SmallVector<int64_t, 4> bValShape(
-        forwardVal.getType().cast<ShapedType>().getShape());
+        mlir::cast<ShapedType>(forwardVal.getType()).getShape());
     SmallVector<int64_t, 4> bReverseValShape(
-        reverseVal.getType().cast<ShapedType>().getShape());
+        mlir::cast<ShapedType>(reverseVal.getType()).getShape());
     bForwardValShape.insert(bForwardValShape.begin(), 1);
     bReverseValShape.insert(bReverseValShape.begin(), 1);
     bValShape.insert(bValShape.begin(), 2);
     Type valElementType =
-        forwardVal.getType().cast<ShapedType>().getElementType();
+        mlir::cast<ShapedType>(forwardVal.getType()).getElementType();
     Value zero = create.onnx.constantInt64({0});
     Value bForwardVal = create.onnx.unsqueeze(
         RankedTensorType::get(bForwardValShape, valElementType), forwardVal,
@@ -158,7 +158,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
   MultiDialectBuilder<OnnxBuilder, StablehloBuilder> create(rewriter, loc);
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
-  Type elementType = X.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(X.getType()).getElementType();
   RankedTensorType squeezedXType =
       RankedTensorType::get({batchSize, inputSize}, elementType);
   SmallVector<int64_t> sliceSizes = {1, batchSize, inputSize};

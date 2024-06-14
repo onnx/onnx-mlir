@@ -34,14 +34,14 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape() {
   Value shape = operandAdaptor.getShape();
 
   Operation *shapeDefOp = shape.getDefiningOp();
-  ShapedType shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
+  ShapedType shapeType = mlir::dyn_cast_or_null<ShapedType>(shape.getType());
   if (!shapeType)
     return op->emitError("expected shape parameter to be defined");
   if (ShapedType::isDynamic(shapeType.getShape()[0]))
     return op->emitError("expected size of shape parameter to be defined");
 
   if (ONNXShapeOp shapeOp = dyn_cast_or_null<ONNXShapeOp>(shapeDefOp)) {
-    assert(shapeOp.getData().getType().isa<ShapedType>() && "expected");
+    assert(mlir::isa<ShapedType>(shapeOp.getData().getType()) && "expected");
     // Consider a first case where the expand.shape is produced by a shape op.
     // Infer its shape and use it as the requested shape.
     // Compute the output of the shape operation. We have to use its shape
@@ -66,7 +66,7 @@ LogicalResult ONNXExpandOpShapeHelper::computeShape() {
     return success();
   }
 
-  if (!shape.getType().isa<ShapedType>())
+  if (!mlir::isa<ShapedType>(shape.getType()))
     return op->emitError("Expecting a shaped type");
   SmallVector<IndexExpr, 4> constVals;
   createIE->getIntFromArrayAsSymbols(shape, constVals);
@@ -87,7 +87,7 @@ LogicalResult ONNXExpandOp::verify() {
   // Get operands.
   auto shape = operandAdaptor.getShape();
   // Check input.
-  auto shapeType = shape.getType().dyn_cast_or_null<ShapedType>();
+  auto shapeType = mlir::dyn_cast_or_null<ShapedType>(shape.getType());
   if (shapeType && shapeType.hasRank()) {
     if (shapeType.getRank() != 1)
       return emitOpError("Shape has a rank of 1");
@@ -104,11 +104,13 @@ LogicalResult ONNXExpandOp::inferShapes(
   if (!hasShapeAndRank(getInput()) || !hasShapeAndRank(getShape()))
     return success();
 
-  ShapedType shapeType = getShape().getType().dyn_cast_or_null<ShapedType>();
+  ShapedType shapeType =
+      mlir::dyn_cast_or_null<ShapedType>(getShape().getType());
   if (!shapeType || ShapedType::isDynamic(shapeType.getShape()[0]))
     return success();
 
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getInput().getType()).getElementType();
   ONNXExpandOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

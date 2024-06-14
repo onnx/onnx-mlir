@@ -46,14 +46,14 @@ LogicalResult ONNXOptionalOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalGetElementOp::verify() {
-  if (!getInput().getType().isa<OptType>())
+  if (!mlir::isa<OptType>(getInput().getType()))
     return emitError("OptionalGetElement input should have optional type");
   return success();
 }
 
 LogicalResult ONNXOptionalGetElementOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  Type elementType = getInput().getType().cast<OptType>().getElementType();
+  Type elementType = mlir::cast<OptType>(getInput().getType()).getElementType();
   getResult().setType(elementType);
   return success();
 }
@@ -63,7 +63,7 @@ LogicalResult ONNXOptionalGetElementOp::inferShapes(
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXOptionalHasElementOp::verify() {
-  if (!getInput().getType().isa<OptType>())
+  if (!mlir::isa<OptType>(getInput().getType()))
     return emitError("OptionalHasElement input should have optional type");
   return success();
 }

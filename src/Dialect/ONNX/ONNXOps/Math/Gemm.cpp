@@ -38,13 +38,13 @@ LogicalResult ONNXGemmOpShapeHelper::computeShape() {
   hasBias = !isNoneValue(C);
 
   // Test ranks.
-  if (A.getType().cast<ShapedType>().getShape().size() != 2)
+  if (mlir::cast<ShapedType>(A.getType()).getShape().size() != 2)
     return op->emitError("Gemm with A should be a 2D tensor");
-  if (B.getType().cast<ShapedType>().getShape().size() != 2)
+  if (mlir::cast<ShapedType>(B.getType()).getShape().size() != 2)
     return op->emitError("Gemm with B should be a 2D tensor");
   cRank = 0;
   if (hasBias) {
-    cRank = C.getType().cast<ShapedType>().getShape().size();
+    cRank = mlir::cast<ShapedType>(C.getType()).getShape().size();
     if (cRank > 2)
       return op->emitError("Gemm with C should be a 1D or 2D tensor");
   }
@@ -123,7 +123,7 @@ LogicalResult ONNXGemmOp::inferShapes(
       (hasBias && !hasShapeAndRank(getC())))
     return success();
 
-  Type elementType = getA().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getA().getType()).getElementType();
   ONNXGemmOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

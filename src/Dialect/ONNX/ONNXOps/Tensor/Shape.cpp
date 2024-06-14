@@ -82,7 +82,7 @@ void ONNXShapeOpShapeHelper::computeSelectedDataShape(
   // Get rank of data operand.
   ONNXShapeOpAdaptor operandAdaptor(shapeOp);
   Value data = operandAdaptor.getData();
-  ShapedType shapedType = data.getType().dyn_cast_or_null<ShapedType>();
+  ShapedType shapedType = mlir::dyn_cast_or_null<ShapedType>(data.getType());
   assert(shapedType && shapedType.hasRank() && "need shaped type with rank");
   int64_t rank = shapedType.getRank();
   // Compute the normalized start/end. Negative value means counting

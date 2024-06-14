@@ -65,7 +65,7 @@ Attribute ONNXTensorEncodingAttr::parse(AsmParser &parser, Type type) {
   // Process the data from the parsed dictionary value into struct-like data.
   for (const NamedAttribute &attr : dict) {
     if (attr.getName() == "dataLayout") {
-      StringAttr layoutAttr = attr.getValue().dyn_cast<StringAttr>();
+      StringAttr layoutAttr = mlir::dyn_cast<StringAttr>(attr.getValue());
       if (!layoutAttr) {
         parser.emitError(
             parser.getNameLoc(), "expected a string value for data layout");
@@ -124,7 +124,7 @@ Attribute ONNXDialect::parseAttribute(
       generatedAttributeParser(parser, &attrTag, type, attr).has_value())
     return attr;
   if (attrTag == DisposableElementsAttr::getMnemonic()) {
-    auto shapedTy = type.cast<ShapedType>();
+    auto shapedTy = mlir::cast<ShapedType>(type);
     if (auto membuf = DisposableElementsAttr::parse(parser, shapedTy))
       return OnnxElementsAttrBuilder(type.getContext())
           .fromMemoryBuffer(shapedTy, std::move(membuf));
@@ -142,6 +142,6 @@ void ONNXDialect::printAttribute(
   // generatedAttributePrinter is generated in ONNXAttributes.cpp.inc
   if (succeeded(generatedAttributePrinter(attr, printer)))
     return;
-  if (auto elements = attr.dyn_cast<DisposableElementsAttr>())
+  if (auto elements = mlir::dyn_cast<DisposableElementsAttr>(attr))
     elements.printWithoutType(printer);
 }

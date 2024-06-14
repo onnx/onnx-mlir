@@ -44,7 +44,7 @@ public:
     IntegerAttr storageOrder = adaptor.getStorageOrderAttr();
     ArrayAttr dilations = adaptor.getDilationsAttr();
 
-    if (input.getType().isa<MemRefType>()) {
+    if (mlir::isa<MemRefType>(input.getType())) {
       return rewriter.notifyMatchFailure(
           op, "memrefs as inputs are unsupported by TOSA");
     }

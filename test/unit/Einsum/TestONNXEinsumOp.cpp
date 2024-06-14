@@ -64,9 +64,9 @@ class Test {
   Type I32;
 
   Attribute zero(Type t) {
-    if (t.isa<FloatType>())
+    if (mlir::isa<FloatType>(t))
       return FloatAttr::get(t, 0);
-    assert(t.isa<IntegerType>() && "must be IntegerType if not FloatType");
+    assert(mlir::isa<IntegerType>(t) && "must be IntegerType if not FloatType");
     return IntegerAttr::get(t, 0);
   }
 
@@ -231,7 +231,7 @@ public:
       bool inferenceSuccess = succeeded(op.inferShapes(nullptr));
       if (expectSuccess && inferenceSuccess) {
         auto outputShape =
-            op.getResult().getType().cast<mlir::ShapedType>().getShape();
+            mlir::cast<mlir::ShapedType>(op.getResult().getType()).getShape();
         if (expectedOutputShape != outputShape) {
           std::cerr << "inferred output shape " << outputShape
                     << " != expected " << expectedOutputShape << "\n";

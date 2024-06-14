@@ -27,17 +27,18 @@ static Value createInitialValueForPoolingOp(
   Location loc = op->getLoc();
   if (isa<ONNXMaxPoolSingleOutOp>(op)) {
     // returns negative infinity
-    return rewriter.create<stablehlo::ConstantOp>(
-        loc, rewriter.getFloatAttr(elemType,
-                 APFloat::getInf(elemType.cast<FloatType>().getFloatSemantics(),
-                     /*isNegative=*/true)));
+    return rewriter.create<stablehlo::ConstantOp>(loc,
+        rewriter.getFloatAttr(elemType,
+            APFloat::getInf(mlir::cast<FloatType>(elemType).getFloatSemantics(),
+                /*isNegative=*/true)));
   }
   if (isa<ONNXAveragePoolOp>(op)) {
     // returns negative infinity
-    return rewriter.create<stablehlo::ConstantOp>(loc,
-        rewriter.getFloatAttr(elemType,
-            APFloat::getZero(elemType.cast<FloatType>().getFloatSemantics(),
-                /*isNegative=*/false)));
+    return rewriter.create<stablehlo::ConstantOp>(
+        loc, rewriter.getFloatAttr(elemType,
+                 APFloat::getZero(
+                     mlir::cast<FloatType>(elemType).getFloatSemantics(),
+                     /*isNegative=*/false)));
   }
   op->emitError("unimplemented lowering for onnx pooling op\n");
   return nullptr;
@@ -117,7 +118,7 @@ struct ONNXPoolOpLoweringToStablehlo : public ConversionPattern {
     // Type information about the input and result of this operation.
     Value inputOperand = operandAdaptor.getX();
     RankedTensorType inputType =
-        inputOperand.getType().dyn_cast_or_null<RankedTensorType>();
+        mlir::dyn_cast_or_null<RankedTensorType>(inputOperand.getType());
     if (inputType == nullptr)
       return failure();
     llvm::ArrayRef<int64_t> inputShape = inputType.getShape();

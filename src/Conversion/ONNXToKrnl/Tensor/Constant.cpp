@@ -33,21 +33,22 @@ struct ONNXConstantOpLowering : public OpConversionPattern<ONNXConstantOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     // Emit the constant global in Krnl dialect.
     MultiDialectBuilder<KrnlBuilder> create(rewriter, loc);
     mlir::Attribute constValAttr = constantOp.getValue().value();
-    if (memRefType.getElementType().isa<krnl::StringType>()) {
+    if (mlir::isa<krnl::StringType>(memRefType.getElementType())) {
       // If the onnx.ConstantOp has string type value attribute,
       // The element type of the value attribute of krnl.global op should be
       // "!krnl.string" instead of "!onnx.String".
       ShapedType constStrType = RankedTensorType::get(
           memRefType.getShape(), krnl::StringType::get(rewriter.getContext()));
       SmallVector<StringRef> constStrVector(
-          constValAttr.dyn_cast<DenseElementsAttr>().getValues<StringAttr>());
+          mlir::dyn_cast<DenseElementsAttr>(constValAttr)
+              .getValues<StringAttr>());
       ArrayRef<StringRef> constStrValues(constStrVector);
       constValAttr = mlir::DenseElementsAttr::get(constStrType, constStrValues);
     }

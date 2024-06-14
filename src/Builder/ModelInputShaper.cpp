@@ -109,7 +109,7 @@ RankedTensorType forceShape(
 } // namespace
 
 Type ModelInputShaper::reshape(int inputIndex, Type inputType) const {
-  if (auto rankedTensorTy = inputType.dyn_cast<RankedTensorType>()) {
+  if (auto rankedTensorTy = mlir::dyn_cast<RankedTensorType>(inputType)) {
     ArrayRef<int64_t> origDims = rankedTensorTy.getShape();
     // Update the input dimensions based on internal information.
     if (force_dim_dynamic_enabled_) {

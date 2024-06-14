@@ -154,7 +154,7 @@ LogicalResult ONNXSplitOp::verify() {
   if (!hasShapeAndRank(input))
     return success(); // Won't be able to do any checking at this stage.
 
-  auto inputType = input.getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(input.getType());
   int64_t inputRank = inputType.getShape().size();
   int64_t axisIndex = getAxis();
 
@@ -177,7 +177,7 @@ LogicalResult ONNXSplitOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = getInput().getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(getInput().getType());
   Type elementType = inputType.getElementType();
   ONNXSplitOpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
@@ -190,7 +190,7 @@ LogicalResult ONNXSplitV13Op::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = getInput().getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(getInput().getType());
   Type elementType = inputType.getElementType();
   ONNXSplitV13OpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.
@@ -203,7 +203,7 @@ LogicalResult ONNXSplitV11Op::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  auto inputType = getInput().getType().cast<ShapedType>();
+  auto inputType = mlir::cast<ShapedType>(getInput().getType());
   Type elementType = inputType.getElementType();
   ONNXSplitV11OpShapeHelper shapeHelper(getOperation(), {});
   // Same time for all results.

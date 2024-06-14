@@ -32,7 +32,7 @@ LogicalResult ONNXConcatOpShapeHelper::computeShape() {
   unsigned numInputs = op->getNumOperands();
   Value firstInput = operandAdaptor.getInputs().front();
   ArrayRef<int64_t> commonShape =
-      firstInput.getType().cast<ShapedType>().getShape();
+      mlir::cast<ShapedType>(firstInput.getType()).getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = concatOp.getAxis();
 
@@ -90,7 +90,7 @@ LogicalResult ONNXConcatOp::verify() {
     return success();
 
   auto commonType =
-      operandAdaptor.getOperands().front().getType().cast<ShapedType>();
+      mlir::cast<ShapedType>(operandAdaptor.getOperands().front().getType());
   ArrayRef<int64_t> commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = getAxis();
@@ -108,7 +108,7 @@ LogicalResult ONNXConcatOp::verify() {
   // of the axis to concatenate on.
   for (Value operand : operandAdaptor.getOperands()) {
     ArrayRef<int64_t> operandShape =
-        operand.getType().cast<ShapedType>().getShape();
+        mlir::cast<ShapedType>(operand.getType()).getShape();
     int64_t operandRank = operandShape.size();
     if (operandRank != commonRank)
       return onnx_mlir::Diagnostic::emitOperandHasUnexpectedRankError(
@@ -141,7 +141,7 @@ LogicalResult ONNXConcatOp::inferShapes(
   if (!hasShapeAndRank(getOperation()))
     return success();
   // Checking value of axis parameter.
-  auto commonType = getOperand(0).getType().cast<RankedTensorType>();
+  auto commonType = mlir::cast<RankedTensorType>(getOperand(0).getType());
   auto commonShape = commonType.getShape();
   int64_t commonRank = commonShape.size();
   int64_t axisIndex = getAxis();

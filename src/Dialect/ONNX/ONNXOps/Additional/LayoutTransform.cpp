@@ -28,7 +28,7 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
     return success();
 
   Type elementType =
-      getData().getType().dyn_cast<RankedTensorType>().getElementType();
+      mlir::dyn_cast<RankedTensorType>(getData().getType()).getElementType();
   ONNXUnaryOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(
       elementType, getTargetLayoutAttr());
@@ -38,8 +38,9 @@ LogicalResult ONNXLayoutTransformOp::inferShapes(
 // Verifier
 //===----------------------------------------------------------------------===//
 LogicalResult ONNXLayoutTransformOp::verify() {
-  if (auto dataType = getData().getType().dyn_cast<RankedTensorType>()) {
-    if (auto outputType = getOutput().getType().dyn_cast<RankedTensorType>()) {
+  if (auto dataType = mlir::dyn_cast<RankedTensorType>(getData().getType())) {
+    if (auto outputType =
+            mlir::dyn_cast<RankedTensorType>(getOutput().getType())) {
       for (int64_t i = 0; i < dataType.getRank(); ++i) {
         // Check if there is an unknown dimension in the dataShape and
         // outputShape. If there is an unknown dimension, we will return true.

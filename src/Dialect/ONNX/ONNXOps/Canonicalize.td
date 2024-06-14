@@ -36,7 +36,7 @@ include "src/Dialect/ONNX/ONNX.td"
 
 // Create a DenseElementsAttr from a float attribute and an element type.
 def createDenseElementsAttrFromFloatAttr : NativeCodeCall<
-  "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, $0.getType().cast<ShapedType>().getElementType(), $1)">;
+  "onnx_mlir::createDenseElementsAttrFromFloatAttr($_builder, mlir::cast<ShapedType>($0.getType()).getElementType(), $1)">;
 
 // Create a DenseElementsAttr from the shape of the type of a value.
 def createDenseElementsAttrFromShape : NativeCodeCall<
@@ -60,7 +60,7 @@ def subtractOrNeg: NativeCodeCall<
 
 // Get the rank of the given value.
 def getRankOf :
-	NativeCodeCall<"$0.getType().cast<ShapedType>().getRank()">;
+	NativeCodeCall<"mlir::cast<ShapedType>($0.getType()).getRank()">;
 
 // Create an ArrayAttr of IntergerAttr(s) of [$0].
 def createDenseElementsAttrOf : NativeCodeCall<
@@ -68,22 +68,22 @@ def createDenseElementsAttrOf : NativeCodeCall<
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-1].
 def createDenseElementsAttrOfOneToRankOf : NativeCodeCall<
-  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 1)">;
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, mlir::cast<ShapedType>($0.getType()).getRank() - 1)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [1, N-2].
 def createDenseElementsAttrOfOneToRankOfExclusive : NativeCodeCall<
-  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, $0.getType().cast<ShapedType>().getRank() - 2)">;
+  "onnx_mlir::createDenseElementsAttrOfNToM($_builder, 1, mlir::cast<ShapedType>($0.getType()).getRank() - 2)">;
 
 // Create an ArrayAttr of IntergerAttr(s) of values in [2, rank - 1].
 def createArrayAttrOfTwoToRankOf : NativeCodeCall<
-  "onnx_mlir::createArrayAttrOfNToM($_builder, 2, $0.getType().cast<ShapedType>().getRank() - 1)">;
+  "onnx_mlir::createArrayAttrOfNToM($_builder, 2, mlir::cast<ShapedType>($0.getType()).getRank() - 1)">;
 
 def AttributeIsNotNull :
   Constraint<CPred<"($_self)">, "Attribute is not null">;
 
 def IsDenseElementsAttr :
-  Constraint<And<[CPred<" ($_self) ">, 
-                  CPred<" ($_self).isa<DenseElementsAttr>()">
+  Constraint<And<[CPred<" ($_self) ">,
+                  CPred<"mlir::isa<DenseElementsAttr>(($_self))">
                  ]>, "Attribute is not a DenseElementsAttr">;
 
 // Intended to check whether there is at least one not-Null the attributes
@@ -109,29 +109,29 @@ def HasNonZeroInArrayAttr: Constraint<CPred<"hasNonZeroInArrayAttr($_self)">,
 
 // Check the rank of a value is greater than a given integer.
 class HasRankGT<int rank> :
-  Constraint<CPred<"$0.getType().isa<ShapedType>() && "
-                   "$0.getType().cast<ShapedType>().hasRank() && "
-                   "$0.getType().cast<ShapedType>().getRank() > " # rank>>;
+  Constraint<CPred<"mlir::isa<ShapedType>($0.getType()) && "
+                   "mlir::cast<ShapedType>($0.getType()).hasRank() && "
+                   "mlir::cast<ShapedType>($0.getType()).getRank() > " # rank>>;
 
 // Check the rank of a value is of a given integer.
 class HasRankOf<int rank> :
-  Constraint<CPred<"$0.getType().isa<ShapedType>() && "
-                   "$0.getType().cast<ShapedType>().hasRank() && "
-                   "$0.getType().cast<ShapedType>().getRank() == " # rank>>;
+  Constraint<CPred<"mlir::isa<ShapedType>($0.getType()) && "
+                   "mlir::cast<ShapedType>($0.getType()).hasRank() && "
+                   "mlir::cast<ShapedType>($0.getType()).getRank() == " # rank>>;
 
 def HaveSameLastDim: Constraint<
   CPred<"onnx_mlir::hasShapeAndRank($0) && onnx_mlir::hasShapeAndRank($1) && "
-        "($0.getType().cast<RankedTensorType>().getShape()"
-        "[$0.getType().cast<RankedTensorType>().getRank() - 1] == "
-        "$1.getType().cast<RankedTensorType>().getShape()"
-        "[$1.getType().cast<RankedTensorType>().getRank() - 1])">,
+        "(mlir::cast<RankedTensorType>($0.getType()).getShape()"
+        "[mlir::cast<RankedTensorType>($0.getType()).getRank() - 1] == "
+        "mlir::cast<RankedTensorType>($1.getType()).getShape()"
+        "[mlir::cast<RankedTensorType>($1.getType()).getRank() - 1])">,
   "Two tensors have the same last dimension">;
 
 class HaveSameDim<int dim>: Constraint<
   CPred<"onnx_mlir::hasShapeAndRank($0) && onnx_mlir::hasShapeAndRank($1) && "
-        "!$0.getType().cast<RankedTensorType>().isDynamicDim(" # dim # ") && "
-        "($0.getType().cast<RankedTensorType>().getShape()[" # dim # "] =="
-        "$1.getType().cast<RankedTensorType>().getShape()[" # dim # "])">,
+        "!mlir::cast<RankedTensorType>($0.getType()).isDynamicDim(" # dim # ") && "
+        "(mlir::cast<RankedTensorType>($0.getType()).getShape()[" # dim # "] =="
+        "mlir::cast<RankedTensorType>($1.getType()).getShape()[" # dim # "])">,
   "Two tensors have the same specified dimension">;
 
 def HaveSameShapedType: Constraint<
@@ -153,29 +153,29 @@ def CreateNoneValue : NativeCodeCall<"$_builder.create<ONNXNoneOp>($_loc).getRes
 
 def HasOneUse : Constraint<CPred<"$0.hasOneUse()">>;
 
-def HasNoneType : Constraint<CPred<"$0.getType().isa<NoneType>()">>;
+def HasNoneType : Constraint<CPred<"mlir::isa<NoneType>($0.getType())">>;
 
-def NotNoneType : Constraint<CPred<"!($0.getType().isa<NoneType>())">>;
+def NotNoneType : Constraint<CPred<"!mlir::isa<NoneType>(($0.getType()))">>;
 
 def HasShapeAndRank : Constraint<CPred<"onnx_mlir::hasShapeAndRank($_self)">>;
 
 def HasSameElementType : Constraint<
-    CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
-          "$1.cast<::mlir::TypeAttr>().getValue())">,
+    CPred<"(mlir::dyn_cast<ShapedType>($0.getType()).getElementType() == "
+          "mlir::cast<::mlir::TypeAttr>($1).getValue())">,
     "has same element type">;
 
 def HaveSameElementType : Constraint<
-    CPred<"($0.getType().dyn_cast<ShapedType>().getElementType() == "
-          "$1.getType().dyn_cast<ShapedType>().getElementType())">,
+    CPred<"(mlir::dyn_cast<ShapedType>($0.getType()).getElementType() == "
+          "mlir::dyn_cast<ShapedType>($1.getType()).getElementType())">,
     "have same element types">;
 
 def HaveSameElementTypeBitWidth: Constraint<
-    CPred<"($0.getType().dyn_cast<ShapedType>().getElementTypeBitWidth() == "
-          "$1.getType().dyn_cast<ShapedType>().getElementTypeBitWidth())">,
+    CPred<"(mlir::dyn_cast<ShapedType>($0.getType()).getElementTypeBitWidth() == "
+          "mlir::dyn_cast<ShapedType>($1.getType()).getElementTypeBitWidth())">,
     "has same element type bitwidth">;
 
 def  ElementTypeIsNotUnsigned: Constraint<
-    CPred<"!$_self.getType().dyn_cast<ShapedType>().getElementType().isUnsignedInteger()">,
+    CPred<"!mlir::dyn_cast<ShapedType>($_self.getType()).getElementType().isUnsignedInteger()">,
     "element type is not unsigned int">;
 
 def HaveSameEncodingAttr: Constraint<
@@ -185,7 +185,7 @@ def HaveSameEncodingAttr: Constraint<
 def IsStaticShapeTensor:
   Constraint<
     CPred<
-      "$_self.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
+      "mlir::cast<::mlir::ShapedType>($_self.getType()).hasStaticShape()">,
     "hasStaticShape">;
 
 def IsNoneValue: Constraint<
@@ -221,32 +221,32 @@ def AreAllDimSizes: Constraint<
 
 def AreTheSameAxesConstant: Constraint<
     CPred<"onnx_mlir::AreTheSameAxesConstant("
-          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "(onnx_mlir::hasShapeAndRank($0) ? mlir::cast<ShapedType>($0.getType()).getRank() : 0),"
           "$1, $2)">,
     "Two values are constants with the same axis values">;
 
 def AreTheSameAxesArrayAttr: Constraint<
     CPred<"onnx_mlir::AreTheSameAxesArrayAttr("
-          "(onnx_mlir::hasShapeAndRank($0) ? $0.getType().cast<ShapedType>().getRank() : 0),"
+          "(onnx_mlir::hasShapeAndRank($0) ? mlir::cast<ShapedType>($0.getType()).getRank() : 0),"
           "$1, $2)">,
     "Two axis arrays are the same">;
 
 class AllDimsFromAxisToEndAre<int axis, int val>: Constraint<
     CPred<"llvm::all_of("
-            "ArrayRef<int64_t>($_self.getType().cast<ShapedType>().getShape().begin() + " # axis # ","
-            "                  $_self.getType().cast<ShapedType>().getShape().end()),"
+            "ArrayRef<int64_t>(mlir::cast<ShapedType>($_self.getType()).getShape().begin() + " # axis # ","
+            "                  mlir::cast<ShapedType>($_self.getType()).getShape().end()),"
             "[](int64_t val) { return (val == " # val # ");})">,
     "All dimensions from axis to the end are val">;
 
 def DimAtIndexIsConstant: Constraint<
   CPred<"onnx_mlir::hasShapeAndRank($0) &&"
-        "!$0.getType().cast<ShapedType>().isDynamicDim($1.getValue().getSExtValue())">,
+        "!mlir::cast<ShapedType>($0.getType()).isDynamicDim($1.getValue().getSExtValue())">,
   "Dim at the given index is constant"
 >;
 
 class RankXMinusRankYIs<int diff>: Constraint<
-    CPred<"($0.getType().cast<ShapedType>().getRank() "
-          " - $1.getType().cast<ShapedType>().getRank() == " # diff # ")">,
+    CPred<"(mlir::cast<ShapedType>($0.getType()).getRank() "
+          " - mlir::cast<ShapedType>($1.getType()).getRank() == " # diff # ")">,
     "X' rank is greater than Y's rank diff units">;
 
 def TransposeVariadicInput: NativeCodeCall<
@@ -263,7 +263,7 @@ class EqualString<string s> : Constraint<CPred<"$0 == \"" # s # "\"">>;
 def AxisIsTheLastDim: Constraint<
   CPred<"($1.getValue().getSExtValue() == -1) ||"
         "(onnx_mlir::hasShapeAndRank($0) &&"
-        " ($0.getType().cast<ShapedType>().getRank() == $1.getValue().getSExtValue() + 1))">,
+        " (mlir::cast<ShapedType>($0.getType()).getRank() == $1.getValue().getSExtValue() + 1))">,
   "Axis is the last dimension of the input"
 >;
 
@@ -408,16 +408,16 @@ def FuseMulConvNullBiasPattern: Pat<
      $b, $auto_pad, $dilation, $group, $kernel_shape, $pads, $strides),
   [(HasNoneType $b),
    (IsDenseElementsAttr:$denseAttr),
-   (IsFromONNXConstantOpWithDenseElementsAttr:$w),    
-   (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.      
-   (HasRankGT<1> $w),                  // rank of $w must be at least 2.  
+   (IsFromONNXConstantOpWithDenseElementsAttr:$w),
+   (HaveSameElementType $w, $y),       // multiplier and Conv weight must have the same element type.
+   (HasRankGT<1> $w),                  // rank of $w must be at least 2.
    (RankXMinusRankYIs<1> $w, $y),      // rank($y) must be equal to rank($w)-1.
    (HaveSameDim<0> $w, $y),            // the first dimension of $w and $y must be equal.
    (AllDimsFromAxisToEndAre<1, 1>:$y)] // all dimensions of $y must be 1 except for the first one.
 >;
 
 // TODO add pattern for non-null bias with contraints:
-// - bias must be have rank equal to 1 and 
+// - bias must be have rank equal to 1 and
 // - bias element data type must be the same as mul constant
 // - bias dimension (0) must be equal to mul constant dim(0)
 // codegen is different too (look it up in onnx-runtime)
@@ -477,8 +477,8 @@ def SwapCastSlicePattern: Pat<
 def IsFromONNXConstantOpWithOnesDenseElementsAttr: Constraint<
     And<[IsFromONNXConstantOpWithDenseElementsAttr.predicate,
          CPred<"::llvm::all_of("
-               "               onnx_mlir::getONNXConstantOp($_self).getValueAttr()"
-               "                .dyn_cast<DenseElementsAttr>().getValues<int64_t>(), "
+               "mlir::dyn_cast<DenseElementsAttr>(onnx_mlir::getONNXConstantOp($_self)"
+               ".getValueAttr()).getValues<int64_t>(), "
                "[](int64_t repeat) { return repeat == 1;})">
         ]>, "Value is not a ONNXConstantOp with a DenseElementsAttr of ones">;
 
@@ -661,7 +661,7 @@ def RemoveIdentityReshapePattern1:  Pat<
   [(IsNoneValue:$shape)]>;
 
 def RemoveIdentityReshapePattern2:  Pat<
-  // Remove an identity pattern. Output and input shapes are static and the same. 
+  // Remove an identity pattern. Output and input shapes are static and the same.
   (ONNXReshapeOp:$out $val, $_, $_),
   // Remove the reshape.
   (replaceWithValue $val),
@@ -679,7 +679,7 @@ def SwapReshapeMatMulPattern: Pattern<
  // TODO: Support dynamic dimensions.
  (ONNXMatMulOp:$res2 (ONNXReshapeOp:$res1 $A, $_, $az), $B),
  [(ONNXReshapeOp (ONNXMatMulOp $A, $B, (returnType (GetReturnTypeForMatMulOpND2D $A, $B))),
-                 (ONNXConstantOpFromDenseAttr 
+                 (ONNXConstantOpFromDenseAttr
                     (createDenseElementsAttrFromShape $res2)
                  ), $az)],
  [(HasRankGT<2> $A), (HasRankOf<2> $res1), (HasRankOf<2> $B), // A is reshaped to 2D.

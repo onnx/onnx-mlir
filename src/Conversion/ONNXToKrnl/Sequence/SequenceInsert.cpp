@@ -37,9 +37,9 @@ struct ONNXSequenceInsertOpLowering
     // Convert the output type to MemRefType.
     Type convertedType =
         typeConverter->convertType(seqOp.getResult().getType());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     auto input_sequence = adaptor.getInputSequence();
     auto dimSize = create.mem.dim(input_sequence, 0);

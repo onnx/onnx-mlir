@@ -45,7 +45,7 @@ struct ONNXTileOpLoweringToStablehlo : public ConversionPattern {
     Value input = tileOp.getInput();
     Value multiples = tileOp.getRepeats();
     assert(isRankedShapedType(input.getType()) && "Expected Ranked ShapedType");
-    ShapedType inputType = input.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(input.getType());
     Type elementType = inputType.getElementType();
     int64_t inputRank = inputType.getRank();
     SmallVector<Value, 4> inputShapeValues;
@@ -68,7 +68,7 @@ struct ONNXTileOpLoweringToStablehlo : public ConversionPattern {
     }
 
     RankedTensorType multiplesType =
-        multiples.getType().dyn_cast<RankedTensorType>();
+        mlir::dyn_cast<RankedTensorType>(multiples.getType());
     Type multiplesElementType = multiplesType.getElementType();
     int64_t multiplesRank = multiplesType.getRank();
     if (multiplesRank != 1)

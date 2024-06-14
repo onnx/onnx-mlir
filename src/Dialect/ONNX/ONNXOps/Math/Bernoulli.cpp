@@ -38,7 +38,7 @@ LogicalResult ONNXBernoulliOp::inferShapes(
         (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
   } else {
     elementType =
-        getInput().getType().cast<RankedTensorType>().getElementType();
+        mlir::cast<RankedTensorType>(getInput().getType()).getElementType();
   }
   ONNXBernoulliOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

@@ -42,7 +42,7 @@ namespace {
 /// modification.
 bool valueFromZTensor(Value tensor) {
   // Function arguments are always CPU tensors.
-  if (tensor.dyn_cast<BlockArgument>())
+  if (mlir::dyn_cast<BlockArgument>(tensor))
     return false;
 
   Operation *op = tensor.getDefiningOp();

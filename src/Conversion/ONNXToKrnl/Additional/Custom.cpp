@@ -47,7 +47,7 @@ struct ONNXCustomOpLowering : public OpConversionPattern<ONNXCustomOp> {
     for (size_t idx = 0; idx < op->getResultTypes().size(); idx++) {
       Type ty = op->getResultTypes()[idx];
       MemRefType outputMemRefType =
-          typeConverter->convertType(ty).cast<MemRefType>();
+          mlir::cast<MemRefType>(typeConverter->convertType(ty));
       outputMemRefTypes.emplace_back(outputMemRefType);
       Value alloc = create.mem.alignedAlloc(
           outputMemRefType, shapeHelper.getOutputDims(idx));

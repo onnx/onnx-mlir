@@ -124,7 +124,8 @@ LogicalResult ONNXResizeOp::inferShapes(
   if (!hasShapeAndRank(getX()))
     return success();
 
-  Type elementType = getX().getType().cast<RankedTensorType>().getElementType();
+  Type elementType =
+      mlir::cast<RankedTensorType>(getX().getType()).getElementType();
   ONNXResizeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
