@@ -379,6 +379,18 @@ func.func @test_div_ones(%arg0 : tensor<1x2xui8>) -> tensor<1x2xui8> {
   // CHECK: onnx.Return %arg0 : tensor<1x2xui8>
 }
 
+// -----
+
+// CHECK-LABEL: test_div_by_zero()
+func.func @test_div_by_zero() -> tensor<2xui32> {
+  %0 = onnx.Constant dense<[2, 4]> : tensor<2xui32>
+  %1 = onnx.Constant dense<[0]> : tensor<1xui32>
+  %2 = "onnx.Div"(%0, %1) : (tensor<2xui32>, tensor<1xui32>) -> tensor<2xui32>
+  "onnx.Return"(%2) : (tensor<2xui32>) -> ()
+  // The behavior is undefined, so the value don't matter. Just don't crash.
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
 //===----------------------------------------------------------------------===//
 /// Equal test
 
