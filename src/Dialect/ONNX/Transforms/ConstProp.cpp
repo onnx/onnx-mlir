@@ -254,7 +254,16 @@ struct ElementWiseBinaryOpImpl<ONNXMulOp, T, EnableNotBool<T>> {
 
 template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
-  static T eval(T lhs, T rhs) { return lhs / rhs; }
+  static T eval(T lhs, T rhs) {
+    if constexpr (std::is_integral_v<T>) {
+      if (rhs == 0) {
+        // Undefined behavior. We can return any value.
+        // Performing the divison would crash.
+        return lhs;
+      }
+    }
+    return lhs / rhs;
+  }
 };
 
 template <typename T>
