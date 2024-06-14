@@ -873,14 +873,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
 
-#if 1
-  // hi alex
+  // Set legality for OMP constructs.
   configureOpenMPToLLVMConversionLegality(target, typeConverter);
-#else
-  // omp::ParallelOp can only be legalized when its region is legal
-  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsloopOp>(
-      [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
-#endif
+
   // Currently, only minimum required OpenMP Ops are marked as legal, in the
   // future integration of OpenMP, probably more OpenMP Ops are required to be
   // marked as legal. Please refer the Conversion/OpenMPToLLVM/OpenMPtoLLVM.cpp
