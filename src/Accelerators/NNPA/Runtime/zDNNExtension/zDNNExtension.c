@@ -27,7 +27,7 @@ extern "C" {
 bool OMZTensorSplitEnabled = DEFAULT_ZTENSOR_SPLIT_ENABLED;
 bool OMZTensorSplitDebug = DEFAULT_ZTENSOR_SPLIT_DEBUG;
 uint32_t OMZTensorSplitSize = DEFAULT_ZTENSOR_SPLIT_SIZE;
-bool ZDNNStatusMessagesEnabled = DEFAULT_STATUS_MESSAGES_ENABLED;
+bool OMStatusMessagesEnabled = DEFAULT_STATUS_MESSAGES_ENABLED;
 
 static uint32_t ZTensorSplitSizeFromEnv() {
   uint32_t cs = DEFAULT_ZTENSOR_SPLIT_SIZE;
@@ -60,7 +60,7 @@ static bool ZTensorSplitDebugFromEnv() {
   return enabled;
 }
 
-static bool ZDNNStatusMessagesEnabled() {
+static bool StatusMessagesEnabled() {
   int enabled = DEFAULT_STATUS_MESSAGES_ENABLED;
   const char *s = getenv("OM_STATUS_MESSAGES_ENABLED");
   if (s)
