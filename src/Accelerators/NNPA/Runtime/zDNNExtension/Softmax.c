@@ -70,7 +70,7 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_ztensor *zy = getTile(&siY, i);
     zdnn_status status = zdnn_softmax(
         zx, (siX.reuseFullZTensor) ? save_area : NULL, act_func, zy);
-    if (OMStatusMessagesEnabled) {
+    if (OMStatusMessagesEnabled && status != ZDNN_OK) {
       fprintf(stderr, "[zdnnx] zdnn_softmax: %s\n",
           zdnn_get_status_message(status));
     }
