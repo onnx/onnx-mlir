@@ -99,7 +99,7 @@ void zDNNExtensionInit() {
   OMZTensorSplitEnabled = ZTensorSplitEnabledFromEnv();
   OMZTensorSplitDebug = ZTensorSplitDebugFromEnv();
   OMZTensorSplitSize = ZTensorSplitSizeFromEnv();
-  OMStatusMessagesEnabled = ZDNNStatusMessagesEnabled();
+  OMStatusMessagesEnabled = StatusMessagesEnabled();
   if (OMZTensorSplitDebug) {
     printf("OM_ZTENSOR_SPLIT_ENABLED: %d\n", OMZTensorSplitEnabled);
     printf("OM_ZTENSOR_SPLIT_SIZE: %d\n", OMZTensorSplitSize);
