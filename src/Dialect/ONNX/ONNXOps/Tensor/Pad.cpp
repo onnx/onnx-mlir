@@ -74,12 +74,12 @@ LogicalResult ONNXPadOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult ONNXPadOp::verify() {
-  ShapedType dataTy = getData().getType().cast<ShapedType>();
+  ShapedType dataTy = mlir::cast<ShapedType>(getData().getType());
   Type constTy = getConstantValue().getType();
 
   if (!isNoneValue(getConstantValue())) {
     // Check that the constant has the same element type as the input
-    ShapedType shapedConstTy = constTy.cast<ShapedType>();
+    ShapedType shapedConstTy = mlir::cast<ShapedType>(constTy);
     if (dataTy.getElementType() != shapedConstTy.getElementType()) {
       return emitOpError("Pad with constant_value that doesn't match the "
                          "element type of the input.");
@@ -103,7 +103,8 @@ LogicalResult ONNXPadOp::inferShapes(
   if (!hasShapeAndRank(getData()) || !hasShapeAndRank(getPads()))
     return success();
 
-  Type elementType = getData().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getData().getType()).getElementType();
 
   ONNXPadOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);

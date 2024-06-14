@@ -62,9 +62,9 @@ LogicalResult ONNXRoiAlignOp::verify() {
   if (!hasShapeAndRank(X) || !hasShapeAndRank(batch_indices))
     return success();
 
-  int64_t x_rank = X.getType().cast<ShapedType>().getRank();
+  int64_t x_rank = mlir::cast<ShapedType>(X.getType()).getRank();
   int64_t batch_indices_rank =
-      batch_indices.getType().cast<ShapedType>().getRank();
+      mlir::cast<ShapedType>(batch_indices.getType()).getRank();
 
   // Test ranks.
   if (x_rank != 4)
@@ -85,7 +85,7 @@ LogicalResult ONNXRoiAlignOp::inferShapes(
   if (!hasShapeAndRank(getX()) || !hasShapeAndRank(getBatchIndices()))
     return success();
 
-  Type elementType = getX().getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(getX().getType()).getElementType();
   ONNXRoiAlignOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

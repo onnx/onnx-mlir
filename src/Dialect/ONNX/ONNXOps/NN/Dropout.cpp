@@ -56,7 +56,7 @@ LogicalResult ONNXDropoutOp::inferShapes(
     return success();
 
   Type outputElementType =
-      getData().getType().cast<RankedTensorType>().getElementType();
+      mlir::cast<RankedTensorType>(getData().getType()).getElementType();
   IntegerType maskElementType =
       IntegerType::get(getContext(), 1, IntegerType::Signless);
   ONNXDropoutOpShapeHelper shapeHelper(getOperation(), {});

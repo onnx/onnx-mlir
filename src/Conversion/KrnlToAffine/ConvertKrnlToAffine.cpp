@@ -391,8 +391,8 @@ static void lowerIterateOp(KrnlIterateOp &iterateOp, OpBuilder &builder,
     for (int boundType = 0; boundType < 2; boundType++) {
       auto &operands = boundType == 0 ? lbOperands : ubOperands;
       auto &map = boundType == 0 ? lbMap : ubMap;
-      map =
-          boundMapAttrs[boundIdx + boundType].cast<AffineMapAttr>().getValue();
+      map = mlir::cast<AffineMapAttr>(boundMapAttrs[boundIdx + boundType])
+                .getValue();
       operands.insert(
           operands.end(), operandItr, operandItr + map.getNumInputs());
       std::advance(operandItr, map.getNumInputs());

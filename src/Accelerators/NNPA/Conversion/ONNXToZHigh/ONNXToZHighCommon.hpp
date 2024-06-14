@@ -29,6 +29,11 @@ const std::string NNPA_DEVICE = "nnpa";
 
 bool isEnableScalarBcastBinary();
 
+struct OnnxToZHighLoweringConfiguration {
+  static int optReportNNPAUnsupportedOps;
+  static int reportOnNNPAUnsupportedOps;
+};
+
 template <typename OP_TYPE>
 void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
     const onnx_mlir::DimAnalysis *dimAnalysis,
@@ -60,7 +65,7 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
       bool exceedLimit =
           llvm::any_of(genericOp->getOperands(), [](mlir::Value operand) {
             if (auto valueType =
-                    operand.getType().dyn_cast<mlir::ShapedType>()) {
+                    mlir::dyn_cast<mlir::ShapedType>(operand.getType())) {
               // Check if static dimension size exceeds zDNN limitations
               llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
               if (llvm::any_of(valueShape, [](int64_t dim) {
@@ -71,6 +76,9 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
             }
             return false;
           });
+      if (exceedLimit)
+        onnxToZHighUnsupportedReport(
+            op.getOperation(), "Exceed maximum dimension index size.");
       isLegalForNNPA =
           !exceedLimit && isSuitableForZDNN<OP_TYPE>(op, dimAnalysis);
     }

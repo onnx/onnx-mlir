@@ -48,15 +48,15 @@ struct ONNXLayoutTransformOpLowering
 
     // Convert the input type to MemRefType.
     Type inConvertedType = typeConverter->convertType(data.getType());
-    assert(inConvertedType && inConvertedType.isa<MemRefType>() &&
+    assert(inConvertedType && mlir::isa<MemRefType>(inConvertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType inMemRefType = inConvertedType.cast<MemRefType>();
+    MemRefType inMemRefType = mlir::cast<MemRefType>(inConvertedType);
     // Convert the output type to MemRefType.
     Type outputTensorType = *op->result_type_begin();
     Type outConvertedType = typeConverter->convertType(outputTensorType);
-    assert(outConvertedType && outConvertedType.isa<MemRefType>() &&
+    assert(outConvertedType && mlir::isa<MemRefType>(outConvertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outMemRefType = outConvertedType.cast<MemRefType>();
+    MemRefType outMemRefType = mlir::cast<MemRefType>(outConvertedType);
 
     // Note that by definition the input and output of LayoutTransformOp have
     // the same logical rank. The only difference between them should be their
@@ -82,12 +82,21 @@ struct ONNXLayoutTransformOpLowering
 
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    if (enableParallel) {
-      create.krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(op, /*successful*/ true, rank, -1,
-          "LayoutTransform op fully parallelized with perfectly nested loops");
-    }
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+
+    if (enableParallel) {
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId,
+              /*min iter for going parallel*/ 128)) {
+        onnxToKrnlParallelReport(op, /*successful*/ true, 0, lbs[0], ubs[0],
+            "LayoutTransform op fully parallelized with perfectly nested "
+            "loops");
+        create.krnl.parallel(loopDef[parId]);
+      } else {
+        onnxToKrnlParallelReport(op, /*successful*/ false, 0, lbs[0], ubs[0],
+            "not enough work for LayoutTransform op");
+      }
+    }
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           // Simply copy the input into the output.

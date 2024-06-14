@@ -57,6 +57,7 @@ typedef enum {
   NoReport,
   Parallel,  // Generates diagnostic reporting for parallel (krnl lowering).
   Simd       // Generates diagnostic reporting for SIMD (krnl lowering).
+  APPLY_TO_ACCELERATORS(ACCEL_OPTREPORT_ENUM)
   // clang-format on
 } OptReport;
 
@@ -128,6 +129,7 @@ extern ProfileIRs profileIR;                                  // onnx-mlir only
 extern OptReport optReport;                                   // onnx-mlir only
 extern bool useOldBufferization;                              // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
+extern bool enableBoundCheck;                                 // onnx-mlir only
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
 extern bool verify_passes;             // onnx-mlir-opt only

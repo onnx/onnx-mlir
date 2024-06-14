@@ -44,9 +44,11 @@ public:
 
     // If delayed but the input memref has not normalized yet, do nothing.
     if (delayed &&
-        !destMemRef.getType().cast<MemRefType>().getLayout().isIdentity())
+        !mlir::cast<MemRefType>(destMemRef.getType()).getLayout().isIdentity())
       return failure();
 
+    // TODO, Flatten, and possibly parallelize/simd. Maybe add a mode to detect
+    // if/when mem override is allowed.
     MultiDialectBuilder<AffineBuilderKrnlMem, IndexExprBuilderForKrnl> create(
         rewriter, loc);
     IndexExprScope indexScope(create.affineKMem);

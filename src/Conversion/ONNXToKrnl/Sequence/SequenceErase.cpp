@@ -40,9 +40,8 @@ struct ONNXSequenceEraseOpLowering
     Value dimSize = create.mem.dim(input_sequence, 0);
     SymbolIndexExpr boundIE(dimSize);
 
-    MemRefType outputMemRefType =
-        typeConverter->convertType(seqOp.getResult().getType())
-            .cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(
+        typeConverter->convertType(seqOp.getResult().getType()));
 
     SymbolIndexExpr outputBound = boundIE - 1;
     Value outputBoundVal = outputBound.getValue();

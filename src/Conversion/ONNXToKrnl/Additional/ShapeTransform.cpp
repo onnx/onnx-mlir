@@ -43,9 +43,9 @@ struct ONNXShapeTransformOpLowering : public ConversionPattern {
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Input and output types.
-    MemRefType inputMemRefType = input.getType().cast<MemRefType>();
-    MemRefType outputMemRefType =
-        typeConverter->convertType(*op->result_type_begin()).cast<MemRefType>();
+    MemRefType inputMemRefType = mlir::cast<MemRefType>(input.getType());
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(
+        typeConverter->convertType(*op->result_type_begin()));
     uint64_t inputRank = inputMemRefType.getRank();
     uint64_t outputRank = outputMemRefType.getRank();
 

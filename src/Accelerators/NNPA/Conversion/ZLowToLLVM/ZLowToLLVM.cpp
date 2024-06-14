@@ -103,7 +103,7 @@ public:
     ZLowStickOpAdaptor operandAdaptor(operands);
     // Do not get element type from adaptor since the type can be opaque.
     Type llvmElementTy = typeConverter->convertType(
-        stickOp.getX().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(stickOp.getX().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -157,10 +157,9 @@ public:
     ZLowStickForLSTMOp stickForLSTMOp = cast<ZLowStickForLSTMOp>(op);
 
     ZLowStickForLSTMOpAdaptor operandAdaptor(operands);
-    Type llvmElementTy = typeConverter->convertType(stickForLSTMOp.getFGate()
-                                                        .getType()
-                                                        .cast<MemRefType>()
-                                                        .getElementType());
+    Type llvmElementTy = typeConverter->convertType(
+        mlir::cast<MemRefType>(stickForLSTMOp.getFGate().getType())
+            .getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -245,7 +244,8 @@ public:
 
     ZLowStickForGRUOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        stickForGRUOp.getZGate().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(stickForGRUOp.getZGate().getType())
+            .getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -329,7 +329,7 @@ public:
 
     ZLowLSTMOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        lstmOp.getInput().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(lstmOp.getInput().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -525,7 +525,7 @@ public:
 
     ZLowGRUOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        gruOp.getInput().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(gruOp.getInput().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -679,7 +679,7 @@ public:
 
     ZLowUnstickOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        unstickOp.getOut().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(unstickOp.getOut().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -740,7 +740,7 @@ public:
     Value shape = operandAdaptor.getShape();
     Value output = operandAdaptor.getOut();
     Type llvmElementTy = typeConverter->convertType(
-        op->getOperand(0).getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(op->getOperand(0).getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -818,7 +818,7 @@ public:
     Value shape = operandAdaptor.getShape();
     Value output = operandAdaptor.getOut();
     Type llvmElementTy = typeConverter->convertType(
-        op->getOperand(0).getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(op->getOperand(0).getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -893,7 +893,7 @@ public:
 
     ZLowSoftmaxOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        softmaxOp.getX().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(softmaxOp.getX().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -976,7 +976,7 @@ public:
 
     ZLowMatMulOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        matmulOp.getX().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(matmulOp.getX().getType()).getElementType());
 
     bool stacked, broadcasting;
     if (matmulOp.getIsStacked() == -1)
@@ -1114,7 +1114,7 @@ public:
     MultiDialectBuilder<LLVMBuilder> create(rewriter, loc);
 
     Type llvmElementTy = typeConverter->convertType(
-        convOp.getInput().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(convOp.getInput().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1145,10 +1145,10 @@ public:
         convOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
-        (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
+        (int64_t)mlir::cast<IntegerAttr>(kernelShapeArrayAttr[0]).getInt());
     // kernel width
     Value KW = create.llvm.constant(llvmI64Ty,
-        (int64_t)kernelShapeArrayAttr[1].cast<IntegerAttr>().getInt());
+        (int64_t)mlir::cast<IntegerAttr>(kernelShapeArrayAttr[1]).getInt());
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1187,10 +1187,10 @@ public:
 
     // Strides
     ArrayRef<Attribute> strideArrayAttr = convOp.getStrides().getValue();
-    Value strideHeight = create.llvm.constant(
-        llvmI64Ty, (int64_t)strideArrayAttr[0].cast<IntegerAttr>().getInt());
-    Value strideWidth = create.llvm.constant(
-        llvmI64Ty, (int64_t)strideArrayAttr[1].cast<IntegerAttr>().getInt());
+    Value strideHeight = create.llvm.constant(llvmI64Ty,
+        (int64_t)mlir::cast<IntegerAttr>(strideArrayAttr[0]).getInt());
+    Value strideWidth = create.llvm.constant(llvmI64Ty,
+        (int64_t)mlir::cast<IntegerAttr>(strideArrayAttr[1]).getInt());
 
     // Activation function.
     Value actFunc;
@@ -1264,7 +1264,7 @@ public:
     Value shape = operandAdaptor.getShape();
     Value output = operandAdaptor.getOutput();
     Type llvmElementTy = typeConverter->convertType(
-        op->getOperand(0).getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(op->getOperand(0).getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1293,10 +1293,10 @@ public:
         poolOp.getKernelShape().getValue();
     // kernel height
     Value KH = create.llvm.constant(llvmI64Ty,
-        (int64_t)kernelShapeArrayAttr[0].cast<IntegerAttr>().getInt());
+        (int64_t)mlir::cast<IntegerAttr>(kernelShapeArrayAttr[0]).getInt());
     // kernel width
     Value KW = create.llvm.constant(llvmI64Ty,
-        (int64_t)kernelShapeArrayAttr[1].cast<IntegerAttr>().getInt());
+        (int64_t)mlir::cast<IntegerAttr>(kernelShapeArrayAttr[1]).getInt());
 
     // Get zDNN data type.
     zdnn_data_types zDNNDataType = llvmTypeToZDNNType(llvmElementTy);
@@ -1321,10 +1321,10 @@ public:
 
     // Strides
     ArrayRef<Attribute> strideArrayAttr = poolOp.getStrides().getValue();
-    Value strideHeight = create.llvm.constant(
-        llvmI64Ty, (int64_t)strideArrayAttr[0].cast<IntegerAttr>().getInt());
-    Value strideWidth = create.llvm.constant(
-        llvmI64Ty, (int64_t)strideArrayAttr[1].cast<IntegerAttr>().getInt());
+    Value strideHeight = create.llvm.constant(llvmI64Ty,
+        (int64_t)mlir::cast<IntegerAttr>(strideArrayAttr[0]).getInt());
+    Value strideWidth = create.llvm.constant(llvmI64Ty,
+        (int64_t)mlir::cast<IntegerAttr>(strideArrayAttr[1]).getInt());
 
     // Create zTensor for output.
     stickI8Ptr = zTensorHelper.getAlignedI8Ptr(output);
@@ -1365,7 +1365,7 @@ public:
 
     ZLowMeanReduce2DOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        meanOp.getInput().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(meanOp.getInput().getType()).getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);
@@ -1433,7 +1433,8 @@ public:
 
     ZLowBatchNormOpAdaptor operandAdaptor(operands);
     Type llvmElementTy = typeConverter->convertType(
-        batchnormOp.getInput().getType().cast<MemRefType>().getElementType());
+        mlir::cast<MemRefType>(batchnormOp.getInput().getType())
+            .getElementType());
 
     ZTensorHelper zTensorHelper =
         ZTensorHelper(rewriter, loc, module, apiRegistry);

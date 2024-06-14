@@ -67,10 +67,10 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
     DimsExpr dataDims, indicesDims;
     create.krnlIE.getShapeAsDims(data, dataDims);
     create.krnlIE.getShapeAsDims(indices, indicesDims);
-    auto dataType = data.getType().cast<ShapedType>();
+    auto dataType = mlir::cast<ShapedType>(data.getType());
     int64_t dataRank = dataDims.size();
     int64_t indicesRank = indicesDims.size();
-    auto indicesType = indices.getType().cast<ShapedType>();
+    auto indicesType = mlir::cast<ShapedType>(indices.getType());
     ArrayRef<int64_t> indicesShape = indicesType.getShape();
     int64_t indicesLastDim = indicesShape[indicesRank - 1];
     // ToFix: Handle case in which indicesLastDim is kDynamic.
@@ -80,7 +80,7 @@ struct ONNXGatherNDOpLowering : public OpConversionPattern<ONNXGatherNDOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
     DimsExpr outputDims = shapeHelper.getOutputDims();
 

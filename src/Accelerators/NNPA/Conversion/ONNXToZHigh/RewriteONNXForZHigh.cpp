@@ -47,7 +47,7 @@ namespace onnx_mlir {
 /// A = scale / sqrt(var + epsilon)
 Value getSqrtResultBatchNormA(
     Location loc, PatternRewriter &rewriter, Value var, FloatAttr epsilon) {
-  Type elementType = var.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(var.getType()).getElementType();
   MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
 
   // epsilon
@@ -195,7 +195,8 @@ bool isDefinedByONNXConstantOp(Value v) {
 bool canInferencePadsForNNPAConv(ONNXConvOp op) {
   ONNXConvOpShapeHelper shapeHelper(op.getOperation(), {});
   shapeHelper.computeShapeAndAssertOnFailure();
-  RankedTensorType inputType = op.getX().getType().cast<RankedTensorType>();
+  RankedTensorType inputType =
+      mlir::cast<RankedTensorType>(op.getX().getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   // dimension of inferenced pads should be 4D
   if (shapeHelper.pads.size() != 4)
@@ -242,9 +243,10 @@ DenseElementsAttr insertZerosForNonPaddedDims(
   int nElements = (nDims + extensionLength) * 2;
   SmallVector<int64_t, 4> pads(nElements, 0);
   for (int i = 0; i < nDims; ++i) {
-    int64_t beginPad = origAttrs.getValue()[i].cast<IntegerAttr>().getInt();
+    int64_t beginPad =
+        mlir::cast<IntegerAttr>(origAttrs.getValue()[i]).getInt();
     int64_t endPad =
-        origAttrs.getValue()[nDims + i].cast<IntegerAttr>().getInt();
+        mlir::cast<IntegerAttr>(origAttrs.getValue()[nDims + i]).getInt();
     pads[i + extensionLength] = beginPad;
     pads[nDims + extensionLength + i + extensionLength] = endPad;
   }
@@ -253,7 +255,8 @@ DenseElementsAttr insertZerosForNonPaddedDims(
 
 DenseElementsAttr createDenseFloatAttrOfValue(
     PatternRewriter &rewriter, Value origValue, float constantValue) {
-  Type elementType = origValue.getType().cast<TensorType>().getElementType();
+  Type elementType =
+      mlir::cast<TensorType>(origValue.getType()).getElementType();
   SmallVector<float, 1> wrapper(1, 0);
   wrapper[0] = constantValue;
   return DenseElementsAttr::get(
@@ -271,13 +274,13 @@ ArrayAttr createArrayAttrOfZeros(
 
 // Create Type for Padded input
 Type CreatePaddedXType(Value x, ArrayAttr pads) {
-  RankedTensorType inputType = x.getType().cast<RankedTensorType>();
+  RankedTensorType inputType = mlir::cast<RankedTensorType>(x.getType());
   ArrayRef<int64_t> inputShape = inputType.getShape();
   Type elementType = inputType.getElementType();
   SmallVector<int64_t, 4> paddingShape(4, 0);
   if (pads) {
     for (int i = 0; i < 4; i++) {
-      paddingShape[i] = pads.getValue()[i].cast<IntegerAttr>().getInt();
+      paddingShape[i] = mlir::cast<IntegerAttr>(pads.getValue()[i]).getInt();
     }
   }
   SmallVector<int64_t, 4> paddedShape = {inputShape[0], inputShape[1],
@@ -305,7 +308,7 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
 ///         ^ |       A2               |     | |           |           |     |
 ///  N-MDIS | |                        |     v |           |           |     |
 ///         v +------------------------+       +-----------+-----------+-----+
-///                                                         
+///
 /// Then,
 /// - for A1, do (A1 * B1), (A1 * B2), (A1 * B3), and concat the results to get (A1*B)
 /// - for A2, do (A2 * B1), (A2 * B2), (A2 * B3), and concat the results to get (A2*B)
@@ -530,9 +533,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -545,9 +548,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -558,9 +561,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -571,9 +574,9 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
         // Check element type.
-        if (!isValidElementTypeAndRank(op.getA(), true))
+        if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
         return !((isDefinedByONNXConstantOp(op.getA()) &&
                      isUniBroadcatableFirstToSecond(op.getA(), op.getB())) ||
@@ -595,18 +598,20 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
 
         Value A = op.getA();
         Value B = op.getB();
         Type aType = A.getType();
         Type bType = B.getType();
-        if (!isRankedShapedType(aType) || !isRankedShapedType(bType))
-          return true;
+        if (!isRankedShapedType(aType) || !isRankedShapedType(bType)) {
+          std::string message = "A or B is not shaped type with rank";
+          return !onnxToZHighUnsupportedReport(op.getOperation(), message);
+        }
         // Check element type.
-        if (!isValidElementTypeAndRank(A, true))
+        if (!isValidElementTypeAndRank(op.getOperation(), A, true))
           return true;
-        if (!isValidElementTypeAndRank(B, true))
+        if (!isValidElementTypeAndRank(op.getOperation(), B, true))
           return true;
 
         int64_t aRank = getRank(aType);
@@ -623,19 +628,32 @@ void getRewriteONNXForZHighDynamicallyLegal(
         // - one input is N-D (N > 3) and the other is 2-D.
         if (aRank == 2 && bRank > 3)
           return false;
+
         if (bRank == 2 && aRank > 3)
           return false;
 
         // - both inputs are *the same* N-D, N > 3 and there is no broadcasting
         if (aRank > 3 && (aRank == bRank)) {
           bool sameBatchDims = true;
+          std::string message = "";
           for (int64_t i = 0; i < aRank - 2; ++i) {
             sameBatchDims &= (aShape[i] == bShape[i]);
-            if (sameBatchDims && ShapedType::isDynamic(aShape[i]))
-              sameBatchDims =
+            if (aShape[i] != bShape[i])
+              message += "The dim " + std::to_string(i) + " of A and dim " +
+                         std::to_string(i) + " of B are not the same.";
+
+            if (sameBatchDims && ShapedType::isDynamic(aShape[i])) {
+              sameBatchDims &=
                   dimAnalysis->sameDynDim(op.getA(), i, op.getB(), i);
+              if (!sameBatchDims)
+                message += "The dynamic dimension analysis couldn't identify "
+                           "that dim " +
+                           std::to_string(i) + " of A and dim " +
+                           std::to_string(i) + " of B are the same.";
+            }
           }
-          return !sameBatchDims;
+          return (!sameBatchDims) ||
+                 onnxToZHighUnsupportedReport(op.getOperation(), message);
         }
 
         // Make other cases legal.
@@ -650,17 +668,28 @@ void getRewriteONNXForZHighDynamicallyLegal(
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return true;
+          return !onnxToZHighInCompatibilityReport(op.getOperation());
+
         Value input = op.getInput();
-        if (auto shapedType = input.getType().dyn_cast<RankedTensorType>()) {
+        // std::string message = "The `input` is not reshaped to 3D because it
+        // is not ranked tensor type.";
+        if (auto shapedType =
+                mlir::dyn_cast<RankedTensorType>(input.getType())) {
           // Check element type.
-          if (!isValidElementTypeAndRank(input, true))
+          if (!isValidElementTypeAndRank(op.getOperation(), input, true))
             return true;
           // Check rank.
-          if ((shapedType.getRank() > 3) &&
-              ((op.getAxis() == shapedType.getRank() - 1) ||
-                  (op.getAxis() == -1))) {
+          bool isAxisLastDim = (op.getAxis() == shapedType.getRank() - 1) ||
+                               (op.getAxis() == -1);
+          if ((shapedType.getRank() > 3) && isAxisLastDim)
             return false;
+          else {
+            if ((shapedType.getRank() > 3) && !isAxisLastDim) {
+              std::string message = "the `axis`(" +
+                                    std::to_string(op.getAxis()) +
+                                    ") is not the last dimension.";
+              return !onnxToZHighUnsupportedReport(op.getOperation(), message);
+            }
           }
         }
         return true;

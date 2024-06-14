@@ -36,8 +36,8 @@ struct ONNXScatterNDOpLoweringToStablehlo
     Value data = adaptor.getData();
     Value updates = adaptor.getUpdates();
     Value indices = adaptor.getIndices();
-    auto dataType = data.getType().cast<ShapedType>();
-    auto indicesType = indices.getType().cast<ShapedType>();
+    auto dataType = mlir::cast<ShapedType>(data.getType());
+    auto indicesType = mlir::cast<ShapedType>(indices.getType());
     int64_t dataRank = dataType.getRank();
     int64_t indicesRank = indicesType.getRank();
     if (indicesType.isDynamicDim(indicesRank - 1))
@@ -50,7 +50,7 @@ struct ONNXScatterNDOpLoweringToStablehlo
 
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = outputType.cast<ShapedType>();
+    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
     int64_t outputRank = outputShapedType.getRank();
     assert(outputRank == dataRank && "Output rank not equal to data rank");
     auto scatter_dimension_numbers =
@@ -60,6 +60,8 @@ struct ONNXScatterNDOpLoweringToStablehlo
             llvm::to_vector<4>(llvm::seq<int64_t>(partialIdxDim, dataRank)),
             /*insertedWindowDims*/
             llvm::to_vector<4>(llvm::seq<int64_t>(0, partialIdxDim)),
+            /*inputBatchingDims=*/{},
+            /*scatterIndicesBatchingDims=*/{},
             /*scatterDimsToOperandDims*/
             llvm::to_vector<4>(llvm::seq<int64_t>(0, partialIdxDim)),
             /*indexVectorDim=*/indicesRank - 1);

@@ -45,16 +45,22 @@ func.func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi
 // CHECK:           [[VAR_20_:%.+]] = arith.select [[VAR_19_]], [[CST_32_]], [[VAR_18_]] : index
 // CHECK:           [[VAR_21_:%.+]] = arith.cmpi eq, [[VAR_20_]], [[CST_minus_1_]] : index
 // CHECK:           [[VAR_22_:%.+]] = arith.select [[VAR_21_]], [[CST_1_]], [[VAR_20_]] : index
-// CHECK:           [[VAR_23_:%.+]] = arith.muli [[VAR_17_]], [[VAR_22_]] : index
-// CHECK:           [[VAR_24_:%.+]] = arith.floordivsi [[CST_800_]], [[VAR_23_]] : index
-// CHECK-DAG:       [[VAR_25_:%.+]] = arith.select [[VAR_4_]], [[VAR_24_]], [[VAR_3_]] : index
-// CHECK-DAG:       [[VAR_26_:%.+]] = arith.select [[VAR_9_]], [[VAR_24_]], [[VAR_8_]] : index
-// CHECK-DAG:       [[VAR_27_:%.+]] = arith.select [[VAR_15_]], [[VAR_24_]], [[VAR_14_]] : index
-// CHECK-DAG:       [[VAR_28_:%.+]] = arith.select [[VAR_21_]], [[VAR_24_]], [[VAR_20_]] : index
-// CHECK:           [[VAR_29_:%.+]] = shape.from_extents [[VAR_25_]], [[VAR_26_]], [[VAR_27_]], [[VAR_28_]] : index, index, index, index
-// CHECK:           [[VAR_30_:%.+]] = shape.to_extent_tensor [[VAR_29_]] : !shape.shape -> tensor<4xindex>
-// CHECK:           [[VAR_31_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_30_]] : (tensor<5x5x1x32xf32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
-// CHECK:           return [[VAR_31_]] : tensor<?x?x?x?xf32>
+// CHECK-DAG:       [[VAR_23_:%.+]] = arith.muli [[VAR_17_]], [[VAR_22_]] : index
+// CHECK-DAG:       [[VAR_24_:%.+]] = arith.cmpi eq, [[VAR_1_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_25_:%.+]] = arith.floordivsi [[CST_800_]], [[VAR_23_]] : index
+// CHECK-DAG:       [[VAR_26_:%.+]] = arith.select [[VAR_24_]], [[VAR_25_]], [[VAR_3_]] : index
+// CHECK-DAG:       [[VAR_27_:%.+]] = arith.cmpi eq, [[VAR_6_]], [[CST_minus_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_28_:%.+]] = arith.select [[VAR_27_]], [[VAR_25_]], [[VAR_8_]] : index
+// CHECK-DAG:       [[VAR_29_:%.+]] = arith.cmpi eq, [[VAR_12_]], [[CST_minus_1_]] : index
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:       [[VAR_30_:%.+]] = arith.select [[VAR_29_]], [[VAR_25_]], [[VAR_14_]] : index
+// CHECK-DAG:       [[VAR_31_:%.+]] = arith.cmpi eq, [[VAR_18_]], [[CST_minus_1_]] : index
+// CHECK:           [[VAR_32_:%.+]] = arith.select [[VAR_31_]], [[VAR_25_]], [[VAR_20_]] : index
+// CHECK:           [[VAR_33_:%.+]] = shape.from_extents [[VAR_26_]], [[VAR_28_]], [[VAR_30_]], [[VAR_32_]] : index, index, index, index
+// CHECK:           [[VAR_34_:%.+]] = shape.to_extent_tensor [[VAR_33_]] : !shape.shape -> tensor<4xindex>
+// CHECK:           [[VAR_35_:%.+]] = stablehlo.dynamic_reshape [[PARAM_0_]], [[VAR_34_]] : (tensor<5x5x1x32xf32>, tensor<4xindex>) -> tensor<?x?x?x?xf32>
+// CHECK:           return [[VAR_35_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
 }
 

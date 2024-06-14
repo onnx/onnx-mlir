@@ -33,10 +33,10 @@ struct ONNXDimOpLoweringToStablehlo : public ConversionPattern {
 
     // Check that axisLit is a valid dimension index
     Value tensorArg = operands[0];
-    assert(tensorArg.getType().isa<RankedTensorType>() &&
+    assert(mlir::isa<RankedTensorType>(tensorArg.getType()) &&
            "Expected ranked tensor type");
 
-    int64_t rank = tensorArg.getType().cast<RankedTensorType>().getRank();
+    int64_t rank = mlir::cast<RankedTensorType>(tensorArg.getType()).getRank();
 
     assert((axisLit >= 0 && axisLit < rank) &&
            "Axis must be in the range [0, input tensor rank - 1]");
@@ -45,7 +45,7 @@ struct ONNXDimOpLoweringToStablehlo : public ConversionPattern {
     Value dimValue =
         rewriter.create<shape::GetExtentOp>(loc, inputShape, axisLit);
     Type dimType = dimOp.getDim().getType();
-    Type indexValueType = dimType.cast<ShapedType>().getElementType();
+    Type indexValueType = mlir::cast<ShapedType>(dimType).getElementType();
     Value castedIndex =
         rewriter.create<arith::IndexCastOp>(loc, indexValueType, dimValue);
     Value indexTensor = rewriter.create<tensor::FromElementsOp>(

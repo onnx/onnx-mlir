@@ -32,7 +32,7 @@ def KeepdimsTrue
                      "/*isSigned=*/true), APInt(64, 1, /*isSigned=*/true))">;
 
 def KeepdimsIsTrue
-    : Constraint<CPred<"$_self.cast<IntegerAttr>().getSInt() == 1">,
+    : Constraint<CPred<"mlir::cast<IntegerAttr>($_self).getSInt() == 1">,
           "keepdims attribute is true">;
 
 def ONNXConstantOpNormalize: NativeCodeCall<
@@ -42,10 +42,10 @@ def AttributeIsNull : Constraint<CPred<"! ($_self)">, "Attribute is null">;
 
 def AttributeIsNotNull : Constraint<CPred<"($_self)">, "Attribute is not null">;
 
-def HasFloatType : Constraint<CPred<"(($_self).getType().dyn_cast<ShapedType>()"
+def HasFloatType : Constraint<CPred<"(mlir::dyn_cast<ShapedType>(($_self).getType())"
                                     ".getElementType().isF32())">>;
 
-def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
+def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
 def GetNullAttr : NativeCodeCall<"Attribute()">;
 
@@ -97,7 +97,12 @@ def createSequenceConstructOp : NativeCodeCall<
 
 def ONNXDataType : NativeCodeCall<
   "IntegerAttr::get($_builder.getIntegerType(64, /*isSigned=*/true), "
-  "::onnx_mlir::mlirTypeToOnnxType($0.getType().front().cast<ShapedType>().getElementType()))">;
+  "::onnx_mlir::mlirTypeToOnnxType(mlir::cast<ShapedType>($0.getType().front()).getElementType()))">;
+
+// Check if value has a type that is ranked with a shape.
+def HasRankAndShape:
+  Constraint<CPred<"::onnx_mlir::isRankedShapedType($_self.getType())">,
+  "A value has rank and shape">;
 
 //===----------------------------------------------------------------------===//
 // ONNXReduceL1Op %X = ONNXReduceSumOp (ONNXAbsOp %X)
@@ -226,7 +231,7 @@ def UpsamplePattern : Pat<
   (ONNXUpsampleOp $x, $scales, $mode),
   (ONNXResizeOp $x, (CreateNoneValue), $scales, (CreateNoneValue),
      (GetNullIntegerAttr), (GetNullArrayAttr), (GetNullStringAttr),
-     (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr), 
+     (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr),
      $mode, (GetNullFloatAttr))
 >;
 
@@ -235,7 +240,7 @@ def UpsampleV7Pattern : Pat<
   (ONNXResizeOp $x, (CreateNoneValue),
      (ONNXConstantOpFromDenseAttr(createDenseArrayAttr $scales)),
      (CreateNoneValue), (GetNullIntegerAttr), (GetNullArrayAttr), (GetNullStringAttr),
-     (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr), 
+     (GetNullFloatAttr), (GetNullIntegerAttr), (GetNullFloatAttr), (GetNullStringAttr),
      $mode, (GetNullFloatAttr))
 >;
 
@@ -400,7 +405,7 @@ def ScatterPattern : Pat<
 >;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceL1V13Op %X -> ONNXReduceL1Op %X = 
+// ONNXReduceL1V13Op %X -> ONNXReduceL1Op %X =
 //===----------------------------------------------------------------------===//
 def ReduceL1V13OpPattern1
     : Pat<(ONNXReduceL1V13Op $oprd, $axes, $keepdims),
@@ -416,7 +421,7 @@ def ReduceL1V13OpPattern2
           [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceL2V13Op %X -> ONNXReduceL2Op %X = 
+// ONNXReduceL2V13Op %X -> ONNXReduceL2Op %X =
 //===----------------------------------------------------------------------===//
 def ReduceL2V13OpPattern1
     : Pat<(ONNXReduceL2V13Op $oprd, $axes, $keepdims),
@@ -432,7 +437,7 @@ def ReduceL2V13OpPattern2
           [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceLogSumV13Op %X -> ONNXReduceLogSumOp %X = 
+// ONNXReduceLogSumV13Op %X -> ONNXReduceLogSumOp %X =
 //===----------------------------------------------------------------------===//
 def ReduceLogSumV13OpPattern1
     : Pat<(ONNXReduceLogSumV13Op $oprd, $axes, $keepdims),
@@ -448,7 +453,7 @@ def ReduceLogSumV13OpPattern2
           [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceLogSumExpV13Op %X -> ONNXReduceLogSumExpOp %X = 
+// ONNXReduceLogSumExpV13Op %X -> ONNXReduceLogSumExpOp %X =
 //===----------------------------------------------------------------------===//
 def ReduceLogSumExpV13OpPattern1
     : Pat<(ONNXReduceLogSumExpV13Op $oprd, $axes, $keepdims),
@@ -464,7 +469,7 @@ def ReduceLogSumExpV13OpPattern2
           [], [], (addBenefit 0)>;
 
 //===----------------------------------------------------------------------===//
-// ONNXReduceSumSquareV13Op %X -> ONNXReduceSumSquareOp %X = 
+// ONNXReduceSumSquareV13Op %X -> ONNXReduceSumSquareOp %X =
 //===----------------------------------------------------------------------===//
 def ReduceSumSquareV13OpPattern1
     : Pat<(ONNXReduceSumSquareV13Op $oprd, $axes, $keepdims),
@@ -537,7 +542,7 @@ def ConvTransposeOpPattern1: Pattern<
        (GetNullStringAttr), $dilation, $group, $kernel_shape, $new_pads, $strides),
     (insertAdditionalPadsConvTranspose $conv_res, $res)
    ],
-   [(ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
+   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res), (HasUnitStrides:$strides)], [],
    (addBenefit 1)
 >;
 
@@ -554,7 +559,7 @@ def ConvTransposeOpPattern2: Pattern<
     (insertAdditionalPadsConvTranspose
         $conv_res, $res)
    ],
-   [(ShouldDecomposeConvTransposeOp:$res)], [],
+   [(HasRankAndShape:$res), (ShouldDecomposeConvTransposeOp:$res)], [],
    (addBenefit 0)
 >;
 
@@ -565,7 +570,7 @@ def ConvTransposeOpPattern2: Pattern<
 
 def ConstantOfShapePattern: Pat<
   (ONNXConstantOfShapeOp:$res $shape, $value),
-  (ONNXExpandOp (ONNXConstantOpFromDenseAttr (ReshapeElementsAttrToRank0 $value)), 
+  (ONNXExpandOp (ONNXConstantOpFromDenseAttr (ReshapeElementsAttrToRank0 $value)),
                 $shape)
 >;
 

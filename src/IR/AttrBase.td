@@ -15,15 +15,15 @@
 
 include "mlir/IR/AttrTypeBase.td"
 
-// Attribute for tensor layouts. 
+// Attribute for tensor layouts.
 class BaseLayoutAttr<Dialect dialect, string name, list<Trait> traits = []>
 	: AttrDef<dialect, name, traits> {
   let mnemonic = "layout";
 }
 
 def LayoutAttr : Attr<
-  CPred<"$_self.isa<::mlir::Attribute>() ">,
-        //"&& $_self.cast<Attribute>().getMnemonic().equal(\"layout\")">,
+  CPred<"mlir::isa<::mlir::Attribute>($_self) ">,
+        //"&& mlir::cast<Attribute>($_self).getMnemonic().equal(\"layout\")">,
   "layout attribute"
 >;
 

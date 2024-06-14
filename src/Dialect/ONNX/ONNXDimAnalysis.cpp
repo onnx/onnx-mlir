@@ -71,7 +71,7 @@ static std::optional<DimAnalysis::DimT> insertDimWhenUseful(const Value tensor,
   uint64_t axis = dimIndex;
 
   bool okToInsert = false;
-  if (tensor.isa<BlockArgument>()) {
+  if (mlir::isa<BlockArgument>(tensor)) {
     okToInsert = true;
   } else {
     Operation *op = tensor.getDefiningOp();
@@ -550,7 +550,7 @@ void DimAnalysis::buildFunctionArgsRes(func::FuncOp funcOp) {
   auto buildFor = [&paramSetMap, this](ValueRange args, ArrayAttr argAttrs) {
     for (size_t argPos = 0; argPos < args.size(); ++argPos) {
       Value arg = args[argPos];
-      auto tensorType = arg.getType().dyn_cast<RankedTensorType>();
+      auto tensorType = mlir::dyn_cast<RankedTensorType>(arg.getType());
       if (!tensorType)
         continue;
       // Get dim_params if exists.
@@ -603,7 +603,7 @@ void DimAnalysis::buildFunctionArgsRes(func::FuncOp funcOp) {
 }
 
 void DimAnalysis::build(Value val) {
-  if (auto tensorType = val.getType().dyn_cast<RankedTensorType>()) {
+  if (auto tensorType = mlir::dyn_cast<RankedTensorType>(val.getType())) {
     for (unsigned i = 0; i < tensorType.getRank(); ++i) {
       // Only care about dynamic dimensions.
       if (tensorType.isDynamicDim(i)) {
@@ -624,8 +624,8 @@ void DimAnalysis::build(Value val) {
 bool DimAnalysis::sameDim(
     Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
   // Handle negative axis and test if in bound.
-  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
-  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  ShapedType tensor1Type = mlir::cast<ShapedType>(tensor1.getType());
+  ShapedType tensor2Type = mlir::cast<ShapedType>(tensor2.getType());
   if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
       !handleAndTestInBound(dimAxis2, tensor2Type))
     return false;
@@ -647,8 +647,8 @@ bool DimAnalysis::sameDim(
 bool DimAnalysis::sameDynDim(
     Value tensor1, int64_t dimAxis1, Value tensor2, int64_t dimAxis2) const {
   // Handle negative axis and test if in bound.
-  ShapedType tensor1Type = tensor1.getType().cast<ShapedType>();
-  ShapedType tensor2Type = tensor2.getType().cast<ShapedType>();
+  ShapedType tensor1Type = mlir::cast<ShapedType>(tensor1.getType());
+  ShapedType tensor2Type = mlir::cast<ShapedType>(tensor2.getType());
   if (!handleAndTestInBound(dimAxis1, tensor1Type) ||
       !handleAndTestInBound(dimAxis2, tensor2Type))
     return false;
@@ -669,7 +669,7 @@ bool DimAnalysis::sameDynDim(
 bool DimAnalysis::sameShape(Value tensor1, Value tensor2) const {
   if (!sameRank(tensor1, tensor2))
     return false;
-  unsigned rank = tensor1.getType().cast<ShapedType>().getRank();
+  unsigned rank = mlir::cast<ShapedType>(tensor1.getType()).getRank();
   // Check each dimension.
   for (unsigned i = 0; i < rank; ++i) {
     if (!sameDim(tensor1, i, tensor2, i))
@@ -681,8 +681,10 @@ bool DimAnalysis::sameShape(Value tensor1, Value tensor2) const {
 bool DimAnalysis::sameDynShape(Value tensor1, Value tensor2) const {
   if (!sameRank(tensor1, tensor2))
     return false;
-  ArrayRef<int64_t> shape1 = tensor1.getType().cast<ShapedType>().getShape();
-  ArrayRef<int64_t> shape2 = tensor2.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shape1 =
+      mlir::cast<ShapedType>(tensor1.getType()).getShape();
+  ArrayRef<int64_t> shape2 =
+      mlir::cast<ShapedType>(tensor2.getType()).getShape();
   // Check each dimension.
   for (unsigned i = 0; i < shape1.size(); ++i) {
     int64_t dim1 = shape1[i];
@@ -700,7 +702,8 @@ bool DimAnalysis::sameDynShape(Value tensor1, Value tensor2) const {
 bool DimAnalysis::broadcastLastDim(Value tensor1, Value tensor2) const {
   if (!sameRank(tensor1, tensor2))
     return false;
-  ArrayRef<int64_t> shape1 = tensor1.getType().cast<ShapedType>().getShape();
+  ArrayRef<int64_t> shape1 =
+      mlir::cast<ShapedType>(tensor1.getType()).getShape();
   unsigned rank = shape1.size();
   // The last dimension of tensor1 must be 1, so that tensor1 is broadcasting
   // to tensor2.
@@ -738,10 +741,8 @@ void DimAnalysis::getONNXDimParams(
   DictionaryAttr dictAttr = llvm::dyn_cast<DictionaryAttr>(argResAttr[index]);
   if (dictAttr && dictAttr.contains("onnx.dim_params")) {
     // onnx.dim_params = dimIndex:dimParam,dimIndex:dimParam,...
-    StringRef dimParams = dictAttr.getNamed("onnx.dim_params")
-                              .value()
-                              .getValue()
-                              .cast<StringAttr>()
+    StringRef dimParams = mlir::cast<StringAttr>(
+        dictAttr.getNamed("onnx.dim_params").value().getValue())
                               .getValue();
     SmallVector<StringRef, 4> splittedDimParams;
     dimParams.split(splittedDimParams, ',');
@@ -850,7 +851,7 @@ void DimAnalysis::visitDim(
   // operation's shape helper for this purpose as much as possible.
 
   // Tensor is a block argument. There is no defining operator to explore.
-  if (tensor.isa<BlockArgument>())
+  if (mlir::isa<BlockArgument>(tensor))
     return;
 
   // Get the defining operator.
@@ -877,7 +878,7 @@ void DimAnalysis::visitDim(
 
   // All dimensions in the analysis must be dynamic. If not, something really
   // wrong happened.
-  ShapedType ty = tensor.getType().cast<ShapedType>();
+  ShapedType ty = mlir::cast<ShapedType>(tensor.getType());
   assert(ty.isDynamicDim(dimIndex) && "There is a static dim in the analysis. "
                                       "Something really wrong happened.");
 
@@ -1062,7 +1063,7 @@ void ONNXDimAnalysisPass::runOnOperation() {
       Value val = ti.first;
       uint64_t dimAxis = ti.second;
       Location loc = val.getLoc();
-      if (auto arg = val.dyn_cast<BlockArgument>()) {
+      if (auto arg = mlir::dyn_cast<BlockArgument>(val)) {
         Block *owner = arg.getOwner();
         b = OpBuilder::atBlockBegin(owner);
       } else {

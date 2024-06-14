@@ -46,9 +46,9 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
 
     // Insert an allocation and deallocation for the output of this operation.
     Value alloc =
@@ -58,8 +58,8 @@ struct ONNXGatherOpLowering : public OpConversionPattern<ONNXGatherOp> {
     Value data = adaptor.getData();
     Value indices = adaptor.getIndices();
     int64_t axisLit = adaptor.getAxis();
-    int64_t dataRank = data.getType().cast<MemRefType>().getRank();
-    int64_t indicesRank = indices.getType().cast<MemRefType>().getRank();
+    int64_t dataRank = mlir::cast<MemRefType>(data.getType()).getRank();
+    int64_t indicesRank = mlir::cast<MemRefType>(indices.getType()).getRank();
 
     // Determine whether indices may be negative.
     bool indicesMayBeNegative = !indicesAreNonNegativeConstants(indices);

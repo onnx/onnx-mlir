@@ -70,9 +70,9 @@ LogicalResult ONNXRangeOp::verify() {
       !hasShapeAndRank(getDelta()))
     return success();
 
-  auto startTensorTy = getStart().getType().cast<RankedTensorType>();
-  auto limitTensorTy = getLimit().getType().cast<RankedTensorType>();
-  auto deltaTensorTy = getDelta().getType().cast<RankedTensorType>();
+  auto startTensorTy = mlir::cast<RankedTensorType>(getStart().getType());
+  auto limitTensorTy = mlir::cast<RankedTensorType>(getLimit().getType());
+  auto deltaTensorTy = mlir::cast<RankedTensorType>(getDelta().getType());
 
   // Only rank 0 or 1 input tensors are supported.
   if (startTensorTy.getShape().size() > 1)
@@ -125,7 +125,7 @@ LogicalResult ONNXRangeOp::inferShapes(
     return success();
 
   Type elementType =
-      getStart().getType().cast<RankedTensorType>().getElementType();
+      mlir::cast<RankedTensorType>(getStart().getType()).getElementType();
   ONNXRangeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

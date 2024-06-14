@@ -43,12 +43,12 @@ Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
 template <typename Op>
 static void CheckIfCustomScalarOpIsSupported(Type elementType) {
   Type actualElementType = MathBuilder::elementTypeWithVector(elementType);
-  if (actualElementType.isa<mlir::IntegerType>()) {
+  if (mlir::isa<mlir::IntegerType>(actualElementType)) {
     if constexpr (std::is_same<ScalarIOp<Op>, CustomScalarOp>::value)
       return;
     llvm_unreachable("this op does not support custom scalar for integers");
   }
-  if (actualElementType.isa<mlir::FloatType>()) {
+  if (mlir::isa<mlir::FloatType>(actualElementType)) {
     if constexpr (std::is_same<ScalarFOp<Op>, CustomScalarOp>::value)
       return;
     llvm_unreachable("this op does not support custom scalar for floats");
@@ -1137,7 +1137,7 @@ Value emitScalarOpFor<ONNXEqualOp>(ConversionPatternRewriter &rewriter,
   // If the two input values are a string then we want to use the krnlStrnCmp.
   // However, if the input values are a float or an int we can simply use the
   // equal function.
-  if (inputElemType.isa<krnl::StringType>()) {
+  if (mlir::isa<krnl::StringType>(inputElemType)) {
     Value strlenRes = create.krnl.strlen(lhs);
     Value strncmpRes = create.krnl.strncmp(lhs, rhs, strlenRes);
     // Confirm the strncmp is indeed valid. strncmp returns a value of 0 if the
@@ -1573,7 +1573,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
             loadedVals.emplace_back(flatOper);
             continue;
           }
-          MemRefType memRefType = flatOper.getType().dyn_cast<MemRefType>();
+          MemRefType memRefType =
+              mlir::dyn_cast<MemRefType>(flatOper.getType());
           assert(memRefType && "expected memref");
           VectorType vecType =
               VectorType::get({VL}, memRefType.getElementType());
@@ -1583,7 +1584,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
             if (hasOneElement(flatOper)) {
               // Not flattened, with only 1 dims, just put zeros as needed.
               int64_t scalarRank =
-                  flatOper.getType().dyn_cast<ShapedType>().getRank();
+                  mlir::dyn_cast<ShapedType>(flatOper.getType()).getRank();
               for (int r = 0; r < scalarRank; ++r)
                 scalarAccessFct.emplace_back(LiteralIndexExpr(0));
 
@@ -2048,7 +2049,8 @@ struct ONNXElementwiseUnaryOpLowering
     // If type is scalar or vector, there is no need to allocate a buffer.
     // Just call scalar computation and return the result. This is efficient
     // when elementwise ops are used as activations for ops like LSTM/GRU/RNN.
-    if (!X.getType().isa<TensorType>() && !X.getType().isa<MemRefType>()) {
+    if (!mlir::isa<TensorType>(X.getType()) &&
+        !mlir::isa<MemRefType>(X.getType())) {
       SmallVector<Value> args;
       args.emplace_back(X);
       // Load the remaining (scalar) values.
@@ -2057,8 +2059,8 @@ struct ONNXElementwiseUnaryOpLowering
           args.emplace_back(operands[i]);
           continue;
         }
-        assert(!operands[i].getType().isa<TensorType>() &&
-               !operands[i].getType().isa<MemRefType>() &&
+        assert(!mlir::isa<TensorType>(operands[i].getType()) &&
+               !mlir::isa<MemRefType>(operands[i].getType()) &&
                "unary expected scalar additional values");
         args.emplace_back(operands[i]);
       }
@@ -2073,9 +2075,9 @@ struct ONNXElementwiseUnaryOpLowering
     Type convertedType = this->typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     int64_t outputRank = outputMemRefType.getRank();
     Type elementType = outputMemRefType.getElementType();
 
@@ -2227,9 +2229,9 @@ struct ONNXElementwiseBinaryOpLowering
     Type convertedType = this->typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Type outputElementType = outputMemRefType.getElementType();
     uint64_t outputRank = outputMemRefType.getRank();
 
@@ -2404,9 +2406,9 @@ struct ONNXElementwiseVariadicOpLowering
     Type convertedType = this->typeConverter->convertType(outputTensorType);
     int64_t alignment =
         KrnlTypeConverter::getDefaultAllocAlignment(outputTensorType);
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Type outputElementType = outputMemRefType.getElementType();
     uint64_t outputRank = outputMemRefType.getRank();
 
@@ -2583,9 +2585,9 @@ struct ONNXWhereOpLowering : public ConversionPattern {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     uint64_t outputRank = outputMemRefType.getRank();
     ONNXWhereOpAdaptor operandAdaptor(operands);
 

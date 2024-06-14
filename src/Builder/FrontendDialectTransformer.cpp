@@ -255,7 +255,7 @@ private:
 
   static onnx::TypeProto fromMlirToONNXType(Type mlirType) {
     onnx::TypeProto onnxType;
-    if (mlirType.isa<NoneType>()) {
+    if (mlir::isa<NoneType>(mlirType)) {
       // Done: Uninitialized TypeProto onnxType represents NoneType.
     } else if (auto mlirTensorType = dyn_cast<TensorType>(mlirType)) {
       onnx::TypeProto::Tensor &onnxTensorType = *onnxType.mutable_tensor_type();
@@ -340,9 +340,10 @@ private:
       assert(elem_type.value_case() == onnx::TypeProto::kTensorType &&
              "expect tensor inside sequence type");
       Type mlir_elem_type = ImportTensorType(elem_type, dim_params);
-      if (!mlir_elem_type.isa<ShapedType>())
+      if (!mlir::isa<ShapedType>(mlir_elem_type))
         llvm_unreachable("Seq type is incorrect");
-      Type seq_type = mlir::SeqType::get(mlir_elem_type.cast<ShapedType>(), -1);
+      Type seq_type =
+          mlir::SeqType::get(mlir::cast<ShapedType>(mlir_elem_type), -1);
       return seq_type;
     }
     llvm_unreachable("unexpected type");
@@ -786,8 +787,9 @@ private:
         if (j < outputMap.size() && outputMap[j] >= MAX_NUM_TYPES) {
           // Mapping gives a connection with an input.
           Type inputType = inputs[outputMap[j] - MAX_NUM_TYPES].getType();
-          if (inputType.isa<TensorType>()) {
-            Type elementType = inputType.cast<TensorType>().getElementType();
+          if (mlir::isa<TensorType>(inputType)) {
+            Type elementType =
+                mlir::cast<TensorType>(inputType).getElementType();
             auto outType = UnrankedTensorType::get(elementType);
             outputTypes.emplace_back(outType);
           } else {
@@ -888,7 +890,7 @@ private:
     getNodeInputs(node, inputs);
     auto attributes = ImportNodeAttributes(node);
     std::vector<Type> outputTypes;
-    auto inputType = inputs[0].getType().cast<TensorType>();
+    auto inputType = mlir::cast<TensorType>(inputs[0].getType());
     if (inputType.getElementType().isInteger(64)) {
       outputTypes.emplace_back(
           mlir::ONNXStringType::get(builder_.getContext()));
@@ -1032,7 +1034,7 @@ private:
       std::vector<Value> inputs;
       getNodeInputs(node, inputs);
       Type elementType =
-          inputs[0].getType().cast<TensorType>().getElementType();
+          mlir::cast<TensorType>(inputs[0].getType()).getElementType();
 
       llvm::SmallVector<Attribute, 2> values(
           1, builder_.getZeroAttr(elementType));
@@ -1074,7 +1076,7 @@ private:
     const Type elementType = builder_.getIntegerType(64);
     const auto attributes = ImportNodeAttributes(node);
     for (auto attr : attributes) {
-      if (auto arrayAttr = attr.getValue().dyn_cast<ArrayAttr>()) {
+      if (auto arrayAttr = mlir::dyn_cast<ArrayAttr>(attr.getValue())) {
         const auto tensorType =
             RankedTensorType::get({(int64_t)arrayAttr.size()}, elementType);
         auto constantDenseAttribute =
@@ -1412,8 +1414,12 @@ private:
     const Value *valPtr = frontend_symbols_.GetByOnnxName(output.name());
     Value val = *valPtr;
     if (output.type().value_case() == onnx::TypeProto::kTensorType) {
+      Type outTy = ImportType(output.type(), dim_params);
+      if (std::getenv("IMPORTER_FORCE_DYNAMIC"))
+        outTy =
+            UnrankedTensorType::get(cast<TensorType>(outTy).getElementType());
       if (output.type().tensor_type().has_shape()) {
-        val.setType(ImportType(output.type(), dim_params));
+        val.setType(outTy);
       }
       ret_types.emplace_back(val.getType());
     } else {
@@ -1449,7 +1455,7 @@ private:
       SmallVector<NamedAttribute, 2> argAttrs;
       for (size_t k = 0; k < funcAttrsToMove.size(); ++k) {
         if (i < funcAttrsToMove[k].size()) {
-          auto name = (funcAttrsToMove[k].getValue()[i]).cast<StringAttr>();
+          auto name = mlir::cast<StringAttr>(funcAttrsToMove[k].getValue()[i]);
           if (name) {
             NamedAttribute namedAttr =
                 builder_.getNamedAttr(argAttrNames[k], name);

@@ -28,7 +28,7 @@ static Value emitArgmax(ConversionPatternRewriter &rewriter, Location loc,
       create(rewriter, loc);
   IndexExprScope scope(create.krnl);
 
-  MemRefType memRefType = input.getType().cast<MemRefType>();
+  MemRefType memRefType = mlir::cast<MemRefType>(input.getType());
   Type indexType = rewriter.getIndexType();
   int64_t rank = memRefType.getRank();
   Value zero = create.math.constantIndex(0);
@@ -94,9 +94,9 @@ struct ONNXHardmaxOpLowering : public OpConversionPattern<ONNXHardmaxOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     Type elementType = memRefType.getElementType();
     Value zero = create.math.constantIndex(0);
