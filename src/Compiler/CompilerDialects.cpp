@@ -37,6 +37,7 @@ DialectRegistry registerDialects(ArrayRef<accel::Accelerator::Kind> accels) {
   registry.insert<KrnlDialect>();
   registry.insert<cf::ControlFlowDialect>();
   registerOpenMPDialectTranslation(registry);
+  mlir::memref::registerRuntimeVerifiableOpInterfaceExternalModels(registry);
 
   // Initialize accelerator(s) if required.
   accel::initAccelerators(accels);
