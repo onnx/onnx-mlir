@@ -4,7 +4,7 @@
 
 //===------------------------- NNPACompilerOptions.cpp --------------------===//
 //
-// Copyright 2022, 2024 The IBM Research Authors.
+// Copyright 2022 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -47,10 +47,6 @@ llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
         "`zhigh.F32ToDLF16 -> onnx.LayoutTransform` and zhigh.Unstick to "
         "`onnx.LayoutTransform -> zhigh.DLF16ToF32`. "
         "Default is false."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
-
-llvm::cl::opt<bool> nnpaEnableStatusMessages("enable-status-messages",
-    llvm::cl::desc("Enable NNPA status messages. Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(

@@ -30,17 +30,12 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "zDNNExtension.h"
 #include "zdnn.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// We want to enable nnpa status messages when a user
-//  manually specifies the "enable-status-message" flag.
-bool isStatusMessagesEnabled() { return nnpaEnableStatusMessages; }
 
 static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
     const zdnn_ztensor *inputB, const zdnn_ztensor *inputC, int opType,
@@ -52,7 +47,7 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
   else
     status =
         zdnn_matmul_op(inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
-  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+  if (OMStatusMessagesEnabled && status != ZDNN_OK) {
     fprintf(
         stderr, "[zdnnx] zdnn_softmax: %s\n", zdnn_get_status_message(status));
   }
@@ -116,7 +111,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       zdnn_ztensor *zyb = getTile(&siYB, j);
       zdnn_status status =
           call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
-      if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+      if (OMStatusMessagesEnabled && status != ZDNN_OK) {
         fprintf(stderr, "[zdnnx] zdnn_matmul: %s\n",
             zdnn_get_status_message(status));
       }
@@ -169,7 +164,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     zdnn_ztensor *output) {
   zdnn_status status = zdnn_matmul_op_common(
       inputA, inputB, inputC, opType, output, /*isBcast=*/false);
-  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+  if (OMStatusMessagesEnabled && status != ZDNN_OK) {
     fprintf(
         stderr, "[zdnnx] zdnn_matmul: %s\n", zdnn_get_status_message(status));
   }
@@ -183,7 +178,7 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, opType, output, /*isBcast=*/true);
   // Compiler does not check the return result at this moment. Thus, check it
   // here.
-  if (!isStatusMessagesEnabled() && status != ZDNN_OK) {
+  if (OMStatusMessagesEnabled && status != ZDNN_OK) {
     fprintf(stderr, "[zdnnx] zdnn_matmul_bcast: %s\n",
         zdnn_get_status_message(status));
   }

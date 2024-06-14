@@ -44,10 +44,15 @@ extern "C" {
 #define DEFAULT_ZTENSOR_SPLIT_ENABLED 0
 // zTensor splitting debug is off by default.
 #define DEFAULT_ZTENSOR_SPLIT_DEBUG 0
+// zDNN status message is off by default.
+#define DEFAULT_STATUS_MESSAGES_ENABLED 0
 
 extern bool OMZTensorSplitEnabled;
 extern bool OMZTensorSplitDebug;
 extern uint32_t OMZTensorSplitSize;
+// We want to enable zdnn status messages when a user
+// manually specifies the environment variable.
+extern bool OMStatusMessagesEnabled;
 
 // -----------------------------------------------------------------------------
 // Misc Macros

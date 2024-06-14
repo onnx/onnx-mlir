@@ -27,17 +27,12 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "zDNNExtension.h"
 #include "zdnn.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-// We want to enable nnpa status messages when a user
-//  manually specifies the "enable-status-message" flag.
-bool isStatusMessagesEnabled() { return nnpaEnableStatusMessages; }
 
 // -----------------------------------------------------------------------------
 // Extension Functions
@@ -75,7 +70,7 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_ztensor *zy = getTile(&siY, i);
     zdnn_status status = zdnn_softmax(
         zx, (siX.reuseFullZTensor) ? save_area : NULL, act_func, zy);
-    if (!isStatusMessagesEnabled()) {
+    if (OMStatusMessagesEnabled) {
       fprintf(stderr, "[zdnnx] zdnn_softmax: %s\n",
           zdnn_get_status_message(status));
     }
