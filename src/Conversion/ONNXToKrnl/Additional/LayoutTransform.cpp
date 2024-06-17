@@ -18,7 +18,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
-#define DEBUG_TYPE "layout-tranform"
+#define DEBUG_TYPE "layout-transform"
 
 using namespace mlir;
 
@@ -35,6 +35,51 @@ struct ONNXLayoutTransformOpLowering
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
             ONNXLayoutTransformOp::getOperationName());
+  }
+
+  // look for pattern "d2" or "d2 mod c".
+  bool parseLowestDim(MemRefType type, int64_t &dimId, int64_t &modVal) const {
+    AffineMap affineMap = type.getLayout().getAffineMap();
+    int64_t numResults = affineMap.getNumResults();
+    AffineExpr innerAffineExpr = affineMap.getResult(numResults - 1);
+    LLVM_DEBUG({
+      llvm::dbgs() << "Investigate Layout transform\n";
+      affineMap.dump();
+    });
+
+    // Check if we have a "d2" pattern.
+    if (innerAffineExpr.getKind() == AffineExprKind::DimId) {
+      AffineDimExpr dimExpr = mlir::cast<AffineDimExpr>(innerAffineExpr);
+      dimId = dimExpr.getPosition();
+      modVal = -1;
+      LLVM_DEBUG(llvm::dbgs() << "  found d" << dimId << "\n");
+      return true;
+    }
+    // Check if we have a "d2 mod 64" pattern.
+    if (innerAffineExpr.getKind() == AffineExprKind::Mod) {
+      AffineBinaryOpExpr modExpr =
+          mlir::cast<AffineBinaryOpExpr>(innerAffineExpr);
+      // Expect dim on the LHS.
+      AffineExpr expectedDimExpr = modExpr.getLHS();
+      if (expectedDimExpr.getKind() != AffineExprKind::DimId)
+        return false;
+      AffineDimExpr dimExpr = mlir::cast<AffineDimExpr>(expectedDimExpr);
+      dimId = dimExpr.getPosition();
+      // Expect literal on the RHS.
+      AffineExpr expectedConstExpr = modExpr.getRHS();
+      if (expectedConstExpr.getKind() != AffineExprKind::Constant)
+        return false;
+      AffineConstantExpr valExpr =
+          mlir::cast<AffineConstantExpr>(expectedConstExpr);
+      modVal = valExpr.getValue();
+      LLVM_DEBUG(
+          llvm::dbgs() << "  found d" << dimId << " mod " << modVal << "\n");
+      return modVal > 0;
+    }
+    LLVM_DEBUG(llvm::dbgs() << "  did not find d2 or d2 mod 64 type pattern\n");
+    // Should really not use these values anyway.
+    dimId = modVal = -1;
+    return false;
   }
 
   LogicalResult matchAndRewrite(ONNXLayoutTransformOp layoutOp,
@@ -57,6 +102,29 @@ struct ONNXLayoutTransformOpLowering
     assert(outConvertedType && mlir::isa<MemRefType>(outConvertedType) &&
            "Failed to convert type to MemRefType");
     MemRefType outMemRefType = mlir::cast<MemRefType>(outConvertedType);
+
+    // hi alex: inspect
+    int64_t inDimId, inMod;
+    bool inValid = parseLowestDim(inMemRefType, inDimId, inMod);
+    int64_t outDimId, outMod;
+    bool outValid = parseLowestDim(outMemRefType, outDimId, outMod);
+    bool goodPattern = false;
+    int64_t goodMod = -1;
+    if (inValid && outValid && inDimId == outDimId) {
+      // For the moment, support only a mod in the one or the other direction.
+      if (inMod == -1 && outMod > 1) {
+        goodPattern = true;
+        goodMod = outMod;
+      }
+      if (inMod > 0 && outMod == -1) {
+        goodPattern = true;
+        goodMod = inMod;
+      }
+    }
+    LLVM_DEBUG({
+      if (goodPattern)
+        llvm::dbgs() << "  found a good pattern with mod" << goodMod << "\n";
+    });
 
     // Note that by definition the input and output of LayoutTransformOp have
     // the same logical rank. The only difference between them should be their
