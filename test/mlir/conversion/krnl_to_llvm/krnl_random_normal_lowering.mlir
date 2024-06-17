@@ -20,7 +20,6 @@ func.func @test_random_normal_lowering() -> memref<3x4x5xf32> {
 
   /// Populate tensor:
   // CHECK: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr
-  // CHECK: llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
   // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 2] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
   // CHECK: llvm.call @get_random_normal_value_f32([[ALIGNED_TENSOR_MEMORY]], [[ALL_VALUES]], [[MEAN]], [[SCALE]], [[SEED]]) : (!llvm.ptr, i64, f32, f32, f32) -> ()
   // CHECK: llvm.return [[OUTPUT_TENSOR]] : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
@@ -55,6 +54,7 @@ func.func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> me
   // CHECK: [[SCALE:%.+]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
   // CHECK: [[MEAN:%.+]] = llvm.mlir.constant(0.000000e+00 : f32) : f32
   // CHECK: [[ALL_VALUES1:%.+]] = llvm.mlir.constant(12 : index) : i64
+  // CHECK: [[C0:%.+]] = llvm.mlir.zero : !llvm.ptr
   // CHECK: [[C4:%.+]] = llvm.mlir.constant(4 : index) : i64
   // CHECK: [[C3:%.+]] = llvm.mlir.constant(3 : index) : i64
 
@@ -63,12 +63,10 @@ func.func @test_random_normal_dynamic_lowering(%arg0: memref<3x4x?x?xf32>) -> me
   // CHECK: %[[MUL3:.+]] = llvm.mul [[MUL2]], [[C3]]  : i64
 
   /// Allocate aligned tensor:
-  // CHECK: [[POINTER:%.+]] = llvm.mlir.zero : !llvm.ptr
-  // CHECK: llvm.getelementptr [[POINTER]][%[[MUL3]]]
+  // CHECK: llvm.getelementptr [[C0]][%[[MUL3]]] : (!llvm.ptr, i64) -> !llvm.ptr, f32
   // CHECK: [[ALIGNED_TENSOR_MEMORY:%.+]] = llvm.inttoptr {{.*}} : i64 to !llvm.ptr
 
   /// Populate tensor:
-  // CHECK: llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
   // CHECK: [[OUTPUT_TENSOR:%.+]] = llvm.insertvalue {{.*}}, {{.*}}[4, 3] : !llvm.struct<(ptr, ptr, i64, array<4 x i64>, array<4 x i64>)>
   
   // CHECK: [[ALL_VALUES2:%.+]] = llvm.mul %arg5, [[ALL_VALUES1]]  : i64
