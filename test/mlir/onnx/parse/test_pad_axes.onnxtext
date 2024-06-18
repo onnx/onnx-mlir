@@ -1,0 +1,18 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+<
+   ir_version: 9,
+   opset_import: ["" : 19]
+>
+identity (float[1,2,3,4] x, int64[4] pads) => (float[1,2,3,4] y) {
+   axes = Constant <value = int64[2] axes {0,1}> ()
+   value = Constant <value = float[1] value {1}> ()
+   y = Pad <mode = "constant"> (x, pads, value, axes)
+}
+
+// CHECK-LABEL:   func.func @main_graph
+// CHECK-SAME:     ([[PARAM_0_:%.+]]: tensor<1x2x3x4xf32> {onnx.name = "x"}, [[PARAM_1_:%.+]]: tensor<4xi64> {onnx.name = "pads"}) -> (tensor<1x2x3x4xf32> {onnx.name = "y"}) {
+// CHECK:         [[VAR_0_:%.+]]  = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+// CHECK:         [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK:         [[VAR_2_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]], [[VAR_0_]]) {mode = "constant"} : (tensor<1x2x3x4xf32>, tensor<4xi64>, tensor<1xf32>, tensor<2xi64>) -> tensor<1x2x3x4xf32>
+// CHECK:         onnx.Return [[VAR_2_]] : tensor<1x2x3x4xf32>
