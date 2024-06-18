@@ -26,6 +26,19 @@ func.func @test_cast_i8_i1(%arg0: tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1> {
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1> {
 // CHECK-NEXT:      tosa.cast [[PARAM_0_]] : (tensor<1x21x1x1xi8>) -> tensor<1x21x1x1xi1>
 }
+
+// -----
+
+func.func @test_cast_f32_i1(%arg0: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+  %0 = "onnx.Cast"(%arg0) {to = i1} : (tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+  "func.return"(%0) : (tensor<13x21x1xi1>) -> ()
+
+   // CHECK-LABEL: func @test_cast_f32_i1
+   // CHECK-SAME:   (%[[VAL_0:.*]]: tensor<13x21x1xf32>) -> tensor<13x21x1xi1> {
+   // CHECK:        %[[VAL_1:.*]] = tosa.cast %[[VAL_0]] : (tensor<13x21x1xf32>) -> tensor<13x21x1xi1>
+   // CHECK:        return %[[VAL_1]] : tensor<13x21x1xi1>
+}
+
 // -----
 
 func.func @test_relu(%arg0 : tensor<10x10xf32>) -> tensor<10x10xf32> {
