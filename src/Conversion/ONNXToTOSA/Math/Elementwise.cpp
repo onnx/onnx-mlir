@@ -381,19 +381,12 @@ public:
     }
     if (isa<FloatType>(inputTy.getElementType()) &&
         isa<IntegerType>(resultTy.getElementType())) {
-      auto zero = tosaBuilder.getSplattedConst(0.0f, resultTy.getRank());
-      if (resultTy.getElementType().getIntOrFloatBitWidth() == 1) {
-        // ONNX.Cast has special semantics when converting from float to bool.
-        // Only 0.0f is converted to 0, all other values are converted to 1
-        Value equal = tosaBuilder.equal(input, zero);
-        Value one = tosaBuilder.getSplattedConst(1.0f, inputTy.getRank());
-        one = tosaBuilder.castToNewTensorElementType(
-            one, cast<ShapedType>(equal.getType()).getElementType());
-        input = tosaBuilder.binaryOp<mlir::tosa::BitwiseXorOp>(one, equal);
-      } else {
-        // ONNX.Cast has truncating behavior, and tosa.cast has rounds
-        // half-to-even. We simulate truncate by floor for positive values and
-        // ceil for negative ones.
+      // ONNX.Cast has truncating behavior, and tosa.cast has rounds
+      // half-to-even. We simulate truncate by floor for positive values and
+      // ceil for negative ones. Conversion to boolean works the same between
+      // onnx.Cast and tosa.cast.
+      if (resultTy.getElementType().getIntOrFloatBitWidth() != 1) {
+        auto zero = tosaBuilder.getSplattedConst(0.0f, resultTy.getRank());
         auto positive = tosaBuilder.greaterEqual(input, zero);
 
         auto floor = tosaBuilder.unaryOp<mlir::tosa::FloorOp>(input);

@@ -246,9 +246,6 @@ template Value TosaBuilder::binaryOp<mlir::tosa::SubOp>(
 template Value TosaBuilder::binaryOp<mlir::tosa::PowOp>(
     mlir::Value &lhs, mlir::Value &rhs);
 
-template Value TosaBuilder::binaryOp<mlir::tosa::BitwiseXorOp>(
-    mlir::Value &lhs, mlir::Value &rhs);
-
 template <typename T>
 Value TosaBuilder::unaryOp(mlir::Value &input) {
   auto inputType = input.getType().cast<ShapedType>();
