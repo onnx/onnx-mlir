@@ -383,15 +383,16 @@ public:
         isa<IntegerType>(resultTy.getElementType())) {
       // ONNX.Cast has truncating behavior, and tosa.cast has rounds
       // half-to-even. We simulate truncate by floor for positive values and
-      // ceil for negative ones.
-      auto zero = tosaBuilder.getSplattedConst(0.0f, resultTy.getRank());
-      zero = tosaBuilder.castToNewTensorElementType(
-          zero, inputTy.getElementType());
-      auto positive = tosaBuilder.greaterEqual(input, zero);
+      // ceil for negative ones. Conversion to boolean works the same between
+      // onnx.Cast and tosa.cast.
+      if (resultTy.getElementType().getIntOrFloatBitWidth() != 1) {
+        auto zero = tosaBuilder.getSplattedConst(0.0f, resultTy.getRank());
+        auto positive = tosaBuilder.greaterEqual(input, zero);
 
-      auto floor = tosaBuilder.unaryOp<mlir::tosa::FloorOp>(input);
-      auto ceil = tosaBuilder.unaryOp<mlir::tosa::CeilOp>(input);
-      input = tosaBuilder.select(positive, floor, ceil);
+        auto floor = tosaBuilder.unaryOp<mlir::tosa::FloorOp>(input);
+        auto ceil = tosaBuilder.unaryOp<mlir::tosa::CeilOp>(input);
+        input = tosaBuilder.select(positive, floor, ceil);
+      }
     }
 
     rewriter.replaceOpWithNewOp<mlir::tosa::CastOp>(op, resultTy, input);
