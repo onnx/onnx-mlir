@@ -171,3 +171,21 @@ func.func @test_onnx_conv2d_group_to_depthwise_integer_multiple(%arg0: tensor<32
 // CHECK:           [[VAR_7_:%.+]] = tosa.transpose [[VAR_5_]], [[VAR_6_]] : (tensor<32x112x112x48xf32>, tensor<4xi32>) -> tensor<32x48x112x112xf32>
 // CHECK:           return [[VAR_7_]] : tensor<32x48x112x112xf32>
 }
+
+// -----
+
+func.func @test_onnx_conv2d_dyn_shapes(%arg0: tensor<?x?x?x?xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: tensor<2xf32>) ->  tensor<?x?x?x?xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<?x?x?x?xf32>, tensor<2x3x64x64xf32>, tensor<2xf32>) ->  tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+// CHECK-LABEL:  func.func @test_onnx_conv2d_dyn_shapes
+// CHECK: onnx.Conv
+}
+
+// -----
+
+func.func @test_onnx_conv2d_dyn_shapes_with_shape_inference(%arg0: tensor<5x3x256x256xf32>, %arg1 : tensor<2x3x64x64xf32>, %arg2: tensor<2xf32>) ->  tensor<?x?x?x?xf32> {
+  %0 = "onnx.Conv"(%arg0, %arg1, %arg2) {dilations = [1, 1], pads = [1, 1, 1, 1], strides = [13, 13]} : (tensor<5x3x256x256xf32>, tensor<2x3x64x64xf32>, tensor<2xf32>) ->  tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+// CHECK-LABEL:  func.func @test_onnx_conv2d_dyn_shapes_with_shape_inference
+// CHECK: tosa.conv
+}
