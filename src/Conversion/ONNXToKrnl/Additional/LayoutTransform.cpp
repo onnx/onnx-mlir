@@ -120,18 +120,7 @@ struct ONNXLayoutTransformOpLowering
       }
     }
 
-    // Compute max tiles. It is actually not easy to compute the max number of
-    // tiles. Since we don't allocate, it is just a "view", we only need to
-    // index by the "tile size", it is sufficient to assume 2 or more. Tiles are
-    // 64 elements.
-    // IndexExpr T = LiteralIndexExpr(2);
-    IndexExpr mod = LiteralIndexExpr(modVal);
-    // DimsExpr reallocTileDims = {T, mod};
-    // Value allocAsTxMod =
-    //     create.mem.reinterpretCast(alloc, litZero.getValue(),
-    //     reallocTileDims);
-
-    // Outer loop (E1 iterates over tiles of 64 elements).
+    //  Outer loop (E1 iterates over tiles of 64 elements).
     create.krnl.iterateIE(
         loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
@@ -145,6 +134,88 @@ struct ONNXLayoutTransformOpLowering
           Value inputOffset = create.krnl.getLinearOffsetIndexIE(input, memAF);
           Value len = create.math.constant(rewriter.getI64Type(), modVal);
           create.krnl.memcpy(alloc, input, len, allocOffset, inputOffset);
+        });
+    rewriter.replaceOp(op, alloc);
+    return success();
+  }
+
+  // Minimum dim size must be 2.
+  LogicalResult generateLayoutWithMod(ConversionPatternRewriter &rewriter,
+      MDBuilder create, Operation *op, Value alloc, Value input,
+      SmallVector<IndexExpr, 4> &lbs, SmallVector<IndexExpr, 4> &ubs,
+      int64_t inModVal, int64_t outModVal) const {
+    int64_t rank = lbs.size();
+    assert(rank >= 2 && "expect rank of 2 or more");
+    assert((inModVal == -1 || outModVal == -1 || inModVal == outModVal) &&
+           "bad mods");
+    int64_t modVal = (inModVal > outModVal) ? inModVal : outModVal;
+    // Create loop iterations. Note that we iterate over E1 as tiles of modVal
+    // elements.
+    ValueRange loopDefs = create.krnl.defineLoops(rank);
+    int64_t E1 = rank - 1; // Innermost dim is referred to E1 here.
+    IndexExpr ub1 = ubs[E1];
+    IndexExpr T1 = ub1.ceilDiv(modVal);
+    ubs[E1] = T1;
+
+    // Parallel...
+    if (enableParallel) {
+      int64_t parId;
+      // TODO: may want to check if ub of rank makes sense here.
+      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
+        create.krnl.parallel(loopDefs[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "layout transform normal->mapped");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "no dim with enough work in layout transform normal->mapped");
+      }
+    }
+
+    //  Outer loop (E1 iterates over tiles of 64 elements).
+    create.krnl.iterateIE(
+        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
+          MDBuilder create(b);
+          IndexExprScope outerScope(create.krnl);
+          DimsExpr outerIndices;
+          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
+          DimsExpr memAF = outerIndices;
+          memAF[E1] =
+              memAF[E1] * modVal; // Loop index for E1 is in tiles of modVal.
+          Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
+          Value inputOffset = create.krnl.getLinearOffsetIndexIE(input, memAF);
+          Value len = create.math.constant(rewriter.getI64Type(), modVal);
+          // Now if we copy into a modVal, and ub1 was not a multiple of modVal,
+          // we may read and write a few values that should not be read/written
+          // but since the output data physical memory will have the extra space
+          // for it, we simply write it all.
+          if (outModVal != -1) {
+            create.krnl.memcpy(alloc, input, len, allocOffset, inputOffset);
+          } else {
+            // Compute if we have a last tile.
+            IndexExpr modLit = LiteralIndexExpr(modVal);
+            IndexExpr isFull =
+                create.krnlIE.isTileFull(memAF[E1], modLit, SymIE(ub1));
+            IndexExpr isFullLogical = isFull >= 0;
+            create.scf.ifThenElse(
+                // Condition
+                isFullLogical.getValue(),
+                // Then (is full).
+                [&](SCFBuilder b) {
+                  MDBuilder create(b);
+                  create.krnl.memcpy(
+                      alloc, input, len, allocOffset, inputOffset);
+                },
+                // Else, we don't have a full tile.
+                [&](SCFBuilder b) {
+                  MDBuilder create(b);
+                  IndexExprScope middleScope(b, &outerScope);
+                  IndexExpr tripCount = SymIE(ub1) - SymIE(memAF[E1]);
+                  Value len = create.math.cast(
+                      rewriter.getI64Type(), tripCount.getValue());
+                  create.krnl.memcpy(
+                      alloc, input, len, allocOffset, inputOffset);
+                });
+          }
         });
     rewriter.replaceOp(op, alloc);
     return success();
@@ -200,9 +271,9 @@ struct ONNXLayoutTransformOpLowering
     bool outValid = inspectMappedLowestDim(outMemRefType, outMod);
     if (inValid && outValid && rank >= 2) {
       // For the moment, support only a mod in the one or the other direction.
-      if (inMod == -1 && outMod > 16) {
-        return generateLayoutFromIdentityToTiled(
-            rewriter, create, op, alloc, data, lbs, ubs, outMod);
+      if ((inMod == -1 && outMod > 16) || (inMod > 15 && outMod == -1)) {
+        return generateLayoutWithMod(
+            rewriter, create, op, alloc, data, lbs, ubs, inMod, outMod);
       }
     }
 
