@@ -27,7 +27,7 @@ extern "C" {
 bool OMZTensorSplitEnabled = DEFAULT_ZTENSOR_SPLIT_ENABLED;
 bool OMZTensorSplitDebug = DEFAULT_ZTENSOR_SPLIT_DEBUG;
 uint32_t OMZTensorSplitSize = DEFAULT_ZTENSOR_SPLIT_SIZE;
-bool OMStatusMessagesEnabled = DEFAULT_STATUS_MESSAGES_ENABLED;
+bool ZDNN_STATUS_MESSAGE = DEFAULT_STATUS_MESSAGES_ENABLED;
 
 static uint32_t ZTensorSplitSizeFromEnv() {
   uint32_t cs = DEFAULT_ZTENSOR_SPLIT_SIZE;
@@ -60,7 +60,7 @@ static bool ZTensorSplitDebugFromEnv() {
   return enabled;
 }
 
-static bool StatusMessagesEnabled() {
+static bool StatusMessagesEnabledEnv() {
   int enabled = DEFAULT_STATUS_MESSAGES_ENABLED;
   const char *s = getenv("OM_STATUS_MESSAGES_ENABLED");
   if (s)
@@ -99,13 +99,13 @@ void zDNNExtensionInit() {
   OMZTensorSplitEnabled = ZTensorSplitEnabledFromEnv();
   OMZTensorSplitDebug = ZTensorSplitDebugFromEnv();
   OMZTensorSplitSize = ZTensorSplitSizeFromEnv();
-  OMStatusMessagesEnabled = StatusMessagesEnabled();
+  OMStatusMessagesEnabled = StatusMessagesEnabledEnv();
   if (OMZTensorSplitDebug) {
     printf("OM_ZTENSOR_SPLIT_ENABLED: %d\n", OMZTensorSplitEnabled);
     printf("OM_ZTENSOR_SPLIT_SIZE: %d\n", OMZTensorSplitSize);
   }
-  if (OMStatusMessagesEnabled) {
-    printf("OM_STATUS_MESSAGES_ENABLE: %d\n", OMStatusMessagesEnabled);
+  if (ZDNN_STATUS_MESSAGE) {
+    printf("OM_STATUS_MESSAGES_ENABLED: %d\n", ZDNN_STATUS_MESSAGE);
   }
 }
 

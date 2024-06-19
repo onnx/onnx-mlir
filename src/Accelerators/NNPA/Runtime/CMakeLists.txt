@@ -2,6 +2,14 @@
 
 # TODO: statically link to libcruntime.a
 
+# We want to enable zdnn status messages when a user
+# manually specifies the environment variable.
+# The default value for zdnn status message is "OFF"
+option(ZDNN_STATUS_MESSAGE "Enable ZDNN Status Messages" OFF)
+if (ZDNN_STATUS_MESSAGE)
+  add_compile_definitions(ZDNN_STATUS_MESSAGE)
+endif()
+
 add_onnx_mlir_library(RuntimeNNPA STATIC
   OMRuntimeNNPA.c
   zDNNExtension/zDNNExtension.c

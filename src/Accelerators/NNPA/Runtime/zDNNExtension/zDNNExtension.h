@@ -50,8 +50,6 @@ extern "C" {
 extern bool OMZTensorSplitEnabled;
 extern bool OMZTensorSplitDebug;
 extern uint32_t OMZTensorSplitSize;
-// We want to enable zdnn status messages when a user
-// manually specifies the environment variable.
 extern bool OMStatusMessagesEnabled;
 
 // -----------------------------------------------------------------------------
@@ -146,6 +144,37 @@ inline void omUnreachable() {
 #else
   ((void)0);
 #endif
+}
+
+//
+/**
+ * \brief Check zdnn status
+ *
+ * Check if the zdnn status is not a zdnn_ok and print out the
+ * status message along with the error
+ *
+ * @param status zdnn status
+ * @param zdnn_name name of the zdnn api
+ */
+// #define CHECK_ZDNN_STATUS(status, zdnn_name)\
+//    if (OMStatusMessagesEnabled) { \
+//       if (status != ZDNN_OK) { \
+//         fprintf(stdout, "[zdnnx] %s : %s\n", zdnn_name,zdnn_get_status_message(status)); \
+//         assert(0); \
+//        }\
+//     }
+
+void checkStatus(zdnn_status status, const char *zdnn_name) {
+  bool status_set = 0;
+#ifdef ZDNN_STATUS_MESSAGE
+  status_set = 1;
+#endif
+  if (status_set) {
+    if (status != ZDNN_OK) {
+      fprintf(stdout, "[zdnnx] %s : %s\n", zdnn_name,
+          zdnn_get_status_message(status));
+    }
+  }
 }
 
 /**

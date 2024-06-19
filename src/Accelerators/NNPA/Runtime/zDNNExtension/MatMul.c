@@ -47,10 +47,7 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
   else
     status =
         zdnn_matmul_op(inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
-  if (OMStatusMessagesEnabled && status != ZDNN_OK) {
-    fprintf(
-        stderr, "[zdnnx] zdnn_softmax: %s\n", zdnn_get_status_message(status));
-  }
+  checkStatus(status, "zdnn_matmul");
   return status;
 }
 
@@ -111,10 +108,8 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       zdnn_ztensor *zyb = getTile(&siYB, j);
       zdnn_status status =
           call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
-      if (OMStatusMessagesEnabled && status != ZDNN_OK) {
-        fprintf(stderr, "[zdnnx] zdnn_matmul: %s\n",
-            zdnn_get_status_message(status));
-      }
+
+checkStatus(status, "zdnn_matmul");
       if (OMZTensorSplitDebug) {
         int cpuId = 0;
 #ifdef __MVS__
@@ -164,10 +159,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     zdnn_ztensor *output) {
   zdnn_status status = zdnn_matmul_op_common(
       inputA, inputB, inputC, opType, output, /*isBcast=*/false);
-  if (OMStatusMessagesEnabled && status != ZDNN_OK) {
-    fprintf(
-        stderr, "[zdnnx] zdnn_matmul: %s\n", zdnn_get_status_message(status));
-  }
+  checkStatus(status, "zdnn_matmul");
   return status;
 }
 
@@ -178,10 +170,7 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, opType, output, /*isBcast=*/true);
   // Compiler does not check the return result at this moment. Thus, check it
   // here.
-  if (OMStatusMessagesEnabled && status != ZDNN_OK) {
-    fprintf(stderr, "[zdnnx] zdnn_matmul_bcast: %s\n",
-        zdnn_get_status_message(status));
-  }
+  checkStatus(status, "zdnn_matmul");
   return status;
 }
 
