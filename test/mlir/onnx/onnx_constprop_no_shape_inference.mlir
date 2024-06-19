@@ -97,3 +97,5 @@ func.func @test_scatternd_i32() -> (tensor<4x4x4xi32>) {
   %3 = "onnx.ScatterND"(%0, %1, %2) {node_name = "ScatterND_6467", node_type = "ScatterND"} : (tensor<4x4x4xi32>, tensor<2x1xi64>, tensor<2x4x4xi32>) -> tensor<4x4x4xi32>
   onnx.Return %3 : tensor<4x4x4xi32>
 }
+
+// -----
