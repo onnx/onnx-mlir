@@ -19,7 +19,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "layout-transform"
-#define PREFETCH_CSU 1
+#define PREFETCH_ON 0 /* did not seem to help at this stage */
 
 using namespace mlir;
 
@@ -91,65 +91,17 @@ struct ONNXLayoutTransformOpLowering
     return false;
   }
 
-  // Optimized layout from normal to tiled (input mod == -1, output mod is
-  // multiple of 16). Minimum dim size must be 2.
-  LogicalResult generateLayoutFromIdentityToTiled(
-      ConversionPatternRewriter &rewriter, MDBuilder create, Operation *op,
-      Value alloc, Value input, SmallVector<IndexExpr, 4> &lbs,
-      SmallVector<IndexExpr, 4> &ubs, int64_t modVal) const {
-    int64_t rank = lbs.size();
-
-    // Create loop iterations. Note that we iterate over E1 as tiles of modVal
-    // elements.
-    ValueRange loopDefs = create.krnl.defineLoops(rank);
-    int64_t E1 = rank - 1; // Innermost dim is referred to E1 here.
-    IndexExpr ub1 = ubs[E1];
-    IndexExpr T1 = ub1.ceilDiv(modVal);
-    ubs[E1] = T1;
-
-    // Parallel...
-    if (enableParallel) {
-      int64_t parId;
-      // TODO: may want to check if ub of rank makes sense here.
-      if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
-        create.krnl.parallel(loopDefs[parId]);
-        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "layout transform normal->mapped");
-      } else {
-        onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in layout transform normal->mapped");
-      }
-    }
-
-    //  Outer loop (E1 iterates over tiles of 64 elements).
-    create.krnl.iterateIE(
-        loopDefs, loopDefs, lbs, ubs, [&](KrnlBuilder &b, ValueRange loopInd) {
-          MDBuilder create(b);
-          IndexExprScope outerScope(create.krnl);
-          DimsExpr outerIndices;
-          getIndexExprList<SymbolIndexExpr>(loopInd, outerIndices);
-          DimsExpr memAF = outerIndices;
-          memAF[E1] =
-              memAF[E1] * modVal; // Loop index for E1 is in tiles of modVal.
-          Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
-          Value inputOffset = create.krnl.getLinearOffsetIndexIE(input, memAF);
-          Value len = create.math.constant(rewriter.getI64Type(), modVal);
-          create.krnl.memcpy(alloc, input, len, allocOffset, inputOffset);
-        });
-    rewriter.replaceOp(op, alloc);
-    return success();
-  }
-
-  // Minimum dim size must be 2.
+  // If both input and output have defined modVals (!=-1), then they must have
+  // the save value.
   LogicalResult generateLayoutWithMod(ConversionPatternRewriter &rewriter,
       MDBuilder create, Operation *op, Value alloc, Value input,
       SmallVector<IndexExpr, 4> &lbs, SmallVector<IndexExpr, 4> &ubs,
       int64_t inModVal, int64_t outModVal) const {
     int64_t rank = lbs.size();
-    assert(rank >= 2 && "expect rank of 2 or more");
     assert((inModVal == -1 || outModVal == -1 || inModVal == outModVal) &&
            "bad mods");
-    LLVM_DEBUG(llvm::dbgs() << "use fast pattern\n");
+    LLVM_DEBUG(llvm::dbgs() << "use fast pattern with in/out mod vals"
+                            << inModVal << "/" << outModVal << "\n");
     int64_t modVal = (inModVal > outModVal) ? inModVal : outModVal;
     // Create loop iterations. Note that we iterate over E1 as tiles of modVal
     // elements.
@@ -186,7 +138,7 @@ struct ONNXLayoutTransformOpLowering
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
           Value inputOffset = create.krnl.getLinearOffsetIndexIE(input, memAF);
           Value len = create.math.constant(rewriter.getI64Type(), modVal);
-#if PREFETCH_CSU
+#if PREFETCH_ON
           DimsExpr prefetchAF = memAF;
           // Prefetch current line
           create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
