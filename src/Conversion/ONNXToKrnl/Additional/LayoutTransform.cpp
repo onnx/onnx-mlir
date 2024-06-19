@@ -19,6 +19,7 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
 #define DEBUG_TYPE "layout-transform"
+#define PREFETCH_CSU 1
 
 using namespace mlir;
 
@@ -184,6 +185,14 @@ struct ONNXLayoutTransformOpLowering
           Value allocOffset = create.krnl.getLinearOffsetIndexIE(alloc, memAF);
           Value inputOffset = create.krnl.getLinearOffsetIndexIE(input, memAF);
           Value len = create.math.constant(rewriter.getI64Type(), modVal);
+#if PREFETCH_CSU
+          DimsExpr prefetchAF = memAF;
+          // Prefetch current line
+          create.krnl.prefetchIE(input, prefetchAF, /*isWrite*/ false,
+              /*locality*/ 1);
+          create.krnl.prefetchIE(alloc, prefetchAF, /*isWrite*/ true,
+              /*locality*/ 1);
+#endif
           // Now if we copy into a modVal, and ub1 was not a multiple of modVal,
           // we may read and write a few values that should not be read/written
           // but since the output data physical memory will have the extra space
