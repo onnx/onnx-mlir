@@ -138,9 +138,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighDecomposeStickUnstickPass());
     pm.addPass(mlir::createCanonicalizerPass());
-    // hi alex: disable to investigate performance issue
-    // pm.addNestedPass<func::FuncOp>(
-    //    onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass());
+    pm.addNestedPass<func::FuncOp>(
+        onnx_mlir::zhigh::createZHighRecomposeToStickUnstickPass());
   }
 
   // Remove common sub-expressions.
