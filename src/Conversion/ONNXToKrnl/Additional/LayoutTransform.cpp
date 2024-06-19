@@ -233,7 +233,14 @@ struct ONNXLayoutTransformOpLowering
     bool outValid = inspectMappedLowestDim(outMemRefType, outMod);
     if (inValid && outValid && rank >= 2) {
       // For the moment, support only a mod in the one or the other direction.
-      if ((inMod == -1 && outMod > 16) || (inMod > 15 && outMod == -1)) {
+      if ((inMod == -1 && outMod >= 16) || (inMod >= 16 && outMod == -1)) {
+        return generateLayoutWithMod(
+            rewriter, create, op, alloc, data, lbs, ubs, inMod, outMod);
+      }
+      if (inMod == outMod && inMod != -1) {
+        // We have 2 identical mods, do it too.
+        // TODO: this scenario may need to be tested thoroughly once we generate
+        // this pattern.
         return generateLayoutWithMod(
             rewriter, create, op, alloc, data, lbs, ubs, inMod, outMod);
       }

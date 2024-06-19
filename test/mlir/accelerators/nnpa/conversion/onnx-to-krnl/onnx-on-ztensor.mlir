@@ -105,22 +105,26 @@ func.func @test_onnx_concat_on_ztensor(%arg0: tensor<?x4x4x192xf32, #zhigh.layou
 
 // Test changing data layout for a zTensor.
 // Need to check that the buffer is correctly aligned to 4K.
+
 func.func @test_onnx_layout_transform_on_ztensor(%arg0: tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>> {
   %0 = "onnx.LayoutTransform"(%arg0) {target_layout = #zhigh.layout<{dataLayout = "3D"}>} : (tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>
   return %0 : tensor<3x5x7xf32, #zhigh.layout<{dataLayout = "3DS"}>>
 
+// mlir2FileCheck.py
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (0, d2 floordiv 64, d0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
+// CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
 // CHECK-LABEL:  func.func @test_onnx_layout_transform_on_ztensor
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<3x5x7xf16, #map>) -> memref<3x5x7xf16, #map1> {
-
-// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {alignment = 4096 : i64} : memref<3x5x7xf16, #map1>
-
+// CHECK-DAG:       [[CST_64_:%.+]] = arith.constant 64 : i64
+// CHECK-DAG:       [[RES_:%.+]] = memref.alloc() {{.*}}: memref<3x5x7xf16, #map1>
 // CHECK-DAG:       [[LOOP_0_:%.+]]:3 = krnl.define_loops 3
-// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 7){
+// CHECK:           krnl.iterate([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) with ([[LOOP_0_]]#0 -> [[I_0_:%.+]] = 0 to 3, [[LOOP_0_]]#1 -> [[I_1_:%.+]] = 0 to 5, [[LOOP_0_]]#2 -> [[I_2_:%.+]] = 0 to 1){
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
-// CHECK:             [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x5x7xf16, #map>
-// CHECK:             krnl.store [[LOAD_PARAM_0_MEM_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x5x7xf16, #map1>
+// CHECK:             [[VAR_2_:%.+]] = affine.apply [[MAP_2_]](){{.}}[[VAR_1_]]#2]
+// CHECK-DAG:         [[VAR_3_:%.+]] = krnl.get_linear_offset_index [[RES_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<3x5x7xf16, #map1>
+// CHECK-DAG:         [[VAR_4_:%.+]] = krnl.get_linear_offset_index [[PARAM_0_]] at {{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}} : memref<3x5x7xf16, #map>
+// CHECK:             "krnl.memcpy"([[RES_]], [[PARAM_0_]], [[CST_64_]], [[VAR_3_]], [[VAR_4_]]) : (memref<3x5x7xf16, #map1>, memref<3x5x7xf16, #map>, i64, index, index) -> ()
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3x5x7xf16, #map1>
 // CHECK:         }
