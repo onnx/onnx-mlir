@@ -109,7 +109,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       zdnn_status status =
           call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
 
-checkStatus(status, "zdnn_matmul");
+      checkStatus(status, "zdnn_matmul");
       if (OMZTensorSplitDebug) {
         int cpuId = 0;
 #ifdef __MVS__
