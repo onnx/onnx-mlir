@@ -149,6 +149,7 @@ struct ONNXLayoutTransformOpLowering
     assert(rank >= 2 && "expect rank of 2 or more");
     assert((inModVal == -1 || outModVal == -1 || inModVal == outModVal) &&
            "bad mods");
+    LLVM_DEBUG(llvm::dbgs() << "use fast pattern\n");
     int64_t modVal = (inModVal > outModVal) ? inModVal : outModVal;
     // Create loop iterations. Note that we iterate over E1 as tiles of modVal
     // elements.
@@ -165,10 +166,10 @@ struct ONNXLayoutTransformOpLowering
       if (findSuitableParallelDimension(lbs, ubs, 0, rank, parId, 8)) {
         create.krnl.parallel(loopDefs[parId]);
         onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-            "layout transform normal->mapped");
+            "layout transform fast pattern");
       } else {
         onnxToKrnlParallelReport(op, false, -1, -1,
-            "no dim with enough work in layout transform normal->mapped");
+            "no dim with enough work in layout transform fast pattern");
       }
     }
 
