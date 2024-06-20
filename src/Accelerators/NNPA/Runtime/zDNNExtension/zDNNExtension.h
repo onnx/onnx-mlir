@@ -148,7 +148,6 @@ inline void omUnreachable() {
 #endif
 }
 
-//
 /**
  * \brief Check zdnn status
  *
