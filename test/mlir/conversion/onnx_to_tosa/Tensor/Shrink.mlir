@@ -20,15 +20,19 @@ func.func @test_shrink_float(%arg0: tensor<4x4xf32>) -> tensor<4x4xf32> {
 func.func @test_shrink_int(%arg0: tensor<4x4xi8>) -> tensor<4x4xi8> {
     %2 = "onnx.Shrink"(%arg0) {lambd = -7.500000e-01 : f32, bias = 5.000000e-01 : f32} : (tensor<4x4xi8>) -> tensor<4x4xi8>
     return %2 : tensor<4x4xi8>
-// CHECK-LABEL:  func.func @test_shrink_int(
-//       CHECK:    %0 = "tosa.const"() <{value = dense<0> : tensor<1x1xi8>}> : () -> tensor<1x1xi8>
-//       CHECK:    %1 = tosa.greater %0, %arg0 : (tensor<1x1xi8>, tensor<4x4xi8>) -> tensor<4x4xi1>
-//       CHECK:    %2 = tosa.add %arg0, %0 : (tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi8>
-//       CHECK:    %3 = tosa.select %1, %2, %0 : (tensor<4x4xi1>, tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi8>
-//       CHECK:    %4 = tosa.greater %arg0, %0 : (tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi1>
-//       CHECK:    %5 = tosa.sub %arg0, %0 : (tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi8>
-//       CHECK:    %6 = tosa.select %4, %5, %3 : (tensor<4x4xi1>, tensor<4x4xi8>, tensor<4x4xi8>) -> tensor<4x4xi8>
-//       CHECK:    return %6 : tensor<4x4xi8>
+// CHECK-LABEL:   func.func @test_shrink_int(
+// CHECK-SAME:                               %[[VAL_0:.*]]: tensor<4x4xi8>) -> tensor<4x4xi8> {
+// CHECK:           %[[VAL_1:.*]] = "tosa.const"() <{value = dense<-1> : tensor<1x1xi8>}> : () -> tensor<1x1xi8>
+// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<1> : tensor<1x1xi8>}> : () -> tensor<1x1xi8>
+// CHECK:           %[[VAL_3:.*]] = "tosa.const"() <{value = dense<0> : tensor<1x1xi8>}> : () -> tensor<1x1xi8>
+// CHECK:           %[[VAL_4:.*]] = tosa.greater %[[VAL_2]], %[[VAL_0]] : (tensor<1x1xi8>, tensor<4x4xi8>) -> tensor<4x4xi1>
+// CHECK:           %[[VAL_5:.*]] = tosa.add %[[VAL_0]], %[[VAL_3]] : (tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi8>
+// CHECK:           %[[VAL_6:.*]] = tosa.select %[[VAL_4]], %[[VAL_5]], %[[VAL_3]] : (tensor<4x4xi1>, tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi8>
+// CHECK:           %[[VAL_7:.*]] = tosa.greater %[[VAL_0]], %[[VAL_1]] : (tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi1>
+// CHECK:           %[[VAL_8:.*]] = tosa.sub %[[VAL_0]], %[[VAL_3]] : (tensor<4x4xi8>, tensor<1x1xi8>) -> tensor<4x4xi8>
+// CHECK:           %[[VAL_9:.*]] = tosa.select %[[VAL_7]], %[[VAL_8]], %[[VAL_6]] : (tensor<4x4xi1>, tensor<4x4xi8>, tensor<4x4xi8>) -> tensor<4x4xi8>
+// CHECK:           return %[[VAL_9]] : tensor<4x4xi8>
+// CHECK:         }
 }
 
 func.func @test_shrink_int_constants_are_one(%arg0: tensor<4x4xi8>) -> tensor<4x4xi8> {
