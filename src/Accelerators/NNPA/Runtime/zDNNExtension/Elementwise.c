@@ -224,7 +224,9 @@ zdnn_status zdnn_add_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_ADD_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_add");
+#endif
   return status;
 }
 
@@ -232,7 +234,9 @@ zdnn_status zdnn_sub_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_SUB_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_sub");
+#endif
   return status;
 }
 
@@ -240,7 +244,9 @@ zdnn_status zdnn_mul_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MUL_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_mul");
+#endif
   return status;
 }
 
@@ -248,7 +254,9 @@ zdnn_status zdnn_div_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_DIV_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_div");
+#endif
   return status;
 }
 
@@ -256,7 +264,9 @@ zdnn_status zdnn_min_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MIN_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_min");
+#endif
   return status;
 }
 
@@ -264,21 +274,27 @@ zdnn_status zdnn_max_ext(const zdnn_ztensor *inputA, const zdnn_ztensor *inputB,
     zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_binary_elementwise_common(inputA, inputB, output, ZDNN_MAX_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_max");
+#endif
   return status;
 }
 
 zdnn_status zdnn_exp_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_unary_elementwise_common(input, NULL, output, ZDNN_EXP_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_exp");
+#endif
   return status;
 }
 
 zdnn_status zdnn_log_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_unary_elementwise_common(input, NULL, output, ZDNN_LOG_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_log");
+#endif
   return status;
 }
 
@@ -286,21 +302,27 @@ zdnn_status zdnn_relu_ext(const zdnn_ztensor *input, const void *clippingValue,
     zdnn_ztensor *output) {
   zdnn_status status = zdnn_unary_elementwise_common(
       input, clippingValue, output, ZDNN_RELU_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_relu");
+#endif
   return status;
 }
 
 zdnn_status zdnn_sigmoid_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_unary_elementwise_common(input, NULL, output, ZDNN_SIGMOID_EXT);
+#ifdef ZDNN_STATUS_MESSAGE
   checkStatus(status, "zdnn_sigmoid");
+#endif
   return status;
 }
 
 zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_unary_elementwise_common(input, NULL, output, ZDNN_TANH_EXT);
-  checkStatus(status, "zdnn_tanh");
+#ifdef ZDNN_STATUS_MESSAGE
+    checkStatus(status, "zdnn_tanh");
+#endif
   return status;
 }
 
