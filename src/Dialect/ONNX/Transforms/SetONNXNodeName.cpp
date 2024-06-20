@@ -70,7 +70,7 @@ void SetONNXNodeNamePass::runOnOperation() {
       std::string s = nodeName.getValue().str();
       bool succeeded = nodeNames.insert(s).second;
       if (!succeeded) {
-        llvm::outs() << "Duplicated " << nodeNameAttr << ": " << s
+        llvm::errs() << "Duplicated " << nodeNameAttr << ": " << s
                      << ". It will be updated with a new string.\n";
         opsNeedNodeName.insert(op);
       }
