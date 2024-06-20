@@ -47,9 +47,7 @@ static inline zdnn_status call_zdnn_matmul_op(const zdnn_ztensor *inputA,
   else
     status =
         zdnn_matmul_op(inputA, inputB, inputC, (zdnn_matmul_ops)opType, output);
-#ifdef ZDNN_STATUS_MESSAGE
-  checkStatus(status, "zdnn_matmul");
-#endif
+  CHECK_ZDNN_STATUS(status, "zdnn_matmul");
   return status;
 }
 
@@ -110,9 +108,7 @@ static zdnn_status zdnn_matmul_op_common(const zdnn_ztensor *inputA,
       zdnn_ztensor *zyb = getTile(&siYB, j);
       zdnn_status status =
           call_zdnn_matmul_op(za, zb, zc, opType, zyb, isBcast);
-#ifdef ZDNN_STATUS_MESSAGE
-      checkStatus(status, "zdnn_matmul");
-#endif
+      CHECK_ZDNN_STATUS(status, "zdnn_matmul");
       if (OMZTensorSplitDebug) {
         int cpuId = 0;
 #ifdef __MVS__
@@ -162,9 +158,7 @@ zdnn_status zdnn_matmul_op_ext(const zdnn_ztensor *inputA,
     zdnn_ztensor *output) {
   zdnn_status status = zdnn_matmul_op_common(
       inputA, inputB, inputC, opType, output, /*isBcast=*/false);
-#ifdef ZDNN_STATUS_MESSAGE
-  checkStatus(status, "zdnn_matmul");
-#endif
+  CHECK_ZDNN_STATUS(status, "zdnn_matmul");
   return status;
 }
 
@@ -175,9 +169,7 @@ zdnn_status zdnn_matmul_bcast_op_ext(const zdnn_ztensor *inputA,
       inputA, inputB, inputC, opType, output, /*isBcast=*/true);
   // Compiler does not check the return result at this moment. Thus, check it
   // here.
-#ifdef ZDNN_STATUS_MESSAGE
-  checkStatus(status, "zdnn_matmul");
-#endif
+  CHECK_ZDNN_STATUS(status, "zdnn_matmul");
   return status;
 }
 

@@ -44,10 +44,15 @@ extern "C" {
 #define DEFAULT_ZTENSOR_SPLIT_ENABLED 0
 // zTensor splitting debug is off by default.
 #define DEFAULT_ZTENSOR_SPLIT_DEBUG 0
+// zDNN status message is off by default.
+#define DEFAULT_STATUS_MESSAGES_ENABLED 0
 
 extern bool OMZTensorSplitEnabled;
 extern bool OMZTensorSplitDebug;
 extern uint32_t OMZTensorSplitSize;
+// We want to enable zdnn status messages when a user
+// manually specifies the environment variable.
+extern bool OMStatusMessagesEnabled;
 
 // -----------------------------------------------------------------------------
 // Misc Macros
@@ -154,6 +159,8 @@ inline void omUnreachable() {
  * @param zdnn_name name of the zdnn api
  */
 void checkStatus(zdnn_status status, const char *zdnn_name);
+
+#define CHECK_ZDNN_STATUS(status, zdnn_name) checkStatus(status, zdnn_name)
 
 /**
  * \brief Get the unmapped shape (4D) of ztensor.

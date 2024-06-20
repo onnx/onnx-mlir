@@ -6,7 +6,7 @@
 # manually specifies the environment variable.
 # The default value for zdnn status message is "OFF"
 option(ZDNN_STATUS_MESSAGE "Enable ZDNN Status Messages" OFF)
-if (ZDNN_STATUS_MESSAGE)
+if(ZDNN_STATUS_MESSAGE)
   add_compile_definitions(ZDNN_STATUS_MESSAGE)
 endif()
 
