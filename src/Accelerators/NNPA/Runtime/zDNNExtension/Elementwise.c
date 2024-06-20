@@ -321,7 +321,7 @@ zdnn_status zdnn_tanh_ext(const zdnn_ztensor *input, zdnn_ztensor *output) {
   zdnn_status status =
       zdnn_unary_elementwise_common(input, NULL, output, ZDNN_TANH_EXT);
 #ifdef ZDNN_STATUS_MESSAGE
-    checkStatus(status, "zdnn_tanh");
+  checkStatus(status, "zdnn_tanh");
 #endif
   return status;
 }
