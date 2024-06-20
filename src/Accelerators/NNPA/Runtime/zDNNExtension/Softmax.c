@@ -70,7 +70,7 @@ zdnn_status zdnn_softmax_ext(const zdnn_ztensor *input, void *save_area,
     zdnn_ztensor *zy = getTile(&siY, i);
     zdnn_status status = zdnn_softmax(
         zx, (siX.reuseFullZTensor) ? save_area : NULL, act_func, zy);
-    assert(status == ZDNN_OK);
+    CHECK_ZDNN_STATUS(status, "zdnn_softmax");
   }
   if (OMZTensorSplitDebug) {
     end_time = clock();
