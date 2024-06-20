@@ -164,18 +164,7 @@ inline void omUnreachable() {
 //        }\
 //     }
 
-void checkStatus(zdnn_status status, const char *zdnn_name) {
-  bool status_set = 0;
-#ifdef ZDNN_STATUS_MESSAGE
-  status_set = 1;
-#endif
-  if (status_set) {
-    if (status != ZDNN_OK) {
-      fprintf(stdout, "[zdnnx] %s : %s\n", zdnn_name,
-          zdnn_get_status_message(status));
-    }
-  }
-}
+void checkStatus(zdnn_status status, const char *zdnn_name);
 
 /**
  * \brief Get the unmapped shape (4D) of ztensor.

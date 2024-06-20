@@ -109,6 +109,19 @@ void zDNNExtensionInit() {
   }
 }
 
+void checkStatus(zdnn_status status, const char *zdnn_name) {
+  bool status_set = 0;
+#ifdef ZDNN_STATUS_MESSAGE
+  status_set = 1;
+#endif
+  if (status_set) {
+    if (status != ZDNN_OK) {
+      fprintf(stdout, "[zdnnx] %s : %s\n", zdnn_name,
+          zdnn_get_status_message(status));
+    }
+  }
+}
+
 void getUnmappedShape(const zdnn_ztensor *t, UnmappedShape *shape) {
   const zdnn_tensor_desc *desc = t->transformed_desc;
   shape->e4 = desc->dim4;
