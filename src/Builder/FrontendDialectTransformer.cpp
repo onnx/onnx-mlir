@@ -169,7 +169,7 @@ public:
     in_model_functions_ = GetModelLocalFunctions(model);
     importGraph(model.graph());
     if (options_.verboseOutput) {
-      llvm::outs()
+      llvm::errs()
           << "The ONNX model has " << num_of_parameters_
           << " elements in its initializers. This value would be close to and "
              "greater than the number of parameters in the model. Because "
@@ -1119,7 +1119,7 @@ private:
     // Note the minimum supported opset only applies to the default domain.
     if (isDefaultDomain(node.domain()) && current_opset < opset_list.back() &&
         current_opset < MINIMUM_SUPPORTED_OPSET)
-      llvm::outs() << "Warning: ONNX " << node.op_type()
+      llvm::errs() << "Warning: ONNX " << node.op_type()
                    << " in your model is using Opset " << current_opset
                    << ", which is quite old. Please consider regenerating your "
                       "model with a newer Opset.\n";
@@ -1524,7 +1524,7 @@ bool ImportFrontendModelInternal(onnx::ModelProto &model, MLIRContext &context,
 
   if (options.allowSorting && !IsTopologicallySorted(model.graph())) {
     if (!SortGraph(model.mutable_graph())) {
-      llvm::outs() << "The graph is not topologically sortable.\n";
+      llvm::errs() << "The graph is not topologically sortable.\n";
       return false;
     }
   }
