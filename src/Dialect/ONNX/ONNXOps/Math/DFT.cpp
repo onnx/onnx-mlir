@@ -97,7 +97,8 @@ LogicalResult ONNXDFTOp::inferShapes(
   if (!isNoneValue(getAxis()) && !hasShapeAndRank(getAxis()))
     return success();
 
-  Type elementType = getInput().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getInput().getType()).getElementType();
   ONNXDFTOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }

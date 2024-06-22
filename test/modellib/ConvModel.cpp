@@ -105,7 +105,8 @@ bool Conv2DLibBuilder::build() {
   if (failed(res))
     return false;
 
-  auto outputShape = convOp.getResult().getType().cast<ShapedType>().getShape();
+  auto outputShape =
+      mlir::cast<ShapedType>(convOp.getResult().getType()).getShape();
   modelNOut = outputShape[0];
   modelCOut = outputShape[1];
   modelHOut = outputShape[2];
@@ -123,7 +124,7 @@ bool Conv2DLibBuilder::build() {
 
 bool Conv2DLibBuilder::prepareInputs(float dataRangeLB, float dataRangeUB) {
   constexpr int num = 2;
-  OMTensor* list[num];
+  OMTensor *list[num];
   list[0] = omTensorCreateWithRandomData<float>(
       {N, CIn, H, W}, dataRangeLB, dataRangeUB);
   list[1] = omTensorCreateWithRandomData<float>(

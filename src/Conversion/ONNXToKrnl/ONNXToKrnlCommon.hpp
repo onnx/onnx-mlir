@@ -229,7 +229,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
   mlir::Type actualElementType =
       MathBuilder::elementTypeWithVector(scalarOperands[0].getType());
   // Perform int or float operation depending on the actual elementary type.
-  if (actualElementType.isa<mlir::IntegerType>()) {
+  if (mlir::isa<mlir::IntegerType>(actualElementType)) {
     // Generate the integer code only if the scalar integer op is non-void
     // (unsupported) and non-int (supported by custom sequence of ops).
     if constexpr (!(std::is_same<ScalarIOp<Op>, NotSuportedScalarOp>::value) &&
@@ -237,7 +237,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
       return rewriter.create<ScalarIOp<Op>>(
           loc, elementType, scalarOperands, std::nullopt);
     llvm_unreachable("unsupported integer operation");
-  } else if (actualElementType.isa<mlir::FloatType>()) {
+  } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
     // Generate the floating point code only if the scalar integer op is
     // non-void (unsupported) and non-int (supported by custom sequence of ops).
     if constexpr (!(std::is_same<ScalarFOp<Op>, NotSuportedScalarOp>::value) &&
@@ -493,9 +493,9 @@ std::vector<mlir::Value> allocForONNXOp(mlir::Operation *op,
     mlir::Value output = op->getResults()[i];
     // Convert the output type to MemRefType.
     mlir::Type convertedType = typeConverter->convertType(output.getType());
-    assert(convertedType && convertedType.isa<mlir::MemRefType>() &&
+    assert(convertedType && mlir::isa<mlir::MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    mlir::MemRefType memRefType = convertedType.cast<mlir::MemRefType>();
+    mlir::MemRefType memRefType = mlir::cast<mlir::MemRefType>(convertedType);
 
     // Insert an allocation and deallocation for the result of this operation.
     mlir::Value alloc =
@@ -592,8 +592,8 @@ bool hasNonIdentityLayout(mlir::ValueRange operands);
 // minSize. Runtime dimensions are assumed to satisfy the size requirement by
 // definition. If found one, it is parDim and the function returns true.
 bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
-    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstDim /*inclusive*/,
-    int64_t lastDim /*exclusive*/, int64_t &parDim, int64_t minSize = 4);
+    llvm::SmallVectorImpl<IndexExpr> &ub, int64_t firstInclusiveDim,
+    int64_t lastExclusiveDim, int64_t &parDim, int64_t minSize = 4);
 
 //===----------------------------------------------------------------------===//
 // Support functions for reporting.

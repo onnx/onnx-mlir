@@ -73,20 +73,20 @@ namespace zhigh {
 
 std::vector<mlir::Type> getZHighAuxSplitResultType(
     Value input, int64_t axis, ArrayAttr split) {
-  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
   std::vector<mlir::Type> outputTypes;
   if (split.size() == 0) {
     llvm_unreachable("Unsupported split (size==0)");
   } else {
     ArrayRef<int64_t> inputShape =
-        input.getType().cast<RankedTensorType>().getShape();
+        mlir::cast<RankedTensorType>(input.getType()).getShape();
     int64_t splitNum = split.size();
     for (int i = 0; i < splitNum; i++) {
       SmallVector<int64_t> outputShape;
       for (unsigned int dim = 0; dim < inputShape.size(); dim++) {
-        outputShape.emplace_back((dim == axis)
-                                     ? split[dim].cast<IntegerAttr>().getInt()
-                                     : inputShape[dim]);
+        outputShape.emplace_back(
+            (dim == axis) ? mlir::cast<IntegerAttr>(split[dim]).getInt()
+                          : inputShape[dim]);
       }
       outputTypes.emplace_back(RankedTensorType::get(outputShape, elementType));
     }
@@ -114,7 +114,7 @@ Attribute ZTensorEncodingAttr::parse(AsmParser &parser, Type type) {
   // Process the data from the parsed dictionary value into struct-like data.
   for (const NamedAttribute &attr : dict) {
     if (attr.getName() == "dataLayout") {
-      StringAttr layoutAttr = attr.getValue().dyn_cast<StringAttr>();
+      StringAttr layoutAttr = mlir::dyn_cast<StringAttr>(attr.getValue());
       if (!layoutAttr) {
         parser.emitError(
             parser.getNameLoc(), "expected a string value for data layout");

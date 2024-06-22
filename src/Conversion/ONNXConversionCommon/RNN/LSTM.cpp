@@ -50,15 +50,15 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
         activationForward.f.name =
-            activationArrAttr[0].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[0]).getValue();
       }
       if (activationArrAttr.size() > 1) {
         activationForward.g.name =
-            activationArrAttr[1].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[1]).getValue();
       }
       if (activationArrAttr.size() > 2) {
         activationForward.h.name =
-            activationArrAttr[2].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[2]).getValue();
       }
     }
 
@@ -67,15 +67,17 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
       unsigned int startIndex = (direction == REVERSE) ? 0 : 3;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.name =
-            activationArrAttr[startIndex].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[startIndex]).getValue();
       }
       if (activationArrAttr.size() > startIndex + 1) {
         activationReverse.g.name =
-            activationArrAttr[startIndex + 1].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[startIndex + 1])
+                .getValue();
       }
       if (activationArrAttr.size() > startIndex + 2) {
         activationReverse.h.name =
-            activationArrAttr[startIndex + 2].cast<StringAttr>().getValue();
+            mlir::cast<StringAttr>(activationArrAttr[startIndex + 2])
+                .getValue();
       }
     }
   }
@@ -86,13 +88,13 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
-        activationForward.f.alpha = activationArrAttr[0].cast<FloatAttr>();
+        activationForward.f.alpha = mlir::cast<FloatAttr>(activationArrAttr[0]);
       }
       if (activationArrAttr.size() > 1) {
-        activationForward.g.alpha = activationArrAttr[1].cast<FloatAttr>();
+        activationForward.g.alpha = mlir::cast<FloatAttr>(activationArrAttr[1]);
       }
       if (activationArrAttr.size() > 2) {
-        activationForward.h.alpha = activationArrAttr[2].cast<FloatAttr>();
+        activationForward.h.alpha = mlir::cast<FloatAttr>(activationArrAttr[2]);
       }
     }
 
@@ -101,15 +103,15 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
       unsigned int startIndex = (direction == REVERSE) ? 0 : 3;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.alpha =
-            activationArrAttr[startIndex].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex]);
       }
       if (activationArrAttr.size() > startIndex + 1) {
         activationReverse.g.alpha =
-            activationArrAttr[startIndex + 1].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex + 1]);
       }
       if (activationArrAttr.size() > startIndex + 2) {
         activationReverse.h.alpha =
-            activationArrAttr[startIndex + 2].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex + 2]);
       }
     }
   }
@@ -120,13 +122,13 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
     if (direction == FORWARD || direction == BIDIRECTIONAL) {
       // Forward activations.
       if (activationArrAttr.size() > 0) {
-        activationForward.f.beta = activationArrAttr[0].cast<FloatAttr>();
+        activationForward.f.beta = mlir::cast<FloatAttr>(activationArrAttr[0]);
       }
       if (activationArrAttr.size() > 1) {
-        activationForward.g.beta = activationArrAttr[1].cast<FloatAttr>();
+        activationForward.g.beta = mlir::cast<FloatAttr>(activationArrAttr[1]);
       }
       if (activationArrAttr.size() > 2) {
-        activationForward.h.beta = activationArrAttr[2].cast<FloatAttr>();
+        activationForward.h.beta = mlir::cast<FloatAttr>(activationArrAttr[2]);
       }
     }
 
@@ -135,15 +137,15 @@ getActivationPack<ONNXLSTMOp, LstmActivationPack>(ONNXLSTMOp *op) {
       unsigned int startIndex = (direction == REVERSE) ? 0 : 3;
       if (activationArrAttr.size() > startIndex) {
         activationReverse.f.beta =
-            activationArrAttr[startIndex].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex]);
       }
       if (activationArrAttr.size() > startIndex + 1) {
         activationReverse.g.beta =
-            activationArrAttr[startIndex + 1].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex + 1]);
       }
       if (activationArrAttr.size() > startIndex + 2) {
         activationReverse.h.beta =
-            activationArrAttr[startIndex + 2].cast<FloatAttr>();
+            mlir::cast<FloatAttr>(activationArrAttr[startIndex + 2]);
       }
     }
   }

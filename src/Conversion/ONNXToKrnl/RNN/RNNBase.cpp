@@ -42,9 +42,9 @@ Value allocAllHidden(ConversionPatternRewriter &rewriter, Location loc,
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(output.getType());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     alloc = create.mem.alignedAlloc(memRefType, dims);
   } else {
@@ -62,7 +62,7 @@ Value allocIntermediateState(
   IndexExprScope scope(create.krnlIE);
   auto memRefType = MemRefType::get({/*batch_size=*/dimAt(X, 1),
                                         /*hidden_size=*/dimAt(R, 2)},
-      X.getType().cast<ShapedType>().getElementType());
+      mlir::cast<ShapedType>(X.getType()).getElementType());
   SmallVector<IndexExpr, 2> dims;
   // Get batch_size from X.
   dims.emplace_back(create.krnlIE.getShapeAsDim(X, 1));
@@ -167,9 +167,9 @@ Value allocHiddenOrCell(ConversionPatternRewriter &rewriter, Location loc,
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(output.getType());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     alloc = create.mem.alignedAlloc(memRefType, dims);
   } else {
     alloc = output;
@@ -184,7 +184,7 @@ void initializeHiddenAndCell(ConversionPatternRewriter &rewriter, Location loc,
   MultiDialectBuilder<KrnlBuilder, MathBuilder, MemRefBuilder> create(
       rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
-  unsigned htRank = ht.getType().cast<MemRefType>().getRank();
+  unsigned htRank = mlir::cast<MemRefType>(ht.getType()).getRank();
   Value iZero = create.math.constantIndex(0);
   SmallVector<Value, 4> htLbs(htRank, iZero);
   SmallVector<Value, 4> htUbs;
@@ -222,7 +222,7 @@ void stateToOutputForHiddenOrCell(ConversionPatternRewriter &rewriter,
     Value numOfElements = getDynamicMemRefSize(rewriter, loc, val);
     create.krnl.memcpy(output, val, numOfElements);
   } else { // BIDIRECTIONAL
-    unsigned rank = forwardVal.getType().cast<MemRefType>().getRank();
+    unsigned rank = mlir::cast<MemRefType>(forwardVal.getType()).getRank();
     Value zero = create.math.constantIndex(0);
     Value one = create.math.constantIndex(1);
     SmallVector<Value, 4> lbs(rank, zero);
@@ -258,7 +258,7 @@ Value emitXSliceAt(ConversionPatternRewriter &rewriter, Location loc, Value X,
 
   int64_t batchSize = dimAt(X, 1);
   int64_t inputSize = dimAt(X, 2);
-  Type elementType = X.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(X.getType()).getElementType();
   MemRefType sliceXType = MemRefType::get({batchSize, inputSize}, elementType);
 
   // Allocate a buffer

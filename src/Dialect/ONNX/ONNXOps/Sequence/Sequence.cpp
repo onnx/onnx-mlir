@@ -76,9 +76,9 @@ LogicalResult ONNXSequenceAtOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto outputType = getResult().getType();
   auto inputElementType =
-      getInputSequence().getType().cast<SeqType>().getElementType();
-  if (!inputElementType.isa<UnrankedTensorType>() &&
-      outputType.isa<UnrankedTensorType>()) {
+      mlir::cast<SeqType>(getInputSequence().getType()).getElementType();
+  if (!mlir::isa<UnrankedTensorType>(inputElementType) &&
+      mlir::isa<UnrankedTensorType>(outputType)) {
     getResult().setType(inputElementType);
   }
   return success();
@@ -91,9 +91,10 @@ LogicalResult ONNXSequenceAtOp::inferShapes(
 LogicalResult ONNXSequenceConstructOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   auto types = getInputs().getTypes();
-  ShapedType seqTensorType = types[0].cast<ShapedType>();
+  ShapedType seqTensorType = mlir::cast<ShapedType>(types[0]);
   for (size_t i = 1; i < types.size(); ++i) {
-    seqTensorType = sequenceAddType(seqTensorType, types[i].cast<ShapedType>());
+    seqTensorType =
+        sequenceAddType(seqTensorType, mlir::cast<ShapedType>(types[i]));
   }
   getResult().setType(SeqType::get(seqTensorType, types.size()));
   return success();
@@ -115,8 +116,8 @@ LogicalResult ONNXSequenceEmptyOp::verify() {
   }
 
   // Get element type for seq from the output
-  auto outputSeqElementType =
-      getResult().getType().cast<SeqType>().getElementType().cast<ShapedType>();
+  auto outputSeqElementType = mlir::cast<ShapedType>(
+      mlir::cast<SeqType>(getResult().getType()).getElementType());
   if (outputSeqElementType.getElementType() != elementType)
     return emitError("SequenceEmpty getDtype() does not match the output type");
   return success();
@@ -124,7 +125,7 @@ LogicalResult ONNXSequenceEmptyOp::verify() {
 
 LogicalResult ONNXSequenceEmptyOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto originTy = getResult().getType().cast<SeqType>();
+  auto originTy = mlir::cast<SeqType>(getResult().getType());
   auto elementTy = originTy.getElementType();
   auto returnTy = SeqType::get(elementTy, 0);
   getResult().setType(returnTy);
@@ -137,7 +138,7 @@ LogicalResult ONNXSequenceEmptyOp::inferShapes(
 
 LogicalResult ONNXSequenceEraseOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto inputTy = getInputSequence().getType().cast<SeqType>();
+  auto inputTy = mlir::cast<SeqType>(getInputSequence().getType());
   int64_t length = inputTy.getLength();
 
   if (length == 0)
@@ -156,13 +157,13 @@ LogicalResult ONNXSequenceInsertOp::verify() {
       ONNXSequenceInsertOpAdaptor(*this);
 
   // These cast should be guaranteed by default verifier
-  Type seqElementType = operandAdaptor.getInputSequence()
-                            .getType()
-                            .dyn_cast<SeqType>()
-                            .getElementType();
-  Type elementType1 = seqElementType.dyn_cast<ShapedType>().getElementType();
+  Type seqElementType =
+      mlir::dyn_cast<SeqType>(operandAdaptor.getInputSequence().getType())
+          .getElementType();
+  Type elementType1 =
+      mlir::dyn_cast<ShapedType>(seqElementType).getElementType();
   ShapedType insertType =
-      operandAdaptor.getTensor().getType().dyn_cast<ShapedType>();
+      mlir::dyn_cast<ShapedType>(operandAdaptor.getTensor().getType());
   Type elementType2 = insertType.getElementType();
 
   if (elementType1 != elementType2) {
@@ -175,8 +176,8 @@ LogicalResult ONNXSequenceInsertOp::verify() {
 LogicalResult ONNXSequenceInsertOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   // Merge the tensor type for the seq and the inserted tensor
-  SeqType seqType = getInputSequence().getType().cast<SeqType>();
-  ShapedType tensorType = getTensor().getType().cast<ShapedType>();
+  SeqType seqType = mlir::cast<SeqType>(getInputSequence().getType());
+  ShapedType tensorType = mlir::cast<ShapedType>(getTensor().getType());
   int64_t length = seqType.getLength();
   if (length == 0) {
     // When the input seq is empty, inherit the tensor type
@@ -184,7 +185,7 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
   } else {
     int64_t newLength =
         length == ShapedType::kDynamic ? ShapedType::kDynamic : length + 1;
-    ShapedType seqTensorType = seqType.getElementType().cast<ShapedType>();
+    ShapedType seqTensorType = mlir::cast<ShapedType>(seqType.getElementType());
     seqTensorType = sequenceAddType(seqTensorType, tensorType);
     getResult().setType(SeqType::get(seqTensorType, newLength));
   }
@@ -198,8 +199,8 @@ LogicalResult ONNXSequenceInsertOp::inferShapes(
 LogicalResult ONNXSequenceLengthOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
   Type outputTy = getResult().getType();
-  if (!outputTy.isa<RankedTensorType>() ||
-      outputTy.cast<RankedTensorType>().getRank() != 0) {
+  if (!mlir::isa<RankedTensorType>(outputTy) ||
+      mlir::cast<RankedTensorType>(outputTy).getRank() != 0) {
     SmallVector<int64_t, 1> dims;
     auto builder = Builder(getContext());
     Type scalarTy = RankedTensorType::get(dims, builder.getIntegerType(64));

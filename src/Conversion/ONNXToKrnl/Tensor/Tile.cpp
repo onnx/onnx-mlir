@@ -28,7 +28,7 @@ Value insertAllocForTile(MemRefType memRefType, Location loc,
     Value repeatsOperand) {
   MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
       rewriter, loc);
-  auto inputShape = inputOperand.getType().cast<MemRefType>().getShape();
+  auto inputShape = mlir::cast<MemRefType>(inputOperand.getType()).getShape();
   size_t inputRank = inputShape.size();
   auto outputShape = memRefType.getShape();
 
@@ -67,9 +67,9 @@ struct ONNXTileOpLowering : public OpConversionPattern<ONNXTileOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
     llvm::ArrayRef<int64_t> memRefShape = memRefType.getShape();
     uint64_t outputRank = memRefShape.size();
 
@@ -122,15 +122,15 @@ struct ONNXTileOpLoweringAlternative : public OpConversionPattern<ONNXTileOp> {
 
     // get input operands, shapes, and rank
     Value input = adaptor.getInput();
-    auto inputShape = input.getType().cast<MemRefType>().getShape();
+    auto inputShape = mlir::cast<MemRefType>(input.getType()).getShape();
     int64_t inputRank = inputShape.size();
     Value repeats = adaptor.getRepeats();
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     auto outputMemRefShape = outputMemRefType.getShape();
     int64_t outputRank = outputMemRefShape.size();
 

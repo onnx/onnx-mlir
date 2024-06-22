@@ -32,7 +32,7 @@ void ZHighUnstickOp::build(
     OpBuilder &builder, OperationState &state, Value input) {
   Type resType;
   Type resElementType = builder.getF32Type();
-  ShapedType inputType = input.getType().cast<ShapedType>();
+  ShapedType inputType = mlir::cast<ShapedType>(input.getType());
   if (hasRankedType(input)) {
     // Compute shape.
     ArrayRef<int64_t> inputShape = inputType.getShape();
@@ -105,7 +105,8 @@ LogicalResult ZHighUnstickOp::inferShapes(
     return success();
 
   ZHighUnstickOpShapeHelper shapeHelper(getOperation());
-  Type elementType = getResult().getType().cast<ShapedType>().getElementType();
+  Type elementType =
+      mlir::cast<ShapedType>(getResult().getType()).getElementType();
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
 

@@ -52,11 +52,11 @@ namespace onnx_mlir {
 // MLIR unsigned integer.
 
 /* static */ bool MathBuilder::isVector(Type type) {
-  return type.dyn_cast<VectorType>() != nullptr;
+  return mlir::dyn_cast<VectorType>(type) != nullptr;
 }
 
 /* static */ Type MathBuilder::elementTypeWithVector(Type elementOrVectorType) {
-  VectorType vectorType = elementOrVectorType.dyn_cast<VectorType>();
+  VectorType vectorType = mlir::dyn_cast<VectorType>(elementOrVectorType);
   if (vectorType)
     return vectorType.getElementType();
   return elementOrVectorType;
@@ -71,7 +71,8 @@ namespace onnx_mlir {
 
 /* static */ bool MathBuilder::isIntegerWithVector(Type elementOrVectorType) {
   Type elementType = elementTypeWithVector(elementOrVectorType);
-  return elementType.isa<IntegerType>() || elementType.isa<IndexType>();
+  return mlir::isa<IntegerType>(elementType) ||
+         mlir::isa<IndexType>(elementType);
 }
 
 /* static */ bool MathBuilder::isUnsignedIntegerWithVector(
@@ -82,7 +83,7 @@ namespace onnx_mlir {
 
 /* static */ bool MathBuilder::isFloatWithVector(Type elementOrVectorType) {
   Type elementType = elementTypeWithVector(elementOrVectorType);
-  return elementType.isa<FloatType>();
+  return mlir::isa<FloatType>(elementType);
 }
 
 Value MathBuilder::abs(Value val) const {
@@ -119,7 +120,7 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
   if (isIntegerWithVector(lhs.getType())) {
     Type elemType = elementTypeWithVector(lhs.getType());
     if (elemType.isUnsignedInteger()) {
-      unsigned elemWidth = elemType.cast<IntegerType>().getWidth();
+      unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
       Value castLhs = castToSignless(lhs, elemWidth);
       Value castRhs = castToSignless(rhs, elemWidth);
       Value castAdd =
@@ -147,7 +148,7 @@ Value MathBuilder::mul(Value lhs, Value rhs) const {
   if (isIntegerWithVector(lhs.getType())) {
     Type elemType = elementTypeWithVector(lhs.getType());
     if (elemType.isUnsignedInteger()) {
-      unsigned elemWidth = elemType.cast<IntegerType>().getWidth();
+      unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
       Value castLhs = castToSignless(lhs, elemWidth);
       Value castRhs = castToSignless(rhs, elemWidth);
       Value castMul =
@@ -462,10 +463,10 @@ Value MathBuilder::constant(Type type, double val) const {
       .Default([](Type) { llvm_unreachable("unsupported element type"); });
 
   assert(constant != nullptr && "Expecting valid constant value");
-  if (type.isa<VectorType>()) {
+  if (mlir::isa<VectorType>(type)) {
     // For vectors, need to splat the constant.
     MultiDialectBuilder<VectorBuilder> create(*this);
-    VectorType vecType = type.dyn_cast<VectorType>();
+    VectorType vecType = mlir::dyn_cast<VectorType>(type);
     constant = create.vec.splat(vecType, constant);
   }
   return constant;
@@ -572,10 +573,10 @@ Value MathBuilder::negativeInf(Type type) const {
   TypedAttr attr = negativeInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
-  if (type.isa<VectorType>()) {
+  if (mlir::isa<VectorType>(type)) {
     // For vectors, need to splat the constant.
     MultiDialectBuilder<VectorBuilder> create(*this);
-    VectorType vecType = type.dyn_cast<VectorType>();
+    VectorType vecType = mlir::dyn_cast<VectorType>(type);
     constant = create.vec.splat(vecType, constant);
   }
   return constant;
@@ -587,10 +588,10 @@ Value MathBuilder::positiveInf(Type type) const {
   TypedAttr attr = positiveInfAttr(elementType);
   Value constant = b().create<arith::ConstantOp>(loc(), attr);
   assert(constant != nullptr && "Expecting valid constant value");
-  if (type.isa<VectorType>()) {
+  if (mlir::isa<VectorType>(type)) {
     // For vectors, need to splat the constant.
     MultiDialectBuilder<VectorBuilder> create(*this);
-    VectorType vecType = type.dyn_cast<VectorType>();
+    VectorType vecType = mlir::dyn_cast<VectorType>(type);
     constant = create.vec.splat(vecType, constant);
   }
   return constant;
@@ -617,10 +618,10 @@ Value MathBuilder::createArithCmp(
 // best of my understanding.
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
   Type valType = val.getType();
-  VectorType vecType = valType.dyn_cast<VectorType>();
+  VectorType vecType = mlir::dyn_cast<VectorType>(valType);
   Type valElemType = elementTypeWithVector(valType);
-  assert(valElemType.isa<IntegerType>() && !valElemType.isSignlessInteger() &&
-         "Expecting signed integer type");
+  assert(mlir::isa<IntegerType>(valElemType) &&
+         !valElemType.isSignlessInteger() && "Expecting signed integer type");
   Type destType = getTypeWithVector(vecType, b().getIntegerType(width));
   return b()
       .create<UnrealizedConversionCastOp>(loc(), destType, val)
@@ -629,9 +630,9 @@ Value MathBuilder::castToSignless(Value val, int64_t width) const {
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
   Type valType = val.getType();
-  VectorType vecType = valType.dyn_cast<VectorType>();
+  VectorType vecType = mlir::dyn_cast<VectorType>(valType);
   Type valElemType = elementTypeWithVector(valType);
-  assert(valElemType.isa<IntegerType>() && "Expecting integer type");
+  assert(mlir::isa<IntegerType>(valElemType) && "Expecting integer type");
   Type destType =
       getTypeWithVector(vecType, b().getIntegerType(width, false /*signed*/));
   return b()
@@ -643,8 +644,8 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 Value MathBuilder::cast(Type destType, Value src) const {
   // Get element type and vector types (if any, i.e. possibly nullptr).
   Type srcType = src.getType();
-  VectorType srcVecType = srcType.dyn_cast<VectorType>();
-  VectorType destVecType = destType.dyn_cast<VectorType>();
+  VectorType srcVecType = mlir::dyn_cast<VectorType>(srcType);
+  VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
   Type srcElemType = elementTypeWithVector(srcType);
   Type destElemType = elementTypeWithVector(destType);
   // Make sure we don't mix vector and scalars.
@@ -655,7 +656,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
     return src;
 
   // Process index types first.
-  if (srcElemType.isa<IndexType>()) {
+  if (mlir::isa<IndexType>(srcElemType)) {
     // If the source is an index type, first convert it into a signless int of
     // size 64.
     srcElemType = b().getIntegerType(64);
@@ -664,7 +665,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
   bool destIsIndex = false;
   Type savedDestType = destType; // Used when destIsIndex is true.
-  if (destElemType.isa<IndexType>()) {
+  if (mlir::isa<IndexType>(destElemType)) {
     // If the dest is an index type, pretend for now that we want it to be
     // converted to signless int of size 64.
     destElemType = b().getIntegerType(64);
@@ -675,9 +676,11 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Only support Integer or Float type at this stage. Index were transformed
   // to signless int.
   // TODO: add support for shaped tensor (MemRef, Vector, Tensor?) if needed.
-  assert((srcElemType.isa<IntegerType>() || srcElemType.isa<FloatType>()) &&
+  assert((mlir::isa<IntegerType>(srcElemType) ||
+             mlir::isa<FloatType>(srcElemType)) &&
          "support only float or int");
-  assert((destElemType.isa<IntegerType>() || destElemType.isa<FloatType>()) &&
+  assert((mlir::isa<IntegerType>(destElemType) ||
+             mlir::isa<FloatType>(destElemType)) &&
          "support only float or int");
   // Get source and dest type width.
   int64_t srcElemWidth = srcElemType.getIntOrFloatBitWidth();
@@ -691,7 +694,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Handle boolean first because they need special handling.
   // Boolean to int/float conversions. Boolean are unsigned.
   if (srcElemType.isInteger(1)) {
-    if (destElemType.isa<FloatType>()) {
+    if (mlir::isa<FloatType>(destElemType)) {
       return b().create<arith::UIToFPOp>(loc(), destType, src);
     } else {
       Value dest = b().create<arith::ExtUIOp>(loc(), destType, src);
@@ -704,9 +707,10 @@ Value MathBuilder::cast(Type destType, Value src) const {
   // Int/Float to booleans, just compare value to be unequal zero.
   if (destElemType.isInteger(1)) {
     Type constantType = srcType;
-    if (srcElemType.isa<IntegerType>() && !srcElemType.isSignlessInteger()) {
+    if (mlir::isa<IntegerType>(srcElemType) &&
+        !srcElemType.isSignlessInteger()) {
       // An integer constant must be signless.
-      unsigned srcElemWidth = srcElemType.cast<IntegerType>().getWidth();
+      unsigned srcElemWidth = mlir::cast<IntegerType>(srcElemType).getWidth();
       constantType = getTypeWithVector(
           srcVecType, IntegerType::get(srcElemType.getContext(), srcElemWidth));
       src = castToSignless(src, srcElemWidth);
@@ -716,7 +720,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Float to float conversions.
-  if (srcElemType.isa<FloatType>() && destElemType.isa<FloatType>()) {
+  if (mlir::isa<FloatType>(srcElemType) && mlir::isa<FloatType>(destElemType)) {
     assert((bitExtend || bitTrunc) && "expected extend or trunc");
     if (bitExtend)
       return b().create<arith::ExtFOp>(loc(), destType, src);
@@ -725,7 +729,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Float to int conversions.
-  if (srcElemType.isa<FloatType>() && destElemType.isa<IntegerType>()) {
+  if (mlir::isa<FloatType>(srcElemType) &&
+      mlir::isa<IntegerType>(destElemType)) {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
     if (destType.isUnsignedInteger()) {
@@ -742,7 +747,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Int to float conversion.
-  if (srcElemType.isa<IntegerType>() && destElemType.isa<FloatType>()) {
+  if (mlir::isa<IntegerType>(srcElemType) &&
+      mlir::isa<FloatType>(destElemType)) {
     if (srcElemType.isUnsignedInteger()) {
       Value cast = castToSignless(src, srcElemWidth);
       return b().create<arith::UIToFPOp>(loc(), destType, cast);
@@ -753,7 +759,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Int to int conversion.
-  if (srcType.isa<IntegerType>() && destType.isa<IntegerType>()) {
+  if (mlir::isa<IntegerType>(srcType) && mlir::isa<IntegerType>(destType)) {
     if (srcType.isUnsignedInteger()) {
       // Unsigned to unsigned/signed conversion.
       // Same bit width for unsigned to signed conversion.
@@ -981,7 +987,7 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
     ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
     int64_t range) const {
   Type elementType = type.getElementType();
-  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  assert(!(mlir::isa<VectorType>(elementType)) && "unsupported vector type");
   ArrayRef<int64_t> shape = type.getShape();
   staticSize = 1;                // Multiplication of static sizes.
   dynSize = LiteralIndexExpr(1); // Multiplication of dyn sizes.
@@ -1044,7 +1050,7 @@ Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
     ValueRange dynSymbols, int64_t VL, int64_t alignment) const {
   Type elementType = type.getElementType();
   assert(!hasNonIdentityLayout(type) && "unsupported layout");
-  assert(!(elementType.isa<VectorType>()) && "unsupported vector type");
+  assert(!(mlir::isa<VectorType>(elementType)) && "unsupported vector type");
   assert(VL >= 1 && "expected positive simd unroll factor");
   // Compute total size of memref (in unit of element type).
   int64_t staticSize;
@@ -1169,7 +1175,8 @@ memref::ReshapeOp MemRefBuilder::reshape(
     create.affine.store(destDims[d].getValue(), outputShapeInMem, {dd});
   }
   // Create output type.
-  Type elementType = valToReshape.getType().cast<MemRefType>().getElementType();
+  Type elementType =
+      mlir::cast<MemRefType>(valToReshape.getType()).getElementType();
   MemRefType destType = MemRefType::get(outputShape, elementType);
   // Perform actual reshape operation
   return reshape(destType, valToReshape, outputShapeInMem);
@@ -1184,7 +1191,7 @@ Value MemRefBuilder::reshapeToFlatInnermost(Value valToReshape,
     llvm::SmallVectorImpl<IndexExpr> &flattenedDims,
     int64_t dimsToFlatten) const {
   // Parse input.
-  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
+  MemRefType inputType = mlir::cast<MemRefType>(valToReshape.getType());
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
   int64_t inputRank = inputType.getRank();
   // Verify dims has the right number of elements.
@@ -1216,7 +1223,7 @@ Value MemRefBuilder::reshapeToFlat2D(Value valToReshape,
     llvm::SmallVectorImpl<IndexExpr> &dims,
     llvm::SmallVectorImpl<IndexExpr> &flattenedDims, int64_t axis) const {
   // Parse input.
-  MemRefType inputType = valToReshape.getType().cast<MemRefType>();
+  MemRefType inputType = mlir::cast<MemRefType>(valToReshape.getType());
   assert(!hasNonIdentityLayout(inputType) && "MemRef is not normalized");
   int64_t inputRank = inputType.getRank();
   // Verify dims has the right number of elements.
@@ -1284,7 +1291,7 @@ Value MemRefBuilder::reinterpretCast(
   IndexExpr::getShape(outputDims, outputShape);
   IndexExpr::getOpOrFoldResults(sizesIE, sizes);
   IndexExpr::getOpOrFoldResults(stridesIE, strides);
-  Type elementType = input.getType().cast<ShapedType>().getElementType();
+  Type elementType = mlir::cast<ShapedType>(input.getType()).getElementType();
   MemRefType outputMemRefType = MemRefType::get(outputShape, elementType);
   if (offset)
     return b().create<memref::ReinterpretCastOp>(
@@ -1297,7 +1304,7 @@ Value MemRefBuilder::reinterpretCast(
 Value MemRefBuilder::collapseShape(
     Value input, ArrayRef<ReassociationIndices> reassociation) {
   // Extract input info.
-  MemRefType inputType = input.getType().cast<MemRefType>();
+  MemRefType inputType = mlir::cast<MemRefType>(input.getType());
   assert(inputType && "expected input with memref type");
   assert(!hasNonIdentityLayout(inputType) &&
          "collapse only for identity layout at this time");
@@ -1367,7 +1374,7 @@ memref::SubViewOp MemRefBuilder::subView(Value input,
   IndexExpr::getOpOrFoldResults(stridesIE, strides);
   SmallVector<int64_t, 4> outputShape;
   IndexExpr::getShape(sizesIE, outputShape);
-  MemRefType inputType = input.getType().dyn_cast<MemRefType>();
+  MemRefType inputType = mlir::dyn_cast<MemRefType>(input.getType());
   MemRefLayoutAttrInterface layout;
   MemRefType outputType = MemRefType::get(outputShape,
       inputType.getElementType(), layout, inputType.getMemorySpace());
@@ -1384,8 +1391,8 @@ Value MemRefBuilder::dim(Value val, int64_t index) const {
 }
 
 Value MemRefBuilder::dim(Value val, Value index) const {
-  // assert((val.getType().isa<MemRefType>() ||
-  //           val.getType().isa<UnrankedMemRefType>()) &&
+  // assert((mlir::isa<MemRefType>(val.getType()) ||
+  //           mlir::isa<UnrankedMemRefType>(val.getType())) &&
   //       "memref::DimOp expects input operand to have MemRefType or "
   //       "UnrankedMemRefType");
   return Value(b().createOrFold<memref::DimOp>(loc(), val, index));
@@ -1485,7 +1492,7 @@ int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {
 }
 
 int64_t VectorBuilder::getMachineVectorLength(Value vecValue) const {
-  VectorType vecType = vecValue.getType().dyn_cast_or_null<VectorType>();
+  VectorType vecType = mlir::dyn_cast_or_null<VectorType>(vecValue.getType());
   assert(vecType && "expected vector type");
   return getMachineVectorLength(vecType.getElementType());
 }
@@ -1558,7 +1565,7 @@ bool VectorBuilder::isPowerOf2(uint64_t num) const {
 }
 
 uint64_t VectorBuilder::getLengthOf1DVector(Value vec) const {
-  VectorType vecType = vec.getType().dyn_cast_or_null<VectorType>();
+  VectorType vecType = mlir::dyn_cast_or_null<VectorType>(vec.getType());
   assert(vecType && "expected a vector type");
   auto vecShape = vecType.getShape();
   assert(vecShape.size() == 1 && "expected a 1D vector");

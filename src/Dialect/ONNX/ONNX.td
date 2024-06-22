@@ -118,17 +118,17 @@ def ONNXTensorEncodingAttr : ONNX_LayoutAttr<"ONNXTensorEncoding"> {
 class ONNXCustomDataLayoutAndFactorsOfPred<
   string layout, int xFactor, int yFactor> :
  And<[
-  CPred<"($_self.cast<::mlir::RankedTensorType>()) &&"
-        "($_self.cast<::mlir::RankedTensorType>()."
-        "getEncoding().dyn_cast_or_null<ONNXTensorEncodingAttr>()) &&"
-        "($_self.cast<::mlir::RankedTensorType>()."
-        "getEncoding().cast<ONNXTensorEncodingAttr>().getDataLayout()"
+  CPred<"(mlir::cast<::mlir::RankedTensorType>($_self)) &&"
+        "(mlir::dyn_cast_or_null<ONNXTensorEncodingAttr>"
+        "(mlir::cast<::mlir::RankedTensorType>($_self).getEncoding())) &&"
+        "(mlir::cast<ONNXTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self)"
+        ".getEncoding()).getDataLayout()"
         " == ONNXTensorEncodingAttr::DataLayout::" # layout # ") &&"
-        "($_self.cast<::mlir::RankedTensorType>()."
-        "getEncoding().cast<ONNXTensorEncodingAttr>().getXFactor()"
+        "(mlir::cast<ONNXTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self)"
+        ".getEncoding()).getXFactor()"
         " == " # xFactor # ")  &&"
-        "($_self.cast<::mlir::RankedTensorType>()."
-        "getEncoding().cast<ONNXTensorEncodingAttr>().getYFactor()"
+        "(mlir::cast<ONNXTensorEncodingAttr>(mlir::cast<::mlir::RankedTensorType>($_self)"
+        ".getEncoding()).getYFactor()"
         " == " # yFactor # ")">
 ]>;
 
@@ -203,19 +203,19 @@ def ONNX_OptType : ONNX_Type<"Opt", "Opt"> {
 // Can be used in other table gen files (.td) for onnx dialect
 //===----------------------------------------------------------------------===//
 
-def StringType : Type<CPred<"$_self.isa<ONNXStringType>()">, "string type">;
+def StringType : Type<CPred<"mlir::isa<ONNXStringType>($_self)">, "string type">;
 
-def IsSeqTypePred : CPred<"$_self.isa<SeqType>()">;
+def IsSeqTypePred : CPred<"mlir::isa<SeqType>($_self)">;
 
-class SeqOf<list<Type> allowedTypes> : 
+class SeqOf<list<Type> allowedTypes> :
   ContainerType<AnyTypeOf<allowedTypes>, IsSeqTypePred,
-                "$_self.cast<SeqType>().getElementType()", "SeqType">;
+                "mlir::cast<SeqType>($_self).getElementType()", "SeqType">;
 
-def IsOptTypePred : CPred<"$_self.isa<OptType>()">;
+def IsOptTypePred : CPred<"mlir::isa<OptType>($_self)">;
 
 class OptOf<Type type> :
   ContainerType<type, IsOptTypePred,
-                "$_self.cast<OptType>().getElementType()", "OptType">;
+                "mlir::cast<OptType>($_self).getElementType()", "OptType">;
 
 def ONNXConstantOpFromDenseAttr: NativeCodeCall<
   "onnx_mlir::OnnxBuilder($_builder, $_loc).constant($0)">;
@@ -246,7 +246,7 @@ class ONNX_Op<string mnemonic, list<Trait> traits = []> :
 //  1. Attributes are not processed
 //  2. output type inference not implemented except Add
 //  3. Type Attribute: 'optional' and 'Variadic hetergeneous' are ignored
-//  4. type of string, complex64 and complex128 for input/output are ignored 
+//  4. type of string, complex64 and complex128 for input/output are ignored
 //  5. unsigned int are treated as signed one
 
 include "mlir/Interfaces/SideEffectInterfaces.td"

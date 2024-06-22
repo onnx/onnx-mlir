@@ -277,9 +277,8 @@ void recordInputOutputMemRefTypes(ModuleOp &module,
     auto *entryPointFunc = module.lookupSymbol(entryPointFuncName);
     assert(entryPointFunc && isa<func::FuncOp>(entryPointFunc) &&
            "entry point func must exist and be an llvm func op");
-    auto entryPointTy = dyn_cast<func::FuncOp>(entryPointFunc)
-                            .getFunctionType()
-                            .dyn_cast<FunctionType>();
+    auto entryPointTy = mlir::dyn_cast<FunctionType>(
+        dyn_cast<func::FuncOp>(entryPointFunc).getFunctionType());
     SmallVector<MemRefType, 4> inputTypes, outputTypes;
     for (Type ty : entryPointTy.getInputs())
       inputTypes.emplace_back(dyn_cast<MemRefType>(ty));
@@ -414,10 +413,10 @@ void genSignatureFunction(ModuleOp &module,
       LLVM::GlobalOp globalEntryPoint = entryGlobalOps[j];
       LLVM::GlobalOp globalSignature =
           (i == 0) ? inSigGlobalOps[j] : outSigGlobalOps[j];
-      assert(globalEntryPoint.getValueAttr().isa<StringAttr>() &&
+      assert(mlir::isa<StringAttr>(globalEntryPoint.getValueAttr()) &&
              "Entry point value is not StringAttr");
       StringAttr entryPointValueAttr =
-          globalEntryPoint.getValueAttr().cast<StringAttr>();
+          mlir::cast<StringAttr>(globalEntryPoint.getValueAttr());
 
       // Return the signature if found.
       create.llvm.ifThenElse(/*cond=*/
@@ -492,7 +491,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     if (rawData.empty())
       return WalkResult::advance();
 
-    auto valueAttr = op.getValue().value().cast<ElementsAttr>();
+    auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
     if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
       return WalkResult::advance();
 
@@ -624,7 +623,9 @@ void loadConstantsFromFile(ModuleOp &module,
     bool zOS = isZOS(module);
     for (auto entryGlobalOp : entryGlobalOps) {
       std::string entryName =
-          entryGlobalOp.getValue().value().cast<StringAttr>().getValue().str();
+          mlir::cast<StringAttr>(entryGlobalOp.getValue().value())
+              .getValue()
+              .str();
       // Entry point name is encoded in EBCDIC on z/OS.
       entryName = (zOS) ? krnl::e2a_s(entryName) : entryName;
       // Erase the null symbol.
@@ -663,9 +664,7 @@ void loadConstantsFromFile(ModuleOp &module,
       LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "filesize");
   auto fsizeGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(fsizeSymbol);
   assert(fsizeGlobalOp && "Could not find the global op for filesize");
-  int64_t dataSize = fsizeGlobalOp.getValue()
-                         .value()
-                         .cast<IntegerAttr>()
+  int64_t dataSize = mlir::cast<IntegerAttr>(fsizeGlobalOp.getValue().value())
                          .getValue()
                          .getSExtValue();
   // Get the global op for isLE.
@@ -673,9 +672,7 @@ void loadConstantsFromFile(ModuleOp &module,
       LLVMBuilder::SymbolPostfix(module, EXTERNAL_CONSTANT_PREFIX + "isLE");
   auto isleGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(isleSymbol);
   assert(isleGlobalOp && "Could not find the global op for data isle");
-  int64_t isle = isleGlobalOp.getValue()
-                     .value()
-                     .cast<IntegerAttr>()
+  int64_t isle = mlir::cast<IntegerAttr>(isleGlobalOp.getValue().value())
                      .getValue()
                      .getSExtValue();
   // Get the packedConst global.
@@ -704,9 +701,7 @@ void loadConstantsFromFile(ModuleOp &module,
         EXTERNAL_CONSTANT_PREFIX + "offset" + constantName;
     auto offsetGlobalOp = module.lookupSymbol<LLVM::GlobalOp>(offsetSymbol);
     assert(offsetGlobalOp && "Could not find the global op for offset");
-    int64_t offset = offsetGlobalOp.getValue()
-                         .value()
-                         .cast<IntegerAttr>()
+    int64_t offset = mlir::cast<IntegerAttr>(offsetGlobalOp.getValue().value())
                          .getValue()
                          .getSExtValue();
 
@@ -878,9 +873,9 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   LLVMTypeConverter typeConverter(ctx, options);
   customizeTypeConverter(typeConverter);
 
-  // omp::ParallelOp can only be legalized when its region is legal
-  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsloopOp>(
-      [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
+  // Set legality for OMP constructs.
+  configureOpenMPToLLVMConversionLegality(target, typeConverter);
+
   // Currently, only minimum required OpenMP Ops are marked as legal, in the
   // future integration of OpenMP, probably more OpenMP Ops are required to be
   // marked as legal. Please refer the Conversion/OpenMPToLLVM/OpenMPtoLLVM.cpp

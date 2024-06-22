@@ -33,9 +33,9 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
     Value data = adaptor.getData();
     Value updates = adaptor.getUpdates();
     Value indices = adaptor.getIndices();
-    auto dataType = data.getType().cast<ShapedType>();
-    auto indicesType = indices.getType().cast<ShapedType>();
-    auto updatesType = updates.getType().cast<ShapedType>();
+    auto dataType = mlir::cast<ShapedType>(data.getType());
+    auto indicesType = mlir::cast<ShapedType>(indices.getType());
+    auto updatesType = mlir::cast<ShapedType>(updates.getType());
     int64_t dataRank = dataType.getRank();
     int64_t updatesRank = updatesType.getRank();
     int64_t indicesRank = indicesType.getRank();
@@ -45,9 +45,9 @@ struct ONNXScatterNDOpLowering : public OpConversionPattern<ONNXScatterNDOp> {
 
     // Convert the output type to MemRefType.
     Type convertedType = typeConverter->convertType(*op->result_type_begin());
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     int64_t outputRank = outputMemRefType.getShape().size();
     assert(outputRank == dataRank && "Output rank not equal to data rank");
 

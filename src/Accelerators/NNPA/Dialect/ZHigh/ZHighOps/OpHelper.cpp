@@ -26,7 +26,7 @@ namespace zhigh {
 
 /// Check if a value type is ranked or unranked.
 bool hasRankedType(Value val) {
-  ShapedType shapedType = val.getType().cast<ShapedType>();
+  ShapedType shapedType = mlir::cast<ShapedType>(val.getType());
   return (shapedType && shapedType.hasRank());
 }
 
@@ -143,15 +143,15 @@ StringAttr convertZTensorDataLayoutToStringAttr(
 // Utility functions to query ztensor information.
 
 bool isZTensor(Type type) {
-  if (auto ttp = type.dyn_cast<RankedTensorType>())
-    if (ttp.getEncoding().dyn_cast_or_null<ZTensorEncodingAttr>())
+  if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
+    if (mlir::dyn_cast_or_null<ZTensorEncodingAttr>(ttp.getEncoding()))
       return true;
   return false;
 }
 
 ZTensorEncodingAttr getZTensorEncoding(Type type) {
-  if (auto ttp = type.dyn_cast<RankedTensorType>())
-    return ttp.getEncoding().dyn_cast_or_null<ZTensorEncodingAttr>();
+  if (auto ttp = mlir::dyn_cast<RankedTensorType>(type))
+    return mlir::dyn_cast_or_null<ZTensorEncodingAttr>(ttp.getEncoding());
   return nullptr;
 }
 
@@ -173,24 +173,24 @@ StringAttr getZTensorLayoutAttr(OpBuilder &builder, Type type) {
 
 Value getMinusBcastConst(
     mlir::OpBuilder &builder, Location loc, FloatAttr floatAttr, Value X) {
-  ShapedType xType = X.getType().cast<ShapedType>();
+  ShapedType xType = mlir::cast<ShapedType>(X.getType());
   assert(xType.hasStaticShape() && "expected static shape");
   float val = floatAttr.getValueAsDouble() * -1.0;
   DenseElementsAttr denseAttr =
-      DenseElementsAttr::get(X.getType().cast<ShapedType>(), val);
+      DenseElementsAttr::get(mlir::cast<ShapedType>(X.getType()), val);
   MultiDialectBuilder<OnnxBuilder> create(builder, loc);
   return create.onnx.constant(denseAttr);
 }
 
 Value getConstantOfType(
     OpBuilder &builder, Location loc, Type type, float val) {
-  ShapedType shapedType = type.cast<ShapedType>();
+  ShapedType shapedType = mlir::cast<ShapedType>(type);
   assert(shapedType.hasStaticShape() && "expected static shape");
   Type elementType = shapedType.getElementType();
   DenseElementsAttr denseAttr;
-  if (elementType.isa<IntegerType>())
+  if (mlir::isa<IntegerType>(elementType))
     denseAttr = DenseElementsAttr::get(shapedType, (int64_t)val);
-  else if (elementType.isa<FloatType>())
+  else if (mlir::isa<FloatType>(elementType))
     denseAttr = DenseElementsAttr::get(shapedType, val);
   else
     llvm_unreachable("Unsupport type");

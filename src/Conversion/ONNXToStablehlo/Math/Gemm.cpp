@@ -51,7 +51,8 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
     if (gemmOp.getTransB() == 1)
       transB = rewriter.create<stablehlo::TransposeOp>(
           loc, B, rewriter.getDenseI64ArrayAttr({1, 0}));
-    ShapedType resultType = gemmOp.getType().dyn_cast_or_null<ShapedType>();
+    ShapedType resultType =
+        mlir::dyn_cast_or_null<ShapedType>(gemmOp.getType());
     Value dot = rewriter.create<stablehlo::DotOp>(
         loc, gemmOp.getType(), transA, transB, nullptr);
     bool hasBias = shapeHelper.hasBias;
@@ -143,7 +144,7 @@ struct ONNXGemmOpLoweringToStablehlo : public ConversionPattern {
     ONNXGemmOpShapeHelper shapeHelper(op, {});
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    ShapedType outpType = gemmOp.getType().dyn_cast<ShapedType>();
+    ShapedType outpType = mlir::dyn_cast<ShapedType>(gemmOp.getType());
     if (outpType == nullptr)
       return failure();
     Type elemType = outpType.getElementType();

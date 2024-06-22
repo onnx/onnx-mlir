@@ -145,11 +145,11 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
           resultsRange.begin(), resultsRange.end());
       for (unsigned i = 0; i < bodyOutputs.size(); i++) {
         auto output = bodyOutputs[i];
-        assert((output.getType().isa<TensorType>() ||
-                   output.getType().isa<MemRefType>()) &&
+        assert((mlir::isa<TensorType>(output.getType()) ||
+                   mlir::isa<MemRefType>(output.getType())) &&
                "Expecting scan body function output to consist of"
                "tensors/memrefs.");
-        auto outputTy = output.getType().cast<ShapedType>();
+        auto outputTy = mlir::cast<ShapedType>(output.getType());
         bodyOutputs[i] = rewriter
                              .create<UnrealizedConversionCastOp>(loc,
                                  MemRefType::get(outputTy.getShape(),
@@ -210,9 +210,9 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
 
       // Convert vFinal's type to MemRefType.
       Type convertedType = typeConverter->convertType(vFinal.getType());
-      assert(convertedType && convertedType.isa<MemRefType>() &&
+      assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
              "Failed to convert type to MemRefType");
-      MemRefType memRefType = convertedType.cast<MemRefType>();
+      MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
       // Allocate memory for the loop-carried dependencies, since they are
       // guaranteed to have the same shape throughout all iterations, use
@@ -231,9 +231,9 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
     for (const auto &opScanOutput : scanOp.scan_outputs()) {
       // Convert opScanOutput's type to MemRefType.
       Type convertedType = typeConverter->convertType(opScanOutput.getType());
-      assert(convertedType && convertedType.isa<MemRefType>() &&
+      assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
              "Failed to convert type to MemRefType");
-      MemRefType memRefType = convertedType.cast<MemRefType>();
+      MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
       // Allocate memory for the scan outputs. There're no good "reference"
       // shape for scan outputs. So if the scan outputs do not have constant
@@ -279,9 +279,9 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       mlir::Type bodyScanInputTy) {
     // Convert type to MemRefType.
     Type convertedType = typeConverter->convertType(bodyScanInputTy);
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType memRefType = convertedType.cast<MemRefType>();
+    MemRefType memRefType = mlir::cast<MemRefType>(convertedType);
 
     // Allocate memory for the scan outputs. There're no good "reference"
     // shape for scan outputs. So if the scan outputs do not have constant
@@ -311,7 +311,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       std::vector<Value> writePrefix = {}) {
     OpBuilder::InsertionGuard insertGuard(builder);
 
-    auto srcTy = src.getType().cast<MemRefType>();
+    auto srcTy = mlir::cast<MemRefType>(src.getType());
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         builder, loc);
     if (srcTy.getRank() > 0) {
@@ -339,7 +339,7 @@ struct ONNXScanOpLowering : public OpConversionPattern<ONNXScanOp> {
       const Value &src, const Value &dest, std::vector<Value> readPrefix = {}) {
     OpBuilder::InsertionGuard insertGuard(builder);
 
-    auto srcTy = src.getType().cast<MemRefType>();
+    auto srcTy = mlir::cast<MemRefType>(src.getType());
     SmallVector<Value, 4> readIV(readPrefix.begin(), readPrefix.end());
     MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl> create(
         builder, loc);

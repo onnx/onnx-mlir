@@ -146,7 +146,7 @@ void KrnlCallOp::build(OpBuilder &builder, ::mlir::OperationState &odsState,
   // Create funcName
   std::string name = op->getName().getStringRef().str();
   std::replace(name.begin(), name.end(), '.', '_');
-  ShapedType resultType = resultVals[0].getType().cast<ShapedType>();
+  ShapedType resultType = mlir::cast<ShapedType>(resultVals[0].getType());
   Type elementType = resultType.getElementType();
   std::string funcNameStr = name + "_" + typeToString(elementType);
 
@@ -360,10 +360,10 @@ void KrnlIterateOp::print(OpAsmPrinter &printer) {
     printer.printOperand(var);
     printer << " = ";
     krnl::printBound(
-        (*boundItr++).cast<AffineMapAttr>(), operandItr, "max", printer);
+        mlir::cast<AffineMapAttr>(*boundItr++), operandItr, "max", printer);
     printer << " to ";
     krnl::printBound(
-        (*boundItr++).cast<AffineMapAttr>(), operandItr, "min", printer);
+        mlir::cast<AffineMapAttr>(*boundItr++), operandItr, "min", printer);
     delimiter = ", ";
   }
 
@@ -456,7 +456,7 @@ struct LoopParser {
             boundAttr, builder.getIndexType(), "temp", tempBoundAttrContainer))
       return failure();
 
-    if (auto affineMapAttr = boundAttr.dyn_cast<AffineMapAttr>()) {
+    if (auto affineMapAttr = mlir::dyn_cast<AffineMapAttr>(boundAttr)) {
       unsigned currentNumOperands = result.operands.size();
       unsigned numDims = 0;
       if (affine::parseDimAndSymbolList(parser, result.operands, numDims))
@@ -488,7 +488,7 @@ struct LoopParser {
       return success();
     }
 
-    if (auto integerAttr = boundAttr.dyn_cast<IntegerAttr>()) {
+    if (auto integerAttr = mlir::dyn_cast<IntegerAttr>(boundAttr)) {
       AffineMap map =
           builder.getConstantAffineMap(integerAttr.getValue().getSExtValue());
       boundMaps.emplace_back(AffineMapAttr::get(map));
@@ -700,7 +700,7 @@ void KrnlGetInductionVariableValueOp::build(::mlir::OpBuilder &odsBuilder,
 // only 1D vectors.
 void KrnlVectorTypeCastOp::build(OpBuilder &builder, OperationState &state,
     Value sourceMemRef, int64_t vectorLen) {
-  MemRefType sourceType = sourceMemRef.getType().cast<MemRefType>();
+  MemRefType sourceType = mlir::cast<MemRefType>(sourceMemRef.getType());
   Type elementType = sourceType.getElementType();
   auto sourceShape = sourceType.getShape();
   int rank = sourceShape.size();
@@ -723,8 +723,8 @@ bool KrnlVectorTypeCastOp::areCastCompatible(
     return false;
   Type a = inputs.front(), b = outputs.front();
 
-  auto aT = a.dyn_cast<MemRefType>();
-  auto bT = b.dyn_cast<MemRefType>();
+  auto aT = mlir::dyn_cast<MemRefType>(a);
+  auto bT = mlir::dyn_cast<MemRefType>(b);
 
   if (!aT || !bT)
     return false;
@@ -749,10 +749,10 @@ bool KrnlVectorTypeCastOp::areCastCompatible(
       return false;
 
   // Source memref can't have vector element type.
-  if (auto shapedEltType = aT.getElementType().dyn_cast<ShapedType>())
+  if (auto shapedEltType = mlir::dyn_cast<ShapedType>(aT.getElementType()))
     return false;
 
-  auto shapedEltTypeB = bT.getElementType().dyn_cast<ShapedType>();
+  auto shapedEltTypeB = mlir::dyn_cast<ShapedType>(bT.getElementType());
   if (!shapedEltTypeB)
     return false;
 
@@ -782,7 +782,7 @@ static LogicalResult foldMemRefCast(Operation *op) {
   bool folded = false;
   for (OpOperand &operand : op->getOpOperands()) {
     auto cast = operand.get().getDefiningOp<memref::CastOp>();
-    if (cast && !cast.getOperand().getType().isa<UnrankedMemRefType>()) {
+    if (cast && !mlir::isa<UnrankedMemRefType>(cast.getOperand().getType())) {
       operand.set(cast.getOperand());
       folded = true;
     }
@@ -847,11 +847,11 @@ void KrnlMatMulOp::build(::mlir::OpBuilder &odsBuilder,
 LogicalResult KrnlMatMulOp::verify() {
   KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(*this);
   uint64_t aRank =
-      operandAdaptor.getA().getType().cast<MemRefType>().getShape().size();
+      mlir::cast<MemRefType>(operandAdaptor.getA().getType()).getShape().size();
   uint64_t bRank =
-      operandAdaptor.getB().getType().cast<MemRefType>().getShape().size();
+      mlir::cast<MemRefType>(operandAdaptor.getB().getType()).getShape().size();
   uint64_t cRank =
-      operandAdaptor.getC().getType().cast<MemRefType>().getShape().size();
+      mlir::cast<MemRefType>(operandAdaptor.getC().getType()).getShape().size();
   if (!(aRank >= 2 && bRank >= 2 && cRank >= 2))
     return emitOpError("currently only support ranks >=2");
   if (operandAdaptor.getAGlobalIndexMemStart().size() != aRank)
@@ -977,7 +977,7 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
   IndexExprBuilderForAnalysis createIE(getLoc());
   int64_t bufferRank = createIE.getShapedTypeRank(opAdaptor.getBuffer());
   int64_t destRank =
-      opAdaptor.getDest().getType().cast<MemRefType>().getShape().size();
+      mlir::cast<MemRefType>(opAdaptor.getDest().getType()).getShape().size();
   int64_t startRank = opAdaptor.getStarts().size();
   if (!createIE.isLiteralShape(opAdaptor.getBuffer()))
     return emitOpError("buffer expect constant dimensions");
@@ -1192,18 +1192,18 @@ ParseResult KrnlPrefetchOp::parse(OpAsmParser &parser, OperationState &result) {
       parser.resolveOperands(mapOperands, indexTy, result.operands))
     return failure();
 
-  if (!readOrWrite.equals("read") && !readOrWrite.equals("write"))
+  if (!(readOrWrite == "read") && !(readOrWrite == "write"))
     return parser.emitError(
         parser.getNameLoc(), "rw specifier has to be 'read' or 'write'");
   result.addAttribute(KrnlPrefetchOp::getIsWriteAttrStrName(),
-      parser.getBuilder().getBoolAttr(readOrWrite.equals("write")));
+      parser.getBuilder().getBoolAttr(readOrWrite == "write"));
 
-  if (!cacheType.equals("data") && !cacheType.equals("instr"))
+  if (!(cacheType == "data") && !(cacheType == "instr"))
     return parser.emitError(
         parser.getNameLoc(), "cache type has to be 'data' or 'instr'");
 
   result.addAttribute(KrnlPrefetchOp::getIsDataCacheAttrStrName(),
-      parser.getBuilder().getBoolAttr(cacheType.equals("data")));
+      parser.getBuilder().getBoolAttr(cacheType == "data"));
 
   return success();
 }

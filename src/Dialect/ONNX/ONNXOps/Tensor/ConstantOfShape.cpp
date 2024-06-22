@@ -31,7 +31,7 @@ LogicalResult ONNXConstantOfShapeOpShapeHelper::computeShape() {
   Value input = operandAdaptor.getInput();
   DimsExpr outputDims;
 
-  auto inputShape = input.getType().cast<RankedTensorType>().getShape();
+  auto inputShape = mlir::cast<RankedTensorType>(input.getType()).getShape();
   if (inputShape[0] == 0) {
     // If 'input' is an empty tensor, the output would be a scalar.
     // Represent this by an empty outputDims.
@@ -56,7 +56,7 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   if (!hasShapeAndRank(input))
     return success();
 
-  auto inputShape = input.getType().cast<RankedTensorType>().getShape();
+  auto inputShape = mlir::cast<RankedTensorType>(input.getType()).getShape();
   if (inputShape.size() != 1)
     return emitOpError("Input tensor must be a 1D tensor");
 
@@ -69,11 +69,11 @@ LogicalResult ONNXConstantOfShapeOp::verify() {
   // If the values are valid, it is possible to infer shape.
   if (auto constantOp = getONNXConstantOp(input)) {
     ElementsAttr valueAttribute =
-        constantOp.getValueAttr().cast<ElementsAttr>();
+        mlir::cast<ElementsAttr>(constantOp.getValueAttr());
     // Get repeat values from valueAttribute.
     auto valueIt = valueAttribute.getValues<IntegerAttr>().begin();
     for (int i = 0; i < inputShape[0]; ++i) {
-      auto dim = (*valueIt++).cast<IntegerAttr>().getInt();
+      auto dim = mlir::cast<IntegerAttr>((*valueIt++)).getInt();
       if (dim < 0)
         return emitOpError("All values of the input tensor must be >=0");
     }
@@ -115,8 +115,9 @@ LogicalResult ONNXConstantOfShapeOp::inferShapes(
   // 'value' attribute is a one-element tensor whose value and datatype are
   // used to set the output tensor value and datatype.
   if (getValue().has_value()) {
-    elementType =
-        getValueAttr().cast<ElementsAttr>().getShapedType().getElementType();
+    elementType = mlir::cast<ElementsAttr>(getValueAttr())
+                      .getShapedType()
+                      .getElementType();
   } else {
     // If 'value' attribute is not specified, it defaults to a tensor of
     // value 0 and datatype float32.

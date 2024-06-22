@@ -56,9 +56,9 @@ struct ONNXConcatOpLowering : public OpConversionPattern<ONNXConcatOp> {
     // Convert the output type to MemRefType.
     Type outputTensorType = *op->result_type_begin();
     Type convertedType = typeConverter->convertType(outputTensorType);
-    assert(convertedType && convertedType.isa<MemRefType>() &&
+    assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
-    MemRefType outputMemRefType = convertedType.cast<MemRefType>();
+    MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     auto resultShape = outputMemRefType.getShape();
     unsigned int rank = resultShape.size();
 

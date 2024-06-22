@@ -46,7 +46,7 @@ LogicalResult ONNXQuantizeLinearOpShapeHelper::computeShape() {
 
 LogicalResult ONNXQuantizeLinearOp::inferShapes(
     std::function<void(Region &)> doShapeInference) {
-  auto inTy = getX().getType().dyn_cast<RankedTensorType>();
+  auto inTy = mlir::dyn_cast<RankedTensorType>(getX().getType());
   if (!inTy) {
     return success();
   }
@@ -58,7 +58,7 @@ LogicalResult ONNXQuantizeLinearOp::inferShapes(
     elementType = IntegerType::get(getContext(), 8, IntegerType::Unsigned);
   } else {
     // If zero point is provided, output type is same as zero point type.
-    elementType = zero.getType().cast<ShapedType>().getElementType();
+    elementType = mlir::cast<ShapedType>(zero.getType()).getElementType();
   }
 
   ONNXQuantizeLinearOpShapeHelper shapeHelper(getOperation(), {});

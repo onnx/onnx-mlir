@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef OP_HELPER 
-#define OP_HELPER 
+#ifndef OP_HELPER
+#define OP_HELPER
 
 #ifndef OP_BASE
 include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
@@ -37,7 +37,7 @@ def NotSameLayout: Constraint<
   "Two ztensors have different layouts"
 >;
 
-def IsNoneType : Constraint<CPred<"(($_self).getType().isa<NoneType>())">>;
+def IsNoneType : Constraint<CPred<"mlir::isa<NoneType>(($_self).getType())">>;
 
 def GetLayout : NativeCodeCall<
   "::onnx_mlir::zhigh::convertZTensorDataLayoutToStringAttr($_builder, "
@@ -77,7 +77,7 @@ class GetConstantOfType<string v> : NativeCodeCall<
 def IsStaticShapeTensor:
   Constraint<
     CPred<
-      "$0.getType().cast<::mlir::ShapedType>().hasStaticShape()">,
+      "mlir::cast<::mlir::ShapedType>($0.getType()).hasStaticShape()">,
     "is a tensor of static shape">;
 
 def IsPlusConstantFloat : Constraint<
@@ -195,4 +195,4 @@ def GetAxisNHWC : NativeCodeCall<
   "::onnx_mlir::zhigh::getAxisNHWC($0)"
 >;
 
-#endif // OP_HELPER 
+#endif // OP_HELPER

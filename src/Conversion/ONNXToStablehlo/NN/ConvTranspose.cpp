@@ -31,7 +31,7 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
       Value filterOperand, int64_t groupNum, int rank) const {
     assert(isRankedShapedType(filterOperand.getType()) &&
            "Expected Ranked ShapedType");
-    ShapedType filterType = filterOperand.getType().cast<ShapedType>();
+    ShapedType filterType = mlir::cast<ShapedType>(filterOperand.getType());
     assert(filterType.hasStaticShape() && "Expected static shape for filter");
     ArrayRef<int64_t> filterShape = filterType.getShape();
     Type elemType = filterType.getElementType();
@@ -82,12 +82,12 @@ struct ONNXConvTransposeOpLoweringToStablehlo : public ConversionPattern {
     Value inputOperand = operandAdaptor.getX();
     Value filterOperand = operandAdaptor.getW();
     Value biasOperand = operandAdaptor.getB();
-    bool hasBias = !biasOperand.getType().isa<NoneType>();
+    bool hasBias = !mlir::isa<NoneType>(biasOperand.getType());
     int64_t groupNum = convOp.getGroup();
 
     assert(isRankedShapedType(inputOperand.getType()) &&
            "Expected Ranked ShapedType");
-    ShapedType inputType = inputOperand.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(inputOperand.getType());
     // Onnx Input is NCHW
     int64_t spatialOffset = 2;
     int64_t rank = inputType.getRank();

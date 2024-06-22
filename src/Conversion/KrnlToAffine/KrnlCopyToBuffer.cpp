@@ -51,9 +51,9 @@ public:
     ValueRange startVals(operandAdaptor.getStarts());
     Value padVal(operandAdaptor.getPadValue());
     int64_t srcRank =
-        sourceMemref.getType().cast<MemRefType>().getShape().size();
+        mlir::cast<MemRefType>(sourceMemref.getType()).getShape().size();
     int64_t buffRank =
-        buffMemref.getType().cast<MemRefType>().getShape().size();
+        mlir::cast<MemRefType>(buffMemref.getType()).getShape().size();
     int64_t srcOffset = srcRank - buffRank;
     assert(srcOffset >= 0 && "offset expected non negative");
     SmallVector<IndexExpr, 4> starts, bufferReadUBs, bufferPadUBs, pads,

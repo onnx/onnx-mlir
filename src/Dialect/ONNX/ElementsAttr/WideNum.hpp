@@ -202,9 +202,9 @@ auto wideZeroDispatch(mlir::Type type, Action &&act);
 
 template <typename Action>
 auto wideZeroDispatchNonBool(mlir::Type type, Action &&act) {
-  if (type.isa<mlir::FloatType>())
+  if (mlir::isa<mlir::FloatType>(type))
     return act(static_cast<double>(0));
-  auto itype = type.cast<mlir::IntegerType>();
+  auto itype = mlir::cast<mlir::IntegerType>(type);
   if (itype.isUnsigned())
     return act(static_cast<uint64_t>(0));
   else

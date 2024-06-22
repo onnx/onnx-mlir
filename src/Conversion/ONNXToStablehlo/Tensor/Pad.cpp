@@ -40,7 +40,7 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
     if (!padMode.equals_insensitive("constant"))
       return failure();
     assert(isRankedShapedType(data.getType()) && "Expected Ranked ShapedType");
-    ShapedType inputType = data.getType().cast<ShapedType>();
+    ShapedType inputType = mlir::cast<ShapedType>(data.getType());
     Type elemType = inputType.getElementType();
     int64_t rank = inputType.getRank();
 
@@ -52,7 +52,7 @@ struct ONNXPadOpLoweringToStablehlo : public ConversionPattern {
                    rewriter.getZeroAttr(elemType)));
     } else {
       // constantValue might be 1D tensor, reshape it to scalar
-      ShapedType constantType = constantValue.getType().cast<ShapedType>();
+      ShapedType constantType = mlir::cast<ShapedType>(constantValue.getType());
       if (constantType.getRank() != 0)
         constantValue = rewriter.create<stablehlo::ReshapeOp>(
             loc, RankedTensorType::get({}, elemType), constantValue);

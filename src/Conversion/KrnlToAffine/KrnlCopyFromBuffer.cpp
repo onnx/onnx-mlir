@@ -50,9 +50,9 @@ public:
     Value destMemref(operandAdaptor.getDest());
     ValueRange startVals(operandAdaptor.getStarts());
     int64_t destRank =
-        destMemref.getType().cast<MemRefType>().getShape().size();
+        mlir::cast<MemRefType>(destMemref.getType()).getShape().size();
     int64_t buffRank =
-        buffMemref.getType().cast<MemRefType>().getShape().size();
+        mlir::cast<MemRefType>(buffMemref.getType()).getShape().size();
     int64_t destOffset = destRank - buffRank;
     assert(destOffset >= 0 && "offset expected non negative");
 
