@@ -33,10 +33,16 @@ public:
   LogicalResult matchAndRewrite(ONNXFlattenOp op, OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
 
+    Value input = adaptor.getInput();
+
+    // tosa.reshape does not allow a dynamic entry in the new_shape attribute
+    if (!hasStaticShape(input.getType()))
+      return rewriter.notifyMatchFailure(
+          op, "only static shapes are supported");
+
     auto loc = op->getLoc();
     TosaBuilder tosaBuilder(rewriter, loc);
 
-    Value input = adaptor.getInput();
     int64_t axis = adaptor.getAxis();
     auto inputType = input.getType().cast<ShapedType>();
 

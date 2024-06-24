@@ -114,7 +114,7 @@ public:
     if (!lhsTy || !rhsTy || !lhsTy.hasStaticShape() ||
         !rhsTy.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
-          op, "only ranked tensor types are supproted");
+          op, "only ranked tensor types are supported");
     }
 
     auto lhsRank = lhsTy.getRank();

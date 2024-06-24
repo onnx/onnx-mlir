@@ -100,6 +100,12 @@ public:
     auto inputType = input.getType().cast<TensorType>();
     auto weightType = weights.getType().cast<ShapedType>();
 
+    if (!inputType || !weightType || !inputType.hasStaticShape() ||
+        !weightType.hasStaticShape()) {
+      return rewriter.notifyMatchFailure(
+          op, "only ranked tensor types are supported");
+    }
+
     // Get shapehelper for autopad attributes
     IndexExprBuilderForTosa createTosaIE(rewriter, convOp->getLoc());
     ONNXConvOpShapeHelper shapeHelper(op, operands, &createTosaIE);
