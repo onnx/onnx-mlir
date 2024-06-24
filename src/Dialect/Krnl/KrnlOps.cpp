@@ -1219,8 +1219,9 @@ void KrnlPrefetchOp::print(OpAsmPrinter &p) {
       (*this)->getAttrOfType<AffineMapAttr>(getMapAttrStrName());
   if (mapAttr)
     p.printAffineMapOfSSAIds(mapAttr, getMapOperands());
-  p << ']' << ", " << (getIsWrite() ? "write" : "read") << ", " << "locality<"
-    << getLocalityHint() << ">, " << (getIsDataCache() ? "data" : "instr");
+  p << ']' << ", " << (getIsWrite() ? "write" : "read") << ", "
+    << "locality<" << getLocalityHint() << ">, "
+    << (getIsDataCache() ? "data" : "instr");
   p.printOptionalAttrDict((*this)->getAttrs(),
       /*elidedAttrs=*/{getMapAttrStrName(), getLocalityHintAttrStrName(),
           getIsDataCacheAttrStrName(), getIsWriteAttrStrName()});
