@@ -130,12 +130,12 @@ func.func @test_unary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf32
 
 // CHECK-LABEL:  func.func @test_unary_elementwise
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = [[GROUP_0_:.*]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_1_:.*]]  : si64} : (tensor<?x3x?xf32>) -> ()
 
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sigmoid"([[PARAM_0_]]) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 1 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x3x?xf32>) -> ()
 
 // CHECK:           onnx.Return [[VAR_0_]] : tensor<?x3x?xf32>
 // CHECK:         }
@@ -150,16 +150,16 @@ func.func @test_binary_elementwise(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf3
 
 // CHECK-LABEL:  func.func @test_binary_elementwise
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = [[GROUP_0_:.*]]  : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_1_:.*]]  : si64} : (tensor<?x3x?xf32>) -> ()
 
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sigmoid"([[PARAM_0_]]) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x3x?xf32>) -> ()
 
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Add"([[VAR_0_]], [[PARAM_0_]]) : (tensor<?x3x?xf32>, tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?x3x?xf32>
 // CHECK:         }
 }
@@ -228,12 +228,12 @@ func.func @test_reshape_allowzero(%arg0: tensor<?x?x768xf32>) -> tensor<?x?x12x6
 
 // CHECK-LABEL:  func.func @test_reshape_allowzero
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x768xf32>) -> tensor<?x?x12x64xf32> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?x768xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x768xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = [[GROUP_0_:.*]] : si64} : (tensor<?x?x768xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_1_:.*]] : si64} : (tensor<?x?x768xf32>) -> ()
 // CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 12, 64]> : tensor<4xi64>
 // CHECK:           [[VAR_1_:%.+]] = "onnx.Reshape"([[PARAM_0_]], [[VAR_0_]]) {allowzero = 0 : si64} : (tensor<?x?x768xf32>, tensor<4xi64>) -> tensor<?x?x12x64xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?x12x64xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x12x64xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x12x64xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x12x64xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_1_]] : tensor<?x?x12x64xf32>
 // CHECK:         }
 }
@@ -321,14 +321,14 @@ func.func @test_tile_input_dim_1(%arg0: tensor<?x?xi64>, %arg1: tensor<1x1xi64>)
 
 // CHECK-LABEL:  func.func @test_tile_input_dim_1
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xi64>, [[PARAM_1_:%.+]]: tensor<1x1xi64>) -> tensor<?x?xi64> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64} : (tensor<?x?xi64>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = [[GROUP_1_:.*]]  : si64} : (tensor<?x?xi64>) -> ()
 // CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 0 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
 // CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.Dim"([[PARAM_0_]]) {axis = 1 : si64} : (tensor<?x?xi64>) -> tensor<1xi64>
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Concat"([[VAR_0_]], [[VAR_1_]]) {axis = 0 : si64} : (tensor<1xi64>, tensor<1xi64>) -> tensor<2xi64>
 // CHECK:           [[VAR_3_:%.+]] = "onnx.Tile"([[PARAM_1_]], [[VAR_2_]]) : (tensor<1x1xi64>, tensor<2xi64>) -> tensor<?x?xi64>
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = 1 : si64} : (tensor<?x?xi64>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?xi64>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?xi64>) -> ()
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<?x?xi64>
 // CHECK:         }
 }
