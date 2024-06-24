@@ -220,7 +220,6 @@ void populateAffineAndKrnlToLLVMConversion(RewritePatternSet &patterns,
   arith::populateArithToLLVMConversionPatterns(typeConverter, patterns);
   cf::populateControlFlowToLLVMConversionPatterns(typeConverter, patterns);
 
-  populateReconcileUnrealizedCastsPatterns(patterns);
   krnl::populateKrnlToLLVMConversion(typeConverter, patterns, ctx,
       constantOutputs, singleEntryPoint, entryGlobalOps, inSigGlobalOps,
       outSigGlobalOps, inputMemRefTypes, outputMemRefTypes, verifyInputTensors);
