@@ -4,7 +4,7 @@
 
 //===---------- ONNXLegalityCheck.cpp - Check legality for ONNX ops -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -89,14 +89,13 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
         return onnxToZHighUnsupportedReport(op, message);
       }
       int64_t rank = valueType.getRank();
-      bool supportedRank = (rank == 0) || (rank > 4);
-      if (supportedRank) {
+      if ((rank == 0) || (rank > 4)) {
         std::string message =
             "Rank " + std::to_string(rank) +
             " is not supported. zAIU only supports rank in range of (0, 4].";
         return onnxToZHighUnsupportedReport(op, message);
       }
-      return supportedRank;
+      return true;
     } else {
       std::string message = "Element type is not F16 or F32.";
       return onnxToZHighUnsupportedReport(op, message);
