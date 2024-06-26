@@ -30,7 +30,7 @@ bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
       !message.empty()) {
     StringAttr opName = op->getName().getIdentifier();
     std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
-    printf("==NNPA-UNSUPPORTEDOPS-REPORT==, %s, %s, %s\n", opName.data(),
+    printf("==NNPA-UNSUPPORTEDOPS-REPORT== %s, %s, %s\n", opName.data(),
         nodeNameStr.c_str(), message.c_str());
   }
   return false;
@@ -89,13 +89,14 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
         return onnxToZHighUnsupportedReport(op, message);
       }
       int64_t rank = valueType.getRank();
-      if ((rank == 0) || (rank > 5)) {
+      bool supportedRank = (rank == 0) || (rank > 4);
+      if (!supportedRank) {
         std::string message =
             "Rank " + std::to_string(rank) +
             " is not supported. zAIU only supports rank in range of (0, 4].";
         return onnxToZHighUnsupportedReport(op, message);
       }
-      return true;
+      return supportedRank;
     } else {
       std::string message = "Element type is not F16 or F32.";
       return onnxToZHighUnsupportedReport(op, message);
@@ -103,6 +104,27 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
   }
   std::string message = "Value is not shaped type.";
   return onnxToZHighUnsupportedReport(op, message);
+}
+
+bool isValidElementTypeAndRank(Value val, bool donotCheckRank) {
+  if (val.getType().isa<NoneType>())
+    return true;
+  if (auto valueType = val.getType().dyn_cast_or_null<ShapedType>()) {
+    Type elementType = (valueType) ? valueType.getElementType() : val.getType();
+    // Element type must be in 16 or F32.
+    if (elementType.isa<FloatType>() &&
+        (elementType.cast<FloatType>().getWidth() == 16 ||
+            elementType.cast<FloatType>().getWidth() == 32)) {
+      if (donotCheckRank)
+        return true;
+      // Rank must be in range of (0, 4].
+      if (!valueType.hasRank())
+        return false;
+      int64_t rank = valueType.getRank();
+      return ((rank > 0) && (rank <= 4));
+    }
+  }
+  return false;
 }
 
 /// Common legality check for pooling ops.
@@ -1274,7 +1296,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
       ShapedType::isDynamic(shapeOutput[2]) ||
       ShapedType::isDynamic(shapeOutput[3]))
     return onnxToZHighUnsupportedReport(op,
-        "Height and/or width have dynamic dimensions. They are not support.");
+        "Height and/or width have dynamic dimensions. They are not supported.");
 
   // Do not support group.
   if (operandAdaptor.getGroup() != 1)
