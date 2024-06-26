@@ -165,7 +165,7 @@ void registerMLIRPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createFinalizeMemRefToLLVMConversionPass();
   });
-  mlir::registerPass([] -> std::unique_ptr<mlir::Pass> {
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::createReconcileUnrealizedCastsPass();
   });
 }
