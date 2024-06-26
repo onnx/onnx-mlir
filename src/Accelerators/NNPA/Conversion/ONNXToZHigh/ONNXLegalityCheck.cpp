@@ -90,7 +90,7 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
       }
       int64_t rank = valueType.getRank();
       bool supportedRank = (rank == 0) || (rank > 4);
-      if (!supportedRank) {
+      if (supportedRank) {
         std::string message =
             "Rank " + std::to_string(rank) +
             " is not supported. zAIU only supports rank in range of (0, 4].";
