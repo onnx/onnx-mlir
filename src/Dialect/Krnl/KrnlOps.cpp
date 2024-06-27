@@ -20,6 +20,7 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "mlir/IR/Value.h"
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
@@ -159,11 +160,11 @@ void KrnlCallOp::getEffects(
 
   for (size_t i = 0; i < getParameters().size(); i++) {
     if (i < (size_t)getNumOfOutput())
-      effects.emplace_back(MemoryEffects::Write::get(), getParameters()[i],
-          SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Write::get(),
+          &getParametersMutable()[i], SideEffects::DefaultResource::get());
     else
-      effects.emplace_back(MemoryEffects::Read::get(), getParameters()[i],
-          SideEffects::DefaultResource::get());
+      effects.emplace_back(MemoryEffects::Read::get(),
+          &getParametersMutable()[i], SideEffects::DefaultResource::get());
   }
 }
 
@@ -996,20 +997,23 @@ LogicalResult KrnlCopyFromBufferOp::verify() {
 void KrnlSeqExtractOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  effects.emplace_back(MemoryEffects::Read::get(), getSeq(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getSeqMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Write::get(), getOutput(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getIndexMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Allocate::get(), getOutput(),
+  OpResult output = getOperation()->getOpResults()[0];
+  effects.emplace_back(
+      MemoryEffects::Write::get(), output, SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output,
       SideEffects::DefaultResource::get());
 }
 
 void KrnlSeqStoreOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  effects.emplace_back(MemoryEffects::Write::get(), getSeq(),
+  effects.emplace_back(MemoryEffects::Write::get(), &getSeqMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Read::get(), getInput(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getInputMutable(),
       SideEffects::DefaultResource::get());
 }
 
@@ -1029,13 +1033,14 @@ std::optional<Value> KrnlSeqExtractOp::buildClone(
 void KrnlSeqAllocOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  for (auto v : getLength()) {
+  for (auto inp = getLengthMutable().begin(); inp != getLengthMutable().end();
+       ++inp)
     effects.emplace_back(
-        MemoryEffects::Read::get(), v, SideEffects::DefaultResource::get());
-  }
-  effects.emplace_back(MemoryEffects::Write::get(), getOutput(),
-      SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Allocate::get(), getOutput(),
+        MemoryEffects::Read::get(), inp, SideEffects::DefaultResource::get());
+  OpResult output = getOperation()->getOpResults()[0];
+  effects.emplace_back(
+      MemoryEffects::Write::get(), output, SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Allocate::get(), output,
       SideEffects::DefaultResource::get());
 }
 
@@ -1157,8 +1162,8 @@ void KrnlPrefetchOp::build(OpBuilder &builder, OperationState &result,
 //
 // krnl.prefetch %0[%i, %j + 5], read, locality<3>, data : memref<400x400xi32>
 // Code lifted from affine prefetch as is.
-// I have seen parsing errors when multiple '#x' are used in the indices, could
-// not tell why.
+// I have seen parsing errors when multiple '#x' are used in the indices,
+// could not tell why.
 //   krnl.prefetch %arg0[%1#0, %1#1, %3], read, locality<3>, data :
 //     memref<8x256x512xf32>
 // With only one, it works.
@@ -1230,9 +1235,9 @@ void KrnlPrefetchOp::print(OpAsmPrinter &p) {
 void KrnlMemcpyOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  effects.emplace_back(MemoryEffects::Read::get(), getSrc(),
+  effects.emplace_back(MemoryEffects::Read::get(), &getSrcMutable(),
       SideEffects::DefaultResource::get());
-  effects.emplace_back(MemoryEffects::Write::get(), getDest(),
+  effects.emplace_back(MemoryEffects::Write::get(), &getDestMutable(),
       SideEffects::DefaultResource::get());
 }
 
@@ -1243,7 +1248,7 @@ void KrnlMemcpyOp::getEffects(
 void KrnlMemsetOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
-  effects.emplace_back(MemoryEffects::Write::get(), getDest(),
+  effects.emplace_back(MemoryEffects::Write::get(), &getDestMutable(),
       SideEffects::DefaultResource::get());
 }
 
