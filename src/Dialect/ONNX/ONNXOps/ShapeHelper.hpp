@@ -884,6 +884,8 @@ using ONNXTileOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTileOp>;
 using ONNXTopKOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTopKOp>;
 using ONNXTransposeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXTransposeOp>;
 using ONNXUpsampleOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXUpsampleOp>;
+using ONNXForkOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXForkOp>;
+using ONNXParallelOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXParallelOp>;
 // clang-format on
 
 //===----------------------------------------------------------------------===//
