@@ -30,7 +30,7 @@ bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
       !message.empty()) {
     StringAttr opName = op->getName().getIdentifier();
     std::string nodeNameStr = getNodeNameInPresenceOfOpt(op);
-    printf("==NNPA-UNSUPPORTEDOPS-REPORT== %s, %s, %s\n", opName.data(),
+    printf("==NNPA-UNSUPPORTEDOPS-REPORT==, %s, %s, %s\n", opName.data(),
         nodeNameStr.c_str(), message.c_str());
   }
   return false;
