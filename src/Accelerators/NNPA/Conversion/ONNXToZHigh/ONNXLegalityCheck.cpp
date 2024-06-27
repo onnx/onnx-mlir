@@ -4,7 +4,7 @@
 
 //===---------- ONNXLegalityCheck.cpp - Check legality for ONNX ops -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -89,7 +89,7 @@ bool isValidElementTypeAndRank(Operation *op, Value val, bool donotCheckRank) {
         return onnxToZHighUnsupportedReport(op, message);
       }
       int64_t rank = valueType.getRank();
-      if ((rank == 0) || (rank > 5)) {
+      if ((rank == 0) || (rank > 4)) {
         std::string message =
             "Rank " + std::to_string(rank) +
             " is not supported. zAIU only supports rank in range of (0, 4].";
@@ -1274,7 +1274,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
       ShapedType::isDynamic(shapeOutput[2]) ||
       ShapedType::isDynamic(shapeOutput[3]))
     return onnxToZHighUnsupportedReport(op,
-        "Height and/or width have dynamic dimensions. They are not support.");
+        "Height and/or width have dynamic dimensions. They are not supported.");
 
   // Do not support group.
   if (operandAdaptor.getGroup() != 1)
