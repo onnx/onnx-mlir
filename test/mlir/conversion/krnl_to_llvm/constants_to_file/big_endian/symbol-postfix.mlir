@@ -1,3 +1,8 @@
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm --canonicalize %s -split-input-file | FileCheck %s
+// RUN: onnx-mlir-opt --convert-krnl-to-llvm="store-constants-to-file constants-to-file-single-threshold=0.03 constants-to-file-total-threshold=0.00000006" --canonicalize %s -split-input-file | FileCheck %s -check-prefix=CHECK-CONST-TO-FILE && rm model.constants.bin
+
+// -----
+
 module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
   func.func private @main_graph(%arg0: memref<10xf32>) -> memref<10xf32> {
     %0 = "krnl.global"() {name = "constant", alignment = 1024 : i64, shape = [3], value = dense<[0.0, 0.1, 0.2]> : tensor<3xf32>} : () -> memref<3xf32>
@@ -112,4 +117,65 @@ module attributes {"onnx-mlir.symbol-postfix" = "tag_symbols"} {
 // CHECK:           [[VAR_0_9_:%.+]] = llvm.call @omOutputSignature_tag_symbols([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr
 // CHECK:           llvm.return [[VAR_0_9_]] : !llvm.ptr
 // CHECK:         }
+}
+
+// -----
+
+module attributes {"onnx-mlir.symbol-postfix" = "tag_constants_to_file"} {
+  func.func @main_graph() -> memref<10xi64> {
+    %0 = "krnl.global"() {name = "constant_0", alignment = 4096: i64, shape = [10], value = dense<[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]> : tensor<10xi64>} : () -> memref<10xi64>
+    %1 = "krnl.global"() {name = "constant_1", alignment = 4096: i64, shape = [10], value = dense<[11, 12, 13, 14, 15, 16, 17, 18, 19, 20]> : tensor<10xi64>} : () -> memref<10xi64>
+    %2 = "krnl.global"() {name = "constant_2", alignment = 4096: i64, shape = [10], value = dense<[21, 22, 23, 24, 25, 26, 27, 28, 29, 30]> : tensor<10xi64>} : () -> memref<10xi64>
+    return %2 : memref<10xi64>
+  }
+  "krnl.entry_point"() {func = @main_graph, numInputs = 0 : i32, numOutputs = 1 : i32, signature = "[in_sig]\00@[out_sig]\00"} : () -> ()
+
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @constant_2_tag_constants_to_file(dense<[21, 22, 23, 24, 25, 26, 27, 28, 29, 30]> : tensor<10xi64>) {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.array<10 x i64>
+
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal @om_external_constant_data_constant_1_tag_constants_to_file() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
+// CHECK-CONST-TO-FILE:           [[VAR_0_13_:%.+]] = llvm.mlir.zero : !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_13_]] : !llvm.ptr
+// CHECK-CONST-TO-FILE:         }
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_offset_constant_1_tag_constants_to_file(0 : i64) {addr_space = 0 : i32} : i64
+
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal @om_external_constant_data_constant_0_tag_constants_to_file() {addr_space = 0 : i32, alignment = 4096 : i64} : !llvm.ptr {
+// CHECK-CONST-TO-FILE:           [[VAR_0_14_:%.+]] = llvm.mlir.zero : !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_14_]] : !llvm.ptr
+// CHECK-CONST-TO-FILE:         }
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_offset_constant_0_tag_constants_to_file(4096 : i64) {addr_space = 0 : i32} : i64
+
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_filename_tag_constants_to_file("model.constants.bin\00") {addr_space = 0 : i32}
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_filesize_tag_constants_to_file(4176 : i64) {addr_space = 0 : i32} : i64
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal constant @om_external_constant_isLE_tag_constants_to_file({{.*}} : i8) {addr_space = 0 : i32} : i8
+// CHECK-CONST-TO-FILE:         llvm.mlir.global internal @om_external_constant_packedConst_tag_constants_to_file() {addr_space = 0 : i32} : !llvm.ptr {
+// CHECK-CONST-TO-FILE:           [[VAR_0_15_:%.+]] = llvm.mlir.zero : !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_15_]] : !llvm.ptr
+// CHECK-CONST-TO-FILE:         }
+
+// CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantsFromFile_tag_constants_to_file() {
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_0_18_:%.+]] = llvm.mlir.constant(4096 : i64) : i64
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_1_9_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_0_tag_constants_to_file : !llvm.ptr
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_2_9_:%.+]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_3_9_:%.+]] = llvm.mlir.addressof @om_external_constant_data_constant_1_tag_constants_to_file : !llvm.ptr
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_4_7_:%.+]] = llvm.mlir.constant(4176 : i64) : i64
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_6_6_:%.+]] = llvm.mlir.addressof @om_external_constant_packedConst_tag_constants_to_file : !llvm.ptr
+// CHECK-CONST-TO-FILE-DAG:       [[VAR_7_4_:%.+]] = llvm.mlir.addressof @om_external_constant_filename_tag_constants_to_file : !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.call @omMMapBinaryFile([[VAR_6_6_]], [[VAR_7_4_]], [[VAR_4_7_]], [[VAR_2_9_]]) : (!llvm.ptr, !llvm.ptr, i64, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_3_9_]], [[VAR_6_6_]], [[VAR_2_9_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.call @omGetExternalConstantAddr([[VAR_1_9_]], [[VAR_6_6_]], [[VAR_0_18_]]) : (!llvm.ptr, !llvm.ptr, i64) -> ()
+// CHECK-CONST-TO-FILE:           llvm.return
+// CHECK-CONST-TO-FILE:         }
+// CHECK-CONST-TO-FILE:         llvm.func @omLoadConstantsFromFile() {
+// CHECK-CONST-TO-FILE:           llvm.call @omLoadConstantsFromFile_tag_constants_to_file() : () -> ()
+// CHECK-CONST-TO-FILE:           llvm.return
+// CHECK-CONST-TO-FILE:         }
+
+// CHECK-CONST-TO-FILE:         llvm.func @run_main_graph_tag_constants_to_file([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
+// CHECK-CONST-TO-FILE:           llvm.call @omLoadConstantsFromFile_tag_constants_to_file() : () -> ()
+// CHECK-CONST-TO-FILE:         }
+// CHECK-CONST-TO-FILE:         llvm.func @run_main_graph([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
+// CHECK-CONST-TO-FILE:           llvm.call @omLoadConstantsFromFile_tag_constants_to_file() : () -> ()
+// CHECK-CONST-TO-FILE:           [[VAR_0_20_:%.+]] = llvm.call @run_main_graph_tag_constants_to_file([[arg0_]]) : (!llvm.ptr) -> !llvm.ptr
+// CHECK-CONST-TO-FILE:           llvm.return [[VAR_0_20_]] : !llvm.ptr
+// CHECK-CONST-TO-FILE:         }
 }
