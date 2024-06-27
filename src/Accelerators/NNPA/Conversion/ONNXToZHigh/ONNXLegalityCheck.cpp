@@ -37,8 +37,8 @@ bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
 }
 
 /// Report incompatibility with NNPA Level.
-bool onnxToZHighInCompatibilityReport(Operation *op) {
-  std::string onnxMlirNnpaLevel(NNPA_Z16);
+bool onnxToZHighInCompatibilityReport(Operation *op, std::string inputNNPALevel) {
+  std::string onnxMlirNnpaLevel(inputNNPALevel);
   std::string message =
       "onnx-mlir NNPA level (" + onnxMlirNnpaLevel +
       ") is not compatible with  NNPA level specified by '-mcpu'(" + mcpu +
@@ -381,7 +381,7 @@ bool isSuitableForZDNN<ONNXAddOp>(
     ONNXAddOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16)) {
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   }
   if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
@@ -400,7 +400,7 @@ bool isSuitableForZDNN<ONNXSubOp>(
     ONNXSubOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
@@ -418,7 +418,7 @@ bool isSuitableForZDNN<ONNXMulOp>(
     ONNXMulOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getA()))
     return false;
   if (!isValidElementTypeAndRank(op.getOperation(), op.getB()))
@@ -438,7 +438,7 @@ bool isSuitableForZDNN<ONNXDivOp>(
   Value B = op.getB();
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   // Broadcast with a scalar operand.
   if (isEnableScalarBcastBinary()) {
     if (isF32ScalarConstantTensor(A) &&
@@ -466,7 +466,7 @@ bool isSuitableForZDNN<ONNXSumOp>(
     ONNXSumOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   // Do not support a single input.
   if (op.getData_0().size() < 2)
     return onnxToZHighUnsupportedReport(op.getOperation(),
@@ -497,7 +497,7 @@ bool isSuitableForZDNN<ONNXMinOp>(
     ONNXMinOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   int64_t opnum = op.getNumOperands();
   if (opnum != 2)
     return onnxToZHighUnsupportedReport(op.getOperation(),
@@ -520,7 +520,7 @@ bool isSuitableForZDNN<ONNXMaxOp>(
     ONNXMaxOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   int64_t opnum = op.getNumOperands();
   if (opnum != 2)
     return onnxToZHighUnsupportedReport(op.getOperation(),
@@ -544,7 +544,7 @@ bool isSuitableForZDNN<ONNXSoftmaxOp>(
     ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   ShapedType inputType = mlir::cast<ShapedType>(op.getType());
@@ -570,7 +570,7 @@ bool isSuitableForZDNN<ONNXReluOp>(
     ONNXReluOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   return true;
@@ -582,7 +582,7 @@ bool isSuitableForZDNN<ONNXTanhOp>(
     ONNXTanhOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   return true;
@@ -594,7 +594,7 @@ bool isSuitableForZDNN<ONNXSigmoidOp>(
     ONNXSigmoidOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
     return false;
   return true;
@@ -606,7 +606,7 @@ bool isSuitableForZDNN<ONNXLogOp>(
     ONNXLogOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   return true;
@@ -618,7 +618,7 @@ bool isSuitableForZDNN<ONNXExpOp>(
     ONNXExpOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   if (!isValidElementTypeAndRank(op.getOperation(), op.getInput()))
     return false;
   return true;
@@ -630,7 +630,7 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
   int64_t opnum = op.getNumOperands();
   if (opnum != 2)
     return onnxToZHighUnsupportedReport(op.getOperation(),
@@ -711,7 +711,7 @@ bool isSuitableForZDNN<ONNXGemmOp>(
 
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), A))
@@ -785,7 +785,7 @@ bool isSuitableForZDNN<ONNXReduceMeanV13Op>(
     ONNXReduceMeanV13Op op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getData()))
@@ -865,7 +865,7 @@ bool isSuitableForZDNN<ONNXLSTMOp>(
 
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
@@ -978,7 +978,7 @@ bool isSuitableForZDNN<ONNXGRUOp>(
 
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check direction.
   if ((direction != FORWARD) && (direction != REVERSE) &&
@@ -1083,7 +1083,7 @@ bool isSuitableForZDNN<ONNXMaxPoolSingleOutOp>(
     ONNXMaxPoolSingleOutOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
@@ -1115,7 +1115,7 @@ bool isSuitableForZDNN<ONNXAveragePoolOp>(
     ONNXAveragePoolOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
@@ -1238,7 +1238,7 @@ bool isSuitableForZDNN<ONNXConvOp>(
     ONNXConvOp op, const DimAnalysis *dimAnalysis) {
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // Check data type.
   if (!isValidElementTypeAndRank(op.getOperation(), op.getX()))
@@ -1344,7 +1344,7 @@ bool isSuitableForZDNN<ONNXBatchNormalizationInferenceModeOp>(
 
   // Check NNPA level.
   if (!isCompatibleWithNNPALevel(NNPA_Z16))
-    return onnxToZHighInCompatibilityReport(op.getOperation());
+    return onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
   // 4D tensors(N x C x H x W) are supported as input and output.
   if (shapeInput.size() != 4 || shapeOutput.size() != 4)

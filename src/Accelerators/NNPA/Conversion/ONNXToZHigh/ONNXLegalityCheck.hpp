@@ -51,4 +51,4 @@ bool meetPoolParamRestrictions(mlir::Operation *op, int64_t inputShape,
 bool onnxToZHighUnsupportedReport(
     mlir::Operation *op, const std::string &message);
 
-bool onnxToZHighInCompatibilityReport(mlir::Operation *op);
+bool onnxToZHighInCompatibilityReport(mlir::Operation *op, std::string inputNNPALevel);

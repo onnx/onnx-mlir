@@ -533,7 +533,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -548,7 +548,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -561,7 +561,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -574,7 +574,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -598,7 +598,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
         Value A = op.getA();
         Value B = op.getB();
@@ -668,7 +668,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
         Value input = op.getInput();
         // std::string message = "The `input` is not reshaped to 3D because it
