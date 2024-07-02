@@ -42,15 +42,34 @@ public:
 
     auto result = op.getResult();
 
-    auto inputType = input.getType();
+    auto inputType = dyn_cast<TensorType>(input.getType());
     if (!onnx_mlir::isRankedShapedType(inputType))
       return rewriter.notifyMatchFailure(op, "input is not a ranked tensor");
+    auto resultTy = dyn_cast<TensorType>(op.getType());
+    if (!onnx_mlir::isRankedShapedType(resultTy))
+      return rewriter.notifyMatchFailure(op, "result is not a ranked tensor");
     int64_t inputRank = onnx_mlir::getRank(inputType);
 
     // onnx allows values beetween [-r, r-1] where r is the rank
     axis = tosa::convertNegativeAxis(axis, inputRank);
 
     auto indicesType = indices.getType().cast<ShapedType>();
+
+    APInt indicesVal;
+    /*std::cout << "indicesType.getRank():"<< indicesType.getRank() 
+    << " matchPattern(indices, m_ConstantInt(&indicesVal):" << matchPattern(indices, m_ConstantInt(&indicesVal))
+    << " indicesVal.getSExtValue():" << indicesVal.getSExtValue() << "\n";*/
+    if(indicesType.getRank() == 0 && matchPattern(indices, m_ConstantInt(&indicesVal)) && indicesVal.getSExtValue() >= 0) {
+      llvm::SmallVector<int64_t, 4> starts(inputType.getRank(), 0);
+      llvm::SmallVector<int64_t, 4> size{inputType.getShape()};
+      starts[axis] = indicesVal.getSExtValue();
+      size[axis] = 1;
+      Value sliceOp = tosaBuilder.slice(input, size, starts);
+      auto reshape = tosaBuilder.reshape(sliceOp, resultTy.getShape());
+      rewriter.replaceOp(op, reshape);
+      return success();
+    }
+
     SmallVector<int32_t, 4> newIndicesValues;
     newIndicesValues.resize(indicesType.getNumElements());
 
