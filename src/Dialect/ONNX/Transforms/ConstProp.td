@@ -99,6 +99,9 @@ def IsMatMulIntegerRhsZero: Constraint<
 def SatisfiesExpansionBound: Constraint<
   CPred<"satisfiesExpansionBound($_self)">>;
 
+def SatisfiesMinLessThanMaxRequirement: Constraint<
+  CPred<"satisfiesMinLessThanMaxRequirement(cast<mlir::ShapedType>($0.getType()), $1, $2)">>;
+
 class IsNotDisabled<string name>: Constraint<
   CPred<"isNotDisabled(\"" # name # "\")">>;
 
@@ -817,6 +820,7 @@ def ClipConstProp : NamedPat<"ClipConstProp",
     // Clip constraints
     [(IsFromDenseONNXConstantOp:$input),
      (IsFromDenseONNXConstantOpOrNone:$min), (IsFromDenseONNXConstantOpOrNone:$max),
+     (SatisfiesMinLessThanMaxRequirement $input, $min, $max),
      (SatisfiesExpansionBound:$clipOp)]>;
 
 //===----------------------------------------------------------------------===//
