@@ -83,7 +83,8 @@ public:
       float valueFloat = (*valueIt).cast<FloatAttr>().getValueAsDouble();
 
       TosaBuilder tosaBuilder(rewriter, loc);
-      Value constTosaTensor = tosaBuilder.getSplattedConst(valueFloat);
+      Value constTosaTensor =
+          tosaBuilder.getSplattedConst(valueFloat, valueAttr.getElementType());
 
       rewriter.replaceOpWithNewOp<mlir::tosa::PadOp>(
           op, resultType, data, padsList1, constTosaTensor);

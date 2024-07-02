@@ -60,7 +60,7 @@ public:
     // epsilon's shape: constant -> {1, 1, 1, ...}
     newShape[1] = 1;
     auto eps = tosaBuilder.getSplattedConst(op.getEpsilon().convertToFloat(),
-        newShape, outTensorType.getElementType());
+        outTensorType.getElementType(), newShape);
 
     // output = (input - mean) * scale * rsqrt(var + eps) + bias
     auto op1SubInputMean =
