@@ -31,6 +31,8 @@ extern mlir::TimingScope rootTimingScope;
 
 namespace onnx_mlir {
 
+// Values to report the current phase of compilation.
+// Increase TOTAL_COMPILE_PHASE when having more phases.
 extern uint64_t CURRENT_COMPILE_PHASE;
 extern uint64_t TOTAL_COMPILE_PHASE;
 

@@ -59,7 +59,7 @@ mlir::DefaultTimingManager timingManager;
 mlir::TimingScope rootTimingScope;
 namespace onnx_mlir {
 
-// Values to report current phase of compilation.
+// Values to report the current phase of compilation.
 // Increase TOTAL_COMPILE_PHASE when having more phases.
 uint64_t CURRENT_COMPILE_PHASE = 1;
 uint64_t TOTAL_COMPILE_PHASE = 5;
