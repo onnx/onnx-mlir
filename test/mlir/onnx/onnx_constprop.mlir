@@ -318,6 +318,117 @@ func.func @test_neg_3(%arg0: tensor<3x2xi32>) -> tensor<3x2xi32> {
   // CHECK-NEXT: [[ADD1:%.+]] = "onnx.Add"(%arg0, [[CONST1]]) : (tensor<3x2xi32>, tensor<3x2xi32>) -> tensor<3x2xi32>
 }
 
+// -----
+
+// CHECK-LABEL: @test_ceil() -> tensor<3x2xbf16>
+func.func @test_ceil() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[[12.2, -12.2], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Ceil"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[1.300000e+01, -1.200000e+01], [0.000000e+00, 0x7FC0], [0x7F80, 0xFF80]]>
+  // CHECK-NOT: "onnx.Ceil"
+}
+
+// -----
+
+// CHECK-LABEL: @test_cos() -> tensor<3x2xf32>
+func.func @test_cos() -> tensor<3x2xf32> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  // Results: Positive, Positive, One, NaN, -NaN, -NaN
+  %0 = onnx.Constant dense<[[0.625, -0.625], [0.0, 0x7FC00000], [0x7F800000, 0xFF800000]]> : tensor<3x2xf32>
+  %1 = "onnx.Cos"(%0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
+  "onnx.Return"(%1) : (tensor<3x2xf32>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[0.810963094, 0.810963094], [1.000000e+00, 0x7FC00000], [0xFFC00000, 0xFFC00000]]>
+  // CHECK-NOT: "onnx.Cos"
+}
+
+// -----
+
+// CHECK-LABEL: @test_erf() -> tensor<3x2xbf16>
+func.func @test_erf() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[[0.0625, -1.0], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Erf"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[7.031250e-02, -8.437500e-01], [0.000000e+00, 0x7FC0], [1.000000e+00, -1.000000e+00]]>
+  // CHECK-NOT: "onnx.Erf"
+}
+
+// -----
+
+// CHECK-LABEL: @test_exp() -> tensor<3x2xbf16>
+func.func @test_exp() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[[0.0625, -1.0], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Exp"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[1.062500e+00, 3.671880e-01], [1.000000e+00, 0x7FC0], [0x7F80, 0.000000e+00]]>
+  // CHECK-NOT: "onnx.Exp"
+}
+
+// -----
+
+// CHECK-LABEL: @test_floor() -> tensor<3x2xbf16>
+func.func @test_floor() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf 
+  %0 = onnx.Constant dense<[[12.2, -12.2], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Floor"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[1.200000e+01, -1.300000e+01], [0.000000e+00, 0x7FC0], [0x7F80, 0xFF80]]>
+  // CHECK-NOT: "onnx.Floor"
+}
+
+// -----
+
+// CHECK-LABEL: @test_log() -> tensor<3x2xbf16>
+func.func @test_log() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[[0.0625, -1.0], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Log"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[-2.765630e+00, 0xFFC0], [0xFF80, 0x7FC0], [0x7F80, 0xFFC0]]>
+  // CHECK-NOT: "onnx.Log"
+}
+
+// -----
+
+// CHECK-LABEL: @test_not() -> tensor<2xi1>
+func.func @test_not() -> tensor<2xi1> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  %0 = onnx.Constant dense<[false, true]> : tensor<2xi1>
+  %1 = "onnx.Not"(%0) : (tensor<2xi1>) -> tensor<2xi1>
+  "onnx.Return"(%1) : (tensor<2xi1>) -> ()
+  // CHECK: onnx.Constant dense<[true, false]>
+  // CHECK-NOT: "onnx.Not"
+}
+
+// -----
+
+// CHECK-LABEL: @test_reciprocal() -> tensor<3x2xbf16>
+func.func @test_reciprocal() -> tensor<3x2xbf16> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  // Results: Positive, Positive, One, NaN, -NaN, -NaN
+  %0 = onnx.Constant dense<[[0.25, -0.25], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
+  %1 = "onnx.Reciprocal"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[4.000000e+00, -4.000000e+00], [0x7F80, 0x7FC0], [0.000000e+00, -0.000000e+00]]>
+  // CHECK-NOT: "onnx.Sin"
+}
+
+// -----
+
+// CHECK-LABEL: @test_sin() -> tensor<3x2xf32>
+func.func @test_sin() -> tensor<3x2xf32> {
+  // Test Positive, Negative, Zero, NaN, +Inf, -Inf
+  // Results: Positive, Positive, One, NaN, -NaN, -NaN
+  %0 = onnx.Constant dense<[[0.625, -0.625], [0.0, 0x7FC00000], [0x7F800000, 0xFF800000]]> : tensor<3x2xf32>
+  %1 = "onnx.Sin"(%0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
+  "onnx.Return"(%1) : (tensor<3x2xf32>) -> ()
+  // CHECK: onnx.Constant dense<{{.}}[0.585097253, -0.585097253], [0.000000e+00, 0x7FC00000], [0xFFC00000, 0xFFC00000]]>
+  // CHECK-NOT: "onnx.Sin"
+}
+
 //===----------------------------------------------------------------------===//
 /// Transpose tests.
 
@@ -377,6 +488,266 @@ func.func @test_div_ones(%arg0 : tensor<1x2xui8>) -> tensor<1x2xui8> {
   %1 = "onnx.Div"(%arg0, %0) : (tensor<1x2xui8> , tensor<1x2xui8>) -> tensor<1x2xui8>
   onnx.Return %1 : tensor<1x2xui8>
   // CHECK: onnx.Return %arg0 : tensor<1x2xui8>
+}
+
+// -----
+
+// CHECK-LABEL: test_div_by_zero()
+func.func @test_div_by_zero() -> tensor<2xui32> {
+  %0 = onnx.Constant dense<[2, 4]> : tensor<2xui32>
+  %1 = onnx.Constant dense<[0]> : tensor<1xui32>
+  %2 = "onnx.Div"(%0, %1) : (tensor<2xui32>, tensor<1xui32>) -> tensor<2xui32>
+  "onnx.Return"(%2) : (tensor<2xui32>) -> ()
+  // The behavior is undefined, so the value don't matter. Just don't crash.
+  // CHECK-NOT: {{.*}} = "onnx.Div"{{.*}}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Clip's test
+
+func.func @test_clip_max_and_min() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %min = onnx.Constant {value = dense<-2.0> : tensor<bf16>} : tensor<bf16>
+  %max = onnx.Constant {value = dense<[2.0]> : tensor<1xbf16>} : tensor<1xbf16>
+  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<bf16>, tensor<1xbf16>) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+// CHECK-LABEL:  func @test_clip_max_and_min
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.000000e+00, -2.000000e+00], [0.000000e+00, 0x7FC0], [-2.000000e+00, 2.000000e+00]]>
+  // CHECK-NOT: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_no_min
+func.func @test_clip_no_min() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.1, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %max = onnx.Constant {value = dense<[2.0]> : tensor<1xbf16>} : tensor<1xbf16>
+  %0 = "onnx.Clip"(%cst, %none, %max) : (tensor<3x2xbf16>, none, tensor<1xbf16>) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.000000e+00, -2.125000e+00], [0.000000e+00, 0x7FC0], [-3.389530e+38, 2.000000e+00]]>
+  // CHECK-NOT: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_no_max
+func.func @test_clip_no_max() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %min = onnx.Constant {value = dense<-2.0> : tensor<bf16>} : tensor<bf16>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Clip"(%cst, %min, %none) : (tensor<3x2xbf16>, tensor<bf16>, none) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.125000e+00, -2.000000e+00], [0.000000e+00, 0x7FC0], [-2.000000e+00, 3.389530e+38]]>
+  // CHECK-NOT: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_multiple_min
+func.func @test_clip_multiple_min() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %min = onnx.Constant dense<[[5.000, 2.000], [-1.0, 0.0], [0.0, 0.125]]> : tensor<3x2xbf16>
+  %max = onnx.Constant {value = dense<[10.0]> : tensor<1xbf16>} : tensor<1xbf16>
+  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<3x2xbf16>, tensor<1xbf16>) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[5.000000e+00, 2.000000e+00], [0.000000e+00, 0x7FC0], [0.000000e+00, 1.000000e+01]]>
+  // CHECK-NOT: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_multiple_max
+func.func @test_clip_multiple_max() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %min = onnx.Constant {value = dense<-2.0> : tensor<bf16>} : tensor<bf16>
+  %max = onnx.Constant dense<[[5.000, 2.000], [-1.0, 0.0], [0.0, 0.125]]> : tensor<3x2xbf16>
+  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<bf16>, tensor<3x2xbf16>) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.125000e+00, -2.000000e+00], [-1.000000e+00, 0x7FC0], [-2.000000e+00, 1.250000e-01]]>
+  // CHECK-NOT: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_no_min_no_max
+func.func @test_clip_no_min_no_max() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %none = "onnx.NoValue"() {value} : () -> none
+  %0 = "onnx.Clip"(%cst, %none, %none) : (tensor<3x2xbf16>, none, none) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+  // CHECK: {{.*}} = onnx.Constant dense<{{.}}[2.125000e+00, -2.125000e+00], [0.000000e+00, 0x7FC0], [-3.389530e+38, 3.389530e+38]]>
+  // CHECK-NOT: {{.*}} = "onnx.Clip"
+}
+
+// ONNX Specification does define what happens when min > max. For now, no folding happens.
+// Opened issue: https://github.com/onnx/onnx/issues/6165
+
+// CHECK-LABEL:  func @test_clip_min_greater_than_max1
+func.func @test_clip_min_greater_than_max1() -> tensor<3x2xbf16> {
+  // Test Positive Clamped, Negative Clamped, In range, NaN, -Inf,  +Inf
+  %cst = onnx.Constant dense<[[2.125, -2.125], [0.0, 0x7FC0], [0xFF80, 0x7F80]]> : tensor<3x2xbf16>
+  %min = onnx.Constant {value = dense<[2.0]> : tensor<1xbf16>} : tensor<1xbf16>
+  %max = onnx.Constant {value = dense<-2.0> : tensor<bf16>} : tensor<bf16>
+  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3x2xbf16>, tensor<1xbf16>, tensor<bf16>) -> tensor<3x2xbf16>
+  return %0 : tensor<3x2xbf16>
+  // CHECK: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_min_greater_than_max
+func.func @test_clip_min_greater_than_max2() -> tensor<3xbf16> {
+  %cst = onnx.Constant dense<[2.125, -2.125, 0.0]> : tensor<3xbf16>
+  %min = onnx.Constant {value = dense<[0.0, 0.0, 2.0]> : tensor<3xbf16>} : tensor<3xbf16>
+  %max = onnx.Constant {value = dense<[2.0, 2.0, -2.0]> : tensor<3xbf16>} : tensor<3xbf16>
+  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3xbf16>, tensor<3xbf16>, tensor<3xbf16>) -> tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+  // CHECK: {{.*}} = "onnx.Clip"
+}
+
+// CHECK-LABEL:  func @test_clip_min_greater_than_max3
+func.func @test_clip_min_greater_than_max3() -> tensor<3xbf16> {
+  %cst = onnx.Constant dense<[2.125, -2.125, 0.0]> : tensor<3xbf16>
+  %min = onnx.Constant {value = dense<[0.0]> : tensor<1xbf16>} : tensor<1xbf16>
+  %max = onnx.Constant {value = dense<[2.0, 2.0, -2.0]> : tensor<3xbf16>} : tensor<3xbf16>
+  %0 = "onnx.Clip"(%cst, %min, %max) : (tensor<3xbf16>, tensor<1xbf16>, tensor<3xbf16>) -> tensor<3xbf16>
+  return %0 : tensor<3xbf16>
+  // CHECK: {{.*}} = "onnx.Clip"
+}
+
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Bitwise's test
+
+// CHECK-LABEL: @test_bitwise_not() -> tensor<4xi32>
+func.func @test_bitwise_not() -> tensor<4xi32> {
+  %0 = onnx.Constant dense<[0, 0xFFFFFFFF, 0xFFFFFFFE, 0x000000FF]> : tensor<4xi32>
+  %1 = "onnx.BitwiseNot"(%0) : (tensor<4xi32>) -> tensor<4xi32>
+  "onnx.Return"(%1) : (tensor<4xi32>) -> ()
+  // CHECK: onnx.Constant dense<[-1, 0, 1, -256]>
+  // CHECK-NOT: "onnx.BitwiseNot"
+}
+
+// -----
+
+// CHECK-LABEL: @test_bitwise_and() -> tensor<3xi32>
+func.func @test_bitwise_and() -> tensor<3xi32> {
+  %0 = onnx.Constant dense<[0xFFFFFFFE, 0xFFFF0000, 256]> : tensor<3xi32>
+  %1 = onnx.Constant dense<0xFFFFFFFF> : tensor<i32>
+  %2 = "onnx.BitwiseAnd"(%0, %1) : (tensor<3xi32>, tensor<i32>) -> tensor<3xi32>
+  "onnx.Return"(%2) : (tensor<3xi32>) -> ()
+  // CHECK: onnx.Constant dense<[-2, -65536, 256]>
+  // CHECK-NOT: "onnx.BitwiseAnd"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_bitwise_and() -> tensor<3xi32>
+func.func @test_bitwise_and() -> tensor<3xi32> {
+  %0 = onnx.Constant dense<[-2, 15, 0x0000FFFF]> : tensor<3xi32>
+  %1 = onnx.Constant dense<[0xFFFFFFFF]> : tensor<1xi32>
+  %2 = "onnx.BitwiseAnd"(%0, %1) : (tensor<3xi32>, tensor<1xi32>) -> tensor<3xi32>
+  "onnx.Return"(%2) : (tensor<3xi32>) -> ()
+  // CHECK: onnx.Constant dense<[-2, 15, 65535]>
+  // CHECK-NOT: "onnx.BitwiseAnd"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_bitwise_and() -> tensor<3xi32>
+func.func @test_bitwise_and() -> tensor<3xi32> {
+  %0 = onnx.Constant dense<[0xFFFFFFFE, 15, 255]> : tensor<3xi32>
+  %1 = onnx.Constant dense<[0xFFFFFFFF, 0xFFFFFFF0, 0x0000000F]> : tensor<3xi32>
+  %2 = "onnx.BitwiseAnd"(%0, %1) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
+  "onnx.Return"(%2) : (tensor<3xi32>) -> ()
+  // CHECK: onnx.Constant dense<[-2, 0, 15]>
+  // CHECK-NOT: "onnx.BitwiseAnd"{{.*}}
+}
+
+// -----
+
+// CHECK-LABEL: @test_bitwise_or() -> tensor<3xi32>
+func.func @test_bitwise_or() -> tensor<3xi32> {
+  %0 = onnx.Constant dense<[0xFFFFFFFE, 0xFFFFFFF0, 0xFFFFFF00]> : tensor<3xi32>
+  %1 = onnx.Constant dense<[0xFFFFFFF1, 1, 2]> : tensor<3xi32>
+  %2 = "onnx.BitwiseOr"(%0, %1) : (tensor<3xi32>, tensor<3xi32>) -> tensor<3xi32>
+  "onnx.Return"(%2) : (tensor<3xi32>) -> ()
+  // CHECK: onnx.Constant dense<[-1, -15, -254]>
+  // CHECK-NOT: "onnx.BitwiseOr"{{.*}}
+}
+
+// -----
+
+//===----------------------------------------------------------------------===//
+/// Bitwise's test
+
+// CHECK-LABEL: @test_and() -> tensor<3xi1>
+func.func @test_and() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<true> : tensor<i1>
+  %2 = "onnx.And"(%0, %1) : (tensor<3xi1>, tensor<i1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<[true, true, false]>
+  // CHECK-NOT: "onnx.And"{{.*}}
+}
+
+// CHECK-LABEL: @test_and2() -> tensor<3xi1>
+func.func @test_and2() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<[false, true, false]> : tensor<3xi1>
+  %2 = "onnx.And"(%0, %1) : (tensor<3xi1>, tensor<3xi1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<[false, true, false]>
+  // CHECK-NOT: "onnx.And"{{.*}}
+}
+
+// CHECK-LABEL: @test_and3() -> tensor<3xi1>
+func.func @test_and3() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<false> : tensor<i1>
+  %2 = "onnx.And"(%0, %1) : (tensor<3xi1>, tensor<i1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<false>
+  // CHECK-NOT: "onnx.And"{{.*}}
+}
+
+// CHECK-LABEL: @test_or() -> tensor<3xi1>
+func.func @test_or() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<true> : tensor<i1>
+  %2 = "onnx.Or"(%0, %1) : (tensor<3xi1>, tensor<i1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<true>
+  // CHECK-NOT: "onnx.Or"{{.*}}
+}
+
+// CHECK-LABEL: @test_or2() -> tensor<3xi1>
+func.func @test_or2() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<[false, true, false]> : tensor<3xi1>
+  %2 = "onnx.Or"(%0, %1) : (tensor<3xi1>, tensor<3xi1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<[true, true, false]>
+  // CHECK-NOT: "onnx.Or"{{.*}}
+}
+
+// CHECK-LABEL: @test_xor() -> tensor<3xi1>
+func.func @test_xor() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<true> : tensor<i1>
+  %2 = "onnx.Xor"(%0, %1) : (tensor<3xi1>, tensor<i1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<[false, false, true]>
+  // CHECK-NOT: "onnx.Xor"{{.*}}
+}
+
+// CHECK-LABEL: @test_xor2() -> tensor<3xi1>
+func.func @test_xor2() -> tensor<3xi1> {
+  %0 = onnx.Constant dense<[true, true, false]> : tensor<3xi1>
+  %1 = onnx.Constant dense<[false, true, false]> : tensor<3xi1>
+  %2 = "onnx.Xor"(%0, %1) : (tensor<3xi1>, tensor<3xi1>) -> tensor<3xi1>
+  "onnx.Return"(%2) : (tensor<3xi1>) -> ()
+  // CHECK: onnx.Constant dense<[true, false, false]>
+  // CHECK-NOT: "onnx.Xor"{{.*}}
 }
 
 //===----------------------------------------------------------------------===//
