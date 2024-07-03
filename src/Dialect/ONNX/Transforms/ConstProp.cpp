@@ -19,6 +19,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Support/Debug.h"
@@ -122,6 +123,16 @@ Value createReplacingConstantOp(
 template <typename T>
 using EnableNotBool = std::enable_if_t<!std::is_same_v<T, bool>>;
 
+template <typename T>
+using EnableBool = std::enable_if_t<std::is_same_v<T, bool>>;
+
+template <typename T>
+using EnableInteger =
+    std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>;
+
+template <typename T>
+using EnableFloatingPoint = std::enable_if_t<std::is_floating_point_v<T>>;
+
 /// Checks whether a variadic value is produced by dense ONNXConstantOps.
 bool isVariadicOperandFromDenseONNXConstantOp(ValueRange operands) {
   return llvm::all_of(operands, [](Value v) { return isDenseONNXConstant(v); });
@@ -132,6 +143,46 @@ Value ConstZeroTensor(
   return OnnxBuilder(rewriter, loc)
       .constant(DenseElementsAttr::get(
           type, rewriter.getZeroAttr(type.getElementType())));
+}
+
+template <typename GetFPConstFunc =
+              std::function<APFloat(const llvm::fltSemantics &, bool)>,
+    typename GetIntConstFunc = std::function<APInt(unsigned)>>
+Value GetClipConstantOfType(PatternRewriter &rewriter, ShapedType type,
+    Value value, GetFPConstFunc fpConstantFunc, bool isNegative,
+    GetIntConstFunc intConstantFunc) {
+  auto elemType = type.getElementType();
+  if (auto floatType = dyn_cast<FloatType>(elemType)) {
+    auto fpValue =
+        fpConstantFunc(floatType.getFloatSemantics(), /*Negative=*/isNegative);
+    return rewriter.create<ONNXConstantOp>(value.getLoc(), Attribute(),
+        DenseElementsAttr::get(type, llvm::ArrayRef(fpValue)));
+  }
+  auto intValue = intConstantFunc(elemType.getIntOrFloatBitWidth());
+  return rewriter.create<ONNXConstantOp>(value.getLoc(), Attribute(),
+      DenseElementsAttr::get(type, llvm::ArrayRef(intValue)));
+}
+
+Value CreateMaximumValueForClip(
+    PatternRewriter &rewriter, ShapedType type, Value value) {
+
+  // Return 'value' if exists, as there is no need to clip to largest.
+  if (!isNoneValue(value))
+    return value;
+
+  return GetClipConstantOfType(rewriter, type, value, llvm::APFloat::getLargest,
+      false, llvm::APInt::getMaxValue);
+}
+
+Value CreateMinimumValueForClip(
+    PatternRewriter &rewriter, ShapedType type, Value value) {
+
+  // Return 'value' if exists, as there is no need to clip to lowest.
+  if (!isNoneValue(value))
+    return value;
+
+  return GetClipConstantOfType(rewriter, type, value, llvm::APFloat::getLargest,
+      true, llvm::APInt::getMinValue);
 }
 
 WideNum asWideNum(double n, Type elemType) {
@@ -216,6 +267,31 @@ struct ElementWiseBinaryOpImpl<ONNXDivOp, T, EnableNotBool<T>> {
 };
 
 template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXBitwiseAndOp, T, EnableInteger<T>> {
+  static T eval(T lhs, T rhs) { return lhs & rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXBitwiseOrOp, T, EnableInteger<T>> {
+  static T eval(T lhs, T rhs) { return lhs | rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXAndOp, T, EnableBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs && rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXOrOp, T, EnableBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs || rhs; }
+};
+
+template <typename T>
+struct ElementWiseBinaryOpImpl<ONNXXorOp, T, EnableBool<T>> {
+  static T eval(T lhs, T rhs) { return lhs != rhs; }
+};
+
+template <typename T>
 struct ElementWiseBinaryOpImpl<ONNXMinOp, T> {
   static T eval(T lhs, T rhs) { return std::min<T>(lhs, rhs); }
 };
@@ -296,6 +372,30 @@ constexpr auto subCombiner(Type elemType) {
   return elementwiseBinaryOpCombiner<ONNXSubOp>(elemType);
 }
 
+/// Precondition: min values must be less than max values if both exist.
+bool satisfiesMinLessThanMaxRequirement(ShapedType type, Value min, Value max) {
+  if (isNoneValue(min) || isNoneValue(max))
+    return true;
+
+  if (!isDenseONNXConstant(min) || !isDenseONNXConstant(max)) {
+    return false;
+  }
+  auto minValues = getConstValueElements(min);
+  auto maxValues = getConstValueElements(max);
+
+  MLIRContext *ctx = min.getContext();
+  OnnxElementsAttrBuilder elementsBuilder(ctx);
+  ElementsAttr resultElements = elementsBuilder.combine(minValues, maxValues,
+      type.clone(IntegerType::get(ctx, 1)),
+      elementwiseBinaryOpCombiner<ONNXLessOp>(minValues.getElementType()));
+  auto denseElems =
+      OnnxElementsAttrBuilder::toDenseElementsAttr(resultElements);
+
+  if (denseElems.isSplat())
+    return denseElems.getSplatValue<bool>();
+  return false;
+}
+
 /// Do element-wise binary calculation of 'lhs' and 'rhs' values and create an
 /// ONNXConstantOp for the result.
 template <typename ElementwiseBinaryOp>
@@ -350,8 +450,53 @@ struct ElementWiseUnaryOpImpl {
 };
 
 template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXBitwiseNotOp, T, EnableInteger<T>> {
+  static T eval(T val) { return ~val; }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXCeilOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return ceil(val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXCosOp, T, EnableFloatingPoint<T>> {
+  static T eval(T val) { return cos(val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXErfOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return std::erf(val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXExpOp, T, EnableFloatingPoint<T>> {
+  static T eval(T val) { return std::exp(val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXFloorOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return floor(val); }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXLogOp, T, EnableFloatingPoint<T>> {
+  static T eval(T val) { return log(val); }
+};
+
+template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXNegOp, T, EnableNotBool<T>> {
   static T eval(T val) { return -val; }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXNotOp, T, EnableBool<T>> {
+  static T eval(T val) { return !val; }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXSinOp, T, EnableFloatingPoint<T>> {
+  static T eval(T val) { return sin(val); }
 };
 
 template <>
@@ -362,6 +507,11 @@ struct ElementWiseUnaryOpImpl<ONNXSqrtOp, double> {
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
   static T eval(T val) { return (val < 0) ? 0 : val; }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableFloatingPoint<T>> {
+  static T eval(T val) { return 1 / val; }
 };
 
 template <typename ElementwiseUnaryOp>
