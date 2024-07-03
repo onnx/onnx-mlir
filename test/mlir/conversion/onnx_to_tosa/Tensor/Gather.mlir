@@ -112,12 +112,10 @@ func.func @test_gather_dynamic_indices_i32(%arg0 : tensor<3x3xf32>, %indices: te
 // CHECK-LABEL:   func.func @test_gather_dynamic_indices_i32(
 // CHECK-SAME:                                               %[[VAL_0:.*]]: tensor<3x3xf32>,
 // CHECK-SAME:                                               %[[VAL_1:.*]]: tensor<1x2xi32>) -> tensor<3x1x2xf32> {
-// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<3> : tensor<1x1xi64>}> : () -> tensor<1x1xi64>
-// CHECK:           %[[VAL_3:.*]] = tosa.cast %[[VAL_2]] : (tensor<1x1xi64>) -> tensor<1x1xi32>
-// CHECK:           %[[VAL_4:.*]] = tosa.add %[[VAL_1]], %[[VAL_3]] : (tensor<1x2xi32>, tensor<1x1xi32>) -> tensor<1x2xi32>
-// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{value = dense<0> : tensor<1x1xi64>}> : () -> tensor<1x1xi64>
-// CHECK:           %[[VAL_6:.*]] = tosa.cast %[[VAL_5]] : (tensor<1x1xi64>) -> tensor<1x1xi32>
-// CHECK:           %[[VAL_7:.*]] = tosa.greater_equal %[[VAL_1]], %[[VAL_6]] : (tensor<1x2xi32>, tensor<1x1xi32>) -> tensor<1x2xi1>
+// CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<3> : tensor<1x1xi32>}> : () -> tensor<1x1xi32>
+// CHECK:           %[[VAL_4:.*]] = tosa.add %[[VAL_1]], %[[VAL_2]] : (tensor<1x2xi32>, tensor<1x1xi32>) -> tensor<1x2xi32>
+// CHECK:           %[[VAL_5:.*]] = "tosa.const"() <{value = dense<0> : tensor<1x1xi32>}> : () -> tensor<1x1xi32>
+// CHECK:           %[[VAL_7:.*]] = tosa.greater_equal %[[VAL_1]], %[[VAL_5]] : (tensor<1x2xi32>, tensor<1x1xi32>) -> tensor<1x2xi1>
 // CHECK:           %[[VAL_8:.*]] = tosa.select %[[VAL_7]], %[[VAL_1]], %[[VAL_4]] : (tensor<1x2xi1>, tensor<1x2xi32>, tensor<1x2xi32>) -> tensor<1x2xi32>
 // CHECK:           %[[VAL_9:.*]] = "tosa.const"() <{value = dense<[1, 0]> : tensor<2xi32>}> : () -> tensor<2xi32>
 // CHECK:           %[[VAL_10:.*]] = tosa.transpose %[[VAL_0]], %[[VAL_9]] : (tensor<3x3xf32>, tensor<2xi32>) -> tensor<3x3xf32>

@@ -130,17 +130,15 @@ Value TosaBuilder::getConst(ArrayRef<float> vec, ArrayRef<int64_t> shape) {
 }
 
 Value TosaBuilder::getSplattedConst(
-    float val, llvm::ArrayRef<int64_t> shape, std::optional<Type> dtype) {
+    float val, Type dtype, llvm::ArrayRef<int64_t> shape) {
   auto constType = tosa::reduceAxisToOne(shape, rewriter().getF32Type());
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto constOp =
       rewriter().create<mlir::tosa::ConstOp>(loc(), constType, constAttr);
 
-  if (dtype)
-    return rewriter().createOrFold<mlir::tosa::CastOp>(
-        loc(), RankedTensorType::get(constType.getShape(), *dtype), constOp);
-  return constOp;
+  return rewriter().createOrFold<mlir::tosa::CastOp>(
+      loc(), RankedTensorType::get(constType.getShape(), dtype), constOp);
 }
 
 Value TosaBuilder::transpose(mlir::Value &value, llvm::ArrayRef<int32_t> perm) {
@@ -330,7 +328,7 @@ mlir::Value TosaBuilder::castToNewTensorElementType(
 Value TosaBuilder::sqrt(mlir::Value &input) {
   auto inputType = input.getType().cast<ShapedType>();
   auto oneHalf = this->getSplattedConst(
-      0.5, inputType.getShape(), inputType.getElementType());
+      0.5, inputType.getElementType(), inputType.getShape());
   return this->binaryOp<mlir::tosa::PowOp>(input, oneHalf);
 }
 

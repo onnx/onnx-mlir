@@ -90,8 +90,8 @@ struct TosaBuilder : DialectBuilder {
   // The tensor will have the same rank as shape but all dimensions will
   // have size 1 (differs from tensorflow impl.)
   // If dtype is provided, it also cast the value to the appropriate dtype.
-  mlir::Value getSplattedConst(float val, llvm::ArrayRef<int64_t> shape = {},
-      std::optional<mlir::Type> dtype = {});
+  mlir::Value getSplattedConst(
+      float val, mlir::Type dtype, llvm::ArrayRef<int64_t> shape = {});
 
   // Creates a constant of shape <1x1x...x1> of rank `rank` with all values set
   // to `value`.

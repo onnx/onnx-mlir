@@ -103,7 +103,7 @@ public:
     // A
     if (alpha && alpha.getValueAsDouble() != 1.) {
       Value splattedConstAlpha = tosaBuilder.getSplattedConst(
-          (float)alpha.getValueAsDouble(), newShapeA);
+          (float)alpha.getValueAsDouble(), AType.getElementType(), newShapeA);
       alphaMulResult = tosaBuilder.mul(splattedConstAlpha, A, 0);
     }
 
@@ -111,7 +111,7 @@ public:
     // a multiplication for beta * C
     if (beta && isCPresent && beta.getValueAsDouble() != 1.) {
       Value splattedConstBeta = tosaBuilder.getSplattedConst(
-          (float)beta.getValueAsDouble(), newShapeA);
+          (float)beta.getValueAsDouble(), AType.getElementType(), newShapeA);
       betaMulResult = tosaBuilder.mul(splattedConstBeta, C, 0);
     }
 
