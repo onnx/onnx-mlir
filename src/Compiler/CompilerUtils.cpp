@@ -169,7 +169,7 @@ int Command::exec(std::string wdir) const {
   return 0;
 }
 
-void showProgressBar(std::string msg) {
+void showCompilePhase(std::string msg) {
   time_t rawtime;
   struct tm *timeinfo;
   char buffer[80];
@@ -359,7 +359,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
     std::string outputNameNoExt, std::string optimizedBitcodeNameWithExt) {
   std::string msg =
       "Translating MLIR Module to LLVM and Generating LLVM Optimized Bitcode";
-  showProgressBar(msg);
+  showCompilePhase(msg);
   auto llvmTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   std::error_code error;
 
@@ -432,7 +432,7 @@ static int genLLVMBitcode(const mlir::OwningOpRef<ModuleOp> &module,
 static int genModelObject(
     std::string bitcodeNameWithExt, std::string &modelObjNameWithExt) {
   std::string msg = "Generating Object from LLVM Bitcode";
-  showProgressBar(msg);
+  showCompilePhase(msg);
   auto objectTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   std::string llcPath = getToolPath("llc");
   Command llvmToObj(/*exePath=*/llcPath);
@@ -454,8 +454,9 @@ static int genModelObject(
 // Return 0 on success, error code on failure.
 static int genJniObject(const mlir::OwningOpRef<ModuleOp> &module,
     std::string jniSharedLibPath, std::string jniObjPath) {
-  auto jniTiming =
-      rootTimingScope.nest("[onnx-mlir] Compiling JNI Object File");
+  std::string msg = "Generating JNI Object";
+  showCompilePhase(msg);
+  auto jniTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   Command ar(/*exePath=*/getToolPath("ar", true));
   int rc = ar.appendStr("x")
                // old version of ar does not support --output so comment out
@@ -475,7 +476,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
     std::vector<std::string> opts, std::vector<std::string> objs,
     std::vector<std::string> libs, std::vector<std::string> libDirs) {
   std::string msg = "Linking and Generating the Output Shared Library";
-  showProgressBar(msg);
+  showCompilePhase(msg);
   auto sharedLibTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
 #ifdef _WIN32
   std::vector<std::string> outputOpt = {"/Fe:" + sharedLibNameWithExt};
@@ -527,7 +528,7 @@ static int genSharedLib(std::string sharedLibNameWithExt,
 static int genJniJar(const mlir::OwningOpRef<ModuleOp> &module,
     std::string modelSharedLibPath, std::string modelJniJarPath) {
   std::string msg = "Creating JNI Jar";
-  showProgressBar(msg);
+  showCompilePhase(msg);
   auto jniJarTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   llvm::SmallString<8> libraryPath(getLibraryPath());
   llvm::sys::path::append(libraryPath, "javaruntime.jar");
@@ -924,8 +925,7 @@ int compileModule(mlir::OwningOpRef<ModuleOp> &module,
     mlir::MLIRContext &context, std::string outputNameNoExt,
     EmissionTargetType emissionTarget) {
   std::string msg = "Compiling and Optimizing MLIR Module";
-  showProgressBar(msg);
-
+  showCompilePhase(msg);
   auto compileModuleTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
 
   int rc = setupModule(module, context, outputNameNoExt);

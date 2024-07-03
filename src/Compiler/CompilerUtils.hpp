@@ -50,7 +50,7 @@ struct Command {
   int exec(std::string wdir = "") const;
 };
 
-void showProgressBar(std::string msg);
+void showCompilePhase(std::string msg);
 
 // Registers and loads the mlir and onnx-mlir dialects needed to compile
 // end to end. Initializes accelerator(s) if required.

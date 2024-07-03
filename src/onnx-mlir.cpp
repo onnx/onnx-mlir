@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
   loadDialects(context);
   setupTiming.stop();
   std::string msg = "Importing ONNX Model to MLIR Module";
-  showProgressBar(msg);
+  showCompilePhase(msg);
   auto inputFileTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   mlir::OwningOpRef<mlir::ModuleOp> module;
   std::string errorMessage;
