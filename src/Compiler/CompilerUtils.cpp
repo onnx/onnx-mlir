@@ -180,10 +180,8 @@ void showCompilePhase(std::string msg) {
   strftime(buffer, 80, "%c", timeinfo);
   std::string currentTime(buffer);
 
-  // Use blue bold text.
-  llvm::outs() << "[\033[34;1m" << CURRENT_COMPILE_PHASE++ << "/"
-               << TOTAL_COMPILE_PHASE << "\033[0m] " << currentTime << " "
-               << msg << "\n";
+  llvm::outs() << "[" << CURRENT_COMPILE_PHASE++ << "/" << TOTAL_COMPILE_PHASE
+               << "] " << currentTime << " " << msg << "\n";
 }
 
 } // namespace onnx_mlir
