@@ -424,7 +424,7 @@ std::optional<Value> convertReduceMeanOp(PatternRewriter &rewriter,
 
   if (!input_is_qtype) {
     Value div_const = tosaBuilder.getSplattedConst(
-        div_scale, output_type.getShape(), output_type.getElementType());
+        div_scale, output_type.getElementType(), output_type.getShape());
     return tosaBuilder.mul(val.value(), div_const);
   }
 

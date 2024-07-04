@@ -45,12 +45,13 @@ void handleIncludePadAttr(
           /*ceilMode*/ 0, {0, 1, 2, 3});
 
   // Create Padding and ConstPad tosa::ConstOp's
+  auto inputType = input.getType().cast<mlir::TensorType>();
   TosaBuilder tosaBuilder(rewriter, loc);
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
       rewriter, pads, loc, {0, 0, 0, 0}, {});
-  auto constTosaTensor = tosaBuilder.getSplattedConst(0.0);
+  auto constTosaTensor =
+      tosaBuilder.getSplattedConst(0.0, inputType.getElementType());
 
-  auto inputType = input.getType().cast<mlir::TensorType>();
   auto padOp = tosa::CreateOpAndInfer<mlir::tosa::PadOp>(rewriter, loc,
       mlir::RankedTensorType::get(
           llvm::SmallVector<int64_t, 4>(

@@ -181,7 +181,7 @@ LogicalResult reduceMeanLowering(ONNXReduceMeanOp op,
 
   TosaBuilder tosaBuilder(rewriter, op->getLoc());
   Value divConst = tosaBuilder.getSplattedConst(
-      divScale, outputType.getShape(), outputType.getElementType());
+      divScale, outputType.getElementType(), outputType.getShape());
   auto output = tosaBuilder.mul(val, divConst);
 
   if (!output) {

@@ -231,7 +231,7 @@ static LogicalResult legalizeFloatingPointPrelu(Operation *op,
   auto loc = op->getLoc();
   TosaBuilder tosaBuilder(rewriter, loc);
   Value constZero = tosaBuilder.getSplattedConst(
-      0.0, outputType.getShape(), outputType.getElementType());
+      0.0, outputType.getElementType(), outputType.getShape());
 
   auto mul = tosaBuilder.mul(input, alphaOrSlope);
   auto greaterEqual = tosaBuilder.greaterEqual(input, constZero);
@@ -266,7 +266,7 @@ public:
     TosaBuilder tosaBuilder(rewriter, loc);
     return legalizeFloatingPointPrelu(op, rewriter, adaptor.getX(),
         tosaBuilder.getSplattedConst(
-            alpha, outputType.getShape(), outputType.getElementType()),
+            alpha, outputType.getElementType(), outputType.getShape()),
         outputType);
   }
 };
@@ -386,7 +386,8 @@ public:
       // ceil for negative ones. Conversion to boolean works the same between
       // onnx.Cast and tosa.cast.
       if (resultTy.getElementType().getIntOrFloatBitWidth() != 1) {
-        auto zero = tosaBuilder.getSplattedConst(0.0f, resultTy.getRank());
+        auto zero = tosaBuilder.getSplattedConst(
+            0.0f, inputTy.getElementType(), resultTy.getShape());
         auto positive = tosaBuilder.greaterEqual(input, zero);
 
         auto floor = tosaBuilder.unaryOp<mlir::tosa::FloorOp>(input);
@@ -465,12 +466,12 @@ public:
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
 
     Value one = tosaBuilder.getSplattedConst(
-        1.0, resultTensorType.getShape(), resultTensorType.getElementType());
+        1.0, resultTensorType.getElementType(), resultTensorType.getShape());
     Value alpha =
         tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
-            resultTensorType.getShape(), resultTensorType.getElementType());
+            resultTensorType.getElementType(), resultTensorType.getShape());
     Value constZero = tosaBuilder.getSplattedConst(
-        0.0, resultTensorType.getShape(), resultTensorType.getElementType());
+        0.0, resultTensorType.getElementType(), resultTensorType.getShape());
 
     Value exp = tosaBuilder.unaryOp<mlir::tosa::ExpOp>(input);
     Value expMinusOne = tosaBuilder.binaryOp<mlir::tosa::SubOp>(exp, one);
@@ -511,9 +512,9 @@ public:
 
     Value constBetaOverAlpha =
         tosaBuilder.getSplattedConst(betaOverAlpha.convertToDouble(),
-            resultType.getShape(), resultElementType);
+            resultElementType, resultType.getShape());
     Value constAlpha = tosaBuilder.getSplattedConst(
-        alpha.convertToDouble(), resultType.getShape(), resultElementType);
+        alpha.convertToDouble(), resultElementType, resultType.getShape());
 
     auto addOp =
         tosaBuilder.binaryOp<mlir::tosa::AddOp>(input, constBetaOverAlpha);
@@ -563,7 +564,7 @@ public:
 
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     auto one = tosaBuilder.getSplattedConst(
-        1.0, outputType.getShape(), outputType.getElementType());
+        1.0, outputType.getElementType(), outputType.getShape());
 
     auto expOp = tosaBuilder.unaryOp<mlir::tosa::ExpOp>(input);
     auto expPlusOne = tosaBuilder.binaryOp<mlir::tosa::AddOp>(expOp, one);
@@ -590,12 +591,12 @@ public:
 
     Value alpha =
         tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
-            outputType.getShape(), outputType.getElementType());
+            outputType.getElementType(), outputType.getShape());
     Value gamma =
         tosaBuilder.getSplattedConst(adaptor.getGamma().convertToDouble(),
-            outputType.getShape(), outputType.getElementType());
+            outputType.getElementType(), outputType.getShape());
     Value constZero = tosaBuilder.getSplattedConst(
-        0.0, outputType.getShape(), outputType.getElementType());
+        0.0, outputType.getElementType(), outputType.getShape());
 
     Value exp = tosaBuilder.unaryOp<mlir::tosa::ExpOp>(input);
     Value expTimesAlpha = tosaBuilder.mul(exp, alpha);
@@ -629,9 +630,9 @@ public:
     TosaBuilder tosaBuilder(rewriter, op->getLoc());
     auto alpha =
         tosaBuilder.getSplattedConst(adaptor.getAlpha().convertToDouble(),
-            outputType.getShape(), outputType.getElementType());
+            outputType.getElementType(), outputType.getShape());
     auto zero = tosaBuilder.getSplattedConst(
-        0.0, outputType.getShape(), outputType.getElementType());
+        0.0, outputType.getElementType(), outputType.getShape());
 
     auto greater = tosaBuilder.greater(input, alpha);
     auto select = tosaBuilder.select(greater, input, zero);

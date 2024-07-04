@@ -48,13 +48,13 @@ public:
     const float lambdAsFloat = lambd.getValue().convertToFloat();
     const float biasAsFloat = bias.getValue().convertToFloat();
     auto lambdConstOp = tosaBuilder.getSplattedConst(lambdAsFloat,
-        inputRankedTensorTy.getShape(), inputRankedTensorTy.getElementType());
+        inputRankedTensorTy.getElementType(), inputRankedTensorTy.getShape());
     auto negatedLambdConstOp = tosaBuilder.getSplattedConst(-lambdAsFloat,
-        inputRankedTensorTy.getShape(), inputRankedTensorTy.getElementType());
+        inputRankedTensorTy.getElementType(), inputRankedTensorTy.getShape());
     auto biasConstOp = tosaBuilder.getSplattedConst(biasAsFloat,
-        inputRankedTensorTy.getShape(), inputRankedTensorTy.getElementType());
+        inputRankedTensorTy.getElementType(), inputRankedTensorTy.getShape());
     auto zeroConstOp = tosaBuilder.getSplattedConst(0,
-        inputRankedTensorTy.getShape(), inputRankedTensorTy.getElementType());
+        inputRankedTensorTy.getElementType(), inputRankedTensorTy.getShape());
 
     // Formula to be implemented:
     // { x < -lambd, then y = x + bias

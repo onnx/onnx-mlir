@@ -236,7 +236,8 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
       "Expected either tosa::MaxPool2dOp or tosa::AvgPool2dOp");
   if constexpr (std::is_same<TOSAPoolOp, mlir::tosa::MaxPool2dOp>::value) {
     input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
-        *resizedInput, newKernelShape, strides, newPads).getResult();
+        *resizedInput, newKernelShape, strides, newPads)
+                .getResult();
   } else if constexpr (std::is_same<TOSAPoolOp,
                            mlir::tosa::AvgPool2dOp>::value) {
     mlir::TypeAttr accType;
@@ -246,7 +247,7 @@ mlir::FailureOr<mlir::Value> convertPoolOp(
       return mlir::failure();
     }
     input = tosa::CreateOpAndInfer<TOSAPoolOp>(rewriter, loc, newResultType,
-         *resizedInput, newKernelShape, strides, newPads, accType)
+        *resizedInput, newKernelShape, strides, newPads, accType)
                 .getResult();
   }
 
