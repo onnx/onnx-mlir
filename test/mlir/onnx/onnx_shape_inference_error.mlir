@@ -117,3 +117,23 @@ func.func @test_category_mapper_diff_size_attrs (%arg0: tensor<20x1xi32>) -> ten
 }
 
 // -----
+
+func.func @test_squeeze_dyn_dimension_empty_axes_diff_known_dims2(%arg0 : tensor<1x?x1x?xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  // expected-error @+3 {{Can not squeeze multiple dynamic dimensions at this time}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %0 = "onnx.Squeeze"(%arg0, %cst) : (tensor<1x?x1x?xf32>, none) -> (tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+}
+
+// -----
+
+func.func @test_squeeze_dyn_dimension_empty_axes_diff_known_dims(%arg0 : tensor<1x?x1x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  // expected-error @+3 {{Can only squeeze single dynamic dimension when others are one.}}
+  // expected-error @+2 {{Failed to scan parameters successfully}}
+  // expected-error @+1 {{shape inference failed}}
+  %0 = "onnx.Squeeze"(%arg0, %cst) : (tensor<1x?x1x2xf32>, none) -> (tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+}

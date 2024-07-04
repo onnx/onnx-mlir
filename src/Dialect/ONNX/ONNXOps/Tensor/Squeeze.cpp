@@ -53,14 +53,32 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     // Get the shape as symbols, so that we may detect if some are dynamic.
     DimsExpr dataShape;
     createIE->getShapeAsSymbols(data, dataShape);
+
+    auto countDynamicDimensions = [&](IndexExpr dim) {
+      return !dim.isLiteral();
+    };
+
+    // Check if only one dynamic dimension exists.
+    auto numDynDimensions = llvm::count_if(dataShape, countDynamicDimensions);
+    if (numDynDimensions > 1) {
+      return op->emitError(
+          "Can not squeeze multiple dynamic dimensions at this time");
+    }
+
+    // If a dynamic dimension exists, check if all other dimensions are one.
+    auto areKnownDimensionsOne = llvm::all_of(dataShape, [&](IndexExpr dim) {
+      return !dim.isLiteral() || dim.getLiteral() == 1;
+    });
+    if (numDynDimensions == 1 && !areKnownDimensionsOne)
+      return op->emitError(
+          "Can only squeeze single dynamic dimension when others are one.");
+
     for (int i = 0; i < dataRank; ++i) {
       // Check if the dimension to squeeze is a literal and in range.
       if (!dataShape[i].isLiteral())
-        return op->emitError(
-            "Can not squeeze from dynamic dimensions at this time");
+        continue;
+
       int64_t shape = dataShape[i].getLiteral();
-      assert(shape != ShapedType::kDynamic &&
-             "Compile time shape should be nonnegative");
       if (shape == 1) {
         // We will squeeze dim i as its shape is 1.
         squeezedAxes.emplace_back(i);
@@ -189,9 +207,6 @@ template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 // Folder
 //===----------------------------------------------------------------------===//
 OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
-  // Fold type
-  if (failed(inferShapes(nullptr)))
-    return nullptr;
 
   // Fold value
   if (!adaptor.getData() || !adaptor.getAxes()) {
@@ -199,8 +214,8 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
     return nullptr;
   }
 
-  assert(hasStaticShape(getSqueezed().getType()) &&
-         "Shape should be static when the inputs are constant");
+  if (!hasStaticShape(getSqueezed().getType()))
+    return nullptr;
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
   return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),

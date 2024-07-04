@@ -1597,6 +1597,20 @@ func.func private @test_squeezev11_empty_axes(%arg0 : tensor<16x1x32x1x64xf32>) 
 
 // -----
 
+func.func private @test_squeeze_dyn_dimension_empty_axes_only_known_ones(%arg0 : tensor<1x?x1xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  %0 = "onnx.Squeeze"(%arg0, %cst) : (tensor<1x?x1xf32>, none) -> (tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+// CHECK-LABEL: test_squeeze_dyn_dimension_empty_axes_only_known_ones
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x?x1xf32>) -> tensor<?xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<[0, 2]> : tensor<2xi64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Squeeze"([[PARAM_0_]], [[VAR_0_]]) : (tensor<1x?x1xf32>, tensor<2xi64>) -> tensor<?xf32>
+// CHECK:           return [[VAR_1_]] : tensor<?xf32>
+}
+
+// -----
+
 func.func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {
   %0 = onnx.Constant dense<[1]> : tensor<1xi64>
   %1 = "onnx.Unsqueeze"(%arg0, %0) : (tensor<16x32x64xf32>, tensor<1xi64>) -> (tensor<*xf32>)
