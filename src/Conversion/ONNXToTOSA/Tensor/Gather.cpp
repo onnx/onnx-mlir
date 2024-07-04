@@ -45,6 +45,10 @@ public:
     auto inputType = input.getType();
     if (!onnx_mlir::isRankedShapedType(inputType))
       return rewriter.notifyMatchFailure(op, "input is not a ranked tensor");
+
+    if (!hasStaticShape(result.getType()))
+      return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
+
     int64_t inputRank = onnx_mlir::getRank(inputType);
 
     // onnx allows values beetween [-r, r-1] where r is the rank
