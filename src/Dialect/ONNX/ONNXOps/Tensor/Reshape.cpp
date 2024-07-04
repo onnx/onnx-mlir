@@ -36,7 +36,8 @@ LogicalResult ONNXReshapeOpShapeHelper::computeShape() {
   // Get info about shape operand.
   Value shape = operandAdaptor.getShape();
   int64_t outputRank = createIE->getShape(shape, 0);
-  assert(outputRank != -1 && "Shape tensor must have constant shape");
+  assert(outputRank != ShapedType::kDynamic &&
+         "Shape tensor must have constant shape");
 
   // Initialize context and results.
   outputDims.resize(outputRank);

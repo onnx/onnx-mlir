@@ -932,6 +932,24 @@ func.func @test_reshape_dynamic(%arg0 : tensor<5x5x1x32xf32>, %arg1 : tensor<4xi
 
 // -----
 
+//===----------------------------------------------------------------------===//
+/// Test the reshape op rank inference when an input is empty 
+//===----------------------------------------------------------------------===//
+
+func.func @test_reshape_concat_0(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
+  %0 = onnx.Constant dense<> : tensor<0xi64>
+  %1 = onnx.Constant dense<-1> : tensor<1xi64>
+  %2 = "onnx.Concat" (%0, %1) {axis = 0 : si64 }: ( tensor<0xi64>, tensor<1xi64>) ->  tensor<*xi64>
+  %3 = "onnx.Reshape"(%arg0, %2) : (tensor<5x5x1x32xf32>, tensor<*xi64>) -> tensor<*xf32>
+  "onnx.Return"(%3) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_reshape_concat_0
+  // CHECK: [[RES:%.+]] = "onnx.Reshape"(%arg0, %2) {allowzero = 0 : si64} : (tensor<5x5x1x32xf32>, tensor<1xi64>) -> tensor<?xf32>
+  // CHECK: onnx.Return [[RES]] : tensor<?xf32>
+}
+
+// -----
+
 func.func @test_reshape_1(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32> {
   %0 = onnx.Constant dense<[5, 5, 16, 2]> : tensor<4xi64>
   %1 = "onnx.Reshape"(%arg0, %0) : (tensor<5x5x1x32xf32>, tensor<4xi64>) -> tensor<*xf32>
