@@ -355,6 +355,11 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
   static T eval(T val) { return (val < 0) ? 0 : val; }
 };
 
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return (1 / val); }
+};
+
 template <typename ElementwiseUnaryOp>
 auto elementwiseUnaryOpFunction(Type elemType) {
   return getWideNumWrappedTemplateFunction<ElementWiseUnaryOpImpl,
