@@ -825,18 +825,19 @@ struct InstanceNormIntoLayerNormPattern
   using OpRewritePattern<ONNXInstanceNormalizationOp>::OpRewritePattern;
 
   static bool isDecomposable(ONNXInstanceNormalizationOp instanceNormOp) {
-    Type inputType = instanceNormOp.getInput().getType();
-    return onnx_mlir::isRankedShapedType(inputType);
+    return onnx_mlir::hasStaticShape(instanceNormOp.getInput().getType()) &&
+           onnx_mlir::hasStaticShape(instanceNormOp.getOutput().getType());
   }
 
   LogicalResult matchAndRewrite(ONNXInstanceNormalizationOp instanceNormOp,
       PatternRewriter &rewriter) const final {
     // Match.
-    Value input = instanceNormOp.getInput();
-    if (!onnx_mlir::isRankedShapedType(input.getType()))
+    if (!isDecomposable(instanceNormOp)) {
       return failure();
+    }
 
     // Get info.
+    Value input = instanceNormOp.getInput();
     Value scale = instanceNormOp.getScale();
     Value bias = instanceNormOp.getB();
     ShapedType inputType = input.getType().cast<ShapedType>();
@@ -879,18 +880,19 @@ struct GroupNormIntoLayerNormPattern
   using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
 
   static bool isDecomposable(ONNXGroupNormalizationOp groupNormOp) {
-    Type inputType = groupNormOp.getX().getType();
-    return onnx_mlir::isRankedShapedType(inputType);
+    const Type inputType = groupNormOp.getX().getType();
+    return onnx_mlir::hasStaticShape(inputType) &&
+           onnx_mlir::hasStaticShape(groupNormOp.getResult().getType());
   }
 
   LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
       PatternRewriter &rewriter) const final {
     // Match.
-    Value input = groupNormOp.getX();
-    if (!onnx_mlir::isRankedShapedType(input.getType()))
+    if (!isDecomposable(groupNormOp))
       return failure();
 
     // Get info.
+    Value input = groupNormOp.getX();
     Value scale = groupNormOp.getScale();
     Value bias = groupNormOp.getBias();
     ShapedType inputType = input.getType().cast<ShapedType>();
