@@ -531,12 +531,38 @@ func.func @test_groupnorm(%arg0: tensor<3x4x2x2xf32>, %arg1: tensor<2xf32>, %arg
 
 // -----
 
-func.func @test_groupnorm_dynamic(%arg0: tensor<*xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
+func.func @test_groupnorm_dynamic_1(%arg0: tensor<*xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>) -> tensor<*xf32> {
   %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<*xf32>, tensor<2xf32>, tensor<2xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
-// CHECK-LABEL:  func.func @test_groupnorm_dynamic
+// CHECK-LABEL:  func.func @test_groupnorm_dynamic_1
 // CHECK:           onnx.GroupNormalization
 }
+// -----
+
+func.func @test_groupnorm_dynamic_2(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<*xf32>, %arg2: tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<2x3x4x5x6xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+// CHECK-LABEL:  func.func @test_groupnorm_dynamic_2
+// CHECK:           onnx.GroupNormalization
+}
+// -----
+
+func.func @test_groupnorm_dynamic_3(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>) -> tensor<?x?x?x?x?xf32> {
+  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<2x3x4x5x6xf32>, tensor<?xf32>, tensor<?xf32>) -> tensor<?x?x?x?x?xf32>
+  onnx.Return %0 : tensor<?x?x?x?x?xf32>
+// CHECK-LABEL:  func.func @test_groupnorm_dynamic_3
+// CHECK:           onnx.GroupNormalization
+}
+
+// -----
+
+func.func @test_groupnorm_dynamic_4(%arg0: tensor<?x?x?x?x?xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
+  %0 = "onnx.GroupNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32, num_groups = 2 : si64} : (tensor<?x?x?x?x?xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5x6xf32>
+  onnx.Return %0 : tensor<2x3x4x5x6xf32>
+// CHECK-LABEL:  func.func @test_groupnorm_dynamic_4
+// CHECK:           onnx.GroupNormalization
+}
+
 // -----
 
 func.func @group_norm5d(%arg0: tensor<3x4x6x8x16xf32>, %arg1: tensor<2xf32>, %arg2: tensor<2xf32>) -> tensor<3x4x6x8x16xf32> {
@@ -579,10 +605,36 @@ func.func @test_instancenorm(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<3xf32>,
 
 // -----
 
-func.func @test_instancenorm_dynamic(%arg0: tensor<*xf32>, %arg1: tensor<4xf32>, %arg2: tensor<4xf32>) -> tensor<*xf32> {
+func.func @test_instancenorm_dynamic_1(%arg0: tensor<*xf32>, %arg1: tensor<4xf32>, %arg2: tensor<4xf32>) -> tensor<*xf32> {
   %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<*xf32>, tensor<4xf32>, tensor<4xf32>) -> tensor<*xf32>
   onnx.Return %0 : tensor<*xf32>
-// CHECK-LABEL:  func.func @test_instancenorm_dynamic
+// CHECK-LABEL:  func.func @test_instancenorm_dynamic_1
+// CHECK:           onnx.InstanceNormalization
+}
+
+// -----
+
+func.func @test_instancenorm_dynamic_2(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<*xf32>, %arg2: tensor<*xf32>) -> tensor<*xf32> {
+  %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5x6xf32>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+  onnx.Return %0 : tensor<*xf32>
+// CHECK-LABEL:  func.func @test_instancenorm_dynamic_2
+// CHECK:           onnx.InstanceNormalization
+}
+// -----
+
+func.func @test_instancenorm_dynamic_3(%arg0: tensor<2x3x4x5x6xf32>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>) -> tensor<?x?x?x?x?xf32> {
+  %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<2x3x4x5x6xf32>, tensor<?xf32>, tensor<?xf32>) -> tensor<?x?x?x?x?xf32>
+  onnx.Return %0 : tensor<?x?x?x?x?xf32>
+// CHECK-LABEL:  func.func @test_instancenorm_dynamic_3
+// CHECK:           onnx.InstanceNormalization
+}
+
+// -----
+
+func.func @test_instancenorm_dynamic_4(%arg0: tensor<?x?x?x?x?xf32>, %arg1: tensor<3xf32>, %arg2: tensor<3xf32>) -> tensor<2x3x4x5x6xf32> {
+  %0 = "onnx.InstanceNormalization"(%arg0, %arg1, %arg2) {epsilon = 0.00999999977 : f32} : (tensor<?x?x?x?x?xf32>, tensor<3xf32>, tensor<3xf32>) -> tensor<2x3x4x5x6xf32>
+  onnx.Return %0 : tensor<2x3x4x5x6xf32>
+// CHECK-LABEL:  func.func @test_instancenorm_dynamic_4
 // CHECK:           onnx.InstanceNormalization
 }
 
