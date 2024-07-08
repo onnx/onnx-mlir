@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tosa/IR/TosaOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -98,7 +99,7 @@ struct FrontendToTosaLoweringPass
       : PassWrapper<FrontendToTosaLoweringPass, OperationPass<ModuleOp>>() {}
 
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<mlir::tosa::TosaDialect>();
+    registry.insert<mlir::tosa::TosaDialect, mlir::shape::ShapeDialect>();
   }
   void runOnOperation() final;
 
@@ -135,7 +136,7 @@ void FrontendToTosaLoweringPass::runOnOperation() {
 
   // Define legal dialects and operations
   target.addLegalDialect<mlir::tosa::TosaDialect, func::FuncDialect,
-      mlir::arith::ArithDialect>();
+      mlir::arith::ArithDialect, mlir::shape::ShapeDialect>();
 
   // Define patterns
   populateONNXToTOSAConversionPattern(
