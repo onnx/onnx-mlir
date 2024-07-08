@@ -130,9 +130,9 @@ func.func @test_gather_dynamic_indices_i32(%arg0 : tensor<3x3xf32>, %indices: te
 
 // -----
 
-func.func @test_gather_dynamic_type_indices_i32(%arg0 : tensor<?x4xf32>, %indices: tensor<?xi64>) -> tensor<?x4xf32> {
+func.func @test_gather_dynamic_shape_indices_i32(%arg0 : tensor<?x4xf32>, %indices: tensor<?xi64>) -> tensor<?x4xf32> {
   %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<?x4xf32>, tensor<?xi64>) -> tensor<?x4xf32>
   "func.return"(%0) : (tensor<?x4xf32>) -> ()
-// CHECK-LABEL: test_gather_dynamic_type_indices_i32
+// CHECK-LABEL: test_gather_dynamic_shape_indices_i32
 // CHECK: onnx.Gather
 }
