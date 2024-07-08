@@ -56,10 +56,9 @@ public:
     auto indicesType = indices.getType().cast<ShapedType>();
 
     APInt indicesVal;
-    /*std::cout << "indicesType.getRank():"<< indicesType.getRank() 
-    << " matchPattern(indices, m_ConstantInt(&indicesVal):" << matchPattern(indices, m_ConstantInt(&indicesVal))
-    << " indicesVal.getSExtValue():" << indicesVal.getSExtValue() << "\n";*/
-    if(indicesType.getRank() == 0 && matchPattern(indices, m_ConstantInt(&indicesVal)) && indicesVal.getSExtValue() >= 0) {
+    if (indicesType.getRank() == 0 &&
+        matchPattern(indices, m_ConstantInt(&indicesVal)) &&
+        indicesVal.getSExtValue() >= 0) {
       llvm::SmallVector<int64_t, 4> starts(inputType.getRank(), 0);
       llvm::SmallVector<int64_t, 4> size{inputType.getShape()};
       starts[axis] = indicesVal.getSExtValue();
