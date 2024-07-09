@@ -153,3 +153,12 @@ func.func @test_gather_like_slice_non_zero(%arg0 : tensor<3x3xf32>) -> tensor<3x
 // CHECK:         %[[VAL_2:.*]] = tosa.reshape %[[VAL_1]] {{.*}} -> tensor<3xf32>
 // CHECK:         return %[[VAL_2]]
 }
+
+// -----
+
+func.func @test_gather_dynamic_shape_indices_i32(%arg0 : tensor<?x4xf32>, %indices: tensor<?xi64>) -> tensor<?x4xf32> {
+  %0 = "onnx.Gather"(%arg0, %indices) {axis = 0 : si64} : (tensor<?x4xf32>, tensor<?xi64>) -> tensor<?x4xf32>
+  "func.return"(%0) : (tensor<?x4xf32>) -> ()
+// CHECK-LABEL: test_gather_dynamic_shape_indices_i32
+// CHECK: onnx.Gather
+}

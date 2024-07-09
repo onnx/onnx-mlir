@@ -145,6 +145,20 @@ func.func @test_add_f64(%arg0: tensor<13x21x1xf64>, %arg1: tensor<13x21x1xf64>) 
 
 // -----
 
+func.func @test_add_dyn_shape_and_const(%arg0: tensor<?x1xi64>) -> tensor<?x1xi64> {
+  %0 = onnx.Constant dense<8400> : tensor<1xi64>
+  %1 = "onnx.Add"(%arg0, %0) : (tensor<?x1xi64>, tensor<1xi64>) -> tensor<?x1xi64>
+  "func.return"(%1) : (tensor<?x1xi64>) -> ()
+// CHECK-LABEL:  test_add_dyn_shape_and_const
+// CHECK:   ([[PARAM_0_:%.+]]: tensor<?x1xi64>) -> tensor<?x1xi64> {
+// CHECK:           [[VAR_0_:%.+]] = "tosa.const"() <{value = dense<8400> : tensor<1xi64>}> : () -> tensor<1xi64>
+// CHECK:           [[VAR_1_:%.+]] = tosa.reshape [[VAR_0_]] {new_shape = array<i64: 1, 1>} : (tensor<1xi64>) -> tensor<1x1xi64>
+// CHECK:           [[VAR_2_:%.+]] = tosa.add [[PARAM_0_]], [[VAR_1_]] : (tensor<?x1xi64>, tensor<1x1xi64>) -> tensor<?x1xi64>
+// CHECK:           return [[VAR_2_]] : tensor<?x1xi64>
+}
+
+// -----
+
 func.func @test_sub(%arg0: tensor<13x21x1xf32>, %arg1: tensor<13x21x1xf32>) -> tensor<13x21x1xf32> {
   %0 = "onnx.Sub"(%arg0, %arg1) : (tensor<13x21x1xf32>, tensor<13x21x1xf32>) -> tensor<13x21x1xf32>
   "func.return"(%0) : (tensor<13x21x1xf32>) -> ()

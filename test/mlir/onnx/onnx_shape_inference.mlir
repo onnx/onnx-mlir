@@ -1688,6 +1688,32 @@ func.func private @test_squeezev11_empty_axes(%arg0 : tensor<16x1x32x1x64xf32>) 
   // CHECK: onnx.Return [[RES]] : tensor<16x32x64xf32>
 }
 
+
+// -----
+
+func.func @test_squeeze_dyn_dimension_empty_axes_diff_known_dims2(%arg0 : tensor<1x?x1x?xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  %0 = "onnx.Squeeze"(%arg0, %cst) : (tensor<1x?x1x?xf32>, none) -> (tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_squeeze_dyn_dimension_empty_axes_diff_known_dims2
+  // CHECK: [[RES:%.+]] = "onnx.Squeeze"
+  // CHECK-SAME: tensor<*xf32>
+}
+
+
+// -----
+
+func.func @test_squeeze_dyn_dimension_empty_axes_diff_known_dims(%arg0 : tensor<1x?x1x2xf32>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {onnx_node_name = "onnx.NoValue_0", value} : () -> none
+  %0 = "onnx.Squeeze"(%arg0, %cst) : (tensor<1x?x1x2xf32>, none) -> (tensor<*xf32>)
+  "func.return"(%0) : (tensor<*xf32>) -> ()
+
+  // CHECK-LABEL: test_squeeze_dyn_dimension_empty_axes_diff_known_dims
+  // CHECK: [[RES:%.+]] = "onnx.Squeeze"
+  // CHECK-SAME: tensor<*xf32>
+}
+
 // -----
 
 func.func @test_unsqueeze(%arg0 : tensor<16x32x64xf32>) -> tensor<*xf32> {

@@ -15,6 +15,8 @@
 
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 
+#define DEBUG_TYPE "onnx-squeeze"
+
 using namespace mlir;
 using namespace mlir::OpTrait::util;
 using namespace onnx_mlir;
@@ -55,9 +57,11 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     createIE->getShapeAsSymbols(data, dataShape);
     for (int i = 0; i < dataRank; ++i) {
       // Check if the dimension to squeeze is a literal and in range.
-      if (!dataShape[i].isLiteral())
-        return op->emitError(
-            "Can not squeeze from dynamic dimensions at this time");
+      if (!dataShape[i].isLiteral()) {
+        LLVM_DEBUG(llvm::errs()
+                   << "Can not squeeze from dynamic dimensions at this time");
+        return failure();
+      }
       int64_t shape = dataShape[i].getLiteral();
       assert(shape != ShapedType::kDynamic &&
              "Compile time shape should be nonnegative");
@@ -71,9 +75,11 @@ LogicalResult ONNXCommonSqueezeOpShapeHelper<OP_TYPE>::customComputeShape(
     // Normalize the axis values, record modified values in squeezedDims.
     for (uint64_t i = 0; i < squeezedDims.size(); ++i) {
       // Check if the dimension to squeeze is a literal and in range.
-      if (!squeezedDims[i].isLiteral())
-        return op->emitError(
-            "Can not squeeze from dynamic dimensions at this time");
+      if (!squeezedDims[i].isLiteral()) {
+        LLVM_DEBUG(llvm::errs()
+                   << "Can not squeeze from dynamic dimensions at this time");
+        return failure();
+      }
       int64_t a = squeezedDims[i].getLiteral();
       if (a < -dataRank || a >= dataRank)
         return op->emitError("Invalid axis value");
@@ -189,9 +195,6 @@ template struct ONNXCommonSqueezeOpShapeHelper<ONNXSqueezeV11Op>;
 // Folder
 //===----------------------------------------------------------------------===//
 OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
-  // Fold type
-  if (failed(inferShapes(nullptr)))
-    return nullptr;
 
   // Fold value
   if (!adaptor.getData() || !adaptor.getAxes()) {
@@ -199,8 +202,8 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
     return nullptr;
   }
 
-  assert(hasStaticShape(getSqueezed().getType()) &&
-         "Shape should be static when the inputs are constant");
+  if (!hasStaticShape(getSqueezed().getType()))
+    return nullptr;
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
   return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),
@@ -208,9 +211,6 @@ OpFoldResult ONNXSqueezeOp::fold(FoldAdaptor adaptor) {
 }
 
 OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
-  // Fold the type of tensor
-  if (failed(inferShapes(nullptr)))
-    return nullptr;
 
   // Fold the value in tensor
   if (!adaptor.getData()) {
@@ -218,8 +218,8 @@ OpFoldResult ONNXSqueezeV11Op::fold(FoldAdaptor adaptor) {
     return nullptr;
   }
 
-  assert(hasStaticShape(getSqueezed().getType()) &&
-         "Shape should be static when the inputs are constant");
+  if (!hasStaticShape(getSqueezed().getType()))
+    return nullptr;
 
   OnnxElementsAttrBuilder elementsBuilder(getContext());
   return elementsBuilder.reshape(adaptor.getData().cast<ElementsAttr>(),

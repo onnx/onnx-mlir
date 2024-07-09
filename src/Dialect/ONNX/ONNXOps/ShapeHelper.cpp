@@ -219,8 +219,9 @@ LogicalResult ONNXOpShapeHelper::setOutputDimsFromTypeWithConstantShape(
 LogicalResult ONNXOpShapeHelper::computeShapeAndUpdateType(
     Type elementType, Attribute encoding) {
   // Invoke virtual compute shape.
-  if (failed(computeShape()))
-    return op->emitError("Failed to scan parameters successfully");
+  if (failed(computeShape())) {
+    return failure();
+  }
   assert((elementType.isa<VectorType>() || !elementType.isa<ShapedType>()) &&
          "element type cannot be a shaped type other than vector type");
   uint64_t resNum = op->getNumResults();

@@ -45,6 +45,10 @@ public:
     auto inputType = dyn_cast<TensorType>(input.getType());
     if (!onnx_mlir::isRankedShapedType(inputType))
       return rewriter.notifyMatchFailure(op, "input is not a ranked tensor");
+
+    if (!hasStaticShape(result.getType()))
+      return rewriter.notifyMatchFailure(op, "dynamic shapes not supported");
+
     auto resultTy = dyn_cast<TensorType>(op.getType());
     if (!onnx_mlir::isRankedShapedType(resultTy))
       return rewriter.notifyMatchFailure(op, "result is not a ranked tensor");
