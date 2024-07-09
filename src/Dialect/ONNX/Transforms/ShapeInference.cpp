@@ -10,6 +10,8 @@
 
 #include "ShapeInference.hpp"
 
+#define DEBUG_TYPE "onnx-shape-inference"
+
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
 
@@ -75,7 +77,8 @@ LogicalResult inferShapes(
     OperationFingerPrint after(shapeInfOp);
     if (failed(outcome)) {
       assert(after == before && "op must be unchanged on failure");
-      return shapeInfOp.emitOpError("shape inference failed");
+      LLVM_DEBUG(llvm::errs() << "shape inference failed");
+      return failure();
     }
     // succeed only shapeInfOp or its result types changed
     return after == before ? failure() : success();
