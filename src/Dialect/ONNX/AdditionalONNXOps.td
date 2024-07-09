@@ -369,7 +369,7 @@ def ONNXYieldOp : ONNX_Op<"Yield", [Pure, ReturnLike, Terminator]> {
 //===----------------------------------------------------------------------===//
 // BatchNorm in Inference mode.
 def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceMode",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    [Pure, OpVersionTrait<15>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX BatchNormalization operation in test mode";
   let description = [{
@@ -421,7 +421,8 @@ def ONNXBatchNormalizationInferenceModeOp: ONNX_Op<"BatchNormalizationInferenceM
 //===----------------------------------------------------------------------===//
 // MaxPoolSingleOutOp
 def ONNXMaxPoolSingleOutOp: ONNX_Op<"MaxPoolSingleOut",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+    [Pure,  OpVersionTrait<12>,
+    DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
     DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
   let summary = "ONNX MaxPool operation with a single output.";
   let description = [{
