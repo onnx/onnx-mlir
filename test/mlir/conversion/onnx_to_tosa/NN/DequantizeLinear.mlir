@@ -62,3 +62,35 @@ func.func @default_axis(%arg0 : tensor<32xi8>) -> tensor<32xf32> {
 
 // CHECK-LABEL: default_axis
 // CHECK-NOT: onnx.DequantizeLinear
+
+// -----
+
+func.func @no_zeropoint(%arg0: tensor<5xi8>, %arg1: tensor<f32>) -> tensor<5xf32>  {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {axis = 0 : si64} : (tensor<5xi8>, tensor<f32>, none) -> tensor<5xf32>
+  return %1 : tensor<5xf32>
+}
+
+// CHECK-LABEL: @no_zeropoint(
+// CHECK-SAME:                            %[[VAL_0:.*]]: tensor<5xi8>,
+// CHECK-SAME:                            %[[VAL_1:.*]]: tensor<f32>) -> tensor<5xf32> {
+// CHECK:           %[[VAL_2:.*]] = tosa.cast %[[VAL_0]] : (tensor<5xi8>) -> tensor<5xf32>
+// CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
+// CHECK:           return %[[VAL_4]] : tensor<5xf32>
+
+// -----
+
+func.func @f8E4M3FN(%arg0: tensor<5xf8E4M3FN>, %arg1: tensor<f32>) -> tensor<5xf32>  {
+  %0 = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.DequantizeLinear"(%arg0, %arg1, %0) {axis = 0 : si64} : (tensor<5xf8E4M3FN>, tensor<f32>, none) -> tensor<5xf32>
+  return %1 : tensor<5xf32>
+}
+
+// CHECK-LABEL: @f8E4M3FN
+// CHECK-SAME:                        %[[VAL_0:.*]]: tensor<5xf8E4M3FN>,
+// CHECK-SAME:                        %[[VAL_1:.*]]: tensor<f32>) -> tensor<5xf32> {
+// CHECK:           %[[VAL_2:.*]] = tosa.cast %[[VAL_0]] : (tensor<5xf8E4M3FN>) -> tensor<5xf32>
+// CHECK:           %[[VAL_3:.*]] = tosa.reshape %[[VAL_1]] {new_shape = array<i64: 1>} : (tensor<f32>) -> tensor<1xf32>
+// CHECK:           %[[VAL_4:.*]] = tosa.mul %[[VAL_2]], %[[VAL_3]] {shift = 0 : i8} : (tensor<5xf32>, tensor<1xf32>) -> tensor<5xf32>
+// CHECK:           return %[[VAL_4]] : tensor<5xf32>

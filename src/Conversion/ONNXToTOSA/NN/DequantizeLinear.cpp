@@ -41,14 +41,22 @@ public:
           loc, "expected valid tensor result type");
     }
 
-    if (auto zpTy = dyn_cast<ShapedType>(adaptor.getXZeroPoint().getType());
-        !zpTy.hasStaticShape()) {
+    auto zeroPoint = adaptor.getXZeroPoint();
+    if (isa<NoneType>(zeroPoint.getType())) {
+      zeroPoint = {};
+    } else if (auto zpTy =
+                   dyn_cast<ShapedType>(adaptor.getXZeroPoint().getType())) {
+      if (!zpTy.hasStaticShape()) {
+        return rewriter.notifyMatchFailure(
+            loc, "expected zero point to have static shape");
+      }
+    } else {
       return rewriter.notifyMatchFailure(
-          loc, "expected zero point to have static shape");
+          loc, "expected zero point to be none or have tensor type");
     }
 
-    if (auto zpTy = dyn_cast<ShapedType>(adaptor.getXScale().getType());
-        !zpTy.hasStaticShape()) {
+    if (auto scaleTy = cast<ShapedType>(adaptor.getXScale().getType());
+        !scaleTy.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           loc, "expected scale to have static shape");
     }
@@ -63,29 +71,27 @@ public:
     if (axis < 0)
       axis += resultType.getRank();
 
-    // Since tosa.add and tosa.mul don't allow different ranks, get the value
-    // from the constants, and create a new constant of the same rank as the
-    // input out of it in order to have a correct add and mul.
-    auto zpConst = tosa::expandShape(
-        rewriter, loc, adaptor.getXZeroPoint(), axis, resultType.getRank());
-    auto scaleFactorConst = tosa::expandShape(
-        rewriter, loc, adaptor.getXScale(), axis, resultType.getRank());
-
     // Dequantization formula is (x - zero_point) * scale
     // Cast into the destination type first
 
     // Cast the operands of (x - zero_point) to float32 to avoid underflows
     Type arithType = rewriter.getF32Type();
-    Value subOpA = tosaBuilder.castToNewTensorElementType(x, arithType);
-    Value subOpB = tosaBuilder.castToNewTensorElementType(zpConst, arithType);
-    Value subOp = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(
-        rewriter, loc, subOpA.getType(), subOpA, subOpB)
-                      .getResult();
-    // There are no guarantees about the bitwith of the scale factor
+    Value casted = tosaBuilder.castToNewTensorElementType(x, arithType);
+    if (zeroPoint) {
+      auto zpConst = tosa::expandShape(
+          rewriter, loc, zeroPoint, axis, resultType.getRank());
+      Value zpConstCast =
+          tosaBuilder.castToNewTensorElementType(zpConst, arithType);
+      casted = tosa::CreateOpAndInfer<mlir::tosa::SubOp>(
+          rewriter, loc, casted.getType(), casted, zpConstCast)
+                   .getResult();
+    }
+    auto scaleFactorConst = tosa::expandShape(
+        rewriter, loc, adaptor.getXScale(), axis, resultType.getRank());
     Value scaleFactorCast =
         tosaBuilder.castToNewTensorElementType(scaleFactorConst, arithType);
     Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
-        rewriter, loc, subOp.getType(), subOp, scaleFactorCast, 0)
+        rewriter, loc, casted.getType(), casted, scaleFactorCast, 0)
                       .getResult();
     Value castOp = tosaBuilder.castToNewTensorElementType(
         mulOp, resultType.getElementType());
