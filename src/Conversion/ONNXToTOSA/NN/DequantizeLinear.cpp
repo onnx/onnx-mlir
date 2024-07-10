@@ -42,11 +42,11 @@ public:
     }
 
     auto zeroPoint = adaptor.getXZeroPoint();
-    if (isa<NoneType>(zeroPoint.getType())) {
+    auto zpTy = zeroPoint.getType();
+    if (isa<NoneType>(zpTy)) {
       zeroPoint = {};
-    } else if (auto zpTy =
-                   dyn_cast<ShapedType>(adaptor.getXZeroPoint().getType())) {
-      if (!zpTy.hasStaticShape()) {
+    } else if (auto shapedTy = dyn_cast<ShapedType>(zpTy)) {
+      if (!shapedTy.hasStaticShape()) {
         return rewriter.notifyMatchFailure(
             loc, "expected zero point to have static shape");
       }
