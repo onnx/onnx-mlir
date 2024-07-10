@@ -406,7 +406,7 @@ public:
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
     nExceeded = N > NNPAGetMaxForDim(aRank - 2, aRank);
-    mExceeded = M > NNPAGetMaxForDim(bRank-1, bRank);
+    mExceeded = M > NNPAGetMaxForDim(bRank - 1, bRank);
     if (!(nExceeded || mExceeded))
       return false;
 
