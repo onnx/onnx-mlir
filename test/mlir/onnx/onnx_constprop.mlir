@@ -2425,3 +2425,14 @@ func.func @test_pow() -> tensor<2x2xf32> {
 // CHECK:         }
 }
 
+// -----
+
+func.func @test_pow_i32_f32_no_prop(%arg0: tensor<1x2xi32>, %arg1: tensor<f32>) -> tensor<1x2xi32> {
+  %0 = onnx.Constant dense<[[1, 2]]> : tensor<1x2xi32>
+  %1 = onnx.Constant dense<2.0> : tensor<f32>
+  %2 = "onnx.Pow"(%0, %1) : (tensor<1x2xi32>, tensor<f32>) -> tensor<1x2xi32>
+  "onnx.Return"(%2) : (tensor<1x2xi32>) -> ()
+  // CHECK-LABEL: @test_pow_i32_f32_no_prop
+  // CHECK: "onnx.Pow"
+}
+

@@ -88,6 +88,10 @@ def ValuesHaveSameType : Constraint<
   CPred<"$0.getType() == $1.getType()">,
   "Values have same type">;
 
+def ValuesHaveSameDType : Constraint<
+  CPred<"$0.getType().cast<mlir::ShapedType>().getElementType() == $1.getType().cast<mlir::ShapedType>().getElementType()">,
+  "Values have same dtype">;
+
 def IsMatMulIntegerLhsZero: Constraint<
     CPred<"isMatMulIntegerLhsZero($0, $1)">,
     "MatMulInteger lhs matrix is zero for given zero point">;
@@ -1176,6 +1180,6 @@ def PowConstProp : NamedPat<"PowConstProp",
     (CreatePowOfTwoConst $powOp, $lhs, $rhs),
     // Power constraints
     [(IsFromDenseONNXConstantOp:$lhs), (IsFromDenseONNXConstantOp:$rhs),
-     (SatisfiesExpansionBound:$powOp)]>;
+     (SatisfiesExpansionBound:$powOp), (ValuesHaveSameDType $lhs, $rhs)]>;
 
 #endif // ONNX_CONSTPROP
