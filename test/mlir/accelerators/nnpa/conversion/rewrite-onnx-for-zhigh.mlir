@@ -485,7 +485,7 @@ func.func @test_matmul_unknown_batch_dim(%arg0: tensor<?x?x256x256xf32>) -> (ten
 
 // -----
 
-// Split MatMul because a dimension exceeds NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768.
+// Split MatMul because a dimension exceeds NNPAGetMaxForDim = 32768.
 func.func @test_matmul_splitting_A(%arg0: tensor<?x50257x768xf32>, %arg1: tensor<768x1024xf32>) -> (tensor<?x50257x1024xf32>) {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x50257x768xf32>, tensor<768x1024xf32>) -> tensor<?x50257x1024xf32>
   return %0 : tensor<?x50257x1024xf32>
@@ -502,7 +502,7 @@ func.func @test_matmul_splitting_A(%arg0: tensor<?x50257x768xf32>, %arg1: tensor
 // CHECK:         }
 }
 
-// Split MatMul because a dimension exceeds NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768.
+// Split MatMul because a dimension exceeds NNPAGetMaxForDim = 32768.
 func.func @test_matmul_splitting_B(%arg0: tensor<?x?x768xf32>, %arg1: tensor<768x50257xf32>) -> (tensor<?x?x50257xf32>) {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x?x768xf32>, tensor<768x50257xf32>) -> tensor<?x?x50257xf32>
   return %0 : tensor<?x?x50257xf32>
@@ -521,7 +521,7 @@ func.func @test_matmul_splitting_B(%arg0: tensor<?x?x768xf32>, %arg1: tensor<768
 
 // -----
 
-// Split MatMul because a dimension exceeds NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768.
+// Split MatMul because a dimension exceeds NNPAGetMaxForDim = 32768.
 func.func @test_matmul_splitting_A_B(%arg0: tensor<?x50257x768xf32>, %arg1: tensor<768x50258xf32>) -> (tensor<?x50257x50258xf32>) {
   %0 = "onnx.MatMul"(%arg0, %arg1) : (tensor<?x50257x768xf32>, tensor<768x50258xf32>) -> tensor<?x50257x50258xf32>
   return %0 : tensor<?x50257x50258xf32>

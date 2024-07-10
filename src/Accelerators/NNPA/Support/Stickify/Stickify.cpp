@@ -4,7 +4,7 @@
 
 //===------- stickify.cpp - Data Stickify ---------------------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -412,7 +412,7 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc) {
   // is the dimension above the limit or zero?
   // transformed layout uses all dim* entries, so we'll check them all
   for (int i = 0; i < ZDNN_MAX_DIMS; i++) {
-    if (!dims_ptr[i] || dims_ptr[i] > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) {
+    if (!dims_ptr[i] || dims_ptr[i] > NNPAGetMaxForDim(i, ZDNN_MAX_DIMS)) {
       return ZDNN_INVALID_SHAPE;
     }
   }

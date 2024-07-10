@@ -46,28 +46,6 @@ bool onnxToZHighInCompatibilityReport(Operation *op) {
   return onnxToZHighUnsupportedReport(op, message);
 }
 
-/// Convert the input NNPA level, ie. "z16", to a floating point value
-/// representing the level, ie. "16.0".
-float convertNNPALevel(std::string inputNNPALevel) {
-  float retNNPAFloat = 0;
-  try {
-    retNNPAFloat = std::strtof(
-        inputNNPALevel.substr(1, inputNNPALevel.size()).c_str(), NULL);
-  } catch (...) {
-    retNNPAFloat = 0;
-  }
-  return retNNPAFloat;
-}
-
-/// A function to check whether the input NNPA level, ie. "z16", is compatible
-/// with the current NNPA level.
-bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
-  float inLevel = convertNNPALevel(inputNNPALevel);
-  float mcpuLevel = convertNNPALevel(mcpu);
-  if (inLevel == 0 && mcpuLevel == 0)
-    return false;
-  return inLevel <= mcpuLevel;
-}
 
 /// A function to check whether a value's element type is valid for zAIU or not.
 /// zAIU supports only F16, F32 and BFLOAT. Since MLIR does not support BFLOAT,
