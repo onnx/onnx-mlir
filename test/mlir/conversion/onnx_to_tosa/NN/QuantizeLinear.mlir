@@ -51,8 +51,8 @@ func.func @test_quantizeLinear_per_axis(%arg0: tensor<8x2xf32>) -> tensor<8x2xi8
 // CHECK:           %[[VAL_2:.*]] = "tosa.const"() <{value = dense<{{\[\[}}1.000000e+00, 2.000000e+00]]> : tensor<1x2xf32>}> : () -> tensor<1x2xf32>
 // CHECK:           %[[REC:.*]] = tosa.reciprocal %[[VAL_2]] : (tensor<1x2xf32>) -> tensor<1x2xf32>
 // CHECK:           %[[MUL:.*]] = tosa.mul %[[VAL_0]], %[[REC]] {shift = 0 : i8} : (tensor<8x2xf32>, tensor<1x2xf32>) -> tensor<8x2xf32>
-// CHECK:           %[[ZP:.*]] = "tosa.const"() <{value = dense<{{\[\[}}0, 1]]> : tensor<1x2xi8>}> : () -> tensor<1x2xi8>
 // CHECK:           %[[MUL_CAST:.*]] = tosa.cast %[[MUL]] : (tensor<8x2xf32>) -> tensor<8x2xi32>
+// CHECK:           %[[ZP:.*]] = "tosa.const"() <{value = dense<{{\[\[}}0, 1]]> : tensor<1x2xi8>}> : () -> tensor<1x2xi8>
 // CHECK:           %[[ZPCAST:.*]] = tosa.cast %[[ZP]] : (tensor<1x2xi8>) -> tensor<1x2xi32>
 // CHECK:           %[[ADD:.*]] = tosa.add %[[MUL_CAST]], %[[ZPCAST]] : (tensor<8x2xi32>, tensor<1x2xi32>) -> tensor<8x2xi32>
 // CHECK:           %[[CAST:.*]] = tosa.cast %[[ADD]] : (tensor<8x2xi32>) -> tensor<8x2xi8>

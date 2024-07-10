@@ -83,16 +83,11 @@ public:
         rewriter, loc, xType, x, recOp, 0)
                              .getResult();
 
-    Value expandedZpConst;
-    if (isa<ShapedType>(adaptor.getYZeroPoint().getType())) {
-      expandedZpConst = tosa::expandShape(
-          rewriter, loc, adaptor.getYZeroPoint(), axis, resultType.getRank());
-    }
-
-    // Quantization to i4//i8/16/ is particular since the intermediate result of
+    // Quantization to i4/i8/16/ is particular since the intermediate result of
     // (x / y_scale) must round to the nearest even. This is particularly
     // important if the intermediate result is e.g. 8.5. If we don't round to
-    // the nearest even and add 1, we would end up with 10 instead of 9.
+    // the nearest even before adding the (potentially odd) zero point, we would
+    // end up with a different result
     bool quantizingToInt = isa<IntegerType>(resultType.getElementType());
     if (quantizingToInt) {
       // Convert the scaled result to a safe bitwith (i32) that avoids
@@ -103,13 +98,16 @@ public:
     }
 
     // If there is no zero point, we are done
-    if (!expandedZpConst) {
+    if (isa<NoneType>(adaptor.getYZeroPoint().getType())) {
       Value result = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
           rewriter, loc, resultType, scaledResult)
                          .getResult();
       rewriter.replaceOp(op, result);
       return success();
     }
+
+    Value expandedZpConst = tosa::expandShape(
+        rewriter, loc, adaptor.getYZeroPoint(), axis, resultType.getRank());
 
     // Cast the expandedZpConst to have the same rank and element type as
     // the scaledResult. tosa.add doesn't allow different ranks
