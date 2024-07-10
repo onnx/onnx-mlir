@@ -29,7 +29,7 @@ namespace onnx_mlir {
 
 namespace {
 
-void handleIncludePadAttr(
+LogicalResult handleIncludePadAttr(
     ConversionPatternRewriter &rewriter, Operation *op, Value input) {
   mlir::Location loc = op->getLoc();
 
@@ -39,13 +39,17 @@ void handleIncludePadAttr(
       op, {}, &createTosaIE);
   shapeHelper.computeShapeAndAssertOnFailure();
 
+  auto inputType = input.getType().cast<mlir::TensorType>();
+  if (inputType.getShape().size() != 4) {
+    return rewriter.notifyMatchFailure(op, "TOSA only supports 2d pooling");
+  }
+
   llvm::SmallVector<int64_t, 4> pads =
       tosa::createOrderedPadAttrForWindowBasedOps(rewriter,
           input.getType().cast<mlir::TensorType>().getShape(), shapeHelper,
           /*ceilMode*/ 0, {0, 1, 2, 3});
 
   // Create Padding and ConstPad tosa::ConstOp's
-  auto inputType = input.getType().cast<mlir::TensorType>();
   TosaBuilder tosaBuilder(rewriter, loc);
   Value padding = tosa::buildOnnxToTosaPaddingConstOp(
       rewriter, pads, loc, {0, 0, 0, 0}, {});
@@ -65,6 +69,7 @@ void handleIncludePadAttr(
   rewriter.modifyOpInPlace(op, [&]() {
     op->setAttr("pads", rewriter.getI32ArrayAttr({0, 0, 0, 0}));
   });
+  return success();
 }
 
 class ONNXAveragePoolOpLoweringToTOSA
@@ -97,7 +102,8 @@ public:
       // lowering still generates transposes between ONNX and TOSA formats, and
       // implementation doesn't diverge much. This will modify the original onnx
       // op.
-      handleIncludePadAttr(rewriter, averagePoolOp, adaptor.getX());
+      if (failed(handleIncludePadAttr(rewriter, averagePoolOp, adaptor.getX())))
+        return failure();
     }
 
     FailureOr<Value> newAveragePoolOp =
