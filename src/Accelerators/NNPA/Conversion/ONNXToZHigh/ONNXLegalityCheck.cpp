@@ -39,9 +39,8 @@ bool onnxToZHighUnsupportedReport(Operation *op, const std::string &message) {
 /// Report incompatibility with NNPA Level.
 bool onnxToZHighInCompatibilityReport(
     Operation *op, std::string inputNNPALevel) {
-  std::string onnxMlirNnpaLevel(inputNNPALevel);
   std::string message =
-      "onnx-mlir NNPA level (" + onnxMlirNnpaLevel +
+      "onnx-mlir NNPA level (" + inputNNPALevel +
       ") is not compatible with  NNPA level specified by '-mcpu'(" + mcpu +
       ").";
   return onnxToZHighUnsupportedReport(op, message);
