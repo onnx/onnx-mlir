@@ -675,7 +675,10 @@ bool isSuitableForZDNN<ONNXMatMulOp>(
     }
     return true;
   }
-  return false; // unsupported case
+  std::string message = "Dim size of A(" + std::to_string(shapeA.size()) +
+                        ") and B(" + std::to_string(shapeB.size()) +
+                        ") is not supported.";
+  return onnxToZHighUnsupportedReport(op.getOperation(), message);
 }
 
 /// Check legality for ONNXGemm.
