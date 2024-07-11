@@ -340,6 +340,77 @@ private:
   }
 };
 
+struct RecomposeQLinearMatMulFromQuantizeLinearPattern
+    : public OpRewritePattern<ONNXQuantizeLinearOp> {
+  using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXQuantizeLinearOp qlOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = qlOp.getLoc();
+    // Match
+    Value a, a_scale, a_zeropoint, b, b_scale, b_zeropoint, out_scale,
+        out_zeropoint;
+    if (!matchQLinearMatMulPattern(qlOp, a, a_scale, a_zeropoint, b, b_scale,
+            b_zeropoint, out_scale, out_zeropoint))
+      return failure();
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value res = rewriter.create<ONNXQLinearMatMulOp>(loc, qlOp.getY().getType(),
+        a, a_scale, a_zeropoint, b, b_scale, b_zeropoint, out_scale,
+        out_zeropoint);
+
+    rewriter.replaceOp(qlOp, res);
+    return success();
+  }
+
+  // Recompose QLinearMatMul, starting from QuantizeLinear.
+  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
+  // Only support per-tensor quantization.
+  static bool matchQLinearMatMulPattern(ONNXQuantizeLinearOp op, Value &a,
+      Value &a_scale, Value &a_zeropoint, Value &b, Value &b_scale,
+      Value &b_zeropoint, Value &out_scale, Value &out_zeropoint) {
+    Operation *quantizeOp = op.getOperation();
+    // scalar y_scale means per-tensor quantization.
+    out_scale = op.getYScale();
+    out_zeropoint = op.getYZeroPoint();
+    if (!onnx_mlir::isScalarTensor(out_scale))
+      return false;
+    // Matching MatMul.
+    Value qlX, matA, matB;
+    Operation *matmulOp;
+    bool matchMatMul = onnx_mlir::operandOfOpDefinedBy<ONNXMatMulOp>(
+        matmulOp, quantizeOp, qlX, 0);
+    if (!matchMatMul)
+      return false;
+    matA = cast<ONNXMatMulOp>(matmulOp).getA();
+    matB = cast<ONNXMatMulOp>(matmulOp).getB();
+    // Matching input A of MatMul.
+    auto dlOpA = matA.getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dlOpA)
+      return false;
+    a = dlOpA.getX();
+    a_scale = dlOpA.getXScale();
+    a_zeropoint = dlOpA.getXZeroPoint();
+    // scalar x_scale means per-tensor quantization.
+    if (!onnx_mlir::isScalarTensor(a_scale))
+      return false;
+    // Matching input B of MatMul.
+    auto dlOpB = matB.getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dlOpB)
+      return false;
+    b = dlOpB.getX();
+    b_scale = dlOpB.getXScale();
+    b_zeropoint = dlOpB.getXZeroPoint();
+    // scalar x_scale means per-tensor quantization.
+    if (!onnx_mlir::isScalarTensor(b_scale))
+      return false;
+    // Matched the pattern.
+    return true;
+  }
+};
+
 struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
@@ -388,21 +459,15 @@ void RecomposeONNXToONNXPass::runOnOperation() {
   });
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
+  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
+  // Only support per-tensor quantization.
   target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
       [](ONNXQuantizeLinearOp op) {
-        Operation *quantizeOp = op.getOperation();
-        Value matA, matB;
-        Operation *matmulOp;
-        if (onnx_mlir::operandOfOpDefinedBy<ONNXMatMulOp>(
-                matmulOp, quantizeOp, matA, matB, 0)) {
-          // pattern: DequanizeLinear + MatMul + QuantizeLinear.
-          if (matA.getDefiningOp<ONNXDequantizeLinearOp>())
-            return true;
-          if (matB.getDefiningOp<ONNXDequantizeLinearOp>())
-            return true;
-          return false;
-        }
-        return true;
+        Value a, a_scale, a_zeropoint, b, b_scale, b_zeropoint, out_scale,
+            out_zeropoint;
+        return !RecomposeQLinearMatMulFromQuantizeLinearPattern::
+            matchQLinearMatMulPattern(op, a, a_scale, a_zeropoint, b, b_scale,
+                b_zeropoint, out_scale, out_zeropoint);
       });
 
   RewritePatternSet patterns(context);
@@ -417,8 +482,8 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  populateWithGenerated(patterns);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
+  patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
 }
 
 /*!
