@@ -40,7 +40,7 @@ using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-// #include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
+#include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
 
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
@@ -387,6 +387,24 @@ void RecomposeONNXToONNXPass::runOnOperation() {
         op, x, scale, axis, epsilon, isRMSLayerNorm);
   });
 
+  // Recompose QLinearMatMul, starting from QuantizeLinear.
+  target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
+      [](ONNXQuantizeLinearOp op) {
+        Operation *quantizeOp = op.getOperation();
+        Value matA, matB;
+        Operation *matmulOp;
+        if (onnx_mlir::operandOfOpDefinedBy<ONNXMatMulOp>(
+                matmulOp, quantizeOp, matA, matB, 0)) {
+          // pattern: DequanizeLinear + MatMul + QuantizeLinear.
+          if (matA.getDefiningOp<ONNXDequantizeLinearOp>())
+            return true;
+          if (matB.getDefiningOp<ONNXDequantizeLinearOp>())
+            return true;
+          return false;
+        }
+        return true;
+      });
+
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
 
@@ -399,6 +417,7 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
+  populateWithGenerated(patterns);
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
 }
 
