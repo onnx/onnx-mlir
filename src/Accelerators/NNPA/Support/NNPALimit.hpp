@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------------- NNPALimit.h ----------------------------------===//
+//===----------------------- NNPALimit.hpp --------------------------------===//
 //
 // Copyright 2022-2024 The IBM Research Authors.
 //
