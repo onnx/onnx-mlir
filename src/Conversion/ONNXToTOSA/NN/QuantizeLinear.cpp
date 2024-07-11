@@ -43,13 +43,13 @@ public:
     }
 
     if (auto zpTy = dyn_cast<ShapedType>(adaptor.getYZeroPoint().getType());
-        !zpTy.hasStaticShape()) {
+        zpTy && !zpTy.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           loc, "expected zero point to have static shape");
     }
 
     if (auto zpTy = dyn_cast<ShapedType>(adaptor.getYScale().getType());
-        !zpTy.hasStaticShape()) {
+        zpTy && !zpTy.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
           loc, "expected scale to have static shape");
     }
@@ -68,39 +68,73 @@ public:
     if (axis < 0)
       axis += resultType.getRank();
 
-    // Since tosa.add and tosa.mul don't allow different ranks, get the value
-    // from the constants, and create a new constant of the same rank as the
-    // input out of it in order to have a correct add and mul.
-    auto zpConst = tosa::expandShape(
-        rewriter, loc, adaptor.getYZeroPoint(), axis, resultType.getRank());
-    auto scaleFactorConst = tosa::expandShape(
-        rewriter, loc, adaptor.getYScale(), axis, resultType.getRank());
-
     Value x = adaptor.getX();
     Type xType = x.getType();
 
-    // Quantization formula is ((x / y_scale) + y_zero_point)
+    // Quantization formula is saturate((x / y_scale) + y_zero_point)
+    // tosa.mul doesn't allow different ranks
+    auto expandedScaleFactorConst = tosa::expandShape(
+        rewriter, loc, adaptor.getYScale(), axis, resultType.getRank());
     // Replace the division by a reciprocal followed by a mul
-    Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(
-        rewriter, loc, scaleFactorConst.getType(), scaleFactorConst)
+    Value recOp = tosa::CreateOpAndInfer<mlir::tosa::ReciprocalOp>(rewriter,
+        loc, expandedScaleFactorConst.getType(), expandedScaleFactorConst)
                       .getResult();
-    Value mulOp = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
+    Value scaledResult = tosa::CreateOpAndInfer<mlir::tosa::MulOp>(
         rewriter, loc, xType, x, recOp, 0)
-                      .getResult();
-    // zpConst has the same type as the result of QLinear which is always
-    // smaller than the input type. Cast it to the input type.
-    Value castZp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
-        rewriter, loc, scaleFactorConst.getType(), zpConst)
-                       .getResult();
+                             .getResult();
+
+    // Quantization to i4/i8/16/ is particular since the intermediate result of
+    // (x / y_scale) must round to the nearest even. This is particularly
+    // important if the intermediate result is e.g. 8.5. If we don't round to
+    // the nearest even before adding the (potentially odd) zero point, we would
+    // end up with a different result
+    bool quantizingToInt = isa<IntegerType>(resultType.getElementType());
+    if (quantizingToInt) {
+      // Convert the scaled result to a safe bitwith (i32) that avoids
+      // underflows/overflows
+      scaledResult = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc,
+          resultType.cloneWith({}, rewriter.getI32Type()), scaledResult)
+                         .getResult();
+    }
+
+    // If there is no zero point, we are done
+    if (isa<NoneType>(adaptor.getYZeroPoint().getType())) {
+      Value result = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
+          rewriter, loc, resultType, scaledResult)
+                         .getResult();
+      rewriter.replaceOp(op, result);
+      return success();
+    }
+
+    Value expandedZpConst = tosa::expandShape(
+        rewriter, loc, adaptor.getYZeroPoint(), axis, resultType.getRank());
+
+    // Cast the expandedZpConst to have the same rank and element type as
+    // the scaledResult. tosa.add doesn't allow different ranks
+    Value castedZp;
+    if (quantizingToInt) {
+      castedZp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc,
+          cast<ShapedType>(expandedZpConst.getType())
+              .cloneWith({}, rewriter.getI32Type()),
+          expandedZpConst)
+                     .getResult();
+    } else {
+      // zpConst has the same type as the result of QLinear which is always
+      // smaller than the input type. Cast it to the input type.
+      castedZp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
+          rewriter, loc, expandedScaleFactorConst.getType(), expandedZpConst)
+                     .getResult();
+    }
+
     Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(
-        rewriter, loc, xType, mulOp, castZp)
+        rewriter, loc, scaledResult.getType(), scaledResult, castedZp)
                       .getResult();
     // Cast into the result type
-    Value castOp = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
+    Value result = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
         rewriter, loc, resultType, addOp)
                        .getResult();
 
-    rewriter.replaceOp(op, castOp);
+    rewriter.replaceOp(op, result);
     return success();
   }
 };
