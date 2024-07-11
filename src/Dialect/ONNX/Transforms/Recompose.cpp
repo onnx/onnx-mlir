@@ -40,7 +40,7 @@ using namespace mlir;
 
 namespace {
 /// Include the patterns defined in the Declarative Rewrite framework.
-#include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
+// #include "src/Dialect/ONNX/Transforms/ONNXRecompose.inc"
 
 struct RecomposeLayerNormFromMulPattern : public OpRewritePattern<ONNXMulOp> {
   using OpRewritePattern<ONNXMulOp>::OpRewritePattern;
