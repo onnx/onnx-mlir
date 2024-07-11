@@ -15,7 +15,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
-#include "src/Accelerators/NNPA/Support/NNPALimit.h"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Conversion/ONNXToKrnl/RNN/RNNBase.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
@@ -44,29 +44,6 @@ bool onnxToZHighInCompatibilityReport(Operation *op) {
       ") is not compatible with  NNPA level specified by '-mcpu'(" + mcpu +
       ").";
   return onnxToZHighUnsupportedReport(op, message);
-}
-
-/// Convert the input NNPA level, ie. "z16", to a floating point value
-/// representing the level, ie. "16.0".
-float convertNNPALevel(std::string inputNNPALevel) {
-  float retNNPAFloat = 0;
-  try {
-    retNNPAFloat = std::strtof(
-        inputNNPALevel.substr(1, inputNNPALevel.size()).c_str(), NULL);
-  } catch (...) {
-    retNNPAFloat = 0;
-  }
-  return retNNPAFloat;
-}
-
-/// A function to check whether the input NNPA level, ie. "z16", is compatible
-/// with the current NNPA level.
-bool isCompatibleWithNNPALevel(std::string inputNNPALevel) {
-  float inLevel = convertNNPALevel(inputNNPALevel);
-  float mcpuLevel = convertNNPALevel(mcpu);
-  if (inLevel == 0 && mcpuLevel == 0)
-    return false;
-  return inLevel <= mcpuLevel;
 }
 
 /// A function to check whether a value's element type is valid for zAIU or not.
