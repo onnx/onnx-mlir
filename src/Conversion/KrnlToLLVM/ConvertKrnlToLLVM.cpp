@@ -516,7 +516,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     return (leftAlign < rightAlign);
   });
 
-  // Pack all constants into a single buffer in order to save to file.
+  // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
   // The file will be mmaped later at runtime and aligned at the page boundary,
   // So every constants must be correctly aligned in the packed constant. Pads
