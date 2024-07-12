@@ -543,7 +543,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       packedConst.insert(packedConst.end(), pads.begin(), pads.end());
     }
 
-    op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
+    op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize + packedConst.size()));
     op.removeValueAttr();
     packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
     outfile.write(packedConst.data(), packedConst.size());
