@@ -45,7 +45,7 @@
 #define PREFETCH_CSU 1
 
 // TODO, integrate.
-#define SATURATION_ON 0
+#define SATURATION_ON 1
 
 using namespace mlir;
 
@@ -447,9 +447,22 @@ public:
                       vecF32Type, input, inputAF, {iL.getValue()});
                 }
                 if (saturation) {
+#if 1
+                  // Compare for mins.
+                  for (int64_t u = 0; u < U; ++u) {
+                    vecF32H[u]] = create.math.min(vecF32H[u], vecDlf16Max);
+                    vecF32L[u] = create.math.min(vecF32L[u], vecDlf16Max);
+                  }
+                  // Compare for maxes.
+                  for (int64_t u = 0; u < U; ++u) {
+                    vecF32H[u]] = create.math.max(vecF32H[u], vecDlf16Min);
+                    vecF32L[u] = create.math.max(vecF32L[u], vecDlf16Min);
+                  }
+#else 
                   // Make the compares with min/max dlfloat16 (in fp32 format).
                   Value vecF32LeMinH[U], vecF32LeMinL[U];
                   Value vecF32GeMaxH[U], vecF32GeMaxL[U];
+
 #if 1
                   // This solution aims to use a pattern that can be more easily
                   // picked up as vec_min and vec_max.
@@ -498,6 +511,7 @@ public:
                     vecF32L[u] = create.math.select(
                         vecF32GeMaxL[u], vecDlf16Max, vecF32L[u]);
                   }
+#endif
 #endif
                 } // End saturation special case.
                 // Convert f32 to dlfloat16.
