@@ -163,6 +163,31 @@ def get_args():
         default=os.getcwd(),
         help="Work dir for cloning and downloading, default cwd.",
     )
+    parser.add_argument(
+        "-n",
+        "--n-iteration",
+        type=int,
+        default=1,
+        help="The number of inference runs excluding warmup",
+    )
+    parser.add_argument("--output-message", action="store_true", help="Output message")
+    parser.add_argument(
+        "-P",
+        "--oplevel-parallel",
+        action="store_true",
+        help="Enable operation level parallelization",
+    )
+    parser.add_argument(
+        "--oplevel-parallel-report",
+        action="store_true",
+        help="Report operation level parallelization status",
+    )
+    parser.add_argument(
+        "--keep-oplevel-parallel-code",
+        type=str,
+        default="",
+        help="Keep generated oplevel-parallel code at the specified directory",
+    )
     return parser.parse_args()
 
 
@@ -388,10 +413,27 @@ def check_model(model_path, model_name, compile_args, report_dir):
         if args.compile_only:
             options += ["--compile-only"]
         options += ["--model={}".format(onnx_file)]
+        if args.n_iteration > 1:
+            options += ["--n-iteration={}".format(args.n_iteration)]
+        if args.output_message:
+            options += ["--output-message"]
         if args.log_to_file:
             options += ["--log-to-file={}".format(args.log_to_file)]
+        if args.oplevel_parallel:
+            options += ["--oplevel-parallel"]
+        if args.oplevel_parallel_report:
+            options += ["--oplevel-parallel-report"]
+        if args.keep_oplevel_parallel_code:
+            options += [
+                "--keep-oplevel-parallel-code={}".format(
+                    args.keep_oplevel_parallel_code
+                )
+            ]
+
         # Wait up to 30 minutes for compilation and inference to finish
         ok, msg = execute_commands(RUN_ONNX_MODEL_CMD + options, tmout=1800)
+        if args.output_message or args.oplevel_parallel_report:
+            print(msg)
         state = TEST_PASSED if ok else TEST_FAILED
         logger.info("[{}] check {}".format(model_name, "passed" if ok else "failed"))
         logger.debug("[{}] {}".format(model_name, msg))

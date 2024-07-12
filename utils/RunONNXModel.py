@@ -211,6 +211,24 @@ parser.add_argument(
     default="42",
     help="seed to initialize the random num generator for inputs",
 )
+parser.add_argument("--output-message", action="store_true", help="Output message")
+parser.add_argument(
+    "-P",
+    "--oplevel-parallel",
+    action="store_true",
+    help="Enable operation level parallelization",
+)
+parser.add_argument(
+    "--oplevel-parallel-report",
+    action="store_true",
+    help="Report operation level parallelization status",
+)
+parser.add_argument(
+    "--keep-oplevel-parallel-code",
+    type=str,
+    default="",
+    help="Keep generated oplevel-parallel code at the specified directory",
+)
 
 args = parser.parse_args()
 if args.verify and (args.verify_with_softmax is None) and (not args.verify_every_value):
@@ -651,7 +669,6 @@ def main():
         if args.load_so:
             shared_lib_path = args.load_so
         else:
-            print("Compiling the model ...")
             # Prepare input and output paths.
             output_path = os.path.join(temp_dir, "model")
             shared_lib_path = os.path.join(temp_dir, "model.so")
@@ -683,10 +700,58 @@ def main():
                     "the shapes of the model's inputs will be "
                     "changed to the shapes of the inputs in the data folder"
                 )
+
+            if args.oplevel_parallel:
+                print("Parallelizing the model at operation-level...")
+                # Generate ONNXIR file in the temp_dir from the input file
+                base_output_path = (
+                    args.keep_oplevel_parallel_code
+                    if args.keep_oplevel_parallel_code
+                    else os.path.join(temp_dir, "model")
+                )
+                onnxir_path = base_output_path + "-onnxir.mlir"
+                onnxir_short_path = base_output_path + "-onnxir-short.mlir"
+                prepare_command_str = command_str + [
+                    "--EmitONNXIR",
+                    args.model,
+                    "-o",
+                    base_output_path,
+                ]
+                ok, msg = execute_commands(prepare_command_str)
+                # Rename the generated ONNXIR files
+                ok, msg = execute_commands(
+                    ["/bin/mv", "-f", base_output_path + ".onnx.mlir", onnxir_path]
+                )
+                ok, msg = execute_commands(
+                    ["/bin/mv", "-f", base_output_path + ".tmp", onnxir_short_path]
+                )
+                # Generate paralelized IR file from the ONNXIR file
+                parataskir_path = base_output_path + "-onnxir-oppara.mlir"
+                paratask_command_str = [
+                    os.path.dirname(__file__) + "/OpLevelParallel.py",
+                    "-m",
+                    onnxir_path,
+                    "--generate-paracode",
+                    parataskir_path,
+                ]
+                if args.oplevel_parallel_report:
+                    paratask_command_str.append("--print-candidates")
+                ok, msg = execute_commands(paratask_command_str)
+                if args.output_message or args.oplevel_parallel_report:
+                    print(msg)
+                if not ok:
+                    print(msg)
+                    exit(1)
+                # Set input_model_path as the parallelized IR file
+                input_model_path = parataskir_path
+                # Add "--parallel" option to onnx-mlir
+                command_str += ["--parallel"]
+
             command_str += [input_model_path]
             command_str += ["-o", output_path]
 
             # Compile the model.
+            print("Compiling the model ...")
             start = time.perf_counter()
             ok, msg = execute_commands(command_str)
             # Dump the compilation log into a file.
