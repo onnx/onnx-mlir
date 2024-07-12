@@ -44,8 +44,8 @@
 #define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 1
 
-// For debug only at this time. TODO, integrate.
-#define SATURATION_ON 1
+// TODO, integrate.
+#define SATURATION_ON 0
 
 using namespace mlir;
 
