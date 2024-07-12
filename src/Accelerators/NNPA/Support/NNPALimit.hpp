@@ -2,9 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----------------------- NNPALimit.h ----------------------------------===//
+//===----------------------- NNPALimit.hpp --------------------------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,9 +16,11 @@
 
 #include <stdint.h>
 
-// The NNPA maximum supported dimension index size value by using
-// zdnn_get_nnpa_max_dim_idx_size() This value depends on HW.
-static constexpr int64_t NNPA_MAXIMUM_DIMENSION_INDEX_SIZE = 32768;
+// Get maximum number of element for a given NNPA tensor. Dim is a tensor/memref
+// index (from 0 to rank-1), with dim=0 being the outermost dimension and
+// dim=(rank-1) being the innermost dimension. Return 0 if dimension is invalid.
+// Generate assert if dim outside of rank, rank non-positive.
+int64_t NNPAGetMaxForDim(int64_t dim, int64_t rank);
 
 // The NNPA maximum supported tensor size (in bytes)
 // by using zdnn_get_nnpa_max_tensor_size()
