@@ -1,5 +1,7 @@
 // RUN: onnx-mlir-opt --shape-inference --decompose-onnx %s -split-input-file | FileCheck %s
 
+// REQUIRES: decomp_onnx_convtranspose
+
 // -----
 
 // Test unit strides. Only convert weight tensor
