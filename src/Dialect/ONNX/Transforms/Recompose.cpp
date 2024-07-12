@@ -367,16 +367,12 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
   // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
-  // Only support per-tensor quantization.
   static bool matchQLinearMatMulPattern(ONNXQuantizeLinearOp op, Value &a,
       Value &a_scale, Value &a_zeropoint, Value &b, Value &b_scale,
       Value &b_zeropoint, Value &out_scale, Value &out_zeropoint) {
     Operation *quantizeOp = op.getOperation();
-    // scalar y_scale means per-tensor quantization.
     out_scale = op.getYScale();
     out_zeropoint = op.getYZeroPoint();
-    if (!onnx_mlir::isScalarTensor(out_scale))
-      return false;
     // Matching MatMul.
     Value qlX, matA, matB;
     Operation *matmulOp;
@@ -393,9 +389,6 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
     a = dlOpA.getX();
     a_scale = dlOpA.getXScale();
     a_zeropoint = dlOpA.getXZeroPoint();
-    // scalar x_scale means per-tensor quantization.
-    if (!onnx_mlir::isScalarTensor(a_scale))
-      return false;
     // Matching input B of MatMul.
     auto dlOpB = matB.getDefiningOp<ONNXDequantizeLinearOp>();
     if (!dlOpB)
@@ -403,9 +396,6 @@ struct RecomposeQLinearMatMulFromQuantizeLinearPattern
     b = dlOpB.getX();
     b_scale = dlOpB.getXScale();
     b_zeropoint = dlOpB.getXZeroPoint();
-    // scalar x_scale means per-tensor quantization.
-    if (!onnx_mlir::isScalarTensor(b_scale))
-      return false;
     // Matched the pattern.
     return true;
   }
@@ -460,7 +450,6 @@ void RecomposeONNXToONNXPass::runOnOperation() {
 
   // Recompose QLinearMatMul, starting from QuantizeLinear.
   // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
-  // Only support per-tensor quantization.
   target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
       [](ONNXQuantizeLinearOp op) {
         Value a, a_scale, a_zeropoint, b, b_scale, b_zeropoint, out_scale,
