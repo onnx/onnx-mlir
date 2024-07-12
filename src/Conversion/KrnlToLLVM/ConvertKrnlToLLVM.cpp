@@ -52,6 +52,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
 #include "onnx/onnx_pb.h"
@@ -520,8 +521,11 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // The file will be mmaped later at runtime and aligned at the page boundary,
   // So every constants must be correctly aligned in the packed constant. Pads
   // are added if necessary.
-  std::vector<char> packedConst;
+  llvm::sys::fs::remove(filepath);
+  std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
+  int64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
+    std::vector<char> packedConst;
     KrnlGlobalOp op = globalOfInterest[i];
     ArrayRef<char> rawData = getRawData(op);
 
@@ -531,26 +535,24 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
       alignment = op.getAlignment().value();
 
     // Padding if necessary.
-    if ((alignment > 0) && (packedConst.size() % alignment != 0)) {
+    if ((alignment > 0) && (totalConstSize % alignment != 0)) {
       uint64_t padSize =
-          ((uint64_t)(packedConst.size() / alignment) + 1) * alignment -
-          packedConst.size();
+          ((uint64_t)(totalConstSize / alignment) + 1) * alignment -
+          totalConstSize;
       SmallVector<char> pads(padSize, (char)0);
       packedConst.insert(packedConst.end(), pads.begin(), pads.end());
     }
 
-    op.setOffsetAttr(b.getI64IntegerAttr(packedConst.size()));
+    op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
     op.removeValueAttr();
     packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
+    outfile.write(packedConst.data(), packedConst.size());
+    totalConstSize += packedConst.size();
   }
 
   // No constant statisfying thresholds, do not store constants to file.
-  if (packedConst.empty())
+  if (totalConstSize == 0)
     return false;
-
-  // Save to file.
-  std::ofstream outfile(filepath, std::ofstream::binary);
-  outfile.write(packedConst.data(), packedConst.size());
 
   // Create a global op to store the filename in the IR.
   OpBuilder::InsertionGuard guard(b);
@@ -564,7 +566,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   create.llvm.globalOp(llvmI64Ty,
       /*isConstant=*/true, LLVM::Linkage::Internal,
       EXTERNAL_CONSTANT_PREFIX + "filesize",
-      b.getI64IntegerAttr(packedConst.size()));
+      b.getI64IntegerAttr(totalConstSize));
+
   // Create a global to store isLE.
   bool isLE = llvm::endianness::native == llvm::endianness::little;
   create.llvm.globalOp(llvmI8Ty,
