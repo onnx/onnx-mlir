@@ -425,8 +425,7 @@ public:
 #endif
 #endif
 
-          // hi alex: tune for saturation?
-          const int64_t U = 4;
+          const int64_t U = 4; // Tried 2 and 8, 4 was best.
           assert(U * VL <= 64 && "bad unroll");
           create.affine.forIE(litZero, lit64, U * VL,
               [&](AffineBuilder &b, ValueRange loopInd) {
