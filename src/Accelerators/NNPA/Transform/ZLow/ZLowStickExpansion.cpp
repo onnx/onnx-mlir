@@ -450,12 +450,12 @@ public:
 #if 1
                   // Compare for mins.
                   for (int64_t u = 0; u < U; ++u) {
-                    vecF32H[u]] = create.math.min(vecF32H[u], vecDlf16Max);
+                    vecF32H[u] = create.math.min(vecF32H[u], vecDlf16Max);
                     vecF32L[u] = create.math.min(vecF32L[u], vecDlf16Max);
                   }
                   // Compare for maxes.
                   for (int64_t u = 0; u < U; ++u) {
-                    vecF32H[u]] = create.math.max(vecF32H[u], vecDlf16Min);
+                    vecF32H[u] = create.math.max(vecF32H[u], vecDlf16Min);
                     vecF32L[u] = create.math.max(vecF32L[u], vecDlf16Min);
                   }
 #else 
