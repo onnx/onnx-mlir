@@ -191,7 +191,7 @@ public:
               // Then (is full).
               [&](SCFBuilder b) {
                 MDBuilder create(b);
-                // Loop
+                // Loop (tried unroll of 2 and 8, 4 was best).
                 const int64_t U = 4;
                 assert(U * VL <= 64 && "bad unroll");
                 create.scf.forLoop(litZero.getValue(), lit64.getValue(), U * VL,
