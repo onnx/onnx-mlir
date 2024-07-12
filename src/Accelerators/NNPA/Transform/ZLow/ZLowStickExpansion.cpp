@@ -29,6 +29,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/Krnl/KrnlHelper.hpp"
@@ -42,6 +43,9 @@
 #define ENABLE_CSU_PAR true /* Allow parallel compiler gen Stick/Unstick. */
 #define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 1
+
+// For debug only at this time. TODO, integrate.
+#define SATURATION_ON 1
 
 using namespace mlir;
 
@@ -71,14 +75,14 @@ public:
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS")) {
-      return generateUnstickCodeNoBuffer(rewriter, unstickOp, layout);
+      return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
-  LogicalResult generateUnstickCodeNoBuffer(PatternRewriter &rewriter,
-      ZLowUnstickOp unstickOp, StringAttr layout) const {
+  LogicalResult generateUnstickCodeNoBuffer(
+      PatternRewriter &rewriter, ZLowUnstickOp unstickOp) const {
     Operation *op = unstickOp.getOperation();
     Location loc = unstickOp.getLoc();
     MDBuilder create(rewriter, loc);
@@ -309,7 +313,7 @@ public:
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS")) {
-      return generateStickCodeNoBuffer(rewriter, stickOp, layout);
+      return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
@@ -317,7 +321,7 @@ public:
 
   /* Version without buffer, more like zdnn */
   LogicalResult generateStickCodeNoBuffer(
-      PatternRewriter &rewriter, ZLowStickOp stickOp, StringAttr layout) const {
+      PatternRewriter &rewriter, ZLowStickOp stickOp) const {
     Operation *op = stickOp.getOperation();
     Location loc = stickOp.getLoc();
     MDBuilder create(rewriter, loc);
@@ -326,6 +330,12 @@ public:
     // Compute output dims and rank.
     Value input = stickOp.getX();
     Value alloc = stickOp.getOut();
+
+    bool saturation = false;
+#if SATURATION_ON
+    // TODO: hook to operation's attribute.
+    saturation = true;
+#endif
 
     DimsExpr outputDims;
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);
@@ -343,6 +353,15 @@ public:
     IndexExpr lit1 = LiteralIndexExpr(1);
     IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
     IndexExpr lit64 = LiteralIndexExpr(64);
+
+    // Values for saturation.
+    Value vecDlf16Min, vecDlf16Max;
+    if (saturation) {
+      Value dlf16Min = create.math.constant(f32Type, DLF16_MIN);
+      vecDlf16Min = create.vec.splat(vecF32Type, dlf16Min);
+      Value dlf16Max = create.math.constant(f32Type, DLF16_MAX);
+      vecDlf16Max = create.vec.splat(vecF32Type, dlf16Max);
+    }
 
     // Useful references for indexing dimensions (neg val are not used).
     int64_t E1 = rank - 1;
@@ -406,6 +425,7 @@ public:
 #endif
 #endif
 
+          // hi alex: tune for saturation?
           const int64_t U = 4;
           assert(U * VL <= 64 && "bad unroll");
           create.affine.forIE(litZero, lit64, U * VL,
@@ -417,21 +437,48 @@ public:
                 getIndexExprList<SymbolIndexExpr>(memAF, inputAF);
                 // E1: add the "l" local E1 offset.
                 inputAF[E1] = inputAF[E1] + l;
+                // Load the f32.
                 Value vecF32H[U], vecF32L[U], vecF16[U];
-                for (int64_t i = 0; i < U; ++i) {
-                  LiteralIndexExpr iH(i * VL), iL(i * VL + VL / 2);
-                  vecF32H[i] = create.vec.loadIE(
+                for (int64_t u = 0; u < U; ++u) {
+                  LiteralIndexExpr iH(u * VL), iL(u * VL + VL / 2);
+                  vecF32H[u] = create.vec.loadIE(
                       vecF32Type, input, inputAF, {iH.getValue()});
-                  vecF32L[i] = create.vec.loadIE(
+                  vecF32L[u] = create.vec.loadIE(
                       vecF32Type, input, inputAF, {iL.getValue()});
                 }
-                for (int64_t i = 0; i < U; ++i) {
-                  vecF16[i] = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
-                      loc, vecF32H[i], vecF32L[i]);
+                if (saturation) {
+                  // Make the compares with min/max dlfloat16 (in fp32 format).
+                  Value vecF32LeMinH[U], vecF32LeMinL[U];
+                  Value vecF32GeMaxH[U], vecF32GeMaxL[U];
+                  for (int64_t u = 0; u < U; ++u) {
+                    vecF32LeMinH[u] = create.math.le(vecF32H[u], vecDlf16Min);
+                    vecF32LeMinL[u] = create.math.le(vecF32L[u], vecDlf16Min);
+                    vecF32GeMaxH[u] = create.math.ge(vecF32H[u], vecDlf16Max);
+                    vecF32GeMaxL[u] = create.math.ge(vecF32L[u], vecDlf16Max);
+                  }
+                  // Select depending on compares. Mins first, then maxes.
+                  for (int64_t u = 0; u < U; ++u) {
+                    vecF32H[u] = create.math.select(
+                        vecF32LeMinH[u], vecDlf16Min, vecF32H[u]);
+                    vecF32L[u] = create.math.select(
+                        vecF32LeMinL[u], vecDlf16Min, vecF32L[u]);
+                  }
+                  for (int64_t u = 0; u < U; ++u) {
+                    vecF32H[u] = create.math.select(
+                        vecF32GeMaxH[u], vecDlf16Max, vecF32H[u]);
+                    vecF32L[u] = create.math.select(
+                        vecF32GeMaxL[u], vecDlf16Max, vecF32L[u]);
+                  }
+                } // End saturation special case.
+                // Convert f32 to dlfloat16.
+                for (int64_t u = 0; u < U; ++u) {
+                  vecF16[u] = rewriter.create<ZLowConvertF32ToDLF16VectorOp>(
+                      loc, vecF32H[u], vecF32L[u]);
                 }
-                for (int64_t i = 0; i < U; ++i) {
-                  create.vec.storeIE(vecF16[i], allocAsTx64,
-                      {SymIE(allocTileIndex), l + (i * VL)}, {});
+                // Store the dlfloat16.
+                for (int64_t u = 0; u < U; ++u) {
+                  create.vec.storeIE(vecF16[u], allocAsTx64,
+                      {SymIE(allocTileIndex), l + (u * VL)}, {});
                 }
               });
         });
