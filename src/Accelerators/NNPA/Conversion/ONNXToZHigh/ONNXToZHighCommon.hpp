@@ -4,7 +4,7 @@
 
 //===---------- ONNXToZHigh.hpp - Common functions in ONNXToZHigh ---------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -18,7 +18,7 @@
 
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
-#include "src/Accelerators/NNPA/Support/NNPALimit.h"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Dialect/ONNX/ONNXDimAnalysis.hpp"
 
 namespace onnx_mlir {
@@ -68,11 +68,13 @@ void addDynamicallyLegalOpFor(mlir::ConversionTarget *target,
                     mlir::dyn_cast<mlir::ShapedType>(operand.getType())) {
               // Check if static dimension size exceeds zDNN limitations
               llvm::ArrayRef<int64_t> valueShape = valueType.getShape();
-              if (llvm::any_of(valueShape, [](int64_t dim) {
-                    return (!mlir::ShapedType::isDynamic(dim)) &&
-                           (dim > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-                  }))
-                return true;
+              int64_t valueRank = valueShape.size();
+              for (int64_t i = 0; i < valueRank; ++i) {
+                int64_t dim = valueShape[i];
+                if (!mlir::ShapedType::isDynamic(dim) &&
+                    dim > NNPAGetMaxForDim(i, valueRank))
+                  return true;
+              }
             }
             return false;
           });
@@ -97,7 +99,7 @@ mlir::Value emitONNXTransposeWithType(mlir::Location loc,
     mlir::ArrayRef<int64_t> perms);
 
 /// Split a tensor along an axis in which each chunk has a size of
-/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chucnk can be smaller.
+/// NNPAGetMaxForDim and the last chuck can be smaller.
 mlir::ValueRange splitAlongAxis(
     onnx_mlir::MultiDialectBuilder<onnx_mlir::OnnxBuilder> &create,
     mlir::Value X, int64_t axis);
