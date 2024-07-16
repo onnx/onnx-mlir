@@ -95,6 +95,7 @@ func.func private @test_averagepool_pooling_operation(%arg0 : tensor<1x3x32x32xf
 
 // -----
 
+
 func.func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>) -> tensor<*xf32> {
   %0 = "onnx.MaxPoolSingleOut"(%arg0) {auto_pad = "NOTSET", kernel_shape = [2, 2]} : (tensor<1x3x32x32xf32>) -> tensor<*xf32>
   "func.return"(%0) : (tensor<*xf32>) -> ()
@@ -185,9 +186,8 @@ func.func private @test_maxpool_pooling_operation(%arg0 : tensor<1x3x32x32xf32>)
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]6, [[VAR_1_]]7] : memref<1x3x32x32xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
-// CHECK:               [[VAR_20_:%.+]] = arith.cmpf ogt, [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:               [[VAR_21_:%.+]] = arith.select [[VAR_20_]], [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:               krnl.store [[VAR_21_]], [[RES_1_]][] : memref<f32>
+// CHECK:               [[VAR_20_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:               krnl.store [[VAR_20_]], [[RES_1_]][] : memref<f32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = krnl.load [[RES_1_]][] : memref<f32>
 // CHECK:             krnl.store [[LOAD_RES_1_MEM_1_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2, [[VAR_1_]]#3] : memref<1x3x31x31xf32>

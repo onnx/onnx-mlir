@@ -66,6 +66,8 @@ struct ONNXDynamicQuantizeLinearOpLowering
     Value YZeroPoint = create.mem.alignedAlloc(
         yZeroPointMemRefType, shapeHelper.getOutputDims(2));
 
+    // TODO: consider SIMD version of this.
+
     // Equations:
     // y_scale = (max(x) - min(x))/(qmax - qmin)
     // intermediate_zero_point = qmin - min(x)/y_scale

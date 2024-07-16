@@ -48,8 +48,12 @@ Value emitScalarOpFor<ONNXMaxPoolSingleOutOp>(
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+#if 1 // hi alex
+  return create.math.max(lhs, rhs);
+#else
   Value max = create.math.sgt(lhs, rhs);
   return create.math.select(max, lhs, rhs);
+#endif
 }
 
 //===----------------------------------------------------------------------===//

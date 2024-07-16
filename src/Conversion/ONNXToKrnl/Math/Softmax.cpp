@@ -55,9 +55,12 @@ static void emitInnerLoops(KrnlBuilder &createKrnl, int64_t numberOfLoops,
 
         Value max = iterArg;
         Value nextMax = create.krnl.load(input, maxLoopIVs);
+#if 1 // hi alex
+        max = create.math.max(max, nextMax);
+#else
         auto maxCond = create.math.sgt(max, nextMax);
         max = create.math.select(maxCond, max, nextMax);
-
+#endif
         create.krnl.yield(max);
       });
   // Get the maximum value.
