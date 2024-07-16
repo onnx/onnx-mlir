@@ -131,7 +131,8 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value tanh(mlir::Value val) const;                  // Float only.
   mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
 
-  mlir::Value select(mlir::Value cmp, mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value select(
+      mlir::Value cmp, mlir::Value trueVal, mlir::Value valseVal) const;
   mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;

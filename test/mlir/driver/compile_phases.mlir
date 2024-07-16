@@ -1,4 +1,4 @@
-// RUN: onnx-mlir %s | FileCheck %s
+// RUN: onnx-mlir %s -o %t| FileCheck %s && rm %t.so
 
 // CHECK: [1/5] {{.*}} Importing ONNX Model to MLIR Module
 // CHECK: [2/5] {{.*}} Compiling and Optimizing MLIR Module
