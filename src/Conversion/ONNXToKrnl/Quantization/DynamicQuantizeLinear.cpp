@@ -21,6 +21,7 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
+// TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
   ONNXDynamicQuantizeLinearOpLowering(
