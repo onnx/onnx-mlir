@@ -23,7 +23,7 @@
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Support/NNPALimit.h"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"

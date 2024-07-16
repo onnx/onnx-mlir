@@ -4,7 +4,7 @@
 
 //====----- ONNXToZHighCommon.cpp - Common functions to ZHigh lowering ----===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -40,11 +40,12 @@ Value emitONNXTransposeWithType(Location loc, PatternRewriter &rewriter,
 }
 
 /// Split a tensor along an axis in which each chunk has a size of
-/// NNPA_MAXIMUM_DIMENSION_INDEX_SIZE and the last chunk can be smaller.
+/// NNPAGetMaxForDim and the last chunk can be smaller.
 ValueRange splitAlongAxis(
     MultiDialectBuilder<OnnxBuilder> &create, Value X, int64_t axis) {
   Type xType = X.getType();
   ArrayRef<int64_t> xShape = getShape(xType);
+  int64_t xRank = xShape.size();
   Type elementTy = getElementType(xType);
 
   // Compute split sizes.
@@ -52,13 +53,14 @@ ValueRange splitAlongAxis(
   SmallVector<int64_t> splitSizesI64;
   SmallVector<int64_t> splitShape(xShape);
   int64_t dimSize = xShape[axis];
-  // First splits have the same size of NNPA_MAXIMUM_DIMENSION_INDEX_SIZE.
-  while (dimSize > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE) {
-    splitShape[axis] = NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+  // First splits have the same size of NNPAGetMaxForDim.
+  int64_t maxSize = NNPAGetMaxForDim(axis, xRank);
+  while (dimSize > maxSize) {
+    splitShape[axis] = maxSize;
     auto ty = RankedTensorType::get(splitShape, elementTy);
     splitTy.emplace_back(ty);
-    splitSizesI64.emplace_back(NNPA_MAXIMUM_DIMENSION_INDEX_SIZE);
-    dimSize -= NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    splitSizesI64.emplace_back(maxSize);
+    dimSize -= maxSize;
   }
   // The last split.
   splitShape[axis] = dimSize;

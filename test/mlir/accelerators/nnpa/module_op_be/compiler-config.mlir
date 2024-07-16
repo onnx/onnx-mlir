@@ -12,5 +12,5 @@ module {
   "onnx.EntryPoint"() {func = @main_graph} : () -> ()
 }
 // CHECK: {{.*}} opt {{.*}} -o {{.*}}.bc
-// CHECK-NEXT: {{.*}} llc {{.*}}  {{.*}} {{.*}}.bc
-// CHECK-NEXT: {{.*}} {{clang|c|g}}++{{.*}} {{.*}}.o -o {{.*}}.so -shared -fPIC -L{{.*}}/lib -lRuntimeNNPA -lzdnn -lcruntime
+// CHECK: {{.*}} llc {{.*}}  {{.*}} {{.*}}.bc
+// CHECK: {{.*}} {{clang|c|g}}++{{.*}} {{.*}}.o -o {{.*}}.so -shared -fPIC -L{{.*}}/lib -lRuntimeNNPA -lzdnn -lcruntime
