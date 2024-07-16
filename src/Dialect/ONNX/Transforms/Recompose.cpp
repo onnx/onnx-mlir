@@ -340,6 +340,65 @@ private:
   }
 };
 
+struct RecomposeQLinearMatMulFromQuantizeLinearPattern
+    : public OpRewritePattern<ONNXQuantizeLinearOp> {
+  using OpRewritePattern<ONNXQuantizeLinearOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXQuantizeLinearOp qlOp, PatternRewriter &rewriter) const final {
+    using namespace onnx_mlir;
+    Location loc = qlOp.getLoc();
+    // Match
+    Value a, aScale, aZeroPoint, b, bScale, bZeroPoint, outScale, outZeroPoint;
+    if (!matchQLinearMatMulPattern(qlOp, a, aScale, aZeroPoint, b, bScale,
+            bZeroPoint, outScale, outZeroPoint))
+      return failure();
+
+    // Replace
+    MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+    Value res = create.onnx.qlinearMatMul(qlOp.getY().getType(), a, aScale,
+        aZeroPoint, b, bScale, bZeroPoint, outScale, outZeroPoint);
+
+    rewriter.replaceOp(qlOp, res);
+    return success();
+  }
+
+  // Recompose QLinearMatMul, starting from QuantizeLinear.
+  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
+  static bool matchQLinearMatMulPattern(ONNXQuantizeLinearOp op, Value &a,
+      Value &aScale, Value &aZeroPoint, Value &b, Value &bScale,
+      Value &bZeroPoint, Value &outScale, Value &outZeroPoint) {
+    Operation *quantizeOp = op.getOperation();
+    outScale = op.getYScale();
+    outZeroPoint = op.getYZeroPoint();
+    // Matching MatMul.
+    Value qlX, matA, matB;
+    Operation *matmulOp;
+    bool matchMatMul = onnx_mlir::operandOfOpDefinedBy<ONNXMatMulOp>(
+        matmulOp, quantizeOp, qlX, 0);
+    if (!matchMatMul)
+      return false;
+    matA = cast<ONNXMatMulOp>(matmulOp).getA();
+    matB = cast<ONNXMatMulOp>(matmulOp).getB();
+    // Matching input A of MatMul.
+    auto dlOpA = matA.getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dlOpA)
+      return false;
+    a = dlOpA.getX();
+    aScale = dlOpA.getXScale();
+    aZeroPoint = dlOpA.getXZeroPoint();
+    // Matching input B of MatMul.
+    auto dlOpB = matB.getDefiningOp<ONNXDequantizeLinearOp>();
+    if (!dlOpB)
+      return false;
+    b = dlOpB.getX();
+    bScale = dlOpB.getXScale();
+    bZeroPoint = dlOpB.getXZeroPoint();
+    // Matched the pattern.
+    return true;
+  }
+};
+
 struct RecomposeONNXToONNXPass
     : public PassWrapper<RecomposeONNXToONNXPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(RecomposeONNXToONNXPass)
@@ -387,6 +446,17 @@ void RecomposeONNXToONNXPass::runOnOperation() {
         op, x, scale, axis, epsilon, isRMSLayerNorm);
   });
 
+  // Recompose QLinearMatMul, starting from QuantizeLinear.
+  // Pattern: DequanizeLinear + MatMul + QuantizeLinear.
+  target.addDynamicallyLegalOp<ONNXQuantizeLinearOp>(
+      [](ONNXQuantizeLinearOp op) {
+        Value a, aScale, aZeroPoint, b, bScale, bZeroPoint, outScale,
+            outZeroPoint;
+        return !RecomposeQLinearMatMulFromQuantizeLinearPattern::
+            matchQLinearMatMulPattern(op, a, aScale, aZeroPoint, b, bScale,
+                bZeroPoint, outScale, outZeroPoint);
+      });
+
   RewritePatternSet patterns(context);
   onnx_mlir::getRecomposeONNXToONNXPatterns(patterns);
 
@@ -400,6 +470,7 @@ void onnx_mlir::getRecomposeONNXToONNXPatterns(
     mlir::RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.insert<RecomposeLayerNormFromMulPattern>(context);
+  patterns.insert<RecomposeQLinearMatMulFromQuantizeLinearPattern>(context);
 }
 
 /*!
