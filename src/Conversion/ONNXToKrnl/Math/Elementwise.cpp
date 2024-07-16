@@ -669,8 +669,7 @@ struct ScalarOp<ONNXReluOp> {
 template <>
 double analyzeSimdFor<ONNXReluOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::ArithmeticGop}, {1}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
 template <>
@@ -681,12 +680,7 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
-  #if 1 // hi alex
   return create.math.max(zero, operand);
-  #else
-  Value geZero = create.math.sge(operand, zero);
-  return create.math.select(geZero, operand, zero);
-  #endif
 }
 
 //===----------------------------------------------------------------------===//
@@ -972,13 +966,7 @@ Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-#if 1 // hi alex
   return create.math.max(lhs, rhs);
-#else
-  // could return create.math.max(lhs, rhs);
-  Value cond = create.math.gt(lhs, rhs);
-  return create.math.select(cond, lhs, rhs);
-#endif
 }
 
 //===----------------------------------------------------------------------===//
