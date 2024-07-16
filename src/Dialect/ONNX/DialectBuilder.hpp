@@ -91,6 +91,12 @@ struct OnnxBuilder : DialectBuilder {
       mlir::Value scale, mlir::Value bias, int64_t axis,
       mlir::FloatAttr epsilon) const;
 
+  // ONNXQLinearMatMulOp
+  mlir::Value qlinearMatMul(mlir::Type outputType, mlir::Value a,
+      mlir::Value aScale, mlir::Value aZeroPoint, mlir::Value b,
+      mlir::Value bScale, mlir::Value bZeroPoint, mlir::Value yScale,
+      mlir::Value yZeroPoint) const;
+
   // ONNXRMSLayerNormalizationOp, version with one output only (Y).
   mlir::Value RMSLayerNorm(mlir::Type outputType, mlir::Value input,
       mlir::Value scale, mlir::Value bias, int64_t axis,
