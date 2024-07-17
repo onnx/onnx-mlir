@@ -833,6 +833,7 @@ struct ONNXNonSpecificOpShapeHelper : public ONNXOpShapeHelper {
 // Ops listed in alphabetical order. Disable formatting for easier sorting.
 // clang-format off
 using ONNXBatchNormalizationOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationOp>;
+using ONNXBatchNormalizationV9OpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationV9Op>;
 using ONNXBatchNormalizationInferenceModeOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXBatchNormalizationInferenceModeOp>;
 using ONNXCategoryMapperOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCategoryMapperOp>;
 using ONNXCompressOpShapeHelper = ONNXNonSpecificOpShapeHelper<mlir::ONNXCompressOp>;

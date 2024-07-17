@@ -22,6 +22,7 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeRange.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/Debug.h"
@@ -624,6 +625,37 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
   }
 };
 
+/// Decompose BatchNormV9 to BatchNorm
+struct DecomposeBatchNormV9ToBatchNorm
+    : public OpRewritePattern<ONNXBatchNormalizationV9Op> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(ONNXBatchNormalizationV9Op batchNormOpV9,
+      PatternRewriter &rewriter) const final {
+    auto savedMeanRes = batchNormOpV9.getSavedMean();
+    auto savedVarRes = batchNormOpV9.getSavedVar();
+    if (!savedMeanRes.use_empty() || !savedVarRes.use_empty()) {
+      return rewriter.notifyMatchFailure(batchNormOpV9.getLoc(),
+          "saved_mean and saved_variance must have no use.");
+    }
+    auto batchNormOp = rewriter.create<ONNXBatchNormalizationOp>(
+        batchNormOpV9.getLoc(),
+        TypeRange{
+            batchNormOpV9.getY().getType(),
+            batchNormOpV9.getOutMean().getType(),
+            batchNormOpV9.getOutVar().getType(),
+        },
+        batchNormOpV9.getX(), batchNormOpV9.getScale(), batchNormOpV9.getB(),
+        batchNormOpV9.getMean(), batchNormOpV9.getVar(),
+        batchNormOpV9.getEpsilon(), batchNormOpV9.getMomentum());
+    rewriter.replaceOp(batchNormOpV9,
+        {batchNormOp.getY(), batchNormOp.getRunningMean(),
+            batchNormOp.getRunningVar(),
+            rewriter.create<ONNXNoneOp>(batchNormOpV9.getLoc()),
+            rewriter.create<ONNXNoneOp>(batchNormOpV9.getLoc())});
+    return success();
+  }
+};
+
 /// Decompose BatchNorm to BatchNormInferenceMode
 struct DecomposeBatchNormToBatchNormInferenceMode
     : public OpRewritePattern<ONNXBatchNormalizationOp> {
@@ -631,8 +663,8 @@ struct DecomposeBatchNormToBatchNormInferenceMode
   LogicalResult matchAndRewrite(ONNXBatchNormalizationOp batchNormOp,
       PatternRewriter &rewriter) const final {
 
-    auto meanRes = batchNormOp->getResult(1);
-    auto varianceRes = batchNormOp->getResult(2);
+    auto meanRes = batchNormOp.getRunningMean();
+    auto varianceRes = batchNormOp.getRunningVar();
     if (!meanRes.use_empty() || !varianceRes.use_empty()) {
       return rewriter.notifyMatchFailure(
           batchNormOp.getLoc(), "mean and variance must have no use.");
@@ -640,7 +672,7 @@ struct DecomposeBatchNormToBatchNormInferenceMode
 
     rewriter.replaceOp(batchNormOp,
         {rewriter.create<ONNXBatchNormalizationInferenceModeOp>(
-             batchNormOp.getLoc(), batchNormOp.getResult(0).getType(),
+             batchNormOp.getLoc(), batchNormOp.getY().getType(),
              batchNormOp.getX(), batchNormOp.getScale(), batchNormOp.getB(),
              batchNormOp.getInputMean(), batchNormOp.getInputVar(),
              batchNormOp.getEpsilon(), batchNormOp.getMomentum()),
@@ -1055,7 +1087,12 @@ void DecomposeONNXToONNXPass::runOnOperation() {
       });
   target.addDynamicallyLegalOp<ONNXBatchNormalizationOp>(
       [](ONNXBatchNormalizationOp op) {
-        return !op->getResult(1).use_empty() || !op->getResult(2).use_empty();
+        return !op.getRunningMean().use_empty() ||
+               !op.getRunningVar().use_empty();
+      });
+  target.addDynamicallyLegalOp<ONNXBatchNormalizationV9Op>(
+      [](ONNXBatchNormalizationV9Op op) {
+        return !op.getSavedMean().use_empty() || !op.getSavedVar().use_empty();
       });
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();
@@ -1157,6 +1194,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern>(context);
   patterns.insert<DecomposeBatchNormToBatchNormInferenceMode>(context);
+  patterns.insert<DecomposeBatchNormV9ToBatchNorm>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }

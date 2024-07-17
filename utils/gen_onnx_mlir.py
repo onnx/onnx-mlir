@@ -100,7 +100,7 @@ version_dict = {
     "Atan": [7],
     "Atanh": [9],
     "AveragePool": [19],
-    "BatchNormalization": [15],
+    "BatchNormalization": [15, 9],
     "Bernoulli": [15],
     "Binarizer": [1],
     "BitShift": [11],

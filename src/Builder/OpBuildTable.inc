@@ -19,7 +19,7 @@ op_dialect_version_map_["Asinh"] = {9};
 op_dialect_version_map_["Atan"] = {7};
 op_dialect_version_map_["Atanh"] = {9};
 op_dialect_version_map_["AveragePool"] = {19};
-op_dialect_version_map_["BatchNormalization"] = {15};
+op_dialect_version_map_["BatchNormalization"] = {15, 9};
 op_dialect_version_map_["Bernoulli"] = {15};
 op_dialect_version_map_["Binarizer"] = {1};
 op_dialect_version_map_["BitShift"] = {11};
@@ -240,6 +240,8 @@ import_handler_map_["AveragePool"] =
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXAveragePoolOp>;
 import_handler_map_["BatchNormalization"] = 
    &onnx_mlir::detail::FrontendGenImpl::ImportNodeBatchNormalization;
+import_handler_map_["BatchNormalizationV9"] = 
+   &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBatchNormalizationV9Op>;
 import_handler_map_["Bernoulli"] = 
    &onnx_mlir::detail::FrontendGenImpl::buildOperation<mlir::ONNXBernoulliOp>;
 import_handler_map_["BitShift"] = 
