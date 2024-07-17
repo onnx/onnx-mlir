@@ -201,12 +201,4 @@ def GetDefaultSaturation : NativeCodeCall<
   "::onnx_mlir::zhigh::getDefaultSaturation($_builder)"
 >;
 
-def GetTrueSaturation : NativeCodeCall<
-  "::onnx_mlir::zhigh::getTrueSaturation($_builder)"
->;
-
-def GetFalseSaturation : NativeCodeCall<
-  "::onnx_mlir::zhigh::getFalseSaturation($_builder)"
->;
-
 #endif // OP_HELPER

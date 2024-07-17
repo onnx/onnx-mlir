@@ -78,7 +78,7 @@ def ReplaceONNXLeakyReluPattern: Pat<
                                              $out),
                                             $layout,
                                             // Donot saturate since input orignally from NNPA
-                                            (GetFalseSaturation)), 
+                                            (NoneIntegerAttr)), 
                               (returnType $X)),
                   (returnType $X))),
   [(IsStaticShapeTensor $X), (IsPlusConstantFloat $alpha),
@@ -106,7 +106,7 @@ def ReplaceONNXSoftplusPattern: Pattern<
   [
    // Get stickified constant of minus one with input shape.
    // Donot saturate since input orignally from NNPA.
-   (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $out), $layout, (GetFalseSaturation)),
+   (ZHighStickOp:$minusOne (GetConstantOfType<"-1.0"> $out), $layout, (NoneIntegerAttr)),
    // Get minus X with input shape.
    (ZHighMulOp:$minusX $X, $minusOne, (returnType $X)),
 

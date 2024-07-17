@@ -28,8 +28,8 @@ namespace zhigh {
 // Custom builders
 //===----------------------------------------------------------------------===//
 
-void ZHighF32ToDLF16Op::build(
-    OpBuilder &builder, OperationState &state, Value input, IntegerAttr saturation) {
+void ZHighF32ToDLF16Op::build(OpBuilder &builder, OperationState &state,
+    Value input, IntegerAttr saturation) {
   Type elementType = builder.getF16Type();
   Type resType = UnrankedTensorType::get(elementType);
 

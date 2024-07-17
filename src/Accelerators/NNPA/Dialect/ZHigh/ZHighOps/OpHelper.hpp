@@ -86,8 +86,6 @@ bool hasNNPAUse(mlir::Value v);
 
 /// Get saturation settings.
 mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
-mlir::IntegerAttr getTrueSaturation(mlir::PatternRewriter &rewriter);
-mlir::IntegerAttr getFalseSaturation(mlir::PatternRewriter &rewriter);
 
 } // namespace zhigh
 } // namespace onnx_mlir

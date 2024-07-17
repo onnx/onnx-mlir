@@ -482,16 +482,5 @@ IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
     return IntegerAttr();
 }
 
-/// Get true saturation setting.
-IntegerAttr getTrueSaturation(PatternRewriter &rewriter) {
-  Type si64Ty = rewriter.getIntegerType(64, true);
-  return rewriter.getIntegerAttr(si64Ty, -1);
-}
-
-/// Get false saturation setting.
-IntegerAttr getFalseSaturation(PatternRewriter &rewriter) {
-  return IntegerAttr();
-}
-
 } // namespace zhigh
 } // namespace onnx_mlir
