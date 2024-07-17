@@ -84,5 +84,10 @@ mlir::IntegerAttr getAxisNHWC(mlir::IntegerAttr axisNCHWAttr);
 /// Check if the value has NNPA users (or is consumed by an NNPA op).
 bool hasNNPAUse(mlir::Value v);
 
+/// Get saturation settings.
+mlir::IntegerAttr getDefaultSaturation(mlir::PatternRewriter &rewriter);
+mlir::IntegerAttr getTrueSaturation(mlir::PatternRewriter &rewriter);
+mlir::IntegerAttr getFalseSaturation(mlir::PatternRewriter &rewriter);
+
 } // namespace zhigh
 } // namespace onnx_mlir
