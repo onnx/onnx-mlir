@@ -44,9 +44,6 @@
 #define PREFETCH_CSU_DIST 0
 #define PREFETCH_CSU 1
 
-// TODO, integrate.
-#define SATURATION_ON 0
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -330,12 +327,8 @@ public:
     // Compute output dims and rank.
     Value input = stickOp.getX();
     Value alloc = stickOp.getOut();
-
-    bool saturation = false;
-#if SATURATION_ON
-    // TODO: hook to operation's attribute.
-    saturation = true;
-#endif
+    std::optional<int64_t> saturationOpt = stickOp.getSaturation();
+    bool saturation = saturationOpt.has_value() && saturationOpt.value() != 0;
 
     DimsExpr outputDims;
     create.krnlIE.getShapeAsSymbols(alloc, outputDims);

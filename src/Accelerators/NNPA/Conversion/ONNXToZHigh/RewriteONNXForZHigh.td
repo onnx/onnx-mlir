@@ -17,6 +17,7 @@
 #ifndef OP_BASE
 include "src/Dialect/ONNX/ONNX.td"
 include "src/Accelerators/NNPA/Dialect/ZHigh/ZHigh.td"
+include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.td"
 #endif // OP_BASE
 
@@ -67,9 +68,9 @@ def replaceONNXBatchNormalizationInferenceModePattern : Pattern<
     // Calculate BatchNorm Op using $A and $B
     (ZHighUnstickOp
         (ZHighBatchNormOp
-            (ZHighStickOp $x, (NHWCLayoutAttr)),
-            (ZHighStickOp $A, (_1DLayoutAttr)),
-            (ZHighStickOp $B, (_1DLayoutAttr))))
+            (ZHighStickOp $x, (NHWCLayoutAttr), (GetDefaultSaturation)),
+            (ZHighStickOp $A, (_1DLayoutAttr), (GetDefaultSaturation)),
+            (ZHighStickOp $B, (_1DLayoutAttr), (GetDefaultSaturation))))
   ]
 >;
 

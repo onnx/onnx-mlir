@@ -91,4 +91,9 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
             "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
 
+llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
+    llvm::cl::desc("Enable saturating f32 values before stickify them."
+                   "Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
+
 } // namespace onnx_mlir

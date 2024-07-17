@@ -119,8 +119,9 @@ public:
         RankedTensorType::get({1}, inputElementType), DLF16_MIN);
     Value minVal = create.onnx.constant(minAttr);
     Value clippedVal = create.onnx.max({input, minVal});
-    Value replacedVal = rewriter.create<ZHighStickOp>(
-        loc, stickOp.getOut().getType(), clippedVal, stickOp.getLayoutAttr());
+    Value replacedVal =
+        rewriter.create<ZHighStickOp>(loc, stickOp.getOut().getType(),
+            clippedVal, stickOp.getLayoutAttr(), IntegerAttr());
 
     rewriter.replaceOp(genericOp, replacedVal);
     return success();
