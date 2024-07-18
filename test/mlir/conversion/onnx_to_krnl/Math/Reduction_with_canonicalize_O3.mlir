@@ -24,9 +24,8 @@ func.func private @test_reducemax_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x2x2xf32>
 // CHECK-DAG:         [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2] : memref<3x2xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.cmpf ogt, [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2] : memref<3x2xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.maxnumf [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2] : memref<3x2xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3x2xf32>
 // CHECK:         }
@@ -50,9 +49,8 @@ func.func private @test_reducemin_v13(%arg0 : tensor<3x2x2xf32>) -> tensor<*xf32
 // CHECK:             [[VAR_1_:%.+]]:3 = krnl.get_induction_var_value([[LOOP_0_]]#0, [[LOOP_0_]]#1, [[LOOP_0_]]#2) : (!krnl.loop, !krnl.loop, !krnl.loop) -> (index, index, index)
 // CHECK-DAG:         [[LOAD_PARAM_0_MEM_:%.+]] = krnl.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]#2] : memref<3x2x2xf32>
 // CHECK-DAG:         [[LOAD_RES_MEM_:%.+]] = krnl.load [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2] : memref<3x2xf32>
-// CHECK:             [[VAR_4_:%.+]] = arith.cmpf olt, [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             [[VAR_5_:%.+]] = arith.select [[VAR_4_]], [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
-// CHECK:             krnl.store [[VAR_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2] : memref<3x2xf32>
+// CHECK:             [[VAR_4_:%.+]] = arith.minnumf [[LOAD_RES_MEM_]], [[LOAD_PARAM_0_MEM_]] : f32
+// CHECK:             krnl.store [[VAR_4_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#2] : memref<3x2xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<3x2xf32>
 // CHECK:         }
@@ -813,30 +811,26 @@ func.func private @test_reducemax_v13_bis(%arg0 : tensor<1028x256xf32>) -> tenso
 // CHECK:             [[LOOP_1_:%.+]] = krnl.define_loops 1
 // CHECK:             [[BLOCK_TILE__1_:%.+]], [[BLOCK_IN__1_:%.+]] = krnl.block [[LOOP_1_]] 4 : (!krnl.loop) -> (!krnl.loop, !krnl.loop)
 // CHECK:             krnl.iterate([[BLOCK_TILE__1_]]) with ([[LOOP_1_]] -> [[I_1_:%.+]] = [[CST_0_]] to [[CST_256_]]){
-// CHECK:               [[VAR_19_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__1_]]) : (!krnl.loop) -> index
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]], [[VAR_1_]]9] : memref<1028x256xf32>, vector<4xf32>
+// CHECK:               [[VAR_16_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__1_]]) : (!krnl.loop) -> index
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]], [[VAR_1_]]6] : memref<1028x256xf32>, vector<4xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_22_:%.+]] = arith.cmpf ogt, [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : vector<4xf32>
-// CHECK:               [[VAR_23_:%.+]] = arith.select [[VAR_22_]], [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : vector<4xi1>, vector<4xf32>
-// CHECK:               vector.store [[VAR_23_]], [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_24_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]])
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_24_]], [[VAR_19_]]{{.}} : memref<1028x256xf32>, vector<4xf32>
+// CHECK:               [[VAR_19_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : vector<4xf32>
+// CHECK:               vector.store [[VAR_19_]], [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
+// CHECK:               [[VAR_20_:%.+]] = affine.apply [[MAP_0_]]([[VAR_1_]])
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_1_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_20_]], [[VAR_16_]]{{.}} : memref<1028x256xf32>, vector<4xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_1_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_1_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_27_:%.+]] = arith.cmpf ogt, [[LOAD_RES_1_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : vector<4xf32>
-// CHECK:               [[VAR_28_:%.+]] = arith.select [[VAR_27_]], [[LOAD_RES_1_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : vector<4xi1>, vector<4xf32>
-// CHECK:               vector.store [[VAR_28_]], [[RES_1_]]{{.}}[[CST_1_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_29_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]])
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_2_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_29_]], [[VAR_19_]]{{.}} : memref<1028x256xf32>, vector<4xf32>
+// CHECK:               [[VAR_23_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_1_]], [[LOAD_PARAM_0_MEM_1_]] : vector<4xf32>
+// CHECK:               vector.store [[VAR_23_]], [[RES_1_]]{{.}}[[CST_1_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
+// CHECK:               [[VAR_24_:%.+]] = affine.apply [[MAP_1_]]([[VAR_1_]])
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_2_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_24_]], [[VAR_16_]]{{.}} : memref<1028x256xf32>, vector<4xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_2_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_2_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_32_:%.+]] = arith.cmpf ogt, [[LOAD_RES_1_MEM_2_]], [[LOAD_PARAM_0_MEM_2_]] : vector<4xf32>
-// CHECK:               [[VAR_33_:%.+]] = arith.select [[VAR_32_]], [[LOAD_RES_1_MEM_2_]], [[LOAD_PARAM_0_MEM_2_]] : vector<4xi1>, vector<4xf32>
-// CHECK:               vector.store [[VAR_33_]], [[RES_1_]]{{.}}[[CST_2_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_34_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]])
-// CHECK-DAG:           [[LOAD_PARAM_0_MEM_3_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_34_]], [[VAR_19_]]{{.}} : memref<1028x256xf32>, vector<4xf32>
+// CHECK:               [[VAR_27_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_2_]], [[LOAD_PARAM_0_MEM_2_]] : vector<4xf32>
+// CHECK:               vector.store [[VAR_27_]], [[RES_1_]]{{.}}[[CST_2_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
+// CHECK:               [[VAR_28_:%.+]] = affine.apply [[MAP_2_]]([[VAR_1_]])
+// CHECK-DAG:           [[LOAD_PARAM_0_MEM_3_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_28_]], [[VAR_16_]]{{.}} : memref<1028x256xf32>, vector<4xf32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_3_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_3_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
-// CHECK:               [[VAR_37_:%.+]] = arith.cmpf ogt, [[LOAD_RES_1_MEM_3_]], [[LOAD_PARAM_0_MEM_3_]] : vector<4xf32>
-// CHECK:               [[VAR_38_:%.+]] = arith.select [[VAR_37_]], [[LOAD_RES_1_MEM_3_]], [[LOAD_PARAM_0_MEM_3_]] : vector<4xi1>, vector<4xf32>
-// CHECK:               vector.store [[VAR_38_]], [[RES_1_]]{{.}}[[CST_3_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
+// CHECK:               [[VAR_31_:%.+]] = arith.maxnumf [[LOAD_RES_1_MEM_3_]], [[LOAD_PARAM_0_MEM_3_]] : vector<4xf32>
+// CHECK:               vector.store [[VAR_31_]], [[RES_1_]]{{.}}[[CST_3_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
 // CHECK:             }
 // CHECK-DAG:         [[LOAD_RES_1_MEM_4_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
 // CHECK-DAG:         [[LOAD_RES_1_MEM_5_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_1_]], [[CST_0_]]{{.}} : memref<4x4xf32>, vector<4xf32>
@@ -845,17 +839,15 @@ func.func private @test_reducemax_v13_bis(%arg0 : tensor<1028x256xf32>) -> tenso
 // CHECK-NOT: separator of consecutive DAGs
 // CHECK-DAG:         [[VAR_7_:%.+]] = vector.shuffle [[LOAD_RES_1_MEM_4_]], [[LOAD_RES_1_MEM_5_]] [0, 4, 1, 5] : vector<4xf32>, vector<4xf32>
 // CHECK-DAG:         [[VAR_8_:%.+]] = vector.shuffle [[LOAD_RES_1_MEM_4_]], [[LOAD_RES_1_MEM_5_]] [2, 6, 3, 7] : vector<4xf32>, vector<4xf32>
-// CHECK:             [[VAR_9_:%.+]] = arith.cmpf ogt, [[VAR_7_]], [[VAR_8_]] : vector<4xf32>
-// CHECK-DAG:         [[VAR_10_:%.+]] = arith.select [[VAR_9_]], [[VAR_7_]], [[VAR_8_]] : vector<4xi1>, vector<4xf32>
-// CHECK-DAG:         [[VAR_11_:%.+]] = vector.shuffle [[LOAD_RES_1_MEM_6_]], [[LOAD_RES_1_MEM_7_]] [0, 4, 1, 5] : vector<4xf32>, vector<4xf32>
-// CHECK-DAG:         [[VAR_12_:%.+]] = vector.shuffle [[LOAD_RES_1_MEM_6_]], [[LOAD_RES_1_MEM_7_]] [2, 6, 3, 7] : vector<4xf32>, vector<4xf32>
-// CHECK:             [[VAR_13_:%.+]] = arith.cmpf ogt, [[VAR_11_]], [[VAR_12_]] : vector<4xf32>
-// CHECK:             [[VAR_14_:%.+]] = arith.select [[VAR_13_]], [[VAR_11_]], [[VAR_12_]] : vector<4xi1>, vector<4xf32>
-// CHECK-DAG:         [[VAR_15_:%.+]] = vector.shuffle [[VAR_10_]], [[VAR_14_]] [0, 1, 4, 5] : vector<4xf32>, vector<4xf32>
-// CHECK-DAG:         [[VAR_16_:%.+]] = vector.shuffle [[VAR_10_]], [[VAR_14_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
-// CHECK:             [[VAR_17_:%.+]] = arith.cmpf ogt, [[VAR_15_]], [[VAR_16_]] : vector<4xf32>
-// CHECK:             [[VAR_18_:%.+]] = arith.select [[VAR_17_]], [[VAR_15_]], [[VAR_16_]] : vector<4xi1>, vector<4xf32>
-// CHECK:             vector.store [[VAR_18_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<1028xf32>, vector<4xf32>
+// CHECK-NOT: separator of consecutive DAGs
+// CHECK-DAG:         [[VAR_9_:%.+]] = arith.maxnumf [[VAR_7_]], [[VAR_8_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_10_:%.+]] = vector.shuffle [[LOAD_RES_1_MEM_6_]], [[LOAD_RES_1_MEM_7_]] [0, 4, 1, 5] : vector<4xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_11_:%.+]] = vector.shuffle [[LOAD_RES_1_MEM_6_]], [[LOAD_RES_1_MEM_7_]] [2, 6, 3, 7] : vector<4xf32>, vector<4xf32>
+// CHECK:             [[VAR_12_:%.+]] = arith.maxnumf [[VAR_10_]], [[VAR_11_]] : vector<4xf32>
+// CHECK-DAG:         [[VAR_13_:%.+]] = vector.shuffle [[VAR_9_]], [[VAR_12_]] [0, 1, 4, 5] : vector<4xf32>, vector<4xf32>
+// CHECK-DAG:         [[VAR_14_:%.+]] = vector.shuffle [[VAR_9_]], [[VAR_12_]] [2, 3, 6, 7] : vector<4xf32>, vector<4xf32>
+// CHECK:             [[VAR_15_:%.+]] = arith.maxnumf [[VAR_13_]], [[VAR_14_]] : vector<4xf32>
+// CHECK:             vector.store [[VAR_15_]], [[RES_]]{{.}}[[VAR_1_]]{{.}} : memref<1028xf32>, vector<4xf32>
 // CHECK:           }
 // CHECK:           return [[RES_]] : memref<1028xf32>
 // CHECK:         }
@@ -886,9 +878,8 @@ func.func private @test_reducemax_int_v13(%arg0 : tensor<128x256x768xi32>) -> te
 // CHECK:               [[VAR_5_:%.+]] = krnl.get_induction_var_value([[BLOCK_TILE__0_]]) : (!krnl.loop) -> index
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_5_]]{{.}} : memref<128x256x768xi32>, vector<16xi32>
 // CHECK-DAG:           [[LOAD_RES_1_MEM_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<1x16xi32>, vector<16xi32>
-// CHECK:               [[VAR_8_:%.+]] = arith.cmpi sgt, [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : vector<16xi32>
-// CHECK:               [[VAR_9_:%.+]] = arith.select [[VAR_8_]], [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : vector<16xi1>, vector<16xi32>
-// CHECK:               vector.store [[VAR_9_]], [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<1x16xi32>, vector<16xi32>
+// CHECK:               [[VAR_8_:%.+]] = arith.maxsi [[LOAD_RES_1_MEM_]], [[LOAD_PARAM_0_MEM_]] : vector<16xi32>
+// CHECK:               vector.store [[VAR_8_]], [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<1x16xi32>, vector<16xi32>
 // CHECK:             }
 // CHECK:             [[LOAD_RES_1_MEM_1_:%.+]] = vector.load [[RES_1_]]{{.}}[[CST_0_]], [[CST_0_]]{{.}} : memref<1x16xi32>, vector<16xi32>
 // CHECK:             [[VAR_4_:%.+]] = vector.reduction <maxsi>, [[LOAD_RES_1_MEM_1_]] : vector<16xi32> into i32

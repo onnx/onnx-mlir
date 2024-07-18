@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
 #include "src/Accelerators/NNPA/Support/LayoutHelper.hpp"
 
@@ -470,6 +471,15 @@ bool hasNNPAUse(Value v) {
             !isa<ZHighStickOp, ZHighUnstickOp, ZHighStickForLSTMOp,
                 ZHighStickForGRUOp>(op));
   });
+}
+
+/// Get default saturation setting.
+IntegerAttr getDefaultSaturation(PatternRewriter &rewriter) {
+  Type si64Ty = rewriter.getIntegerType(64, true);
+  if (nnpaEnableSaturation)
+    return rewriter.getIntegerAttr(si64Ty, -1);
+  else
+    return IntegerAttr();
 }
 
 } // namespace zhigh
