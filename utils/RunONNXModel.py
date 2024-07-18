@@ -161,8 +161,7 @@ data_group.add_argument(
     " If --verify=ref, inputs and outputs are reference data for verification",
 )
 data_group.add_argument(
-    "--inputs-from-arrays",
-    help="List of numpy arrays used as inputs for inference"
+    "--inputs-from-arrays", help="List of numpy arrays used as inputs for inference"
 )
 data_group.add_argument(
     "--load-ref-from-numpy",
@@ -876,18 +875,22 @@ def main():
                     verify_outs(outs[i], ref_outs[i])
         return outs
 
+
 # Python function inteface for RunONNXModel
 # Arguments are passed as named parameters for the function
 # Extra functionality is to directly pass a list of arrays as inference input
 def onnxmlirrun(onnx_model=None, compiled_so=None, inputs=None):
-    assert (onnx_model is None) ^ (compiled_so is None), "exactly one of onnx_model and compiled_so parameter should be provided"
-    if onnx_model :
+    assert (onnx_model is None) ^ (
+        compiled_so is None
+    ), "exactly one of onnx_model and compiled_so parameter should be provided"
+    if onnx_model:
         args.model = onnx_model
-    if compiled_so :
+    if compiled_so:
         args.load_so = compiled_so
-    if inputs :
+    if inputs:
         args.inputs_from_arrays = inputs
     return main()
-  
+
+
 if __name__ == "__main__":
     main()
