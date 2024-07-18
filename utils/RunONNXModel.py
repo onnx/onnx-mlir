@@ -880,6 +880,7 @@ def main():
 # Arguments are passed as named parameters for the function
 # Extra functionality is to directly pass a list of arrays as inference input
 def onnxmlirrun(onnx_model=None, compiled_so=None, inputs=None):
+    assert (onnx_model is None) ^ (compiled_so is None), "exactly one of onnx_model and compiled_so parameter should be provided"
     if onnx_model :
         args.model = onnx_model
     if compiled_so :
