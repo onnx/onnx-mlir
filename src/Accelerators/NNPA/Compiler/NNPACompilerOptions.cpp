@@ -49,6 +49,8 @@ llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
         "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+// Enabled default now, could also enable it only if parallel is on as parallel
+// stick/unstick is quite a bit faster than sequential.
 llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
     "enable-compiler-stick-unstick",
     llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
