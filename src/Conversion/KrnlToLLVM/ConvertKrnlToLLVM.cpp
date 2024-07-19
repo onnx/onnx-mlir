@@ -519,13 +519,11 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
   // The file will be mmaped later at runtime and aligned at the page boundary,
-  // So every constants must be correctly aligned in the packed constant. Pads
-  // are added if necessary.
+  // So every constants must be correctly aligned. Pads are added if necessary.
   llvm::sys::fs::remove(filepath);
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
   int64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
-    std::vector<char> packedConst;
     KrnlGlobalOp op = globalOfInterest[i];
     ArrayRef<char> rawData = getRawData(op);
 
@@ -540,14 +538,14 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
           ((uint64_t)(totalConstSize / alignment) + 1) * alignment -
           totalConstSize;
       SmallVector<char> pads(padSize, (char)0);
-      packedConst.insert(packedConst.end(), pads.begin(), pads.end());
+      outfile.write(pads.data(), pads.size());
+      totalConstSize += pads.size();
     }
 
-    op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize + packedConst.size()));
+    op.setOffsetAttr(b.getI64IntegerAttr(totalConstSize));
     op.removeValueAttr();
-    packedConst.insert(packedConst.end(), rawData.begin(), rawData.end());
-    outfile.write(packedConst.data(), packedConst.size());
-    totalConstSize += packedConst.size();
+    outfile.write(rawData.data(), rawData.size());
+    totalConstSize += rawData.size();
   }
 
   // No constant statisfying thresholds, do not store constants to file.
