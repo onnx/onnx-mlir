@@ -522,7 +522,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // So every constants must be correctly aligned. Pads are added if necessary.
   llvm::sys::fs::remove(filepath);
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
-  int64_t totalConstSize = 0;
+  uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
     KrnlGlobalOp op = globalOfInterest[i];
     ArrayRef<char> rawData = getRawData(op);
