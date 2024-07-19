@@ -297,10 +297,14 @@ def ZLowStickOp:ZLow_Op<"stick", [MemRefsNormalizable,
   }];
   let arguments = (ins MemRefOf<[F16, F32]>:$X,
                        ZMemRef:$Out,
-                       OptionalAttr<StrAttr>:$layout);
+                       OptionalAttr<StrAttr>:$layout,
+                       OptionalAttr<SI64Attr>:$saturation);
   let builders = [
     OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out), [{
-      build($_builder, $_state, X, Out, StringAttr());
+      build($_builder, $_state, X, Out, StringAttr(), IntegerAttr());
+    }]>,
+    OpBuilder<(ins "::mlir::Value":$X, "::mlir::Value":$Out, "::mlir::StringAttr":$layout), [{
+      build($_builder, $_state, X, Out, layout, IntegerAttr());
     }]>
   ];
 }
