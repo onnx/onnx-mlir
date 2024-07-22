@@ -70,8 +70,8 @@ public:
       if (isa<func::FuncDialect>(dialect) || isa<ONNXPrintSignatureOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
         // as ONNX print signature ops.
-      } else if (onnx_mlir::OnnxToKrnlLoweringConfiguration::traceSpecificOpSignatures
-                     .isEnabled(opName)) {
+      } else if (onnx_mlir::OnnxToKrnlLoweringConfiguration::
+                     traceSpecificOpSignatures.isEnabled(opName)) {
         // Add signature printing op.
         Location loc = op->getLoc();
         OpBuilder builder(op);
