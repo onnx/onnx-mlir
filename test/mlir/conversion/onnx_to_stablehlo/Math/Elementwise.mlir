@@ -59,7 +59,7 @@ func.func @test_elu(%arg0 : tensor<20x40xf32>) -> tensor<20x40xf32> {
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.exponential [[PARAM_0_]] : tensor<20x40xf32>
 // CHECK:           [[VAR_4_:%.+]] = stablehlo.subtract [[VAR_3_]], [[VAR_2_]] : tensor<20x40xf32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = stablehlo.multiply [[VAR_1_]], [[VAR_4_]] : tensor<20x40xf32>
-// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.compare  GE, [[PARAM_0_]], [[VAR_0_]],  NOTYPE : (tensor<20x40xf32>, tensor<20x40xf32>) -> tensor<20x40xi1>
+// CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.compare  GE, [[PARAM_0_]], [[VAR_0_]] : (tensor<20x40xf32>, tensor<20x40xf32>) -> tensor<20x40xi1>
 // CHECK:           [[VAR_7_:%.+]] = stablehlo.select [[VAR_6_]], [[PARAM_0_]], [[VAR_5_]] : tensor<20x40xi1>, tensor<20x40xf32>
 // CHECK:           return [[VAR_7_]] : tensor<20x40xf32>
 // CHECK:         }
@@ -287,7 +287,7 @@ func.func @test_less(%arg0: tensor<3x4x5xf32>, %arg1: tensor<3x4x5xf32>) -> tens
 // CHECK:           [[VAR_0_:%.+]] = shape.const_shape [3, 4, 5] : tensor<3xindex>
 // CHECK-DAG:       [[VAR_1_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_0_]], [[VAR_0_]], dims = [0, 1, 2] : (tensor<3x4x5xf32>, tensor<3xindex>) -> tensor<3x4x5xf32>
 // CHECK-DAG:       [[VAR_2_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_1_]], [[VAR_0_]], dims = [0, 1, 2] : (tensor<3x4x5xf32>, tensor<3xindex>) -> tensor<3x4x5xf32>
-// CHECK:           [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_1_]], [[VAR_2_]],  NOTYPE : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
+// CHECK:           [[VAR_3_:%.+]] = stablehlo.compare  LT, [[VAR_1_]], [[VAR_2_]] : (tensor<3x4x5xf32>, tensor<3x4x5xf32>) -> tensor<3x4x5xi1>
 // CHECK:           return [[VAR_3_]] : tensor<3x4x5xi1>
 // CHECK:         }
 
@@ -305,7 +305,7 @@ func.func @test_binary_elementwise_op_template_unknown_dims(%arg0: tensor<?x4x5x
 // CHECK:           [[VAR_2_:%.+]] = shape.broadcast [[VAR_0_]], [[VAR_1_]] : tensor<3xindex>, tensor<3xindex> -> tensor<3xindex>
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_0_]], [[VAR_2_]], dims = [0, 1, 2] : (tensor<?x4x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_1_]], [[VAR_2_]], dims = [0, 1, 2] : (tensor<1x?x1xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
-// CHECK:           [[VAR_5_:%.+]] = stablehlo.compare  LT, [[VAR_3_]], [[VAR_4_]],  NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+// CHECK:           [[VAR_5_:%.+]] = stablehlo.compare  LT, [[VAR_3_]], [[VAR_4_]] : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 // CHECK:           return [[VAR_5_]] : tensor<?x4x5xi1>
 // CHECK:         }
 
@@ -323,7 +323,7 @@ func.func @test_less_unknown_dims_2(%arg0: tensor<?x?x5xf32>, %arg1: tensor<?x4x
 // CHECK:           [[VAR_2_:%.+]] = shape.broadcast [[VAR_0_]], [[VAR_1_]] : tensor<3xindex>, tensor<3xindex> -> tensor<3xindex>
 // CHECK-DAG:       [[VAR_3_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_0_]], [[VAR_2_]], dims = [0, 1, 2] : (tensor<?x?x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[PARAM_1_]], [[VAR_2_]], dims = [0, 1, 2] : (tensor<?x4x5xf32>, tensor<3xindex>) -> tensor<?x4x5xf32>
-// CHECK:           [[VAR_5_:%.+]] = stablehlo.compare  LT, [[VAR_3_]], [[VAR_4_]],  NOTYPE : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
+// CHECK:           [[VAR_5_:%.+]] = stablehlo.compare  LT, [[VAR_3_]], [[VAR_4_]] : (tensor<?x4x5xf32>, tensor<?x4x5xf32>) -> tensor<?x4x5xi1>
 // CHECK:           return [[VAR_5_]] : tensor<?x4x5xi1>
 // CHECK:         }
 
@@ -447,7 +447,7 @@ func.func @test_leakyrelu_dynamic(%arg0 : tensor<?x10xf32>) -> tensor<?x10xf32> 
 // CHECK-DAG:       [[VAR_4_:%.+]] = stablehlo.multiply [[PARAM_0_]], [[VAR_3_]] : tensor<?x10xf32>
 // CHECK-DAG:       [[VAR_5_:%.+]] = shape.shape_of [[PARAM_0_]] : tensor<?x10xf32> -> tensor<2xindex>
 // CHECK:           [[VAR_6_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_0_]], [[VAR_5_]], dims = [] : (tensor<f32>, tensor<2xindex>) -> tensor<?x10xf32>
-// CHECK:           [[VAR_7_:%.+]] = stablehlo.compare  GT, [[PARAM_0_]], [[VAR_6_]],  NOTYPE : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xi1>
+// CHECK:           [[VAR_7_:%.+]] = stablehlo.compare  GT, [[PARAM_0_]], [[VAR_6_]] : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x10xi1>
 // CHECK:           [[VAR_8_:%.+]] = stablehlo.select [[VAR_7_]], [[PARAM_0_]], [[VAR_4_]] : tensor<?x10xi1>, tensor<?x10xf32>
 // CHECK:           return [[VAR_8_]] : tensor<?x10xf32>
 // CHECK:         }
@@ -469,7 +469,7 @@ func.func @test_prelu_dynamic(%arg0 : tensor<?x10x12x12xf32>, %arg1: tensor<10x1
 // CHECK-DAG:       [[VAR_6_:%.+]] = stablehlo.multiply [[VAR_4_]], [[VAR_5_]] : tensor<?x10x12x12xf32>
 // CHECK-DAG:       [[VAR_7_:%.+]] = shape.shape_of [[VAR_4_]] : tensor<?x10x12x12xf32> -> tensor<4xindex>
 // CHECK:           [[VAR_8_:%.+]] = stablehlo.dynamic_broadcast_in_dim [[VAR_0_]], [[VAR_7_]], dims = [] : (tensor<f32>, tensor<4xindex>) -> tensor<?x10x12x12xf32>
-// CHECK:           [[VAR_9_:%.+]] = stablehlo.compare  GT, [[VAR_4_]], [[VAR_8_]],  NOTYPE : (tensor<?x10x12x12xf32>, tensor<?x10x12x12xf32>) -> tensor<?x10x12x12xi1>
+// CHECK:           [[VAR_9_:%.+]] = stablehlo.compare  GT, [[VAR_4_]], [[VAR_8_]] : (tensor<?x10x12x12xf32>, tensor<?x10x12x12xf32>) -> tensor<?x10x12x12xi1>
 // CHECK:           [[VAR_10_:%.+]] = stablehlo.select [[VAR_9_]], [[VAR_4_]], [[VAR_6_]] : tensor<?x10x12x12xi1>, tensor<?x10x12x12xf32>
 // CHECK:           return [[VAR_10_]] : tensor<?x10x12x12xf32>
 // CHECK:         }
