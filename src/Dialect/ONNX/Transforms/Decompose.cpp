@@ -24,7 +24,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -1060,122 +1060,17 @@ struct DecomposeONNXToONNXPass
 void DecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
-
-  ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
-
-  // These ops will be decomposed into other ONNX ops. Hence, they will not be
-  // available after this pass.
-  target.addIllegalOp<ONNXCastLikeOp>();
-  target.addIllegalOp<ONNXClipV11Op>();
-  target.addIllegalOp<ONNXClipV12Op>();
-  target.addIllegalOp<ONNXClipV6Op>();
-  target.addIllegalOp<ONNXConstantOfShapeOp>();
-  // In some instances the decomposition does not trigger and we are left these
-  // operations. One reason is the input to the operation has unknown shapes.
-  // However, the decompose pass is executed multiple times in the pipeline and
-  // between the executions shape inference is called resolving the issue. That
-  // is why GroupNormalization and InstanceNormalization will be marked as
-  // dynamically legal.
-  target.addDynamicallyLegalOp<ONNXGroupNormalizationOp>(
-      [](ONNXGroupNormalizationOp op) {
-        return !GroupNormIntoLayerNormPattern::isDecomposable(op);
-      });
-  target.addDynamicallyLegalOp<ONNXInstanceNormalizationOp>(
-      [](ONNXInstanceNormalizationOp op) {
-        return !InstanceNormIntoLayerNormPattern::isDecomposable(op);
-      });
-  target.addDynamicallyLegalOp<ONNXBatchNormalizationOp>(
-      [](ONNXBatchNormalizationOp op) {
-        return !op.getRunningMean().use_empty() ||
-               !op.getRunningVar().use_empty();
-      });
-  target.addDynamicallyLegalOp<ONNXBatchNormalizationV9Op>(
-      [](ONNXBatchNormalizationV9Op op) {
-        return !op.getSavedMean().use_empty() || !op.getSavedVar().use_empty();
-      });
-  target.addIllegalOp<ONNXLogSoftmaxOp>();
-  target.addIllegalOp<ONNXPadV11Op>();
-  target.addIllegalOp<ONNXPadV13Op>();
-  target.addIllegalOp<ONNXPadV18Op>();
-  target.addIllegalOp<ONNXPadV2Op>();
-  target.addIllegalOp<ONNXReduceL1Op>();
-  target.addIllegalOp<ONNXReduceL1V13Op>();
-  target.addIllegalOp<ONNXReduceL2Op>();
-  target.addIllegalOp<ONNXReduceL2V13Op>();
-  target.addIllegalOp<ONNXReduceLogSumExpOp>();
-  target.addIllegalOp<ONNXReduceLogSumOp>();
-  target.addIllegalOp<ONNXReduceMaxV18Op>();
-  target.addIllegalOp<ONNXReduceMinV18Op>();
-  target.addIllegalOp<ONNXReduceSumSquareOp>();
-  target.addIllegalOp<ONNXResizeV10Op>();
-  target.addIllegalOp<ONNXResizeV11Op>();
-  target.addIllegalOp<ONNXResizeV13Op>();
-  target.addIllegalOp<ONNXResizeV18Op>();
-  target.addIllegalOp<ONNXScalerOp>();
-  target.addIllegalOp<ONNXScatterOp>();
-  target.addIllegalOp<ONNXSequenceConstructOp>();
-  target.addIllegalOp<ONNXSplitV11Op>();
-  target.addIllegalOp<ONNXSplitV13Op>();
-  target.addIllegalOp<ONNXSqueezeV11Op>();
-  target.addIllegalOp<ONNXUnsqueezeV11Op>();
-  target.addIllegalOp<ONNXUpsampleOp>();
-  target.addIllegalOp<ONNXUpsampleV7Op>();
-  target.addIllegalOp<ONNXHardSwishOp>();
-
-  target.addDynamicallyLegalOp<ONNXEinsumOp>([](ONNXEinsumOp op) {
-    return !onnx_mlir::DecomposeEinsumPattern::isDecomposable(op);
-  });
-
-  target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
-    ONNXShapeOp shapeOp;
-    ONNXTransposeOp transposeOp;
-    return !isConcatFuseMatched(op, shapeOp, transposeOp);
-  });
-
-  // Rewrite ONNXConstantOp with scalar values into the one using ElementAttrs.
-  target.addDynamicallyLegalOp<ONNXConstantOp>([](ONNXConstantOp op) {
-    return !(op.getValueFloatAttr() || op.getValueFloatsAttr() ||
-             op.getValueIntAttr() || op.getValueIntsAttr() ||
-             op.getValueStringAttr() || op.getValueStringsAttr());
-  });
-
-  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
-  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
-  target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
-    int64_t rankA, rankB;
-    FloatAttr alpha;
-    return !CustomOpFuseMatMulPattern::isCustomOpFusedMatMulMatched(
-        op, alpha, rankA, rankB);
-  });
-
-#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
-#ifdef ONNX_MLIR_ENABLE_STABLEHLO
-  // ONNXtoStablehlo pass has own rewriting for ConvTranspose Op using
-  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
-  // is disabled when the target is stablehlo.
-  if (this->target != "stablehlo") {
-#endif
-    target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
-        [](ONNXConvTransposeOp op) {
-          return !onnx_mlir::shouldDecomposeConvTransposeOp(op);
-        });
-#ifdef ONNX_MLIR_ENABLE_STABLEHLO
-  }
-#endif
-#endif
-
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
+
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
     populateDecomposingONNXBeforeStablehloPatterns(patterns, context);
-    target.addIllegalOp<ONNXSoftmaxOp>();
   }
 #endif
 
-  if (failed(applyPartialConversion(function, target, std::move(patterns))))
+  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
