@@ -51,7 +51,7 @@ void configurePasses() {
       disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, parallelizeOps, optReport == OptReport::Simd,
-      !disableSimdOption);
+      !disableSimdOption, instrumentSignatures);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
@@ -157,7 +157,7 @@ void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
 }
 
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFormat) {
+    std::string instrumentSignatureString, std::string ONNXOpsStatFormat) {
   if (enableCSE)
     // Eliminate common sub-expressions before lowering to Krnl.
     // TODO: enable this by default when we make sure it works flawlessly.
@@ -182,8 +182,9 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   }
 
   // Print Signatures of each op at runtime if enabled. Should not run
-  // signature and instrument passes at the same time.
-  if (enableInstrumentONNXSignature)
+  // signature and instrument passes at the same time as time may include printf
+  // overheads.
+  if (instrumentSignatureString != "NONE")
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::createInstrumentONNXSignaturePass());
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
@@ -304,7 +305,7 @@ void addPasses(mlir::OwningOpRef<ModuleOp> &module, mlir::PassManager &pm,
   if (emissionTarget >= EmitMLIR) {
     if (inputIRLevel <= ONNXLevel)
       addONNXToKrnlPasses(pm, OptimizationLevel, /*enableCSE*/ true,
-          instrumentONNXSignature, ONNXOpStats);
+          instrumentSignatures, ONNXOpStats);
     if (inputIRLevel <= MLIRLevel)
       addKrnlToAffinePasses(pm);
   }

@@ -477,11 +477,13 @@ std::string OnnxToKrnlLoweringConfiguration::defaultParallelComment = "";
 std::string OnnxToKrnlLoweringConfiguration::defaultSimdComment = "";
 EnableByRegexOption OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps(
     /*emptyIsNone*/ false);
+EnableByRegexOption OnnxToKrnlLoweringConfiguration::traceSpecificOpSignatures(
+    /*emptyIsNone*/ false);
 
 // Function to set default reporting messages, if any.
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
-    bool simdIsEnabled) {
+    bool simdIsEnabled, std::string instrumentSignatures) {
   OnnxToKrnlLoweringConfiguration::reportOnParallel = reportOnParallel;
   OnnxToKrnlLoweringConfiguration::reportOnSimd = reportOnSimd;
   if (reportOnParallel && !parallelIsEnabled)
@@ -502,6 +504,8 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     // We have parallelism, enable specific parallel ops if available.
     OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexString(
         specificParallelOps);
+  OnnxToKrnlLoweringConfiguration::traceSpecificOpSignatures.setRegexString(
+      instrumentSignatures);
 }
 
 } // namespace onnx_mlir

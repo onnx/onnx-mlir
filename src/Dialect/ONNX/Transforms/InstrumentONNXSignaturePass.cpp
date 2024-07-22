@@ -24,6 +24,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp"
 #include "src/Interface/ShapeInferenceOpInterface.hpp"
@@ -64,23 +65,27 @@ public:
   void runOnOperation() override {
     // Iterate on the operations nested in this function.
     getOperation().walk([&](mlir::Operation *op) {
-      if (isa<ONNXDialect>(op->getDialect())) {
-        if (!isa<ONNXPrintSignatureOp>(op)) {
-          Location loc = op->getLoc();
-          OpBuilder builder(op);
-          std::string opName = op->getName().getStringRef().str();
-          std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
-          std::string fullName = opName + ", " + nodeName;
-          StringAttr fullNameAttr = builder.getStringAttr(fullName);
-          // Enqueue all input operands, and then the results.
-          llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
-          for (Value res : op->getResults())
-            operAndRes.emplace_back(res);
-          // Since we may use the result of an operation, we must insert the
-          // print operation after the operation.
-          builder.setInsertionPointAfter(op);
-          builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operAndRes);
-        }
+      std::string opName = op->getName().getStringRef().str();
+      auto dialect = op->getDialect();
+      if (isa<func::FuncDialect>(dialect) || isa<ONNXPrintSignatureOp>(op)) {
+        // Always skip function dialects (such as function call/return), as well
+        // as ONNX print signature ops.
+      } else if (onnx_mlir::OnnxToKrnlLoweringConfiguration::traceSpecificOpSignatures
+                     .isEnabled(opName)) {
+        // Add signature printing op.
+        Location loc = op->getLoc();
+        OpBuilder builder(op);
+        std::string nodeName = onnx_mlir::getNodeNameInPresenceOfOpt(op);
+        std::string fullName = opName + ", " + nodeName;
+        StringAttr fullNameAttr = builder.getStringAttr(fullName);
+        // Enqueue all input operands, and then the results.
+        llvm::SmallVector<Value, 6> operAndRes(op->getOperands());
+        for (Value res : op->getResults())
+          operAndRes.emplace_back(res);
+        // Since we may use the result of an operation, we must insert the
+        // print operation after the operation.
+        builder.setInsertionPointAfter(op);
+        builder.create<ONNXPrintSignatureOp>(loc, fullNameAttr, operAndRes);
       }
     });
   }

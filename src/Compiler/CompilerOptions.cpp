@@ -64,7 +64,7 @@ std::string mllvm;                                     // onnx-mlir only
 std::string instrumentOps;                             // onnx-mlir only
 unsigned instrumentControlBits;                        // onnx-mlir only
 std::string parallelizeOps;                            // onnx-mlir only
-bool instrumentONNXSignature;                          // onnx-mlir only
+std::string instrumentSignatures;                       // onnx-mlir only
 std::string ONNXOpStats;                               // onnx-mlir only
 int onnxOpTransformThreshold;                          // onnx-mlir only
 bool onnxOpTransformReport;                            // onnx-mlir only
@@ -432,10 +432,17 @@ static llvm::cl::opt<std::string, true> parallelizeOpsOpt("parallelize-ops",
     llvm::cl::location(parallelizeOps), llvm::cl::init(""),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<bool, true> instrumentONNXSignatureOpt(
-    "instrument-onnx-signature",
-    llvm::cl::desc("Instrument ONNX ops to print the type of their inputs"),
-    llvm::cl::location(instrumentONNXSignature), llvm::cl::init(false),
+static llvm::cl::opt<std::string, true> instrumentSignatureOpt(
+    "instrument-signature",
+    llvm::cl::desc("Specify which high-level operations should print their"
+                   " input type(s) and shape(s)\n"
+                   "\"ALL\" or \"\" for all available operations,\n"
+                   "\"NONE\" for no instrument (default),\n"
+                   "\"ops1,ops2, ...\" for the multiple ops.\n"
+                   "e.g. \"onnx.MatMul,onnx.Add\" for MatMul and Add ops.\n"
+                   "Asterisk is also available.\n"
+                   "e.g. \"onnx.*\" for all onnx operations.\n"),
+    llvm::cl::location(instrumentSignatures), llvm::cl::init("NONE"),
     llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> ONNXOpStatsOpt("onnx-op-stats",

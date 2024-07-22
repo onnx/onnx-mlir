@@ -607,6 +607,7 @@ struct OnnxToKrnlLoweringConfiguration {
   static int reportOnSimd;
   static std::string defaultSimdComment;
   static EnableByRegexOption enableSpecificParallelOps;
+  static EnableByRegexOption traceSpecificOpSignatures;
 };
 
 namespace impl {
