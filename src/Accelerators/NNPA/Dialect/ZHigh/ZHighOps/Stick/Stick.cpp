@@ -28,8 +28,8 @@ namespace zhigh {
 // Custom builders
 //===----------------------------------------------------------------------===//
 
-void ZHighStickOp::build(
-    OpBuilder &builder, OperationState &state, Value input, StringAttr layout) {
+void ZHighStickOp::build(OpBuilder &builder, OperationState &state, Value input,
+    StringAttr layout, IntegerAttr saturation) {
   Type resType = builder.getNoneType();
   Type resElementType = builder.getF16Type();
   if (!mlir::isa<NoneType>(input.getType())) {
@@ -63,7 +63,7 @@ void ZHighStickOp::build(
       resType = UnrankedTensorType::get(resElementType);
     }
   }
-  build(builder, state, resType, input, layout);
+  build(builder, state, resType, input, layout, saturation);
 }
 
 //===----------------------------------------------------------------------===//

@@ -133,6 +133,9 @@ def CreateSqrtOfConst :
 def CreateReluOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXReluOp>($_builder, $0, $1)">;
 
+def CreateReciprocalOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXReciprocalOp>($_builder, $0, $1)">;
+
 def CreateMaxOfConst :
    NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXMaxOp>($_builder, $0, $1)">;
 
@@ -379,6 +382,14 @@ def ReluofConst : NamedPat<"ReluofConst",
     (ONNXReluOp:$reluOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To relu(c)
     (CreateReluOfConst $reluOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Reciprocal
+def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
+    // From  onnx.Reciprocal(c)
+    (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To reciprocal(c)
+    (CreateReciprocalOfConst $reciprocalOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
 //===----------------------------------------------------------------------===//

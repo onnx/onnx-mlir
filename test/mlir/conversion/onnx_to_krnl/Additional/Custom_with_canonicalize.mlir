@@ -9,7 +9,7 @@ func.func @test_cumstom_multiple_output(%arg0: tensor<4x2xf32>) -> tensor<4x2xf3
         [1.0, 2.0, 3.0, 4.0, 5.0], [6.0, 7.0, 8.0, 9.0, 10.0],
         [1.0, 2.0, 3.0, 4.0, 5.0], [1.0, 2.0, 3.0, 4.0, 5.0]
       ]> : tensor<4x5xf32>
-  %0,%1 = "onnx.Custom"(%cst) {function_name = "Decompose", r_value = 2 : si64} : (tensor<4x5xf32>) -> (tensor<4x2xf32>, tensor<2x5xf32>)
+  %0,%1 = "onnx.Custom"(%cst) {function_name = "Decompose", r_value = 2 : si64, shape_infer_pattern = "SameAs"} : (tensor<4x5xf32>) -> (tensor<4x2xf32>, tensor<2x5xf32>)
   %2 = "onnx.Add"(%arg0, %0) : (tensor<4x2xf32>, tensor<4x2xf32>) -> tensor<4x2xf32>
   return %2 : tensor<4x2xf32>
 }

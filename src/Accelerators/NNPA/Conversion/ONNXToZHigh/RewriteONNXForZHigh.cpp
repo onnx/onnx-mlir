@@ -4,7 +4,7 @@
 
 //===--- RewriteONNXForZHigh.cpp - Rewrite ONNX ops for ZHigh lowering ----===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -27,8 +27,9 @@
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXLegalityCheck.hpp"
 #include "src/Accelerators/NNPA/Conversion/ONNXToZHigh/ONNXToZHighCommon.hpp"
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp"
+#include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.hpp"
 #include "src/Accelerators/NNPA/Pass/NNPAPasses.hpp"
-#include "src/Accelerators/NNPA/Support/NNPALimit.h"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -292,8 +293,7 @@ Type CreatePaddedXType(Value x, ArrayAttr pads) {
 
 /// This pattern is to split a large MatMul into smaller ones that fit into
 /// NNPA. Given (NxK) * (K*M), the pattern considers dimensions N and/or M to
-/// split, if N and/or M is greater than NNPA_MAXIMUM_DIMENSION_INDEX_SIZE
-/// (MDIS).
+/// split, if N and/or M is greater than NNPAGetMaxForDim (MDIS).
 /// For example, given A(NxK) * B(KxM), we will split A and B as follows.
 // clang-format off
 ///
@@ -406,8 +406,8 @@ public:
     // Expect N or M exceeds NNPA limitation.
     int64_t N = aShape[aRank - 2];
     int64_t M = bShape[bRank - 1];
-    nExceeded = N > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
-    mExceeded = M > NNPA_MAXIMUM_DIMENSION_INDEX_SIZE;
+    nExceeded = N > NNPAGetMaxForDim(aRank - 2, aRank);
+    mExceeded = M > NNPAGetMaxForDim(bRank - 1, bRank);
     if (!(nExceeded || mExceeded))
       return false;
 
@@ -533,7 +533,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXAddOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -548,7 +548,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXDivOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -561,7 +561,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -574,7 +574,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXSubOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
         // Check element type.
         if (!isValidElementTypeAndRank(op.getOperation(), op.getA(), true))
           return true;
@@ -598,7 +598,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       target, dimAnalysis, [](ONNXMatMulOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
         Value A = op.getA();
         Value B = op.getB();
@@ -668,7 +668,7 @@ void getRewriteONNXForZHighDynamicallyLegal(
       [](ONNXSoftmaxOp op, const DimAnalysis *dimAnalysis) {
         // Check NNPA level.
         if (!isCompatibleWithNNPALevel(NNPA_Z16))
-          return !onnxToZHighInCompatibilityReport(op.getOperation());
+          return !onnxToZHighInCompatibilityReport(op.getOperation(), NNPA_Z16);
 
         Value input = op.getInput();
         // std::string message = "The `input` is not reshaped to 3D because it

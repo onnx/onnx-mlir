@@ -414,9 +414,9 @@ Value MathBuilder::neq(Value lhs, Value rhs) const {
   llvm_unreachable("expected int or float");
 }
 
-Value MathBuilder::select(Value cmp, Value lhs, Value rhs) const {
-  assert(lhs.getType() == rhs.getType() && "expected same type");
-  return b().create<arith::SelectOp>(loc(), cmp, lhs, rhs);
+Value MathBuilder::select(Value cmp, Value trueVal, Value falseVal) const {
+  assert(trueVal.getType() == falseVal.getType() && "expected same type");
+  return b().create<arith::SelectOp>(loc(), cmp, trueVal, falseVal);
 }
 
 Value MathBuilder::constant(Type type, double val) const {

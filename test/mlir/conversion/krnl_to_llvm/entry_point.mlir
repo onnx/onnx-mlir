@@ -48,9 +48,11 @@ module {
 // CHECK-DAG:       [[VAR_3_5_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
 // CHECK:           [[VAR_4_3_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_3_5_]], [[VAR_1_5_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_5_3_:%.+]] = llvm.icmp "eq" [[VAR_4_3_]], [[VAR_2_5_]] : i32
-// CHECK:           llvm.cond_br [[VAR_5_3_]], ^bb1([[VAR_0_5_]] : !llvm.ptr), ^bb1([[VAR_0]] : !llvm.ptr)
-// CHECK:         ^bb1([[VAR_6_2_:%.+]]: !llvm.ptr):  // 2 preds: ^bb0, ^bb0
-// CHECK:           llvm.return [[VAR_6_2_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_5_3_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_0_5_]] : !llvm.ptr
+// CHECK:         ^bb2:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_0]] : !llvm.ptr
 // CHECK:         }
 
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
@@ -61,9 +63,11 @@ module {
 // CHECK-DAG:       [[VAR_3_6_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
 // CHECK:           [[VAR_4_4_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_3_6_]], [[VAR_1_6_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_5_4_:%.+]] = llvm.icmp "eq" [[VAR_4_4_]], [[VAR_2_6_]] : i32
-// CHECK:           llvm.cond_br [[VAR_5_4_]], ^bb1([[VAR_0_6_]] : !llvm.ptr), ^bb1([[VAR_0]] : !llvm.ptr)
-// CHECK:         ^bb1([[VAR_6_3_:%.+]]: !llvm.ptr):  // 2 preds: ^bb0, ^bb0
-// CHECK:           llvm.return [[VAR_6_3_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_5_4_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_0_6_]] : !llvm.ptr
+// CHECK:         ^bb2:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_0]] : !llvm.ptr
 // CHECK:         }
 }
 
@@ -129,13 +133,17 @@ module {
 // CHECK-DAG:       [[VAR_6_9_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
 // CHECK:           [[VAR_7_3_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_6_9_]], [[VAR_4_10_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_3_:%.+]] = llvm.icmp "eq" [[VAR_7_3_]], [[VAR_5_12_]] : i32
-// CHECK:           llvm.cond_br [[VAR_8_3_]], ^bb1([[VAR_3_15_]] : !llvm.ptr), ^bb2
-// CHECK:         ^bb1([[VAR_9_2_:%.+]]: !llvm.ptr):  // 3 preds: ^bb0, ^bb2, ^bb2
-// CHECK:           llvm.return [[VAR_9_2_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_8_3_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_3_15_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_10_3_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_2_15_]], [[VAR_1_15_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_11_3_:%.+]] = llvm.icmp "eq" [[VAR_10_3_]], [[VAR_5_12_]] : i32
-// CHECK:           llvm.cond_br [[VAR_11_3_]], ^bb1([[VAR_0_13_]] : !llvm.ptr), ^bb1([[VAR_0]] : !llvm.ptr)
+// CHECK:           llvm.cond_br [[VAR_11_3_]], ^bb3, ^bb4
+// CHECK:         ^bb3:  // pred: ^bb2
+// CHECK:           llvm.return [[VAR_0_13_]] : !llvm.ptr
+// CHECK:         ^bb4:  // pred: ^bb2
+// CHECK:           llvm.return [[VAR_0]] : !llvm.ptr
 // CHECK:         }
 
 // CHECK:         llvm.func @omOutputSignature([[arg0_:%.+]]: !llvm.ptr) -> !llvm.ptr {
@@ -149,13 +157,17 @@ module {
 // CHECK-DAG:       [[VAR_6_10_:%.+]] = llvm.mlir.addressof @_entry_point_0 : !llvm.ptr
 // CHECK:           [[VAR_7_4_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_6_10_]], [[VAR_4_11_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_8_4_:%.+]] = llvm.icmp "eq" [[VAR_7_4_]], [[VAR_5_13_]] : i32
-// CHECK:           llvm.cond_br [[VAR_8_4_]], ^bb1([[VAR_3_16_]] : !llvm.ptr), ^bb2
-// CHECK:         ^bb1([[VAR_9_2_:%.+]]: !llvm.ptr):  // 3 preds: ^bb0, ^bb2, ^bb2
-// CHECK:           llvm.return [[VAR_9_2_]] : !llvm.ptr
+// CHECK:           llvm.cond_br [[VAR_8_4_]], ^bb1, ^bb2
+// CHECK:         ^bb1:  // pred: ^bb0
+// CHECK:           llvm.return [[VAR_3_16_]] : !llvm.ptr
 // CHECK:         ^bb2:  // pred: ^bb0
 // CHECK:           [[VAR_10_4_:%.+]] = llvm.call @strncmp([[arg0_]], [[VAR_2_16_]], [[VAR_1_16_]]) : (!llvm.ptr, !llvm.ptr, i64) -> i32
 // CHECK:           [[VAR_11_4_:%.+]] = llvm.icmp "eq" [[VAR_10_4_]], [[VAR_5_13_]] : i32
-// CHECK:           llvm.cond_br [[VAR_11_4_]], ^bb1([[VAR_0_14_]] : !llvm.ptr), ^bb1([[VAR_0]] : !llvm.ptr)
+// CHECK:           llvm.cond_br [[VAR_11_4_]], ^bb3, ^bb4
+// CHECK:         ^bb3:  // pred: ^bb2
+// CHECK:           llvm.return [[VAR_0_14_]] : !llvm.ptr
+// CHECK:         ^bb4:  // pred: ^bb2
+// CHECK:           llvm.return [[VAR_0]] : !llvm.ptr
 // CHECK:         }
 }
 
@@ -177,13 +189,15 @@ module attributes {"onnx-mlir.accels" = ["Pseudo-0x10001", "NNPA-0x10000"]} {
 // CHECK:        [[COMPATIBLE:%.+]] = llvm.call @OMInitCompatibleAccelPseudo([[VERSION_NUMBER_0]]) : (i64) -> i64
 // CHECK-NEXT:   [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
 // CHECK-NEXT:   llvm.cond_br [[FAILED]], ^bb1, ^bb2
-// CHECK-NEXT: ^bb1:  // 2 preds: ^bb0, ^bb2
+// CHECK-NEXT: ^bb1:  // pred: ^bb0
 // CHECK-NEXT:   llvm.return [[VAR_0]] : !llvm.ptr
 // CHECK-NEXT: ^bb2:  // pred: ^bb0
 // CHECK-NEXT:   [[COMPATIBLE:%.+]] = llvm.call @OMInitCompatibleAccelNNPA([[VERSION_NUMBER_1]]) : (i64) -> i64
 // CHECK-NEXT:   [[FAILED:%.+]] = llvm.icmp "eq" [[COMPATIBLE]], [[FALSE]] : i64
-// CHECK-NEXT:   llvm.cond_br [[FAILED]], ^bb1, ^bb3
+// CHECK-NEXT:   llvm.cond_br [[FAILED]], ^bb3, ^bb4
 // CHECK-NEXT: ^bb3:  // pred: ^bb2
+// CHECK-NEXT:   llvm.return [[VAR_0]] : !llvm.ptr
+// CHECK-NEXT: ^bb4:  // pred: ^bb2
 // CHECK-NEXT:   {{.*}} = llvm.call @omTensorListGetOmtArray(%arg0) : (!llvm.ptr) -> !llvm.ptr
 }
 

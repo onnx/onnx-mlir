@@ -5,7 +5,9 @@ _ZLow add operation_
 
 ZLow operation to perform an add.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -39,7 +41,9 @@ ZLow operation to perform 2D average pooling.
 * strides: 1D array of stride height and width
 * padding_type: SAME_PADDING or VALID_PADDING.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -69,7 +73,9 @@ ZLow operation to perform batchnorm.
   * 3rd item: width
   * 4th item: channel
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Operands:
 
@@ -99,7 +105,9 @@ ZLow operation to perform 2D convolution.
 * padding_type: SAME_PADDING or VALID_PADDING.
 * act_func: ACT_NONE or ACT_RELU.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -127,11 +135,11 @@ _Convert a dlfloat16 value to a float32 value_
 
 This operation converts a dlfloat16 value to a float32 value. 
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -151,11 +159,11 @@ _Convert dlfloat16 values to float32 values_
 
 This operation converts dlfloat16 values to float32 values. 
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -176,11 +184,11 @@ _Convert a float32 value to a dlfloat16 value_
 
 This operation converts a float32 value to a dlfloat16 value. 
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -200,11 +208,11 @@ _Convert float32 values to dlfloat16 values_
 
 This operation converts float32 values to dlfloat16 values. 
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -225,7 +233,9 @@ _ZLow div operation_
 
 ZLow operation to perform a div.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -250,7 +260,7 @@ _ZLow dummy operation that behaves like identity_
 ZLow operation to forward the input value to the output value.
 It will be removed if canonicalization is called.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
 
 #### Operands:
 
@@ -270,7 +280,9 @@ _ZLow exp operation_
 
 ZLow operation to perform a exp.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -303,7 +315,9 @@ ZLow operation to perform a gru.
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
 * prev_layer for where input comes is "none", "uni", or "bidir"
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -344,7 +358,9 @@ work_area: a 4K-aligned buffer.
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep
 * prev_layer for where input comes is "none", "uni", or "bidir"
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -377,7 +393,9 @@ _ZLow log operation_
 
 ZLow operation to perform a log.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -414,7 +432,9 @@ shape is a 1D MemRef (memref<4xi64>) whose items are:
 * is_bcast: -1 broadcasting, 0: no broadcasting.
 * is_stacked: -1 stacked, 0: unstacked.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -440,7 +460,9 @@ _ZLow max operation_
 
 ZLow operation to perform a max.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -474,7 +496,9 @@ ZLow operation to perform 2D max pooling.
 * strides: 1D array of stride height and width
 * padding_type: SAME_PADDING or VALID_PADDING.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -504,7 +528,9 @@ ZLow operation to perform 2D mean reduce.
   * 3th item: width": 3rd dim of input
   * 4nd item: channel": 4th dim of input
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Operands:
 
@@ -520,7 +546,9 @@ _ZLow min operation_
 
 ZLow operation to perform a min.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -544,7 +572,9 @@ _ZLow mul operation_
 
 ZLow operation to perform a mul.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -568,7 +598,9 @@ _ZLow relu operation_
 
 ZLow operation to perform a relu.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -591,7 +623,9 @@ _ZLow sigmoid operation_
 
 ZLow operation to perform a sigmoid.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -616,7 +650,9 @@ ZLow operation to perform a softmax.
 work_area: a 4K-aligned buffer.
 act_func: ACT_NONE or ACT_LOG.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -642,7 +678,9 @@ ZLow operation to perform a stick for GRU.
 Variadic: list of pointers for input data to be transformed: 
   - GRU concatenated: 3 data pointers, one for each input gate in (Z)update, Reset, Hidden, (ZRH) gate order.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -668,7 +706,9 @@ ZLow operation to perform a stick for LSTM.
 Variadic: list of pointers for input data to be transformed: 
   - LSTM concatenated: 4 data pointers, one for each input gate in Forget, Input, Cell, Output (FICO) order.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -693,13 +733,16 @@ _ZLow stick operation_
 
 "ZLow operation to perform a stick."
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
 
 #### Operands:
@@ -715,7 +758,9 @@ _ZLow sub operation_
 
 ZLow operation to perform a sub.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -739,7 +784,9 @@ _ZLow tanh operation_
 
 ZLow operation to perform a tanh.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 
@@ -762,7 +809,9 @@ _ZLow unstick operation_
 
 ZLow operation to perform a unstick.
 
-Traits: MemRefsNormalizable
+Traits: `MemRefsNormalizable`
+
+Interfaces: `MemoryEffectOpInterface`
 
 #### Attributes:
 

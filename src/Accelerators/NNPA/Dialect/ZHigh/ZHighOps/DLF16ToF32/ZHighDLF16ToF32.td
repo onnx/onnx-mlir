@@ -40,7 +40,7 @@ def GetTypeInDLF16: NativeCodeCall<
 
 // zhigh.DLF16ToF32 (zhigh.F32ToDLF16(%X)) = %X
 def ConversionRemovalPattern : Pat<
-  (ZHighDLF16ToF32Op (ZHighF32ToDLF16Op $arg)),
+  (ZHighDLF16ToF32Op (ZHighF32ToDLF16Op $arg, $saturation)),
   (replaceWithValue $arg)
 >;
 

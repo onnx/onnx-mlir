@@ -10,20 +10,20 @@ func.func @test_stick_unary_unstick(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?xf
 
 // CHECK-LABEL:  func.func @test_stick_unary_unstick
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
-// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_:.*]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_:.*]]  : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sigmoid"([[PARAM_0_]]) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3D"} : (tensor<?x3x?xf32>) -> tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Relu"([[VAR_1_]]) : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>
-// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x?xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<?x3x?xf32>
 // CHECK:         }
 }
@@ -42,20 +42,20 @@ func.func @test_stick_binary_unstick(%arg0 : tensor<?x3x?xf32>) -> tensor<?x3x?x
 
 // CHECK-LABEL:  func.func @test_stick_binary_unstick
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x3x?xf32>) -> tensor<?x3x?xf32> {
-// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_:.*]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sigmoid"([[PARAM_0_]]) : (tensor<?x3x?xf32>) -> tensor<?x3x?xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3D"} : (tensor<?x3x?xf32>) -> tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Add"([[VAR_1_]], [[VAR_1_]]) : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>, tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>
-// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> ()
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Unstick"([[VAR_2_]]) : (tensor<?x3x?xf16, #zhigh.layout<{dataLayout = "3D"}>>) -> tensor<?x3x?xf32>
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x3x?xf32>) -> ()
-// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x3x?xf32>) -> ()
+// CHECK:           "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x3x?xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_3_]] : tensor<?x3x?xf32>
 // CHECK:         }
 }
@@ -71,25 +71,25 @@ func.func @test_nhwc_layout(%arg0 : tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> 
 
 // CHECK-LABEL:  func.func @test_nhwc_layout
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 3 : si64, group_id = 11 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 7 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 3 : si64, group_id = [[GROUP_3_:.*]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_:.*]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = [[GROUP_1_:.*]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64} : (tensor<?x?x?x?xf32>) -> ()
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sigmoid"([[PARAM_0_]]) : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 3 : si64, group_id = 11 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = 7 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 3 : si64, group_id = [[GROUP_3_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
 // CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "NHWC"} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 11 : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = 14 : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 3 : si64, group_id = 7 : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = [[GROUP_3_]] : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 3 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> ()
 // CHECK:           [[VAR_2_:%.+]] = "zhigh.Unstick"([[VAR_1_]]) : (tensor<?x?x?x?xf16, #zhigh.layout<{dataLayout = "NHWC"}>>) -> tensor<?x?x?x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 3 : si64, group_id = 11 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 1 : si64, group_id = 7 : si64} : (tensor<?x?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 3 : si64, group_id = [[GROUP_3_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?x?xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_2_]] : tensor<?x?x?x?xf32>
 // CHECK:         }
 }
@@ -111,34 +111,34 @@ func.func @test_stick_matmul_unstick(%arg0 : tensor<?x?x?xf32>) -> tensor<?x?x?x
 
 // CHECK-LABEL:  func.func @test_stick_matmul_unstick
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = 14 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 1 : si64, group_id = [[GROUP_1_:.*]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_:.*]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[PARAM_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_:.*]] : si64} : (tensor<?x?x?xf32>) -> ()
 // CHECK:           [[VAR_0_:%.+]] = "onnx.Sigmoid"([[PARAM_0_]]) : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = 14 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_0_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf32>) -> ()
 // CHECK:           [[VAR_1_:%.+]] = "zhigh.Stick"([[VAR_0_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = 14 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = 7 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 2 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_1_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK:           [[VAR_2_:%.+]] = "onnx.Transpose"([[PARAM_0_]]) {perm = [0, 2, 1]} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 1 : si64, group_id = 7 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 2 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 1 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_2_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf32>) -> ()
 // CHECK:           [[VAR_3_:%.+]] = "zhigh.Stick"([[VAR_2_]]) {layout = "3DS"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = 7 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 2 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 1 : si64, group_id = [[GROUP_2_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_3_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK:           [[VAR_4_:%.+]] = "onnx.NoValue"() {value} : () -> none
 // CHECK:           [[VAR_5_:%.+]] = "zhigh.MatMul"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]]) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>, none) -> tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 1 : si64, group_id = 14 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 2 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_5_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> ()
 // CHECK:           [[VAR_6_:%.+]] = "zhigh.Unstick"([[VAR_5_]]) : (tensor<?x?x?xf16, #zhigh.layout<{dataLayout = "3DS"}>>) -> tensor<?x?x?xf32>
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) {axis = 1 : si64, group_id = 14 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) {axis = 2 : si64, group_id = 14 : si64} : (tensor<?x?x?xf32>) -> ()
-// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) {axis = 0 : si64, group_id = 0 : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) {axis = 1 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) {axis = 2 : si64, group_id = [[GROUP_1_]] : si64} : (tensor<?x?x?xf32>) -> ()
+// CHECK-DAG:       "onnx.DimGroup"([[VAR_6_]]) {axis = 0 : si64, group_id = [[GROUP_0_]] : si64} : (tensor<?x?x?xf32>) -> ()
 // CHECK:           onnx.Return [[VAR_6_]] : tensor<?x?x?xf32>
 // CHECK:         }
 }
