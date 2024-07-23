@@ -48,6 +48,10 @@ namespace onnx_mlir {
 
 void configurePassesNNPA() {
   configureOnnxToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps);
+  // Compiler generated sticks supports saturation, so force its usage.
+  // TODO: remove this if zDNN adds support for saturation.
+  if (nnpaEnableSaturation)
+    nnpaEnableCompilerStickUnstick = true;
 }
 
 void addONNXToZHighPasses(mlir::PassManager &pm) {
