@@ -51,7 +51,7 @@ void configurePasses() {
       disableConstantProp);
   configureOnnxToKrnlLoweringPass(optReport == OptReport::Parallel,
       enableParallel, parallelizeOps, optReport == OptReport::Simd,
-      !disableSimdOption, instrumentSignatures);
+      !disableSimdOption);
 }
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU) {
@@ -185,8 +185,8 @@ void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
   // signature and instrument passes at the same time as time may include printf
   // overheads.
   if (instrumentSignatureString != "NONE")
-    pm.addNestedPass<func::FuncOp>(
-        onnx_mlir::createInstrumentONNXSignaturePass());
+    pm.addNestedPass<func::FuncOp>(onnx_mlir::createInstrumentONNXSignaturePass(
+        instrumentSignatureString));
   pm.addPass(onnx_mlir::createLowerToKrnlPass(/*enableTiling*/ optLevel >= 3,
       /*enableSIMD*/ optLevel >= 3 && !disableSimdOption, enableParallel,
       /*opsToCall*/ opsForCall));

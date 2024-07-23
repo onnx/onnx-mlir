@@ -59,7 +59,8 @@ std::unique_ptr<mlir::Pass> createInstrumentPass(
 
 /// Passes for instrumenting the ONNX ops to print their operand type
 /// signatures at runtime.
-std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass();
+std::unique_ptr<mlir::Pass> createInstrumentONNXSignaturePass(
+    const std::string pattern);
 
 /// Pass for simplifying shape-related ONNX operations.
 std::unique_ptr<mlir::Pass> createSimplifyShapeRelatedOpsPass();
@@ -87,7 +88,7 @@ std::unique_ptr<mlir::Pass> createLowerToKrnlPass(bool enableTiling,
     bool enableSIMD, bool enableParallel, std::string opsForCall);
 void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     bool parallelIsEnabled, std::string specificParallelOps, bool reportOnSimd,
-    bool simdIsEnabled, std::string instrumentSignatures);
+    bool simdIsEnabled);
 std::unique_ptr<mlir::Pass> createProcessScfParallelPrivatePass();
 
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO

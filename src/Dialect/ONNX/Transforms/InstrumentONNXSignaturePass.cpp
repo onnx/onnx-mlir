@@ -49,9 +49,16 @@ public:
   InstrumentONNXSignaturePass() = default;
   InstrumentONNXSignaturePass(const InstrumentONNXSignaturePass &pass)
       : mlir::PassWrapper<InstrumentONNXSignaturePass,
-            OperationPass<func::FuncOp>>() {}
+            OperationPass<func::FuncOp>>() {
+    signaturePattern = pass.signaturePattern;
+  }
+  InstrumentONNXSignaturePass(const std::string pattern) {
+    signaturePattern = pattern;
+  }
 
 private:
+  std::string signaturePattern;
+
 public:
   StringRef getArgument() const override {
     return "instrument-onnx-runtime-signature";
@@ -63,6 +70,9 @@ public:
   }
 
   void runOnOperation() override {
+    onnx_mlir::EnableByRegexOption traceSpecificOpPattern(
+        /*emptyIsNone*/ false);
+    traceSpecificOpPattern.setRegexString(signaturePattern);
     // Iterate on the operations nested in this function.
     getOperation().walk([&](mlir::Operation *op) {
       std::string opName = op->getName().getStringRef().str();
@@ -70,8 +80,7 @@ public:
       if (isa<func::FuncDialect>(dialect) || isa<ONNXPrintSignatureOp>(op)) {
         // Always skip function dialects (such as function call/return), as well
         // as ONNX print signature ops.
-      } else if (onnx_mlir::OnnxToKrnlLoweringConfiguration::
-                     traceSpecificOpSignatures.isEnabled(opName)) {
+      } else if (traceSpecificOpPattern.isEnabled(opName)) {
         // Add signature printing op.
         Location loc = op->getLoc();
         OpBuilder builder(op);
@@ -95,6 +104,7 @@ public:
 /*!
  * Create an instrumentation pass.
  */
-std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXSignaturePass() {
-  return std::make_unique<InstrumentONNXSignaturePass>();
+std::unique_ptr<mlir::Pass> onnx_mlir::createInstrumentONNXSignaturePass(
+    const std::string pattern) {
+  return std::make_unique<InstrumentONNXSignaturePass>(pattern);
 }
