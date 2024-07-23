@@ -588,7 +588,7 @@ template <>
 double analyzeSimdFor<ONNXHardSigmoidOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
   return simdAnalysis(
-      {GenericOps::ArithmeticGop, GenericOps::MulGop}, {2, 1}, t, von, son);
+      {GenericOps::ArithmeticGop, GenericOps::MulGop}, {3, 1}, t, von, son);
 }
 
 template <>
