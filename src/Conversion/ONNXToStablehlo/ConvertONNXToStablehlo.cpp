@@ -58,6 +58,7 @@ void populateONNXToStablehloConversionPattern(
   populateLoweringONNXTileOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXTransposeOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXUnsqueezeOpToStablehloPattern(patterns, ctx);
+  populateLoweringONNXSoftmaxOpToStablehloPattern(patterns, ctx);
 }
 
 //===----------------------------------------------------------------------===//
@@ -127,7 +128,7 @@ void FrontendToStablehloLoweringPass::runOnOperation() {
       patterns, &getContext(), enableUnroll);
 
   // add illegal op
-  target.addIllegalOp<ONNXSoftmaxOp>();
+  //target.addIllegalOp<ONNXSoftmaxOp>();
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
