@@ -90,6 +90,8 @@ public:
     // end up with a different result
     bool quantizingToInt = isa<IntegerType>(resultType.getElementType());
     if (quantizingToInt) {
+      // ONNX QuantizeLinear op supports those integer zero point types:
+      // int16, int4, int8, uint16, uint4, uint8
       // Convert the scaled result to a safe bitwith (i32) that avoids
       // underflows/overflows
       scaledResult = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(rewriter, loc,
@@ -129,9 +131,34 @@ public:
     Value addOp = tosa::CreateOpAndInfer<mlir::tosa::AddOp>(
         rewriter, loc, scaledResult.getType(), scaledResult, castedZp)
                       .getResult();
+
+    Value clampedRes = addOp;
+    if (quantizingToInt) {
+      // If the destination type is an integer, perform saturation.
+      IntegerType resTypeInt =
+          dyn_cast<IntegerType>(resultType.getElementType());
+
+      // Compute the max/min values for the said type from the 64-bit max
+      auto width = resTypeInt.getIntOrFloatBitWidth();
+      APInt maxVal = resTypeInt.isUnsigned() ? APInt::getMaxValue(width)
+                                             : APInt::getSignedMaxValue(width);
+      APInt minVal = resTypeInt.isUnsigned() ? APInt::getZero(width)
+                                             : APInt::getSignedMinValue(width);
+
+      clampedRes = tosa::CreateOpAndInfer<mlir::tosa::ClampOp>(rewriter, loc,
+          addOp.getType(), addOp,
+          rewriter.getIntegerAttr(rewriter.getI64Type(), minVal.sext(64)),
+          rewriter.getIntegerAttr(rewriter.getI64Type(), maxVal.zext(64)),
+          // We ignore floating point values, we're clamping integers.
+          rewriter.getFloatAttr(
+              rewriter.getF32Type(), (float)(minVal.getSExtValue())),
+          rewriter.getFloatAttr(
+              rewriter.getF32Type(), (float)(maxVal.getZExtValue())));
+    }
+
     // Cast into the result type
     Value result = tosa::CreateOpAndInfer<mlir::tosa::CastOp>(
-        rewriter, loc, resultType, addOp)
+        rewriter, loc, resultType, clampedRes)
                        .getResult();
 
     rewriter.replaceOp(op, result);
