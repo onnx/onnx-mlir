@@ -22,7 +22,9 @@
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeRange.h"
+#include "mlir/IR/Value.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -681,58 +683,60 @@ struct DecomposeBatchNormToBatchNormInferenceMode
   }
 };
 
-// Decompose a pad with negative pading size to slice + pad
+// Decompose a pad with negative padding size to slice + pad
 // Only supports static shapes
 struct DecomposeSlicePadPattern : public OpRewritePattern<ONNXPadOp> {
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(
       ONNXPadOp padOp, PatternRewriter &rewriter) const final {
-    auto pad = padOp.getPads();
-    if (auto constantPad = pad.getDefiningOp<ONNXConstantOp>()) {
-      std::optional<Attribute> padValues;
-      if (auto intAttrs = constantPad.getValueInts()) {
-        padValues = intAttrs;
-      } else if (auto attrs = constantPad.getValue()) {
-        padValues = attrs;
-      }
-      if (padValues) {
-        if (auto elementsAttr = llvm::dyn_cast<ElementsAttr>(*padValues)) {
-          const auto padElements =
-              onnx_mlir::getElementsArray<int64_t>(elementsAttr);
-          const auto padElementsArray = padElements.get();
-          if (llvm::any_of(
-                  padElementsArray, [](const auto v) { return v < 0; })) {
-            if (!padOp.getAxes().getDefiningOp<ONNXNoneOp>()) {
-              // This is possible to implement but makes the implementation more
-              // difficult, so skip for now
-              return failure();
-            }
-            const auto inputType = padOp.getData().getType().cast<ShapedType>();
-            if (!inputType.hasStaticShape()) {
-              // We need a static shape to calculate the ends for slice
-              return failure();
-            }
-            auto sliceOp =
-                buildSliceOp(padOp, rewriter, padElementsArray, inputType);
-            auto newPadOp =
-                buildPadOp(padOp, rewriter, padElementsArray, sliceOp);
-            rewriter.replaceOp(padOp, newPadOp ? newPadOp : sliceOp);
-            return success();
-          }
-        }
-      }
+    auto constantPad = padOp.getPads().getDefiningOp<ONNXConstantOp>();
+    if (!constantPad) {
+      return failure();
     }
-    return failure();
+    std::optional<Attribute> padValues;
+    if (auto intAttrs = constantPad.getValueInts()) {
+      padValues = intAttrs;
+    } else if (auto attrs = constantPad.getValue()) {
+      padValues = attrs;
+    }
+    if (!padValues) {
+      return failure();
+    }
+    auto elementsAttr = llvm::dyn_cast<ElementsAttr>(*padValues);
+    if (!elementsAttr) {
+      return failure();
+    }
+    const auto padElements = onnx_mlir::getElementsArray<int64_t>(elementsAttr);
+    const auto padElementsArray = padElements.get();
+    if (llvm::none_of(padElementsArray, [](const auto v) { return v < 0; })) {
+      // No slicing needed
+      return failure();
+    }
+    if (!padOp.getAxes().getDefiningOp<ONNXNoneOp>()) {
+      // This is possible to implement but makes the implementation more
+      // difficult, so skip for now
+      return failure();
+    }
+    const auto inputType = padOp.getData().getType().cast<ShapedType>();
+    if (!inputType.hasStaticShape()) {
+      // We need a static shape to calculate the ends for slice
+      return failure();
+    }
+    auto sliceOp = buildSliceOp(padOp, rewriter, padElementsArray, inputType);
+    auto newPadOp = buildPadOp(padOp, rewriter, padElementsArray, sliceOp);
+    rewriter.replaceOp(padOp, newPadOp);
+    return success();
   }
 
 private:
-  // Builds ands inserts a pad op, that is guranteed to only pad and not slice
-  static ONNXPadOp buildPadOp(ONNXPadOp orignalPadOp, PatternRewriter &rewriter,
+  // Builds ands inserts a pad op, that is guaranteed to only pad and not
+  // slice
+  static Value buildPadOp(ONNXPadOp orignalPadOp, PatternRewriter &rewriter,
       ArrayRef<int64_t> padElementsArray, ONNXSliceOp sliceOp) {
     SmallVector<int64_t> pads;
     for (const auto padElem : padElementsArray) {
-      pads.push_back(std::max(padElem, 0l));
+      pads.push_back((padElem < 0) ? 0 : padElem);
     }
     if (llvm::any_of(pads, [](const auto p) { return p > 0; })) {
       auto padsConstOp = onnx_mlir::createConstantOp(
@@ -743,7 +747,7 @@ private:
           orignalPadOp.getMode());
       return padOp;
     }
-    return nullptr; // No pad needed if we only slice
+    return sliceOp; // No pad needed if we only slice
   }
 
   // Builds and inserts a slice op, and its inputs, that handles negative
