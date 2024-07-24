@@ -40,6 +40,9 @@ public:
     Value data = adaptor.getData();
     Value pads = adaptor.getPads();
     Value constValue = adaptor.getConstantValue();
+    if (!adaptor.getAxes().getDefiningOp<ONNXNoneOp>()) {
+      return rewriter.notifyMatchFailure(op, "only default axes are supported");
+    }
 
     if (!(adaptor.getMode() == "constant")) {
       return rewriter.notifyMatchFailure(
