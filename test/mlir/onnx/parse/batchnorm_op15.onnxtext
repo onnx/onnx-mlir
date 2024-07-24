@@ -1,0 +1,23 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 7,
+   opset_import: ["" : 15]
+>
+test_batchnorm_op15 (float[1,1,6,2048] input) => (float[1,1,6,2048] BatchNormalization_output_Y) {
+   Constant_output_0 = Constant <value: tensor = float[1] {0}> ()
+   Constant_1_output_0 = Constant <value: tensor = float[1] {1}> ()
+   Constant_2_output_0 = Constant <value: tensor = float[1] {1}> ()
+   Constant_3_output_0 = Constant <value: tensor = float[1] {0}> ()
+   BatchNormalization_output_Y, BatchNormalization_output_running_mean, BatchNormalization_output_running_var = BatchNormalization <epsilon: float = 1e-05, momentum: float = 0.9, training_mode: int = 1> (input, Constant_2_output_0, Constant_3_output_0, Constant_output_0, Constant_1_output_0)
+}
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x1x6x2048xf32> {onnx.name = "input"}) -> (tensor<1x1x6x2048xf32> {onnx.name = "BatchNormalization_output_Y"}) {
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<1.000000e+00> : tensor<1xf32>
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<0.000000e+00> : tensor<1xf32>
+// CHECK:           [[Y_:%.+]], [[running_mean_:%.+]], [[running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[VAR_2_]], [[VAR_3_]], [[VAR_0_]], [[VAR_1_]]) {epsilon = 9.99999974E-6 : f32, momentum = 0.899999976 : f32, training_mode = 1 : si64} : (tensor<1x1x6x2048xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>, tensor<1xf32>) -> (tensor<1x1x6x2048xf32>, tensor<1xf32>, tensor<1xf32>)
+// CHECK:           onnx.Return [[Y_]] : tensor<1x1x6x2048xf32>
+// CHECK:         }

@@ -22,8 +22,9 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/TypeRange.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/Debug.h"
 
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
@@ -624,6 +625,37 @@ struct DecomposeHardSwishPattern : public OpRewritePattern<ONNXHardSwishOp> {
   }
 };
 
+/// Decompose BatchNormV9 to BatchNorm
+struct DecomposeBatchNormV9ToBatchNorm
+    : public OpRewritePattern<ONNXBatchNormalizationV9Op> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(ONNXBatchNormalizationV9Op batchNormOpV9,
+      PatternRewriter &rewriter) const final {
+    auto savedMeanRes = batchNormOpV9.getSavedMean();
+    auto savedVarRes = batchNormOpV9.getSavedVar();
+    if (!savedMeanRes.use_empty() || !savedVarRes.use_empty()) {
+      return rewriter.notifyMatchFailure(batchNormOpV9.getLoc(),
+          "saved_mean and saved_variance must have no use.");
+    }
+    auto batchNormOp = rewriter.create<ONNXBatchNormalizationOp>(
+        batchNormOpV9.getLoc(),
+        TypeRange{
+            batchNormOpV9.getY().getType(),
+            batchNormOpV9.getOutMean().getType(),
+            batchNormOpV9.getOutVar().getType(),
+        },
+        batchNormOpV9.getX(), batchNormOpV9.getScale(), batchNormOpV9.getB(),
+        batchNormOpV9.getMean(), batchNormOpV9.getVar(),
+        batchNormOpV9.getEpsilon(), batchNormOpV9.getMomentum());
+    rewriter.replaceOp(batchNormOpV9,
+        {batchNormOp.getY(), batchNormOp.getRunningMean(),
+            batchNormOp.getRunningVar(),
+            rewriter.create<ONNXNoneOp>(batchNormOpV9.getLoc()),
+            rewriter.create<ONNXNoneOp>(batchNormOpV9.getLoc())});
+    return success();
+  }
+};
+
 /// Decompose BatchNorm to BatchNormInferenceMode
 struct DecomposeBatchNormToBatchNormInferenceMode
     : public OpRewritePattern<ONNXBatchNormalizationOp> {
@@ -631,8 +663,8 @@ struct DecomposeBatchNormToBatchNormInferenceMode
   LogicalResult matchAndRewrite(ONNXBatchNormalizationOp batchNormOp,
       PatternRewriter &rewriter) const final {
 
-    auto meanRes = batchNormOp->getResult(1);
-    auto varianceRes = batchNormOp->getResult(2);
+    auto meanRes = batchNormOp.getRunningMean();
+    auto varianceRes = batchNormOp.getRunningVar();
     if (!meanRes.use_empty() || !varianceRes.use_empty()) {
       return rewriter.notifyMatchFailure(
           batchNormOp.getLoc(), "mean and variance must have no use.");
@@ -640,7 +672,7 @@ struct DecomposeBatchNormToBatchNormInferenceMode
 
     rewriter.replaceOp(batchNormOp,
         {rewriter.create<ONNXBatchNormalizationInferenceModeOp>(
-             batchNormOp.getLoc(), batchNormOp.getResult(0).getType(),
+             batchNormOp.getLoc(), batchNormOp.getY().getType(),
              batchNormOp.getX(), batchNormOp.getScale(), batchNormOp.getB(),
              batchNormOp.getInputMean(), batchNormOp.getInputVar(),
              batchNormOp.getEpsilon(), batchNormOp.getMomentum()),
@@ -1028,117 +1060,17 @@ struct DecomposeONNXToONNXPass
 void DecomposeONNXToONNXPass::runOnOperation() {
   func::FuncOp function = getOperation();
   MLIRContext *context = &getContext();
-
-  ConversionTarget target(getContext());
-  target.addLegalDialect<ONNXDialect, arith::ArithDialect, func::FuncDialect>();
-
-  // These ops will be decomposed into other ONNX ops. Hence, they will not be
-  // available after this pass.
-  target.addIllegalOp<ONNXCastLikeOp>();
-  target.addIllegalOp<ONNXClipV11Op>();
-  target.addIllegalOp<ONNXClipV12Op>();
-  target.addIllegalOp<ONNXClipV6Op>();
-  target.addIllegalOp<ONNXConstantOfShapeOp>();
-  // In some instances the decomposition does not trigger and we are left these
-  // operations. One reason is the input to the operation has unknown shapes.
-  // However, the decompose pass is executed multiple times in the pipeline and
-  // between the executions shape inference is called resolving the issue. That
-  // is why GroupNormalization and InstanceNormalization will be marked as
-  // dynamically legal.
-  target.addDynamicallyLegalOp<ONNXGroupNormalizationOp>(
-      [](ONNXGroupNormalizationOp op) {
-        return !GroupNormIntoLayerNormPattern::isDecomposable(op);
-      });
-  target.addDynamicallyLegalOp<ONNXInstanceNormalizationOp>(
-      [](ONNXInstanceNormalizationOp op) {
-        return !InstanceNormIntoLayerNormPattern::isDecomposable(op);
-      });
-  target.addDynamicallyLegalOp<ONNXBatchNormalizationOp>(
-      [](ONNXBatchNormalizationOp op) {
-        return !op->getResult(1).use_empty() || !op->getResult(2).use_empty();
-      });
-  target.addIllegalOp<ONNXLogSoftmaxOp>();
-  target.addIllegalOp<ONNXPadV11Op>();
-  target.addIllegalOp<ONNXPadV13Op>();
-  target.addIllegalOp<ONNXPadV18Op>();
-  target.addIllegalOp<ONNXPadV2Op>();
-  target.addIllegalOp<ONNXReduceL1Op>();
-  target.addIllegalOp<ONNXReduceL1V13Op>();
-  target.addIllegalOp<ONNXReduceL2Op>();
-  target.addIllegalOp<ONNXReduceL2V13Op>();
-  target.addIllegalOp<ONNXReduceLogSumExpOp>();
-  target.addIllegalOp<ONNXReduceLogSumOp>();
-  target.addIllegalOp<ONNXReduceMaxV18Op>();
-  target.addIllegalOp<ONNXReduceMinV18Op>();
-  target.addIllegalOp<ONNXReduceSumSquareOp>();
-  target.addIllegalOp<ONNXResizeV10Op>();
-  target.addIllegalOp<ONNXResizeV11Op>();
-  target.addIllegalOp<ONNXResizeV13Op>();
-  target.addIllegalOp<ONNXResizeV18Op>();
-  target.addIllegalOp<ONNXScalerOp>();
-  target.addIllegalOp<ONNXScatterOp>();
-  target.addIllegalOp<ONNXSequenceConstructOp>();
-  target.addIllegalOp<ONNXSplitV11Op>();
-  target.addIllegalOp<ONNXSplitV13Op>();
-  target.addIllegalOp<ONNXSqueezeV11Op>();
-  target.addIllegalOp<ONNXUnsqueezeV11Op>();
-  target.addIllegalOp<ONNXUpsampleOp>();
-  target.addIllegalOp<ONNXUpsampleV7Op>();
-  target.addIllegalOp<ONNXHardSwishOp>();
-
-  target.addDynamicallyLegalOp<ONNXEinsumOp>([](ONNXEinsumOp op) {
-    return !onnx_mlir::DecomposeEinsumPattern::isDecomposable(op);
-  });
-
-  target.addDynamicallyLegalOp<ONNXConcatOp>([](ONNXConcatOp op) {
-    ONNXShapeOp shapeOp;
-    ONNXTransposeOp transposeOp;
-    return !isConcatFuseMatched(op, shapeOp, transposeOp);
-  });
-
-  // Rewrite ONNXConstantOp with scalar values into the one using ElementAttrs.
-  target.addDynamicallyLegalOp<ONNXConstantOp>([](ONNXConstantOp op) {
-    return !(op.getValueFloatAttr() || op.getValueFloatsAttr() ||
-             op.getValueIntAttr() || op.getValueIntsAttr() ||
-             op.getValueStringAttr() || op.getValueStringsAttr());
-  });
-
-  // Decompose CustomOp FusedMatMul introduced by onnxruntime:
-  // https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md#com.microsoft.FusedMatMul
-  target.addDynamicallyLegalOp<ONNXCustomOp>([](ONNXCustomOp op) {
-    int64_t rankA, rankB;
-    FloatAttr alpha;
-    return !CustomOpFuseMatMulPattern::isCustomOpFusedMatMulMatched(
-        op, alpha, rankA, rankB);
-  });
-
-#ifdef ONNX_MLIR_DECOMP_ONNX_CONVTRANSPOSE
-#ifdef ONNX_MLIR_ENABLE_STABLEHLO
-  // ONNXtoStablehlo pass has own rewriting for ConvTranspose Op using
-  // stablehlo ops. To avoid conflict with it, decomposing for ConvTranspose
-  // is disabled when the target is stablehlo.
-  if (this->target != "stablehlo") {
-#endif
-    target.addDynamicallyLegalOp<ONNXConvTransposeOp>(
-        [](ONNXConvTransposeOp op) {
-          return !onnx_mlir::shouldDecomposeConvTransposeOp(op);
-        });
-#ifdef ONNX_MLIR_ENABLE_STABLEHLO
-  }
-#endif
-#endif
-
   RewritePatternSet patterns(context);
   onnx_mlir::getDecomposeONNXToONNXPatterns(patterns);
   patterns.insert<ReplaceCastLikeByCastPattern>(context);
+
 #ifdef ONNX_MLIR_ENABLE_STABLEHLO
   if (this->target == "stablehlo") {
     populateDecomposingONNXBeforeStablehloPatterns(patterns, context);
-    target.addIllegalOp<ONNXSoftmaxOp>();
   }
 #endif
 
-  if (failed(applyPartialConversion(function, target, std::move(patterns))))
+  if (failed(applyPatternsAndFoldGreedily(function, std::move(patterns))))
     signalPassFailure();
 }
 
@@ -1157,6 +1089,7 @@ void onnx_mlir::getDecomposeONNXToONNXPatterns(
   patterns.insert<InstanceNormIntoLayerNormPattern>(context);
   patterns.insert<GroupNormIntoLayerNormPattern>(context);
   patterns.insert<DecomposeBatchNormToBatchNormInferenceMode>(context);
+  patterns.insert<DecomposeBatchNormV9ToBatchNorm>(context);
 
   // TODO: consider whether to include SoftmaxPattern here
 }

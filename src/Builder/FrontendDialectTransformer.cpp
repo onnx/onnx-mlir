@@ -933,8 +933,11 @@ private:
     if (nOuts == 1) {
       // Inference mode with one output.
       buildOperation<ONNXBatchNormalizationInferenceModeOp>(node);
+    } else if (nOuts == 5) {
+      // Training mode with four trailing optional outputs.
+      buildOperation<ONNXBatchNormalizationV9Op>(node);
     } else {
-      // Training mode with four trailing optional outputs. Not handled yet.
+      // Training mode with two trailing optional outputs.
       buildOperation<ONNXBatchNormalizationOp>(node);
     }
   }
