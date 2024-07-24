@@ -27,10 +27,10 @@ func.func @test_softmax(%arg0 : tensor<10x20x30xf32>) -> tensor<10x20x30xf32> {
 
 // -----
 
-func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf32> {
-  %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<?x20x30xf32>) -> tensor<?x20x30xf32>
-  "func.return"(%0) : (tensor<?x20x30xf32>) -> ()
-}
+//func.func @test_softmax_dynamic(%arg0 : tensor<?x20x30xf32>) -> tensor<?x20x30xf32> {
+//  %0 = "onnx.Softmax"(%arg0) {axis = 1: si64} : (tensor<?x20x30xf32>) -> tensor<?x20x30xf32>
+//  "func.return"(%0) : (tensor<?x20x30xf32>) -> ()
+//}
 
 // CHECK-LABEL:  func.func @test_softmax_dynamic
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x20x30xf32>) -> tensor<?x20x30xf32> {

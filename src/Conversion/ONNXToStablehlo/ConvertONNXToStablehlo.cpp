@@ -29,6 +29,7 @@ void populateONNXToStablehloConversionPattern(
   populateLoweringONNXGemmOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXMatMulOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXReductionOpToStablehloPattern(patterns, ctx);
+  populateLoweringONNXSoftmaxOpToStablehloPattern(patterns, ctx);
   // Neural network
   populateLoweringONNXConvOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXConvTransposeOpToStablehloPattern(patterns, ctx);
@@ -58,7 +59,7 @@ void populateONNXToStablehloConversionPattern(
   populateLoweringONNXTileOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXTransposeOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXUnsqueezeOpToStablehloPattern(patterns, ctx);
-  populateLoweringONNXSoftmaxOpToStablehloPattern(patterns, ctx);
+  
 }
 
 //===----------------------------------------------------------------------===//

@@ -53,7 +53,7 @@ Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
   return reduceShapeValue;
 }
 
-
+//Calutes Broadcast dimensions
 SmallVector<int64_t> getBroadcastDims(Value operand, llvm::SmallVector<int64_t, 4> axes)
 {
   int64_t rank = mlir::cast<RankedTensorType>(operand.getType()).getRank();
@@ -114,6 +114,25 @@ Value computeReduceSum(Location loc, Value operand, Value identity,
     return result;
 }
 
+bool hasStaticShape(Value val) {
+  // Get the type of the value
+  Type type = val.getType();
+
+  // Check if the type is a RankedTensorType
+  if (auto rankedTensorType = mlir::dyn_cast<RankedTensorType>(type)) {
+    // Check if all dimensions are static
+    for (int64_t dim : rankedTensorType.getShape()) {
+      if (dim == ShapedType::kDynamic) {
+        return false; // Found a dynamic dimension
+      }
+    }
+    return true; // All dimensions are static
+  }
+
+  // The type is not a RankedTensorType or has dynamic dimensions
+  return false;
+}
+
 SmallVector<int64_t> getReductionShape(ShapedType inputType,
     const llvm::SmallVector<int64_t, 4> &axes, bool isKeepdims) {
   SmallVector<int64_t> reduceShape;
@@ -146,42 +165,47 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
-    ONNXSoftmaxOpAdaptor operandAdaptor(operands);
-    Location loc = op->getLoc();
-    IndexExprBuilderForStablehlo createIE(rewriter, loc);
-    ONNXSoftmaxOpShapeHelper shape_helper(op, operands, nullptr, nullptr);
+    Value operand = operands[0];
+    assert(hasStaticShape(operand) && "Only Static shapes are accepted");
 
+    Location loc = op->getLoc();
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    ShapedType outputShapedType = mlir::cast<ShapedType>(outputType);
-    //Type elementType = outputShapedType.getElementType();
+    assert(mlir::cast<RankedTensorType>(operand.getType()).getElementType().isF32() && "Currently Only float32 is supported for input");
 
+    //Exponential operation
     Value ElementwiseExpStableHLO = rewriter.create<stablehlo::ExpOp>(
         loc, op->getResultTypes(), op->getOperands());
-    
-    // rewriter.replaceOp(op, ElementwiseExpStableHLO);
-    // return success();
+
+    if(ElementwiseExpStableHLO == nullptr)
+      return failure();
+
     RankedTensorType ExpOutputType = mlir::cast<RankedTensorType>(ElementwiseExpStableHLO.getType());
 
+    //Converting negative indices to Postive indices
     int64_t axis = mlir::cast<ONNXSoftmaxOp>(*op).getAxis();
-
     if(axis < 0)
         axis = ExpOutputType.getRank() + axis;
     
-    SmallVector<int64_t, 4> axes;
-    axes.push_back(axis);
-
+    SmallVector<int64_t, 4> axes = {axis};
+    //Sum of the all the exponents for the denominator
     SmallVector<int64_t> reducedShape = getReductionShape(ExpOutputType, axes, false);
     ShapedType ReducedShapeType = mlir::cast<ShapedType>(RankedTensorType::get(reducedShape, ExpOutputType.getElementType()));
     Value identity = rewriter.create<stablehlo::ConstantOp>(loc, rewriter.getZeroAttr(ExpOutputType.getElementType()));
-
     Value ReduceSum = computeReduceSum(loc, ElementwiseExpStableHLO, identity, reducedShape, axes, rewriter, false, ReducedShapeType);
-
+    if(ReduceSum == nullptr)
+      return failure();
 
     SmallVector <int64_t> broadcast_dims = getBroadcastDims(ElementwiseExpStableHLO, axes);
     Value BroadCastOp = rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType, ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+    if(BroadCastOp == nullptr)
+      return failure();
 
-    rewriter.replaceOp(op, BroadCastOp);
+    Value Softmax_output = rewriter.create<stablehlo::DivOp>(loc, ElementwiseExpStableHLO, BroadCastOp);
+    if(Softmax_output == nullptr)
+      return failure();
+
+    rewriter.replaceOp(op, Softmax_output);
     return success();
   }
 };
