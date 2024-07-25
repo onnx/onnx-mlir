@@ -447,8 +447,10 @@ OpsWithFolder = ["Constant", "Squeeze", "SqueezeV11"]
 OpsWithConstantLike = ["Constant"]
 
 # Op with Helper functions
-# Here the functions are for data flow analysis.
 OpsWithHelpers = {
+    "EyeLike": """
+    mlir::Type getResultElementType();
+  """,
     "Loop": """
     mlir::Operation::result_range v_final();
     mlir::Operation::result_range scan_outputs();
@@ -468,6 +470,7 @@ OpsWithResultTypeInference = [
     "Constant",
     "Cast",
     "ConstantOfShape",
+    "EyeLike",
     "If",
     "Loop",
     "RandomNormal",

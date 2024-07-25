@@ -1,0 +1,15 @@
+
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 9]
+>
+test_eye_like_dtype (float[unk__a,unk__b] EyeLike_in) => (uint16[] EyeLike_out) 
+{
+   EyeLike_out = EyeLike<dtype: int = 4> (EyeLike_in)
+}
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "EyeLike_in"}) -> (tensor<?x?xui16> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "EyeLike_out"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.EyeLike"([[PARAM_0_]]) {dtype = 4 : si64, k = 0 : si64} : (tensor<?x?xf32>) -> tensor<?x?xui16>
+// CHECK:           onnx.Return [[VAR_0_]] : tensor<?x?xui16>
