@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------- SpecializedKernelOpInterface.hpp ------------------===//
+//===------------------- SpecializedKernelOpInterface.hpp
+//------------------===//
 //===------------- Specialized Kernel Op Interface Definition -------------===//
 //
 // Copyright 2020-2024 The IBM Research Authors.

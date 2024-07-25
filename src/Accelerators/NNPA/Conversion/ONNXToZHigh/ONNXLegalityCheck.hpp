@@ -54,5 +54,5 @@ bool onnxToZHighUnsupportedReport(
 
 bool onnxToZHighInCompatibilityReport(
     mlir::Operation *op, std::string inputNNPALevel);
-    
+
 #endif

@@ -15,7 +15,6 @@
 #ifndef ONNX_MLIR_ACCELERATOR_H
 #define ONNX_MLIR_ACCELERATOR_H
 
-
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"

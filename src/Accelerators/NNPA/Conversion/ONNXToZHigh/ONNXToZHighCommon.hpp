@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ONNXToZHighCommon.hpp - Common functions in ONNXToZHigh ---------===//
+//===---------- ONNXToZHighCommon.hpp - Common functions in ONNXToZHigh
+//---------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
