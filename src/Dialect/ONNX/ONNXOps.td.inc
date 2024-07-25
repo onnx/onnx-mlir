@@ -2305,7 +2305,7 @@ def ONNXExpandOp:ONNX_Op<"Expand",
 }
 
 def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
-  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>]> {
+  [Pure, OpVersionTrait<9>, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>, DeclareOpInterfaceMethods<ShapeHelperOpInterface>, DeclareOpInterfaceMethods<ResultTypeInferenceOpInterface>]> {
   let summary = "ONNX EyeLike operation";
   let description = [{
   Generate a 2D tensor (matrix) with ones on the diagonal and zeros everywhere else. Only 2D
@@ -2330,7 +2330,9 @@ def ONNXEyeLikeOp:ONNX_Op<"EyeLike",
     static std::vector<int> getTypeMap() {
       return {-1};
     }
-  }];
+
+    mlir::Type getResultElementType();
+    }];
   let extraClassDefinition = [{
     onnx_mlir::ONNXOpShapeHelper * $cppClass::getShapeHelper(mlir::Operation *op, llvm::ArrayRef<mlir::Value> oper,
         onnx_mlir::IndexExprBuilder *ieb, onnx_mlir::IndexExprScope *scope) {

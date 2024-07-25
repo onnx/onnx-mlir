@@ -40,6 +40,39 @@ LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+// Type Inference
+//===----------------------------------------------------------------------===//
+
+Type ONNXEyeLikeOp::getResultElementType() {
+  const auto inputType = getInput().getType().cast<TensorType>();
+  if (getDtypeAttr()) {
+    auto builder = OpBuilder(getContext());
+    return convertONNXTypeToMLIRType(builder,
+        (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
+  }
+  Type elementType = inputType.getElementType();
+  if (elementType.isa<NoneType>()) {
+    auto builder = OpBuilder(getContext());
+    elementType = convertONNXTypeToMLIRType(
+        builder, onnx::TensorProto_DataType::TensorProto_DataType_FLOAT);
+  }
+  return elementType;
+}
+
+std::vector<Type> ONNXEyeLikeOp::resultTypeInference() {
+  Type elementType = getResultElementType();
+  std::vector<Type> resultTypes;
+
+  if (auto rankedInputType =
+          getInput().getType().dyn_cast<RankedTensorType>()) {
+    resultTypes.push_back(rankedInputType.clone(elementType));
+  } else {
+    resultTypes.push_back(UnrankedTensorType::get(elementType));
+  }
+  return resultTypes;
+}
+
+//===----------------------------------------------------------------------===//
 // Shape Inference
 //===----------------------------------------------------------------------===//
 
@@ -48,16 +81,7 @@ LogicalResult ONNXEyeLikeOp::inferShapes(
   if (!hasShapeAndRank(getInput()))
     return success();
 
-  RankedTensorType inputType = getInput().getType().cast<RankedTensorType>();
-  Type elementType;
-  if (getDtypeAttr()) {
-    auto builder = OpBuilder(getContext());
-    elementType = convertONNXTypeToMLIRType(builder,
-        (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
-  } else {
-    elementType = inputType.getElementType();
-  }
-
+  Type elementType = getResultElementType();
   ONNXEyeLikeOpShapeHelper shapeHelper(getOperation(), {});
   return shapeHelper.computeShapeAndUpdateType(elementType);
 }
