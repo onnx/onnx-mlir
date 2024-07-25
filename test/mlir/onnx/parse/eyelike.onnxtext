@@ -4,15 +4,14 @@
    ir_version: 4,
    opset_import: ["" : 9]
 >
-test_eye_like (int64[2] shape) => (float[unknown_x, unknown_y] eye_like)
+test_eye_like (float[] Mul_lhs, float[unk__a,unk__b] EyeLike_in) => (float[] Mul_res) 
 {
-   constant_of_shape = ConstantOfShape <value: tensor = float[1] {0}> (shape)
-   eye_like = EyeLike (constant_of_shape)
+   EyeLike_out = EyeLike (EyeLike_in)
+   Mul_res = Mul (Mul_lhs, EyeLike_out)
 }
 
 // CHECK-LABEL:  func.func @main_graph
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2xi64>
-// CHECK-SAME:   tensor<?x?xf32>
-// CHECK:           [[VAR_0_:%.+]] = onnx.ConstantOfShape([[PARAM_0_]]) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<2xi64>) -> tensor<?x?xf32>
-// CHECK:           [[VAR_1_:%.+]] = "onnx.EyeLike"([[VAR_0_]]) {k = 0 : si64} : (tensor<?x?xf32>) -> tensor<?x?xf32>
-// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x?xf32>
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32> {onnx.dim_params = "0:unk__a,1:unk__b", onnx.name = "Mul_lhs"}, [[PARAM_1_:%.+]]: tensor<?x?xf32> {onnx.name = "EyeLike_in"}) -> (tensor<*xf32> {onnx.name = "Mul_res"}) {
+// CHECK:           [[VAR_0_:%.+]] = "onnx.EyeLike"([[PARAM_1_]]) {k = 0 : si64} : (tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.Mul"([[PARAM_0_]], [[VAR_0_]]) : (tensor<*xf32>, tensor<?x?xf32>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<*xf32>
