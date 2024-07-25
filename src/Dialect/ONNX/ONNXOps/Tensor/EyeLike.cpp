@@ -50,13 +50,7 @@ Type ONNXEyeLikeOp::getResultElementType() {
     return convertONNXTypeToMLIRType(builder,
         (onnx::TensorProto_DataType)getDtypeAttr().getValue().getSExtValue());
   }
-  Type elementType = inputType.getElementType();
-  if (elementType.isa<NoneType>()) {
-    auto builder = OpBuilder(getContext());
-    elementType = convertONNXTypeToMLIRType(
-        builder, onnx::TensorProto_DataType::TensorProto_DataType_FLOAT);
-  }
-  return elementType;
+  return inputType.getElementType();
 }
 
 std::vector<Type> ONNXEyeLikeOp::resultTypeInference() {
