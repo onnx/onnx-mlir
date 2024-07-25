@@ -165,6 +165,15 @@ Value OnnxBuilder::layerNorm(Type outputType, Value input, Value scale,
   return layerNormOp.getY();
 }
 
+Value OnnxBuilder::qlinearMatMul(Type outputType, Value a, Value aScale,
+    Value aZeroPoint, Value b, Value bScale, Value bZeroPoint, Value yScale,
+    Value yZeroPoint) const {
+  return createOpAndInferShapes<ONNXQLinearMatMulOp>(toTensor(outputType),
+      toTensor(a), toTensor(aScale), toTensor(aZeroPoint), toTensor(b),
+      toTensor(bScale), toTensor(bZeroPoint), toTensor(yScale),
+      toTensor(yZeroPoint));
+}
+
 Value OnnxBuilder::RMSLayerNorm(Type outputType, Value input, Value scale,
     Value bias, int64_t axis, FloatAttr epsilon) const {
   IntegerAttr axisAttr = getSignedInt64Attr(axis);

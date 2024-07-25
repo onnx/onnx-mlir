@@ -510,8 +510,8 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 };
 
 template <typename T>
-struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableFloatingPoint<T>> {
-  static T eval(T val) { return 1 / val; }
+struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return (1 / val); }
 };
 
 template <typename ElementwiseUnaryOp>

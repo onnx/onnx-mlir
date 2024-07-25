@@ -587,9 +587,8 @@ struct ScalarOp<ONNXHardSigmoidOp> {
 template <>
 double analyzeSimdFor<ONNXHardSigmoidOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
-                          GenericOps::CompareGop, GenericOps::SelectGop},
-      {1, 1, 2, 2}, t, von, son);
+  return simdAnalysis(
+      {GenericOps::ArithmeticGop, GenericOps::MulGop}, {3, 1}, t, von, son);
 }
 
 template <>
@@ -615,10 +614,9 @@ Value emitScalarOpFor<ONNXHardSigmoidOp>(ConversionPatternRewriter &rewriter,
   Value beta = create.math.constant(elementType, betaLit);
   // Perform computations.
   Value add = create.math.add(create.math.mul(alpha, operand), beta);
-  Value maxPredicate = create.math.sgt(add, zero);
-  Value max = create.math.select(maxPredicate, add, zero);
-  Value minPredicate = create.math.slt(max, one);
-  return create.math.select(minPredicate, max, one);
+  Value clipLowest = create.math.max(add, zero);
+  Value clipHighest = create.math.min(clipLowest, one);
+  return clipHighest;
 }
 
 //===----------------------------------------------------------------------===//
@@ -671,8 +669,7 @@ struct ScalarOp<ONNXReluOp> {
 template <>
 double analyzeSimdFor<ONNXReluOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
 template <>
@@ -683,8 +680,7 @@ Value emitScalarOpFor<ONNXReluOp>(ConversionPatternRewriter &rewriter,
   Value operand = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   Value zero = create.math.constant(elementType, 0);
-  Value geZero = create.math.sge(operand, zero);
-  return create.math.select(geZero, operand, zero);
+  return create.math.max(zero, operand);
 }
 
 //===----------------------------------------------------------------------===//
@@ -956,8 +952,7 @@ struct ScalarOp<ONNXMaxOp> {
 template <>
 double analyzeSimdFor<ONNXMaxOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
 template <>
@@ -971,9 +966,7 @@ Value emitScalarOpFor<ONNXMaxOp>(ConversionPatternRewriter &rewriter,
   Value lhs = scalarOperands[0];
   Value rhs = scalarOperands[1];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
-  // could return create.math.max(lhs, rhs);
-  Value cond = create.math.gt(lhs, rhs);
-  return create.math.select(cond, lhs, rhs);
+  return create.math.max(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -988,8 +981,7 @@ struct ScalarOp<ONNXMinOp> {
 template <>
 double analyzeSimdFor<ONNXMinOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::CompareGop, GenericOps::SelectGop}, {1, 1}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop}, {1}, t, von, son);
 }
 
 template <>
@@ -1004,8 +996,7 @@ Value emitScalarOpFor<ONNXMinOp>(ConversionPatternRewriter &rewriter,
   Value rhs = scalarOperands[1];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   // could return create.math.min(lhs, rhs);
-  Value cond = create.math.lt(lhs, rhs);
-  return create.math.select(cond, lhs, rhs);
+  return create.math.min(lhs, rhs);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1366,8 +1357,7 @@ struct ScalarOp<ONNXClipOp> {
 template <>
 double analyzeSimdFor<ONNXClipOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  return simdAnalysis(
-      {GenericOps::CompareGop, GenericOps::SelectGop}, {2, 2}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop}, {2}, t, von, son);
 }
 
 template <>
@@ -1376,16 +1366,12 @@ Value emitScalarOpFor<ONNXClipOp>(ConversionPatternRewriter &rewriter,
     ArrayRef<Value> scalarOperands) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
   Value res = scalarOperands[0];
-  Value min = scalarOperands[1];
-  Value max = scalarOperands[2];
-  if (!isNoneValue(min)) {
-    Value lessThanMin = create.math.slt(res, min); // (input[i,j,k]<min)
-    res = create.math.select(lessThanMin, min, res);
-  }
-  if (!isNoneValue(max)) {
-    Value lessThanMax = create.math.slt(res, max); // (input[i,j,k]>max)
-    res = create.math.select(lessThanMax, res, max);
-  }
+  Value minVal = scalarOperands[1];
+  Value maxVal = scalarOperands[2];
+  if (!isNoneValue(minVal))
+    res = create.math.max(minVal, res);
+  if (!isNoneValue(maxVal))
+    res = create.math.min(maxVal, res);
   return res;
 }
 

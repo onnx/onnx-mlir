@@ -47,6 +47,7 @@ add_onnx_mlir_library(OMZHighOps
   OMONNXOps # Use ONNXShapeHelper 
   OMLayoutHelper
   OMShapeHelperOpInterface
+  OMNNPACompilerOptions
   MLIRIR
 
   ACCEL_INCLUDE_DIRS PRIVATE

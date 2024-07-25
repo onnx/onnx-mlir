@@ -1,3 +1,17 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+//===-- OMSort.inc - OMSort C/C++ Implementation --===//
+//
+// Copyright 2023-2024 The IBM Research Authors.
+//
+// =============================================================================
+//
+// This file contains C/C++ implementation of OMSort.
+//
+//===----------------------------------------------------------------------===//
+
 #ifdef __cplusplus
 #include <cassert>
 #else
@@ -190,8 +204,8 @@ typedef struct indexStack {
 static int64_t log2u(uint64_t n) {
   assert(n > 0);
   int64_t b = 0;
-  for (; n > 0; b++)
-    n = n >> 2;
+  for (; n > 1; b++)
+    n = n >> 1;
   return b;
 }
 

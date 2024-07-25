@@ -7,6 +7,7 @@ add_onnx_mlir_library(OMStickify
 
   LINK_LIBS PUBLIC
   LLVMSupport
+  OMLayoutHelper
 
   ACCEL_INCLUDE_DIRS PRIVATE
   ${NNPA_INCLUDE_PATH}

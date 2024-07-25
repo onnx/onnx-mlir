@@ -142,16 +142,26 @@ def ZHighStickOp:ZHigh_Op<"Stick", [Pure,
   let summary = "ZHigh Stick operation";
   let description = [{
     ZHigh operation to perform a Stick."
+
     If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
+
+    Optional `saturation` indicates whether the CPU tensor is saturated before stickification
+    or not. If it is saturated, the dlfloat16 range would be used.
+    Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
   }];
   let arguments = (ins AnyTypeOf<[TensorOf<[F32]>, NoneType]>:$In,
-                       OptionalAttr<StrAttr>:$layout);
+                       OptionalAttr<StrAttr>:$layout,
+                       OptionalAttr<SI64Attr>:$saturation);
   let results = (outs AnyTypeOf<[ZTensor_1D, ZTensor_2D, ZTensor_3D, ZTensor_4D,
                                  ZTensor_2DS, ZTensor_3DS, ZTensor_4DS,
                                  ZTensor_NHWC,  ZTensor_NCHW, ZTensor_HWCK,
                                  NoneType]>:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout)>
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout), [{
+      build($_builder, $_state, In, layout, IntegerAttr());
+    }]>,
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::StringAttr":$layout,
+               "::mlir::IntegerAttr":$saturation)>
   ];
   let hasCanonicalizer = 1;
   let extraClassDefinition = [{
@@ -195,11 +205,19 @@ def ZHighF32ToDLF16Op:ZHigh_Op<"F32ToDLF16", [Pure,
   let summary = "ZHigh F32ToDLF16 operation";
   let description = [{
     ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
+
+    Optional `saturation` indicates whether the CPU tensor is saturated before stickification
+    or not. If it is saturated, the dlfloat16 range would be used.
+    Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
   }];
-  let arguments = (ins TensorOf<[F32]>: $In);
+  let arguments = (ins TensorOf<[F32]>: $In,
+                       OptionalAttr<SI64Attr>:$saturation);
   let results = (outs TensorOf<[F16]>:$Out);
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$In)>,
+    OpBuilder<(ins "::mlir::Value":$In), [{
+      build($_builder, $_state, In, IntegerAttr());
+    }]>,
+    OpBuilder<(ins "::mlir::Value":$In, "::mlir::IntegerAttr":$saturation)>
   ];
   let hasCanonicalizer = 1;
   let extraClassDefinition = [{

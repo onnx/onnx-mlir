@@ -466,11 +466,6 @@ bool areDims(Value val) {
   if (!(isRankedShapedType(vType) && (getRank(vType) == 1)))
     return false;
 
-  // Base case.
-  // A dimension must be a 1D tensor of one i64 element.
-  if ((getShape(vType)[0] == 1) && getElementType(vType).isSignlessInteger(64))
-    return true;
-
   // Recursion case.
   if (definedBy<ONNXConcatOp>(val)) {
     // Recursively check.
@@ -479,6 +474,11 @@ bool areDims(Value val) {
         return false;
     return true;
   }
+
+  // Base case.
+  // A dimension must be a 1D tensor of one i64 element.
+  if ((getShape(vType)[0] == 1) && getElementType(vType).isSignlessInteger(64))
+    return true;
 
   // Not Dim/Constant/Cast/Concat.
   return false;

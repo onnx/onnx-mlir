@@ -49,11 +49,13 @@ llvm::cl::opt<bool> nnpaEnableZHighDecomposeStickUnstick(
         "Default is false."),
     llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
 
+// Enabled default now, could also enable it only if parallel is on as parallel
+// stick/unstick is quite a bit faster than sequential.
 llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
     "enable-compiler-stick-unstick",
     llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
-                   "stick/unstick code. Default is false."),
-    llvm::cl::init(false), llvm::cl::cat(OnnxMlirOptions));
+                   "stick/unstick code. Default is true."),
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
 
 llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
     "nnpa-enable-scalar-bcast-binary",
@@ -90,5 +92,11 @@ llvm::cl::opt<NNPAPlacementHeuristic> nnpaPlacementHeuristic{
         clEnumVal(MuchFasterOpsWSU,
             "Much/Significantly FasterOps with stick/unstick cost")),
     llvm::cl::init(QualifyingOps), llvm::cl::cat(OnnxMlirOptions)};
+
+llvm::cl::opt<bool> nnpaEnableSaturation("nnpa-saturation",
+    llvm::cl::desc("Enable saturating f32 values before stickify them."
+                   "This option turns enable-compiler-stick-unstick on."
+                   "Default is false."),
+    llvm::cl::init(false), llvm::cl::cat(OnnxMlirCommonOptions));
 
 } // namespace onnx_mlir

@@ -895,6 +895,7 @@ struct ONNXCustomOpShapeHelper : public ONNXUnaryOpShapeHelper {
       IndexExprBuilder *ieBuilder = nullptr, IndexExprScope *scope = nullptr,
       bool hasUniBroadcasting = false);
 
+  bool isImplemented() override;
   // Default shape compute (every operands of the operation and no additional
   // parameters).
   mlir::LogicalResult computeShape() override;

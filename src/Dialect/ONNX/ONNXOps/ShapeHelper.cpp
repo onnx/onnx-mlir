@@ -898,6 +898,8 @@ ONNXCustomOpShapeHelper::ONNXCustomOpShapeHelper(Operation *op,
   setOperands(ValueRange(operandsVector));
 }
 
+bool ONNXCustomOpShapeHelper::isImplemented() { return pattern != 0; }
+
 LogicalResult ONNXCustomOpShapeHelper::computeShape() {
   if (pattern == 1) {
     return ONNXUnaryOpShapeHelper::computeShape();
