@@ -40,8 +40,8 @@ def NoneLayoutAttr: NativeCodeCall<"StringAttr()">;
 // Not support NHWC layout since the stick does transpose internally. We can
 // introduce transpose explicitly, but need to evaluate its overhead.
 def DecomposeStickPattern: Pat<
-  (ZHighStickOp $input, $layout),
-  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input), $layout),
+  (ZHighStickOp $input, $layout, $saturation),
+  (ONNXLayoutTransformOp (ZHighF32ToDLF16Op $input, $saturation), $layout),
   [(IsNotNHWCLayout $layout)]
 >;
 

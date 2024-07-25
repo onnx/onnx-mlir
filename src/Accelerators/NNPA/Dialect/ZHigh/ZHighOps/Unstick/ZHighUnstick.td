@@ -36,7 +36,7 @@ include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps/OpHelper.td"
 
 // zhigh.Unstick (zhigh.Stick (%X)) = %X
 def UnstickStickRemovalPattern : Pat<
-  (ZHighUnstickOp (ZHighStickOp $arg, $_)),
+  (ZHighUnstickOp (ZHighStickOp $arg, $_, $_)),
   (replaceWithValue $arg)
 >;
 

@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/Accelerators/NNPA/Support/Stickify/Convert.hpp"
-#include "src/Accelerators/NNPA/Support/NNPALimit.h"
+#include "src/Accelerators/NNPA/Support/NNPALimit.hpp"
 #include "src/Accelerators/NNPA/Support/Stickify/DLF16Conversion.hpp"
 
 /// fp32 -> dlf16 conversion.

@@ -231,6 +231,12 @@ if not os.environ.get("ONNX_MLIR_HOME", None):
         "executables and libraries can be found, typically `onnx-mlir/build/Debug`"
     )
 
+if args.verify and args.verify.lower() == "onnxruntime":
+    if not args.model or (args.model and not args.model.endswith(".onnx")):
+        raise RuntimeError(
+            "Set input onnx model using argument --model when verifying using onnxruntime."
+        )
+
 VERBOSE = os.environ.get("VERBOSE", False)
 
 ONNX_MLIR_EXENAME = "onnx-mlir"
@@ -818,6 +824,7 @@ def main():
         if args.verify:
             ref_outs = []
             if args.verify.lower() == "onnxruntime":
+                input_model_path = args.model
                 # Reference backend by using onnxruntime.
                 import onnxruntime
 

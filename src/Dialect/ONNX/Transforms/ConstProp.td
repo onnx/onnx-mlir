@@ -520,6 +520,14 @@ def ReluofConst : NamedPat<"ReluofConst",
     (CreateReluOfConst $reluOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
+// Constant Propagation for Reciprocal
+def ReciprocalOfConst : NamedPat<"ReciprocalOfConst",
+    // From  onnx.Reciprocal(c)
+    (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To reciprocal(c)
+    (CreateReciprocalOfConst $reciprocalOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
 //===----------------------------------------------------------------------===//
 // Const propagation patterns for variadic elementwise operations.
 //===----------------------------------------------------------------------===//

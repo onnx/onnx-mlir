@@ -38,13 +38,13 @@ def CreateONNXMaxOp : NativeCodeCall<"$_builder.create<ONNXMaxOp>($_loc, $0.getT
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighAddPattern1 : Pat<
-  (ZHighUnstickOp (ZHighAddOp (ZHighStickOp:$s_x $x, $_), $y)),
+  (ZHighUnstickOp (ZHighAddOp (ZHighStickOp:$s_x $x, $_, $_), $y)),
   (ONNXAddOp $x, (ZHighUnstickOp $y)),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
 >;
 
 def replaceZHighAddPattern2 : Pat<
-  (ZHighUnstickOp (ZHighAddOp $x, (ZHighStickOp:$s_y $y, $_))),
+  (ZHighUnstickOp (ZHighAddOp $x, (ZHighStickOp:$s_y $y, $_, $_))),
   (ONNXAddOp (ZHighUnstickOp $x), $y),
   [(NotBlockArgument:$y), (HasOneUse:$s_y)]
 >;
@@ -54,14 +54,14 @@ def replaceZHighAddPattern2 : Pat<
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighMulPattern1 : Pat<
-  (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, $_), $y)),
+  (ZHighUnstickOp (ZHighMulOp (ZHighStickOp:$s_x $x, $_, $_), $y)),
   (ONNXMulOp $x, (ZHighUnstickOp $y)),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)], [ ],
   (addBenefit 1)
 >;
 
 def replaceZHighMulPattern2 : Pat<
-  (ZHighUnstickOp (ZHighMulOp $x, (ZHighStickOp:$s_y $y, $_))),
+  (ZHighUnstickOp (ZHighMulOp $x, (ZHighStickOp:$s_y $y, $_, $_))),
   (ONNXMulOp (ZHighUnstickOp $x), $y),
   [(NotBlockArgument:$y), (HasOneUse:$s_y)], [],
   (addBenefit 0)
@@ -72,14 +72,14 @@ def replaceZHighMulPattern2 : Pat<
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighSubPattern1 : Pat<
-  (ZHighUnstickOp (ZHighSubOp (ZHighStickOp:$s_x $x, $_), $y)),
+  (ZHighUnstickOp (ZHighSubOp (ZHighStickOp:$s_x $x, $_, $_), $y)),
   (ONNXSubOp $x, (ZHighUnstickOp $y)),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)], [ ],
   (addBenefit 1)
 >;
 
 def replaceZHighSubPattern2 : Pat<
-  (ZHighUnstickOp (ZHighSubOp $x, (ZHighStickOp:$s_y $y, $_))),
+  (ZHighUnstickOp (ZHighSubOp $x, (ZHighStickOp:$s_y $y, $_, $_))),
   (ONNXSubOp (ZHighUnstickOp $x), $y),
   [(NotBlockArgument:$y), (HasOneUse:$s_y)], [ ],
   (addBenefit 0)
@@ -109,14 +109,14 @@ def replaceZHighSubPattern2 : Pat<
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighMinPattern1 : Pat<
-  (ZHighUnstickOp:$u (ZHighMinOp (ZHighStickOp:$s_x $x, $_), $y)),
+  (ZHighUnstickOp:$u (ZHighMinOp (ZHighStickOp:$s_x $x, $_, $_), $y)),
   (CreateONNXMinOp $u, $x, (ZHighUnstickOp $y)),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)], [ ],
   (addBenefit 1)
 >;
 
 def replaceZHighMinPattern2 : Pat<
-  (ZHighUnstickOp:$u (ZHighMinOp $x, (ZHighStickOp:$s_y $y, $_))),
+  (ZHighUnstickOp:$u (ZHighMinOp $x, (ZHighStickOp:$s_y $y, $_, $_))),
   (CreateONNXMinOp $u, (ZHighUnstickOp $x), $y),
   [(NotBlockArgument:$y), (HasOneUse:$s_y)], [ ],
   (addBenefit 0)
@@ -127,14 +127,14 @@ def replaceZHighMinPattern2 : Pat<
 // (ZHighStickOp %Y))
 //===----------------------------------------------------------------------===//
 def replaceZHighMaxPattern1 : Pat<
-  (ZHighUnstickOp:$u (ZHighMaxOp (ZHighStickOp:$s_x $x, $_), $y)),
+  (ZHighUnstickOp:$u (ZHighMaxOp (ZHighStickOp:$s_x $x, $_, $_), $y)),
   (CreateONNXMaxOp $u, $x, (ZHighUnstickOp $y)),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)], [ ],
   (addBenefit 1)
 >;
 
 def replaceZHighMaxPattern2 : Pat<
-  (ZHighUnstickOp:$u (ZHighMaxOp $x, (ZHighStickOp:$s_y $y, $_))),
+  (ZHighUnstickOp:$u (ZHighMaxOp $x, (ZHighStickOp:$s_y $y, $_, $_))),
   (CreateONNXMaxOp $u, (ZHighUnstickOp $x), $y),
   [(NotBlockArgument:$y), (HasOneUse:$s_y)], [ ],
   (addBenefit 0)
@@ -144,7 +144,7 @@ def replaceZHighMaxPattern2 : Pat<
 // ONNXReluOp %X = ZHighUnstickOp (ZHighReluOp (ZHighStickOp %X))
 //===----------------------------------------------------------------------===//
 def replaceZHighReluPattern : Pat<
-  (ZHighUnstickOp (ZHighReluOp (ZHighStickOp:$s_x $x, $_))),
+  (ZHighUnstickOp (ZHighReluOp (ZHighStickOp:$s_x $x, $_, $_))),
   (ONNXReluOp $x),
   [(NotBlockArgument:$x), (HasOneUse:$s_x)]
 >;

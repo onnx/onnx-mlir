@@ -6,11 +6,11 @@ _ZHigh Add operation_
 ZHigh operation to perform an Add.
 This operation does not support broadcasting.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -31,11 +31,11 @@ _ZHigh 2D average pooling operation_
 
 ZHigh operation to perform 2D average pooling.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -64,11 +64,11 @@ _ZHigh batchnorm operation_
 
 ZHigh operation to perform batchnorm.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -88,21 +88,21 @@ Effects: MemoryEffects::Effect{}
 
 _ZHigh 2D convolution operation_
 
-ZHigh operation to perform 2D convolution. 
+ZHigh operation to perform 2D convolution.
 * input: `[num_batches, height_in, width_in, channels_in]`
-* input_kernel: `[kernel_height, kernel_width, channels_in, channels_out]` 
+* input_kernel: `[kernel_height, kernel_width, channels_in, channels_out]`
 * input_bias: `[channels_out] `
-* kernel_shape: 1D array of kernel height and width 
-* strides: 1D array of stride height and width 
-* padding_type: SAME_PADDING or VALID_PADDING 
-* act_func: ACT_NONE or ACT_RELU 
+* kernel_shape: 1D array of kernel height and width
+* strides: 1D array of stride height and width
+* padding_type: SAME_PADDING or VALID_PADDING
+* act_func: ACT_NONE or ACT_RELU
 * output: `[num_batches, height_out, width_out, channels_out]`
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -134,11 +134,11 @@ _ZHigh DLF16ToF32 operation_
 
 ZHigh operation to convert a tensor of dlfloat16 to a tensor of f32.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -159,11 +159,11 @@ _ZHigh Div operation_
 ZHigh operation to perform a Div.
 This operation does not support broadcasting.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -184,11 +184,11 @@ _ZHigh Exp operation_
 
 ZHigh operation to perform a Exp.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -208,11 +208,22 @@ _ZHigh F32ToDLF16 operation_
 
 ZHigh operation to convert a tensor of f32 to a tensor of dlfloat16.
 
-Traits: AlwaysSpeculatableImplTrait
+Optional `saturation` indicates whether the CPU tensor is saturated before stickification
+or not. If it is saturated, the dlfloat16 range would be used.
+Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Traits: `AlwaysSpeculatableImplTrait`
 
-Effects: MemoryEffects::Effect{}
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
+
+#### Attributes:
+
+<table>
+<tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
+<tr><td><code>saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
+</table>
 
 #### Operands:
 
@@ -232,11 +243,11 @@ _Fix Y result of GRU for sequence_lens_
 
 Fix Y result of GRU by padding value after sequence_lens.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -258,11 +269,11 @@ _Fix Yh result of GRU for sequence_lens_
 
 Fix Yh result of GRU by picking the value in Y according to sequence_lens.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -286,19 +297,19 @@ _ZHigh GRU operation_
 * Shape for input_weights is `[D, I, 3*H]`.
 * Shape for hidden_weights is `[D, H, 3*H]`.
 * Shape for input_bias and hidden_bias is `[D, 3*H]`.
-* Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+* Shape for hn_output is `[S, D, B, H]` if return all timesteps
   and `[1, D, B, H]` if return the final step only.
-* S is timesteps, D is the number of directions (1 for unidirectional and 
-* 2 for bidirectional), B is batch size, I is input size, and 
+* S is timesteps, D is the number of directions (1 for unidirectional and
+* 2 for bidirectional), B is batch size, I is input size, and
 * H is hidden size.
 * direction accepts "forward", "reverse", or "bidirectional
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep."
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -335,20 +346,20 @@ zHigh operation to perform a LSTM.
 * Shape for input_weights is  `[D, I, 4*H]`.
 * Shape for hidden_weights is  `[D, H, 4*H]`.
 * Shape for input_bias and hidden_bias is `[D, 4*H]`.
-* Shape for hn_output is `[S, D, B, H]` if return all timesteps 
+* Shape for hn_output is `[S, D, B, H]` if return all timesteps
   and `[1, D, B, H]` if return the final step only.
 * Shape for cf_output is `[1, D, B, H]`.
-* S is timesteps, D is the number of directions (1 for unidirectional and 
-* 2 for bidirectional), B is batch size, I is input size, and 
+* S is timesteps, D is the number of directions (1 for unidirectional and
+* 2 for bidirectional), B is batch size, I is input size, and
 * H is hidden size.
 * direction accepts "forward", "reverse", or "bidirectional
 * return_all_steps: -1 returns all timesteps, 0: returns only the last timestep.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -384,11 +395,11 @@ _ZHigh Log operation_
 
 ZHigh operation to perform a Log.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -408,11 +419,11 @@ _ZHigh MatMul operation_
 
 ZHigh operation to perform a MatMul.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -435,11 +446,11 @@ _ZHigh Max operation_
 ZHigh operation to perform a Max.
 This operation does not support broadcasting.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -460,11 +471,11 @@ _ZHigh 2D max pooling operation_
 
 ZHigh operation to perform 2D max pooling.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -491,16 +502,16 @@ Effects: MemoryEffects::Effect{}
 
 _ZHigh 2D mean reduce operation_
 
-ZHigh operation to perform 2D mean reduce. Given an input 4D tensor, 
-returns a downsampled tensor reducing the middle 2nd and 3rd dimensions 
+ZHigh operation to perform 2D mean reduce. Given an input 4D tensor,
+returns a downsampled tensor reducing the middle 2nd and 3rd dimensions
 to a size of 1 based on the mean of the original values.
  Input and Output tensors should be in the 3D layout.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -521,11 +532,11 @@ _ZHigh Min operation_
 ZHigh operation to perform a Min.
 This operation does not support broadcasting.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -547,11 +558,11 @@ _ZHigh Mul operation_
 ZHigh operation to perform a Mul.
 This operation does not support broadcasting.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -572,11 +583,11 @@ _ZHigh Relu operation_
 
 "ZHigh operation to perform a Relu."
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -596,11 +607,11 @@ _ZHigh Sigmoid operation_
 
 ZHigh operation to perform a Sigmoid.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -621,11 +632,11 @@ _ZHigh Softmax operation_
 ZHigh operation to perform a Softmax.
 act_func: ACT_NONE or ACT_LOG.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -651,15 +662,15 @@ Effects: MemoryEffects::Effect{}
 _ZHigh stick operation for GRU_
 
 ZHigh operation to perform a stick for GRU.
-Variadic: list of pointers for input data to be transformed: 
+Variadic: list of pointers for input data to be transformed:
   - GRU concatenated: 3 data pointers, one for each input gate in
 (Z)update, Reset, Hidden, (ZRH) gate order
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -680,15 +691,15 @@ Effects: MemoryEffects::Effect{}
 _ZHigh stick operation for LSTM_
 
 ZHigh operation to perform a stick for LSTM.
-Variadic: list of pointers for input data to be transformed: 
-  - LSTM concatenated: 4 data pointers, one for each input gate in 
-Forget, Input, Cell, Output (FICO) order, 
+Variadic: list of pointers for input data to be transformed:
+  - LSTM concatenated: 4 data pointers, one for each input gate in
+Forget, Input, Cell, Output (FICO) order,
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -710,19 +721,25 @@ Effects: MemoryEffects::Effect{}
 _ZHigh Stick operation_
 
 ZHigh operation to perform a Stick."
+
 If `layout`=`NHWC`, input must be in `NCHW` and output will be in `NHWC`.
 
-Traits: AlwaysSpeculatableImplTrait
+Optional `saturation` indicates whether the CPU tensor is saturated before stickification
+or not. If it is saturated, the dlfloat16 range would be used.
+Saturation if off if `saturation == 0` or it is not given. Otherwise, it is on.
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Traits: `AlwaysSpeculatableImplTrait`
 
-Effects: MemoryEffects::Effect{}
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
+
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
 <table>
 <tr><th>Attribute</th><th>MLIR Type</th><th>Description</th></tr>
 <tr><td><code>layout</code></td><td>::mlir::StringAttr</td><td>string attribute</td></tr>
+<tr><td><code>saturation</code></td><td>::mlir::IntegerAttr</td><td>64-bit signed integer attribute</td></tr>
 </table>
 
 #### Operands:
@@ -742,14 +759,14 @@ Effects: MemoryEffects::Effect{}
 _ZHigh Stickified Constant operation for a dynamic shape_
 
 This operator produces a constant tensor to store stickified data.
-The stickified data is defined by a f32 scalar value, a dynamic shape 
+The stickified data is defined by a f32 scalar value, a dynamic shape
 and a layout. Stickified data is 4K-aligned.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -780,11 +797,11 @@ Stickified data is opaque and must be 4K-aligned. One who produces
 the stickified data must make sure its size in bytes consistent with
 the output tensor's size.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface)
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Attributes:
 
@@ -807,11 +824,11 @@ _ZHigh Sub operation_
 ZHigh operation to perform a Sub.
 This operation does not support broadcasting.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -832,11 +849,11 @@ _ZHigh Tanh operation_
 
 ZHigh operation to perform a Tanh.
 
-Traits: AlwaysSpeculatableImplTrait, SameOperandsAndResultLayout
+Traits: `AlwaysSpeculatableImplTrait`, `SameOperandsAndResultLayout`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
@@ -856,11 +873,11 @@ _ZHigh Unstick operation_
 
 ZHigh operation to perform a Unstick.
 
-Traits: AlwaysSpeculatableImplTrait
+Traits: `AlwaysSpeculatableImplTrait`
 
-Interfaces: ConditionallySpeculatable, NoMemoryEffect (MemoryEffectOpInterface), ShapeHelperOpInterface, ShapeInferenceOpInterface
+Interfaces: `ConditionallySpeculatable`, `NoMemoryEffect (MemoryEffectOpInterface)`, `ShapeHelperOpInterface`, `ShapeInferenceOpInterface`
 
-Effects: MemoryEffects::Effect{}
+Effects: `MemoryEffects::Effect{}`
 
 #### Operands:
 
