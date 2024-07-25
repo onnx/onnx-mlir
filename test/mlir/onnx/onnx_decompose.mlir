@@ -884,3 +884,54 @@ func.func @test_batchnormv9_f16_dynamic(%arg0: tensor<100x3x?x?xf16>) -> (tensor
 // CHECK:           [[Y_:%.+]], [[VAR_running_mean_:%.+]], [[VAR_running_var_:%.+]] = "onnx.BatchNormalization"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]]) {epsilon = 1.00000007E-5 : f32, momentum = 1.000000e-03 : f32, training_mode = 0 : si64} : (tensor<100x3x?x?xf16>, tensor<3xf16>, tensor<3xf16>, tensor<3xf16>, tensor<3xf16>) -> (tensor<*xf16>, tensor<*xf16>, tensor<*xf16>)
 // CHECK:           return [[Y_]], [[VAR_running_mean_]], [[VAR_running_var_]] : tensor<*xf16>, tensor<*xf16>, tensor<*xf16>
 // CHECK:         }
+
+// -----
+
+func.func @test_pad_slice_only_slice() -> tensor<3x1xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[0, -1, 0, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) { mode = "constant" } : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<3x1xf32>
+  onnx.Return %1 : tensor<3x1xf32>
+}
+// CHECK-LABEL:  func.func @test_pad_slice_only_slice
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<{{.}}[1.000000e+00, 1.200000e+00], [2.300000e+00, 3.400000e+00], [4.500000e+00, 5.700000e+00]{{.}}> : tensor<3x2xf32>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_2_:%.+]] = onnx.Constant dense<[3, 2]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_3_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_4_:%.+]] = "onnx.Slice"([[VAR_0_]], [[VAR_1_]], [[VAR_2_]], [[VAR_3_]], [[VAR_3_]]) : (tensor<3x2xf32>, tensor<2xi64>, tensor<2xi64>, none, none) -> tensor<3x1xf32>
+// CHECK:           onnx.Return [[VAR_4_]] : tensor<3x1xf32>
+
+// -----
+
+func.func @test_pad_slice() -> tensor<4x1xf32> {
+  %data = onnx.Constant dense<[[1.0, 1.2], [2.3, 3.4], [4.5, 5.7]]> : tensor<3x2xf32>
+  %pads = onnx.Constant dense<[0, -1, 1, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) { mode = "constant" } : (tensor<3x2xf32>, tensor<4xi64>, none, none) -> tensor<4x1xf32>
+  onnx.Return %1 : tensor<4x1xf32>
+}
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, 0, 1, 0]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<{{.}}[1.000000e+00, 1.200000e+00], [2.300000e+00, 3.400000e+00], [4.500000e+00, 5.700000e+00]{{.}}> : tensor<3x2xf32>
+// CHECK-DAG:       [[VAR_2_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_3_:%.+]] = onnx.Constant dense<[0, 1]> : tensor<2xi64>
+// CHECK-DAG:       [[VAR_4_:%.+]] = onnx.Constant dense<[3, 2]> : tensor<2xi64>
+// CHECK:           [[VAR_5_:%.+]] = "onnx.Slice"([[VAR_1_]], [[VAR_3_]], [[VAR_4_]], [[VAR_2_]], [[VAR_2_]]) : (tensor<3x2xf32>, tensor<2xi64>, tensor<2xi64>, none, none) -> tensor<3x1xf32>
+// CHECK:           [[VAR_6_:%.+]] = "onnx.Pad"([[VAR_5_]], [[VAR_0_]], [[VAR_2_]], [[VAR_2_]]) {mode = "constant"} : (tensor<3x1xf32>, tensor<4xi64>, none, none) -> tensor<4x1xf32>
+// CHECK:           onnx.Return [[VAR_6_]] : tensor<4x1xf32>
+
+// -----
+
+func.func @test_pad_slice_dynamic(%data : tensor<*xf32>) -> tensor<*xf32> {
+  // Just checks that we do not crash
+  %pads = onnx.Constant dense<[0, -1, 1, 0]> : tensor<4xi64>
+  %non = "onnx.NoValue"() {value} : () -> none
+  %1 = "onnx.Pad"(%data, %pads, %non, %non) { mode = "constant" } : (tensor<*xf32>, tensor<4xi64>, none, none) -> tensor<*xf32>
+  onnx.Return %1 : tensor<*xf32>
+}
+// CHECK-LABEL:  func.func @test_pad_slice_dynamic
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<*xf32>)
+// CHECK-DAG:       [[VAR_0_:%.+]] = onnx.Constant dense<[0, -1, 1, 0]> : tensor<4xi64>
+// CHECK-DAG:       [[VAR_1_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK:           [[VAR_2_:%.+]] = "onnx.Pad"([[PARAM_0_]], [[VAR_0_]], [[VAR_1_]], [[VAR_1_]]) {mode = "constant"} : (tensor<*xf32>, tensor<4xi64>, none, none) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
