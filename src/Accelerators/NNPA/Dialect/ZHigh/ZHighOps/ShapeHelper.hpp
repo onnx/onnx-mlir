@@ -4,7 +4,7 @@
 
 //===----------------ShapeHelper.hpp - shape helpers for ZHigh ------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SHAPE_HELPER_H
+#define ONNX_MLIR_SHAPE_HELPER_H
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -174,3 +175,4 @@ using ZHighFixGRUYOpShapeHelper = ONNXUnaryOpShapeHelper;
 
 } // namespace zhigh
 } // namespace onnx_mlir
+#endif

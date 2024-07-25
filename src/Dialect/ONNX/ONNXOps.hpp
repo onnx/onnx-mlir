@@ -4,7 +4,7 @@
 
 //===-------------------- ONNXOps.hpp - ONNX Operations -------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_OPS_H
+#define ONNX_MLIR_ONNX_OPS_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "src/Dialect/ONNX/ONNXAttributes.hpp"
@@ -30,3 +31,4 @@ static constexpr int CURRENT_ONNX_OPSET = 20;
 
 #define GET_OP_CLASSES
 #include "src/Dialect/ONNX/ONNXOps.hpp.inc"
+#endif

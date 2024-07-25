@@ -4,7 +4,7 @@
 
 //===-- VectorMachineSupport.hpp - Helper for what SIMD ops are supported -===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -15,7 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_VECTOR_MACHINE_H
+#define ONNX_MLIR_VECTOR_MACHINE_H
 
 #include "mlir/IR/Types.h"
 #include "llvm/ADT/SmallVector.h"
@@ -186,3 +187,4 @@ public:
 };
 
 } // namespace onnx_mlir
+#endif

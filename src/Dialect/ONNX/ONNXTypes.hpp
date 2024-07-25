@@ -4,7 +4,7 @@
 
 //===--------------------- ONNXTypes.hpp - ONNX Types ---------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,9 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_TYPES_H
+#define ONNX_MLIR_ONNX_TYPES_H
 
 #include "mlir/IR/Types.h"
 
 #define GET_TYPEDEF_CLASSES
 #include "src/Dialect/ONNX/ONNXTypes.hpp.inc"
+#endif

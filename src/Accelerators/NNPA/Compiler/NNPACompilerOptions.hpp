@@ -4,14 +4,15 @@
 
 //===------------------------ NNPACompilerOptions.hpp ---------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_NNPA_COMPILER_OPTIONS_H
+#define ONNX_MLIR_NNPA_COMPILER_OPTIONS_H
 
 #include "llvm/Support/CommandLine.h"
 
@@ -69,3 +70,4 @@ extern llvm::cl::opt<std::string> nnpaSaveDevicePlacementFile;
 extern llvm::cl::opt<bool> nnpaEnableSaturation;
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===-------------------------- Accelerator.hpp ---------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ACCELERATOR_H
+#define ONNX_MLIR_ACCELERATOR_H
+
 
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -164,3 +166,4 @@ extern void initAccelerators(llvm::ArrayRef<Accelerator::Kind> kinds);
 
 } // namespace accel
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===----------------IndexExpr.hpp - Index expression---------------------=== //
 //
-// Copyright 2020-2023 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_INDEX_EXPR_H
+#define ONNX_MLIR_INDEX_EXPR_H
 
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -910,3 +911,4 @@ void getIndexExprListFromShape(mlir::ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList);
 
 } // namespace onnx_mlir
+#endif

@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_GARABAGE_COLLECTOR_H
+#define ONNX_MLIR_GARABAGE_COLLECTOR_H
 
 #include "mlir/Pass/PassInstrumentation.h"
 
@@ -31,3 +32,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

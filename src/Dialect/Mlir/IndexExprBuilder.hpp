@@ -4,7 +4,7 @@
 
 //===---------------- ONNXShapeHelper.hpp - help for shapes ---------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -22,7 +22,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_INDEX_EXPR_BUILDER_H
+#define ONNX_MLIR_INDEX_EXPR_BUILDER_H
 
 #include <utility>
 
@@ -230,3 +231,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_OPS_HELPER_H
+#define ONNX_MLIR_OPS_HELPER_H
 
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/AffineExpr.h"
@@ -309,3 +310,4 @@ std::string getNodeNameInPresenceOfOpt(
 #include "src/Dialect/ONNX/ONNXOps/OpHelper.hpp.inc"
 
 } // namespace onnx_mlir
+#endif

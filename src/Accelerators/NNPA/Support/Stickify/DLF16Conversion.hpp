@@ -4,7 +4,7 @@
 
 //===------- DLF16Conversion.hpp - DLF16 Conversion -----------------------===//
 //
-// Copyright 2020-2022 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DLF16_H
+#define ONNX_MLIR_DLF16_H
 #include <arpa/inet.h>
 #include <cmath>
 #include <cstdint>
@@ -173,3 +174,4 @@ inline void NNP1::convert(const float &fp, unsigned *vic) {
 
   *this = uint;
 } // NNP1::convert
+#endif

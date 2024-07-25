@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_MODEL_INPUT_H
+#define ONNX_MLIR_MODEL_INPUT_H
 
 #include <map>
 #include <string>
@@ -88,3 +89,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

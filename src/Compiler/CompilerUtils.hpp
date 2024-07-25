@@ -4,7 +4,7 @@
 
 //===-------------------------- CompilerUtils.hpp -------------------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_COMPILER_UTILS_H
+#define ONNX_MLIR_COMPILER_UTILS_H
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -91,3 +92,4 @@ std::string getTargetFilename(
     const std::string filenameNoExt, EmissionTargetType target);
 
 } // namespace onnx_mlir
+#endif

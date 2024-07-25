@@ -5,7 +5,7 @@
 //===------------------- HasOnnxSubgraphOpInterface.hpp ------------------===//
 //===------------- Has Onnx Subgraph Op Interface Definition -------------===//
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_HAS_ONNX_INTERFACE_H
+#define ONNX_MLIR_HAS_ONNX_INTERFACE_H
 
 #include <map>
 #include <string>
@@ -26,3 +27,4 @@ namespace mlir {
 #include "src/Interface/HasOnnxSubgraphOpInterface.hpp.inc"
 
 } // end namespace mlir
+#endif
