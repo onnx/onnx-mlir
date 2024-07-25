@@ -1,0 +1,18 @@
+
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+<
+   ir_version: 4,
+   opset_import: ["" : 9]
+>
+test_eye_like (int64[2] shape) => (float[unknown_x, unknown_y] eye_like)
+{
+   constant_of_shape = ConstantOfShape <value: tensor = float[1] {0}> (shape)
+   eye_like = EyeLike (constant_of_shape)
+}
+
+// CHECK-LABEL:  func.func @main_graph
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<2xi64>
+// CHECK-SAME:   tensor<?x?xf32>
+// CHECK:           [[VAR_0_:%.+]] = onnx.ConstantOfShape([[PARAM_0_]]) {value = dense<0.000000e+00> : tensor<1xf32>} : (tensor<2xi64>) -> tensor<?x?xf32>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.EyeLike"([[VAR_0_]]) {k = 0 : si64} : (tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<?x?xf32>
