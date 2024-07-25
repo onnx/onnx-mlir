@@ -44,7 +44,7 @@ LogicalResult ONNXEyeLikeOpShapeHelper::computeShape() {
 //===----------------------------------------------------------------------===//
 
 Type ONNXEyeLikeOp::getResultElementType() {
-  const auto inputType = getInput().getType().cast<TensorType>();
+  const auto inputType = cast<TensorType>(getInput().getType());
   if (getDtypeAttr()) {
     auto builder = OpBuilder(getContext());
     return convertONNXTypeToMLIRType(builder,
@@ -57,8 +57,7 @@ std::vector<Type> ONNXEyeLikeOp::resultTypeInference() {
   Type elementType = getResultElementType();
   std::vector<Type> resultTypes;
 
-  if (auto rankedInputType =
-          getInput().getType().dyn_cast<RankedTensorType>()) {
+  if (auto rankedInputType = dyn_cast<RankedTensorType>(getInput().getType())) {
     resultTypes.push_back(rankedInputType.clone(elementType));
   } else {
     resultTypes.push_back(UnrankedTensorType::get(elementType));
