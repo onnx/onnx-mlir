@@ -17,13 +17,11 @@
 #include "stablehlo/dialect/BroadcastUtils.h"
 #include <iostream>
 
-
 using namespace mlir;
 
-namespace onnx_mlir{
+namespace onnx_mlir {
 
-namespace{
-
+namespace {
 
 Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
     Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
@@ -53,9 +51,9 @@ Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
   return reduceShapeValue;
 }
 
-//Calutes Broadcast dimensions
-SmallVector<int64_t> getBroadcastDims(Value operand, llvm::SmallVector<int64_t, 4> axes)
-{
+// Calutes Broadcast dimensions
+SmallVector<int64_t> getBroadcastDims(
+    Value operand, llvm::SmallVector<int64_t, 4> axes) {
   int64_t rank = mlir::cast<RankedTensorType>(operand.getType()).getRank();
   // Mark reduction axes.
   llvm::SmallVector<bool, 4> isReductionAxis;
@@ -69,49 +67,48 @@ SmallVector<int64_t> getBroadcastDims(Value operand, llvm::SmallVector<int64_t, 
   for (int64_t i = 0; i < rank; i++) {
     if (!isReductionAxis[i]) {
       dims.push_back(i);
-    } 
+    }
   }
 
   return dims;
 }
 
-
 Value computeReduceSum(Location loc, Value operand, Value identity,
     SmallVector<int64_t> &reduceShape, llvm::SmallVector<int64_t, 4> axes,
-    PatternRewriter &rewriter, bool keepDims, ShapedType outputType){
-    
-    RankedTensorType operandType =
-        mlir::cast<RankedTensorType>(operand.getType());
-    Type reduceResultType =
-        RankedTensorType::get(reduceShape, operandType.getElementType());
-    stablehlo::ReduceOp reduce = rewriter.create<stablehlo::ReduceOp>(loc,
-        reduceResultType, operand, identity, rewriter.getDenseI64ArrayAttr(axes));
+    PatternRewriter &rewriter, bool keepDims, ShapedType outputType) {
 
-    Region &region = reduce.getBody();
-    Block &block = region.emplaceBlock();
-    RankedTensorType blockArgumentType =
-        RankedTensorType::get({}, operandType.getElementType());
-    block.addArgument(blockArgumentType, loc);
-    block.addArgument(blockArgumentType, loc);
+  RankedTensorType operandType =
+      mlir::cast<RankedTensorType>(operand.getType());
+  Type reduceResultType =
+      RankedTensorType::get(reduceShape, operandType.getElementType());
+  stablehlo::ReduceOp reduce = rewriter.create<stablehlo::ReduceOp>(loc,
+      reduceResultType, operand, identity, rewriter.getDenseI64ArrayAttr(axes));
 
-    BlockArgument firstArgument = *block.args_begin();
-    BlockArgument secondArgument = *block.args_rbegin();
-    {
-        OpBuilder::InsertionGuard guard(rewriter);
-        rewriter.setInsertionPointToStart(&block);
-        Value reduceResult =
-            rewriter.create<stablehlo::AddOp>(loc, firstArgument, secondArgument);
-        rewriter.create<stablehlo::ReturnOp>(loc, reduceResult);
-    }
-    Value result = reduce.getResult(0);
+  Region &region = reduce.getBody();
+  Block &block = region.emplaceBlock();
+  RankedTensorType blockArgumentType =
+      RankedTensorType::get({}, operandType.getElementType());
+  block.addArgument(blockArgumentType, loc);
+  block.addArgument(blockArgumentType, loc);
 
-    if (keepDims) {
-        Value reduceShapeValue =
-            getReductionShapeValue(loc, rewriter, operand, axes, true);
-        result = rewriter.create<stablehlo::DynamicReshapeOp>(
-            loc, outputType, result, reduceShapeValue);
-    }
-    return result;
+  BlockArgument firstArgument = *block.args_begin();
+  BlockArgument secondArgument = *block.args_rbegin();
+  {
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&block);
+    Value reduceResult =
+        rewriter.create<stablehlo::AddOp>(loc, firstArgument, secondArgument);
+    rewriter.create<stablehlo::ReturnOp>(loc, reduceResult);
+  }
+  Value result = reduce.getResult(0);
+
+  if (keepDims) {
+    Value reduceShapeValue =
+        getReductionShapeValue(loc, rewriter, operand, axes, true);
+    result = rewriter.create<stablehlo::DynamicReshapeOp>(
+        loc, outputType, result, reduceShapeValue);
+  }
+  return result;
 }
 
 bool hasStaticShape(Value val) {
@@ -160,8 +157,7 @@ SmallVector<int64_t> getReductionShape(ShapedType inputType,
 struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
   ONNXSoftmaxOpLoweringToStablehlo(MLIRContext *ctx)
       : ConversionPattern(ONNXSoftmaxOp::getOperationName(), 1, ctx) {}
-    
-  
+
   LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
       ConversionPatternRewriter &rewriter) const final {
 
@@ -171,49 +167,60 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
     Location loc = op->getLoc();
     Type outputType = *op->result_type_begin();
     assert(isRankedShapedType(outputType) && "Expected Ranked ShapedType");
-    assert(mlir::cast<RankedTensorType>(operand.getType()).getElementType().isF32() && "Currently Only float32 is supported for input");
+    assert(mlir::cast<RankedTensorType>(operand.getType())
+               .getElementType()
+               .isF32() &&
+           "Currently Only float32 is supported for input");
 
-    //Exponential operation
+    // Exponential operation
     Value ElementwiseExpStableHLO = rewriter.create<stablehlo::ExpOp>(
         loc, op->getResultTypes(), op->getOperands());
 
-    if(ElementwiseExpStableHLO == nullptr)
+    if (ElementwiseExpStableHLO == nullptr)
       return failure();
 
-    RankedTensorType ExpOutputType = mlir::cast<RankedTensorType>(ElementwiseExpStableHLO.getType());
+    RankedTensorType ExpOutputType =
+        mlir::cast<RankedTensorType>(ElementwiseExpStableHLO.getType());
 
-    //Converting negative indices to Postive indices
+    // Converting negative indices to Postive indices
     int64_t axis = mlir::cast<ONNXSoftmaxOp>(*op).getAxis();
-    if(axis < 0)
-        axis = ExpOutputType.getRank() + axis;
-    
+    if (axis < 0)
+      axis = ExpOutputType.getRank() + axis;
+
     SmallVector<int64_t, 4> axes = {axis};
-    //Sum of the all the exponents for the denominator
-    SmallVector<int64_t> reducedShape = getReductionShape(ExpOutputType, axes, false);
-    ShapedType ReducedShapeType = mlir::cast<ShapedType>(RankedTensorType::get(reducedShape, ExpOutputType.getElementType()));
-    Value identity = rewriter.create<stablehlo::ConstantOp>(loc, rewriter.getZeroAttr(ExpOutputType.getElementType()));
-    Value ReduceSum = computeReduceSum(loc, ElementwiseExpStableHLO, identity, reducedShape, axes, rewriter, false, ReducedShapeType);
-    if(ReduceSum == nullptr)
+    // Sum of the all the exponents for the denominator
+    SmallVector<int64_t> reducedShape =
+        getReductionShape(ExpOutputType, axes, false);
+    ShapedType ReducedShapeType = mlir::cast<ShapedType>(
+        RankedTensorType::get(reducedShape, ExpOutputType.getElementType()));
+    Value identity = rewriter.create<stablehlo::ConstantOp>(
+        loc, rewriter.getZeroAttr(ExpOutputType.getElementType()));
+    Value ReduceSum = computeReduceSum(loc, ElementwiseExpStableHLO, identity,
+        reducedShape, axes, rewriter, false, ReducedShapeType);
+    if (ReduceSum == nullptr)
       return failure();
 
-    SmallVector <int64_t> broadcast_dims = getBroadcastDims(ElementwiseExpStableHLO, axes);
-    Value BroadCastOp = rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType, ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
-    if(BroadCastOp == nullptr)
+    SmallVector<int64_t> broadcast_dims =
+        getBroadcastDims(ElementwiseExpStableHLO, axes);
+    Value BroadCastOp =
+        rewriter.create<stablehlo::BroadcastInDimOp>(loc, ExpOutputType,
+            ReduceSum, rewriter.getDenseI64ArrayAttr(broadcast_dims));
+    if (BroadCastOp == nullptr)
       return failure();
 
-    Value Softmax_output = rewriter.create<stablehlo::DivOp>(loc, ElementwiseExpStableHLO, BroadCastOp);
-    if(Softmax_output == nullptr)
+    Value Softmax_output = rewriter.create<stablehlo::DivOp>(
+        loc, ElementwiseExpStableHLO, BroadCastOp);
+    if (Softmax_output == nullptr)
       return failure();
 
     rewriter.replaceOp(op, Softmax_output);
     return success();
   }
 };
-}
+} // namespace
 
 void populateLoweringONNXSoftmaxOpToStablehloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx) {
-        patterns.
-            insert<ONNXSoftmaxOpLoweringToStablehlo>(ctx);
-    }
+  patterns.insert<ONNXSoftmaxOpLoweringToStablehlo>(ctx);
 }
+} // namespace onnx_mlir
