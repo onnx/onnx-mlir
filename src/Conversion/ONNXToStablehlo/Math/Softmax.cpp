@@ -14,8 +14,8 @@
 #include "src/Conversion/ONNXToStablehlo/DialectBuilder.hpp"
 #include "src/Conversion/ONNXToStablehlo/ONNXToStablehloCommon.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/TypeUtilities.hpp"
 #include "stablehlo/dialect/BroadcastUtils.h"
-#include <iostream>
 
 using namespace mlir;
 
@@ -26,18 +26,11 @@ namespace {
 Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
     Value operand, llvm::SmallVector<int64_t, 4> axes, bool keepDims) {
   int64_t rank = mlir::cast<RankedTensorType>(operand.getType()).getRank();
-  // Mark reduction axes.
-  llvm::SmallVector<bool, 4> isReductionAxis;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      isReductionAxis.push_back(true);
-    else
-      isReductionAxis.push_back(false);
-  }
+
   Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, operand);
   SmallVector<Value> dims;
   for (int64_t i = 0; i < rank; i++) {
-    if (!isReductionAxis[i]) {
+    if (!(std::find(axes.begin(), axes.end(), i) != axes.end())) {
       Value dim = rewriter.create<shape::GetExtentOp>(loc, inputShape, i);
       dims.push_back(dim);
     } else if (keepDims) {
@@ -55,17 +48,9 @@ Value getReductionShapeValue(Location loc, PatternRewriter &rewriter,
 SmallVector<int64_t> getBroadcastDims(
     Value operand, llvm::SmallVector<int64_t, 4> axes) {
   int64_t rank = mlir::cast<RankedTensorType>(operand.getType()).getRank();
-  // Mark reduction axes.
-  llvm::SmallVector<bool, 4> isReductionAxis;
-  for (int64_t i = 0; i < rank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      isReductionAxis.push_back(true);
-    else
-      isReductionAxis.push_back(false);
-  }
   SmallVector<int64_t> dims;
   for (int64_t i = 0; i < rank; i++) {
-    if (!isReductionAxis[i]) {
+    if (!(std::find(axes.begin(), axes.end(), i) != axes.end())) {
       dims.push_back(i);
     }
   }
@@ -111,25 +96,6 @@ Value computeReduceSum(Location loc, Value operand, Value identity,
   return result;
 }
 
-bool hasStaticShape(Value val) {
-  // Get the type of the value
-  Type type = val.getType();
-
-  // Check if the type is a RankedTensorType
-  if (auto rankedTensorType = mlir::dyn_cast<RankedTensorType>(type)) {
-    // Check if all dimensions are static
-    for (int64_t dim : rankedTensorType.getShape()) {
-      if (dim == ShapedType::kDynamic) {
-        return false; // Found a dynamic dimension
-      }
-    }
-    return true; // All dimensions are static
-  }
-
-  // The type is not a RankedTensorType or has dynamic dimensions
-  return false;
-}
-
 SmallVector<int64_t> getReductionShape(ShapedType inputType,
     const llvm::SmallVector<int64_t, 4> &axes, bool isKeepdims) {
   SmallVector<int64_t> reduceShape;
@@ -137,20 +103,13 @@ SmallVector<int64_t> getReductionShape(ShapedType inputType,
   int64_t rank = inputType.getRank();
 
   // Mark reduction axes.
-  llvm::SmallVector<bool, 4> isReductionAxis;
   for (int64_t i = 0; i < rank; ++i) {
-    if (std::find(axes.begin(), axes.end(), i) != axes.end())
-      isReductionAxis.push_back(true);
-    else
-      isReductionAxis.push_back(false);
-  }
-
-  for (int64_t i = 0; i < rank; ++i) {
-    if (!isReductionAxis[i])
+    if (!(std::find(axes.begin(), axes.end(), i) != axes.end()))
       reduceShape.push_back(inputShape[i]);
     else if (isKeepdims)
       reduceShape.push_back(1);
   }
+
   return reduceShape;
 }
 
@@ -162,7 +121,8 @@ struct ONNXSoftmaxOpLoweringToStablehlo : public ConversionPattern {
       ConversionPatternRewriter &rewriter) const final {
 
     Value operand = operands[0];
-    assert(hasStaticShape(operand) && "Only Static shapes are accepted");
+    assert(
+        hasStaticShape(operand.getType()) && "Only Static shapes are accepted");
 
     Location loc = op->getLoc();
     Type outputType = *op->result_type_begin();
