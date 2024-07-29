@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SHAPE_HELPER_H
+#define ONNX_MLIR_SHAPE_HELPER_H
 
 #include <utility>
 
@@ -943,3 +944,4 @@ void SaveOnnxAttrInOp(mlir::Operation *op,
 }
 
 } // namespace onnx_mlir
+#endif

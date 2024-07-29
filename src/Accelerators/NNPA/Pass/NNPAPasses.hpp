@@ -4,7 +4,7 @@
 
 //===---------- NNPAPasses.hpp - NNPA Passes Definition ------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_NNPA_PASSES_H
+#define ONNX_MLIR_NNPA_PASSES_H
 
 #include "mlir/Pass/Pass.h"
 
@@ -72,3 +73,4 @@ std::unique_ptr<mlir::Pass> createZLowDummyOpForMultiDerefPass();
 
 } // namespace zlow
 } // namespace onnx_mlir
+#endif

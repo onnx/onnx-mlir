@@ -2,18 +2,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------------------- HasOnnxSubgraphOpInterface.hpp ------------------===//
-//===------------- Has Onnx Subgraph Op Interface Definition -------------===//
+//===------------------- SpecializedKernelOpInterface.hpp
+//------------------===//
+//===------------- Specialized Kernel Op Interface Definition -------------===//
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains the declaration of the HasOnnxSubgraph Op Interface.
+// This file contains the declaration of the SpecializedKernel Op Interface.
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SPECIALIZED_KERNEL_INTERFACE_H
+#define ONNX_MLIR_SPECIALIZED_KERNEL_INTERFACE_H
 
 #include <map>
 #include <string>
@@ -26,3 +28,4 @@ namespace mlir {
 #include "src/Interface/SpecializedKernelOpInterface.hpp.inc"
 
 } // end namespace mlir
+#endif

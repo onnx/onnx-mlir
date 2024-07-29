@@ -4,7 +4,8 @@
 
 //===------------------------ CompilerDialects.hpp ------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_COMPILER_DIALECTS_H
+#define ONNX_MLIR_COMPILER_DIALECTS_H
 
 #include "src/Accelerators/Accelerator.hpp"
 
@@ -19,3 +20,4 @@ mlir::DialectRegistry registerDialects(
     llvm::ArrayRef<accel::Accelerator::Kind> accels);
 
 } // namespace onnx_mlir
+#endif

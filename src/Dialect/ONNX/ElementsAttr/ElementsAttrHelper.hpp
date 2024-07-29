@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ELEM_ATTR_HELPER_H
+#define ONNX_MLIR_ELEM_ATTR_HELPER_H
 
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -51,3 +52,4 @@ void readElementsWideNums(
 #include "ElementsAttrHelper.hpp.inc"
 
 } // namespace onnx_mlir
+#endif

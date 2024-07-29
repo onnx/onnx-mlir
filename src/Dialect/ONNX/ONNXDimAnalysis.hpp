@@ -4,7 +4,7 @@
 
 //===-------- ONNXDimAnalysis.hpp - ONNX Dimension Analysis ---------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_DIM_ANALYSIS_H
+#define ONNX_MLIR_ONNX_DIM_ANALYSIS_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -129,3 +130,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif
