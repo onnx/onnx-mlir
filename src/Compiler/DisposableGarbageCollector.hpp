@@ -8,8 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_MLIR_GARABAGE_COLLECTOR_H
-#define ONNX_MLIR_GARABAGE_COLLECTOR_H
+#ifndef ONNX_MLIR_GARBAGE_COLLECTOR_H
+#define ONNX_MLIR_GARBAGE_COLLECTOR_H
 
 #include "mlir/Pass/PassInstrumentation.h"
 

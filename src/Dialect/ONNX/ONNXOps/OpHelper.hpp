@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===------- ONNXOpsHelper.hpp - Helper functions for ONNX dialects -------===//
+//===---------- OpHelper.hpp - Helper functions for ONNX dialects ---------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
