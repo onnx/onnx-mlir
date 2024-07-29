@@ -216,5 +216,7 @@ void populateLoweringONNXTransposeOpToStablehloPattern(
     RewritePatternSet &, MLIRContext *);
 void populateLoweringONNXUnsqueezeOpToStablehloPattern(
     RewritePatternSet &, MLIRContext *);
+void populateLoweringONNXSoftmaxOpToStablehloPattern(
+    RewritePatternSet &patterns, MLIRContext *ctx);
 } // namespace onnx_mlir
 #endif

@@ -112,7 +112,8 @@ Value OnnxToKrnlBuilder::transpose(const Value input,
 bool isScalarValue(Value value) {
   ShapedType stype = mlir::dyn_cast<ShapedType>(value.getType());
   assert(stype && "expected shaped type");
-  return stype.getRank() == 0;
+  return (stype.getRank() == 0) ||
+         (stype.getRank() == 1 && stype.getShape()[0] == 1);
 }
 
 /// Check if all operands are scalar values at compile time.
