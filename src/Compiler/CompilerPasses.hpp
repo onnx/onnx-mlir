@@ -21,7 +21,7 @@ void configurePasses();
 
 void addONNXToMLIRPasses(mlir::PassManager &pm, bool targetCPU);
 void addONNXToKrnlPasses(mlir::PassManager &pm, int optLevel, bool enableCSE,
-    bool enableInstrumentONNXSignature, std::string ONNXOpsStatFilename);
+    std::string instrumentSignatureString, std::string ONNXOpsStatFilename);
 void addKrnlToAffinePasses(mlir::PassManager &pm);
 void addKrnlToLLVMPasses(
     mlir::OpPassManager &pm, std::string outputNameNoExt, bool enableCSE);
