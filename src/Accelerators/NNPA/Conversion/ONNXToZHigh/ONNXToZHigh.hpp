@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_MLIR_ZHIGH_H
-#define ONNX_MLIR_ZHIGH_H
+#ifndef ONNX_MLIR_ONNX_TO_ZHIGH_H
+#define ONNX_MLIR_ONNX_TO_ZHIGH_H
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
