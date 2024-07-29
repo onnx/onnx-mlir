@@ -29,6 +29,7 @@ void populateONNXToStablehloConversionPattern(
   populateLoweringONNXGemmOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXMatMulOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXReductionOpToStablehloPattern(patterns, ctx);
+  populateLoweringONNXSoftmaxOpToStablehloPattern(patterns, ctx);
   // Neural network
   populateLoweringONNXConvOpToStablehloPattern(patterns, ctx);
   populateLoweringONNXConvTransposeOpToStablehloPattern(patterns, ctx);
@@ -125,9 +126,6 @@ void FrontendToStablehloLoweringPass::runOnOperation() {
   // Define patterns.
   populateONNXToStablehloConversionPattern(
       patterns, &getContext(), enableUnroll);
-
-  // add illegal op
-  target.addIllegalOp<ONNXSoftmaxOp>();
 
   // With the target and rewrite patterns defined, we can now attempt the
   // conversion. The conversion will signal failure if any of our `illegal`
