@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SMALL_FP_H
+#define ONNX_MLIR_SMALL_FP_H
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "src/Support/SmallFPConversion.h"
@@ -253,3 +254,4 @@ struct mlir::DenseElementsAttr::is_valid_cpp_fp_type<
     onnx_mlir::float_8e5m2fnuz> {
   static constexpr bool value = true;
 };
+#endif

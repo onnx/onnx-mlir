@@ -4,7 +4,7 @@
 
 //===-------- PerfModel.hpp - Estimate if CPU or NNPA is faster  ----------===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PERF_H
+#define ONNX_MLIR_PERF_H
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -32,3 +33,4 @@ double estimateTimeForStickOp(mlir::Value oper);
 double estimateTimeForUnstickOp(mlir::Value oper);
 
 } // namespace onnx_mlir
+#endif

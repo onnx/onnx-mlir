@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_WIDE_NUM_H
+#define ONNX_MLIR_WIDE_NUM_H
 
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 
@@ -223,3 +224,4 @@ inline auto wideZeroDispatch(mlir::Type type, Action &&act) {
 #include "WideNum.hpp.inc"
 
 } // namespace onnx_mlir
+#endif

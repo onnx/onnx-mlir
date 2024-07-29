@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DIALECT_BUILDER_MLIR_H
+#define ONNX_MLIR_DIALECT_BUILDER_MLIR_H
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -864,3 +865,4 @@ struct MultiDialectBuilder<LLVMBuilder, Ts...> : MultiDialectBuilder<Ts...> {
 #include "DialectBuilder.hpp.inc"
 
 } // namespace onnx_mlir
+#endif

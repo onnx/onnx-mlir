@@ -4,7 +4,7 @@
 
 //===- ProcessAffineParallelPrivate.hpp - Handle parallel private data ----===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PROCESS_AFFINE_PARALLEL_PRIVATE_H
+#define ONNX_MLIR_PROCESS_AFFINE_PARALLEL_PRIVATE_H
 
 #include "mlir/IR/PatternMatch.h"
 
@@ -24,3 +25,4 @@ namespace onnx_mlir {
 void getParallelPrivateScfToScfPatterns(mlir::RewritePatternSet &patterns);
 
 } // namespace onnx_mlir
+#endif

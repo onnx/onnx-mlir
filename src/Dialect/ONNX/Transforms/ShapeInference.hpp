@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SHAPE_INFERENCE_H
+#define ONNX_MLIR_SHAPE_INFERENCE_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/PatternMatch.h"
@@ -26,3 +27,4 @@ void getShapeInferencePatterns(mlir::RewritePatternSet &set);
 void inferFunctionReturnShapes(mlir::func::FuncOp f);
 
 } // namespace onnx_mlir
+#endif

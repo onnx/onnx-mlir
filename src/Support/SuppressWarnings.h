@@ -4,7 +4,7 @@
 
 //====--------------- SuppressWarnings.h - Suppress Warnings --------------===//
 //
-// Copyright 2021 The IBM Research Authors.
+// Copyright 2021-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_SUPPRESS_WARNINGS_H
+#define ONNX_MLIR_SUPPRESS_WARNINGS_H
 
 // clang-format off
 #if defined(SUPPRESS_THIRD_PARTY_WARNINGS)
@@ -43,3 +44,4 @@
   #define SUPPRESS_WARNINGS_POP
 #endif
 // clang-format on
+#endif

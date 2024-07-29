@@ -4,7 +4,7 @@
 
 //===------------------ ZLowOps.hpp - ZLow Operations ---------------------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZLOW_H
+#define ONNX_MLIR_ZLOW_H
 
 #include <map>
 #include <string>
@@ -29,3 +30,4 @@
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZLow/ZLowOps.hpp.inc"
+#endif

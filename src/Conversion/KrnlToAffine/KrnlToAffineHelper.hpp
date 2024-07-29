@@ -4,7 +4,7 @@
 
 //===------ KrnlToAffineHelper.hpp ----------------------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_KRNL_TO_AFFINE_H
+#define ONNX_MLIR_KRNL_TO_AFFINE_H
 
 #include "src/Dialect/Mlir/IndexExpr.hpp"
 
@@ -25,3 +26,4 @@ IndexExpr trip(IndexExpr UB, IndexExpr block, IndexExpr GI);
 
 } // namespace krnl
 } // namespace onnx_mlir
+#endif

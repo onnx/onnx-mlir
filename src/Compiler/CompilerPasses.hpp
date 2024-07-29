@@ -4,7 +4,7 @@
 
 //===------------------------- CompilerPasses.hpp -------------------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_COMPILER_PASSES_H
+#define ONNX_MLIR_COMPILER_PASSES_H
 #include "mlir/Pass/PassManager.h"
 
 namespace onnx_mlir {
@@ -30,3 +31,4 @@ InputIRLevelType determineInputIRLevel(
 void addPasses(mlir::OwningOpRef<mlir::ModuleOp> &module, mlir::PassManager &pm,
     EmissionTargetType emissionTarget, std::string outputNameNoExt);
 } // namespace onnx_mlir
+#endif

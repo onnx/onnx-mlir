@@ -4,7 +4,7 @@
 
 //===----- OMTensorListHelper.hpp - OMTensor List Helper Func header ------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_TENSOR_LIST_HELPER_H
+#define ONNX_MLIR_TENSOR_LIST_HELPER_H
 
 #include "OnnxMlirRuntime.h"
 
@@ -23,3 +24,4 @@
  * mechanism.
  */
 void omTensorListDestroyShallow(OMTensorList *list);
+#endif

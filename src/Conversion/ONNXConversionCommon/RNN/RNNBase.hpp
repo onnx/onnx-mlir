@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_RNN_BASE_CONV_H
+#define ONNX_MLIR_RNN_BASE_CONV_H
 
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -53,3 +54,4 @@ template <typename RNNOp, typename A>
 std::tuple<A, A> getActivationPack(RNNOp *op);
 
 } // namespace onnx_mlir
+#endif

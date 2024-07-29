@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ELEM_ATTR_BUILDER_H
+#define ONNX_MLIR_ELEM_ATTR_BUILDER_H
 
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/DisposableElementsAttr.hpp"
@@ -272,3 +273,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

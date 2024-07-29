@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PASSES_H
+#define ONNX_MLIR_PASSES_H
 
 #include <memory>
 #include <string>
@@ -123,3 +124,4 @@ std::unique_ptr<mlir::Pass> createConvertKrnlToLLVMPass(bool verifyInputTensors,
 std::unique_ptr<mlir::Pass> createConvertONNXToTOSAPass();
 
 } // namespace onnx_mlir
+#endif
