@@ -178,3 +178,4 @@ struct ONNXRNNOpLowering : public mlir::OpConversionPattern<RNNOp> {
 } // namespace stablehlo
 
 } // namespace onnx_mlir
+#endif

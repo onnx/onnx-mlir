@@ -13,8 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ONNX_MLIR_SHAPE_HELPER_H
-#define ONNX_MLIR_SHAPE_HELPER_H
+#ifndef ONNX_MLIR_ZHIGH_SHAPE_HELPER_H
+#define ONNX_MLIR_ZHIGH_SHAPE_HELPER_H
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
