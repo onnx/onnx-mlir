@@ -71,13 +71,16 @@ public:
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS")) {
+        layout.getValue().equals_insensitive("3DS") ||
+        layout.getValue().equals_insensitive("NHWC")) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
+  // The only requirement for this code to generate the proper code is that E1
+  // is been sticked by 64.
   LogicalResult generateUnstickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowUnstickOp unstickOp) const {
     Operation *op = unstickOp.getOperation();
@@ -306,17 +309,23 @@ public:
     StringAttr layout = stickOp.getLayoutAttr();
 
     // Generic way to handle all formats listed below.
+    // Did not add the HWCK as this is typically for constants and want to
+    // preserve the high level constant propagation of constant values into the
+    // Convolution filters.
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
-        layout.getValue().equals_insensitive("3DS")) {
+        layout.getValue().equals_insensitive("3DS") ||
+        layout.getValue().equals_insensitive("NHWC")) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
     return failure();
   }
 
-  /* Version without buffer, more like zdnn */
+  // Version without buffer, more like zdnn.
+  // The only requirement for this code to generate the proper code is that E1
+  // is been sticked by 64.
   LogicalResult generateStickCodeNoBuffer(
       PatternRewriter &rewriter, ZLowStickOp stickOp) const {
     Operation *op = stickOp.getOperation();
