@@ -319,18 +319,60 @@ Value emitScalarOpFor<ONNXReduceMinOp>(ConversionPatternRewriter &rewriter,
   return createMath.min(lhs, rhs);
 }
 
-// This duplicated code can be eliminated with if constexpr in c++ 17
-// Or onnx uses input for axes for all ops
+using MDBuilder =
+    MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
+        MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder>;
+
+//===----------------------------------------------------------------------===//
+// Helper function to perform reduction when an entire tensor is reduced to a
+// single value. Support the reduction for 2 operations at once. If only one is
+// needed, then pass ONNXNoneOp in the second slot.
+// xxx hi alex
+template <typename ONNXReductionOp1, typename ONNXReductionOp2>
+void emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
+    Operation *op, Value input, Value &res1, Value &res2) {
+  // Get info.
+  MemRefType inputType = mlir::cast<MemRefType>(input.getType());
+  Type elementType = inputType.getElementType();
+  int64_t inputRank = inputType.getRank();
+  DimsExpr inputDims, flatInputDims;
+  create.krnlIE.getShapeAsSymbols(input, inputDims);
+  // Create scope.
+  IndexExprScope scope(&rewriter, loc);
+  MDBuilder create(rewriter, loc);
+  // Flatten entirely the input memref.
+  Value flatInput = create.mem.reshapeToFlatInnermost(
+      input, inputDims, flatInputDims, inputRank);
+  // Study SIMD. Assume here that since SIMD is determined by the input type
+  // (which is expected to be the same as the output scalar value), both
+  // reduction will have the same VL.
+  int64_t unroll = 4;
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  int64_t estimatedSimdLoopTripCount = 0;
+  int64_t VL = create.vec.computeSuitableUnrollFactor(vms, inputType, inputDims,
+      inputRank, unroll, /*canPad*/ false, estimatedSimdLoopTripCount);
+
+  IndexExpr VLIndexExpr = LitIE(VL);
+  // Compute type of small temp vector.
+  MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
+  // Loop trip count
+  ValueRange loopDef = create.krnl.defineLoops(1);
+  ValueRange blockedLoopDef =
+      create.krnl.block(outLoopDef[flatOutRank - 1], VL);
+}
+
+//===----------------------------------------------------------------------===//
+// Generic reduction code (for current and legacy using "if constexpr".
+// Function use SIMD if all reductions occur consecutively in the innermost
+// loops.
+
 template <typename ONNXReductionOp, RLegacy legacyOp>
 struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   using OpAdaptor = typename ONNXReductionOp::Adaptor;
   bool enableSIMD = false;
   bool computeMean = false;
   bool enableParallel = false;
-
-  using MDBuilder =
-      MultiDialectBuilder<KrnlBuilder, IndexExprBuilderForKrnl, MathBuilder,
-          MemRefBuilder, VectorBuilder, AffineBuilderKrnlMem, SCFBuilder>;
 
   ONNXReductionOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
       bool enableSIMD, bool enableParallel, bool computeMean = false)
@@ -544,6 +586,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           }
           LLVM_DEBUG(llvm::dbgs()
                      << "  SIMD: study with init unroll " << unroll << "\n");
+          // Currently only vectorize loops whose SIMD dimension is a multiple
+          // of the natural SIMD width. Aka, we don't deal with SIMD of partial
+          // vectors.
           VL = create.vec.computeSuitableUnrollFactor(vms, memRefInType,
               inputDims, innermostLoopCollapse, unroll, /*canPad*/ false,
               estimatedSimdLoopTripCount);
@@ -810,6 +855,21 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     return len != 0;
   }
 
+  // Generate a single reduction, eventually using a horizontal reduction
+  // (which, if the hardware supports it, will be one instruction; otherwise it
+  // will be simulated by several operations).
+  //
+  // flatInput has been flattened from [N][M][R1][R2] to [N][M][R1*R2], where
+  // the SIMD reduction is done along the last dim. By definition of what we
+  // support here, R1*R2 mod VL = 0, namely the reduction dimension is a
+  // multiple of VL (no partial SIMD).
+  //
+  // tmpAlloc has been flattened (if keepDim is true) to [N][M].
+  //
+  // outLoopInd defines which [n][m] is to be used to load the inputs to be
+  // reduced (flatInput[n][m][*]) and where the reduction is to be saved
+  // (flatAlloc[n][m]).
+
   void genOneHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
       Value tmpAlloca, Value flatInput, Value flatAlloc, Value initVec,
@@ -846,6 +906,9 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     create.krnl.store(accumulatedVal, flatAlloc, outLoopInd);
   }
 
+  // We assume here that the hardware has an efficient SIMD horizontal
+  // operation, so we simply generate one horizontal SIMD reduction for each
+  // reductions that needs to be performed.
   void genHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
@@ -908,6 +971,22 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         });
   }
 
+  // We perform here VL Simd Reductions at once. We are guaranteed that there
+  // are VL reductions to be performed. The algorithm works in 2 steps.
+  //
+  // In the first step, we perform the SIMD reductions of VL distinct reductions
+  // using the "emitScalarOp" associated with that operation. At the end of this
+  // step, we have VL distinct partial reductions, where each of the VL vector
+  // register have a partial reduction in each of their own VL SIMD slots.
+  //
+  // In the second step, we reduce each VL vectors of VL partial values into one
+  // vector of VL fully-reduced values. We use shuffle patterns to generate
+  // efficient code where each of the temporary vectors always contain VL
+  // values. This is implemented by the create.vec.multiReduction operation.
+  //
+  // Finally, the VL full reductions are stored as a vector operation in the
+  // flatAlloc[m][n+0...+VL-1] output.
+
   void genVlHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
       Value tmpBlockedAlloca, Value flatInput, Value flatAlloc, Value initVec,
@@ -919,7 +998,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       create.vec.store(
           initVec, tmpBlockedAlloca, {create.math.constantIndex(i), zero});
     }
-    // Blocked Simd loop.
+    // First step: blocked simd loop.
     ValueRange simdLoopDef = create.krnl.defineLoops(1);
     ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], VL);
     create.krnl.iterate(simdLoopDef, {blockedSimdLoopDef[0]}, {zero}, {simdUB},
@@ -948,6 +1027,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             create.vec.store(accumulatedVec, tmpBlockedAlloca, {tmpInd, zero});
           } /* intra block output loop */
         }); /* blocked simd loop */
+    // Step 2
     // Load all temp vectors.
     SmallVector<Value, 4> redIn, redOut;
     for (int64_t i = 0; i < VL; ++i) {
@@ -974,7 +1054,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   }
 
   // Solution when there is no horizontal SIMD op support and that shuffle ops
-  // are needed.
+  // are needed. Assuming a (flattened) output reduction tensor of [N][M], this
+  // algorithm will block the inter dimension of the output tensor by VL. For
+  // each block of VL values to be reduced, we use the efficient functions that
+  // computes them using shuffles (genVlHorizontalSimdReduction). For the last
+  // block (if any) that has fewer than VL remaining reductions to be performed,
+  // we simply perform r<VL sequential reductions (which will use a "simulated"
+  // horizontal operation to generate the final reduction, in
+  // genOneHorizontalSimdReduction).
+
   void genShuffleHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
