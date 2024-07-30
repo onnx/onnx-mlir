@@ -68,14 +68,11 @@ public:
 
     // Generic way to handle all formats listed below.
     StringAttr layout = unstickOp.getLayoutAttr();
-    fprintf(stderr, "hi alex, unstick with layout %s\n",
-        layout.getValue().str().c_str());
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS") ||
         layout.getValue().equals_insensitive("NCHW")) {
-      fprintf(stderr, "go for it\n");
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
@@ -315,14 +312,11 @@ public:
     // Did not add the HWCK as this is typically for constants and want to
     // preserve the high level constant propagation of constant values into the
     // Convolution filters.
-    fprintf(stderr, "hi alex, unstick with layout %s\n",
-        layout.getValue().str().c_str());
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS") ||
         layout.getValue().equals_insensitive("NCHW")) {
-      fprintf(stderr, "  go for it\n");
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
