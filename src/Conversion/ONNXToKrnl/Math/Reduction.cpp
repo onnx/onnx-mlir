@@ -348,7 +348,7 @@ using MDBuilder =
 // xxx hi alex
 template <typename ONNXReductionOp1, typename ONNXReductionOp2>
 bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
-    Operation *op, Value input, Value &res1, Value &res2) {
+    Operation *op, Value input, Value &alloc1, Value &alloc2) {
   // Create scope.
   IndexExprScope scope(&rewriter, loc);
   MDBuilder create(rewriter, loc);
@@ -380,24 +380,28 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     hasTwoRed = false;
 
   // Compute type of small temporary reduction vector.
+  MemRefType outputType = MemRefType::get({}, elementType);
   MemRefType redType = MemRefType::get({VL}, elementType);
   VectorType vecType = VectorType::get({VL}, elementType);
 
   // Initialize first reduction.
   Value zero = create.math.constantIndex(0);
-  Value redAlloca1 = create.mem.alignedAlloca(redType);
+  /*output*/ alloc1 = create.mem.alloc(outputType);
+  Value redAlloc1 = create.mem.alignedAlloc(redType);
   Value identity1 = getIdentityValue<ONNXReductionOp1>(
       rewriter, create.getLoc(), elementType);
   Value initVec1 = create.vec.splat(vecType, identity1);
-  create.vec.store(initVec1, redAlloca1, {zero});
-  Value redAlloca2 = nullptr;
+  create.vec.store(initVec1, redAlloc1, {zero});
+  // Init second reduction.
+  alloc2 = nullptr;
+  Value redAlloc2 = nullptr;
   if (hasTwoRed) {
-    // Init second reduction.
-    redAlloca2 = create.mem.alignedAlloca(redType);
+    /*output*/ alloc2 = create.mem.alloc(outputType);
+    redAlloc2 = create.mem.alignedAlloc(redType);
     Value identity2 = getIdentityValue<ONNXReductionOp2>(
         rewriter, create.getLoc(), elementType);
     Value initVec2 = create.vec.splat(vecType, identity2);
-    create.vec.store(initVec2, redAlloca2, {zero});
+    create.vec.store(initVec2, redAlloc2, {zero});
   }
 
   // Loop trip count
@@ -411,41 +415,68 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
         inAccessVals.emplace_back(loopInd[0]);
         Value inputVec = create.vec.load(vecType, flatInput, inAccessVals);
         // Process first reduction.
-        Value redVec1 = create.vec.load(vecType, redAlloca1, {zero});
+        Value redVec1 = create.vec.load(vecType, redAlloc1, {zero});
         Value accumulatedVec1 = emitScalarOpFor<ONNXReductionOp1>(
             rewriter, create.getLoc(), op, vecType, {redVec1, inputVec});
-        create.vec.store(accumulatedVec1, redAlloca1, {zero});
+        create.vec.store(accumulatedVec1, redAlloc1, {zero});
+        // Process second reduction.
         if (hasTwoRed) {
-          // Process second reduction.
-          Value redVec2 = create.vec.load(vecType, redAlloca2, {zero});
+          Value redVec2 = create.vec.load(vecType, redAlloc2, {zero});
           Value accumulatedVec2 = emitScalarOpFor<ONNXReductionOp2>(
               rewriter, create.getLoc(), op, vecType, {redVec2, inputVec});
-          create.vec.store(accumulatedVec2, redAlloca2, {zero});
+          create.vec.store(accumulatedVec2, redAlloc2, {zero});
         }
       });
   Value divisorForMean = nullptr;
   if (divideByMean<ONNXReductionOp1>() || divideByMean<ONNXReductionOp2>()) {
     // Compute the divisor that is the number of elements participated in
-    // reduction, i.e., 'divisor = size of input / size of output == 1'.
+    // reduction, i.e., 'divisor = size of input / size of output, where output
+    // size == 1'.
     divisorForMean = create.math.cast(elementType, flatInputDims[0].getValue());
   }
 
   // First reduction horizontal sum.
-  Value reductionVec1 = create.vec.load(vecType, redAlloca1, {zero});
-  res1 =
+  Value reductionVec1 = create.vec.load(vecType, redAlloc1, {zero});
+  Value res1 =
       create.vec.reduction(getCombiningKind<ONNXReductionOp1>(), reductionVec1);
-  if (divideByMean<ONNXReductionOp1>())
-    res1 = create.math.div(res1, divisorForMean);
-  res2 = nullptr;
+  // Second reduction horizontal sum.
+  Value res2 = nullptr;
   if (hasTwoRed) {
-    // First reduction horizontal sum.
-    Value reductionVec2 = create.vec.load(vecType, redAlloca2, {zero});
+    Value reductionVec2 = create.vec.load(vecType, redAlloc2, {zero});
     res2 = create.vec.reduction(
         getCombiningKind<ONNXReductionOp2>(), reductionVec2);
-    if (divideByMean<ONNXReductionOp2>())
-      res2 = create.math.div(res2, divisorForMean);
   }
+
+  // Handle mean if any.
+  if (divideByMean<ONNXReductionOp1>())
+    res1 = create.math.div(res1, divisorForMean);
+  if (hasTwoRed && divideByMean<ONNXReductionOp2>())
+    res2 = create.math.div(res2, divisorForMean);
+
+  // Save result.
+  create.affineKMem.store(res1, alloc1, {});
+  if (hasTwoRed)
+    create.affineKMem.store(res2, alloc2, {});
+
   return true;
+}
+
+void ONNXMinMaxReductionToScalar(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, Value input, Value &minAlloc,
+    Value &maxAlloc) {
+  if (emitFullSIMDReductionFor<ONNXReduceMinOp, ONNXReduceMaxOp>(
+          rewriter, loc, op, input, minAlloc, maxAlloc))
+    return;
+  // Could not optimize the pattern, generate default path.
+  MultiDialectBuilder<OnnxBuilder> create(rewriter, loc);
+  Type elementType = mlir::cast<MemRefType>(input.getType()).getElementType();
+  MemRefType outputType = MemRefType::get({}, elementType);
+  Value none = create.onnx.none();
+  // Generate reductions.
+  minAlloc = create.onnx.toMemref(
+      create.onnx.reduceMin(outputType, input, none, false));
+  maxAlloc = create.onnx.toMemref(
+      create.onnx.reduceMax(outputType, input, none, false));
 }
 
 //===----------------------------------------------------------------------===//

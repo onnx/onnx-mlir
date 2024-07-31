@@ -17,6 +17,11 @@
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 
+#define HI_ALEX_NEW 1
+#if HI_ALEX_NEW
+#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+#endif
+
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -86,11 +91,25 @@ struct ONNXDynamicQuantizeLinearOpLowering
     create.krnl.store(qMin, QMin);
 
     // Compute max(x) and min (x).
+#if HI_ALEX_NEW
+    Value XMax, XMin;
+    if (nnpaEnableCompilerStickUnstick) {
+      ONNXMinMaxReductionToScalar(rewriter, loc, op, X, XMin, XMax);
+    } else {
+      // hi alex: old code
+      Value none = create.onnx.none();
+      XMax = create.onnx.toMemref(
+          create.onnx.reduceMax(yScaleMemRefType, X, none, false));
+      XMin = create.onnx.toMemref(
+          create.onnx.reduceMin(yScaleMemRefType, X, none, false));
+    }
+#else
     Value none = create.onnx.none();
     Value XMax = create.onnx.toMemref(
         create.onnx.reduceMax(yScaleMemRefType, X, none, false));
     Value XMin = create.onnx.toMemref(
         create.onnx.reduceMin(yScaleMemRefType, X, none, false));
+#endif
     Value xMax = create.krnl.load(XMax);
     Value xMin = create.krnl.load(XMin);
     // Include 0 to max(x) and min(x).

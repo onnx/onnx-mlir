@@ -668,5 +668,10 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
         op, successful, vectorLength, simdLoopTripCount, comment);
 }
 
+// hi alex, not sure its the best place
+void ONNXMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Value input,
+    mlir::Value &res1, mlir::Value &res2);
+
 } // namespace onnx_mlir
 #endif
