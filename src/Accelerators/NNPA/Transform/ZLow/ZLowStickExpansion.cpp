@@ -354,10 +354,10 @@ public:
     VectorType vecF32Type = VectorType::get({VLHalf}, f32Type);
 
     // Define useful literals.
-    IndexExpr litZero = LiteralIndexExpr(0);
-    IndexExpr lit1 = LiteralIndexExpr(1);
-    IndexExpr litVLHalf = LiteralIndexExpr(VLHalf);
-    IndexExpr lit64 = LiteralIndexExpr(64);
+    IndexExpr litZero = LitIE(0);
+    IndexExpr lit1 = LitIE(1);
+    IndexExpr litVLHalf = LitIE(VLHalf);
+    IndexExpr lit64 = LitIE(64);
 
     // Values for saturation.
     Value vecDlf16Min, vecDlf16Max;
@@ -378,6 +378,27 @@ public:
     DimsExpr ubs = outputDims;
     IndexExpr T1 = outputDims[E1].ceilDiv(64);
     ubs[E1] = T1; // E1 dim is over tiles.
+
+    // If outputDims[E1] is constant and < 64, then T1 is 1 (ok), and we can
+    // iterate over fewer values in the SIMD loop.
+    IndexExpr simdLoopUB = lit64;
+    int64_t U = 4; // Unrolling of SIMD loop: tried 2 and 8, 4 was best.
+    if (outputDims[E1].isLiteral()) {
+      int64_t d1 = outputDims[E1].getLiteral();
+      if (d1 < 64) {
+        // Shrink U if suitable.
+        if (d1 <= VL)
+          U = 1;
+        else if (d1 <= 2 * VL)
+          U = 2;
+        else if (d1 <= 3 * VL)
+          U = 3;
+        double trip = U * VL;
+        int64_t ub = std::ceil((1.0 * d1) / trip) * trip;
+        simdLoopUB = LitIE(ub);
+      }
+    }
+    assert(U * VL <= 64 && "bad unroll");
 
     // Parallel...
     if (enableParallel) {
@@ -430,9 +451,7 @@ public:
 #endif
 #endif
 
-          const int64_t U = 4; // Tried 2 and 8, 4 was best.
-          assert(U * VL <= 64 && "bad unroll");
-          create.affine.forIE(litZero, lit64, U * VL,
+          create.affine.forIE(litZero, simdLoopUB, U * VL,
               [&](AffineBuilder &b, ValueRange loopInd) {
                 MDBuilder create(b);
                 DimsExpr inputAF;
