@@ -67,12 +67,15 @@ public:
       ZLowUnstickOp unstickOp, PatternRewriter &rewriter) const override {
 
     // Generic way to handle all formats listed below.
+    // Did not add the HWCK as this is typically for constants and want to
+    // preserve the high level constant propagation of constant values into the
+    // Convolution filters.
     StringAttr layout = unstickOp.getLayoutAttr();
     if (layout.getValue().equals_insensitive("4D") ||
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS") ||
-        layout.getValue().equals_insensitive("NCHW")) {
+        (layout.getValue().equals_insensitive("NHWC"))) {
       return generateUnstickCodeNoBuffer(rewriter, unstickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
@@ -316,7 +319,7 @@ public:
         layout.getValue().equals_insensitive("3D") ||
         layout.getValue().equals_insensitive("2D") ||
         layout.getValue().equals_insensitive("3DS") ||
-        layout.getValue().equals_insensitive("NCHW")) {
+        layout.getValue().equals_insensitive("NHWC")) {
       return generateStickCodeNoBuffer(rewriter, stickOp);
     }
     // Otherwise, we don't replace and keep the zdnn call.
