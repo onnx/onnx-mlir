@@ -109,10 +109,16 @@ SmallVector<T, N> lastFew(SmallVectorImpl<T> &vec, int64_t fromNum) {
 
 enum RLegacy { Latest, UpTo13 };
 
-//
+// Defines the VectorBuilder's CombiningKind associated with a given Op.
 template <typename OP>
 VectorBuilder::CombiningKind getCombiningKind() {
   llvm_unreachable("illegal combination kind");
+}
+
+// Defines if the OP requires a divide by mean; false by default.
+template <typename OP>
+bool divideByMean() {
+  return false;
 }
 
 // Identity values
@@ -225,6 +231,11 @@ VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanOp>() {
 }
 
 template <>
+bool divideByMean<ONNXReduceMeanOp>() {
+  return true;
+}
+
+template <>
 Value getIdentityValue<ONNXReduceMeanV13Op>(
     ConversionPatternRewriter &rewriter, Location loc, Type type) {
   MathBuilder createMath(rewriter, loc);
@@ -234,6 +245,11 @@ Value getIdentityValue<ONNXReduceMeanV13Op>(
 template <>
 VectorBuilder::CombiningKind getCombiningKind<ONNXReduceMeanV13Op>() {
   return VectorBuilder::CombiningKind::ADD;
+}
+
+template <>
+bool divideByMean<ONNXReduceMeanV13Op>() {
+  return true;
 }
 
 // Scalar ops
@@ -325,21 +341,23 @@ using MDBuilder =
 
 //===----------------------------------------------------------------------===//
 // Helper function to perform reduction when an entire tensor is reduced to a
-// single value. Support the reduction for 2 operations at once. If only one is
-// needed, then pass ONNXNoneOp in the second slot.
+// single value. Support the reduction for up to 2 operations at once. If only
+// one is needed, then pass ONNXNoneOp in the second slot.
+// Return true if we can optimize the reduction, false otherwise.
+
 // xxx hi alex
 template <typename ONNXReductionOp1, typename ONNXReductionOp2>
-void emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
+bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     Operation *op, Value input, Value &res1, Value &res2) {
+  // Create scope.
+  IndexExprScope scope(&rewriter, loc);
+  MDBuilder create(rewriter, loc);
   // Get info.
   MemRefType inputType = mlir::cast<MemRefType>(input.getType());
   Type elementType = inputType.getElementType();
   int64_t inputRank = inputType.getRank();
   DimsExpr inputDims, flatInputDims;
   create.krnlIE.getShapeAsSymbols(input, inputDims);
-  // Create scope.
-  IndexExprScope scope(&rewriter, loc);
-  MDBuilder create(rewriter, loc);
   // Flatten entirely the input memref.
   Value flatInput = create.mem.reshapeToFlatInnermost(
       input, inputDims, flatInputDims, inputRank);
@@ -352,14 +370,82 @@ void emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   int64_t estimatedSimdLoopTripCount = 0;
   int64_t VL = create.vec.computeSuitableUnrollFactor(vms, inputType, inputDims,
       inputRank, unroll, /*canPad*/ false, estimatedSimdLoopTripCount);
-
+  if (VL == 0)
+    return false;
   IndexExpr VLIndexExpr = LitIE(VL);
-  // Compute type of small temp vector.
-  MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
+
+  // Has one or 2 reductions?
+  bool hasTwoRed = true;
+  if constexpr (std::is_same<ONNXReductionOp2, ONNXNoneOp>::value)
+    hasTwoRed = false;
+
+  // Compute type of small temporary reduction vector.
+  MemRefType redType = MemRefType::get({VL}, elementType);
+  VectorType vecType = VectorType::get({VL}, elementType);
+
+  // Initialize first reduction.
+  Value zero = create.math.constantIndex(0);
+  Value redAlloca1 = create.mem.alignedAlloca(redType);
+  Value identity1 = getIdentityValue<ONNXReductionOp1>(
+      rewriter, create.getLoc(), elementType);
+  Value initVec1 = create.vec.splat(vecType, identity1);
+  create.vec.store(initVec1, redAlloca1, {zero});
+  Value redAlloca2 = nullptr;
+  if (hasTwoRed) {
+    // Init second reduction.
+    redAlloca2 = create.mem.alignedAlloca(redType);
+    Value identity2 = getIdentityValue<ONNXReductionOp2>(
+        rewriter, create.getLoc(), elementType);
+    Value initVec2 = create.vec.splat(vecType, identity2);
+    create.vec.store(initVec2, redAlloca2, {zero});
+  }
+
   // Loop trip count
   ValueRange loopDef = create.krnl.defineLoops(1);
-  ValueRange blockedLoopDef =
-      create.krnl.block(outLoopDef[flatOutRank - 1], VL);
+  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+  create.krnl.iterate(loopDef, {blockedLoopDef[0]}, {zero},
+      {flatInputDims[0].getValue()}, [&](KrnlBuilder &ck, ValueRange loopInd) {
+        MDBuilder create(ck);
+        // Input values, loaded as a vector.
+        SmallVector<Value, 4> inAccessVals;
+        inAccessVals.emplace_back(loopInd[0]);
+        Value inputVec = create.vec.load(vecType, flatInput, inAccessVals);
+        // Process first reduction.
+        Value redVec1 = create.vec.load(vecType, redAlloca1, {zero});
+        Value accumulatedVec1 = emitScalarOpFor<ONNXReductionOp1>(
+            rewriter, create.getLoc(), op, vecType, {redVec1, inputVec});
+        create.vec.store(accumulatedVec1, redAlloca1, {zero});
+        if (hasTwoRed) {
+          // Process second reduction.
+          Value redVec2 = create.vec.load(vecType, redAlloca2, {zero});
+          Value accumulatedVec2 = emitScalarOpFor<ONNXReductionOp2>(
+              rewriter, create.getLoc(), op, vecType, {redVec2, inputVec});
+          create.vec.store(accumulatedVec2, redAlloca2, {zero});
+        }
+      });
+  Value divisorForMean = nullptr;
+  if (divideByMean<ONNXReductionOp1>() || divideByMean<ONNXReductionOp2>()) {
+    // Compute the divisor that is the number of elements participated in
+    // reduction, i.e., 'divisor = size of input / size of output == 1'.
+    divisorForMean = create.math.cast(elementType, flatInputDims[0].getValue());
+  }
+
+  // First reduction horizontal sum.
+  Value reductionVec1 = create.vec.load(vecType, redAlloca1, {zero});
+  res1 =
+      create.vec.reduction(getCombiningKind<ONNXReductionOp1>(), reductionVec1);
+  if (divideByMean<ONNXReductionOp1>())
+    res1 = create.math.div(res1, divisorForMean);
+  res2 = nullptr;
+  if (hasTwoRed) {
+    // First reduction horizontal sum.
+    Value reductionVec2 = create.vec.load(vecType, redAlloca2, {zero});
+    res2 = create.vec.reduction(
+        getCombiningKind<ONNXReductionOp2>(), reductionVec2);
+    if (divideByMean<ONNXReductionOp2>())
+      res2 = create.math.div(res2, divisorForMean);
+  }
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
@@ -371,13 +457,12 @@ template <typename ONNXReductionOp, RLegacy legacyOp>
 struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   using OpAdaptor = typename ONNXReductionOp::Adaptor;
   bool enableSIMD = false;
-  bool computeMean = false;
   bool enableParallel = false;
 
   ONNXReductionOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
-      bool enableSIMD, bool enableParallel, bool computeMean = false)
+      bool enableSIMD, bool enableParallel)
       : OpConversionPattern<ONNXReductionOp>(typeConverter, ctx),
-        enableSIMD(enableSIMD), computeMean(computeMean) {
+        enableSIMD(enableSIMD) {
     this->enableParallel =
         enableParallel &&
         OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
@@ -707,7 +792,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
     // Used if compute mean
     Value divisorForMean = nullptr;
-    if (computeMean) {
+    if (divideByMean<ONNXReductionOp>()) {
       // Compute the divisor that is the number of elements participated in
       // reduction, i.e., 'divisor = size of input / size of output'.
       IndexExprScope scope(create.krnl);
@@ -810,7 +895,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         });
 
     // 3. Define an Krnl loop to compute mean (optional).
-    if (computeMean) {
+    if (divideByMean<ONNXReductionOp>()) {
       // Compute mean
       ValueRange loop3Def = create.krnl.defineLoops(outRank);
       SmallVector<IndexExpr, 4> lbs3(outRank, LiteralIndexExpr(0));
@@ -899,7 +984,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     Value accumulatedVal =
         create.vec.reduction(getCombiningKind<ONNXReductionOp>(), reductionVec);
     // other operation...
-    if (computeMean) {
+    if (divideByMean<ONNXReductionOp>()) {
       accumulatedVal = create.math.div(accumulatedVal, divisorForMean);
     }
     // Store tmp into result.
@@ -1045,7 +1130,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     assert(redOut.size() == 1 && "expected only one val");
     Value accumulatedVal = redOut[0];
     // Perform the mean computation if required.
-    if (computeMean) {
+    if (divideByMean<ONNXReductionOp>()) {
       Value divisorForMeanVec = create.vec.splat(vecType, divisorForMean);
       accumulatedVal = create.math.div(accumulatedVal, divisorForMeanVec);
     }
@@ -1179,17 +1264,15 @@ void populateLoweringONNXReductionOpPattern(RewritePatternSet &patterns,
     bool enableParallel) {
   patterns.insert<
       ONNXReductionOpLowering<mlir::ONNXReduceMaxV13Op, RLegacy::UpTo13>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdV13Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumV11Op, RLegacy::UpTo13>,
       ONNXReductionOpLowering<mlir::ONNXReduceMaxOp, RLegacy::Latest>,
+      ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceMinOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceProdOp, RLegacy::Latest>,
       ONNXReductionOpLowering<mlir::ONNXReduceSumOp, RLegacy::Latest>>(
       typeConverter, ctx, enableSIMD, enableParallel);
-  patterns.insert<
-      ONNXReductionOpLowering<mlir::ONNXReduceMeanV13Op, RLegacy::UpTo13>,
-      ONNXReductionOpLowering<mlir::ONNXReduceMeanOp, RLegacy::Latest>>(
-      typeConverter, ctx, enableSIMD, enableParallel, /*computeMean=*/true);
 }
 } // namespace onnx_mlir
