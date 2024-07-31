@@ -4,7 +4,7 @@
 
 //===---------- ZLowToLLVMCommon.hpp - Lowering from ZLow to LLVM ---------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZLOW_TO_LLVM_COMMON_H
+#define ONNX_MLIR_ZLOW_TO_LLVM_COMMON_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -200,3 +201,4 @@ void fillInZTensor(mlir::PatternRewriter &rewriter, mlir::Location loc,
 
 } // namespace zlow
 } // namespace onnx_mlir
+#endif

@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_STRIDES_RANGE_H
+#define ONNX_MLIR_STRIDES_RANGE_H
 
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -163,3 +164,4 @@ public:
 #include "StridesRange.hpp.inc"
 
 } // namespace onnx_mlir
+#endif

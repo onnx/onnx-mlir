@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_TO_STABLEHLO_H
+#define ONNX_MLIR_ONNX_TO_STABLEHLO_H
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -218,3 +219,4 @@ void populateLoweringONNXUnsqueezeOpToStablehloPattern(
 void populateLoweringONNXSoftmaxOpToStablehloPattern(
     RewritePatternSet &patterns, MLIRContext *ctx);
 } // namespace onnx_mlir
+#endif

@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_OPTION_UTILS_H
+#define ONNX_MLIR_OPTION_UTILS_H
 
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 
@@ -61,3 +62,4 @@ private:
 };
 
 } // namespace onnx_mlir
+#endif

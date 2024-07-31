@@ -4,7 +4,7 @@
 
 //===---------- ZLowToLLVM.hpp - Lowering from ZLow to LLVM ---------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZLOW_TO_LLVM_H
+#define ONNX_MLIR_ZLOW_TO_LLVM_H
 
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/IR/PatternMatch.h"
@@ -27,3 +28,4 @@ void populateZLowToLLVMConversionPattern(mlir::RewritePatternSet &patterns,
 
 } // namespace zlow
 } // namespace onnx_mlir
+#endif

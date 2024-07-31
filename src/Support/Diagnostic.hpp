@@ -4,7 +4,7 @@
 
 //====--------------- Diagnostic.hpp - Diagnostic Utilities ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DIAGNOSTIC_H
+#define ONNX_MLIR_DIAGNOSTIC_H
 
 #include "mlir/IR/Operation.h"
 #include "mlir/Support/LogicalResult.h"
@@ -72,3 +73,4 @@ public:
 };
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //====--------- DialectBuilder.hpp - Krnl Dialect Builder -----------------===//
 //
-// Copyright 2022-2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DIALECT_BUILDER_KRNL_H
+#define ONNX_MLIR_DIALECT_BUILDER_KRNL_H
 
 #include "src/Dialect/Krnl/KrnlOps.hpp"
 #include "src/Dialect/Mlir/DialectBuilder.hpp"
@@ -254,3 +255,4 @@ struct MultiDialectBuilder<IndexExprBuilderForKrnl, Ts...>
 };
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===------------------------ CompilerOptions.hpp -------------------------===//
 //
-// Copyright 2022, 2023 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_COMPILER_OPTIONS_H
+#define ONNX_MLIR_COMPILER_OPTIONS_H
 #include "onnx-mlir/Compiler/OMCompilerTypes.h"
 #include "src/Accelerators/Accelerator.hpp"
 #include "llvm/Support/CommandLine.h"
@@ -211,3 +212,4 @@ void removeUnrelatedOptions(
 void initCompilerConfig();
 
 } // namespace onnx_mlir
+#endif
