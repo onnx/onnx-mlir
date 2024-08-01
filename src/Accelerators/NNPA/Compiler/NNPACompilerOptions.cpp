@@ -55,7 +55,7 @@ llvm::cl::opt<bool> nnpaEnableCompilerStickUnstick(
     "enable-compiler-stick-unstick",
     llvm::cl::desc("[Experimental feature] Enable the compiler generate some "
                    "stick/unstick code. Default is true."),
-    llvm::cl::init(true), llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::init(true), llvm::cl::cat(OnnxMlirCommonOptions));
 
 llvm::cl::opt<bool> nnpaEnableScalarBcastBinary(
     "nnpa-enable-scalar-bcast-binary",
