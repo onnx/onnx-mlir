@@ -131,6 +131,12 @@ extern OptReport optReport;                                   // onnx-mlir only
 extern bool useOldBufferization;                              // onnx-mlir only
 extern bool enableTiming;                                     // onnx-mlir only
 extern bool enableBoundCheck;                                 // onnx-mlir only
+#if ONNX_MLIR_IS_DEBUG_BUILD
+extern bool DEBUG_COMPILER_OPT; // onnx-mlir (debug) only
+#else
+#define DEBUG_COMPILER_OPT false
+#endif
+
 extern bool split_input_file;          // onnx-mlir-opt only
 extern bool verify_diagnostics;        // onnx-mlir-opt only
 extern bool verify_passes;             // onnx-mlir-opt only
