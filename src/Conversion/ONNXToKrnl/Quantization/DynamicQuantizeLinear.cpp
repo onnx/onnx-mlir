@@ -20,15 +20,30 @@
 #define HI_ALEX_NEW 1
 #if HI_ALEX_NEW
 // https://github.com/AlexandreEichenberger/onnx-mlir/pull/new/quant-opt-v1
-#include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
+#include "src/Compiler/CompilerOptions.hpp"
 #endif
 
 using namespace mlir;
 
 namespace onnx_mlir {
 
-void EmitDynamic
+#if 0
+void emitDynamicQuantizationLinearScalarParameters(
+    ConversionPatternRewriter &rewriter, Location loc, Operation *op,
+    MemRefType inputType, MemRefType quantizedType, Value input,
+    Value &scaleAlloc, Value &zeroPointAlloc) {
 
+  // Types
+  Type elementType = inputType.getElementType();
+  Type quantizedElementType = quantizedType.getElementType();
+
+// Results
+    scaleAlloc =
+        create.mem.alignedAlloc(yScaleMemRefType, shapeHelper.getOutputDims(1));
+    Value YZeroPoint = create.mem.alignedAlloc(
+        yZeroPointMemRefType, shapeHelper.getOutputDims(2));
+}
+#endif
 // TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
@@ -94,9 +109,10 @@ struct ONNXDynamicQuantizeLinearOpLowering
     create.krnl.store(qMin, QMin);
 
     // Compute max(x) and min (x).
+
 #if HI_ALEX_NEW
     Value XMax, XMin;
-    if (nnpaEnableCompilerStickUnstick) {
+    if (debugTestCompilerOpt) {
       emitMinMaxReductionToScalar(rewriter, loc, op, X, XMin, XMax);
     } else {
       // hi alex: old code, run artificially when csu is off
