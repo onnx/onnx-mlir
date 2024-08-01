@@ -600,6 +600,20 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
+#if ONNX_MLIR_IS_DEBUG_BUILD
+static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
+    llvm::cl::desc(
+        "Help compiler writers test a new (small) optimization. When false, "
+        "the old approach should be used. When true, the new opt should be "
+        "used. Utilities such as CheckONNXModel.py can then verify that the "
+        "new opt deliver the same results.\n"
+        "E.g. CheckONNXModel.py -m test.mlir -t -O3 -a test-compiler-opt=true\n"
+        "Once the new opt works, it should not rely this option any more.\n"
+        "Only defined in DEBUG build and default to false.\n"),
+    llvm::cl::location(DEBUG_COMPILER_OPT), llvm::cl::init(false),
+    llvm::cl::cat(OnnxMlirOptions));
+#endif
+
 // Options for onnx-mlir-opt only
 static llvm::cl::opt<bool, true> split_input_file_opt("split-input-file",
     llvm::cl::desc("Split the input file into pieces and process each "
