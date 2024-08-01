@@ -600,7 +600,8 @@ static llvm::cl::opt<bool, true> enable_bound_check("enable-bound-check",
     llvm::cl::location(enableBoundCheck), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
 
-#if ONNX_MLIR_IS_DEBUG_BUILD
+#if defined(_DEBUG)
+// Option only available in debug mode: set using command options.
 static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
     llvm::cl::desc(
         "Help compiler writers test a new (small) optimization. When false, "
@@ -610,8 +611,12 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "E.g. CheckONNXModel.py -m test.mlir -t -O3 -a test-compiler-opt=true\n"
         "Once the new opt works, it should not rely this option any more.\n"
         "Only defined in DEBUG build and default to false.\n"),
-    llvm::cl::location(DEBUG_COMPILER_OPT), llvm::cl::init(false),
+    llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
+bool debugTestCompilerOpt;
+#else
+// Option only available in debug mode: disable when not in debug.
+bool debugTestCompilerOpt = false;
 #endif
 
 // Options for onnx-mlir-opt only
