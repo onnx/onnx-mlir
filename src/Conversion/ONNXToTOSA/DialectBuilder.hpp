@@ -97,10 +97,7 @@ struct TosaBuilder : DialectBuilder {
   // to `value`.
   template <typename T>
   mlir::Value getSplattedConst(T value, size_t rank) {
-    llvm::SmallVector<int64_t, 4> tmpTensor;
-    for (size_t i = 0; i < rank; ++i) {
-      tmpTensor.emplace_back(1);
-    }
+    llvm::SmallVector<int64_t, 4> tmpTensor(rank, 1);
     std::vector zpVec = std::vector<T>{value};
     return getConst(zpVec, tmpTensor);
   }

@@ -21,6 +21,7 @@ add_onnx_mlir_library(OMONNXToTOSA
   NN/BatchNorm.cpp
   Tensor/Concat.cpp
   Tensor/Constant.cpp
+  Tensor/EyeLike.cpp
   Tensor/Flatten.cpp
   Tensor/Gather.cpp
   Tensor/PaddingOp.cpp
