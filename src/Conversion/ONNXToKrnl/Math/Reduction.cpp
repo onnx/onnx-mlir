@@ -461,7 +461,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   return true;
 }
 
-void ONNXMinMaxReductionToScalar(ConversionPatternRewriter &rewriter,
+void emitMinMaxReductionToScalar(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, Value input, Value &minAlloc,
     Value &maxAlloc) {
   if (emitFullSIMDReductionFor<ONNXReduceMinOp, ONNXReduceMaxOp>(

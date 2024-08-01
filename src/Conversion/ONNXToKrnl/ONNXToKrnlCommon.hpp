@@ -669,7 +669,7 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
 }
 
 // hi alex, not sure its the best place
-void ONNXMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
+void emitMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Value input,
     mlir::Value &res1, mlir::Value &res2);
 

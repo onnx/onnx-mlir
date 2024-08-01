@@ -19,12 +19,15 @@
 
 #define HI_ALEX_NEW 1
 #if HI_ALEX_NEW
+// https://github.com/AlexandreEichenberger/onnx-mlir/pull/new/quant-opt-v1
 #include "src/Accelerators/NNPA/Compiler/NNPACompilerOptions.hpp"
 #endif
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+void EmitDynamic
 
 // TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
@@ -94,9 +97,9 @@ struct ONNXDynamicQuantizeLinearOpLowering
 #if HI_ALEX_NEW
     Value XMax, XMin;
     if (nnpaEnableCompilerStickUnstick) {
-      ONNXMinMaxReductionToScalar(rewriter, loc, op, X, XMin, XMax);
+      emitMinMaxReductionToScalar(rewriter, loc, op, X, XMin, XMax);
     } else {
-      // hi alex: old code
+      // hi alex: old code, run artificially when csu is off
       Value none = create.onnx.none();
       XMax = create.onnx.toMemref(
           create.onnx.reduceMax(yScaleMemRefType, X, none, false));
