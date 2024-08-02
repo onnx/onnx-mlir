@@ -362,12 +362,12 @@ set(NNPA_TEST_LIST
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
 
     # Model
-    # test_densenet121_cpu  #  accurary error
-    #test_inception_v1_cpu,zdnn_conv2d
-    #test_resnet50_cpu,zdnn_conv2d
-    #test_shufflenet_cpu,zdnn_matmul_op_ext
-    #test_squeezenet_cpu,zdnn_conv
-    #test_vgg19_cpu,zdnn_conv
+    test_densenet121_cpu,zdnn_conv2d
+    test_inception_v1_cpu,zdnn_conv2d
+    test_resnet50_cpu,zdnn_conv2d
+    test_shufflenet_cpu,zdnn_matmul_op_ext
+    # test_squeezenet_cpu,zdnn_conv # got NaN results
+    test_vgg19_cpu,zdnn_conv
 )
 set(ENV_TEST_CASE_BY_USER "")
 foreach(test_name IN LISTS NNPA_TEST_LIST)
@@ -394,6 +394,9 @@ add_custom_target(check-onnx-backend-nnpa
   COMMAND
     TEST_INSTRUCTION_CHECK=true
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-nnpa
+    # Needed for convolution models to avoid NaN outputs.
+    # Remove this if saturation is enabled by default.
+    TEST_COMPILE_ARGS="--nnpa-saturation=true"
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -405,6 +408,9 @@ add_custom_target(check-onnx-backend-dynamic-nnpa
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-dynamic-nnpa
     TEST_INSTRUCTION_CHECK=true
     TEST_DYNAMIC=true
+    # Needed for convolution models to avoid NaN outputs.
+    # Remove this if saturation is enabled by default.
+    TEST_COMPILE_ARGS="--nnpa-saturation=true"
     ${NNPA_TESTS_ENVS_DYNAMIC} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -418,6 +424,9 @@ add_custom_target(check-onnx-backend-constant-nnpa
     # TEST_INSTRUCTION_CHECK=true
     ONNX_HOME=${FILE_GENERATE_DIR}/check-onnx-backend-constant-nnpa
     TEST_CONSTANT=true
+    # Needed for convolution models to avoid NaN outputs.
+    # Remove this if saturation is enabled by default.
+    TEST_COMPILE_ARGS="--nnpa-saturation=true" 
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
@@ -427,6 +436,9 @@ add_custom_target(check-onnx-backend-constant-nnpa
 add_custom_target(check-onnx-backend-compilerlib-nnpa
   COMMAND
     TEST_COMPILERLIB=true ONNX_HOME=${CMAKE_CURRENT_BINARY_DIR}
+    # Needed for convolution models to avoid NaN outputs.
+    # Remove this if saturation is enabled by default.
+    TEST_COMPILE_ARGS="--nnpa-saturation=true" 
     ${NNPA_TESTS_ENVS} ${BACKEND_TEST_COMMAND} ${BACKEND_TEST_ARGS} ${FILE_GENERATE_DIR}/test.py
   DEPENDS
     ${FILE_GENERATE_DIR}/test.py
