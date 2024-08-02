@@ -3628,7 +3628,7 @@ class InferenceBackendTest(BackendTest):
             outputs,
             rtol,
             atol,
-            model_dir=model_dir,
+            model_dir=model_dir
         )
 
     def _add_onnxmlir_model_test(
@@ -3650,7 +3650,7 @@ class InferenceBackendTest(BackendTest):
                 outputs,
                 rtol,
                 atol,
-                model_dir=model_dir,
+                model_dir=model_dir
             )
 
         model_name = model_test.model.graph.name
