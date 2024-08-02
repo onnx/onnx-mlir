@@ -507,8 +507,9 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     StringAttr layout = stickOp.getLayoutAttr();
     IntegerAttr saturation = stickOp.getSaturationAttr();
 
-    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-    ZHighStickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    MultiDialectBuilder<OnnxBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
+    ZHighStickOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
@@ -518,9 +519,17 @@ struct ZHighToZLowStickOpLowering : public ConversionPattern {
     // Allocate a buffer for the result MemRef.
     Value alloc = insertAllocForZMemRef(
         zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
-    // Set pre-transformed layout: if NHWC, we can directly stickify from NCHW.
-    if (isNHWCLayout(layout))
-      layout = getNCHWLayoutAttr(rewriter);
+    if (isNHWCLayout(layout)) {
+      if (nnpaEnableCompilerStickUnstick) {
+        // Compiler-generated stick hasn't supported NCHW yet.
+        // Explicitly transpose NCHW to NHWC.
+        input = create.onnx.toMemref(
+            create.onnx.transposeInt64(input, ArrayRef<int64_t>({0, 2, 3, 1})));
+      } else
+        // Otherwise, we can directly stickify from NCHW.
+        // Set pre-transformed layout to NCHW.
+        layout = getNCHWLayoutAttr(rewriter);
+    }
 
     // Else, emit a ZLow operation.
     rewriter.create<ZLowStickOp>(loc, input, alloc, layout, saturation);
@@ -625,8 +634,9 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
     StringAttr layout =
         getZTensorLayoutAttr(rewriter, op->getOperand(0).getType());
 
-    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
-    ZHighUnstickOpShapeHelper shapeHelper(op, operands, &createKrnlIE);
+    MultiDialectBuilder<OnnxBuilder, IndexExprBuilderForKrnl> create(
+        rewriter, loc);
+    ZHighUnstickOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
     // Convert ZTensor type to MemRefType.
@@ -634,15 +644,40 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
         convertZTensorToMemRefType(*op->result_type_begin());
 
     // Allocate a buffer for the result MemRef.
-    Value alloc = insertAllocForZMemRef(
-        zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
-
-    // Set layout: if NHWC, we can directly unstickify to NCHW.
-    if (isNHWCLayout(layout))
-      layout = getNCHWLayoutAttr(rewriter);
+    Value alloc = nullptr;
+    if (isNHWCLayout(layout)) {
+      if (nnpaEnableCompilerStickUnstick) {
+        // Compiler-generated unstick hasn't supported NCHW yet.
+        // This code allocates a NHWC buffer. It gets dims from the NCHW input.
+        SmallVector<IndexExpr> dimList;
+        dimList.emplace_back(shapeHelper.getOutputDims()[0]);
+        dimList.emplace_back(shapeHelper.getOutputDims()[2]);
+        dimList.emplace_back(shapeHelper.getOutputDims()[3]);
+        dimList.emplace_back(shapeHelper.getOutputDims()[1]);
+        MultiDialectBuilder<MemRefBuilder> create(rewriter, loc);
+        MemRefType resType = zMemRefType.value;
+        ArrayRef<int64_t> shape = resType.getShape();
+        alloc = create.mem.alignedAlloc(
+            MemRefType::get({shape[0], shape[2], shape[3], shape[1]},
+                resType.getElementType()),
+            dimList);
+      } else {
+        // Otherwise, we can directly stickify from NCHW.
+        // Set pre-transformed layout to NCHW.
+        layout = getNCHWLayoutAttr(rewriter);
+      }
+    }
+    if (alloc == nullptr)
+      alloc = insertAllocForZMemRef(
+          zMemRefType, shapeHelper.getOutputDims(), op, rewriter);
 
     // Emit a ZLow operation.
     rewriter.create<ZLowUnstickOp>(loc, input, alloc, layout);
+    if (isNHWCLayout(layout) && nnpaEnableCompilerStickUnstick)
+      // Compiler-generated unstick hasn't supported NCHW yet.
+      // Explicitly transpose NHWC to NCHW.
+      alloc =
+          create.onnx.transposeInt64(alloc, ArrayRef<int64_t>({0, 3, 1, 2}));
     rewriter.replaceOp(op, alloc);
     return success();
   }
