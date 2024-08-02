@@ -613,7 +613,7 @@ static llvm::cl::opt<bool, true> test_compiler_opt("test-compiler-opt",
         "Only defined in DEBUG build and default to false.\n"),
     llvm::cl::location(debugTestCompilerOpt), llvm::cl::init(false),
     llvm::cl::cat(OnnxMlirOptions));
-bool debugTestCompilerOpt; 
+bool debugTestCompilerOpt;
 #else
 // Option only available in debug mode: disable when not in debug.
 bool debugTestCompilerOpt = false;
