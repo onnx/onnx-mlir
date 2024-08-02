@@ -184,6 +184,51 @@ Value MathBuilder::rem(Value lhs, Value rhs) const {
   llvm_unreachable("expected int or float");
 }
 
+Value MathBuilder::round(Value x) const {
+  Type type = x.getType();
+  assert(isFloatWithVector(type) && "expected float");
+  // Use algorithm originally posted in ONNXtoKRNL/Math/Elementwise.cpp
+  // lowering.
+
+  // Use numpy algorithm for rint as follows.
+  // ```
+  // double y, r;
+  // y = npy_floor(x);
+  // r = x - y;
+  //
+  // if (r > 0.5) {
+  //     y += 1.0;
+  // }
+  //
+  // /* Round to nearest even */
+  // if (r == 0.5) {
+  //     r = y - 2.0*npy_floor(0.5*y);
+  //     if (r == 1.0) {
+  //         y += 1.0;
+  //     }
+  // }
+  // return y;
+  // ```
+  Value one = constant(type, 1.0);
+  Value two = constant(type, 2.0);
+  Value half = constant(type, 0.5);
+  Value y = floor(x);
+  Value r = sub(x, y);
+  // r > 0.5
+  Value rGreaterThanHalf = sgt(r, half);
+  Value y1 = select(rGreaterThanHalf, add(y, one), y);
+  // r == 0.5: round to nearest even.
+  Value y2 = mul(half, y);
+  y2 = floor(y2);
+  y2 = mul(y2, two);
+  Value rr = sub(y, y2);
+  Value rrEqualOne = eq(rr, one);
+  y2 = select(rrEqualOne, add(y, one), y);
+
+  Value rEqualHalf = eq(r, half);
+  return select(rEqualHalf, y2, y1);
+}
+
 Value MathBuilder::copySign(mlir::Value rem, mlir::Value dividend) const {
   assert(rem.getType() == dividend.getType() && "expected same type");
   if (isFloatWithVector(rem.getType()))
@@ -198,6 +243,13 @@ Value MathBuilder::ceilDiv(Value lhs, Value rhs) const {
   if (isIntegerWithVector(lhs.getType()))
     return b().create<arith::CeilDivSIOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int");
+}
+
+Value MathBuilder::clip(Value val, Value lb, Value ub) const {
+  assert(val.getType() == lb.getType() && "expected same type");
+  assert(val.getType() == ub.getType() && "expected same type");
+  val = max(val, lb);  // Clip lower range.
+  return min(val, ub); // Clip upper range.
 }
 
 Value MathBuilder::floorDiv(Value lhs, Value rhs) const {

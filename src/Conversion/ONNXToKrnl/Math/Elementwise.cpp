@@ -1325,6 +1325,9 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
   // }
   // return y;
   // ```
+#if 1
+  return create.math.round(x);
+#else
   Value one = create.math.constant(elementType, 1.0);
   Value two = create.math.constant(elementType, 2.0);
   Value half = create.math.constant(elementType, 0.5);
@@ -1343,6 +1346,7 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
 
   Value rEqualHalf = create.math.eq(r, half);
   return create.math.select(rEqualHalf, y2, y1);
+#endif
 }
 
 //===----------------------------------------------------------------------===//

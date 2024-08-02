@@ -109,9 +109,10 @@ struct MathBuilder final : DialectBuilder {
 
   mlir::Value abs(mlir::Value val) const;
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;     // Int only.
-  mlir::Value ceil(mlir::Value val) const;                      // Float only.
-  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;    // Int only.
+  mlir::Value ceil(mlir::Value val) const;                     // Float only.
+  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value clip(mlir::Value val, mlir::Value lb, mlir::Value ub) const;
   mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
   mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value erf(mlir::Value val) const;
@@ -127,6 +128,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
   mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value round(mlir::Value) const;    // Float only.
   mlir::Value sqrt(mlir::Value val) const; // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
   mlir::Value tanh(mlir::Value val) const;                  // Float only.

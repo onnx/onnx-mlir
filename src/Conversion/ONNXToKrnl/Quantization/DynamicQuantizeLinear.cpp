@@ -27,8 +27,6 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-#if HI_ALEX_NEW
-
 using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
     IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
 
@@ -50,24 +48,22 @@ void emitDynamicQuantizationLinearScalarParameters(
   //
   // where, saturate is to clip to [0, 255] for ui8.
 
-  Value XMax, XMin;
-  emitMinMaxReductionToScalar(rewriter, loc, op, input, XMin, XMax);
-  Value xMax = create.krnl.load(XMax);
-  Value xMin = create.krnl.load(XMin);
+  Value inputMinAlloc, inputMaxAlloc;
+  emitMinMaxReductionToScalar(
+      rewriter, loc, op, input, inputMinAlloc, inputMaxAlloc);
+  Value xMin = create.krnl.load(inputMinAlloc);
+  Value xMax = create.krnl.load(inputMaxAlloc);
 
   // Include 0 to max(x) and min(x).
   // x_min = min(min(x), 0)
   // x_max = max(max(x), 0)
   Value zero = create.math.constant(elementType, 0.0);
-  //Value greaterThanZero = create.math.sgt(xMax, zero);
-  //xMax = create.math.select(greaterThanZero, xMax, zero);
   xMax = create.math.max(xMax, zero);
-  //Value lessThanZero = create.math.slt(xMin, zero);
-  //xMin = create.math.select(lessThanZero, xMin, zero);
   xMin = create.math.min(xMin, zero);
   // Compute y_scale.
-  scale =
-      create.math.div(create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
+  Value xDiff = create.math.sub(xMax, xMin);
+  Value boundDiff = create.math.sub(qMax, qMin);
+  scale = create.math.div(xDiff, boundDiff);
 
   // Compute y_zero_point.
   Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
@@ -79,7 +75,69 @@ void emitDynamicQuantizationLinearScalarParameters(
   quantizedZeroPoint = create.math.cast(quantizedElementType, zeroPoint);
 }
 
-#endif
+void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
+    llvm::ArrayRef<Value> inputs, llvm::ArrayRef<DimsExpr> inputAFs,
+    llvm::ArrayRef<Value> outputs, llvm::ArrayRef<DimsExpr> outputAFs,
+    bool simdOnly,
+    function_ref<void(VectorBuilder &vb, llvm::ArrayRef<Value> inputVals,
+        llvm::SmallVectorImpl<Value> &resVals)>
+        bodyBuilderFn) {
+  int64_t inputNum = inputs.size();
+  assert(inputAFs.size() == inputs.size() && "expected same size");
+  int64_t outputNum = outputs.size();
+  assert(outputAFs.size() == outputs.size() && "expected same size");
+  IndexExpr zero = LitIE(0);
+
+  MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(vb);
+
+  // Full SIMD loops.
+  IndexExpr lb = zero;
+  if (VL > 1) {
+    ValueRange loopDef = create.krnl.defineLoops(1);
+    ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+    IndexExpr ubFullSimd = ub - (VL - 1);
+    create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, {zero}, {ubFullSimd},
+        [&](KrnlBuilder &ck, ValueRange loopInd) {
+          IndexExprScope scope(ck);
+          MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+          IndexExpr ind = DimIE(loopInd[0]);
+          // Load all the inputs.
+          llvm::SmallVector<Value, 4> vecInputVals;
+          for (int64_t i = 0; i < inputNum; ++i) {
+            MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
+            VectorType vecType = VectorType::get({VL}, type.getElementType());
+            DimsExpr AF = SymListIE(inputAFs[i]);
+            int64_t rank = type.getRank();
+            assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
+            AF[rank - 1] = ind;
+            Value vecVal = create.vec.loadIE(vecType, inputs[i], AF, {});
+            vecInputVals.emplace_back(vecVal);
+          }
+          // Call the method to compute the values.
+          llvm::SmallVector<Value, 4> vecResVals;
+          bodyBuilderFn(create.vec, vecInputVals, vecResVals);
+          // Store all the outputs
+          for (int64_t i = 0; i < outputNum; ++i) {
+            MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
+            DimsExpr AF = SymListIE(outputAFs[i]);
+            int64_t rank = type.getRank();
+            assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
+            AF[rank - 1] = ind;
+            create.vec.storeIE(vecResVals[i], outputs[i], AF, {});
+          }
+        });
+    // Account for the loops performed there.
+    // New lb = ub - ub % VL.
+    IndexExpr ubModVL = ub % VL;
+    if (simdOnly || ubModVL.isLiteralAndIdenticalTo(0)) {
+      // Detect SIMD only.
+      return;
+    }
+    lb = ub - ubModVL;
+  }
+  // Handle scalar values, if any.
+  llvm_unreachable("not yet");
+}
 // TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
@@ -184,24 +242,43 @@ struct ONNXDynamicQuantizeLinearOpLowering
     // Compute y.
     ValueRange loopDef = create.krnl.defineLoops(rank);
     SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
-    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(
-              createKrnl);
-          Value x = create.krnl.load(X, loopInd);
-          // Scale
-          Value scaleX = create.math.div(x, scale);
-          // Round
-          Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
-          // Adjust
-          Value adjustX = create.math.add(roundX, zeroPoint);
-          // Saturate
-          Value saturateX =
-              create.onnx.clip(adjustX, qMin, qMax, /*scalarType=*/true);
-          Value res = create.math.cast(quantizedElementType, saturateX);
-          create.krnl.store(res, Y, loopInd);
-        });
+    if (debugTestCompilerOpt) {
+      create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+                createKrnl);
+            Value x = create.krnl.load(X, loopInd);
+            // Scale
+            Value scaleX = create.math.div(x, scale);
+            // Round
+            Value roundX = create.math.round(scaleX);
+            // Adjust
+            Value adjustX = create.math.add(roundX, zeroPoint);
+            // Saturate
+            Value saturateX = create.math.clip(adjustX, qMin, qMax);
+            Value res = create.math.cast(quantizedElementType, saturateX);
+            create.krnl.store(res, Y, loopInd);
+          });
 
+    } else {
+      create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(
+                createKrnl);
+            Value x = create.krnl.load(X, loopInd);
+            // Scale
+            Value scaleX = create.math.div(x, scale);
+            // Round
+            Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
+            // Adjust
+            Value adjustX = create.math.add(roundX, zeroPoint);
+            // Saturate
+            Value saturateX =
+                create.onnx.clip(adjustX, qMin, qMax, /*scalarType=*/true);
+            Value res = create.math.cast(quantizedElementType, saturateX);
+            create.krnl.store(res, Y, loopInd);
+          });
+    }
     rewriter.replaceOp(op, {Y, YScale, YZeroPoint});
     onnxToKrnlSimdReport(op);
     return success();
