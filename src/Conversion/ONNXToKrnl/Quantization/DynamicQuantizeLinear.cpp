@@ -27,22 +27,59 @@ using namespace mlir;
 
 namespace onnx_mlir {
 
-#if 0
+#if HI_ALEX_NEW
+
+using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
+    IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
+
 void emitDynamicQuantizationLinearScalarParameters(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
-    MemRefType inputType, MemRefType quantizedType, Value input,
-    Value &scaleAlloc, Value &zeroPointAlloc) {
+    MemRefType inputType, MemRefType quantizedType, Value input, Value qMin,
+    Value qMax, Value &scale, Value &zeroPoint, Value &quantizedZeroPoint) {
+  LocalDialectBuilder create(rewriter, loc);
 
   // Types
   Type elementType = inputType.getElementType();
   Type quantizedElementType = quantizedType.getElementType();
+  MemRefType scaleType = MemRefType::get({}, elementType);
+  MemRefType zeroPointType = MemRefType::get({}, quantizedElementType);
 
-// Results
-    scaleAlloc =
-        create.mem.alignedAlloc(yScaleMemRefType, shapeHelper.getOutputDims(1));
-    Value YZeroPoint = create.mem.alignedAlloc(
-        yZeroPointMemRefType, shapeHelper.getOutputDims(2));
+  // Equations:
+  // y_scale = (max(x) - min(x))/(qmax - qmin)
+  // intermediate_zero_point = qmin - min(x)/y_scale
+  // y_zero_point = cast(round(saturate(itermediate_zero_point)))
+  // y = saturate (round (x / y_scale) + y_zero_point)
+  //
+  // where, saturate is to clip to [0, 255] for ui8.
+
+  Value XMax, XMin;
+  emitMinMaxReductionToScalar(rewriter, loc, op, input, XMin, XMax);
+  Value xMax = create.krnl.load(XMax);
+  Value xMin = create.krnl.load(XMin);
+  
+  // Include 0 to max(x) and min(x).
+  // x_min = min(min(x), 0)
+  // x_max = max(max(x), 0)
+  Value zero = create.math.constant(elementType, 0.0);
+  Value greaterThanZero = create.math.sgt(xMax, zero);
+  xMax = create.math.select(greaterThanZero, xMax, zero);
+  Value lessThanZero = create.math.slt(xMin, zero);
+  xMin = create.math.select(lessThanZero, xMin, zero);
+
+  // Compute y_scale.
+  scale =
+      create.math.div(create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
+
+  // Compute y_zero_point.
+  Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
+  // Saturate zero point.
+  Value saturateZeroPoint =
+      create.onnx.clip(interZeroPoint, qMin, qMax, /*scalarType=*/true);
+  // Round zero point.
+  zeroPoint = create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
+  quantizedZeroPoint = create.math.cast(quantizedElementType, zeroPoint);
 }
+
 #endif
 // TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
@@ -54,8 +91,6 @@ struct ONNXDynamicQuantizeLinearOpLowering
   LogicalResult matchAndRewrite(ONNXDynamicQuantizeLinearOp dqlOp,
       ONNXDynamicQuantizeLinearOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
-        IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
     Operation *op = dqlOp.getOperation();
     Location loc = ONNXLoc<ONNXDynamicQuantizeLinearOp>(op);
     LocalDialectBuilder create(rewriter, loc);
@@ -91,68 +126,62 @@ struct ONNXDynamicQuantizeLinearOpLowering
         yZeroPointMemRefType, shapeHelper.getOutputDims(2));
 
     // TODO: consider SIMD version of this.
-
-    // Equations:
-    // y_scale = (max(x) - min(x))/(qmax - qmin)
-    // intermediate_zero_point = qmin - min(x)/y_scale
-    // y_zero_point = cast(round(saturate(itermediate_zero_point)))
-    // y = saturate (round (x / y_scale) + y_zero_point)
-    //
-    // where, saturate is to clip to [0, 255] for ui8.
-
-    // QMax, QMin.
     Value qMax = create.math.constant(elementType, 255.0);
     Value qMin = create.math.constant(elementType, 0.0);
-    Value QMax = create.mem.alignedAlloc(yScaleMemRefType);
-    create.krnl.store(qMax, QMax);
-    Value QMin = create.mem.alignedAlloc(yScaleMemRefType);
-    create.krnl.store(qMin, QMin);
-
-    // Compute max(x) and min (x).
-
-#if HI_ALEX_NEW
-    Value XMax, XMin;
+    Value scale, zeroPoint, zeroPointInt;
     if (debugTestCompilerOpt) {
-      emitMinMaxReductionToScalar(rewriter, loc, op, X, XMin, XMax);
+      Value scaleAlloc, zeroPointAlloc;
+      emitDynamicQuantizationLinearScalarParameters(rewriter, loc, op,
+          xMemRefType, yMemRefType, X, qMin, qMax, scale, zeroPoint,
+          zeroPointInt);
     } else {
-      // hi alex: old code, run artificially when csu is off
+      // Equations:
+      // y_scale = (max(x) - min(x))/(qmax - qmin)
+      // intermediate_zero_point = qmin - min(x)/y_scale
+      // y_zero_point = cast(round(saturate(itermediate_zero_point)))
+      // y = saturate (round (x / y_scale) + y_zero_point)
+      //
+      // where, saturate is to clip to [0, 255] for ui8.
+
+      // QMax, QMin.
+      Value QMax = create.mem.alignedAlloc(yScaleMemRefType);
+      create.krnl.store(qMax, QMax);
+      Value QMin = create.mem.alignedAlloc(yScaleMemRefType);
+      create.krnl.store(qMin, QMin);
+
+      // Compute max(x) and min (x).
       Value none = create.onnx.none();
-      XMax = create.onnx.toMemref(
+      Value XMax = create.onnx.toMemref(
           create.onnx.reduceMax(yScaleMemRefType, X, none, false));
-      XMin = create.onnx.toMemref(
+      Value XMin = create.onnx.toMemref(
           create.onnx.reduceMin(yScaleMemRefType, X, none, false));
+      Value xMax = create.krnl.load(XMax);
+      Value xMin = create.krnl.load(XMin);
+      // Include 0 to max(x) and min(x).
+      // x_min = min(min(x), 0)
+      // x_max = max(max(x), 0)
+      Value zero = create.math.constant(elementType, 0.0);
+      Value greaterThanZero = create.math.sgt(xMax, zero);
+      xMax = create.math.select(greaterThanZero, xMax, zero);
+      Value lessThanZero = create.math.slt(xMin, zero);
+      xMin = create.math.select(lessThanZero, xMin, zero);
+
+      // Compute y_scale.
+      Value scale = create.math.div(
+          create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
+
+      // Compute y_zero_point.
+      Value interZeroPoint =
+          create.math.sub(qMin, create.math.div(xMin, scale));
+      // Saturate zero point.
+      Value saturateZeroPoint =
+          create.onnx.clip(interZeroPoint, qMin, qMax, /*scalarType=*/true);
+      // Round zero point.
+      Value zeroPoint =
+          create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
+      Value zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
     }
-#else
-    Value none = create.onnx.none();
-    Value XMax = create.onnx.toMemref(
-        create.onnx.reduceMax(yScaleMemRefType, X, none, false));
-    Value XMin = create.onnx.toMemref(
-        create.onnx.reduceMin(yScaleMemRefType, X, none, false));
-#endif
-    Value xMax = create.krnl.load(XMax);
-    Value xMin = create.krnl.load(XMin);
-    // Include 0 to max(x) and min(x).
-    // x_min = min(min(x), 0)
-    // x_max = max(max(x), 0)
-    Value zero = create.math.constant(elementType, 0.0);
-    Value greaterThanZero = create.math.sgt(xMax, zero);
-    xMax = create.math.select(greaterThanZero, xMax, zero);
-    Value lessThanZero = create.math.slt(xMin, zero);
-    xMin = create.math.select(lessThanZero, xMin, zero);
-
-    // Compute y_scale.
-    Value scale = create.math.div(
-        create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
     create.krnl.store(scale, YScale);
-
-    // Compute y_zero_point.
-    Value interZeroPoint = create.math.sub(qMin, create.math.div(xMin, scale));
-    // Saturate zero point.
-    Value saturateZeroPoint =
-        create.onnx.clip(interZeroPoint, qMin, qMax, /*scalarType=*/true);
-    // Round zero point.
-    Value zeroPoint = create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
-    Value zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
     create.krnl.store(zeroPointInt, YZeroPoint);
 
     // Compute y.

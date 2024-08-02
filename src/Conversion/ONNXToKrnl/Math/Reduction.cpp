@@ -345,7 +345,6 @@ using MDBuilder =
 // one is needed, then pass ONNXNoneOp in the second slot.
 // Return true if we can optimize the reduction, false otherwise.
 
-// xxx hi alex
 template <typename ONNXReductionOp1, typename ONNXReductionOp2>
 bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     Operation *op, Value input, Value &alloc1, Value &alloc2) {
