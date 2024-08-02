@@ -669,9 +669,11 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
 }
 
 // hi alex, not sure its the best place
+// Compute the min and max of input, allocate and save the results into minAlloc
+// and maxAlloc.
 void emitMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Value input,
-    mlir::Value &res1, mlir::Value &res2);
+    mlir::Value &minAlloc, mlir::Value &maxAlloc);
 
 } // namespace onnx_mlir
 #endif

@@ -41,8 +41,6 @@ void emitDynamicQuantizationLinearScalarParameters(
   // Types
   Type elementType = inputType.getElementType();
   Type quantizedElementType = quantizedType.getElementType();
-  MemRefType scaleType = MemRefType::get({}, elementType);
-  MemRefType zeroPointType = MemRefType::get({}, quantizedElementType);
 
   // Equations:
   // y_scale = (max(x) - min(x))/(qmax - qmin)
@@ -56,7 +54,7 @@ void emitDynamicQuantizationLinearScalarParameters(
   emitMinMaxReductionToScalar(rewriter, loc, op, input, XMin, XMax);
   Value xMax = create.krnl.load(XMax);
   Value xMin = create.krnl.load(XMin);
-  
+
   // Include 0 to max(x) and min(x).
   // x_min = min(min(x), 0)
   // x_max = max(max(x), 0)
@@ -130,7 +128,6 @@ struct ONNXDynamicQuantizeLinearOpLowering
     Value qMin = create.math.constant(elementType, 0.0);
     Value scale, zeroPoint, zeroPointInt;
     if (debugTestCompilerOpt) {
-      Value scaleAlloc, zeroPointAlloc;
       emitDynamicQuantizationLinearScalarParameters(rewriter, loc, op,
           xMemRefType, yMemRefType, X, qMin, qMax, scale, zeroPoint,
           zeroPointInt);
@@ -167,7 +164,7 @@ struct ONNXDynamicQuantizeLinearOpLowering
       xMin = create.math.select(lessThanZero, xMin, zero);
 
       // Compute y_scale.
-      Value scale = create.math.div(
+      scale = create.math.div(
           create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
 
       // Compute y_zero_point.
@@ -177,9 +174,8 @@ struct ONNXDynamicQuantizeLinearOpLowering
       Value saturateZeroPoint =
           create.onnx.clip(interZeroPoint, qMin, qMax, /*scalarType=*/true);
       // Round zero point.
-      Value zeroPoint =
-          create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
-      Value zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
+      zeroPoint = create.onnx.round(saturateZeroPoint, /*scalarType=*/true);
+      zeroPointInt = create.math.cast(quantizedElementType, zeroPoint);
     }
     create.krnl.store(scale, YScale);
     create.krnl.store(zeroPointInt, YZeroPoint);
