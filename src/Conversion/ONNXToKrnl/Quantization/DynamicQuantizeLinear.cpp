@@ -43,9 +43,9 @@ void emitDynamicQuantizationLinearScalarParameters(
   Type quantizedElementType = quantizedType.getElementType();
 
   // Equations:
-  // y_scale = (max(x) - min(x))/(qmax - qmin)
-  // intermediate_zero_point = qmin - min(x)/y_scale
-  // y_zero_point = cast(round(saturate(itermediate_zero_point)))
+  // y_scale = (max(x) - min(x))/(qMax - qMin)
+  // intermediate_zero_point = qMin - min(x)/y_scale
+  // y_zero_point = cast(round(saturate(intermediate_zero_point)))
   // y = saturate (round (x / y_scale) + y_zero_point)
   //
   // where, saturate is to clip to [0, 255] for ui8.
@@ -59,11 +59,12 @@ void emitDynamicQuantizationLinearScalarParameters(
   // x_min = min(min(x), 0)
   // x_max = max(max(x), 0)
   Value zero = create.math.constant(elementType, 0.0);
-  Value greaterThanZero = create.math.sgt(xMax, zero);
-  xMax = create.math.select(greaterThanZero, xMax, zero);
-  Value lessThanZero = create.math.slt(xMin, zero);
-  xMin = create.math.select(lessThanZero, xMin, zero);
-
+  //Value greaterThanZero = create.math.sgt(xMax, zero);
+  //xMax = create.math.select(greaterThanZero, xMax, zero);
+  xMax = create.math.max(xMax, zero);
+  //Value lessThanZero = create.math.slt(xMin, zero);
+  //xMin = create.math.select(lessThanZero, xMin, zero);
+  xMin = create.math.min(xMin, zero);
   // Compute y_scale.
   scale =
       create.math.div(create.math.sub(xMax, xMin), create.math.sub(qMax, qMin));
