@@ -458,7 +458,7 @@ struct ElementWiseUnaryOpImpl<ONNXFloorOp, T, EnableNotBool<T>> {
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXLogOp, T, EnableFloatingPoint<T>> {
-  static T eval(T val) { return log(val); }
+  static T eval(T val) { return std::log(val); }
 };
 
 template <typename T>

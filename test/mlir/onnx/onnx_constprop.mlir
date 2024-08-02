@@ -387,7 +387,8 @@ func.func @test_log() -> tensor<3x2xbf16> {
   %0 = onnx.Constant dense<[[0.0625, -1.0], [0.0, 0x7FC0], [0x7F80, 0xFF80]]> : tensor<3x2xbf16>
   %1 = "onnx.Log"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
   "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
-  // CHECK: onnx.Constant dense<{{.}}[-2.765630e+00, 0xFFC0], [0xFF80, 0x7FC0], [0x7F80, 0xFFC0]]>
+  // Note: Implementations of log can output either NaN and -NaN for negative and -Inf numbers.
+  // CHECK: onnx.Constant dense<{{.}}[-2.765630e+00, 0x{{F|7}}FC0], [0xFF80, 0x7FC0], [0x7F80, 0x{{F|7}}FC0]]>
   // CHECK-NOT: "onnx.Log"
 }
 
