@@ -335,11 +335,12 @@ func.func @test_ceil() -> tensor<3x2xbf16> {
 // CHECK-LABEL: @test_cos() -> tensor<3x2xf32>
 func.func @test_cos() -> tensor<3x2xf32> {
   // Test Positive, Negative, Zero, NaN, +Inf, -Inf
-  // Results: Positive, Positive, One, NaN, -NaN, -NaN
+  // Results: Positive, Positive, One, NaN, +/-NaN, +/-NaN
+  // Note: Implementations of cos can output either NaN and -NaN for +/-Inf numbers.
   %0 = onnx.Constant dense<[[0.625, -0.625], [0.0, 0x7FC00000], [0x7F800000, 0xFF800000]]> : tensor<3x2xf32>
   %1 = "onnx.Cos"(%0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
   "onnx.Return"(%1) : (tensor<3x2xf32>) -> ()
-  // CHECK: onnx.Constant dense<{{.}}[0.810963094, 0.810963094], [1.000000e+00, 0x7FC00000], [0xFFC00000, 0xFFC00000]]>
+  // CHECK: onnx.Constant dense<{{.}}[0.810963094, 0.810963094], [1.000000e+00, 0x7FC00000], [0x{{F|7}}FC00000, 0x{{F|7}}FC00000]]>
   // CHECK-NOT: "onnx.Cos"
 }
 
@@ -414,7 +415,7 @@ func.func @test_reciprocal() -> tensor<3x2xbf16> {
   %1 = "onnx.Reciprocal"(%0) : (tensor<3x2xbf16>) -> tensor<3x2xbf16>
   "onnx.Return"(%1) : (tensor<3x2xbf16>) -> ()
   // CHECK: onnx.Constant dense<{{.}}[4.000000e+00, -4.000000e+00], [0x7F80, 0x7FC0], [0.000000e+00, -0.000000e+00]]>
-  // CHECK-NOT: "onnx.Sin"
+  // CHECK-NOT: "onnx.Reciprocal"
 }
 
 // -----
@@ -422,11 +423,12 @@ func.func @test_reciprocal() -> tensor<3x2xbf16> {
 // CHECK-LABEL: @test_sin() -> tensor<3x2xf32>
 func.func @test_sin() -> tensor<3x2xf32> {
   // Test Positive, Negative, Zero, NaN, +Inf, -Inf
-  // Results: Positive, Positive, One, NaN, -NaN, -NaN
+  // Results: Positive, Positive, One, NaN, +/-NaN, +/-NaN
+  // Note: Implementations of sin can output either NaN and -NaN for +/-Inf numbers.
   %0 = onnx.Constant dense<[[0.625, -0.625], [0.0, 0x7FC00000], [0x7F800000, 0xFF800000]]> : tensor<3x2xf32>
   %1 = "onnx.Sin"(%0) : (tensor<3x2xf32>) -> tensor<3x2xf32>
   "onnx.Return"(%1) : (tensor<3x2xf32>) -> ()
-  // CHECK: onnx.Constant dense<{{.}}[0.585097253, -0.585097253], [0.000000e+00, 0x7FC00000], [0xFFC00000, 0xFFC00000]]>
+  // CHECK: onnx.Constant dense<{{.}}[0.585097253, -0.585097253], [0.000000e+00, 0x7FC00000], [0x{{F|7}}FC00000, 0x{{F|7}}FC00000]]>
   // CHECK-NOT: "onnx.Sin"
 }
 
