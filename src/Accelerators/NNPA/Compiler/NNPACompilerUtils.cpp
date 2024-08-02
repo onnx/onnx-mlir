@@ -103,7 +103,8 @@ void addONNXToZHighPasses(mlir::PassManager &pm) {
   // Clip zhigh.Stick inputs if required. This is to avoid out-of-range of
   // dlfloat. Do constant propagation after clipping to remove ONNX ops used for
   // clipping such as ONNXMax if applicable.
-  if (nnpaClipToDLFloatRange) {
+  // This pass will be removed and replaced by nnpa-saturation in the future.
+  if (!nnpaEnableSaturation && nnpaClipToDLFloatRange) {
     pm.addNestedPass<func::FuncOp>(
         onnx_mlir::zhigh::createZHighClipToDLFloatPass());
     pm.addNestedPass<func::FuncOp>(onnx_mlir::createConstPropONNXToONNXPass());
