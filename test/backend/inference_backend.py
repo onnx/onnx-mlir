@@ -3641,9 +3641,7 @@ class InferenceBackendTest(BackendTest):
             rtol = model_test.rtol
             atol = model_test.atol
             model_dir = model_dir
-            self.assert_similar_outputs(
-                ref_outputs, outputs, rtol, atol, model_dir=model_dir
-            )
+            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol, model_dir)
 
         model_name = model_test.model.graph.name
         self._add_test(kind + "Model", model_name, run, model_marker)
