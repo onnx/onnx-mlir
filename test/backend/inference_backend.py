@@ -3619,11 +3619,12 @@ class InferenceBackendTest(BackendTest):
         outputs: Sequence[Any],
         rtol: float,
         atol: float,
+        model_dir: str | None = None,
     ) -> None:
         rtol = float(os.getenv("TEST_RTOL", rtol))
         atol = float(os.getenv("TEST_ATOL", atol))
         super(InferenceBackendTest, cls).assert_similar_outputs(
-            ref_outputs, outputs, rtol, atol
+            ref_outputs, outputs, rtol, atol, model_dir=model_dir,
         )
 
     def _add_onnxmlir_model_test(
@@ -3639,7 +3640,8 @@ class InferenceBackendTest(BackendTest):
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
             atol = model_test.atol
-            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol)
+            model_dir=model_dir
+            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol, model_dir=model_dir,)
 
         model_name = model_test.model.graph.name
         self._add_test(kind + "Model", model_name, run, model_marker)
