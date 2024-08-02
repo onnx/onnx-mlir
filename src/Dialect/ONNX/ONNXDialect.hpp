@@ -4,7 +4,7 @@
 
 //===-------------------------- ONNXDialect.hpp ---------------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,8 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_DIALECT_H
+#define ONNX_MLIR_ONNX_DIALECT_H
 
 #include "mlir/IR/Dialect.h"
 
 #include "src/Dialect/ONNX/ONNXDialect.hpp.inc"
+#endif

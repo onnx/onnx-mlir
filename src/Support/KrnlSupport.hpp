@@ -4,7 +4,7 @@
 
 //====---------- KrnlSupport.hpp - Krnl-level support functions -----------===//
 //
-// Copyright 2020 The IBM Research Authors.
+// Copyright 2020-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_KRNL_SUPPORT_H
+#define ONNX_MLIR_KRNL_SUPPORT_H
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -94,3 +95,4 @@ int64_t getAllocArgIndex(mlir::memref::AllocOp allocOp, int64_t index);
 int64_t getAllocAlignment(mlir::memref::AllocOp allocOp);
 
 } // namespace onnx_mlir
+#endif

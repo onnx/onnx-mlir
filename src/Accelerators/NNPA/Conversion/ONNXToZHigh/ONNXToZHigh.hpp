@@ -4,7 +4,7 @@
 
 //====------ ONNXToZHigh.hpp - ONNX dialect to ZHigh lowering -------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ONNX_TO_ZHIGH_H
+#define ONNX_MLIR_ONNX_TO_ZHIGH_H
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -30,3 +31,4 @@ void getONNXToZHighOneOpDynamicallyLegal(
     mlir::ConversionTarget *target, const DimAnalysis *dimAnalysis);
 
 } // namespace onnx_mlir
+#endif

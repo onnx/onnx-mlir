@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DISPOSABLE_ELEMENTS_ATTR_H
+#define ONNX_MLIR_DISPOSABLE_ELEMENTS_ATTR_H
 
 #include "src/Dialect/ONNX/ElementsAttr/BType.hpp"
 #include "src/Dialect/ONNX/ElementsAttr/WideNum.hpp"
@@ -326,3 +327,4 @@ private:
 } // namespace mlir
 
 MLIR_DECLARE_EXPLICIT_TYPE_ID(::mlir::DisposableElementsAttr)
+#endif
