@@ -31,9 +31,11 @@ add_onnx_mlir_library(OMONNXOps
   ONNXOps/Additional/Custom.cpp
   ONNXOps/Additional/Dim.cpp
   ONNXOps/Additional/EntryPoint.cpp
+  ONNXOps/Additional/Fork.cpp
   ONNXOps/Additional/Return.cpp
   ONNXOps/Additional/LayoutTransform.cpp
   ONNXOps/Additional/None.cpp
+  ONNXOps/Additional/Parallel.cpp
   ONNXOps/Additional/ShapeTransform.cpp
   ONNXOps/ControlFlow/If.cpp
   ONNXOps/ControlFlow/Loop.cpp
