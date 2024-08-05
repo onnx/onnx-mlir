@@ -442,6 +442,10 @@ struct VectorBuilder final : DialectBuilder {
   using F2 = std::function<mlir::Value(mlir::Value const, mlir::Value const)>;
   enum CombiningKind { ADD, MUL, MAX, MIN, AND, OR, XOR };
 
+  // Check if two types have compatible shapes (assuming that scalar will be
+  // splatted to the proper vector shape),
+  static bool compatibleShapes(const mlir::Type t1, const mlir::Type t2);
+  // Check that the two types have identical elementary types and shapes.
   static bool compatibleTypes(const mlir::Type t1, const mlir::Type t2);
 
   // Get the machine SIMD vector length for the given elementary type.
