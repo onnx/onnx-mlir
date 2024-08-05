@@ -18,6 +18,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/DialectResourceBlobManager.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include "mlir/IR/Value.h"
@@ -800,6 +801,39 @@ OpFoldResult KrnlVectorTypeCastOp::fold(FoldAdaptor adaptor) {
 MutableOperandRange KrnlSpecializedKernel::getLoopRefs() {
   return getLoopsMutable();
 }
+
+ArrayRef<char> getRawData(KrnlGlobalOp &op) {
+  ArrayRef<char> rawData;
+  assert(op.getValue().has_value() && "Krnl Global must always have a value");
+  auto value = op.getValue().value();
+  TypeSwitch<Attribute>(value)
+      .Case<DenseResourceElementsAttr>([&](DenseResourceElementsAttr attr) {
+        auto blob = mlir::cast<DenseResourceElementsAttr>(value)
+                        .getRawHandle()
+                        .getBlob();
+        assert(blob && "Expecting dense resource with a valid blob");
+        rawData = blob->getData();
+      })
+      .Case<DenseElementsAttr>([&](DenseElementsAttr attr) {
+        DenseElementsAttr denseAttr =
+            mlir::dyn_cast_or_null<DenseElementsAttr>(value);
+        rawData = denseAttr.getRawData();
+      })
+      .Default([&](Attribute attr) { return; });
+  return rawData;
+}
+
+ArrayRef<char> KrnlGlobalOp::getBuffer(Operation *op) {
+  ArrayRef<char> rawData;
+  if (auto krnlGlobalOp = mlir::dyn_cast<KrnlGlobalOp>(getOperation())) {
+    rawData = getRawData(krnlGlobalOp);
+  }
+  return rawData;
+}
+
+// Attribute KrnlGlobalOp::getValueAttr() {
+//   return getOperation().getValue().value();
+// }
 
 //===----------------------------------------------------------------------===//
 // KrnlMatMulOp

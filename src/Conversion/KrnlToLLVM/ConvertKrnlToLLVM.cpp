@@ -464,8 +464,11 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   // Check constants with thresholds.
   // Do not count constants whose size is <= singleThreshold.
   uint64_t totalSize = 0;
-  SmallVector<KrnlGlobalOp> globalOfInterest;
-  module.walk([&](KrnlGlobalOp op) {
+  SmallVector<ConstantOpInterface> globalOfInterest;
+  module.walk([&](Operation *op0) {
+    if (ConstantOpInterface op =
+            dyn_cast<ConstantOpInterface>(op0)) {
+
     // Ignore constants that are return values.
     bool isReturnedValue = false;
     for (Operation *user : op.getResult().getUsers()) {
@@ -481,22 +484,23 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     // For an unknown reason, enabling constants of bool caused segfault in the
     // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
     // See issue https://github.com/onnx/onnx-mlir/issues/2713.
-    if (llvm::cast<MemRefType>(op->getResult(0).getType())
+    if (llvm::cast<MemRefType>(op.getResult().getType())
             .getElementType()
             .isInteger(1))
       return WalkResult::advance();
 
     // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
-    ArrayRef<char> rawData = getRawData(op);
+    ArrayRef<char> rawData = op.getBuffer(op);
     if (rawData.empty())
       return WalkResult::advance();
 
-    auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
+    auto valueAttr = mlir::cast<ElementsAttr>(op.getValueAttr());
     if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
       return WalkResult::advance();
 
     globalOfInterest.emplace_back(op);
     totalSize += rawData.size();
+    }
     return WalkResult::advance();
   });
   // Do not use file if the total size of satisfied constants is <=
@@ -506,7 +510,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
   // Sort constants in the non-descending order of alignment values.
   // Non-alignment is the smallest value (-1), the others are positive.
-  llvm::sort(globalOfInterest, [&](KrnlGlobalOp left, KrnlGlobalOp right) {
+  llvm::sort(globalOfInterest, [&](ConstantOpInterface left, ConstantOpInterface right) {
     int64_t leftAlign = -1;
     int64_t rightAlign = -1;
     if (left.getAlignment().has_value())
@@ -524,8 +528,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   std::ofstream outfile(filepath, std::ios::app | std::ios::binary);
   uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
-    KrnlGlobalOp op = globalOfInterest[i];
-    ArrayRef<char> rawData = getRawData(op);
+    ConstantOpInterface op = globalOfInterest[i];
+    ArrayRef<char> rawData = op.getBuffer(op);
 
     // Get alignment.
     int64_t alignment = -1;

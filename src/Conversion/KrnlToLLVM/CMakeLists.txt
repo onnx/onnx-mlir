@@ -21,6 +21,7 @@ add_onnx_mlir_library(OMKrnlToLLVM
 
   LINK_LIBS PUBLIC
   OMAccelerator
+  OMConstantOpInterface
   OMSupport
   MLIRAffineToStandard
   MLIRArithTransforms
