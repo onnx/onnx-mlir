@@ -2,8 +2,7 @@
 import numpy as np
 import onnxmlir
 
-print(dir(onnxmlir))
-a = np.zeros((3,4,5), dtype=np.float32)
+a = np.zeros((3, 4, 5), dtype=np.float32)
 b = a + 4
 
 sess = onnxmlir.inferenceSession("test_add.onnx")

@@ -605,9 +605,10 @@ def data_without_top_bottom_quartile(data, percent):
         return data
     return data[trim:-trim]
 
+
 class InferenceSession:
     def __init__(self, sess):
-        self.sess =  sess
+        self.sess = sess
 
     """
     From onnxruntime API:
@@ -640,9 +641,9 @@ class InferenceSession:
                 dims = [int(d) for d in input_index_shape[1].split("x")]
                 input_shapes[int(input_index)] = dims
 
-        inputs=[];
+        inputs = []
         if input_feed:
-            if isinstance(input_feed, dict) :
+            if isinstance(input_feed, dict):
                 inputs = list(input_feed.values())
             else:
                 inputs = input_feed
@@ -677,7 +678,7 @@ class InferenceSession:
                         inp,
                     )
                 )
-    
+
         # Running inference.
         print("Running inference ...")
         for i in range(args.warmup):
@@ -798,7 +799,7 @@ class InferenceSession:
             res = {outputname[i]: outs[i] for i in range(len(outs))}
             return res
         else:
-          return outs
+            return outs
 
 
 """
@@ -810,16 +811,18 @@ ignored. onnxruntime.SessionOptions may contain some useful info,
 but onnxruntime package is needed to interpret it. Therefore, it is ignored now.
 Another argument, 'options' is added for onnxmlir to specify options for RunONNXModel.py
 """
-def inferenceSession(model_name, **kwargs) :
+
+
+def inferenceSession(model_name, **kwargs):
     global args
     if "options" in kwargs.keys():
         options = kwargs["options"]
         args = parser.parse_args(shlex.split(options))
 
     if model_name:
-        if model_name.endswith(".onnx") or model_name.endswith(".mlir") :
+        if model_name.endswith(".onnx") or model_name.endswith(".mlir"):
             args.model = model_name
-        else :
+        else:
             args.load_so = compiled_name
 
     # Get shape information if given.
@@ -939,6 +942,7 @@ def inferenceSession(model_name, **kwargs) :
         print("  took ", end - start, " seconds.\n")
         return InferenceSession(sess)
 
+
 # Standalone driver
 def main():
     if not (args.model or args.load_so):
@@ -948,6 +952,7 @@ def main():
 
     sess = inferenceSession(None)
     return sess.run(None, None)
+
 
 if __name__ == "__main__":
     main()
