@@ -442,6 +442,8 @@ struct VectorBuilder final : DialectBuilder {
   using F2 = std::function<mlir::Value(mlir::Value const, mlir::Value const)>;
   enum CombiningKind { ADD, MUL, MAX, MIN, AND, OR, XOR };
 
+  static bool compatibleTypes(const mlir::Type t1, const mlir::Type t2);
+
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
   int64_t getMachineVectorLength(const mlir::Type &elementType) const;
