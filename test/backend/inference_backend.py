@@ -3640,7 +3640,7 @@ class InferenceBackendTest(BackendTest):
             outputs = list(prepared_model.run(model_test.inputs))
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
-            atol = model_test.atol  
+            atol = model_test.atol
             onnx_home = os.path.expanduser(
                 os.getenv("ONNX_HOME", os.path.join("~", ".onnx"))
             )
@@ -3660,7 +3660,9 @@ class InferenceBackendTest(BackendTest):
             self.assert_similar_outputs(
                 ref_outputs, outputs, rtol, atol, model_dir=model_dir
             )
+
         self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
+
 
 # There are two issues, which necessitates the adoption of this endianness
 # aware wrapper around Execution Session:
