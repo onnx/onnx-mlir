@@ -774,23 +774,16 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 
 // Methods inspired from MLIR TosaToLinalg CastOp.
 Value MathBuilder::cast(Type destType, Value src) const {
-  // Get element type and vector types (if any, i.e. possibly nullptr).
   Type srcType = src.getType();
-  fprintf(stderr, "hi alex 1\n");
+  // Check if we even need a cast.
+  if (srcType == destType)
+    return src;
+  // Get element type and vector types (if any, i.e. possibly nullptr).
   VectorType srcVecType = mlir::dyn_cast<VectorType>(srcType);
   VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
   Type srcElemType = elementTypeOfScalarOrVector(srcType);
   Type destElemType = elementTypeOfScalarOrVector(destType);
-  // Make sure we don't mix vector and scalars.
-  srcVecType.dump();
-  destVecType.dump();
-  assert(((srcVecType && destVecType) || (!srcVecType && !destVecType)) &&
-         "expect both to be scalars or vectors");
-  fprintf(stderr, "hi alex 4\n");
-  // Check if we even need a cast.
-  if (srcType == destType)
-    return src;
-
+  if (src)
   // Process index types first.
   if (mlir::isa<IndexType>(srcElemType)) {
     // If the source is an index type, first convert it into a signless int of

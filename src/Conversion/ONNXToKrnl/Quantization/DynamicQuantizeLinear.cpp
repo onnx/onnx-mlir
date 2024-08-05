@@ -78,17 +78,15 @@ void emitDynamicQuantizationLinearScalarParameters(
 
 void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
     llvm::ArrayRef<Value> inputs, llvm::ArrayRef<DimsExpr> inputAFs,
-    llvm::ArrayRef<Value> scalars, llvm::ArrayRef<Value> outputs,
-    llvm::ArrayRef<DimsExpr> outputAFs, bool fullySimd,
+    llvm::ArrayRef<Value> outputs, llvm::ArrayRef<DimsExpr> outputAFs,
+    bool fullySimd,
     function_ref<void(VectorBuilder &vb, llvm::ArrayRef<Value> inputVals,
-        llvm::ArrayRef<Value> scalarVals,
         llvm::SmallVectorImpl<Value> &resVals)>
         bodyBuilderFn) {
   int64_t inputNum = inputs.size();
   assert(inputAFs.size() == inputs.size() && "expected same size");
   int64_t outputNum = outputs.size();
   assert(outputAFs.size() == outputs.size() && "expected same size");
-  int64_t scalarNum = scalars.size();
   IndexExpr zero = LitIE(0);
 
   MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(vb);
@@ -118,17 +116,9 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
             Value vecVal = create.vec.loadIE(vecType, inputs[i], AF, {});
             vecInputVals.emplace_back(vecVal);
           }
-          // Broadcast scalars as vectors of VL values.
-          llvm::SmallVector<Value, 4> vecScalarVals;
-          for (int64_t i = 0; i < scalarNum; ++i) {
-            Type elementType = scalars[i].getType();
-            VectorType vecType = VectorType::get({VL}, elementType);
-            Value vecVal = create.vec.broadcast(vecType, scalars[i]);
-            vecScalarVals.emplace_back(vecVal);
-          }
           // Call the method to compute the values.
           llvm::SmallVector<Value, 4> vecResVals;
-          bodyBuilderFn(create.vec, vecInputVals, vecScalarVals, vecResVals);
+          bodyBuilderFn(create.vec, vecInputVals, vecResVals);
           // Store all the outputs as vectors of VL values,
           for (int64_t i = 0; i < outputNum; ++i) {
             MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
@@ -270,17 +260,12 @@ struct ONNXDynamicQuantizeLinearOpLowering
             inputAF.emplace_back(LitIE(0));
             DimsExpr outputAF = SymListIE(loopInd);
             outputAF.emplace_back(LitIE(0));
-            emitSimdLoopIE(create.vec, simdUB, VL, {X}, {inputAF},
-                {scale, zeroPoint, qMin, qMax}, {Y}, {outputAF}, false,
+            emitSimdLoopIE(create.vec, simdUB, VL, {X}, {inputAF}, {Y},
+                {outputAF}, false,
                 [&](VectorBuilder &vb, ArrayRef<Value> inputVals,
-                    ArrayRef<Value> scalarVals,
                     SmallVectorImpl<Value> &resVals) {
                   MultiDialectBuilder<MathBuilder, VectorBuilder> create(vb);
                   Value x = inputVals[0];
-                  Value scale = scalarVals[0];
-                  Value zeroPoint = scalarVals[1];
-                  Value qMin = scalarVals[2];
-                  Value qMax = scalarVals[3];
                   fprintf(stderr, "hi alex x, scale and zero point\n");
                   x.dump();
                   scale.dump();
@@ -293,7 +278,9 @@ struct ONNXDynamicQuantizeLinearOpLowering
                   Value adjustX = create.math.add(roundX, zeroPoint);
                   // Saturate
                   Value saturateX = create.math.clip(adjustX, qMin, qMax);
+                  fprintf(stderr, "hi alex x, before cast\n");
                   Value res = create.math.cast(quantizedElementType, saturateX);
+                  fprintf(stderr, "hi alex x, after cast\n");
                   resVals.emplace_back(res);
                 });
           });

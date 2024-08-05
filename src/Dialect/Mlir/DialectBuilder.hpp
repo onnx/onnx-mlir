@@ -179,7 +179,7 @@ struct MathBuilder final : DialectBuilder {
 
   // Cast handle bool/int/float/index elementary types. Do not convert
   // signed/index to unsigned.
-  mlir::Value cast(mlir::Type destType, mlir::Value val) const;
+  mlir::Value cast(mlir::Type destType, mlir::Value val) const; // B.
   mlir::Value castToIndex(mlir::Value val) const;
 
   // Add indexOffsets to the least significant indices. So if indices are (i, j,
