@@ -95,13 +95,9 @@ bool MathBuilder::splatToMatch(Value &first, Value &second) const {
   if (firstIsVector == secondIsVector) {
     // If both vectors, ensure its the same vector length.
     if (firstIsVector) {
-      VectorType firstVectorType = mlir::cast<VectorType>(first.getType());
-      VectorType secondVectorType = mlir::cast<VectorType>(second.getType());
-      auto firstShape = firstVectorType.getShape();
-      auto secondShape = secondVectorType.getShape();
-      assert(firstShape.size() == secondShape.size() && "expected same sizes");
-      for (int64_t i = 0; i < (int64_t)firstShape.size(); ++i)
-        assert(firstShape[i] == secondShape[i] && "expected same dim");
+      assert(
+          VectorBuilder::compatibleTypes(first.getType(), second.getType()) &&
+          "expected compatible types");
     }
     // No changes in types.
     return false;
@@ -1559,6 +1555,32 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
 //===----------------------------------------------------------------------===//
 // Vector Builder
 //===----------------------------------------------------------------------===//
+
+/*static*/ bool VectorBuilder::compatibleTypes(const Type t1, const Type t2) {
+  Type e1 = MathBuilder::elementTypeOfScalarOrVector(t1);
+  Type e2 = MathBuilder::elementTypeOfScalarOrVector(t2);
+  // Not the same element type, not compatible.
+  if (e1 != e2)
+    return false;
+  // If both are vectors, check the shapes.
+  VectorType vt1 = mlir::dyn_cast<VectorType>(t1);
+  VectorType vt2 = mlir::dyn_cast<VectorType>(t2);
+  if (vt1 && vt2) {
+    auto shape1 = vt1.getShape();
+    auto shape2 = vt2.getShape();
+    if (shape1.size() != shape2.size())
+      return false;
+
+    for (int64_t i = 0; i < (int64_t)shape1.size(); ++i)
+      if (shape1[i] != shape2[i])
+        return false;
+    // Same dim and shapes
+    return true;
+  }
+  // Neither is a vector (no shape tests); or only one is a vector and the other
+  // one can thus be broadcasted to it.
+  return true;
+}
 
 int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
   VectorMachineSupport *vms =
