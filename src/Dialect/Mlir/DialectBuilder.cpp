@@ -779,7 +779,6 @@ Value MathBuilder::cast(Type destType, Value src) const {
   VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
   Type srcElemType = elementTypeOfScalarOrVector(srcType);
   Type destElemType = elementTypeOfScalarOrVector(destType);
-  if (src)
   // Process index types first.
   if (mlir::isa<IndexType>(srcElemType)) {
     // If the source is an index type, first convert it into a signless int of
