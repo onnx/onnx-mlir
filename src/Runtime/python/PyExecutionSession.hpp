@@ -4,7 +4,7 @@
 
 //===------ PyExecutionSession.hpp - PyExecutionSession Declaration -------===//
 //
-// Copyright 2019-2020 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -13,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_PY_EXECUTION_SESSION_H
+#define ONNX_MLIR_PY_EXECUTION_SESSION_H
 
 #include "PyExecutionSessionBase.hpp"
 
@@ -40,3 +41,4 @@ PYBIND11_MODULE(PyRuntimeC, m) {
       .def("output_signature",
           &onnx_mlir::PyExecutionSession::pyOutputSignature);
 }
+#endif

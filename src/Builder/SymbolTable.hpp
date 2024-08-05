@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
+#ifndef ONNX_MLIR_SYMBOL_TABLE_H
+#define ONNX_MLIR_SYMBOL_TABLE_H
 
 #include <cassert>
 #include <llvm/ADT/STLExtras.h>
@@ -164,3 +165,4 @@ bool VariableScope<T>::contains(const std::string &name) const {
 }
 
 } // namespace onnx_mlir
+#endif

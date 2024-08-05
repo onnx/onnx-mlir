@@ -2,7 +2,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===---------- ONNXToZHigh.hpp - Common functions in ONNXToZHigh ---------===//
+//===---------- ONNXToZHighCommon.hpp - Common functions in ONNXToZHigh
+//---------===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
@@ -12,7 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZHIGH_COMMON_H
+#define ONNX_MLIR_ZHIGH_COMMON_H
 
 #include "llvm/ADT/STLExtras.h"
 
@@ -115,3 +117,4 @@ mlir::Value getDynShape(
     mlir::Location loc, mlir::PatternRewriter &rewriter, mlir::Value x);
 
 } // namespace onnx_mlir
+#endif

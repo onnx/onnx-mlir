@@ -4,7 +4,7 @@
 
 //===------ RuntimeAPI.hpp - Declaration of the Runtime API ---------------===//
 //
-// Copyright 2022 The IBM Research Authors.
+// Copyright 2022-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_RUNTIME_API_H
+#define ONNX_MLIR_RUNTIME_API_H
 
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -100,3 +101,4 @@ public:
 private:
   ApiRegistry registry;
 };
+#endif

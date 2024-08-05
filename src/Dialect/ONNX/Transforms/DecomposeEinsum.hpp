@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_DECOMPOSE_EINSUM_H
+#define ONNX_MLIR_DECOMPOSE_EINSUM_H
 
 #include "mlir/IR/PatternMatch.h"
 
@@ -28,3 +29,4 @@ public:
 };
 
 } // namespace onnx_mlir
+#endif

@@ -4,7 +4,7 @@
 
 //===------------------ ZHighOps.hpp - ZHigh Operations -------------------===//
 //
-// Copyright 2019-2022 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_ZHIGH_H
+#define ONNX_MLIR_ZHIGH_H
 
 #include <map>
 #include <string>
@@ -58,3 +59,4 @@ public:
 
 #define GET_OP_CLASSES
 #include "src/Accelerators/NNPA/Dialect/ZHigh/ZHighOps.hpp.inc"
+#endif

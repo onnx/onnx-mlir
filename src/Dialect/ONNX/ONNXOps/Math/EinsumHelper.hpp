@@ -8,7 +8,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_EINSUM_HELPER_H
+#define ONNX_MLIR_EINSUM_HELPER_H
 
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
@@ -70,3 +71,4 @@ mlir::FailureOr<Signature> inferSignature(
 } // namespace einsum
 
 } // namespace onnx_mlir
+#endif

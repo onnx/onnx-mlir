@@ -4,7 +4,7 @@
 
 //===-------- DevicePlacementHeuristic.hpp - Place ops using model  -------===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#pragma once
+#ifndef ONNX_MLIR_HEURISTICS_H
+#define ONNX_MLIR_HEURISTICS_H
 
 #include "mlir/IR/BuiltinOps.h"
 
@@ -85,3 +86,4 @@ void PlaceBeneficialOpsOnNNPAWithStickUnstick(mlir::MLIRContext *context,
     double significantNNPAFactor = 3.0);
 
 } // namespace onnx_mlir
+#endif
