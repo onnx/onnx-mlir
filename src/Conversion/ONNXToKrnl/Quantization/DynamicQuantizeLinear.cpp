@@ -16,6 +16,7 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/SmallVectorHelper.hpp"
 
 #define HI_ALEX_NEW 1
 #if HI_ALEX_NEW
@@ -77,15 +78,17 @@ void emitDynamicQuantizationLinearScalarParameters(
 
 void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
     llvm::ArrayRef<Value> inputs, llvm::ArrayRef<DimsExpr> inputAFs,
-    llvm::ArrayRef<Value> outputs, llvm::ArrayRef<DimsExpr> outputAFs,
-    bool simdOnly,
+    llvm::ArrayRef<Value> scalars, llvm::ArrayRef<Value> outputs,
+    llvm::ArrayRef<DimsExpr> outputAFs, bool fullySimd,
     function_ref<void(VectorBuilder &vb, llvm::ArrayRef<Value> inputVals,
+        llvm::ArrayRef<Value> scalarVals,
         llvm::SmallVectorImpl<Value> &resVals)>
         bodyBuilderFn) {
   int64_t inputNum = inputs.size();
   assert(inputAFs.size() == inputs.size() && "expected same size");
   int64_t outputNum = outputs.size();
   assert(outputAFs.size() == outputs.size() && "expected same size");
+  int64_t scalarNum = scalars.size();
   IndexExpr zero = LitIE(0);
 
   MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(vb);
@@ -95,13 +98,15 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
   if (VL > 1) {
     ValueRange loopDef = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-    IndexExpr ubFullSimd = ub - (VL - 1);
+    IndexExpr ubFullSimd = ub;
+    if (!fullySimd)
+      ub = ub - (VL - 1);
     create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, {zero}, {ubFullSimd},
         [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
           MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
           IndexExpr ind = DimIE(loopInd[0]);
-          // Load all the inputs.
+          // Load all the inputs as vectors of VL values,
           llvm::SmallVector<Value, 4> vecInputVals;
           for (int64_t i = 0; i < inputNum; ++i) {
             MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
@@ -109,27 +114,35 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
             DimsExpr AF = SymListIE(inputAFs[i]);
             int64_t rank = type.getRank();
             assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
-            AF[rank - 1] = ind;
+            AF[rank - 1] = AF[rank - 1] + ind;
             Value vecVal = create.vec.loadIE(vecType, inputs[i], AF, {});
             vecInputVals.emplace_back(vecVal);
           }
+          // Broadcast scalars as vectors of VL values.
+          llvm::SmallVector<Value, 4> vecScalarVals;
+          for (int64_t i = 0; i < scalarNum; ++i) {
+            Type elementType = scalars[i].getType();
+            VectorType vecType = VectorType::get({VL}, elementType);
+            Value vecVal = create.vec.broadcast(vecType, scalars[i]);
+            vecScalarVals.emplace_back(vecVal);
+          }
           // Call the method to compute the values.
           llvm::SmallVector<Value, 4> vecResVals;
-          bodyBuilderFn(create.vec, vecInputVals, vecResVals);
-          // Store all the outputs
+          bodyBuilderFn(create.vec, vecInputVals, vecScalarVals, vecResVals);
+          // Store all the outputs as vectors of VL values,
           for (int64_t i = 0; i < outputNum; ++i) {
             MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
             DimsExpr AF = SymListIE(outputAFs[i]);
             int64_t rank = type.getRank();
             assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
-            AF[rank - 1] = ind;
+            AF[rank - 1] = AF[rank - 1] + ind;
             create.vec.storeIE(vecResVals[i], outputs[i], AF, {});
           }
         });
     // Account for the loops performed there.
     // New lb = ub - ub % VL.
     IndexExpr ubModVL = ub % VL;
-    if (simdOnly || ubModVL.isLiteralAndIdenticalTo(0)) {
+    if (fullySimd || ubModVL.isLiteralAndIdenticalTo(0)) {
       // Detect SIMD only.
       return;
     }
@@ -138,6 +151,7 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
   // Handle scalar values, if any.
   llvm_unreachable("not yet");
 }
+
 // TODO may consider SIMD and parallel.
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
@@ -240,27 +254,53 @@ struct ONNXDynamicQuantizeLinearOpLowering
     create.krnl.store(zeroPointInt, YZeroPoint);
 
     // Compute y.
-    ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
     if (debugTestCompilerOpt) {
-      create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
+      ValueRange loopDef = create.krnl.defineLoops(rank - 1);
+      SmallVector<IndexExpr, 4> lbs(rank - 1, LiteralIndexExpr(0));
+      SmallVector<IndexExpr, 4> ubs =
+          firstFew<IndexExpr, 4>(shapeHelper.getOutputDims(0), rank - 2);
+      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            MultiDialectBuilder<KrnlBuilder, MathBuilder> create(
+            MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(
                 createKrnl);
-            Value x = create.krnl.load(X, loopInd);
-            // Scale
-            Value scaleX = create.math.div(x, scale);
-            // Round
-            Value roundX = create.math.round(scaleX);
-            // Adjust
-            Value adjustX = create.math.add(roundX, zeroPoint);
-            // Saturate
-            Value saturateX = create.math.clip(adjustX, qMin, qMax);
-            Value res = create.math.cast(quantizedElementType, saturateX);
-            create.krnl.store(res, Y, loopInd);
+            IndexExpr simdUB = SymIE(shapeHelper.getOutputDims(0)[rank - 1]);
+            int64_t VL = 4; // hi alex, refine this
+            // Create access functions for input X and output Y.
+            DimsExpr inputAF = SymListIE(loopInd);
+            inputAF.emplace_back(LitIE(0));
+            DimsExpr outputAF = SymListIE(loopInd);
+            outputAF.emplace_back(LitIE(0));
+            emitSimdLoopIE(create.vec, simdUB, VL, {X}, {inputAF},
+                {scale, zeroPoint, qMin, qMax}, {Y}, {outputAF}, false,
+                [&](VectorBuilder &vb, ArrayRef<Value> inputVals,
+                    ArrayRef<Value> scalarVals,
+                    SmallVectorImpl<Value> &resVals) {
+                  MultiDialectBuilder<MathBuilder, VectorBuilder> create(vb);
+                  Value x = inputVals[0];
+                  Value scale = scalarVals[0];
+                  Value zeroPoint = scalarVals[1];
+                  Value qMin = scalarVals[2];
+                  Value qMax = scalarVals[3];
+                  fprintf(stderr, "hi alex x, scale and zero point\n");
+                  x.dump();
+                  scale.dump();
+                  zeroPoint.dump();
+                  // Scale
+                  Value scaleX = create.math.div(x, scale);
+                  // Round
+                  Value roundX = create.math.round(scaleX);
+                  // Adjust
+                  Value adjustX = create.math.add(roundX, zeroPoint);
+                  // Saturate
+                  Value saturateX = create.math.clip(adjustX, qMin, qMax);
+                  Value res = create.math.cast(quantizedElementType, saturateX);
+                  resVals.emplace_back(res);
+                });
           });
 
     } else {
+      ValueRange loopDef = create.krnl.defineLoops(rank);
+      SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
       create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
           [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
             MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(

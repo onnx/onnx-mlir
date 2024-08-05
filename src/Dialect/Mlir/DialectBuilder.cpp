@@ -696,13 +696,19 @@ Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
 Value MathBuilder::cast(Type destType, Value src) const {
   // Get element type and vector types (if any, i.e. possibly nullptr).
   Type srcType = src.getType();
+  fprintf(stderr, "hi alex 1\n");
   VectorType srcVecType = mlir::dyn_cast<VectorType>(srcType);
   VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
+  fprintf(stderr, "hi alex 2\n");
   Type srcElemType = elementTypeWithVector(srcType);
   Type destElemType = elementTypeWithVector(destType);
+  fprintf(stderr, "hi alex 3\n");
   // Make sure we don't mix vector and scalars.
+  srcVecType.dump();
+  destVecType.dump();
   assert(((srcVecType && destVecType) || (!srcVecType && !destVecType)) &&
          "expect both to be scalars or vectors");
+  fprintf(stderr, "hi alex 4\n");
   // Check if we even need a cast.
   if (srcType == destType)
     return src;

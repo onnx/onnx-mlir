@@ -16,6 +16,7 @@
 #include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/SmallVectorHelper.hpp"
 
 #define DEBUG_TYPE "lowering-to-krnl"
 #define DEBUG_FORCE_SHUFFLE_REDUCTION 0
@@ -23,89 +24,6 @@
 using namespace mlir;
 
 namespace onnx_mlir {
-
-// support
-
-// Until num, inclusive. Negative numbers count from the back of the vector.
-template <typename T, unsigned N>
-SmallVector<T, N> firstFew(ValueRange vec, int64_t untilNum) {
-  SmallVector<T, N> res;
-  int64_t size = vec.size();
-  if (untilNum < 0)
-    untilNum += size;
-  // If untilNum<0...  we get an empty vector, that is ok.
-  assert(untilNum < size && "out of bound");
-  for (int64_t i = 0; i <= untilNum; ++i)
-    res.emplace_back(vec[i]);
-  return res;
-}
-
-template <typename T, unsigned N>
-SmallVector<T, N> firstFew(ArrayRef<T> vec, int64_t untilNum) {
-  SmallVector<T, N> res;
-  int64_t size = vec.size();
-  if (untilNum < 0)
-    untilNum += size;
-  // If untilNum<0...  we get an empty vector, that is ok.
-  assert(untilNum < size && "out of bound");
-  for (int64_t i = 0; i <= untilNum; ++i)
-    res.emplace_back(vec[i]);
-  return res;
-}
-
-template <typename T, unsigned N>
-SmallVector<T, N> firstFew(SmallVectorImpl<T> &vec, int64_t untilNum) {
-  SmallVector<T, N> res;
-  int64_t size = vec.size();
-  if (untilNum < 0)
-    untilNum += size;
-  // If untilNum<0...  we get an empty vector, that is ok.
-  assert(untilNum < size && "out of bound");
-  for (int64_t i = 0; i <= untilNum; ++i)
-    res.emplace_back(vec[i]);
-  return res;
-}
-
-// From num, inclusive.  Negative numbers count from the back of the vector.
-template <typename T, unsigned N>
-SmallVector<T, N> lastFew(ValueRange vec, int64_t fromNum) {
-  SmallVector<T, N> res;
-  int64_t size = vec.size();
-  if (fromNum < 0)
-    fromNum += size;
-  // If fromNum>= size...  we get an empty vector, that is ok.
-  assert(fromNum >= 0 && "out of bound");
-  for (int64_t i = fromNum; i < size; ++i)
-    res.emplace_back(vec[i]);
-  return res;
-}
-
-template <typename T, unsigned N>
-SmallVector<T, N> lastFew(ArrayRef<T> vec, int64_t fromNum) {
-  SmallVector<T, N> res;
-  int64_t size = vec.size();
-  if (fromNum < 0)
-    fromNum += size;
-  // If fromNum>= size...  we get an empty vector, that is ok.
-  assert(fromNum >= 0 && "out of bound");
-  for (int64_t i = fromNum; i < size; ++i)
-    res.emplace_back(vec[i]);
-  return res;
-}
-
-template <typename T, unsigned N>
-SmallVector<T, N> lastFew(SmallVectorImpl<T> &vec, int64_t fromNum) {
-  SmallVector<T, N> res;
-  int64_t size = vec.size();
-  if (fromNum < 0)
-    fromNum += size;
-  // If fromNum>= size...  we get an empty vector, that is ok.
-  assert(fromNum >= 0 && "out of bound");
-  for (int64_t i = fromNum; i < size; ++i)
-    res.emplace_back(vec[i]);
-  return res;
-}
-// end support
 
 enum RLegacy { Latest, UpTo13 };
 
