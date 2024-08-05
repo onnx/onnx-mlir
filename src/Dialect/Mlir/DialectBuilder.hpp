@@ -95,66 +95,70 @@ struct MathBuilder final : DialectBuilder {
   static bool isVector(mlir::Type type);
   // The method belows ignore the vectors part of the type to provide answer on
   // the basic element types alone.
-  static bool isIntegerWithVector(mlir::Type elementOrVectorType);
-  static bool isUnsignedIntegerWithVector(mlir::Type elementOrVectorType);
-  static bool isFloatWithVector(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorInteger(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorUnsignedInteger(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorFloat(mlir::Type elementOrVectorType);
   // Return the basic element type regardless of if we are given (1) a scalar or
   // (2) a vector of a basic element type.
-  static mlir::Type elementTypeWithVector(mlir::Type elementOrVectorType);
+  static mlir::Type elementTypeOfScalarOrVector(mlir::Type elementOrVectorType);
   // Return a type of the same vector shape as vectorType with a basic element
   // type of elementType. When vectorType is null, then the returned type is
   // simply a scalar of elementType.
   static mlir::Type getTypeWithVector(
       mlir::VectorType vectorType, mlir::Type elementType);
 
+  // "B" below indicates that the operation will splat scalar values if one of
+  // the input value is itself a vector.
+
   mlir::Value abs(mlir::Value val) const;
-  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;    // Int only.
+  mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;     // B.
+  mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;    // B/Int only.
   mlir::Value ceil(mlir::Value val) const;                     // Float only.
-  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
-  mlir::Value clip(mlir::Value val, mlir::Value lb, mlir::Value ub) const;
-  mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // Float only.
-  mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value ceilDiv(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
+  mlir::Value clip(mlir::Value val, mlir::Value lb, mlir::Value ub) const; // B.
+  mlir::Value copySign(mlir::Value rem, mlir::Value div) const; // B/Float only.
+  mlir::Value div(mlir::Value lhs, mlir::Value rhs) const;      // B.
   mlir::Value erf(mlir::Value val) const;
   mlir::Value exp(mlir::Value val) const;                       // Float only.
   mlir::Value exp2(mlir::Value val) const;                      // Float only.
   mlir::Value floor(mlir::Value val) const;                     // Float only.
-  mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // Int only.
-  mlir::Value fma(mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const;
-  mlir::Value log(mlir::Value val) const;  // Float only.
-  mlir::Value log2(mlir::Value val) const; // Float only.
-  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value floorDiv(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
+  mlir::Value fma(
+      mlir::Value lhs, mlir::Value rhs, mlir::Value acc) const; // B.
+  mlir::Value log(mlir::Value val) const;                       // Float only.
+  mlir::Value log2(mlir::Value val) const;                      // Float only.
+  mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;      // B.
   mlir::Value neg(mlir::Value val) const;
-  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // Int only.
+  mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // B/Int only.
   mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
-  mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value round(mlir::Value) const;    // Float only.
-  mlir::Value sqrt(mlir::Value val) const; // Float only.
-  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value round(mlir::Value) const;                     // Float only.
+  mlir::Value sqrt(mlir::Value val) const;                  // Float only.
+  mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value tanh(mlir::Value val) const;                  // Float only.
-  mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // Int only.
+  mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
 
   mlir::Value select(
       mlir::Value cmp, mlir::Value trueVal, mlir::Value valseVal) const;
-  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;  // B.
+  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const; // B.
   // Signed versions (index/signless/signed int or float)
-  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
-  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
-  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
-  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const; // No unsigned.
+  mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
+  mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
+  mlir::Value slt(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
+  mlir::Value sle(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
   // Unsigned versions
-  mlir::Value ugt(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
-  mlir::Value uge(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
-  mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
-  mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // Unsigned int only
+  mlir::Value ugt(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
+  mlir::Value uge(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
+  mlir::Value ult(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
+  mlir::Value ule(mlir::Value lhs, mlir::Value rhs) const; // B/Unsigned only.
 
-  mlir::Value min(mlir::Value lhs, mlir::Value rhs) const;
-  mlir::Value max(mlir::Value lhs, mlir::Value rhs) const;
+  mlir::Value min(mlir::Value lhs, mlir::Value rhs) const; // B.
+  mlir::Value max(mlir::Value lhs, mlir::Value rhs) const; // B.
 
   mlir::Value constant(mlir::Type type, double val) const;
   mlir::Value constantIndex(int64_t val) const;
@@ -194,6 +198,11 @@ private:
       mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpFPredicate pred) const;
   mlir::Value castToSignless(mlir::Value source, int64_t width) const;
   mlir::Value castToUnsigned(mlir::Value source, int64_t width) const;
+  // If any of the first, second, or third values are vector types, splat the
+  // other ones to the same VL. Return true if values were splatted.
+  bool splatToMatch(mlir::Value &first, mlir::Value &second) const;
+  bool splatToMatch(
+      mlir::Value &first, mlir::Value &second, mlir::Value &third) const;
 };
 
 //===----------------------------------------------------------------------===//

@@ -42,7 +42,8 @@ Value emitPostProcessingFor(ConversionPatternRewriter &rewriter, Location loc,
 
 template <typename Op>
 static void CheckIfCustomScalarOpIsSupported(Type elementType) {
-  Type actualElementType = MathBuilder::elementTypeWithVector(elementType);
+  Type actualElementType =
+      MathBuilder::elementTypeOfScalarOrVector(elementType);
   if (mlir::isa<mlir::IntegerType>(actualElementType)) {
     if constexpr (std::is_same<ScalarIOp<Op>, CustomScalarOp>::value)
       return;
@@ -914,7 +915,7 @@ Value emitScalarOpFor<ONNXSignOp>(ConversionPatternRewriter &rewriter,
   //                           ConstantOp 0,
   //                           %Y)
   Value plusSelect;
-  if (create.math.isUnsignedIntegerWithVector(elementType)) {
+  if (create.math.isScalarOrVectorUnsignedInteger(elementType)) {
     // Unsigned integers are by definition positive.
     plusSelect = one;
   } else {
@@ -1188,7 +1189,7 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
   MultiDialectBuilder<MathBuilder, KrnlBuilder> create(rewriter, loc);
 
   // TODO: here we assume fmod=1, what should if that is not the case?
-  if (create.math.isFloatWithVector(elementType)) {
+  if (create.math.isScalarOrVectorFloat(elementType)) {
     // fmod is always 1. Behavior is like numpy.fmod.
     // The sign of the remainder is the same as the dividend.
     Value rem = create.math.rem(dividend, divisor);
@@ -1201,7 +1202,7 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
     return create.math.copySign(rem, dividend);
 #endif
   }
-  if (create.math.isIntegerWithVector(elementType)) {
+  if (create.math.isScalarOrVectorInteger(elementType)) {
     // "math.rem" returns "minus" for minus dividend and "plus or zero" for plus
     // dividend. We call the math.rem's return value "mathRemainder". However
     // onnx.ModOp should return "minus" for minus divisor and "plus or zero" for
