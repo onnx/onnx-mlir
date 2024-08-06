@@ -185,7 +185,7 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
     } else
       return b().create<arith::AddIOp>(loc(), lhs, rhs);
   }
-  if (isScalarOrVectorFloat(lhs.getType()))
+  if (isScalarOrVectorFloat(lhs))
     return b().create<arith::AddFOp>(loc(), lhs, rhs);
   llvm_unreachable("expected int or float");
 }
