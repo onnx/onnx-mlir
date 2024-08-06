@@ -116,21 +116,21 @@ bool MathBuilder::splatToMatch(Value &first, Value &second) const {
   Type secondType = second.getType();
   VectorType firstVectorType = mlir::dyn_cast<VectorType>(firstType);
   VectorType secondVectorType = mlir::dyn_cast<VectorType>(secondType);
-  VectorBuilder createVec(*this);
+  MultiDialectBuilder<VectorBuilder> create(*this);
   // Splat first if needed.
   if (!firstVectorType && secondVectorType) {
     firstVectorType = VectorType::get(secondVectorType.getShape(), firstType);
-    first = createVec.splat(firstVectorType, first);
+    first = create.vec.splat(firstVectorType, first);
     return true;
   }
   // Splat second if needed.
   if (firstVectorType && !secondVectorType) {
     secondVectorType = VectorType::get(firstVectorType.getShape(), secondType);
-    second = createVec.splat(secondVectorType, second);
+    second = create.vec.splat(secondVectorType, second);
     return true;
   }
   // Otherwise check compatibility.
-  assert(createVec.compatibleTypes(firstType, secondType) &&
+  assert(create.vec.compatibleTypes(firstType, secondType) &&
          "expected compatible types");
   return false;
 }
@@ -378,8 +378,7 @@ Value MathBuilder::sqrt(Value val) const {
 }
 
 Value MathBuilder::pow(Value base, Value exp) const {
-  // no broadcast, do not expect the exponent to be a vector
-  assert(!isVector(exp) && "do not support a vector exponent");
+  splatToMatch(base, exp);
   if (isScalarOrVectorFloat(base))
     return b().create<math::PowFOp>(loc(), base, exp);
   llvm_unreachable("expected base float");
@@ -813,8 +812,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // When the destination type is requested to be a vector type, but the input
     // is not, then perform a scalar cast first, and then splat the output.
     Value scalarCastVal = cast(destElemType, src);
-    VectorBuilder vb(*this);
-    return vb.splat(destVecType, scalarCastVal);
+    MultiDialectBuilder<VectorBuilder> create(*this);
+    return create.vec.splat(destVecType, scalarCastVal);
   }
   if (srcVecType && !destVecType) {
     // When the source (to be cast) is a vector, but the destination type is

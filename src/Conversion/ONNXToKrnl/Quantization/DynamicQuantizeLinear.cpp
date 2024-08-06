@@ -76,7 +76,7 @@ void emitDynamicQuantizationLinearScalarParameters(
   quantizedZeroPoint = create.math.cast(quantizedElementType, zeroPoint);
 }
 
-void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
+void emitSimdLoopIE(VectorBuilder &vb, IndexExpr lb, IndexExpr ub, int64_t VL,
     llvm::ArrayRef<Value> inputs, llvm::ArrayRef<DimsExpr> inputAFs,
     llvm::ArrayRef<Value> outputs, llvm::ArrayRef<DimsExpr> outputAFs,
     bool fullySimd,
@@ -92,14 +92,13 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr ub, int64_t VL,
   MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(vb);
 
   // Full SIMD loops.
-  IndexExpr lb = zero;
   if (VL > 1) {
     ValueRange loopDef = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
     IndexExpr ubFullSimd = ub;
     if (!fullySimd)
       ub = ub - (VL - 1);
-    create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, {zero}, {ubFullSimd},
+    create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {ubFullSimd},
         [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
           MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
