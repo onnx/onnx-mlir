@@ -131,14 +131,14 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr lb, IndexExpr ub, int64_t VL,
           }
         });
     if (fullySimd)
-      // Asserted that we only have SIMD iterations.
+      // Asserted that we only have SIMD iterations, we are done.
       return;
-    // Account for the loops performed there.
+    // Account for the loop iterations performed above.
     IndexExpr tripCount = ub - lb;
     IndexExpr missingIters = tripCount % VL;
     IndexExpr completedIters = tripCount - missingIters;
     if (missingIters.isLiteralAndIdenticalTo(0)) {
-      // Detect that we only have SIMD iterations.
+      // Detect that we only have SIMD iterations, we are also done.
       return;
     }
     // We may have additional iterations to perform, adjust lb to skip the
@@ -307,10 +307,6 @@ struct ONNXDynamicQuantizeLinearOpLowering
                     SmallVectorImpl<Value> &resVals) {
                   MultiDialectBuilder<MathBuilder, VectorBuilder> create(vb);
                   Value x = inputVals[0];
-                  fprintf(stderr, "hi alex x, scale and zero point\n");
-                  x.dump();
-                  scale.dump();
-                  zeroPoint.dump();
                   // Scale
                   Value scaleX = create.math.div(x, scale);
                   // Round

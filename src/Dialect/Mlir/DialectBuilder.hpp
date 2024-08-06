@@ -116,6 +116,9 @@ struct MathBuilder final : DialectBuilder {
   // "B" below indicates that the operation will splat scalar values if one of
   // the input value is itself a vector.
 
+  // "B" below indicates that the operation will splat scalar values if one of
+  // the input value is itself a vector.
+
   mlir::Value abs(mlir::Value val) const;
   mlir::Value add(mlir::Value lhs, mlir::Value rhs) const;     // B.
   mlir::Value andi(mlir::Value lhs, mlir::Value rhs) const;    // B/Int only.
