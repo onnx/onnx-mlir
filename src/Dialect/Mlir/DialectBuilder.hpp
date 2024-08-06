@@ -93,6 +93,7 @@ struct MathBuilder final : DialectBuilder {
   // Support for vectors: we provide queries that work regardless of if we have
   // (1) a scalar or (2) a vector of a basic element type.
   static bool isVector(mlir::Value val);
+  static bool isVector(mlir::Type type);
   // The method belows ignore the vectors part of the type to provide answer on
   // the basic element types alone.
   static bool isScalarOrVectorInteger(mlir::Value val);

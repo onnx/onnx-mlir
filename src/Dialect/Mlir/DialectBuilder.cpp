@@ -52,7 +52,11 @@ namespace onnx_mlir {
 // MLIR unsigned integer.
 
 /* static */ bool MathBuilder::isVector(Value val) {
-  return mlir::dyn_cast<VectorType>(val.getType()) != nullptr;
+  return isVector(val.getType());
+}
+
+/* static */ bool MathBuilder::isVector(Type type) {
+  return mlir::dyn_cast<VectorType>(type) != nullptr;
 }
 
 /* static */ Type MathBuilder::elementTypeOfScalarOrVector(Value val) {

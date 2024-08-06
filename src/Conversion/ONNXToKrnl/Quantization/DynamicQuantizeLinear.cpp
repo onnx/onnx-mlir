@@ -87,18 +87,18 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr lb, IndexExpr ub, int64_t VL,
   assert(inputAFs.size() == inputs.size() && "expected same size");
   int64_t outputNum = outputs.size();
   assert(outputAFs.size() == outputs.size() && "expected same size");
-  IndexExpr zero = LitIE(0);
-
   MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(vb);
 
-  // Full SIMD loops.
   if (VL > 1) {
+    // Want SIMD, execute full SIMD loops blocked by VL.
     ValueRange loopDef = create.krnl.defineLoops(1);
     ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
-    IndexExpr ubFullSimd = ub;
+    // If we are not guaranteed that every iterations are SIMD iterations, then
+    // we need to reduce the trip count by a bit so as to not over compute.
+    IndexExpr simdUb = ub;
     if (!fullySimd)
-      ub = ub - (VL - 1);
-    create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {ubFullSimd},
+      simdUb = simdUb - (VL - 1);
+    create.krnl.iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
         [&](KrnlBuilder &ck, ValueRange loopInd) {
           IndexExprScope scope(ck);
           MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
@@ -118,6 +118,8 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr lb, IndexExpr ub, int64_t VL,
           // Call the method to compute the values.
           llvm::SmallVector<Value, 4> vecResVals;
           bodyBuilderFn(create.vec, vecInputVals, vecResVals);
+          assert((int64_t)vecResVals.size() == outputNum &&
+                 "loop body with incorrect number of results");
           // Store all the outputs as vectors of VL values,
           for (int64_t i = 0; i < outputNum; ++i) {
             MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
@@ -128,17 +130,54 @@ void emitSimdLoopIE(VectorBuilder &vb, IndexExpr lb, IndexExpr ub, int64_t VL,
             create.vec.storeIE(vecResVals[i], outputs[i], AF, {});
           }
         });
+    if (fullySimd)
+      // Asserted that we only have SIMD iterations.
+      return;
     // Account for the loops performed there.
-    // New lb = ub - ub % VL.
-    IndexExpr ubModVL = ub % VL;
-    if (fullySimd || ubModVL.isLiteralAndIdenticalTo(0)) {
-      // Detect SIMD only.
+    IndexExpr tripCount = ub - lb;
+    IndexExpr missingIters = tripCount % VL;
+    IndexExpr completedIters = tripCount - missingIters;
+    if (missingIters.isLiteralAndIdenticalTo(0)) {
+      // Detect that we only have SIMD iterations.
       return;
     }
-    lb = ub - ubModVL;
+    // We may have additional iterations to perform, adjust lb to skip the
+    // completed iterations.
+    lb = lb + completedIters;
   }
-  // Handle scalar values, if any.
-  llvm_unreachable("not yet");
+  // Handle remaining scalar values (from lb to ub without unrolling).
+  ValueRange loopDef = create.krnl.defineLoops(1);
+  create.krnl.iterateIE(
+      loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
+        IndexExprScope scope(ck);
+        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+        IndexExpr ind = DimIE(loopInd[0]);
+        // Load all the inputs as scalar values,
+        llvm::SmallVector<Value, 4> scalarInputVals;
+        for (int64_t i = 0; i < inputNum; ++i) {
+          MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
+          DimsExpr AF = SymListIE(inputAFs[i]);
+          int64_t rank = type.getRank();
+          assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
+          AF[rank - 1] = AF[rank - 1] + ind;
+          Value scalarVal = create.krnl.loadIE(inputs[i], AF);
+          scalarInputVals.emplace_back(scalarVal);
+        }
+        // Call the method to compute the values.
+        llvm::SmallVector<Value, 4> scalarResVals;
+        bodyBuilderFn(create.vec, scalarInputVals, scalarResVals);
+        assert((int64_t)scalarResVals.size() == outputNum &&
+               "loop body with incorrect number of results");
+        // Store all the outputs as vectors of VL values,
+        for (int64_t i = 0; i < outputNum; ++i) {
+          MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
+          DimsExpr AF = SymListIE(outputAFs[i]);
+          int64_t rank = type.getRank();
+          assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
+          AF[rank - 1] = AF[rank - 1] + ind;
+          create.krnl.storeIE(scalarResVals[i], outputs[i], AF);
+        }
+      });
 }
 
 // TODO may consider SIMD and parallel.
@@ -248,19 +287,22 @@ struct ONNXDynamicQuantizeLinearOpLowering
       SmallVector<IndexExpr, 4> lbs(rank - 1, LiteralIndexExpr(0));
       SmallVector<IndexExpr, 4> ubs =
           firstFew<IndexExpr, 4>(shapeHelper.getOutputDims(0), rank - 2);
-      create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+      IndexExpr zero = LitIE(0);
+      create.krnl.iterateIE(
+          loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &kb, ValueRange loopInd) {
+            IndexExprScope scope(kb);
             MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(
-                createKrnl);
-            IndexExpr simdUB = SymIE(shapeHelper.getOutputDims(0)[rank - 1]);
+                kb);
+            IndexExpr simdLb = zero;
+            IndexExpr simdUb = SymIE(shapeHelper.getOutputDims(0)[rank - 1]);
             int64_t VL = 4; // hi alex, refine this
             // Create access functions for input X and output Y.
             DimsExpr inputAF = SymListIE(loopInd);
-            inputAF.emplace_back(LitIE(0));
+            inputAF.emplace_back(zero);
             DimsExpr outputAF = SymListIE(loopInd);
-            outputAF.emplace_back(LitIE(0));
-            emitSimdLoopIE(create.vec, simdUB, VL, {X}, {inputAF}, {Y},
-                {outputAF}, true,
+            outputAF.emplace_back(zero);
+            emitSimdLoopIE(create.vec, simdLb, simdUb, VL, {X}, {inputAF}, {Y},
+                {outputAF}, false,
                 [&](VectorBuilder &vb, ArrayRef<Value> inputVals,
                     SmallVectorImpl<Value> &resVals) {
                   MultiDialectBuilder<MathBuilder, VectorBuilder> create(vb);
