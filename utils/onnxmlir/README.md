@@ -1,5 +1,6 @@
 This package provides a python interface to use onnx-mlir compiler to run inference of an onnx model similar to onnxruntime interface. The basic parameters of the interface are supported with options ignored. 
 
+## Description
 Let's start with [an onnxrutime example](https://onnxruntime.ai/docs/get-started/with-python#pytorch-cv):
 ```
 import onnxruntime as ort
@@ -56,4 +57,12 @@ Another extra named argment for InferenceSession is introduced to specify the ex
 ```
 sess = onnxmlir.inferenceSession("test_add.onnx", options='--compile-args="-O3 --parallel" --print-output')
 ```
+
+## Installation
+
+### Install from local directory
+At top of onnx-mlir: `pip3 install utils/onnxmlir`
+
+### Install from repo
+After the package is uploaded, you can install with 'pip3 install onnxmlir`
 

@@ -606,7 +606,7 @@ def data_without_top_bottom_quartile(data, percent):
     return data[trim:-trim]
 
 
-class inferenceSession:
+class InferenceSession:
     """
     in onnxruntime:
     class onnxruntime.InferenceSession(path_or_bytes: str | bytes | os.PathLike, sess_options: onnxruntime.SessionOptions | None = None, providers: Sequence[str | tuple[str, dict[Any, Any]]] | None = None, provider_options: Sequence[dict[Any, Any]] | None = None, **kwargs)[source]
@@ -767,7 +767,7 @@ class inferenceSession:
     
     For onnxmlir, the run_options is ignored. If 'input_feed' is None, the
     input could be randomly generated or read from file, as args specified.
-    In future, add '--shape-info' here. Better than in inferenceSession to
+    In future, add '--shape-info' here. Better than in InferenceSession to
     allow different shape from run to run. 
     """
 
@@ -951,7 +951,7 @@ def main():
         print(parser.format_usage())
         exit(1)
 
-    sess = inferenceSession(None)
+    sess = InferenceSession(None)
     return sess.run(None, None)
 
 
