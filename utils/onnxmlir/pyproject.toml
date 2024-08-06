@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "onnxmlir"
-version = "0.0.1"
+version = "1.0.0"
 authors = [
   { name="Tong Chen", email="chentong@us.ibm.com" },
   { name="Alexandre Eichenberger", email="alexe@us.ibm.com" },
