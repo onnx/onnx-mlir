@@ -92,11 +92,14 @@ struct MathBuilder final : DialectBuilder {
 
   // Support for vectors: we provide queries that work regardless of if we have
   // (1) a scalar or (2) a vector of a basic element type.
-  static bool isVector(mlir::Type type);
+  static bool isVector(mlir::Value val);
   // The method belows ignore the vectors part of the type to provide answer on
   // the basic element types alone.
+  static bool isScalarOrVectorInteger(mlir::Value val);
   static bool isScalarOrVectorInteger(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorUnsignedInteger(mlir::Value val);
   static bool isScalarOrVectorUnsignedInteger(mlir::Type elementOrVectorType);
+  static bool isScalarOrVectorFloat(mlir::Value val);
   static bool isScalarOrVectorFloat(mlir::Type elementOrVectorType);
   // Return the basic element type regardless of if we are given (1) a scalar or
   // (2) a vector of a basic element type.
@@ -197,7 +200,7 @@ private:
   mlir::Value castToSignless(mlir::Value source, int64_t width) const;
   mlir::Value castToUnsigned(mlir::Value source, int64_t width) const;
   // If any of the first, second, or third values are vector types, splat the
-  // other ones to the same VL. Return true if values were splatted.
+  // other ones to the same VL. Return true if one or more values were splatted.
   bool splatToMatch(mlir::Value &first, mlir::Value &second) const;
   bool splatToMatch(
       mlir::Value &first, mlir::Value &second, mlir::Value &third) const;
