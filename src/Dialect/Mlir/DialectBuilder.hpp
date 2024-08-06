@@ -133,7 +133,7 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value mul(mlir::Value lhs, mlir::Value rhs) const;      // B.
   mlir::Value neg(mlir::Value val) const;
   mlir::Value ori(mlir::Value lhs, mlir::Value rhs) const;  // B/Int only.
-  mlir::Value pow(mlir::Value base, mlir::Value exp) const; // Float only.
+  mlir::Value pow(mlir::Value base, mlir::Value exp) const; // B/Float only.
   mlir::Value rem(mlir::Value lhs, mlir::Value rhs) const;  // B.
   mlir::Value sqrt(mlir::Value val) const;                  // Float only.
   mlir::Value sub(mlir::Value lhs, mlir::Value rhs) const;  // B.

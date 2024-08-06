@@ -319,8 +319,7 @@ Value MathBuilder::sqrt(Value val) const {
 }
 
 Value MathBuilder::pow(Value base, Value exp) const {
-  // no broadcast, do not expect the exponent to be a vector
-  assert(!isVector(exp) && "do not support a vector exponent");
+  splatToMatch(base, exp);
   if (isScalarOrVectorFloat(base))
     return b().create<math::PowFOp>(loc(), base, exp);
   llvm_unreachable("expected base float");
