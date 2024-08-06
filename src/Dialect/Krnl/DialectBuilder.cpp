@@ -254,7 +254,7 @@ void KrnlBuilder::iterateIE(ValueRange originalLoops, ValueRange optimizedLoops,
   iterateIE(originalLoops, optimizedLoops, lbs, ubs, {}, bodyBuilderFnWrapper);
 }
 
-mlir::KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
+KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
     ValueRange optimizedLoops, ArrayRef<IndexExpr> lbs, ArrayRef<IndexExpr> ubs,
     mlir::ValueRange inits,
     function_ref<void(
@@ -270,6 +270,109 @@ mlir::KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
         KrnlBuilder createKrnl(builder, loc);
         ValueRange indices = createKrnl.getInductionVarValue(optimizedLoops);
         bodyBuilderFn(createKrnl, indices, iterArgs);
+      });
+}
+
+void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+    ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+    ArrayRef<Value> outputs, ArrayRef<DimsExpr> outputAFs,
+    function_ref<void(KrnlBuilder &kb, ArrayRef<Value> inputVals,
+        llvm::SmallVectorImpl<Value> &resultVals)>
+        bodyBuilderFn) {
+  int64_t inputNum = inputs.size();
+  assert(inputAFs.size() == inputs.size() && "expected same size");
+  int64_t outputNum = outputs.size();
+  assert(outputAFs.size() == outputs.size() && "expected same size");
+  MultiDialectBuilder<VectorBuilder> create(*this);
+
+  if (VL > 1) {
+    // Want SIMD, execute full SIMD loops blocked by VL.
+    ValueRange loopDef = defineLoops(1);
+    ValueRange blockedLoopDef = block(loopDef[0], VL);
+    // If we are not guaranteed that every iterations are SIMD iterations, then
+    // we need to reduce the trip count by a bit so as to not over compute.
+    IndexExpr simdUb = ub;
+    if (!fullySimd)
+      simdUb = simdUb - (VL - 1);
+    iterateIE(loopDef, {blockedLoopDef[0]}, {lb}, {simdUb},
+        [&](KrnlBuilder &ck, ValueRange loopInd) {
+          IndexExprScope scope(ck);
+          MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
+          IndexExpr ind = DimIE(loopInd[0]);
+          // Load all the inputs as vectors of VL values,
+          llvm::SmallVector<Value, 4> vecInputVals;
+          for (int64_t i = 0; i < inputNum; ++i) {
+            MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
+            VectorType vecType = VectorType::get({VL}, type.getElementType());
+            DimsExpr AF = SymListIE(inputAFs[i]);
+            int64_t rank = type.getRank();
+            assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
+            AF[rank - 1] = AF[rank - 1] + ind;
+            Value vecVal = create.vec.loadIE(vecType, inputs[i], AF, {});
+            vecInputVals.emplace_back(vecVal);
+          }
+          // Call the method to compute the values.
+          llvm::SmallVector<Value, 4> vecResVals;
+          bodyBuilderFn(create.krnl, vecInputVals, vecResVals);
+          assert((int64_t)vecResVals.size() == outputNum &&
+                 "loop body with incorrect number of results");
+          // Store all the outputs as vectors of VL values,
+          for (int64_t i = 0; i < outputNum; ++i) {
+            MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
+            DimsExpr AF = SymListIE(outputAFs[i]);
+            int64_t rank = type.getRank();
+            assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
+            AF[rank - 1] = AF[rank - 1] + ind;
+            create.vec.storeIE(vecResVals[i], outputs[i], AF, {});
+          }
+        });
+    if (fullySimd)
+      // Asserted that we only have SIMD iterations, we are done.
+      return;
+    // Account for the loop iterations performed above.
+    IndexExpr tripCount = ub - lb;
+    IndexExpr missingIters = tripCount % VL;
+    IndexExpr completedIters = tripCount - missingIters;
+    if (missingIters.isLiteralAndIdenticalTo(0)) {
+      // Detect that we only have SIMD iterations, we are also done.
+      return;
+    }
+    // We may have additional iterations to perform, adjust lb to skip the
+    // completed iterations.
+    lb = lb + completedIters;
+  }
+  // Handle remaining scalar values (from lb to ub without unrolling).
+  ValueRange loopDef = defineLoops(1);
+  iterateIE(
+      loopDef, loopDef, {lb}, {ub}, [&](KrnlBuilder &ck, ValueRange loopInd) {
+        IndexExprScope scope(ck);
+        MultiDialectBuilder<KrnlBuilder> create(ck);
+        IndexExpr ind = DimIE(loopInd[0]);
+        // Load all the inputs as scalar values,
+        llvm::SmallVector<Value, 4> scalarInputVals;
+        for (int64_t i = 0; i < inputNum; ++i) {
+          MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
+          DimsExpr AF = SymListIE(inputAFs[i]);
+          int64_t rank = type.getRank();
+          assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
+          AF[rank - 1] = AF[rank - 1] + ind;
+          Value scalarVal = create.krnl.loadIE(inputs[i], AF);
+          scalarInputVals.emplace_back(scalarVal);
+        }
+        // Call the method to compute the values.
+        llvm::SmallVector<Value, 4> scalarResVals;
+        bodyBuilderFn(create.krnl, scalarInputVals, scalarResVals);
+        assert((int64_t)scalarResVals.size() == outputNum &&
+               "loop body with incorrect number of results");
+        // Store all the outputs as vectors of VL values,
+        for (int64_t i = 0; i < outputNum; ++i) {
+          MemRefType type = mlir::cast<MemRefType>(outputs[i].getType());
+          DimsExpr AF = SymListIE(outputAFs[i]);
+          int64_t rank = type.getRank();
+          assert(rank == (int64_t)AF.size() && "AF expected ouput rank refs");
+          AF[rank - 1] = AF[rank - 1] + ind;
+          create.krnl.storeIE(scalarResVals[i], outputs[i], AF);
+        }
       });
 }
 

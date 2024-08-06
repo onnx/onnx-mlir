@@ -906,7 +906,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
       mlir::isa<IntegerType>(destElemType)) {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
-    if (destElemType.isUnsignedInteger()) { // hi alex: add elem
+    if (destElemType.isUnsignedInteger()) {
       Type castElementType = b().getIntegerType(destElemWidth);
       Type castType = getTypeWithVector(destType, castElementType);
       Value cast = b().create<arith::FPToUIOp>(loc(), castType, src);
@@ -934,7 +934,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
 
   // Int to int conversion.
   if (mlir::isa<IntegerType>(srcElemType) &&
-      mlir::isa<IntegerType>(destElemType)) { // hi alex, add elem
+      mlir::isa<IntegerType>(destElemType)) {
     if (srcElemType.isUnsignedInteger()) {
       // Unsigned to unsigned/signed conversion.
       // Same bit width for unsigned to signed conversion.
@@ -952,7 +952,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
         // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b().create<arith::TruncIOp>(loc(), castType, cast);
       }
-      if (destElemType.isUnsignedInteger()) { // hi alex: add elem
+      if (destElemType.isUnsignedInteger()) {
         // Unsigned to unsigned conversion.
         return castToUnsigned(cast, destElemWidth);
       } else {
@@ -963,8 +963,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
       // Signed to unsigned/signed conversion.
       // Handle signed integer
       // Same bit width for signed to unsigned conversion.
-      if ((srcElemWidth == destElemWidth) &&
-          destElemType.isUnsignedInteger()) // hi alex, add elem
+      if ((srcElemWidth == destElemWidth) && destElemType.isUnsignedInteger())
         return castToUnsigned(src, srcElemWidth);
       // Different bit width.
       Value dest = src;
@@ -975,7 +974,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
         dest = b().create<arith::TruncIOp>(loc(), destType, src);
       if (destIsIndex)
         return b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
-      if (destElemType.isUnsignedInteger()) { // hi alex, add elem
+      if (destElemType.isUnsignedInteger()) {
         return castToUnsigned(dest, destElemWidth);
       } else {
         return dest;

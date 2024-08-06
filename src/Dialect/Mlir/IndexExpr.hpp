@@ -403,6 +403,8 @@ private:
 // IndexExprExpr
 //===----------------------------------------------------------------------===//
 
+using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
+
 // Data structure that is the public interface for IndexExpr. It is a shallow
 // data structure that is simply a pointer to the actual data (IndexExprImpl).
 class IndexExpr {

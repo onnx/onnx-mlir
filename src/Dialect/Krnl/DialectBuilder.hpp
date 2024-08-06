@@ -70,7 +70,9 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::ValueRange getInductionVarValue(mlir::ValueRange loops) const;
   void parallel(mlir::ValueRange loops) const;
 
-  // Lambda passes loop indices as 2nd parameter.
+  // Iterate over optimized loops given the original loops, lbs and ubs. Lambda
+  // function implement the body of the loop, and receive a KRNL builder and the
+  // loop indices.
   void iterate(mlir::ValueRange originalLoops, mlir::ValueRange optimizedLoops,
       mlir::ValueRange lbs, mlir::ValueRange ubs,
       mlir::function_ref<void(
@@ -85,7 +87,7 @@ struct KrnlBuilder : public DialectBuilder {
   mlir::KrnlIterateOp iterate(
       const krnl::KrnlIterateOperandPack &operands) const;
 
-  // Lambda passes loop indices as 2nd parameter.
+  // Same versions with Index Expressions for bounds.
   void iterateIE(mlir::ValueRange originalLoops,
       mlir::ValueRange optimizedLoops, mlir::ArrayRef<IndexExpr> lbs,
       mlir::ArrayRef<IndexExpr> ubs,
@@ -98,6 +100,38 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::function_ref<void(KrnlBuilder &createKrnl, mlir::ValueRange indices,
           mlir::ValueRange blockIters)>
           bodyBuilderFn) const;
+
+  // Iterate over a loop executing the loop body in SIMD mode (of vector length
+  // VL) from lb to ub. A scalar loop may execute up to VL-1 loop
+  // iterations when the trip count is not a multiple of VL. If fullySimd is
+  // true, then the call assumes that the trip count is a multiple of VL.
+  //
+  // This call needs be given each of the memref inputs to the loop body, given
+  // as an ordered pair memref value and its corresponding access function. Same
+  // hold for all the memref outputs of the loop body.
+  //
+  // The loop body is given a KRNL builder, a list of loaded input (same order
+  // as the input's memrefs and access functions). It will generate values that
+  // must be placed in the result list in the same order as the output's memrefs
+  // and access functions.
+  //
+  // It will be the responsibility of this call to load each of the inputs and
+  // store each of the outputs. When operating in SIMD mode, every input and
+  // output values are vectors of length VL. In scalar mode, they are simply
+  // scalar values.
+  //
+  // SIMD is exploited in the innermost dimension of each access function.
+  // This call is only applicable to loop bodies where every input/output is
+  // strided in its innermost dimension. Inputs can also be loop invariant
+  // (scalar), in term of the loop being iterated on.
+  
+  void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
+      mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
+      mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
+      mlir::function_ref<void(KrnlBuilder &kb,
+          mlir::ArrayRef<mlir::Value> inputVals,
+          llvm::SmallVectorImpl<mlir::Value> &resultVals)>
+          bodyBuilderFn);
 
   void yield(mlir::ValueRange iterArgs) const;
 
@@ -131,8 +165,8 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ValueRange bStart, mlir::Value C, mlir::ValueRange cStart,
       // Loops are the krnl loop indices that this matmul replaces
       mlir::ValueRange loops,
-      // the computeStarts indicate the i/j/k indices pointing to the beginning
-      // of the matmul computation.
+      // the computeStarts indicate the i/j/k indices pointing to the
+      // beginning of the matmul computation.
       mlir::ValueRange computeStarts,
       // The globalUBs are the global bounds on the original I, J, K
       // dimensions.
@@ -194,8 +228,9 @@ struct KrnlBuilder : public DialectBuilder {
 
 // We use here a Affine builder that generates Krnl Load and Store ops instead
 // of the affine memory ops directly. This is because we can still generate
-// Krnl Ops while lowering the dialect, and the big advantage of the Krnl memory
-// operations is that they distinguish themselves if they are affine or not.
+// Krnl Ops while lowering the dialect, and the big advantage of the Krnl
+// memory operations is that they distinguish themselves if they are affine or
+// not.
 using AffineBuilderKrnlMem =
     GenericAffineBuilder<mlir::KrnlLoadOp, mlir::KrnlStoreOp>;
 

@@ -4,7 +4,7 @@
 
 //===-------- QuantizeLinear.cpp - Lowering QuantizeLinear Op -------------===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -16,10 +16,64 @@
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
+#include "src/Support/SmallVectorHelper.hpp"
+
+#define HI_ALEX_NEW 1
+#if HI_ALEX_NEW
+#include "src/Compiler/CompilerOptions.hpp"
+#endif
 
 using namespace mlir;
 
 namespace onnx_mlir {
+
+// Helper function for quantization.
+// TODO: enable/disable simd, add parallel.
+void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
+    Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
+    Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
+    Value scale, Value zeroPoint) {
+  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+
+  // Types
+  Type quantizedElementType = quantizedType.getElementType();
+  int64_t rank = inputType.getRank();
+
+  ValueRange loopDef = create.krnl.defineLoops(rank - 1);
+  SmallVector<IndexExpr, 4> lbs(rank - 1, LitIE(0));
+  SmallVector<IndexExpr, 4> ubs = firstFew<IndexExpr, 4>(allocDims, rank - 2);
+  IndexExpr zero = LitIE(0);
+  create.krnl.iterateIE(
+      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &kb, ValueRange loopInd) {
+        IndexExprScope scope(kb);
+        MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(kb);
+        IndexExpr simdLb = zero;
+        IndexExpr simdUb = SymIE(allocDims[rank - 1]);
+        int64_t VL = 4; // hi alex, refine this
+        // Create access functions for input X and output Y.
+        DimsExpr inputAF = SymListIE(loopInd);
+        inputAF.emplace_back(zero);
+        DimsExpr outputAF = SymListIE(loopInd);
+        outputAF.emplace_back(zero);
+        create.krnl.simdIterateIE(simdLb, simdUb, VL, false, {input}, {inputAF},
+            {alloc}, {outputAF},
+            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
+                SmallVectorImpl<Value> &resVals) {
+              MultiDialectBuilder<MathBuilder> create(kb);
+              Value x = inputVals[0];
+              // Scale
+              Value scaleX = create.math.div(x, scale);
+              // Round
+              Value roundX = create.math.round(scaleX);
+              // Adjust
+              Value adjustX = create.math.add(roundX, zeroPoint);
+              // Saturate
+              Value saturateX = create.math.clip(adjustX, qMin, qMax);
+              Value res = create.math.cast(quantizedElementType, saturateX);
+              resVals.emplace_back(res);
+            });
+      });
+}
 
 struct ONNXQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXQuantizeLinearOp> {
@@ -29,6 +83,7 @@ struct ONNXQuantizeLinearOpLowering
   LogicalResult matchAndRewrite(ONNXQuantizeLinearOp qlOp,
       ONNXQuantizeLinearOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
+    // Hi alex, cleanup when removing old code,
     using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
         IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
     Operation *op = qlOp.getOperation();
@@ -91,28 +146,34 @@ struct ONNXQuantizeLinearOpLowering
     } else
       zeroPoint = create.math.constant(elementType, 0.0);
 
-    // Compute y.
-    ValueRange loopDef = create.krnl.defineLoops(rank);
-    SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
-    create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
-        [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-          MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(
-              createKrnl);
-          Value x = create.krnl.load(X, loopInd);
-          // Scale
-          Value scaleX = create.math.div(x, scale);
-          // Round
-          Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
-          // Adjust
-          Value adjustX = create.math.add(roundX, zeroPoint);
-          // Saturate
-          Value lessThanMin = create.math.slt(adjustX, qMin);
-          Value saturateX = create.math.select(lessThanMin, qMin, adjustX);
-          Value lessThanMax = create.math.slt(saturateX, qMax);
-          saturateX = create.math.select(lessThanMax, saturateX, qMax);
-          Value res = create.math.cast(quantizedElementType, saturateX);
-          create.krnl.store(res, Y, loopInd);
-        });
+    if (debugTestCompilerOpt) {
+      emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
+          yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
+          zeroPoint);
+    } else {
+      // Compute y.
+      ValueRange loopDef = create.krnl.defineLoops(rank);
+      SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
+      create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
+          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
+            MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(
+                createKrnl);
+            Value x = create.krnl.load(X, loopInd);
+            // Scale
+            Value scaleX = create.math.div(x, scale);
+            // Round
+            Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
+            // Adjust
+            Value adjustX = create.math.add(roundX, zeroPoint);
+            // Saturate
+            Value lessThanMin = create.math.slt(adjustX, qMin);
+            Value saturateX = create.math.select(lessThanMin, qMin, adjustX);
+            Value lessThanMax = create.math.slt(saturateX, qMax);
+            saturateX = create.math.select(lessThanMax, saturateX, qMax);
+            Value res = create.math.cast(quantizedElementType, saturateX);
+            create.krnl.store(res, Y, loopInd);
+          });
+    }
 
     rewriter.replaceOp(op, {Y});
     onnxToKrnlSimdReport(op);
