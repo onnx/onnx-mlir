@@ -55,6 +55,10 @@ namespace onnx_mlir {
   return mlir::dyn_cast<VectorType>(val.getType()) != nullptr;
 }
 
+/* static */ Type MathBuilder::elementTypeOfScalarOrVector(Value val) {
+  return elementTypeOfScalarOrVector(val.getType());
+}
+
 /* static */ Type MathBuilder::elementTypeOfScalarOrVector(
     Type elementOrVectorType) {
   VectorType vectorType = mlir::dyn_cast<VectorType>(elementOrVectorType);
@@ -170,7 +174,7 @@ Value MathBuilder::add(Value lhs, Value rhs) const {
   splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isScalarOrVectorInteger(lhs)) {
-    Type elemType = elementTypeOfScalarOrVector(lhs.getType());
+    Type elemType = elementTypeOfScalarOrVector(lhs);
     if (elemType.isUnsignedInteger()) {
       unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
       Value castLhs = castToSignless(lhs, elemWidth);
@@ -200,7 +204,7 @@ Value MathBuilder::mul(Value lhs, Value rhs) const {
   splatToMatch(lhs, rhs);
   assert(lhs.getType() == rhs.getType() && "expected same type");
   if (isScalarOrVectorInteger(lhs)) {
-    Type elemType = elementTypeOfScalarOrVector(lhs.getType());
+    Type elemType = elementTypeOfScalarOrVector(lhs);
     if (elemType.isUnsignedInteger()) {
       unsigned elemWidth = mlir::cast<IntegerType>(elemType).getWidth();
       Value castLhs = castToSignless(lhs, elemWidth);

@@ -103,6 +103,7 @@ struct MathBuilder final : DialectBuilder {
   static bool isScalarOrVectorFloat(mlir::Type elementOrVectorType);
   // Return the basic element type regardless of if we are given (1) a scalar or
   // (2) a vector of a basic element type.
+  static mlir::Type elementTypeOfScalarOrVector(mlir::Value val);
   static mlir::Type elementTypeOfScalarOrVector(mlir::Type elementOrVectorType);
   // Return a type of the same vector shape as vectorType with a basic element
   // type of elementType. When vectorType is null, then the returned type is
