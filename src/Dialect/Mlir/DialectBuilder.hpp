@@ -102,10 +102,11 @@ struct MathBuilder final : DialectBuilder {
   // (2) a vector of a basic element type.
   static mlir::Type elementTypeOfScalarOrVector(mlir::Type elementOrVectorType);
   // Return a type of the same vector shape as vectorType with a basic element
-  // type of elementType. When vectorType is null, then the returned type is
-  // simply a scalar of elementType.
+  // type of elementType. When vectorType is not a vector, then the returned
+  // type is simply a scalar of elementType. ElementType should not be a scalar
+  // type.
   static mlir::Type getTypeWithVector(
-      mlir::VectorType vectorType, mlir::Type elementType);
+      mlir::Type vectorType, mlir::Type elementType);
 
   // "B" below indicates that the operation will splat scalar values if one of
   // the input value is itself a vector.

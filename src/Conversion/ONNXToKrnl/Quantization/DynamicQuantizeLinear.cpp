@@ -261,7 +261,7 @@ struct ONNXDynamicQuantizeLinearOpLowering
             DimsExpr outputAF = SymListIE(loopInd);
             outputAF.emplace_back(LitIE(0));
             emitSimdLoopIE(create.vec, simdUB, VL, {X}, {inputAF}, {Y},
-                {outputAF}, false,
+                {outputAF}, true,
                 [&](VectorBuilder &vb, ArrayRef<Value> inputVals,
                     SmallVectorImpl<Value> &resVals) {
                   MultiDialectBuilder<MathBuilder, VectorBuilder> create(vb);
@@ -278,9 +278,7 @@ struct ONNXDynamicQuantizeLinearOpLowering
                   Value adjustX = create.math.add(roundX, zeroPoint);
                   // Saturate
                   Value saturateX = create.math.clip(adjustX, qMin, qMax);
-                  fprintf(stderr, "hi alex x, before cast\n");
                   Value res = create.math.cast(quantizedElementType, saturateX);
-                  fprintf(stderr, "hi alex x, after cast\n");
                   resVals.emplace_back(res);
                 });
           });

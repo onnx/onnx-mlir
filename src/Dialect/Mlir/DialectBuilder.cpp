@@ -63,11 +63,18 @@ namespace onnx_mlir {
   return elementOrVectorType;
 }
 
+// return a vector of "elementType" with the same vector shape as "vectorType"
 /* static */ Type MathBuilder::getTypeWithVector(
-    VectorType vectorType, Type elementType) {
-  if (vectorType)
-    return VectorType::get(vectorType.getShape(), elementType);
-  return elementType;
+    Type vectorType, Type elementType) {
+  assert(!isVector(elementType) && "element type expected to be a scalar");
+  // When vectorType is not a vector, then we need to return a scalar of the
+  // type elementType.
+  if (!isVector(vectorType))
+    return elementType;
+  // When vectorType is actually a vector, then replicate the shape of
+  // vectorType with the element type of elementType.
+  return VectorType::get(
+      mlir::cast<VectorType>(vectorType).getShape(), elementType);
 }
 
 /* static */ bool MathBuilder::isScalarOrVectorInteger(
@@ -746,11 +753,10 @@ Value MathBuilder::createArithCmp(
 // best of my understanding.
 Value MathBuilder::castToSignless(Value val, int64_t width) const {
   Type valType = val.getType();
-  VectorType vecType = mlir::dyn_cast<VectorType>(valType);
   Type valElemType = elementTypeOfScalarOrVector(valType);
   assert(mlir::isa<IntegerType>(valElemType) &&
          !valElemType.isSignlessInteger() && "Expecting signed integer type");
-  Type destType = getTypeWithVector(vecType, b().getIntegerType(width));
+  Type destType = getTypeWithVector(valType, b().getIntegerType(width));
   return b()
       .create<UnrealizedConversionCastOp>(loc(), destType, val)
       .getResult(0);
@@ -758,11 +764,10 @@ Value MathBuilder::castToSignless(Value val, int64_t width) const {
 
 Value MathBuilder::castToUnsigned(Value val, int64_t width) const {
   Type valType = val.getType();
-  VectorType vecType = mlir::dyn_cast<VectorType>(valType);
   Type valElemType = elementTypeOfScalarOrVector(valType);
   assert(mlir::isa<IntegerType>(valElemType) && "Expecting integer type");
   Type destType =
-      getTypeWithVector(vecType, b().getIntegerType(width, false /*signed*/));
+      getTypeWithVector(valType, b().getIntegerType(width, false /*signed*/));
   return b()
       .create<UnrealizedConversionCastOp>(loc(), destType, val)
       .getResult(0);
@@ -775,16 +780,50 @@ Value MathBuilder::cast(Type destType, Value src) const {
   if (srcType == destType)
     return src;
   // Get element type and vector types (if any, i.e. possibly nullptr).
-  VectorType srcVecType = mlir::dyn_cast<VectorType>(srcType);
-  VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
+
+  ///////////////////////////////////////////////////////////////////////
+  // WARNING: do not confuse (src|dest) ElemType and (src|dest) Type!
+  //
+  // ElemTypes and Types are the same for scalar BUT NOT for vector inputs.
+  // For vectors inputs, Types are vector<shape x element type> and ElemTypes
+  // are the element type associated with the vector.
+  //
+  // When testing for properties (is int, float,...): use ElemTypes.
+  // When creating ops, use Types for types to translate to, as if we have a
+  // scalar input, we need a scalar output; and if we have a vector input, then
+  // we need a vector output.
+  ///////////////////////////////////////////////////////////////////////
+
   Type srcElemType = elementTypeOfScalarOrVector(srcType);
   Type destElemType = elementTypeOfScalarOrVector(destType);
+  VectorType srcVecType = mlir::dyn_cast<VectorType>(srcType);
+  VectorType destVecType = mlir::dyn_cast<VectorType>(destType);
+  assert(VectorBuilder::compatibleShapes(srcType, destType) &&
+         "expected compatible vector shape (if any)");
+
+  // Handling of special cases for vectors.
+  if (destVecType && !srcVecType) {
+    // When the destination type is requested to be a vector type, but the input
+    // is not, then perform a scalar cast first, and then splat the output.
+    Value scalarCastVal = cast(destElemType, src);
+    VectorBuilder vb(*this);
+    return vb.splat(destVecType, scalarCastVal);
+  }
+  if (srcVecType && !destVecType) {
+    // When the source (to be cast) is a vector, but the destination type is
+    // not, then just transform the destination type to a vector of the same
+    // shape as srcType and the elementType of destType.
+    destType = getTypeWithVector(srcType, destElemType);
+    assert(destElemType == elementTypeOfScalarOrVector(destType) &&
+           "correctness check");
+  }
+
   // Process index types first.
   if (mlir::isa<IndexType>(srcElemType)) {
     // If the source is an index type, first convert it into a signless int of
     // size 64.
     srcElemType = b().getIntegerType(64);
-    srcType = getTypeWithVector(srcVecType, srcElemType);
+    srcType = getTypeWithVector(srcType, srcElemType);
     src = b().create<arith::IndexCastOp>(loc(), srcType, src);
   }
   bool destIsIndex = false;
@@ -793,7 +832,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
     // If the dest is an index type, pretend for now that we want it to be
     // converted to signless int of size 64.
     destElemType = b().getIntegerType(64);
-    destType = getTypeWithVector(destVecType, destElemType);
+    destType = getTypeWithVector(destType, destElemType);
     destIsIndex = true;
   }
 
@@ -836,7 +875,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
       // An integer constant must be signless.
       unsigned srcElemWidth = mlir::cast<IntegerType>(srcElemType).getWidth();
       constantType = getTypeWithVector(
-          srcVecType, IntegerType::get(srcElemType.getContext(), srcElemWidth));
+          srcType, IntegerType::get(srcElemType.getContext(), srcElemWidth));
       src = castToSignless(src, srcElemWidth);
     }
     Value zero = constant(constantType, 0);
@@ -857,8 +896,9 @@ Value MathBuilder::cast(Type destType, Value src) const {
       mlir::isa<IntegerType>(destElemType)) {
     // TosaToLinalg in MLIR uses a fancier algorithm that clamps values to
     // min/max signed/unsigned integer values.
-    if (destType.isUnsignedInteger()) {
-      Type castType = b().getIntegerType(destElemWidth);
+    if (destElemType.isUnsignedInteger()) { // hi alex: add elem
+      Type castElementType = b().getIntegerType(destElemWidth);
+      Type castType = getTypeWithVector(destType, castElementType);
       Value cast = b().create<arith::FPToUIOp>(loc(), castType, src);
       return castToUnsigned(cast, destElemWidth);
     } else {
@@ -883,24 +923,26 @@ Value MathBuilder::cast(Type destType, Value src) const {
   }
 
   // Int to int conversion.
-  if (mlir::isa<IntegerType>(srcType) && mlir::isa<IntegerType>(destType)) {
-    if (srcType.isUnsignedInteger()) {
+  if (mlir::isa<IntegerType>(srcElemType) &&
+      mlir::isa<IntegerType>(destElemType)) { // hi alex, add elem
+    if (srcElemType.isUnsignedInteger()) {
       // Unsigned to unsigned/signed conversion.
       // Same bit width for unsigned to signed conversion.
-      if ((srcElemWidth == destElemWidth) && destType.isSignlessInteger())
+      if ((srcElemWidth == destElemWidth) && destElemType.isSignlessInteger())
         return castToSignless(src, srcElemWidth);
       // Different bit width.
       assert((bitExtend || bitTrunc) && "expected extend or trunc");
       // Has to convert to signless first, and reconvert output to unsigned.
       Value cast = castToSignless(src, srcElemWidth);
-      Type castType = b().getIntegerType(destElemWidth);
+      Type castElemType = b().getIntegerType(destElemWidth);
+      Type castType = getTypeWithVector(destType, castElemType);
       if (bitExtend) {
         cast = b().create<arith::ExtUIOp>(loc(), castType, cast);
       } else {
         // TosaToLinalg use a clipping algo, not sure if needed.
         cast = b().create<arith::TruncIOp>(loc(), castType, cast);
       }
-      if (destType.isUnsignedInteger()) {
+      if (destElemType.isUnsignedInteger()) { // hi alex: add elem
         // Unsigned to unsigned conversion.
         return castToUnsigned(cast, destElemWidth);
       } else {
@@ -911,7 +953,8 @@ Value MathBuilder::cast(Type destType, Value src) const {
       // Signed to unsigned/signed conversion.
       // Handle signed integer
       // Same bit width for signed to unsigned conversion.
-      if ((srcElemWidth == destElemWidth) && destType.isUnsignedInteger())
+      if ((srcElemWidth == destElemWidth) &&
+          destElemType.isUnsignedInteger()) // hi alex, add elem
         return castToUnsigned(src, srcElemWidth);
       // Different bit width.
       Value dest = src;
@@ -922,7 +965,7 @@ Value MathBuilder::cast(Type destType, Value src) const {
         dest = b().create<arith::TruncIOp>(loc(), destType, src);
       if (destIsIndex)
         return b().create<arith::IndexCastOp>(loc(), b().getIndexType(), dest);
-      if (destType.isUnsignedInteger()) {
+      if (destElemType.isUnsignedInteger()) { // hi alex, add elem
         return castToUnsigned(dest, destElemWidth);
       } else {
         return dest;
