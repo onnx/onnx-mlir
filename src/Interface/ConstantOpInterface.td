@@ -25,7 +25,11 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
   let methods = [
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
-          "ArrayRef<char>", "getBuffer", (ins "mlir::Operation *":$op)
+          "::mlir::ArrayRef<char>", "getBuffer", (ins "mlir::Operation *":$op)
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
+          "std::optional<Attribute>", "getValue", (ins )
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
@@ -37,11 +41,27 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
+          "IntegerAttr", "getAlignmentAttr", (ins )
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
           "void", "setOffsetAttr", (ins "::mlir::IntegerAttr": $attr)
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
           "Attribute", "removeValueAttr", (ins )
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
+          "Attribute", "getShape", (ins )
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
+          "StringRef", "getName", (ins )
+      >,
+      InterfaceMethod<"Get the index of the region corresponding to the"
+                      "onnx subgraph identified by its name.",
+          "std::optional<uint64_t>", "getOffset", (ins )
       >
       
   ];

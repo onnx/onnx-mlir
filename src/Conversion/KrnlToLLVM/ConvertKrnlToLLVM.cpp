@@ -494,7 +494,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     if (rawData.empty())
       return WalkResult::advance();
 
-    auto valueAttr = mlir::cast<ElementsAttr>(op.getValueAttr());
+    auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
     if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
       return WalkResult::advance();
 
@@ -963,7 +963,9 @@ void populateKrnlToLLVMConversion(LLVMTypeConverter &typeConverter,
       verifyInputTensors);
   krnl::populateLoweringKrnlCallOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlFindIndexOpPattern(typeConverter, patterns, ctx);
-  krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
+  // krnl::populateLoweringKrnlGlobalOpPattern(typeConverter, patterns, ctx);
+  krnl::populateLoweringKrnlConstantOpInterfacePattern(
+      typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlInstrumentOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlMemcpyOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlPrintOpPattern(typeConverter, patterns, ctx);
