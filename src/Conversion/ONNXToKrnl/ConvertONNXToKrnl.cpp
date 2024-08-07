@@ -46,6 +46,7 @@ public:
         ONNXEntryPointOp::getEntryPointFuncAttrName());
     StringRef entryPointName = funcRefAttr.getLeafReference().getValue();
     Operation *entryPointOp = module.lookupSymbol(entryPointName);
+    assert(entryPointOp && "entry point name not found!");
     func::FuncOp entryPointFunc = cast<func::FuncOp>(entryPointOp);
 
     IntegerAttr numInputsAttr =
