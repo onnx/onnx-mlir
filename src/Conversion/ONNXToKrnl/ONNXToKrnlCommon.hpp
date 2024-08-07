@@ -360,9 +360,11 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 
 // `Quantization` directory methods:
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXQuantizeLinearOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
+    bool enableSIMD, bool enableParallel);
+void populateLoweringONNXQuantizeLinearOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
@@ -672,7 +674,8 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
 // and maxAlloc.
 void emitMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
     mlir::Location loc, mlir::Operation *op, mlir::Value input,
-    mlir::Value &minAlloc, mlir::Value &maxAlloc);
+    mlir::Value &minAlloc, mlir::Value &maxAlloc, bool enableSIMD,
+    bool enableParallel);
 
 } // namespace onnx_mlir
 #endif

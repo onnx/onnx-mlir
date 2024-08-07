@@ -1157,6 +1157,47 @@ memref::AllocOp MemRefBuilder::alignedAlloc(MemRefType type,
 //===----------------------------------------------------------------------===//
 // Info about memory size.
 
+// Compute static size of memref in elements. Return true if has
+// static size.
+/*static*/ bool MemRefBuilder::getStaticMemSize(
+    MemRefType type, int64_t &staticSize, int64_t range) {
+  Type elementType = type.getElementType();
+  assert(!(mlir::isa<VectorType>(elementType)) && "unsupported vector type");
+  ArrayRef<int64_t> shape = type.getShape();
+  staticSize = 1;          // Multiplication of static sizes.
+  bool staticShape = true; // Static until proven otherwise.
+  int64_t rank = type.getRank();
+  // Process with range [lb inclusive, ub exclusive)
+  int64_t lb = 0, ub = rank;
+  if (range == 0)
+    // Empty range, nothing to do.
+    return staticShape;
+  if (range > 0) {
+    // Positive range r: interval is [ 0, min(r, rank) ).
+    ub = (range < rank) ? range : rank;
+  } else {
+    // Negative range r: interval is [ max(0, r+rank) to rank ).
+    range += rank;
+    lb = range > 0 ? range : 0;
+  }
+  assert(lb >= 0 && ub <= rank && "out of bound range");
+  for (int64_t i = 0; i < rank; ++i) {
+    if (shape[i] == ShapedType::kDynamic) {
+      if (i >= lb && i < ub) {
+        // Keep track of static shape and dynamic sizes only when inbounds.
+        staticShape = false;
+      }
+    } else {
+      // Has constant shape.
+      if (i >= lb && i < ub) {
+        // Keep track of static size only when inbounds.
+        staticSize *= shape[i];
+      }
+    }
+  }
+  return staticShape;
+}
+
 // Compute static and dynamic size of memref in elements. Return true if has
 // static size.
 bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
@@ -1940,6 +1981,61 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
 }
 
+/*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
+    MemRefType memRefType, int64_t collapsedInnermostLoops,
+    ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum) {
+  assert(GOps.size() == GOpsNum.size() && "expected same size");
+
+  // Analyze size of SIMD iterations.
+  int64_t staticSimdSize;
+  bool isStatic = MemRefBuilder::getStaticMemSize(
+      memRefType, staticSimdSize, -collapsedInnermostLoops);
+  Type elementType = memRefType.getElementType();
+  int64_t VL = vms->getVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd HW VL is " << VL << "\n");
+
+  // No element type is SIMD.
+  if (VL == 0) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
+    return 0;
+  }
+  if (isStatic && staticSimdSize < VL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: static trip count "
+                            << staticSimdSize << " too short for a VL\n");
+    return 0;
+  }
+  // Gather operation statics
+  int64_t vectorizedOpNum, scalarOpNum;
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
+  double avgVL = vms->getAvgVectorLength(
+      GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
+  if (avgVL < 1.5) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: too few SIMD operations with "
+                            << avgVL << " avg VL\n");
+    return 0;
+  }
+  // Define a target max unroll as a function of register pressure.
+  int64_t simdUnroll;
+  int64_t vrNum = vms->VectorRegisterNum();
+  if (vectorizedOpNum >= vrNum / 2)
+    simdUnroll = 2;
+  else if (vectorizedOpNum >= vrNum / 4)
+    simdUnroll = 4;
+  else
+    simdUnroll = 8;
+  // Refine unrolling factor so that it is suitable for the static size.
+  if (isStatic && (staticSimdSize < simdUnroll * VL)) {
+    int64_t newUnroll = ceil((1.0 * staticSimdSize) / (1.0 * VL)) - 1;
+    fprintf(stderr, "hi alex, size %i, VL %i, unroll %i, reduced to %i\n",
+        (int)staticSimdSize, (int)VL, (int)simdUnroll, (int)newUnroll);
+    simdUnroll = newUnroll;
+  }
+  LLVM_DEBUG(
+      llvm::dbgs() << "  simd enable: with simd unroll " << simdUnroll << "\n");
+  return VL * simdUnroll;
+}
+
 int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
     MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
     int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
@@ -1956,7 +2052,7 @@ int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
   }
   MemRefBuilder createMem(*this);
   int64_t staticSize;
-  IndexExpr dynSize;
+  IndexExpr dynSize; // hi alex, remove dyn.
   bool isStaticSize = createMem.getStaticAndDynamicMemSize(
       memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
   if (isStaticSize && staticSize < VL) {
@@ -2126,8 +2222,8 @@ LLVM::LLVMFuncOp LLVMBuilder::func(
     return funcOp;
 
   // Create uniqueFuncOp if there exists a postfix.
-  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition before
-  // `funcOp`.
+  // Since `funcOp` calls `uniqueFuncOp`, put `uniqueFuncOp`'s definition
+  // before `funcOp`.
   b().setInsertionPoint(funcOp);
   ModuleOp module = funcOp.getOperation()->getParentOfType<ModuleOp>();
   std::string uniqueFuncName =

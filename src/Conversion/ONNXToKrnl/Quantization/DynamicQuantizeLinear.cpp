@@ -33,7 +33,8 @@ namespace onnx_mlir {
 void emitDynamicQuantizationLinearScalarParameters(
     ConversionPatternRewriter &rewriter, Location loc, Operation *op,
     MemRefType inputType, MemRefType quantizedType, Value input, Value qMin,
-    Value qMax, Value &scale, Value &zeroPoint, Value &quantizedZeroPoint) {
+    Value qMax, Value &scale, Value &zeroPoint, Value &quantizedZeroPoint,
+    bool enableSIMD, bool enableParallel) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
   // Types
@@ -49,8 +50,8 @@ void emitDynamicQuantizationLinearScalarParameters(
   // where, saturate is to clip to [0, 255] for ui8.
 
   Value inputMinAlloc, inputMaxAlloc;
-  emitMinMaxReductionToScalar(
-      rewriter, loc, op, input, inputMinAlloc, inputMaxAlloc);
+  emitMinMaxReductionToScalar(rewriter, loc, op, input, inputMinAlloc,
+      inputMaxAlloc, enableSIMD, enableParallel);
   Value xMin = create.krnl.load(inputMinAlloc);
   Value xMax = create.krnl.load(inputMaxAlloc);
 
@@ -76,9 +77,13 @@ void emitDynamicQuantizationLinearScalarParameters(
 
 struct ONNXDynamicQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXDynamicQuantizeLinearOp> {
-  ONNXDynamicQuantizeLinearOpLowering(
-      TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXDynamicQuantizeLinearOpLowering(TypeConverter &typeConverter,
+      MLIRContext *ctx, bool enableSIMD, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
+
+  bool enableSIMD = false;
+  bool enableParallel = false;
 
   // hi alex: scan what is still needed once old code is removed
   using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
@@ -128,13 +133,13 @@ struct ONNXDynamicQuantizeLinearOpLowering
     if (debugTestCompilerOpt) {
       emitDynamicQuantizationLinearScalarParameters(rewriter, loc, op,
           xMemRefType, yMemRefType, X, qMin, qMax, scale, zeroPoint,
-          zeroPointInt);
+          zeroPointInt, enableSIMD, enableParallel);
       create.krnl.store(scale, YScale);
       create.krnl.store(zeroPointInt, YZeroPoint);
 
       emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
           yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-          zeroPoint);
+          zeroPoint, enableSIMD, enableParallel);
 
     } else {
       // Equations:
@@ -213,9 +218,10 @@ struct ONNXDynamicQuantizeLinearOpLowering
 };
 
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
-    RewritePatternSet &patterns, TypeConverter &typeConverter,
-    MLIRContext *ctx) {
-  patterns.insert<ONNXDynamicQuantizeLinearOpLowering>(typeConverter, ctx);
+    RewritePatternSet &patterns, TypeConverter &typeConverter, MLIRContext *ctx,
+    bool enableSIMD, bool enableParallel) {
+  patterns.insert<ONNXDynamicQuantizeLinearOpLowering>(
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

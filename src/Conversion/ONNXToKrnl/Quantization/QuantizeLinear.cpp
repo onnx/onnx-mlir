@@ -28,11 +28,10 @@ using namespace mlir;
 namespace onnx_mlir {
 
 // Helper function for quantization.
-// TODO: enable/disable simd, add parallel.
 void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
-    Value scale, Value zeroPoint) {
+    Value scale, Value zeroPoint, bool enableSIMD, bool enableParallel) {
   MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
 
   // Types
@@ -77,15 +76,21 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 
 struct ONNXQuantizeLinearOpLowering
     : public OpConversionPattern<ONNXQuantizeLinearOp> {
-  ONNXQuantizeLinearOpLowering(TypeConverter &typeConverter, MLIRContext *ctx)
-      : OpConversionPattern(typeConverter, ctx) {}
+  ONNXQuantizeLinearOpLowering(TypeConverter &typeConverter, MLIRContext *ctx,
+      bool enableSIMD, bool enableParallel)
+      : OpConversionPattern(typeConverter, ctx), enableSIMD(enableSIMD),
+        enableParallel(enableParallel) {}
+
+  bool enableSIMD = false;
+  bool enableParallel = false;
+
+  using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
+      IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
 
   LogicalResult matchAndRewrite(ONNXQuantizeLinearOp qlOp,
       ONNXQuantizeLinearOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
     // Hi alex, cleanup when removing old code,
-    using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
-        IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
     Operation *op = qlOp.getOperation();
     Location loc = ONNXLoc<ONNXQuantizeLinearOp>(op);
     LocalDialectBuilder create(rewriter, loc);
@@ -149,7 +154,7 @@ struct ONNXQuantizeLinearOpLowering
     if (debugTestCompilerOpt) {
       emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
           yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-          zeroPoint);
+          zeroPoint, enableSIMD, enableParallel);
     } else {
       // Compute y.
       ValueRange loopDef = create.krnl.defineLoops(rank);
@@ -182,8 +187,10 @@ struct ONNXQuantizeLinearOpLowering
 };
 
 void populateLoweringONNXQuantizeLinearOpPattern(RewritePatternSet &patterns,
-    TypeConverter &typeConverter, MLIRContext *ctx) {
-  patterns.insert<ONNXQuantizeLinearOpLowering>(typeConverter, ctx);
+    TypeConverter &typeConverter, MLIRContext *ctx, bool enableSIMD,
+    bool enableParallel) {
+  patterns.insert<ONNXQuantizeLinearOpLowering>(
+      typeConverter, ctx, enableSIMD, enableParallel);
 }
 
 } // namespace onnx_mlir

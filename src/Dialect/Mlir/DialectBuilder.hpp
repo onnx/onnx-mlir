@@ -260,12 +260,16 @@ struct MemRefBuilder final : DialectBuilder {
   //
   // Default value includes the entire range. Return true if static only within
   // the specified range.
+  // hi alex: converted to static, propagate
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
       int64_t range = 1000) const;
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
       llvm::SmallVectorImpl<IndexExpr> &dims, int64_t &staticSize,
       IndexExpr &dynSize, int64_t range = 1000) const;
+  // Same as above, but does not track of dynamic size.
+  static bool getStaticMemSize(
+      mlir::MemRefType type, int64_t &staticSize, int64_t range = 1000);
 
   // Alloc for static shapes without alignment.
   mlir::memref::AllocOp alloc(mlir::MemRefType type) const;
@@ -290,11 +294,11 @@ struct MemRefBuilder final : DialectBuilder {
       llvm::SmallVectorImpl<IndexExpr> &dims,
       int64_t align = defaultAlign) const;
 
-  // Alloc for shapes with alignment and padding for safe full SIMD operations.
-  // Padding may be added so that every values in the shape may safely be
-  // computed by a SIMD operation (or possibly multiple ones when simdUnroll>1).
-  // Minimum alignment is gDefaultAllocAlign.
-  // Operation does not support layouts at this time.
+  // Alloc for shapes with alignment and padding for safe full SIMD
+  // operations. Padding may be added so that every values in the shape may
+  // safely be computed by a SIMD operation (or possibly multiple ones when
+  // simdUnroll>1). Minimum alignment is gDefaultAllocAlign. Operation does
+  // not support layouts at this time.
   //
   // Alloc for static shapes with alignment and SIMD padding.
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type, int64_t VL = 1,
@@ -310,10 +314,10 @@ struct MemRefBuilder final : DialectBuilder {
       llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdVLUnroll = 1,
       int64_t align = defaultAlign) const;
 
-  // The alloca instruction allocates memory on the stack frame of the currently
-  // executing function, to be automatically released when this function returns
-  // to its caller. It is strongly suggested to place alloca instructions
-  // outside of a loop.
+  // The alloca instruction allocates memory on the stack frame of the
+  // currently executing function, to be automatically released when this
+  // function returns to its caller. It is strongly suggested to place alloca
+  // instructions outside of a loop.
   mlir::memref::AllocaOp alloca(mlir::MemRefType type) const;
   mlir::memref::AllocaOp alignedAlloca(
       mlir::MemRefType type, int64_t align = defaultAlign) const;
@@ -327,20 +331,20 @@ struct MemRefBuilder final : DialectBuilder {
   // hold the dims, save into it, and the perform the actual reshape.
   mlir::memref::ReshapeOp reshape(llvm::SmallVectorImpl<IndexExpr> &outputDims,
       mlir::Value valToReshape) const;
-  // Flatten innermost dimensions of a MemRef. User provide the value to reshape
-  // (valToReshape), its dims (dims), and the number of innermost loops to
-  // collapse (dimsToFlatten). The function computes the new flattened
-  // dimensions (flattenDims) and return the flattened value. Values of
-  // dimsToFlatten are in the [1, rank of input] range. Legal only on types
+  // Flatten innermost dimensions of a MemRef. User provide the value to
+  // reshape (valToReshape), its dims (dims), and the number of innermost
+  // loops to collapse (dimsToFlatten). The function computes the new
+  // flattened dimensions (flattenDims) and return the flattened value. Values
+  // of dimsToFlatten are in the [1, rank of input] range. Legal only on types
   // with identity layouts.
   mlir::Value reshapeToFlatInnermost(mlir::Value valToReshape,
       llvm::SmallVectorImpl<IndexExpr> &dims,
       llvm::SmallVectorImpl<IndexExpr> &flattenDims,
       int64_t dimsToFlatten) const;
-  // Flatten to a 2D MemRef, with outer dim including outermost dim to axis -1,
-  // and inner dim including the remaining innermost dims. Values of axis are
-  // in the [1, rank of input) range. Negative axis values are taken from the
-  // back. Legal only on types with identity layouts.
+  // Flatten to a 2D MemRef, with outer dim including outermost dim to axis
+  // -1, and inner dim including the remaining innermost dims. Values of axis
+  // are in the [1, rank of input) range. Negative axis values are taken from
+  // the back. Legal only on types with identity layouts.
   mlir::Value reshapeToFlat2D(mlir::Value valToReshape,
       llvm::SmallVectorImpl<IndexExpr> &dims,
       llvm::SmallVectorImpl<IndexExpr> &flattenDims, int64_t axis) const;
@@ -422,8 +426,8 @@ struct SCFBuilder final : DialectBuilder {
   SCFBuilder(const DialectBuilder &db) : DialectBuilder(db) {}
   virtual ~SCFBuilder() {}
 
-  /// Create an if then with optional else. Construct does not generate a result
-  /// (unlike some scf::if) and introduces the yields automatically.
+  /// Create an if then with optional else. Construct does not generate a
+  /// result (unlike some scf::if) and introduces the yields automatically.
   void ifThenElse(mlir::Value cond,
       mlir::function_ref<void(SCFBuilder &createSCF)> thenFn,
       mlir::function_ref<void(SCFBuilder &createSCF)> elseFn = nullptr) const;
@@ -463,9 +467,9 @@ struct VectorBuilder final : DialectBuilder {
   int64_t getMachineVectorLength(const mlir::VectorType &vecType) const;
   int64_t getMachineVectorLength(mlir::Value vecValue) const;
 
-  // Vector load: memref is expected to be scalar, will load a vector's worth of
-  // values: e.g.
-  // %result = vector.load %base[%i, %j] : memref<100x100xf32>, vector<8xf32>.
+  // Vector load: memref is expected to be scalar, will load a vector's worth
+  // of values: e.g. %result = vector.load %base[%i, %j] :
+  // memref<100x100xf32>, vector<8xf32>.
   mlir::Value load(mlir::VectorType vecType, mlir::Value memref,
       mlir::ValueRange indices = {}) const;
   // When ranks of offsets<indices, add offsets to the least significant dims.
@@ -504,21 +508,25 @@ struct VectorBuilder final : DialectBuilder {
   // hardware vector length, up to maxSimdUnroll times). If the dims are too
   // small, return 0 (no suitable simd). The collapsedInnermostLoops parameter
   // indicates how many inner dimensions of the memref are considered for
-  // vectorization. If all of them are considered and padding is possible, then
-  // we can always generate SIMD code with the maxSIMD unroll factor. Otherwise,
-  // we must ensure that the cumulative static size (dynamic sizes are ignored
-  // here ) of the array is a multiple of the Vector Length associated with this
-  // type. If it is not, then no SIMD code gen is possible (return 0). If it is
-  // possible, return the largest SIMD unroll factor (starting at maxSimdUnroll)
-  // that divide the cumulative static size of the memref being collapsed for
-  // SIMD.
-  // simdLoopStaticTripCount: provide an estimation of the SIMD loop trip
-  // count. If runtime, return -1; if cannot simdize, return 0; if compile time
-  // (or a multiple of a compile time value): return that literal.
+  // vectorization. If all of them are considered and padding is possible,
+  // then we can always generate SIMD code with the maxSIMD unroll factor.
+  // Otherwise, we must ensure that the cumulative static size (dynamic sizes
+  // are ignored here ) of the array is a multiple of the Vector Length
+  // associated with this type. If it is not, then no SIMD code gen is
+  // possible (return 0). If it is possible, return the largest SIMD unroll
+  // factor (starting at maxSimdUnroll) that divide the cumulative static size
+  // of the memref being collapsed for SIMD. simdLoopStaticTripCount: provide
+  // an estimation of the SIMD loop trip count. If runtime, return -1; if
+  // cannot simdize, return 0; if compile time (or a multiple of a compile
+  // time value): return that literal.
   int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
       int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
       int64_t &simdLoopStaticTripCount) const;
+
+  static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+      int64_t collapsedInnermostLoops, mlir::ArrayRef<GenericOps> GOps,
+      mlir::ArrayRef<int64_t> GOpsNum);
 
 private:
   bool isPowerOf2(uint64_t num) const;
@@ -593,8 +601,8 @@ private:
 
 // Affine builder uses affine load and store for memory operations. A later
 // definition of AffineBuilderKrnlMem will use Krnl load and store for memory
-// operations. We recommend to use AffineBuilderKrnlMem when converting the Krnl
-// dialect into the affine dialect.
+// operations. We recommend to use AffineBuilderKrnlMem when converting the
+// Krnl dialect into the affine dialect.
 using AffineBuilder = GenericAffineBuilder<mlir::affine::AffineLoadOp,
     mlir::affine::AffineStoreOp>;
 

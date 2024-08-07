@@ -1392,12 +1392,9 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 template <>
 double analyzeSimdFor<ONNXDequantizeLinearOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  // Right now, MLIR vector:splat does not support unsigned int types.
-  // Thus we must disable SIMD here for now.
-  return noSimd(von, son);
-  // return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
-  //                        GenericOps::ConversionGop},
-  //    {1, 1, 2}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                          GenericOps::ConversionGop},
+      {1, 1, 2}, t, von, son);
 }
 
 template <>
