@@ -6,5 +6,6 @@ a = a0 + 2
 b = a0 + 4
 
 sess = onnxmlir.InferenceSession("test_add.onnx")
-r = sess.run(["my_out"], {"input_0": a, "input_1": b})
+# The name for input is specified by onnx model.
+r = sess.run(["my_out"], {"x": a, "y": b})
 print(r)

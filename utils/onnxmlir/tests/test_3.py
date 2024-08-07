@@ -8,5 +8,5 @@ b = a0 + 4
 sess = onnxmlir.InferenceSession(
     "test_add.onnx", options='--compile-args="-O3 --parallel" --print-output'
 )
-r = sess.run(["my_out"], {"input_0": a, "input_1": b})
+r = sess.run(["my_out"], {"x": a, "y": b})
 print(r)

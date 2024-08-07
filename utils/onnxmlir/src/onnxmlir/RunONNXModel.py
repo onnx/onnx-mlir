@@ -783,19 +783,30 @@ class InferenceSession:
                 dims = [int(d) for d in input_index_shape[1].split("x")]
                 input_shapes[int(input_index)] = dims
 
-        inputs = []
-        if input_feed:
-            if isinstance(input_feed, dict):
-                inputs = list(input_feed.values())
-            else:
-                inputs = input_feed
-            args.inputs_from_arrays = inputs
-
         # Get the input and output signature.
         input_signature = self.sess.input_signature()
         output_signature = self.sess.output_signature()
         input_names = get_names_in_signature(input_signature)
         output_names = get_names_in_signature(output_signature)
+
+        inputs = []
+        # Get input from input_feed, if input_feed is provided
+        if input_feed:
+            if isinstance(input_feed, dict):
+                for name in input_names:
+                     if name in input_feed:
+                         inputs.append(input_feed[name])
+                     else:
+                         print("input name given: ", input_feed.keys())
+                         print("input name expected by model: ", input_names)
+                         print("do not match")
+                         exit(1)
+                # Since Python guarantees the order of values in a dictionary,
+                # the name check could be ignored as follows:
+                # inputs = list(input_feed.values())
+            else:
+                inputs = input_feed
+            args.inputs_from_arrays = inputs
 
         # Prepare input data.
         inputs = []
