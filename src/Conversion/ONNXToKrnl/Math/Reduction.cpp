@@ -287,8 +287,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   int64_t estimatedSimdLoopTripCount = 0;
-  int64_t VL = create.vec.computeSuitableUnrollFactor(vms, inputType, inputDims,
-      inputRank, unroll, /*canPad*/ false, estimatedSimdLoopTripCount);
+  int64_t VL = create.vec.computeSuitableUnrollFactor(vms, inputType, inputRank,
+      unroll, /*canPad*/ false, estimatedSimdLoopTripCount);
   if (VL == 0)
     return false;
   IndexExpr VLIndexExpr = LitIE(VL);
@@ -626,7 +626,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
           VL = create.vec.computeSuitableUnrollFactor(vms, memRefInType,
-              inputDims, innermostLoopCollapse, unroll, /*canPad*/ false,
+              innermostLoopCollapse, unroll, /*canPad*/ false,
               estimatedSimdLoopTripCount);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, VL " << VL << "\n");

@@ -1062,6 +1062,7 @@ IntegerAttr MemRefBuilder::computeAlignment(int64_t alignment) const {
 // Alloc calls need a list of values, only for the dynamic shapes. Extract these
 // values from the list of index expressions that represent the shape of the
 // memref.
+
 void MemRefBuilder::computeDynSymbols(MemRefType type,
     llvm::SmallVectorImpl<IndexExpr> &dims,
     llvm::SmallVectorImpl<Value> &dynSymbols) const {
@@ -1985,6 +1986,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
     ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum) {
   assert(GOps.size() == GOpsNum.size() && "expected same size");
+  VectorMachineSupport *vms =
+      VectorMachineSupport::getGlobalVectorMachineSupport();
 
   // Analyze size of SIMD iterations.
   int64_t staticSimdSize;
@@ -2006,8 +2009,6 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
   // Gather operation statics
   int64_t vectorizedOpNum, scalarOpNum;
-  VectorMachineSupport *vms =
-      VectorMachineSupport::getGlobalVectorMachineSupport();
   double avgVL = vms->getAvgVectorLength(
       GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
   if (avgVL < 1.5) {
@@ -2015,6 +2016,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
                             << avgVL << " avg VL\n");
     return 0;
   }
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: avg vl " << avgVL << "\n");
+
   // Define a target max unroll as a function of register pressure.
   int64_t simdUnroll;
   int64_t vrNum = vms->VectorRegisterNum();
@@ -2026,7 +2029,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     simdUnroll = 8;
   // Refine unrolling factor so that it is suitable for the static size.
   if (isStatic && (staticSimdSize < simdUnroll * VL)) {
-    int64_t newUnroll = ceil((1.0 * staticSimdSize) / (1.0 * VL)) - 1;
+    int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * VL));
     fprintf(stderr, "hi alex, size %i, VL %i, unroll %i, reduced to %i\n",
         (int)staticSimdSize, (int)VL, (int)simdUnroll, (int)newUnroll);
     simdUnroll = newUnroll;
@@ -2036,10 +2039,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   return VL * simdUnroll;
 }
 
-int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
-    MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
+/*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
+    VectorMachineSupport *vms, MemRefType memRefType,
     int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
-    int64_t &simdLoopStaticTripCount) const {
+    int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
   assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.
@@ -2050,11 +2053,9 @@ int64_t VectorBuilder::computeSuitableUnrollFactor(VectorMachineSupport *vms,
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
     return 0;
   }
-  MemRefBuilder createMem(*this);
   int64_t staticSize;
-  IndexExpr dynSize; // hi alex, remove dyn.
-  bool isStaticSize = createMem.getStaticAndDynamicMemSize(
-      memRefType, memRefDims, staticSize, dynSize, -collapsedInnermostLoops);
+  bool isStaticSize = MemRefBuilder::getStaticMemSize(
+      memRefType, staticSize, -collapsedInnermostLoops);
   if (isStaticSize && staticSize < VL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
                             << " too short for a VL of " << VL << "\n");

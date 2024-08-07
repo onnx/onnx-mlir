@@ -1429,7 +1429,7 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // array simdization. When partial simd is requested, then we must ensure that
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
+int64_t canBeVectorized(ShapeHelperType &shapeHelper, 
     Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t &estimatedSimdLoopTripCount) {
   estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
@@ -1456,8 +1456,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
-  uVL = create.vec.computeSuitableUnrollFactor(vms, memRefType,
-      shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
+  uVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
+      collapsedInnermostLoops, simdUnroll,
       /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({
     if (uVL)
@@ -2087,7 +2087,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-          shapeHelper, create, op, outputMemRefType, outputRank,
+          shapeHelper, op, outputMemRefType, outputRank,
           estimatedSimdLoopTripCount);
       if (uVL > 0) {
         onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
@@ -2264,7 +2264,7 @@ struct ONNXElementwiseBinaryOpLowering
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, op, outputMemRefType,
+              shapeHelper, op, outputMemRefType,
               collapsedInnermostLoops, estimatedSimdLoopTripCount);
       if (uVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
@@ -2439,7 +2439,7 @@ struct ONNXElementwiseVariadicOpLowering
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, op, outputMemRefType,
+              shapeHelper, op, outputMemRefType,
               collapsedInnermostLoops, estimatedSimdLoopTripCount);
       if (uVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)

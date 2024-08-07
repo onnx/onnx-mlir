@@ -260,7 +260,6 @@ struct MemRefBuilder final : DialectBuilder {
   //
   // Default value includes the entire range. Return true if static only within
   // the specified range.
-  // hi alex: converted to static, propagate
   bool getStaticAndDynamicMemSize(mlir::MemRefType type,
       mlir::ValueRange dynSymbols, int64_t &staticSize, IndexExpr &dynSize,
       int64_t range = 1000) const;
@@ -519,11 +518,21 @@ struct VectorBuilder final : DialectBuilder {
   // an estimation of the SIMD loop trip count. If runtime, return -1; if
   // cannot simdize, return 0; if compile time (or a multiple of a compile
   // time value): return that literal.
-  int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
-      mlir::MemRefType memRefType, llvm::SmallVectorImpl<IndexExpr> &memRefDims,
-      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
-      int64_t &simdLoopStaticTripCount) const;
+  static int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
+      mlir::MemRefType memRefType, int64_t collapsedInnermostLoops,
+      int64_t maxSimdUnroll, bool canPad, int64_t &simdLoopStaticTripCount);
 
+  // Compute a suitable SIMD Vector length (VL). If no SIMD is suitable, return
+  // 0. Type determine the initial VL. Then the mix of Generic
+  // Operations is used to determine the mix of SIMD/Scalar operations in that
+  // loop. If the type does not support SIMD, or there are too few SIMD
+  // operations, or the innermost loop has too few (static) loop iterations,
+  // SIMD will be disabled (return VL=0). Otherwise, the register pressure is
+  // then taken into account to determine a suitable additional unrolling (by
+  // multiple of VL) so as to suitably exploit the available SIMD hardware.
+  //
+  // In this call, we assume that code gen can handle SIMD loops with trip count
+  // that are not known to be a multiple of VL.
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
       int64_t collapsedInnermostLoops, mlir::ArrayRef<GenericOps> GOps,
       mlir::ArrayRef<int64_t> GOpsNum);

@@ -38,6 +38,18 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   Type quantizedElementType = quantizedType.getElementType();
   int64_t rank = inputType.getRank();
 
+  // Determine a suitable SIMD vector length for this loop.
+  int64_t VL = 0;
+  if (enableSIMD)
+    VL = VectorBuilder::computeSuitableUnrollFactor(
+        inputType /* use unquantized type*/,
+        1 /* only innermost loop is simdized */,
+        {GenericOps::DivGop, GenericOps::ArithmeticGop,
+            GenericOps::ConversionGop, GenericOps::MinMaxGop,
+            GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
+        {1, 5, 1, 2, 2, 3, 2});
+
+  // Generate outer loops
   ValueRange loopDef = create.krnl.defineLoops(rank - 1);
   SmallVector<IndexExpr, 4> lbs(rank - 1, LitIE(0));
   SmallVector<IndexExpr, 4> ubs = firstFew<IndexExpr, 4>(allocDims, rank - 2);
@@ -48,7 +60,6 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(kb);
         IndexExpr simdLb = zero;
         IndexExpr simdUb = SymIE(allocDims[rank - 1]);
-        int64_t VL = 4; // hi alex, refine this
         // Create access functions for input X and output Y.
         DimsExpr inputAF = SymListIE(loopInd);
         inputAF.emplace_back(zero);
