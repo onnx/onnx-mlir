@@ -273,8 +273,8 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
       });
 }
 
-void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
-    ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
+void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
+    bool fullySimd, ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
     ArrayRef<Value> outputs, ArrayRef<DimsExpr> outputAFs,
     function_ref<void(KrnlBuilder &kb, ArrayRef<Value> inputVals,
         llvm::SmallVectorImpl<Value> &resultVals)>

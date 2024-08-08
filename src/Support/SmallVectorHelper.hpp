@@ -2,13 +2,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-//===----- llvm::SmallVectorHelper.hpp - Helper functions llvm::llvm::SmallVector -----===//
+//===----- SmallVectorHelper.hpp - Helper functions llvm::SmallVector -----===//
 //
 // Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
-// This file contains helper functions for taking subsets of llvm::llvm::SmallVector.
+// This file contains helper functions for taking subsets of llvm::SmallVector.
 //
 //===----------------------------------------------------------------------===//
 

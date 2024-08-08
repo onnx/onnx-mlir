@@ -1429,8 +1429,8 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // array simdization. When partial simd is requested, then we must ensure that
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(ShapeHelperType &shapeHelper, 
-    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
+int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
+    MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t &estimatedSimdLoopTripCount) {
   estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
   int64_t simdUnroll;
@@ -2264,8 +2264,8 @@ struct ONNXElementwiseBinaryOpLowering
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, op, outputMemRefType,
-              collapsedInnermostLoops, estimatedSimdLoopTripCount);
+              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
+              estimatedSimdLoopTripCount);
       if (uVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
@@ -2439,8 +2439,8 @@ struct ONNXElementwiseVariadicOpLowering
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, op, outputMemRefType,
-              collapsedInnermostLoops, estimatedSimdLoopTripCount);
+              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
+              estimatedSimdLoopTripCount);
       if (uVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, uVL,

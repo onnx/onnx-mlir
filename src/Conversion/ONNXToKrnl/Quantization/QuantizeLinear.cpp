@@ -104,7 +104,6 @@ struct ONNXQuantizeLinearOpLowering
   LogicalResult matchAndRewrite(ONNXQuantizeLinearOp qlOp,
       ONNXQuantizeLinearOpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const final {
-    // Hi alex, cleanup when removing old code,
     Operation *op = qlOp.getOperation();
     Location loc = ONNXLoc<ONNXQuantizeLinearOp>(op);
     LocalDialectBuilder create(rewriter, loc);

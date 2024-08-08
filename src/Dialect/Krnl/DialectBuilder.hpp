@@ -124,7 +124,7 @@ struct KrnlBuilder : public DialectBuilder {
   // This call is only applicable to loop bodies where every input/output is
   // strided in its innermost dimension. Inputs can also be loop invariant
   // (scalar), in term of the loop being iterated on.
-  
+
   void simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL, bool fullySimd,
       mlir::ArrayRef<mlir::Value> inputs, mlir::ArrayRef<DimsExpr> inputAFs,
       mlir::ArrayRef<mlir::Value> outputs, mlir::ArrayRef<DimsExpr> outputAFs,
