@@ -794,13 +794,13 @@ class InferenceSession:
         if input_feed:
             if isinstance(input_feed, dict):
                 for name in input_names:
-                     if name in input_feed:
-                         inputs.append(input_feed[name])
-                     else:
-                         print("input name given: ", input_feed.keys())
-                         print("input name expected by model: ", input_names)
-                         print("do not match")
-                         exit(1)
+                    if name in input_feed:
+                        inputs.append(input_feed[name])
+                    else:
+                        print("input name given: ", input_feed.keys())
+                        print("input name expected by model: ", input_names)
+                        print("do not match")
+                        exit(1)
                 # Since Python guarantees the order of values in a dictionary,
                 # the name check could be ignored as follows:
                 # inputs = list(input_feed.values())
