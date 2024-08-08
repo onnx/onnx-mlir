@@ -903,15 +903,6 @@ inline llvm::SmallVector<IndexExpr, 4> SymListIE(
   return outputList;
 }
 
-#if 0
-inline llvm::SmallVector<IndexExpr, 4> SymListIE(
-    const llvm::SmallVector<IndexExpr, 4> &inputList) {
-  llvm::SmallVector<IndexExpr, 4> outputList;
-  getIndexExprList<SymbolIndexExpr>(inputList, outputList);
-  return outputList;
-}
-#endif
-
 // Create a list of IndexExpr of kind LiteralIndexExpr from a list of integers.
 void getIndexExprListFromInt(mlir::ArrayRef<int64_t> inputList,
     llvm::SmallVectorImpl<IndexExpr> &outputList);

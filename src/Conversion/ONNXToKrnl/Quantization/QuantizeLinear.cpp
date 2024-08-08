@@ -86,6 +86,12 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
               resVals.emplace_back(res);
             });
       });
+  if (VL > 1)
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL, simdLoopStaticTripCount,
+        "quantizationLinear whole tensor");
+  else
+    onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
+        "no simd in quantizationLinear whole tensor");
 }
 
 struct ONNXQuantizeLinearOpLowering
@@ -168,7 +174,6 @@ struct ONNXQuantizeLinearOpLowering
         zeroPoint, enableSIMD, enableParallel);
 
     rewriter.replaceOp(op, {Y});
-    // hi alex, report
     onnxToKrnlSimdReport(op);
     return success();
   }

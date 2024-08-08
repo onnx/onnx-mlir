@@ -377,6 +377,13 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   if (hasTwoRed)
     create.affineKMem.store(res2, alloc2, {});
 
+  if (hasTwoRed)
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+        estimatedSimdLoopTripCount, "fused reduction to a scalar");
+  else
+    onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+        estimatedSimdLoopTripCount, "reduction to a scalar");
+
   return true;
 }
 

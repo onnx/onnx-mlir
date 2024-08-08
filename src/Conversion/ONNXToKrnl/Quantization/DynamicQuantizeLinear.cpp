@@ -132,7 +132,6 @@ struct ONNXDynamicQuantizeLinearOpLowering
         yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
         zeroPoint, enableSIMD, enableParallel);
 
-    // hi alex simd report
     rewriter.replaceOp(op, {Y, YScale, YZeroPoint});
     onnxToKrnlSimdReport(op);
     return success();
