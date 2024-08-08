@@ -32,3 +32,7 @@ add_custom_target(OMONNXCheckVersion
 # Scan files for supported ops
 add_onnx_mlir_supported_ops(${ONNX_MLIR_SRC_ROOT}/test/backend/inference_backend.py cpu)
 add_onnx_mlir_supported_ops(${ONNX_MLIR_SRC_ROOT}/test/accelerators/NNPA/backend/CMakeLists.txt NNPA)
+
+add_custom_target(OMCheckONNXMLIR
+        COMMAND diff ${CMAKE_CURRENT_SOURCE_DIR}/RunONNXModel.py ${CMAKE_CURRENT_SOURCE_DIR}/onnxmlir/src/onnxmlir)
+
