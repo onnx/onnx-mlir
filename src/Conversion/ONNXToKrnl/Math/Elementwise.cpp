@@ -1544,8 +1544,13 @@ static LogicalResult getPartiallyFlattenedSimdCode(
               assert(succeeded(res) && "Could not compute access indices");
             }
             Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
+#if 1
+            // Delay splat since it is now integrated in MathBuilder
+            loadedVals.emplace_back(loadedVal);
+#else
             Value splatValue = create.vec.splat(vecType, loadedVal);
             loadedVals.emplace_back(splatValue);
+#endif
           } else {
             llvm::SmallVector<IndexExpr, 4> loadAccessFct;
             LogicalResult res =
