@@ -18,11 +18,6 @@
 #include "src/Dialect/ONNX/ONNXOps/ShapeHelper.hpp"
 #include "src/Support/SmallVectorHelper.hpp"
 
-#define HI_ALEX_NEW 1
-#if HI_ALEX_NEW
-#include "src/Compiler/CompilerOptions.hpp"
-#endif
-
 using namespace mlir;
 
 namespace onnx_mlir {
@@ -40,19 +35,24 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 
   // Determine a suitable SIMD vector length for this loop.
   int64_t VL = 0;
-  if (enableSIMD)
+  int64_t simdLoopStaticTripCount = 0;
+  if (enableSIMD) {
     VL = VectorBuilder::computeSuitableUnrollFactor(
         inputType /* use unquantized type*/,
         1 /* only innermost loop is simdized */,
         {GenericOps::DivGop, GenericOps::ArithmeticGop,
             GenericOps::ConversionGop, GenericOps::MinMaxGop,
             GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
-        {1, 5, 1, 2, 2, 3, 2});
+        {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount);
+  }
+  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (VL > 0) &&
+                            (simdLoopStaticTripCount % VL == 0);
 
   // Generate outer loops
   ValueRange loopDef = create.krnl.defineLoops(rank - 1);
   SmallVector<IndexExpr, 4> lbs(rank - 1, LitIE(0));
-  SmallVector<IndexExpr, 4> ubs = firstFew<IndexExpr, 4>(allocDims, rank - 2);
+  SmallVector<IndexExpr, 4> ubs = allocDims;
+  ubs.pop_back(); // Remove the last dim.
   IndexExpr zero = LitIE(0);
   create.krnl.iterateIE(
       loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &kb, ValueRange loopInd) {
@@ -65,7 +65,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         inputAF.emplace_back(zero);
         DimsExpr outputAF = SymListIE(loopInd);
         outputAF.emplace_back(zero);
-        create.krnl.simdIterateIE(simdLb, simdUb, VL, false, {input}, {inputAF},
+        create.krnl.simdIterateIE(simdLb, simdUb, VL, onlySimdIterations, {input}, {inputAF},
             {alloc}, {outputAF},
             [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
                 SmallVectorImpl<Value> &resVals) {
@@ -96,7 +96,7 @@ struct ONNXQuantizeLinearOpLowering
   bool enableParallel = false;
 
   using LocalDialectBuilder = MultiDialectBuilder<KrnlBuilder,
-      IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder, OnnxBuilder>;
+      IndexExprBuilderForKrnl, MathBuilder, MemRefBuilder>;
 
   LogicalResult matchAndRewrite(ONNXQuantizeLinearOp qlOp,
       ONNXQuantizeLinearOpAdaptor adaptor,
@@ -120,7 +120,6 @@ struct ONNXQuantizeLinearOpLowering
     // Types
     Type elementType = xMemRefType.getElementType();
     Type quantizedElementType = yMemRefType.getElementType();
-    int64_t rank = xMemRefType.getRank();
 
     // Does not support per-axis and i8.
     assert(yScaleMemRefType.getRank() == 0 &&
@@ -162,36 +161,12 @@ struct ONNXQuantizeLinearOpLowering
     } else
       zeroPoint = create.math.constant(elementType, 0.0);
 
-    if (debugTestCompilerOpt) {
-      emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
-          yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
-          zeroPoint, enableSIMD, enableParallel);
-    } else {
-      // Compute y.
-      ValueRange loopDef = create.krnl.defineLoops(rank);
-      SmallVector<IndexExpr> lbs(rank, LiteralIndexExpr(0));
-      create.krnl.iterateIE(loopDef, loopDef, lbs, shapeHelper.getOutputDims(0),
-          [&](KrnlBuilder &createKrnl, ValueRange loopInd) {
-            MultiDialectBuilder<KrnlBuilder, MathBuilder, OnnxBuilder> create(
-                createKrnl);
-            Value x = create.krnl.load(X, loopInd);
-            // Scale
-            Value scaleX = create.math.div(x, scale);
-            // Round
-            Value roundX = create.onnx.round(scaleX, /*scalarType=*/true);
-            // Adjust
-            Value adjustX = create.math.add(roundX, zeroPoint);
-            // Saturate
-            Value lessThanMin = create.math.slt(adjustX, qMin);
-            Value saturateX = create.math.select(lessThanMin, qMin, adjustX);
-            Value lessThanMax = create.math.slt(saturateX, qMax);
-            saturateX = create.math.select(lessThanMax, saturateX, qMax);
-            Value res = create.math.cast(quantizedElementType, saturateX);
-            create.krnl.store(res, Y, loopInd);
-          });
-    }
+    emitQuantizationLinearScalarParameters(rewriter, loc, op, xMemRefType,
+        yMemRefType, Y, shapeHelper.getOutputDims(0), X, qMin, qMax, scale,
+        zeroPoint, enableSIMD, enableParallel);
 
     rewriter.replaceOp(op, {Y});
+    // hi alex, report
     onnxToKrnlSimdReport(op);
     return success();
   }

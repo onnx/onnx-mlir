@@ -18,6 +18,8 @@
 // Select the first few elements of a vector, until "untilNum" (inclusively)
 // Negative numbers count from the back of the vector.
 
+// Note: because it is inclusively, it is impossible to have an empty list.
+
 template <typename T, unsigned N>
 llvm::SmallVector<T, N> firstFew(mlir::ValueRange vec, int64_t untilNum) {
   llvm::SmallVector<T, N> res;

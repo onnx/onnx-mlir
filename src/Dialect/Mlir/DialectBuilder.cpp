@@ -1984,10 +1984,12 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops,
-    ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum) {
+    ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,
+    int64_t &simdLoopStaticTripCount) {
   assert(GOps.size() == GOpsNum.size() && "expected same size");
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
+  simdLoopStaticTripCount = 0; // Initially assume no SIMD.
 
   // Analyze size of SIMD iterations.
   int64_t staticSimdSize;
@@ -2030,12 +2032,15 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   // Refine unrolling factor so that it is suitable for the static size.
   if (isStatic && (staticSimdSize < simdUnroll * VL)) {
     int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * VL));
-    fprintf(stderr, "hi alex, size %i, VL %i, unroll %i, reduced to %i\n",
-        (int)staticSimdSize, (int)VL, (int)simdUnroll, (int)newUnroll);
+    LLVM_DEBUG(llvm::dbgs() << "  simd enable:: size " << staticSimdSize
+                            << " , VL " << VL << ", unroll " << simdUnroll
+                            << ", reduced to " << newUnroll << "\n");
     simdUnroll = newUnroll;
   }
   LLVM_DEBUG(
       llvm::dbgs() << "  simd enable: with simd unroll " << simdUnroll << "\n");
+
+  simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
   return VL * simdUnroll;
 }
 
@@ -2062,9 +2067,9 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     return 0;
   }
   // Unless otherwise disabled, here is the estimated trip count.
-  simdLoopStaticTripCount = staticSize > 1 ? staticSize : -1;
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
+    simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
     return maxSimdUnroll * VL;
   }
   // We have a partially flattened operator. Since we do only simdize entire
@@ -2084,6 +2089,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
                  << "  partial flattened dims " << collapsedInnermostLoops
                  << " with size " << staticSize << " works with VL " << VL
                  << " and unroll " << u << "\n");
+      simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
       return u * VL;
     }
   }

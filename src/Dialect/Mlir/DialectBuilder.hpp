@@ -518,6 +518,9 @@ struct VectorBuilder final : DialectBuilder {
   // an estimation of the SIMD loop trip count. If runtime, return -1; if
   // cannot simdize, return 0; if compile time (or a multiple of a compile
   // time value): return that literal.
+  // Note that if simdLoopStaticTripCount>0 (we have simd) and
+  // simdLoopStaticTripCount % (returned VL) == 0, we can guarantee that all
+  // iterations will be SIMD iterations.
   static int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, int64_t collapsedInnermostLoops,
       int64_t maxSimdUnroll, bool canPad, int64_t &simdLoopStaticTripCount);
@@ -533,9 +536,10 @@ struct VectorBuilder final : DialectBuilder {
   //
   // In this call, we assume that code gen can handle SIMD loops with trip count
   // that are not known to be a multiple of VL.
+  // Definition and usage of simdLoopStaticTripCount is as in the previous call.
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
       int64_t collapsedInnermostLoops, mlir::ArrayRef<GenericOps> GOps,
-      mlir::ArrayRef<int64_t> GOpsNum);
+      mlir::ArrayRef<int64_t> GOpsNum, int64_t &simdLoopStaticTripCount);
 
 private:
   bool isPowerOf2(uint64_t num) const;
