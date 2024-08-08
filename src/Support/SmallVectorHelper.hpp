@@ -47,7 +47,8 @@ llvm::SmallVector<T, N> firstFew(mlir::ArrayRef<T> vec, int64_t untilNum) {
 }
 
 template <typename T, unsigned N>
-llvm::SmallVector<T, N> firstFew(llvm::SmallVectorImpl<T> &vec, int64_t untilNum) {
+llvm::SmallVector<T, N> firstFew(
+    llvm::SmallVectorImpl<T> &vec, int64_t untilNum) {
   llvm::SmallVector<T, N> res;
   int64_t size = vec.size();
   if (untilNum < 0)
@@ -90,7 +91,8 @@ llvm::SmallVector<T, N> lastFew(mlir::ArrayRef<T> vec, int64_t fromNum) {
 }
 
 template <typename T, unsigned N>
-llvm::SmallVector<T, N> lastFew(llvm::SmallVectorImpl<T> &vec, int64_t fromNum) {
+llvm::SmallVector<T, N> lastFew(
+    llvm::SmallVectorImpl<T> &vec, int64_t fromNum) {
   llvm::SmallVector<T, N> res;
   int64_t size = vec.size();
   if (fromNum < 0)
