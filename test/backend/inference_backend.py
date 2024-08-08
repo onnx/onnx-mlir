@@ -11,6 +11,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import shutil
 import sys
 import warnings
 import json
@@ -1256,7 +1257,7 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== GroupNormalization
-        # ==MIN== 18
+        # ==MIN== 21
         "test_group_normalization_epsilon_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3619,11 +3620,12 @@ class InferenceBackendTest(BackendTest):
         outputs: Sequence[Any],
         rtol: float,
         atol: float,
+        model_dir: str | None = None,
     ) -> None:
         rtol = float(os.getenv("TEST_RTOL", rtol))
         atol = float(os.getenv("TEST_ATOL", atol))
         super(InferenceBackendTest, cls).assert_similar_outputs(
-            ref_outputs, outputs, rtol, atol
+            ref_outputs, outputs, rtol, atol, model_dir=model_dir
         )
 
     def _add_onnxmlir_model_test(
@@ -3639,10 +3641,27 @@ class InferenceBackendTest(BackendTest):
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
             atol = model_test.atol
-            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol)
+            onnx_home = os.path.expanduser(
+                os.getenv("ONNX_HOME", os.path.join("~", ".onnx"))
+            )
+            models_dir = os.getenv("ONNX_MODELS", os.path.join(onnx_home, "models"))
+            model_dir = os.path.join(models_dir, model_test.model.graph.name)
+            if not os.path.exists(os.path.join(model_dir, "model.onnx")):
+                if os.path.exists(model_dir):
+                    bi = 0
+                    while True:
+                        dest = "{}.old.{}".format(model_dir, bi)
+                        if os.path.exists(dest):
+                            bi += 1
+                            continue
+                        shutil.move(model_dir, dest)
+                        break
+            os.makedirs(model_dir)
+            self.assert_similar_outputs(
+                ref_outputs, outputs, rtol, atol, model_dir=model_dir
+            )
 
-        model_name = model_test.model.graph.name
-        self._add_test(kind + "Model", model_name, run, model_marker)
+        self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
 
 
 # There are two issues, which necessitates the adoption of this endianness
