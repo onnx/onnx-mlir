@@ -120,7 +120,7 @@ public:
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 private:
-  static VectorMachineSupport *globalVectorMachineSupport;
+  static VectorMachineSupport *globalVectorMachineSupport; // Init to null.
 };
 
 // No support for SIMD.

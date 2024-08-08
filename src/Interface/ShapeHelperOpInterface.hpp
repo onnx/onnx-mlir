@@ -27,8 +27,6 @@
 
 namespace onnx_mlir {
 
-using DimsExpr = llvm::SmallVector<IndexExpr, 4>;
-
 struct ONNXOpShapeHelper {
   /* Constructor for shape inference.
 

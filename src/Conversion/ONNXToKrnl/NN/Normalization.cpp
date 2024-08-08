@@ -581,7 +581,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     llvm_unreachable("unexpected case");
   }
 
-  bool isSimdizable(MDBuilder &create, OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
+  bool isSimdizable(OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
       SHAPE_HELPER_TYPE &shapeHelper, int64_t &VL,
       BroadcastKind &scaleBroadcastKind, BroadcastKind &biasBroadcastKind,
       IndexExpr &scaleModFactor, IndexExpr &biasModFactor) const {
@@ -626,8 +626,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // }
 
     int64_t simdLoopStaticTripCount;
-    VL = create.vec.computeSuitableUnrollFactor(vms, XMemRefType, XDims,
-        lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);
+    VL = VectorBuilder::computeSuitableUnrollFactor(vms, XMemRefType, lowRank,
+        4, /*canPad*/ false, simdLoopStaticTripCount);
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
                    << " loops, VL " << VL << "\n";);
@@ -676,7 +676,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     int64_t VL;
     BroadcastKind scaleBroadcastKind, biasBroadcastKind;
     IndexExpr scaleModFactor, biasModFactor;
-    bool isSIMD = isSimdizable(create, lnOp, adaptor, shapeHelper, VL,
+    bool isSIMD = isSimdizable(lnOp, adaptor, shapeHelper, VL,
         scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
 
     if (isSIMD) {
