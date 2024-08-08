@@ -1257,23 +1257,22 @@ def get_test_models():
             CONSTANT_INPUT: {-1},
         },
         # ==OP== GroupNormalization
-        # ==MIN== 18
-        # GroupNormalization test changed with Opset 21, Opset 18 test is no longer compatible since “num_groups” was replaced with “c”.
-        # "test_group_normalization_epsilon_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        # ==MIN== 21
+        "test_group_normalization_epsilon_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_group_normalization_epsilon_expanded_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
             CONSTANT_INPUT: {-1},
         },
-        # "test_group_normalization_example_cpu": {
-        #     STATIC_SHAPE: {},
-        #     DYNAMIC_SHAPE: {-1: {-1}},
-        #     CONSTANT_INPUT: {-1},
-        # },
+        "test_group_normalization_example_cpu": {
+            STATIC_SHAPE: {},
+            DYNAMIC_SHAPE: {-1: {-1}},
+            CONSTANT_INPUT: {-1},
+        },
         "test_group_normalization_example_expanded_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},

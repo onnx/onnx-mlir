@@ -2,7 +2,7 @@
 
 ##################### add_sub_onnx.py ##########################################
 #
-# Copyright 2023 The IBM Research Authors.
+# Copyright 2023-2024 The IBM Research Authors.
 #
 ################################################################################
 #
@@ -92,7 +92,7 @@ if args.run_models:
         raise ie
     add_sess = OMCompileExecutionSession(add_model, "", reuse_compiled_model=0)
     sub_sess = OMCompileExecutionSession(sub_model, "", reuse_compiled_model=0)
-    a = np.array([10, 20, 30, 40, 50, 60], dtype=np.int64).reshape((3, 2))
+    a = np.array([10, 10, 10, 10, 10, 10], dtype=np.int64).reshape((3, 2))
     b = np.array([1, 2, 3, 4, 5, 6], dtype=np.int64).reshape((3, 2))
 
     # Do (a+b)-b using the two models: Add and Sub.
