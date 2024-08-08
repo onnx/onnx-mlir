@@ -228,7 +228,7 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
   // int. Thus we look at the type the first input argument, and not the output
   // elementType.
   mlir::Type actualElementType =
-      MathBuilder::elementTypeWithVector(scalarOperands[0].getType());
+      MathBuilder::elementTypeOfScalarOrVector(scalarOperands[0]);
   // Perform int or float operation depending on the actual elementary type.
   if (mlir::isa<mlir::IntegerType>(actualElementType)) {
     // Generate the integer code only if the scalar integer op is non-void
