@@ -121,21 +121,26 @@ bool MathBuilder::splatToMatch(Value &first, Value &second) const {
   VectorType firstVectorType = mlir::dyn_cast<VectorType>(firstType);
   VectorType secondVectorType = mlir::dyn_cast<VectorType>(secondType);
   MultiDialectBuilder<VectorBuilder> create(*this);
+  LLVM_DEBUG(llvm::dbgs() << "Splat to match first: " << firstType << "\n";
+             llvm::dbgs() << "  second: " << secondType << "\n";);
+
   // Splat first if needed.
   if (!firstVectorType && secondVectorType) {
     firstVectorType = VectorType::get(secondVectorType.getShape(), firstType);
     first = create.vec.splat(firstVectorType, first);
+    LLVM_DEBUG(llvm::dbgs() << "  splat first\n");
     return true;
   }
   // Splat second if needed.
   if (firstVectorType && !secondVectorType) {
     secondVectorType = VectorType::get(firstVectorType.getShape(), secondType);
     second = create.vec.splat(secondVectorType, second);
+    LLVM_DEBUG(llvm::dbgs() << "  splat second\n");
     return true;
   }
   // Otherwise check compatibility.
-  assert(create.vec.compatibleTypes(firstType, secondType) &&
-         "expected compatible types");
+  assert(create.vec.compatibleShapes(firstType, secondType) &&
+         "expected compatible shapes");
   return false;
 }
 
@@ -147,6 +152,21 @@ bool MathBuilder::splatToMatch(
     // Have missed changes in 1-2 pair, redo.
     splatToMatch(first, second);
   return changeIn12 || changeIn13;
+}
+
+void MathBuilder::splatToMatch(llvm::SmallVectorImpl<Value> &vals) const {
+  // Do not check the types when matching splats as this interface is called
+  // blindly on a list of vals.
+  int64_t size = vals.size();
+  if (size <= 1)
+    return; // Nothing to do with 0 or 1 values.
+  if (size == 2) {
+    splatToMatch(vals[0], vals[1]);
+  } else if (size == 3) {
+    splatToMatch(vals[0], vals[1], vals[2]);
+  } else {
+    llvm_unreachable("can only splat to match up to 3 values");
+  }
 }
 
 Value MathBuilder::abs(Value val) const {
@@ -560,6 +580,7 @@ Value MathBuilder::neq(Value lhs, Value rhs) const {
 }
 
 Value MathBuilder::select(Value cmp, Value trueVal, Value falseVal) const {
+  splatToMatch(cmp, trueVal, falseVal);
   assert(trueVal.getType() == falseVal.getType() && "expected same type");
   return b().create<arith::SelectOp>(loc(), cmp, trueVal, falseVal);
 }

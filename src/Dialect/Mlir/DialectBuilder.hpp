@@ -148,13 +148,13 @@ struct MathBuilder final : DialectBuilder {
   mlir::Value xori(mlir::Value lhs, mlir::Value rhs) const; // B/Int only.
 
   mlir::Value select(
-      mlir::Value cmp, mlir::Value trueVal, mlir::Value valseVal) const;
-  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;  // B.
-  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;  // B.
-  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;  // B.
-  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;  // B.
-  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;  // B.
-  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const; // B.
+      mlir::Value cmp, mlir::Value trueVal, mlir::Value valseVal) const; // B.
+  mlir::Value gt(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value ge(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value lt(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value le(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value eq(mlir::Value lhs, mlir::Value rhs) const;                // B.
+  mlir::Value neq(mlir::Value lhs, mlir::Value rhs) const;               // B.
   // Signed versions (index/signless/signed int or float)
   mlir::Value sgt(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
   mlir::Value sge(mlir::Value lhs, mlir::Value rhs) const; // B/No unsigned.
@@ -199,6 +199,8 @@ struct MathBuilder final : DialectBuilder {
   void addOffsetToLeastSignificant(mlir::ArrayRef<IndexExpr> indices,
       mlir::ValueRange offsets,
       llvm::SmallVectorImpl<mlir::Value> &computedIndices) const;
+  // Perform splat to match (see below), accepting up to 3 values at most.
+  void splatToMatch(llvm::SmallVectorImpl<mlir::Value> &vals) const;
 
 private:
   mlir::Value createArithCmp(
@@ -207,6 +209,7 @@ private:
       mlir::Value lhs, mlir::Value rhs, mlir::arith::CmpFPredicate pred) const;
   mlir::Value castToSignless(mlir::Value source, int64_t width) const;
   mlir::Value castToUnsigned(mlir::Value source, int64_t width) const;
+
   // If any of the first, second, or third values are vector types, splat the
   // other ones to the same VL. Return true if one or more values were splatted.
   bool splatToMatch(mlir::Value &first, mlir::Value &second) const;
