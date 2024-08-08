@@ -1307,47 +1307,7 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   CheckIfCustomScalarOpIsSupported<ONNXRoundOp>(elementType);
-  // Use numpy algorithm for rint as follows.
-  // ```
-  // double y, r;
-  // y = npy_floor(x);
-  // r = x - y;
-  //
-  // if (r > 0.5) {
-  //     y += 1.0;
-  // }
-  //
-  // /* Round to nearest even */
-  // if (r == 0.5) {
-  //     r = y - 2.0*npy_floor(0.5*y);
-  //     if (r == 1.0) {
-  //         y += 1.0;
-  //     }
-  // }
-  // return y;
-  // ```
-#if 1
   return create.math.round(x);
-#else
-  Value one = create.math.constant(elementType, 1.0);
-  Value two = create.math.constant(elementType, 2.0);
-  Value half = create.math.constant(elementType, 0.5);
-  Value y = create.math.floor(x);
-  Value r = create.math.sub(x, y);
-  // r > 0.5
-  Value rGreaterThanHalf = create.math.sgt(r, half);
-  Value y1 = create.math.select(rGreaterThanHalf, create.math.add(y, one), y);
-  // r == 0.5: round to nearest even.
-  Value y2 = create.math.mul(half, y);
-  y2 = create.math.floor(y2);
-  y2 = create.math.mul(y2, two);
-  Value rr = create.math.sub(y, y2);
-  Value rrEqualOne = create.math.eq(rr, one);
-  y2 = create.math.select(rrEqualOne, create.math.add(y, one), y);
-
-  Value rEqualHalf = create.math.eq(r, half);
-  return create.math.select(rEqualHalf, y2, y1);
-#endif
 }
 
 //===----------------------------------------------------------------------===//
