@@ -45,6 +45,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
             GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
         {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount);
   }
+  // Has only simd iterations when we have SIMD (VL > 0), the simd dimensions is
+  // a multiple of a non-zero constant (simdLoopStaticTripCount) iterations, and
+  // simdLoopStaticTripCount % VL == 0.
   bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (VL > 0) &&
                             (simdLoopStaticTripCount % VL == 0);
 
@@ -65,8 +68,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         inputAF.emplace_back(zero);
         DimsExpr outputAF = SymListIE(loopInd);
         outputAF.emplace_back(zero);
-        create.krnl.simdIterateIE(simdLb, simdUb, VL, onlySimdIterations, {input}, {inputAF},
-            {alloc}, {outputAF},
+        create.krnl.simdIterateIE(simdLb, simdUb, VL, onlySimdIterations,
+            {input}, {inputAF}, {alloc}, {outputAF},
             [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
                 SmallVectorImpl<Value> &resVals) {
               MultiDialectBuilder<MathBuilder> create(kb);
