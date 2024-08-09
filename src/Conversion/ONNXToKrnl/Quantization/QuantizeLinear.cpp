@@ -36,6 +36,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   // Determine a suitable SIMD vector length for this loop.
   int64_t VL = 0;
   int64_t simdLoopStaticTripCount = 0;
+  bool simdOnly = false;
   if (enableSIMD) {
     VL = VectorBuilder::computeSuitableUnrollFactor(
         inputType /* use unquantized type*/,
@@ -43,13 +44,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         {GenericOps::DivGop, GenericOps::ArithmeticGop,
             GenericOps::ConversionGop, GenericOps::MinMaxGop,
             GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
-        {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount);
+        {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount, simdOnly);
   }
-  // Has only simd iterations when we have SIMD (VL > 0), the simd dimensions is
-  // a multiple of a non-zero constant (simdLoopStaticTripCount) iterations, and
-  // simdLoopStaticTripCount % VL == 0.
-  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (VL > 0) &&
-                            (simdLoopStaticTripCount % VL == 0);
 
   // Generate outer loops
   ValueRange loopDef = create.krnl.defineLoops(rank - 1);
@@ -68,8 +64,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         inputAF.emplace_back(zero);
         DimsExpr outputAF = SymListIE(loopInd);
         outputAF.emplace_back(zero);
-        create.krnl.simdIterateIE(simdLb, simdUb, VL, onlySimdIterations,
-            {input}, {inputAF}, {alloc}, {outputAF},
+        create.krnl.simdIterateIE(simdLb, simdUb, VL, simdOnly, {input},
+            {inputAF}, {alloc}, {outputAF},
             [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
                 SmallVectorImpl<Value> &resVals) {
               MultiDialectBuilder<MathBuilder> create(kb);

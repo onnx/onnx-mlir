@@ -519,11 +519,7 @@ struct VectorBuilder final : DialectBuilder {
   // factor (starting at maxSimdUnroll) that divide the cumulative static size
   // of the memref being collapsed for SIMD. simdLoopStaticTripCount: provide
   // an estimation of the SIMD loop trip count. If runtime, return -1; if
-  // cannot simdize, return 0; if compile time (or a multiple of a compile
-  // time value): return that literal.
-  // Note that if simdLoopStaticTripCount>0 (we have simd) and
-  // simdLoopStaticTripCount % (returned VL) == 0, we can guarantee that all
-  // iterations will be SIMD iterations.
+  // cannot simdize, return 0; otherwise, return that literal.
   static int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
       mlir::MemRefType memRefType, int64_t collapsedInnermostLoops,
       int64_t maxSimdUnroll, bool canPad, int64_t &simdLoopStaticTripCount);
@@ -540,9 +536,13 @@ struct VectorBuilder final : DialectBuilder {
   // In this call, we assume that code gen can handle SIMD loops with trip count
   // that are not known to be a multiple of VL.
   // Definition and usage of simdLoopStaticTripCount is as in the previous call.
+  // SimdOnly is set to true when we can guarantee that every elements of the
+  // SIMD loop are covered by SIMD iterations (i.e. there is no need for scalar
+  // iterations).
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
       int64_t collapsedInnermostLoops, mlir::ArrayRef<GenericOps> GOps,
-      mlir::ArrayRef<int64_t> GOpsNum, int64_t &simdLoopStaticTripCount);
+      mlir::ArrayRef<int64_t> GOpsNum, int64_t &simdLoopStaticTripCount,
+      bool &simdOnly);
 
 private:
   bool isPowerOf2(uint64_t num) const;

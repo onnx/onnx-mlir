@@ -2006,16 +2006,19 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops,
     ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,
-    int64_t &simdLoopStaticTripCount) {
+    int64_t &simdLoopStaticTripCount, bool &simdOnly) {
   assert(GOps.size() == GOpsNum.size() && "expected same size");
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
-  simdLoopStaticTripCount = 0; // Initially assume no SIMD.
+  // Default return values for no simd.
+  simdLoopStaticTripCount = 0;
+  simdOnly = false;
 
   // Analyze size of SIMD iterations.
   int64_t staticSimdSize;
   bool isStatic = MemRefBuilder::getStaticMemSize(
       memRefType, staticSimdSize, -collapsedInnermostLoops);
+
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd HW VL is " << VL << "\n");
@@ -2061,7 +2064,13 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   LLVM_DEBUG(
       llvm::dbgs() << "  simd enable: with simd unroll " << simdUnroll << "\n");
 
+  // Fill in the output values. Now that we have SIMD, simdLoopStaticTripCount
+  // is either the static simd size if the trip is not runtime, or -1 if its
+  // runtime.
   simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
+  // Now that we have SIMD, we have SIMD only if the static component of the
+  // SIMD loop is positive and a multiple of VL.
+  simdOnly = (staticSimdSize > 0) && (staticSimdSize % VL == 0);
   return VL * simdUnroll;
 }
 

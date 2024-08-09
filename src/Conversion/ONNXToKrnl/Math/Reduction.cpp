@@ -346,13 +346,6 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
           create.vec.store(accumulatedVec2, redAlloc2, {zero});
         }
       });
-  Value divisorForMean = nullptr;
-  if (divideByMean<ONNXReductionOp1>() || divideByMean<ONNXReductionOp2>()) {
-    // Compute the divisor that is the number of elements participated in
-    // reduction, i.e., 'divisor = size of input / size of output, where output
-    // size == 1'.
-    divisorForMean = create.math.cast(elementType, flatInputDims[0].getValue());
-  }
 
   // First reduction horizontal sum.
   Value reductionVec1 = create.vec.load(vecType, redAlloc1, {zero});
@@ -367,6 +360,13 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   }
 
   // Handle mean if any.
+  Value divisorForMean = nullptr;
+  if (divideByMean<ONNXReductionOp1>() || divideByMean<ONNXReductionOp2>()) {
+    // Compute the divisor that is the number of elements participated in
+    // reduction, i.e., 'divisor = size of input / size of output, where output
+    // size == 1'.
+    divisorForMean = create.math.cast(elementType, flatInputDims[0].getValue());
+  }
   if (divideByMean<ONNXReductionOp1>())
     res1 = create.math.div(res1, divisorForMean);
   if (hasTwoRed && divideByMean<ONNXReductionOp2>())
