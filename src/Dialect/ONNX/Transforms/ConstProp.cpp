@@ -455,6 +455,23 @@ struct ElementWiseUnaryOpImpl<ONNXBitwiseNotOp, T, EnableInteger<T>> {
 };
 
 template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXAbsOp, T, EnableNotBool<T>> {
+  static T eval(T val) {
+    if constexpr (std::is_integral_v<T>) {
+      // Cast to int64_t to disambiguate abs if T is signed.
+      // Otherwise, just return the value.
+      if constexpr (std::is_signed_v<T>) {
+        return std::abs(static_cast<int64_t>(val));
+      } else {
+        return val;
+      }
+    } else {
+      return std::fabs(val);
+    };
+  }
+};
+
+template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXCeilOp, T, EnableNotBool<T>> {
   static T eval(T val) { return ceil(val); }
 };
@@ -468,7 +485,6 @@ template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXErfOp, T, EnableNotBool<T>> {
   static T eval(T val) { return std::erf(val); }
 };
-
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXExpOp, T, EnableFloatingPoint<T>> {
   static T eval(T val) { return std::exp(val); }
@@ -512,6 +528,11 @@ struct ElementWiseUnaryOpImpl<ONNXReluOp, T, EnableNotBool<T>> {
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableFloatingPoint<T>> {
   static T eval(T val) { return 1 / val; }
+};
+
+template <typename T>
+struct ElementWiseUnaryOpImpl<ONNXRoundOp, T, EnableNotBool<T>> {
+  static T eval(T val) { return std::nearbyint(val); }
 };
 
 template <typename ElementwiseUnaryOp>

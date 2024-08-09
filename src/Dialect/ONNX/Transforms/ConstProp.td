@@ -142,6 +142,9 @@ def CreateSubOfTwoConst :
 def CreateCastOfConst :
    NativeCodeCall<"ConstPropCast($_builder, $0, $1, $2, $3)">;
 
+def CreateAbsOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXAbsOp>($_builder, $0, $1)">;
+
 def CreateBitwiseNotOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXBitwiseNotOp>($_builder, $0, $1)">;
 
@@ -180,6 +183,9 @@ def CreateReluOfConst :
 
 def CreateReciprocalOfConst :
    NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXReciprocalOp>($_builder, $0, $1)">;
+
+def CreateRoundOfConst :
+   NativeCodeCall<"ConstPropElementwiseUnary<mlir::ONNXRoundOp>($_builder, $0, $1)">;
 
 def CreateMaxOfConst :
    NativeCodeCall<"ConstPropVariadicElementwiseBinary<mlir::ONNXMaxOp>($_builder, $0, $1)">;
@@ -411,6 +417,12 @@ def CastofConst : NamedPat<"CastofConst",
     (CreateCastOfConst $castOp, $input, $saturate, $to),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
+// Constant Propagation for Abs
+def AbsConstProp : NamedPat<"AbsofConst",
+    (ONNXAbsOp:$absOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    (CreateAbsOfConst $absOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
 // Constant Propagation for BitwiseNot
 def BitwiseNotConstProp : NamedPat<"BitwiseNotofConst",
     // From bitwise_not(c).
@@ -497,6 +509,14 @@ def ReciprocalConstProp : NamedPat<"ReciprocalofConst",
     (ONNXReciprocalOp:$reciprocalOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
     // To new_c
     (CreateReciprocalOfConst $reciprocalOp, $input),
+    [(IsFromDenseONNXConstantOp:$input)]>;
+
+// Constant Propagation for Round
+def RoundConstProp : NamedPat<"RoundofConst",
+    // From round(c)
+    (ONNXRoundOp:$roundOp (ONNXConstantOp:$input $_, $_, $_, $_, $_, $_, $_, $_)),
+    // To new_c.
+    (CreateRoundOfConst $roundOp, $input),
     [(IsFromDenseONNXConstantOp:$input)]>;
 
 // Change a subtraction of a constant c by an addition of -c. Helpfull to combine
