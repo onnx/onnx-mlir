@@ -63,11 +63,18 @@ public:
         llvm::dyn_cast_or_null<RankedTensorType>(adaptor.getInput().getType());
     auto outputType =
         llvm::dyn_cast_or_null<RankedTensorType>(op.getResult().getType());
-    if (!inputType || !outputType) {
+    if (!inputType || !outputType || !inputType.hasStaticShape() ||
+        !outputType.hasStaticShape()) {
       return rewriter.notifyMatchFailure(
-          op, "Unranked types are not supported");
+          op, "Unranked and dynamic types are not supported");
     }
     size_t inputRank = onnx_mlir::getRank(inputType);
+
+    if (inputRank > shapeArray.size() ||
+        inputRank > (size_t)outputType.getRank()) {
+      return rewriter.notifyMatchFailure(
+          op, "Expand does not support output types smaller than the input.");
+    }
 
     // If inputRank is inferior to shapeRank we need to introduce a
     // reshape before the tile
