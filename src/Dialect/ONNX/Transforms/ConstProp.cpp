@@ -532,18 +532,7 @@ struct ElementWiseUnaryOpImpl<ONNXReciprocalOp, T, EnableFloatingPoint<T>> {
 
 template <typename T>
 struct ElementWiseUnaryOpImpl<ONNXRoundOp, T, EnableNotBool<T>> {
-  static T eval(T val) {
-    // OnnxRoundOp implements roundeven.
-    double intPart;
-    double fracPart = std::modf(val, &intPart);
-    if (std::abs(fracPart) == 0.5) {
-      if (static_cast<int>(intPart) % 2 == 0) {
-        return intPart;
-      }
-      return intPart > 0 ? intPart + 1.0 : intPart - 1.0;
-    }
-    return std::round(val);
-  }
+  static T eval(T val) { return std::nearbyint(val); }
 };
 
 template <typename ElementwiseUnaryOp>
