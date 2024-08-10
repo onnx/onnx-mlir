@@ -2003,6 +2003,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
 }
 
+// hi alex: why does no SIMD needs a vl = 0; vl=1 should be just as good.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops,
     ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,

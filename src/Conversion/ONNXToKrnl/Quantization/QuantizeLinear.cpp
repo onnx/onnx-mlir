@@ -27,11 +27,20 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
     Location loc, Operation *op, MemRefType inputType, MemRefType quantizedType,
     Value alloc, DimsExpr &allocDims, Value input, Value qMin, Value qMax,
     Value scale, Value zeroPoint, bool enableSIMD, bool enableParallel) {
-  MultiDialectBuilder<KrnlBuilder, MathBuilder> create(rewriter, loc);
+  MultiDialectBuilder<KrnlBuilder, MemRefBuilder, MathBuilder> create(
+      rewriter, loc);
 
   // Types
   Type quantizedElementType = quantizedType.getElementType();
   int64_t rank = inputType.getRank();
+
+  // Flatten the input data and outputs
+  DimsExpr inputDims, flatInputDims, flatAllocDims;
+  inputDims = allocDims; // Unput and output have the same shape.
+  Value flatInput =
+      create.mem.reshapeToFlatInnermost(input, inputDims, flatInputDims, rank);
+  Value flatAlloc =
+      create.mem.reshapeToFlatInnermost(alloc, allocDims, flatAllocDims, rank);
 
   // Determine a suitable SIMD vector length for this loop.
   int64_t VL = 0;
@@ -47,40 +56,30 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount, simdOnly);
   }
 
-  // Generate outer loops
-  ValueRange loopDef = create.krnl.defineLoops(rank - 1);
-  SmallVector<IndexExpr, 4> lbs(rank - 1, LitIE(0));
-  SmallVector<IndexExpr, 4> ubs = allocDims;
-  ubs.pop_back(); // Remove the last dim.
   IndexExpr zero = LitIE(0);
-  create.krnl.iterateIE(
-      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &kb, ValueRange loopInd) {
-        IndexExprScope scope(kb);
-        MultiDialectBuilder<KrnlBuilder, MathBuilder, VectorBuilder> create(kb);
-        IndexExpr simdLb = zero;
-        IndexExpr simdUb = SymIE(allocDims[rank - 1]);
-        // Create access functions for input X and output Y.
-        DimsExpr inputAF = SymListIE(loopInd);
-        inputAF.emplace_back(zero);
-        DimsExpr outputAF = SymListIE(loopInd);
-        outputAF.emplace_back(zero);
-        create.krnl.simdIterateIE(simdLb, simdUb, VL, simdOnly, {input},
-            {inputAF}, {alloc}, {outputAF},
-            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
-                SmallVectorImpl<Value> &resVals) {
-              MultiDialectBuilder<MathBuilder> create(kb);
-              Value x = inputVals[0];
-              // Scale
-              Value scaleX = create.math.div(x, scale);
-              // Round
-              Value roundX = create.math.round(scaleX);
-              // Adjust
-              Value adjustX = create.math.add(roundX, zeroPoint);
-              // Saturate
-              Value saturateX = create.math.clip(adjustX, qMin, qMax);
-              Value res = create.math.cast(quantizedElementType, saturateX);
-              resVals.emplace_back(res);
-            });
+  IndexExpr simdLb = zero;
+  IndexExpr simdUb = SymIE(flatAllocDims[0]);
+  // Create access functions for input X and output Y.
+  DimsExpr inputAF;
+  inputAF.emplace_back(zero);
+  DimsExpr outputAF;
+  outputAF.emplace_back(zero);
+  create.krnl.simdIterateIE(simdLb, simdUb, VL, simdOnly, enableParallel,
+      {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
+      [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
+          SmallVectorImpl<Value> &resVals) {
+        MultiDialectBuilder<MathBuilder> create(kb);
+        Value x = inputVals[0];
+        // Scale
+        Value scaleX = create.math.div(x, scale);
+        // Round
+        Value roundX = create.math.round(scaleX);
+        // Adjust
+        Value adjustX = create.math.add(roundX, zeroPoint);
+        // Saturate
+        Value saturateX = create.math.clip(adjustX, qMin, qMax);
+        Value res = create.math.cast(quantizedElementType, saturateX);
+        resVals.emplace_back(res);
       });
   if (VL > 1)
     onnxToKrnlSimdReport(op, /*successful*/ true, VL, simdLoopStaticTripCount,
