@@ -3620,7 +3620,7 @@ class InferenceBackendTest(BackendTest):
         outputs: Sequence[Any],
         rtol: float,
         atol: float,
-        model_dir: str | None = None,
+        model_dir: str,
     ) -> None:
         rtol = float(os.getenv("TEST_RTOL", rtol))
         atol = float(os.getenv("TEST_ATOL", atol))
