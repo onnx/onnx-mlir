@@ -151,7 +151,12 @@ private:
       const llvm::ArrayRef<int64_t> &shapeAttr) {
     llvm::SmallVector<int64_t> multipliesArray;
     for (size_t i = 0; i < inputShape.size(); ++i) {
-      multipliesArray.push_back(shapeAttr[i] / inputShape[i]);
+      int tile = shapeAttr[i] / inputShape[i];
+      if (tile == 0) {
+        multipliesArray.push_back(1);
+      } else {
+        multipliesArray.push_back(tile);
+      }
     }
     return DenseI64ArrayAttr::get(op.getContext(), multipliesArray);
   }

@@ -75,6 +75,16 @@ func.func @test_expand_no_tile(%arg0: tensor<128x16xf32>) -> tensor<1x1x128x16xf
 // CHECK-NEXT:    return %[[TILE]] : tensor<1x1x128x16xf32>
 
 // -----
+func.func @test_expand_tile_one_dim_big(%arg0: tensor<1x6x1x1xf32>) -> tensor<1x6x576x672xf32> {
+  %0 =  onnx.Constant dense<[1, 1, 576, 672]> : tensor<4xi64> 
+  %1 = "onnx.Expand"(%arg0, %0) {onnx_node_name = "Expand_1417"} : (tensor<1x6x1x1xf32>, tensor<4xi64>) -> tensor<1x6x576x672xf32>
+  return %1 : tensor<1x6x576x672xf32>
+}
+// CHECK-LABEL:  func.func @test_expand_tile_one_dim_big
+// CHECK:         %[[TILE:.*]] = tosa.tile %{{.*}} {multiples = array<i64: 1, 1, 576, 672>} : (tensor<1x6x1x1xf32>) -> tensor<1x6x576x672xf32>
+// CHECK:         return %[[TILE]] : tensor<1x6x576x672xf32>
+
+// -----
 
 func.func @test_expand_no_legalization(%arg0: tensor<1x64x1x1xf32>, %arg1: tensor<4xi64>) -> tensor<1x64x64x64xf32> {
   %0 = "onnx.Expand"(%arg0, %arg1) : (tensor<1x64x1x1xf32>, tensor<4xi64>) -> tensor<1x64x64x64xf32>
