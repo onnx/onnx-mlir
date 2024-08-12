@@ -55,9 +55,10 @@ public:
     Value formatSpecPtr = getPtrToGlobalString(formatSpec, loc, rewriter);
 
     if (input)
-      create.llvm.call({}, printfFuncRef, {formatSpecPtr, input});
+      create.llvm.call(
+          {}, printfFuncRef, {formatSpecPtr, input}, /*isVarArg*/ true);
     else
-      create.llvm.call({}, printfFuncRef, {formatSpecPtr});
+      create.llvm.call({}, printfFuncRef, {formatSpecPtr}, /*isVarArg*/ true);
 
     rewriter.eraseOp(op);
     return success();
