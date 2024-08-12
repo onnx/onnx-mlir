@@ -1964,8 +1964,7 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
 }
 
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
-    FlatSymbolRefAttr funcSymbol, ArrayRef<Value> inputs,
-    bool isVarArg) const {
+    FlatSymbolRefAttr funcSymbol, ArrayRef<Value> inputs, bool isVarArg) const {
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
          "LLVM:CallOp must return either 0 or 1 value");
   LLVM::CallOp callOp =

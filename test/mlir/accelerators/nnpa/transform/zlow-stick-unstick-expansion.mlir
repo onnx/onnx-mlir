@@ -13,10 +13,10 @@ func.func @test_stick_expansion_with_sat(%arg0: memref<16x8x128xf32>) -> memref<
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s1 floordiv 64)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s0 + s1)>
-// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<()[s0, s1] -> (s1 + 8)>
-// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<()[s0, s1] -> (s1 + 16)>
-// CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<()[s0, s1] -> (s1 + 24)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1 + s0)>
+// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<()[s0, s1] -> (s0 + 8)>
+// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<()[s0, s1] -> (s0 + 16)>
+// CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<()[s0, s1] -> (s0 + 24)>
 // CHECK-LABEL:  func.func @test_stick_expansion_with_sat
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x8x128xf32>) -> memref<16x8x128xf16, #map> {
 // CHECK-DAG:       [[CST_28_:%.+]] = arith.constant 28 : index
@@ -40,7 +40,7 @@ func.func @test_stick_expansion_with_sat(%arg0: memref<16x8x128xf32>) -> memref<
 // CHECK:             krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, read, locality<1>, data : memref<16x8x128xf32>
 // CHECK:             krnl.prefetch [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, write, locality<1>, data : memref<16x8x128xf16, #map>
 // CHECK:             affine.for [[I_3_:%.+]] = 0 to 64 step 32 {
-// CHECK:               [[VAR_5_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_5_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_5_]]{{.}} : memref<16x8x128xf32>, vector<4xf32>
 // CHECK-DAG:           [[VAR_7_:%.+]] = arith.addi [[VAR_5_]], [[CST_4_]] : index
 // CHECK-NOT: separator of consecutive DAGs
@@ -86,11 +86,11 @@ func.func @test_stick_expansion_with_sat(%arg0: memref<16x8x128xf32>) -> memref<
 // CHECK-DAG:           [[VAR_39_:%.+]] = "zlow.vec_f32_to_dlf16"([[VAR_33_]], [[VAR_34_]]) : (vector<4xf32>, vector<4xf32>) -> vector<8xf16>
 // CHECK:               [[VAR_40_:%.+]] = "zlow.vec_f32_to_dlf16"([[VAR_35_]], [[VAR_36_]]) : (vector<4xf32>, vector<4xf32>) -> vector<8xf16>
 // CHECK:               vector.store [[VAR_37_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[I_3_]]{{.}} : memref<2x64xf16>, vector<8xf16>
-// CHECK:               [[VAR_41_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_41_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK:               vector.store [[VAR_38_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_4_]]1] : memref<2x64xf16>, vector<8xf16>
-// CHECK:               [[VAR_42_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_42_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK:               vector.store [[VAR_39_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_4_]]2] : memref<2x64xf16>, vector<8xf16>
-// CHECK:               [[VAR_43_:%.+]] = affine.apply [[MAP_6_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_43_:%.+]] = affine.apply [[MAP_6_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK:               vector.store [[VAR_40_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_4_]]3] : memref<2x64xf16>, vector<8xf16>
 // CHECK:             }
 // CHECK:           }
@@ -111,10 +111,10 @@ func.func @test_stick_expansion_without_sat(%arg0: memref<16x8x128xf32>) -> memr
 // CHECK-DAG:   [[MAP_0_:#.+]] = affine_map<(d0, d1, d2) -> (d0, d2 floordiv 64, 0, d1 floordiv 32, d1 mod 32, d2 mod 64)>
 // CHECK-DAG:   [[MAP_1_:#.+]] = affine_map<()[s0] -> (s0 * 64)>
 // CHECK-DAG:   [[MAP_2_:#.+]] = affine_map<()[s0, s1] -> (s1 floordiv 64)>
-// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s0 + s1)>
-// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<()[s0, s1] -> (s1 + 8)>
-// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<()[s0, s1] -> (s1 + 16)>
-// CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<()[s0, s1] -> (s1 + 24)>
+// CHECK-DAG:   [[MAP_3_:#.+]] = affine_map<()[s0, s1] -> (s1 + s0)>
+// CHECK-DAG:   [[MAP_4_:#.+]] = affine_map<()[s0, s1] -> (s0 + 8)>
+// CHECK-DAG:   [[MAP_5_:#.+]] = affine_map<()[s0, s1] -> (s0 + 16)>
+// CHECK-DAG:   [[MAP_6_:#.+]] = affine_map<()[s0, s1] -> (s0 + 24)>
 // CHECK-LABEL:  func.func @test_stick_expansion_without_sat
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x8x128xf32>) -> memref<16x8x128xf16, #map> {
 // CHECK-DAG:       [[CST_28_:%.+]] = arith.constant 28 : index
@@ -136,7 +136,7 @@ func.func @test_stick_expansion_without_sat(%arg0: memref<16x8x128xf32>) -> memr
 // CHECK:             krnl.prefetch [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, read, locality<1>, data : memref<16x8x128xf32>
 // CHECK:             krnl.prefetch [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_2_]]{{.}}, write, locality<1>, data : memref<16x8x128xf16, #map>
 // CHECK:             affine.for [[I_3_:%.+]] = 0 to 64 step 32 {
-// CHECK:               [[VAR_5_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_5_:%.+]] = affine.apply [[MAP_3_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK-DAG:           [[LOAD_PARAM_0_MEM_:%.+]] = vector.load [[PARAM_0_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_5_]]{{.}} : memref<16x8x128xf32>, vector<4xf32>
 // CHECK-DAG:           [[VAR_7_:%.+]] = arith.addi [[VAR_5_]], [[CST_4_]] : index
 // CHECK-NOT: separator of consecutive DAGs
@@ -164,11 +164,11 @@ func.func @test_stick_expansion_without_sat(%arg0: memref<16x8x128xf32>) -> memr
 // CHECK-DAG:           [[VAR_23_:%.+]] = "zlow.vec_f32_to_dlf16"([[LOAD_PARAM_0_MEM_4_]], [[LOAD_PARAM_0_MEM_5_]]) : (vector<4xf32>, vector<4xf32>) -> vector<8xf16>
 // CHECK:               [[VAR_24_:%.+]] = "zlow.vec_f32_to_dlf16"([[LOAD_PARAM_0_MEM_6_]], [[LOAD_PARAM_0_MEM_7_]]) : (vector<4xf32>, vector<4xf32>) -> vector<8xf16>
 // CHECK:               vector.store [[VAR_21_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[I_3_]]{{.}} : memref<2x64xf16>, vector<8xf16>
-// CHECK:               [[VAR_25_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_25_:%.+]] = affine.apply [[MAP_4_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK:               vector.store [[VAR_22_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_25_]]{{.}} : memref<2x64xf16>, vector<8xf16>
-// CHECK:               [[VAR_26_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_26_:%.+]] = affine.apply [[MAP_5_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK:               vector.store [[VAR_23_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_26_]]{{.}} : memref<2x64xf16>, vector<8xf16>
-// CHECK:               [[VAR_27_:%.+]] = affine.apply [[MAP_6_]](){{.}}[[VAR_2_]], [[I_3_]]{{.}}
+// CHECK:               [[VAR_27_:%.+]] = affine.apply [[MAP_6_]](){{.}}[[I_3_]], [[VAR_2_]]{{.}}
 // CHECK:               vector.store [[VAR_24_]], [[VAR_reinterpret_cast_]]{{.}}[[VAR_4_]], [[VAR_27_]]{{.}} : memref<2x64xf16>, vector<8xf16>
 // CHECK:             }
 // CHECK:           }
@@ -196,7 +196,7 @@ func.func @test_unstick_expansion(%arg0: memref<16x8x128xf16, #map>) -> memref<1
 // CHECK-DAG:   [[MAP_7_:#.+]] = affine_map<()[s0] -> (-s0 + 121)>
 // CHECK-DAG:   [[MAP_8_:#.+]] = affine_map<()[s0] -> ((-s0) mod 8)>
 // CHECK-DAG:   [[MAP_9_:#.+]] = affine_map<()[s0] -> (-s0 - (-s0) mod 8 + 128)>
-// CHECK-DAG:   [[MAP_10_:#.+]] = affine_map<(d0)[s0, s1] -> (d0 + s0 + s1)>
+// CHECK-DAG:   [[MAP_10_:#.+]] = affine_map<(d0)[s0, s1] -> (d0 + s1 + s0)>
 // CHECK-LABEL:  func.func @test_unstick_expansion
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: memref<16x8x128xf16, #map>) -> memref<16x8x128xf32> {
 // CHECK-DAG:       [[CST_1_:%.+]] = arith.constant 1 : index
@@ -272,7 +272,7 @@ func.func @test_unstick_expansion(%arg0: memref<16x8x128xf16, #map>) -> memref<1
 // CHECK:               vector.store [[VAR_output2_1_]], [[RES_1_]]{{.}}[[CST_4_]]{{.}} : memref<8xf32>, vector<4xf32>
 // CHECK:               scf.for [[I_5_:%.+]] = [[CST_0_]] to [[VAR_6_1_]] step [[CST_1_]] {
 // CHECK-DAG:             [[LOAD_VAR_reinterpret_cast_MEM_5_:%.+]] = krnl.load [[RES_1_]]{{.}}[[I_5_]]{{.}} : memref<8xf32>
-// CHECK-DAG:             [[VAR_10_2_:%.+]] = affine.apply [[MAP_10_]]([[I_5_]]){{.}}[[VAR_2_]], [[LOAD_VAR_reinterpret_cast_MEM_1_]]{{.}}
+// CHECK-DAG:             [[VAR_10_2_:%.+]] = affine.apply [[MAP_10_]]([[I_5_]]){{.}}[[LOAD_VAR_reinterpret_cast_MEM_1_]], [[VAR_2_]]{{.}}
 // CHECK:                 krnl.store [[LOAD_VAR_reinterpret_cast_MEM_5_]], [[RES_]]{{.}}[[VAR_1_]]#0, [[VAR_1_]]#1, [[VAR_1_]]0] : memref<16x8x128xf32>
 // CHECK:               }
 // CHECK:             }

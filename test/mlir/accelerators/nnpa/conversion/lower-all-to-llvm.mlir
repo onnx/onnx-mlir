@@ -61,7 +61,7 @@ func.func @test_stick() -> () {
   // CHECK: [[UNSTICKIFIED:%.+]] = llvm.extractvalue [[UNSTICKIFIED_MEMREF]][1] : !llvm.struct<(ptr, ptr, i64, array<2 x i64>, array<2 x i64>)>
   // CHECK: [[UNSTICKIFIED_I8PTR:%.+]] = llvm.bitcast [[UNSTICKIFIED]] : !llvm.ptr to !llvm.ptr
   // CHECK: [[ZTENSOR_I8PTR:%.+]] = llvm.bitcast [[ZTENSOR]] : !llvm.ptr to !llvm.ptr
-  // CHECK: {{.*}} = llvm.call @zdnn_transform_ztensor([[ZTENSOR_I8PTR]], [[UNSTICKIFIED_I8PTR]]) : (!llvm.ptr, !llvm.ptr) -> i32
+  // CHECK: {{.*}} = llvm.call @zdnn_transform_ztensor([[ZTENSOR_I8PTR]], [[UNSTICKIFIED_I8PTR]]) vararg(!llvm.func<i32 (ptr, ptr, ...)>) : (!llvm.ptr, !llvm.ptr) -> i32
 
   // CHECK: llvm.return
 }
