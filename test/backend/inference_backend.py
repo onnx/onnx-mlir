@@ -28,7 +28,7 @@ import variables
 from variables import *
 from common import compile_model
 from onnxmlir_node_tests import load_onnxmlir_node_tests
-from typing import Sequence, Any
+from typing import Optional, Sequence, Any
 
 
 def get_test_models():
@@ -3620,7 +3620,7 @@ class InferenceBackendTest(BackendTest):
         outputs: Sequence[Any],
         rtol: float,
         atol: float,
-        model_dir: str,
+        model_dir: Optional[str] = None,
     ) -> None:
         rtol = float(os.getenv("TEST_RTOL", rtol))
         atol = float(os.getenv("TEST_ATOL", atol))
