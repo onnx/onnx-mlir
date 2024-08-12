@@ -1930,12 +1930,33 @@ void LLVMBuilder::br(ArrayRef<Value> destOperands, Block *destBlock) const {
   b().create<LLVM::BrOp>(loc(), destOperands, destBlock);
 }
 
+void LLVMBuilder::handleVarArgCall(LLVM::CallOp &callOp,
+    ArrayRef<Type> resultTypes, ArrayRef<Value> inputs) const {
+  // Define result type (void or 1).
+  Type resultType;
+  if (resultTypes.size() == 0 || isa<LLVM::LLVMVoidType>(resultTypes[0])) {
+    MLIRContext *ctx = b().getContext();
+    resultType = LLVM::LLVMVoidType::get(ctx);
+  } else {
+    resultType = resultTypes[0];
+  }
+  // Define input types.
+  llvm::SmallVector<Type, 4> inputTypes;
+  for (int64_t i = 0; i < (int64_t)inputs.size(); ++i)
+    inputTypes.emplace_back(inputs[i].getType());
+  auto typeSignature =
+      LLVM::LLVMFunctionType::get(resultType, inputTypes, /*is var arg*/ true);
+  callOp.setVarCalleeType(typeSignature);
+}
+
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
-    ArrayRef<Value> inputs) const {
+    ArrayRef<Value> inputs, bool isVarArg) const {
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
          "LLVM:CallOp must return either 0 or 1 value");
   LLVM::CallOp callOp =
       b().create<LLVM::CallOp>(loc(), resultTypes, funcName, inputs);
+  if (isVarArg)
+    handleVarArgCall(callOp, resultTypes, inputs);
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;
@@ -1943,11 +1964,13 @@ Value LLVMBuilder::call(ArrayRef<Type> resultTypes, StringRef funcName,
 }
 
 Value LLVMBuilder::call(ArrayRef<Type> resultTypes,
-    FlatSymbolRefAttr funcSymbol, ArrayRef<Value> inputs) const {
+    FlatSymbolRefAttr funcSymbol, ArrayRef<Value> inputs, bool isVarArg) const {
   assert((resultTypes.size() == 0 || resultTypes.size() == 1) &&
          "LLVM:CallOp must return either 0 or 1 value");
   LLVM::CallOp callOp =
       b().create<LLVM::CallOp>(loc(), resultTypes, funcSymbol, inputs);
+  if (isVarArg)
+    handleVarArgCall(callOp, resultTypes, inputs);
   // CallOp may return either 0 or 1 value.
   if (resultTypes.empty())
     return nullptr;

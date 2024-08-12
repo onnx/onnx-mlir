@@ -8,7 +8,7 @@ module {
   func.func @main_graph(%arg0: memref<3x4x5xf32>, %arg1: memref<?x4x5xf32>) -> memref<3x4x5xf32> {
     return %arg0 : memref<3x4x5xf32>
   }
-  "krnl.entry_point"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4 , 5] , \22name\22 : \22input0\22 }\0A ,    { \22type\22 : \22f32\22 , \22dims\22 : [-1 , 4 , 5] , \22name\22 : \22input1\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4 , 5] , \22name\22 : \22output0\22 }\0A\0A]\00"} : () -> ()
+  "krnl.entry_point"() {func = @main_graph, numInputs = 2 : i32, numOutputs = 1 : i32, signature = "[    { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4 , 5] , \22name\22 : \22input0\22 }\0A ,    { \22type\22 : \22f32\22 , \22dims\22 : [-1 , 4 , 5] , \22name\22 : \22input1\22 }\0A\0A]\00@[   { \22type\22 : \22f32\22 , \22dims\22 : [3 , 4 , 5], \22name\22 : \22output0\22 }\0A\0A]\00"} : () -> ()
 
 // CHECK:         llvm.func @run_main_graph([[arg0_:.*]]: !llvm.ptr) -> !llvm.ptr {
 // CHECK-DAG:       [[VAR_0:%.+]] = llvm.mlir.undef : !llvm.struct<(ptr, ptr, i64, array<3 x i64>, array<3 x i64>)>
@@ -35,7 +35,7 @@ module {
 // CHECK:           [[VAR_19_1_:%.+]] = llvm.icmp "ne" [[VAR_17_1_]], [[VAR_18_1_]] : i64
 // CHECK:           llvm.cond_br [[VAR_19_1_]], ^bb1, ^bb2
 // CHECK:         ^bb1:  // pred: ^bb0
-// CHECK:           llvm.call @printf([[VAR_16_1_]], [[VAR_18_1_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_16_1_]], [[VAR_18_1_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_22_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_22_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -46,7 +46,7 @@ module {
 // CHECK:           [[VAR_27_:%.+]] = llvm.icmp "ne" [[VAR_14_1_]], [[VAR_26_]] : i64
 // CHECK:           llvm.cond_br [[VAR_27_]], ^bb3, ^bb4
 // CHECK:         ^bb3: // pred: ^bb2
-// CHECK:           llvm.call @printf([[VAR_13_1_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.call @printf([[VAR_13_1_]]) vararg(!llvm.func<void (ptr, ...)>) : (!llvm.ptr) -> ()
 // CHECK:           [[VAR_29_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_29_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -55,7 +55,7 @@ module {
 // CHECK:           [[VAR_31_1_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_31_]] : i64
 // CHECK:           llvm.cond_br [[VAR_31_1_]], ^bb5, ^bb6
 // CHECK:         ^bb5:  // pred: ^bb4
-// CHECK:           llvm.call @printf([[VAR_11_1_]], [[VAR_31_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_11_1_]], [[VAR_31_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_31_2_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_31_2_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -65,7 +65,7 @@ module {
 // CHECK:           [[VAR_32_2_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[LOAD_VAR_32_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_32_2_]], ^bb7, ^bb8
 // CHECK:         ^bb7:  // pred: ^bb6
-// CHECK:           llvm.call @printf([[LOAD_arg2_MEM_1_]], [[LOAD_VAR_32_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[LOAD_arg2_MEM_1_]], [[LOAD_VAR_32_MEM_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_32_3_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_32_3_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -75,7 +75,7 @@ module {
 // CHECK:           [[VAR_40_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_VAR_36_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_40_]], ^bb9, ^bb10
 // CHECK:         ^bb9:  // pred: ^bb8
-// CHECK:           llvm.call @printf([[VAR_8_2_]], [[LOAD_VAR_36_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_8_2_]], [[LOAD_VAR_36_MEM_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_41_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_41_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -85,7 +85,7 @@ module {
 // CHECK:           [[VAR_42_0_:%.+]] = llvm.icmp "ne" [[VAR_7_2_]], [[LOAD_VAR_40_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_42_0_]], ^bb11, ^bb12
 // CHECK:         ^bb11:  // pred: ^bb10
-// CHECK:           llvm.call @printf([[VAR_6_2_]], [[LOAD_VAR_40_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_6_2_]], [[LOAD_VAR_40_MEM_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_42_1_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_42_1_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -96,7 +96,7 @@ module {
 // CHECK:           [[VAR_45_:%.+]] = llvm.icmp "ne" [[VAR_14_1_]], [[VAR_44_]] : i64
 // CHECK:           llvm.cond_br [[VAR_45_]], ^bb13, ^bb14
 // CHECK:         ^bb13:  // pred: ^bb12
-// CHECK:           llvm.call @printf([[VAR_5_2_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.call @printf([[VAR_5_2_]]) vararg(!llvm.func<void (ptr, ...)>) : (!llvm.ptr) -> ()
 // CHECK:           [[VAR_47_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_47_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -105,7 +105,7 @@ module {
 // CHECK:           [[VAR_49_:%.+]] = llvm.icmp "ne" [[VAR_12_1_]], [[VAR_48_]] : i64
 // CHECK:           llvm.cond_br [[VAR_49_]], ^bb15, ^bb16
 // CHECK:         ^bb15:  // pred: ^bb14
-// CHECK:           llvm.call @printf([[VAR_4_2_]], [[VAR_48_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_4_2_]], [[VAR_48_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_50_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_50_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -115,7 +115,7 @@ module {
 // CHECK:           [[VAR_53_:%.+]] = llvm.icmp "slt" [[LOAD_VAR_51_MEM_]], [[VAR_3_2_]] : i64
 // CHECK:           llvm.cond_br [[VAR_53_]], ^bb17, ^bb18
 // CHECK:         ^bb17:  // pred: ^bb16
-// CHECK:           llvm.call @printf([[VAR_2_2_]]) : (!llvm.ptr) -> ()
+// CHECK:           llvm.call @printf([[VAR_2_2_]]) vararg(!llvm.func<void (ptr, ...)>) : (!llvm.ptr) -> ()
 // CHECK:           [[VAR_54_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_54_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -125,7 +125,7 @@ module {
 // CHECK:           [[VAR_55_1_:%.+]] = llvm.icmp "ne" [[VAR_9_2_]], [[LOAD_VAR_55_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_55_1_]], ^bb19, ^bb20
 // CHECK:         ^bb19:  // pred: ^bb18
-// CHECK:           llvm.call @printf([[VAR_1_2_]], [[LOAD_VAR_55_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_1_2_]], [[LOAD_VAR_55_MEM_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_55_2_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_55_2_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
@@ -135,7 +135,7 @@ module {
 // CHECK:           [[VAR_55_4_:%.+]] = llvm.icmp "ne" [[VAR_7_2_]], [[LOAD_VAR_54_MEM_]] : i64
 // CHECK:           llvm.cond_br [[VAR_55_4_]], ^bb21, ^bb22
 // CHECK:         ^bb21:  // pred: ^bb20
-// CHECK:           llvm.call @printf([[VAR_0_2_]], [[LOAD_VAR_54_MEM_]]) : (!llvm.ptr, i64) -> ()
+// CHECK:           llvm.call @printf([[VAR_0_2_]], [[LOAD_VAR_54_MEM_]]) vararg(!llvm.func<void (ptr, i64, ...)>) : (!llvm.ptr, i64) -> ()
 // CHECK:           [[VAR_56_:%.+]] = llvm.call @__errno_location() : () -> !llvm.ptr
 // CHECK:           llvm.store [[VAR_15_1_]], [[VAR_56_]] : i32, !llvm.ptr
 // CHECK:           llvm.return [[VAR_14_2_]] : !llvm.ptr
