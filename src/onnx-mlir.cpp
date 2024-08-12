@@ -13,6 +13,7 @@
 
 #include <regex>
 
+#include "mlir/IR/AsmState.h"
 #include "mlir/Support/Timing.h"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerUtils.hpp"
@@ -28,7 +29,6 @@ int main(int argc, char *argv[]) {
   mlir::registerAsmPrinterCLOptions();
   mlir::registerMLIRContextCLOptions();
   mlir::registerPassManagerCLOptions();
-  mlir::registerAsmPrinterCLOptions();
 
   llvm::cl::SetVersionPrinter(getVersionPrinter);
 
