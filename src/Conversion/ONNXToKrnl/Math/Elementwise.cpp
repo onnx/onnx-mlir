@@ -1243,15 +1243,6 @@ Value emitScalarOpFor<ONNXModOp>(ConversionPatternRewriter &rewriter,
     Value answer =
         create.math.select(needAdjust, adjustedRemainder, mathRemainder);
 
-#ifdef DEBUG_ONNX_MOD
-    create.krnl.printf("XXXX emitScalarOpFor<ONNXModOp>: dividend=", dividend);
-    create.krnl.printf(", divisor=", divisor);
-    create.krnl.printf(", mathReminder=", mathRemainder);
-    create.krnl.printf(", adjustedReminder=", adjustedRemainder);
-    create.krnl.printf(", Answer=", answer);
-    create.krnl.printf("\n");
-#endif
-
     return answer;
   }
   llvm_unreachable("unsupported element type");
