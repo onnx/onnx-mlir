@@ -161,7 +161,7 @@ version_dict = {
     "Greater": [13],
     "GreaterOrEqual": [16],
     "GridSample": [16],
-    "GroupNormalization": [18],
+    "GroupNormalization": [21, 18],
     "HammingWindow": [17],
     "HannWindow": [17],
     "HardSigmoid": [6],
