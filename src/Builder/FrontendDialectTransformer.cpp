@@ -306,12 +306,10 @@ private:
     }
     auto shape_proto = tensor_type.shape();
     for (int i = 0; i < shape_proto.dim_size(); i++) {
-      if (shape_proto.dim()[i].dim_value()) {
+      if (shape_proto.dim()[i].has_dim_value()) {
         // Dim is a constant value.
         int dim_numeric_size = shape_proto.dim()[i].dim_value();
-        assert(dim_numeric_size != 0 &&
-               "Parsed an tensor with a dimension size of zero");
-        if (dim_numeric_size > 0) {
+        if (dim_numeric_size >= 0) {
           dims.push_back(dim_numeric_size);
         } else {
           // If dim_value < 0, then dim is parametric.
