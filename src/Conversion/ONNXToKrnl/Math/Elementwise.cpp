@@ -1393,8 +1393,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t &estimatedSimdLoopTripCount) {
   estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
-  int64_t simdUnroll;
-  int64_t uVL = 0;
+  int64_t unrollVL;
+  int64_t totVL = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
@@ -1411,22 +1411,22 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
 
   int64_t vrNum = vms->VectorRegisterNum();
   if (vectorizedOpNum >= vrNum / 2)
-    simdUnroll = 1; // TODO, it would appear to be beneficial to always have 2.
+    unrollVL = 1; // TODO, it would appear to be beneficial to always have 2.
   else if (vectorizedOpNum >= vrNum / 4)
-    simdUnroll = 4;
+    unrollVL = 4;
   else
-    simdUnroll = 8;
-  uVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
-      collapsedInnermostLoops, simdUnroll,
+    unrollVL = 8;
+  totVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
+      collapsedInnermostLoops, unrollVL,
       /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({
-    if (uVL)
-      llvm::dbgs() << "  simd enabled with vector length " << uVL << "\n";
+    if (totVL)
+      llvm::dbgs() << "  simd enabled with vector length " << totVL << "\n";
     else
       LLVM_DEBUG(
           llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
   });
-  return uVL;
+  return totVL;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1453,9 +1453,9 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   // Alloc memory with padding for SIMD.
   // For the moment, its ok to go here; if we truly have partial flattening of
   // the simd code, then we only do it with static memref size that are
-  // multiples of VL * simdUnroll, so there should be no padding anyway. This
+  // multiples of VL * unrollVL, so there should be no padding anyway. This
   // will change if we do partial flattening with non-multiple of VL *
-  // simdUnroll.
+  // unrollVL.
   Value alloc = create.mem.alignedAllocWithSimdPadding(
       outputMemRefType, outputDims, VL, alignment);
   // Create flat inputs in the last innerDinNum dims.
@@ -2046,15 +2046,16 @@ struct ONNXElementwiseUnaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
-      int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-          shapeHelper, op, outputMemRefType, outputRank,
-          estimatedSimdLoopTripCount);
-      if (uVL > 0) {
-        onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+      int64_t totVL =
+          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
+              shapeHelper, op, outputMemRefType, outputRank,
+              estimatedSimdLoopTripCount);
+      if (totVL > 0) {
+        onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             estimatedSimdLoopTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            uVL, /*collapsedInnermostLoop*/ outputRank,
+            totVL, /*collapsedInnermostLoop*/ outputRank,
             /*ruleOutBroadcast*/ true, /*unary*/ true, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
@@ -2222,20 +2223,20 @@ struct ONNXElementwiseBinaryOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
-      int64_t uVL =
+      int64_t totVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
               estimatedSimdLoopTripCount);
-      if (uVL > 0) {
+      if (totVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
-          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+          onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               estimatedSimdLoopTripCount, "binary fully flattened");
         else
-          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+          onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               estimatedSimdLoopTripCount, "binary with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            uVL, collapsedInnermostLoops, hasNoBroadcast,
+            totVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
@@ -2397,20 +2398,20 @@ struct ONNXElementwiseVariadicOpLowering
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t estimatedSimdLoopTripCount;
-      int64_t uVL =
+      int64_t totVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
               estimatedSimdLoopTripCount);
-      if (uVL > 0) {
+      if (totVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
-          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+          onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               estimatedSimdLoopTripCount, "variadic fully flattened");
         else
-          onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
+          onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               estimatedSimdLoopTripCount, "variadic with manageable broadcast");
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            uVL, collapsedInnermostLoops, hasNoBroadcast,
+            totVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,

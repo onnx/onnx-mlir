@@ -222,7 +222,7 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     });
   }
 
-  void computeTileSizeForMatVectProduct(Operation *op, int64_t mVL,
+  void computeTileSizeForMatVectProduct(Operation *op, int64_t archVL,
       DimIndexExpr dimI, DimIndexExpr dimJ, DimIndexExpr dimK,
       int64_t &iRegTile, int64_t &jRegTile, int64_t &kRegTile,
       bool &simdize) const {
@@ -232,21 +232,21 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
           "no simd because disabled for mat * vec");
 
     // Default values.
-    // Right can only tile i and k by (possibly distinct) multiple of mVL.
-    iRegTile = 2 * mVL; // SIMD dim during multi-reduction.
+    // Right can only tile i and k by (possibly distinct) multiple of archVL.
+    iRegTile = 2 * archVL; // SIMD dim during multi-reduction.
     jRegTile = 1;
-    kRegTile = 16 * mVL; // SIMD dim during multiplication.
+    kRegTile = 16 * archVL; // SIMD dim during multiplication.
 
     if (dimK.isLiteral()) {
       int64_t constK = dimK.getLiteral();
       // Register tile in the I Dim is really for the reduction. The
-      // computations will be further tiled to a multiple of mVL inside
+      // computations will be further tiled to a multiple of archVL inside
       // krnl.matmul.
-      kRegTile = (constK / mVL) * mVL; // largest multiple
-      if (kRegTile > 64 * mVL) {
-        kRegTile = 64 * mVL;
+      kRegTile = (constK / archVL) * archVL; // largest multiple
+      if (kRegTile > 64 * archVL) {
+        kRegTile = 64 * archVL;
         LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: cap tiling k\n"; });
-      } else if (kRegTile < mVL) {
+      } else if (kRegTile < archVL) {
         // Not enough data, can only support i/k reg tile of 4.
         LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable k\n"; });
         simdize = false;
@@ -258,8 +258,8 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     if (dimI.isLiteral()) {
       int64_t constI = dimI.getLiteral();
       if (constI < iRegTile) {
-        iRegTile = (constI / mVL) * mVL; // largest multiple
-        if (iRegTile < mVL) {
+        iRegTile = (constI / archVL) * archVL; // largest multiple
+        if (iRegTile < archVL) {
           // Not enough data, can only support i/k reg tile of 4.
           LLVM_DEBUG({ llvm::dbgs() << "MatMul Vec: disable i\n"; });
           simdize = false;
@@ -307,9 +307,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     bool isMatVectorProduct =
         !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
     if (isMatVectorProduct) {
-      int64_t mVL = create.vec.getMachineVectorLength(elementType);
+      int64_t archVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, archVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
           op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
@@ -391,9 +391,9 @@ struct ONNXMatMulOpLowering : public OpConversionPattern<ONNXMatMulOp> {
     bool isMatVectorProduct =
         !DISABLE_MAT_VEC_PRODUCT && dimJ.isLiteral() && dimJ.getLiteral() == 1;
     if (isMatVectorProduct) {
-      int64_t mVL = create.vec.getMachineVectorLength(elementType);
+      int64_t archVL = create.vec.getMachineVectorLength(elementType);
       computeTileSizeForMatVectProduct(
-          op, mVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
+          op, archVL, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
     } else {
       computeTileSizeForMatMatProduct(
           op, dimI, dimJ, dimK, iRegTile, jRegTile, kRegTile, simdize);
