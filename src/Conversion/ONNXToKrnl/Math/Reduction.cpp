@@ -1210,7 +1210,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,
                     vecType, tmpBlockedAlloca, flatInput, flatAlloc, initVec,
                     divisorForMean, blockedOutLoopInd, blockedCurrIndex, simdUB,
-                    VL);
+                    totVL);
               });
         }); /* blocked out loop */
   }
