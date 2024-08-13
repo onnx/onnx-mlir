@@ -1,0 +1,13 @@
+// RUN: onnx-mlir --EmitONNXBasic --printIR %s | FileCheck %s
+
+<
+   ir_version: 9,
+   opset_import: ["" : 19]
+>
+identity (float[0] x) => (float[0] y) {
+   y = Identity(x)
+}
+
+// CHECK-LABEL:   func.func @main_graph
+// CHECK-SAME:     ([[PARAM_0_:%.+]]: tensor<0xf32> {onnx.name = "x"}) -> (tensor<0xf32> {onnx.name = "y"}) {
+
