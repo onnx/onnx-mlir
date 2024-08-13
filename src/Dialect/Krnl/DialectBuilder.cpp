@@ -291,11 +291,9 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     // Want SIMD, execute full SIMD loops blocked by VL.
     ValueRange loopDef = defineLoops(1);
     ValueRange blockedLoopDef = block(loopDef[0], VL);
-    if (useParallel) {
-      // hi alex, asses if suitable
+    if (useParallel)
       parallel({blockedLoopDef[0]});
-      // hi alex, report parallel.
-    }
+
     // If we are not guaranteed that every iterations are SIMD iterations, then
     // we need to reduce the trip count by a bit so as to not over compute.
     IndexExpr simdUb = ub;

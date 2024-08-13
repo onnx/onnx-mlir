@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
   std::filesystem::path p(inputFilename);
   std::string modelShortName = p.filename();
   std::string msg =
-      "Importing ONNX Model MLIR Module from \"" + modelShortName + "\"";
+      "Importing ONNX Model to MLIR Module from \"" + modelShortName + "\"";
   showCompilePhase(msg);
   auto inputFileTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   mlir::OwningOpRef<mlir::ModuleOp> module;

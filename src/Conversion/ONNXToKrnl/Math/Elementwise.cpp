@@ -1482,19 +1482,38 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   ValueRange loopDef = create.krnl.defineLoops(outerLoopRank);
   // Iterate only over the blocks.
   IndexExpr zero = LitIE(0);
-  SmallVector<IndexExpr, 4> lbs(outerLoopRank, zero);
-  SmallVector<IndexExpr, 4> ubs = flattenedOutputDims;
+  DimsExpr lbs(outerLoopRank, zero);
+  DimsExpr ubs = flattenedOutputDims;
   IndexExpr simdUb = ubs.pop_back_val(); // Remove flattened ub.
+  bool useParallelInSimdLoop = false;
   if (enableParallel) {
     int64_t parId;
-    if (findSuitableParallelDimension(
-            lbs, ubs, 0, std::min((int64_t)2, outerLoopRank), parId)) {
-      create.krnl.parallel(loopDef[parId]);
-      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
-          "elementwise simd partially flattened");
+    if (outerLoopRank > 1) {
+      // Outer loop parallelism.
+      if (findSuitableParallelDimension(
+              lbs, ubs, 0, std::min((int64_t)2, outerLoopRank), parId)) {
+        create.krnl.parallel(loopDef[parId]);
+        onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+            "outer-loop of elementwise simd partially flattened");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "not enough work in outermost-loops of elementwise simd partially "
+            "flattened");
+      }
     } else {
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "no dim with enough work in elementwise simd partially flattened");
+      // SIMD loop parallelism.
+      DimsExpr simdLbs = {zero}, simdUbs = {simdUb};
+      if (findSuitableParallelDimension(
+              simdLbs, simdUbs, 0, 1, parId, VL * 32)) {
+        assert(parId == 0 && "expected loop zero to be parallelized");
+        useParallelInSimdLoop = true;
+        onnxToKrnlParallelReport(op, true, parId, zero, simdUb,
+            "innermost-loop of elementwise simd partially flattened");
+      } else {
+        onnxToKrnlParallelReport(op, false, -1, -1,
+            "not enough work in innermost-loop of elementwise simd partially "
+            "flattened");
+      }
     }
   }
   create.krnl.iterateIE(
@@ -1545,7 +1564,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
         // hi alex, for the moment full simd is always true until we upgrade the
         // loops that we can handle.
         create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, /*full simd*/ true,
-            /*parallel*/ false, inputs, inputAFs, {output}, {outputAF},
+            useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
             [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
                 SmallVectorImpl<Value> &resVals, int64_t VL) {
               MultiDialectBuilder<MathBuilder> create(kb);
