@@ -658,10 +658,11 @@ struct LLVMBuilder final : DialectBuilder {
 
   // CallOp
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
-      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs) const;
+      llvm::StringRef funcName, mlir::ArrayRef<mlir::Value> inputs,
+      bool isVarArg = false) const;
   mlir::Value call(mlir::ArrayRef<mlir::Type> resultTypes,
-      mlir::FlatSymbolRefAttr funcSymbol,
-      mlir::ArrayRef<mlir::Value> inputs) const;
+      mlir::FlatSymbolRefAttr funcSymbol, mlir::ArrayRef<mlir::Value> inputs,
+      bool isVarArg = false) const;
 
   // CondBrOp
   void condBr(mlir::Value cond, mlir::Block *trueBlock,
@@ -680,7 +681,8 @@ struct LLVMBuilder final : DialectBuilder {
   mlir::Value extractValue(mlir::Type resultType, mlir::Value container,
       llvm::ArrayRef<int64_t> position) const;
 
-  // FuncOp
+  // FuncOp (assume non-variadic functions, otherwise add support like in
+  // seen in `call` in this file).
   mlir::LLVM::LLVMFuncOp func(llvm::StringRef name, mlir::Type type,
       bool createUniqueFunc = false) const;
 
@@ -783,6 +785,12 @@ struct LLVMBuilder final : DialectBuilder {
     }
     return symbol + postfix;
   }
+
+private:
+  // Support for calling vararg functions; add the necessary type.
+  void handleVarArgCall(mlir::LLVM::CallOp &callOp,
+      mlir::ArrayRef<mlir::Type> resultTypes,
+      mlir::ArrayRef<mlir::Value> inputs) const;
 };
 
 //===----------------------------------------------------------------------===//
