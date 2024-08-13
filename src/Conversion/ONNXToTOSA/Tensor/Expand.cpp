@@ -70,24 +70,25 @@ public:
     }
     size_t inputRank = onnx_mlir::getRank(inputType);
 
-    if (inputRank > shapeArray.size() ||
-        inputRank > (size_t)outputType.getRank()) {
-      return rewriter.notifyMatchFailure(
-          op, "Expand does not support output types smaller than the input.");
-    }
-
     // If inputRank is inferior to shapeRank we need to introduce a
     // reshape before the tile
     auto newInput = adaptor.getInput();
-    if (inputRank < shapeArray.size()) {
+    if (inputRank != shapeArray.size()) {
       llvm::SmallVector<int64_t> newShape =
           getNewShape(inputType.getShape(), outputType.getShape());
+      // If the newShape size doesn't match the output shape size, it means we
+      // didn't find a proper reshape to match the input to.
+      if (newShape.size() != outputType.getShape().size()) {
+        return rewriter.notifyMatchFailure(
+            op, "Could not find a shape that satisfies the expand constraints");
+      }
       TosaBuilder tosaBuilder(rewriter, op->getLoc());
       newInput = tosaBuilder.reshape(adaptor.getInput(), newShape);
     }
 
-    auto denseShape = getMultiplies(
-        op, cast<RankedTensorType>(newInput.getType()).getShape(), shapeArray);
+    auto denseShape =
+        getMultiplies(op, cast<RankedTensorType>(newInput.getType()).getShape(),
+            outputType.getShape());
     auto resultElementType = cast<RankedTensorType>(inputType).getElementType();
     auto newResultElementType =
         getTypeConverter()->convertType(resultElementType);
@@ -97,7 +98,8 @@ public:
           op, "input/output type is invalid for tosa.tile");
     }
     Type newTileOutputType = RankedTensorType::get(
-        llvm::SmallVector<int64_t>(shapeArray.size(), ShapedType::kDynamic),
+        llvm::SmallVector<int64_t>(
+            outputType.getShape().size(), ShapedType::kDynamic),
         newResultElementType);
     onnx_mlir::tosa::CreateReplaceOpAndInfer<mlir::tosa::TileOp>(
         rewriter, op, newTileOutputType, newInput, denseShape);
@@ -148,14 +150,13 @@ private:
 
   static DenseI64ArrayAttr getMultiplies(ONNXExpandOp &op,
       const llvm::ArrayRef<int64_t> &inputShape,
-      const llvm::ArrayRef<int64_t> &shapeAttr) {
+      const llvm::ArrayRef<int64_t> &outputShape) {
     llvm::SmallVector<int64_t> multipliesArray;
-    for (size_t i = 0; i < inputShape.size(); ++i) {
-      int tile = shapeAttr[i] / inputShape[i];
-      if (tile == 0) {
+    for (size_t i = 0; i < outputShape.size(); ++i) {
+      if (i >= inputShape.size() || outputShape[i] / inputShape[i] == 0) {
         multipliesArray.push_back(1);
       } else {
-        multipliesArray.push_back(tile);
+        multipliesArray.push_back(outputShape[i] / inputShape[i]);
       }
     }
     return DenseI64ArrayAttr::get(op.getContext(), multipliesArray);
