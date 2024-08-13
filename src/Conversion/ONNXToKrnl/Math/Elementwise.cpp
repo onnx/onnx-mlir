@@ -1307,43 +1307,7 @@ Value emitScalarOpFor<ONNXRoundOp>(ConversionPatternRewriter &rewriter,
   Value x = scalarOperands[0];
   MultiDialectBuilder<MathBuilder> create(rewriter, loc);
   CheckIfCustomScalarOpIsSupported<ONNXRoundOp>(elementType);
-  // Use numpy algorithm for rint as follows.
-  // ```
-  // double y, r;
-  // y = npy_floor(x);
-  // r = x - y;
-  //
-  // if (r > 0.5) {
-  //     y += 1.0;
-  // }
-  //
-  // /* Round to nearest even */
-  // if (r == 0.5) {
-  //     r = y - 2.0*npy_floor(0.5*y);
-  //     if (r == 1.0) {
-  //         y += 1.0;
-  //     }
-  // }
-  // return y;
-  // ```
-  Value one = create.math.constant(elementType, 1.0);
-  Value two = create.math.constant(elementType, 2.0);
-  Value half = create.math.constant(elementType, 0.5);
-  Value y = create.math.floor(x);
-  Value r = create.math.sub(x, y);
-  // r > 0.5
-  Value rGreaterThanHalf = create.math.sgt(r, half);
-  Value y1 = create.math.select(rGreaterThanHalf, create.math.add(y, one), y);
-  // r == 0.5: round to nearest even.
-  Value y2 = create.math.mul(half, y);
-  y2 = create.math.floor(y2);
-  y2 = create.math.mul(y2, two);
-  Value rr = create.math.sub(y, y2);
-  Value rrEqualOne = create.math.eq(rr, one);
-  y2 = create.math.select(rrEqualOne, create.math.add(y, one), y);
-
-  Value rEqualHalf = create.math.eq(r, half);
-  return create.math.select(rEqualHalf, y2, y1);
+  return create.math.round(x);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1388,12 +1352,9 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 template <>
 double analyzeSimdFor<ONNXDequantizeLinearOp>(
     Type t, Operation *op, int64_t &von, int64_t &son) {
-  // Right now, MLIR vector:splat does not support unsigned int types.
-  // Thus we must disable SIMD here for now.
-  return noSimd(von, son);
-  // return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
-  //                        GenericOps::ConversionGop},
-  //    {1, 1, 2}, t, von, son);
+  return simdAnalysis({GenericOps::ArithmeticGop, GenericOps::MulGop,
+                          GenericOps::ConversionGop},
+      {1, 1, 2}, t, von, son);
 }
 
 template <>
@@ -1428,8 +1389,8 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 // array simdization. When partial simd is requested, then we must ensure that
 // the collapsed loop cumulative static size is a multiple of the VL.
 template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
-    Operation *op, MemRefType memRefType, int64_t collapsedInnermostLoops,
+int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
+    MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t &estimatedSimdLoopTripCount) {
   estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
   int64_t simdUnroll;
@@ -1455,8 +1416,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, MDBuilder &create,
     simdUnroll = 4;
   else
     simdUnroll = 8;
-  uVL = create.vec.computeSuitableUnrollFactor(vms, memRefType,
-      shapeHelper.getOutputDims(), collapsedInnermostLoops, simdUnroll,
+  uVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
+      collapsedInnermostLoops, simdUnroll,
       /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({
     if (uVL)
@@ -1583,8 +1544,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
               assert(succeeded(res) && "Could not compute access indices");
             }
             Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
-            Value splatValue = create.vec.splat(vecType, loadedVal);
-            loadedVals.emplace_back(splatValue);
+            // Delay splat since it is now integrated in MathBuilder
+            loadedVals.emplace_back(loadedVal);
           } else {
             llvm::SmallVector<IndexExpr, 4> loadAccessFct;
             LogicalResult res =
@@ -2086,7 +2047,7 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-          shapeHelper, create, op, outputMemRefType, outputRank,
+          shapeHelper, op, outputMemRefType, outputRank,
           estimatedSimdLoopTripCount);
       if (uVL > 0) {
         onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
@@ -2263,8 +2224,8 @@ struct ONNXElementwiseBinaryOpLowering
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops, estimatedSimdLoopTripCount);
+              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
+              estimatedSimdLoopTripCount);
       if (uVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
@@ -2438,8 +2399,8 @@ struct ONNXElementwiseVariadicOpLowering
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, create, op, outputMemRefType,
-              collapsedInnermostLoops, estimatedSimdLoopTripCount);
+              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
+              estimatedSimdLoopTripCount);
       if (uVL > 0) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, uVL,

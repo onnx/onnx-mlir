@@ -234,17 +234,26 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
     // Generate the integer code only if the scalar integer op is non-void
     // (unsupported) and non-int (supported by custom sequence of ops).
     if constexpr (!(std::is_same<ScalarIOp<Op>, NotSuportedScalarOp>::value) &&
-                  !(std::is_same<ScalarIOp<Op>, CustomScalarOp>::value))
+                  !(std::is_same<ScalarIOp<Op>, CustomScalarOp>::value)) {
+      llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
+      MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+      create.math.splatToMatch(scalarsSplatted);
       return rewriter.create<ScalarIOp<Op>>(
-          loc, elementType, scalarOperands, std::nullopt);
+          loc, elementType, scalarsSplatted, std::nullopt);
+    }
     llvm_unreachable("unsupported integer operation");
   } else if (mlir::isa<mlir::FloatType>(actualElementType)) {
     // Generate the floating point code only if the scalar integer op is
-    // non-void (unsupported) and non-int (supported by custom sequence of ops).
+    // non-void (unsupported) and non-int (supported by custom sequence of
+    // ops).
     if constexpr (!(std::is_same<ScalarFOp<Op>, NotSuportedScalarOp>::value) &&
-                  !(std::is_same<ScalarFOp<Op>, CustomScalarOp>::value))
+                  !(std::is_same<ScalarFOp<Op>, CustomScalarOp>::value)) {
+      llvm::SmallVector<mlir::Value, 4> scalarsSplatted(scalarOperands);
+      MultiDialectBuilder<MathBuilder> create(rewriter, loc);
+      create.math.splatToMatch(scalarsSplatted);
       return rewriter.create<ScalarFOp<Op>>(
-          loc, elementType, scalarOperands, std::nullopt);
+          loc, elementType, scalarsSplatted, std::nullopt);
+    }
     llvm_unreachable("unsupported float operation");
   } else {
     llvm_unreachable("unsupported element type");
@@ -278,8 +287,8 @@ public:
            llvm::all_of(call.getResultTypes(), f);
   }
 
-  // Return the default alignment value used when allocating a MemRef buffer for
-  // the given type. E.g. some special types for accelerators requires
+  // Return the default alignment value used when allocating a MemRef buffer
+  // for the given type. E.g. some special types for accelerators requires
   // 4K-aligned buffers.
   static int64_t getDefaultAllocAlignment(mlir::Type type);
 };
@@ -360,9 +369,11 @@ void populateLoweringONNXNonMaxSuppressionOpPattern(
 
 // `Quantization` directory methods:
 void populateLoweringONNXDynamicQuantizeLinearOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-void populateLoweringONNXQuantizeLinearOpPattern(
-    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *,
+    bool enableSIMD, bool enableParallel);
+void populateLoweringONNXQuantizeLinearOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 
 // `RNN` directory methods:
 void populateLoweringONNXGRUOpPattern(
@@ -623,10 +634,9 @@ void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
 // the ONNX operation parallelized.
 //
 // Loop level: -1: none; 0: outermost; 1: next to outermost...
-// Parallel loop trip count; 0: none; -1: runtime only; >0: min number known at
-// compile time.
-// Comment: explanation of how parallelism was achieved / or failed. Comments
-// cannot have ',' in them.
+// Parallel loop trip count; 0: none; -1: runtime only; >0: min number known
+// at compile time. Comment: explanation of how parallelism was achieved / or
+// failed. Comments cannot have ',' in them.
 inline void onnxToKrnlParallelReport(mlir::Operation *op,
     bool successful = false, int64_t loopLevel = -1,
     int64_t parallelLoopTripCount = 0, const std::string &comment = "") {
@@ -657,9 +667,9 @@ inline void onnxToKrnlParallelReport(mlir::Operation *op, bool successful,
 // compile time.
 // Comment: explanation of how SIMD was achieved / or failed. Comments cannot
 // have ',' in them. Use the following comment templates. If SIMD is not
-// supported, comments should be "unsupported". If SIMD is supported but fails,
-// comment should be "no simd [in <specific place>] because <reason>." When simd
-// succeeds, comment indicates what type of pattern is used.
+// supported, comments should be "unsupported". If SIMD is supported but
+// fails, comment should be "no simd [in <specific place>] because <reason>."
+// When simd succeeds, comment indicates what type of pattern is used.
 inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
     int64_t vectorLength = 0, int64_t simdLoopTripCount = 0,
     const std::string &comment = "") {
@@ -667,6 +677,13 @@ inline void onnxToKrnlSimdReport(mlir::Operation *op, bool successful = false,
     impl::onnxToKrnlSimdReport(
         op, successful, vectorLength, simdLoopTripCount, comment);
 }
+
+// Compute the min and max of input, allocate and save the results into
+// minAlloc and maxAlloc.
+void emitMinMaxReductionToScalar(mlir::ConversionPatternRewriter &rewriter,
+    mlir::Location loc, mlir::Operation *op, mlir::Value input,
+    mlir::Value &minAlloc, mlir::Value &maxAlloc, bool enableSIMD,
+    bool enableParallel);
 
 } // namespace onnx_mlir
 #endif
