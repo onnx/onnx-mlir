@@ -66,7 +66,7 @@ namespace onnx_mlir {
 // =============================================================================
 // Methods shared among all VectorMachineSupport classes and subclasses
 
-int64_t VectorMachineSupport::getVectorLength(Type elementType) {
+int64_t VectorMachineSupport::getArchVectorLength(Type elementType) {
   if (!hasSimd())
     return 0;
   int64_t simdBitSize = getVectorBitWidth();
@@ -76,7 +76,7 @@ int64_t VectorMachineSupport::getVectorLength(Type elementType) {
   return (simdBitSize / typeBitSize);
 }
 
-double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
+double VectorMachineSupport::getAvgArchVectorLength(ArrayRef<GenericOps> &gops,
     ArrayRef<int64_t> &gopsNum, Type elementType, int64_t &vectorizedOpNum,
     int64_t &scalarOpNum) {
   assert(gopsNum.size() == gops.size() && "expect same length for both lists");
@@ -92,7 +92,7 @@ double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
   for (int64_t i = 0; i < gopsSize; ++i) {
-    int64_t vl = getVectorLength(gops[i], elementType);
+    int64_t vl = getArchVectorLength(gops[i], elementType);
     // If past last value, assume 1; otherwise use actual value.
     int64_t num = gopsNum[i];
     // Accumulate weighted scalar/vectorized num and vl length.
@@ -114,10 +114,10 @@ double VectorMachineSupport::getAvgVectorLength(ArrayRef<GenericOps> &gops,
 // IBM Z servers
 // =============================================================================
 
-int64_t Z16VectorMachineSupport::getVectorLength(
+int64_t Z16VectorMachineSupport::getArchVectorLength(
     GenericOps Gop, Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
-  int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
@@ -125,7 +125,7 @@ int64_t Z16VectorMachineSupport::getVectorLength(
     // 1 - 16 byte operations.
   case GenericOps::SelectGop:
   case GenericOps::ShuffleGop:
-    return abstractVL;
+    return archVL;
   default:
     // Continue with typed tests.
     break;
@@ -153,7 +153,7 @@ int64_t Z16VectorMachineSupport::getVectorLength(
     case GenericOps::MinMaxGop:
     case GenericOps::MulGop:
     case GenericOps::SqrtGop:
-      return abstractVL;
+      return archVL;
     default:
       // Unsupported float op.
       return UNSUPPORTED;
@@ -165,7 +165,7 @@ int64_t Z16VectorMachineSupport::getVectorLength(
   case GenericOps::ArithmeticGop: /* Add/sub,... */
   case GenericOps::ConversionGop:
   case GenericOps::LogicalGop:
-    return abstractVL;
+    return archVL;
 
     // 1 - 8 byte operations.
   case GenericOps::AbsGop: /* supported via compare and select */
@@ -175,7 +175,7 @@ int64_t Z16VectorMachineSupport::getVectorLength(
   case GenericOps::MulGop:
   case GenericOps::ShiftGop:
   case GenericOps::SumAcrossGop:
-    return bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+    return bitWidth <= 64 ? archVL : UNSUPPORTED;
   default:
     // Unsupported integer op.
     return UNSUPPORTED;
@@ -188,10 +188,10 @@ int64_t Z16VectorMachineSupport::getVectorLength(
 // This may be an approximation of the actual capabilities.
 // =============================================================================
 
-int64_t SSE42x86VectorMachineSupport::getVectorLength(
+int64_t SSE42x86VectorMachineSupport::getArchVectorLength(
     GenericOps Gop, mlir::Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
-  int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
@@ -199,7 +199,7 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
     // 1 - 16 byte operations.
   case GenericOps::SelectGop:
   case GenericOps::ShuffleGop:
-    return abstractVL;
+    return archVL;
   default:
     // Continue with typed tests.
     break;
@@ -228,7 +228,7 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
     case GenericOps::RoundGop:
     case GenericOps::SqrtGop:
     case GenericOps::SumAcrossGop:
-      return abstractVL;
+      return archVL;
     default:
       // Unsupported float op.
       return UNSUPPORTED;
@@ -243,23 +243,23 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
   case GenericOps::MinMaxGop:
   case GenericOps::CompareGop:
   case GenericOps::AbsGop:
-    return abstractVL;
+    return archVL;
 
     // 1 - 8 byte operations.
   case GenericOps::ShiftGop:
-    return bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+    return bitWidth <= 64 ? archVL : UNSUPPORTED;
 
     // 1 - 4 byte operations.
   case GenericOps::FmaGop:
-    return bitWidth <= 32 ? abstractVL : UNSUPPORTED;
+    return bitWidth <= 32 ? archVL : UNSUPPORTED;
 
     // 4 - 16 byte operations.
   case GenericOps::MulGop:
-    return bitWidth >= 32 && bitWidth <= 128 ? abstractVL : UNSUPPORTED;
+    return bitWidth >= 32 && bitWidth <= 128 ? archVL : UNSUPPORTED;
 
     // 4 - 8 byte operations.
   case GenericOps::SumAcrossGop:
-    return bitWidth >= 32 && bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+    return bitWidth >= 32 && bitWidth <= 64 ? archVL : UNSUPPORTED;
 
   default:
     // Unsupported integer op.
@@ -273,10 +273,10 @@ int64_t SSE42x86VectorMachineSupport::getVectorLength(
 // This may be an approximation of the actual capabilities.
 // =============================================================================
 
-int64_t NeonVectorMachineSupport::getVectorLength(
+int64_t NeonVectorMachineSupport::getArchVectorLength(
     GenericOps Gop, mlir::Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
-  int64_t abstractVL = VectorMachineSupport::getVectorLength(elementType);
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   bool isFloat = mlir::isa<FloatType>(elementType);
 
   // Support shared between int and float.
@@ -284,7 +284,7 @@ int64_t NeonVectorMachineSupport::getVectorLength(
     // 1 - 16 byte operations.
   case GenericOps::SelectGop:
   case GenericOps::ShuffleGop:
-    return abstractVL;
+    return archVL;
   default:
     // Continue with typed tests.
     break;
@@ -312,7 +312,7 @@ int64_t NeonVectorMachineSupport::getVectorLength(
     case GenericOps::RoundGop:
     case GenericOps::SqrtGop:
     case GenericOps::SumAcrossGop:
-      return abstractVL;
+      return archVL;
     default:
       // Unsupported float op.
       return UNSUPPORTED;
@@ -327,23 +327,23 @@ int64_t NeonVectorMachineSupport::getVectorLength(
   case GenericOps::MinMaxGop:
   case GenericOps::CompareGop:
   case GenericOps::AbsGop:
-    return abstractVL;
+    return archVL;
 
     // 1 - 8 byte operations.
   case GenericOps::ShiftGop:
-    return bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+    return bitWidth <= 64 ? archVL : UNSUPPORTED;
 
     // 1 - 4 byte operations.
   case GenericOps::FmaGop:
-    return bitWidth <= 32 ? abstractVL : UNSUPPORTED;
+    return bitWidth <= 32 ? archVL : UNSUPPORTED;
 
     // 4 - 16 byte operations.
   case GenericOps::MulGop:
-    return bitWidth >= 32 && bitWidth <= 128 ? abstractVL : UNSUPPORTED;
+    return bitWidth >= 32 && bitWidth <= 128 ? archVL : UNSUPPORTED;
 
     // 4 - 8 byte operations.
   case GenericOps::SumAcrossGop:
-    return bitWidth >= 32 && bitWidth <= 64 ? abstractVL : UNSUPPORTED;
+    return bitWidth >= 32 && bitWidth <= 64 ? archVL : UNSUPPORTED;
 
   default:
     // Unsupported integer op.

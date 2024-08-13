@@ -1750,7 +1750,7 @@ int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   // Even if unsupported, we can always compute one result per vector.
-  return std::max((int64_t)1, vms->getVectorLength(elementType));
+  return std::max((int64_t)1, vms->getArchVectorLength(elementType));
 }
 
 int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {
@@ -2017,7 +2017,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   bool isStatic = MemRefBuilder::getStaticMemSize(
       memRefType, staticSimdSize, -collapsedInnermostLoops);
   Type elementType = memRefType.getElementType();
-  int64_t VL = vms->getVectorLength(elementType);
+  int64_t VL = vms->getArchVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd HW VL is " << VL << "\n");
 
   // No element type is SIMD.
@@ -2032,7 +2032,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
   // Gather operation statics
   int64_t vectorizedOpNum, scalarOpNum;
-  double avgVL = vms->getAvgVectorLength(
+  double avgVL = vms->getAvgArchVectorLength(
       GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
   if (avgVL < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: too few SIMD operations with "
@@ -2073,7 +2073,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   assert(maxSimdUnroll > 0 && "expected positive max simd unroll");
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.
   Type elementType = memRefType.getElementType();
-  int64_t VL = vms->getVectorLength(elementType);
+  int64_t VL = vms->getArchVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
   if (VL == 0) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");

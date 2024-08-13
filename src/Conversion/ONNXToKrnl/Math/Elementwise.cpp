@@ -64,7 +64,7 @@ static double simdAnalysis(ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
-  return vms->getAvgVectorLength(
+  return vms->getAvgArchVectorLength(
       GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
 }
 

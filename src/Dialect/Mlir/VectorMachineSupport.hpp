@@ -102,21 +102,22 @@ public:
   // regardless of the operation. This is an upper bound and does not guarantee
   // that an actual operation can provide this VL. A value of zero means no SIMD
   // available.
-  virtual int64_t getVectorLength(mlir::Type elementType);
+  virtual int64_t getArchVectorLength(mlir::Type elementType);
   // Return the number of elements that can be processed in SIMD fashion if
   // support exists. A value of zero means no SIMD available.
-  virtual int64_t getVectorLength(GenericOps gop, mlir::Type elementType) = 0;
+  virtual int64_t getArchVectorLength(
+      GenericOps gop, mlir::Type elementType) = 0;
 
   // Analyze the benefits of using SIMD on a list of generic ops in an algorithm
   // where each op on the list occurs a given number of times. The function
   // returns the weighted average vector length among the operations listed in
-  // the gops list, where each operation gops[i] occur exactly gopsNum[i] times
+  // the GOps list, where each operation GOps[i] occur exactly GOpsNum[i] times
   // in the algorithm. Note that scalar operation have a vector length of
   // one in the weighted average as they still contribute one result. The opNums
-  // are also weighted by the gopsNum to better represent the mix of
+  // are also weighted by the GOpsNum to better represent the mix of
   // vectorized and scalar operations present in the algorithm.
-  double getAvgVectorLength(mlir::ArrayRef<GenericOps> &gops,
-      mlir::ArrayRef<int64_t> &gopsNum, mlir::Type elementType,
+  double getAvgArchVectorLength(mlir::ArrayRef<GenericOps> &GOps,
+      mlir::ArrayRef<int64_t> &GOpsNum, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 private:
@@ -131,10 +132,10 @@ public:
 
   int64_t VectorRegisterNum() override { return 0; }
   int64_t getVectorBitWidth() override { return 0; }
-  int64_t getVectorLength(mlir::Type elementType) override {
+  int64_t getArchVectorLength(mlir::Type elementType) override {
     return UNSUPPORTED;
   }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override {
+  int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override {
     return UNSUPPORTED;
   }
 };
@@ -148,7 +149,7 @@ public:
 
   int64_t VectorRegisterNum() override { return 32; }
   int64_t getVectorBitWidth() override { return 128; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+  int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 
 // TODO: create models for z14 and z15.
@@ -163,7 +164,7 @@ public:
 
   int64_t VectorRegisterNum() override { return 16; }
   int64_t getVectorBitWidth() override { return 128; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+  int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 
 class AVX2x86VectorMachineSupport : public SSE42x86VectorMachineSupport {
@@ -183,7 +184,7 @@ public:
 
   int64_t VectorRegisterNum() override { return 32; }
   int64_t getVectorBitWidth() override { return 128; }
-  int64_t getVectorLength(GenericOps gop, mlir::Type elementType) override;
+  int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 
 } // namespace onnx_mlir

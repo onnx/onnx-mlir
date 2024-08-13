@@ -886,11 +886,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     int64_t len;
     switch (getCombiningKind) {
     case VectorBuilder::CombiningKind::ADD:
-      len = vms->getVectorLength(GenericOps::SumAcrossGop, elementType);
+      len = vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType);
       break;
     case VectorBuilder::CombiningKind::MIN:
     case VectorBuilder::CombiningKind::MAX:
-      len = vms->getVectorLength(GenericOps::SumAcrossGop, elementType);
+      len = vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType);
       break;
     default:
       len = 0;

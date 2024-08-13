@@ -1652,11 +1652,11 @@ struct ZHighToZLowDataConversionLowering
     int64_t rank = getRank(X.getType());
 
     // SIMD info.
-    // Fixed archVL for the conversion instruction: 8 elements per instruction
+    // Fixed VL for the conversion instruction: 8 elements per instruction
     // call. Because the VL of the zlow.conversions are not "virtualized" in
-    // lengths, we manually unroll the loop containing the SIMD operations
-    // manually. Experiments on a 1024x1024 tensors shows best results with an
-    // unrolling of 8 SIMD vectors.
+    // lengths, we manually unroll the loop containing the SIMD operations.
+    // Experiments on a 1024x1024 tensors shows best results with an unrolling
+    // of 8 SIMD vectors.
     int64_t archVL = 8; // Vector length as defined by z arch for this type.
     int64_t archVLHalf = archVL / 2;
     int64_t unrollVL = 8;              // Manually unroll the SIMD loop.
@@ -1670,7 +1670,7 @@ struct ZHighToZLowDataConversionLowering
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
 
-    // Types use archVL and archVLHalf.
+    // Types use archVL and archVL / 2.
     Type f16Type = rewriter.getF16Type();
     Type f32Type = rewriter.getF32Type();
     VectorType vecF16Type = VectorType::get({archVL}, f16Type);

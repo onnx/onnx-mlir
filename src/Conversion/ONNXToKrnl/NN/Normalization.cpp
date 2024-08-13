@@ -582,11 +582,11 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
   }
 
   bool isSimdizable(OP_TYPE lnOp, ADAPTOR_TYPE adaptor,
-      SHAPE_HELPER_TYPE &shapeHelper, int64_t &VL,
+      SHAPE_HELPER_TYPE &shapeHelper, int64_t &totVL,
       BroadcastKind &scaleBroadcastKind, BroadcastKind &biasBroadcastKind,
       IndexExpr &scaleModFactor, IndexExpr &biasModFactor) const {
 
-    VL = 0;
+    totVL = 0;
     Operation *op = lnOp.getOperation();
     if (!enableSIMD) {
       onnxToKrnlSimdReport(
@@ -620,18 +620,18 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Do not want to disable SIMD for lack of sum across support at this
     // stage. Type elementType = XMemRefType.getElementType();
     //
-    // if (vms->getVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
+    // if (vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
     //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
     //   return false;
     // }
 
     int64_t simdLoopStaticTripCount;
-    VL = VectorBuilder::computeSuitableUnrollFactor(vms, XMemRefType, lowRank,
-        4, /*canPad*/ false, simdLoopStaticTripCount);
+    totVL = VectorBuilder::computeSuitableUnrollFactor(vms, XMemRefType,
+        lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
-                   << " loops, VL " << VL << "\n";);
-    if (VL == 0) {
+                   << " loops, totVL " << totVL << "\n";);
+    if (totVL == 0) {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd because could not find beneficial VL");
       return false;
@@ -658,7 +658,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       }
     }
     onnxToKrnlSimdReport(
-        op, /*successful*/ true, VL, simdLoopStaticTripCount, "successful");
+        op, /*successful*/ true, totVL, simdLoopStaticTripCount, "successful");
     return true;
   }
 
@@ -673,15 +673,16 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     SHAPE_HELPER_TYPE shapeHelper(op, operands, &create.krnlIE);
     shapeHelper.computeShapeAndAssertOnFailure();
 
-    int64_t VL;
+    int64_t totVL;
     BroadcastKind scaleBroadcastKind, biasBroadcastKind;
     IndexExpr scaleModFactor, biasModFactor;
-    bool isSIMD = isSimdizable(lnOp, adaptor, shapeHelper, VL,
+    bool isSIMD = isSimdizable(lnOp, adaptor, shapeHelper, totVL,
         scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
 
     if (isSIMD) {
-      return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4, VL,
-          scaleBroadcastKind, biasBroadcastKind, scaleModFactor, biasModFactor);
+      return generateSIMDCode(rewriter, loc, lnOp, adaptor, shapeHelper, 4,
+          totVL, scaleBroadcastKind, biasBroadcastKind, scaleModFactor,
+          biasModFactor);
     }
     return generateGenericLayerNormOpONNXCode(
         rewriter, loc, lnOp, this->typeConverter);
@@ -759,9 +760,9 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       /* temps [B][vec] */ Value redMemRef, Value redMemRef2,
       /* index expr param */ IndexExpr redDim,
       /* value params */ Value i, Value epsilon,
-      /* int params */ int64_t B, int64_t VL, BroadcastKind scaleBroadcastKind,
-      BroadcastKind biasBroadcastKind, IndexExpr scaleModFactor,
-      IndexExpr biasModFactor) const {
+      /* int params */ int64_t B, int64_t totVL,
+      BroadcastKind scaleBroadcastKind, BroadcastKind biasBroadcastKind,
+      IndexExpr scaleModFactor, IndexExpr biasModFactor) const {
     // Bool isTraditionalLayerNorm is true when computing traditional layer
     // norm, not the faster RMS version.
     bool isTraditionalLayerNorm = false;
@@ -770,7 +771,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Vector type.
     Type elementType =
         mlir::cast<ShapedType>(YMemRef.getType()).getElementType();
-    VectorType vecType = VectorType::get({VL}, elementType);
+    VectorType vecType = VectorType::get({totVL}, elementType);
     // Init the two reductions.
     Value init = create.math.constant(elementType, 0.0);
     Value initVec = create.vec.splat(vecType, init);
@@ -782,7 +783,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     });
     // Perform reduction of entire vectors.
     IndexExpr izero = LiteralIndexExpr(0);
-    create.affineKMem.forIE(izero, redDim, VL,
+    create.affineKMem.forIE(izero, redDim, totVL,
         [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
           MDBuilder create(ck);
           // load X, compute X**2, sum into reductions.
@@ -836,7 +837,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       invStdDev[d] = create.math.div(oneFloat, stdDev);
     });
     // Normalize of entire vectors.
-    create.affineKMem.forIE(izero, redDim, VL,
+    create.affineKMem.forIE(izero, redDim, totVL,
         [&](onnx_mlir::AffineBuilderKrnlMem &ck, mlir::Value j) {
           MDBuilder create(ck);
           // load X, compute X**2, sum into reductions.
@@ -883,7 +884,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
 
   LogicalResult generateSIMDCode(ConversionPatternRewriter &rewriter,
       Location loc, OP_TYPE lnOp, ADAPTOR_TYPE &adaptor,
-      SHAPE_HELPER_TYPE &shapeHelper, int64_t B, int64_t VL,
+      SHAPE_HELPER_TYPE &shapeHelper, int64_t B, int64_t totVL,
       BroadcastKind scaleBroadcastKind, BroadcastKind biasBroadcastKind,
       IndexExpr scaleModFactor, IndexExpr biasModFactor) const {
 
@@ -946,7 +947,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
           shapeHelper.getOutputDims(2), axis, invStdDevMemRef,
           invStdDevFlatMemRef);
     // Alloc mem for reductions (should be private if parallel)
-    MemRefType tmpRedType = MemRefType::get({B, VL}, elementType);
+    MemRefType tmpRedType = MemRefType::get({B, totVL}, elementType);
     // Iterate over 1st dim by block
     ValueRange loopDefs = create.krnl.defineLoops(1);
     IndexExpr zero = LiteralIndexExpr(0);
@@ -992,7 +993,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                           scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                           meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
                           tmpRedMemRef2, XFlatDims[1], blockLocalInd, epsilon,
-                          1, VL, scaleBroadcastKind, biasBroadcastKind,
+                          1, totVL, scaleBroadcastKind, biasBroadcastKind,
                           scaleModFactor, biasModFactor);
                     }); /* for inside blocked loop */
               },
@@ -1003,7 +1004,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
                     scaleFlatMemRef, biasFlatMemRef, YFlatMemRef,
                     meanFlatMemRef, invStdDevFlatMemRef, tmpRedMemRef,
                     tmpRedMemRef2, XFlatDims[1], blockedLoopIndices[0], epsilon,
-                    B, VL, scaleBroadcastKind, biasBroadcastKind,
+                    B, totVL, scaleBroadcastKind, biasBroadcastKind,
                     scaleModFactor, biasModFactor);
               });
         }); /* blocked loop */
