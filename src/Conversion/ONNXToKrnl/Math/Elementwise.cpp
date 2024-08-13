@@ -2161,6 +2161,10 @@ struct ONNXElementwiseUnaryOpLowering
     int64_t outputRank = outputMemRefType.getRank();
     Type elementType = outputMemRefType.getElementType();
 
+    // In unary, we don't have any broadcast, and thus our target is to fully
+    // collapse the loop to a 1D loop.
+    int64_t collapsedInnermostLoop = outputRank;
+
     // Shape helper.
     MDBuilder create(rewriter, loc);
     ONNXUnaryOpShapeHelper shapeHelper(op, operands, &create.krnlIE);
@@ -2174,15 +2178,15 @@ struct ONNXElementwiseUnaryOpLowering
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
       int64_t uVL = canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-          shapeHelper, op, outputMemRefType, outputRank,
+          shapeHelper, op, outputMemRefType, collapsedInnermostLoop,
           estimatedSimdLoopTripCount);
       if (uVL > 0) {
         onnxToKrnlSimdReport(op, /*successful*/ true, uVL,
             estimatedSimdLoopTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            uVL, /*collapsedInnermostLoop*/ outputRank,
-            /*ruleOutBroadcast*/ true, /*unary*/ true, enableParallel);
+            uVL, collapsedInnermostLoop, /*ruleOutBroadcast*/ true,
+            /*unary*/ true, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
           estimatedSimdLoopTripCount,
