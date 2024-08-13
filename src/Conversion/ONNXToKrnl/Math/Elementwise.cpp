@@ -1468,10 +1468,125 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   int64_t rank = outputDims.size() - collapsedInnermostLoops + 1;
   LLVM_DEBUG(
       llvm::dbgs() << "SIMD partial flatten with loop rank " << rank << "\n");
-  int64_t flattenedDim = rank - 1;
   SmallVector<IndexExpr, 4> flattenedOutputDims;
   Value flatAlloc = create.mem.reshapeToFlatInnermost(
       alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
+
+#if 1
+  ///////////////////////////////////////////////////////////////////////////
+  // new infra usage
+  ///////////////////////////////////////////////////////////////////////////
+
+  // Create loop iteration, rank-1, all but the flattened innermost [simd] loop.
+  int64_t outerLoopRank = rank - 1;
+  ValueRange loopDef = create.krnl.defineLoops(outerLoopRank);
+  // Iterate only over the blocks.
+  IndexExpr zero = LitIE(0);
+  SmallVector<IndexExpr, 4> lbs(outerLoopRank, zero);
+  SmallVector<IndexExpr, 4> ubs = flattenedOutputDims;
+  IndexExpr simdUb = ubs.pop_back_val(); // Remove flattened ub.
+  if (enableParallel) {
+    int64_t parId;
+    if (findSuitableParallelDimension(
+            lbs, ubs, 0, std::min((int64_t)2, outerLoopRank), parId)) {
+      create.krnl.parallel(loopDef[parId]);
+      onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
+          "elementwise simd partially flattened");
+    } else {
+      onnxToKrnlParallelReport(op, false, -1, -1,
+          "no dim with enough work in elementwise simd partially flattened");
+    }
+  }
+  create.krnl.iterateIE(
+      loopDef, loopDef, lbs, ubs, [&](KrnlBuilder &ck, ValueRange loopInd) {
+        MultiDialectBuilder<KrnlBuilder> create(ck);
+        // LoopInd has the current indices for all but the innermost dim. Since
+        // we expect here the entire innermost loop iteration in one go, the
+        // innermost loop starts at zero. Add here to the list of Dim symbols.
+        SmallVector<IndexExpr, 4> outputAccessExprs = DimListIE(loopInd);
+        outputAccessExprs.emplace_back(zero);
+
+        // Have to produce the list of input values and their access functions.
+        llvm::SmallVector<Value, 4> inputs = flatOperands;
+        llvm::SmallVector<DimsExpr, 4> inputAFs;
+        for (int64_t i = 0; i < (int64_t)inputs.size(); ++i) {
+          Value input = inputs[i];
+          // Define the access function for each of the inputs.
+          DimsExpr inputAF;
+          // Check if we have a none value.
+          if (isNoneValue(input)) {
+            // Have one, pass the none value with empty AF.
+            inputAFs.emplace_back(inputAF);
+            continue;
+          }
+          // We have a memref, analyze which kind.
+          MemRefType inputType = mlir::dyn_cast<MemRefType>(input.getType());
+          assert(inputType && "expected memref");
+          // Check if we have a scalar.
+          if (hasOneElement(input)) {
+            // Not flattened, with only 1 dims, just put zeros as needed.
+            int64_t inputRank = inputType.getRank();
+            for (int r = 0; r < inputRank; ++r)
+              inputAF.emplace_back(zero);
+            inputAFs.emplace_back(inputAF);
+            continue;
+          }
+          // We have a regular access.
+          LogicalResult res =
+              shapeHelper->getAccessExprs(input, i, outputAccessExprs, inputAF,
+                  /*flattened*/ true, ruledOutBroadcast);
+          assert(succeeded(res) && "Could not compute access indices");
+          inputAFs.emplace_back(inputAF);
+        }
+        // Produce the list of outputs and output AFs
+        Value output = flatAlloc;
+        DimsExpr outputAF = outputAccessExprs;
+
+        // hi alex, for the moment full simd is always true until we upgrade the
+        // loops that we can handle.
+        create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, /*full simd*/ true,
+            /*parallel*/ false, inputs, inputAFs, {output}, {outputAF},
+            [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
+                SmallVectorImpl<Value> &resVals, int64_t VL) {
+              MultiDialectBuilder<MathBuilder> create(kb);
+              Type currElementType = outputElementType;
+              if (VL > 1)
+                currElementType = VectorType::get({VL}, outputElementType);
+              Value res;
+              if (isUnaryOp) {
+                // For unary op, we through all operands at once as the other
+                // ones are scalars / none values.
+                res = emitScalarOpFor<OP_TYPE>(
+                    rewriter, create.getLoc(), op, currElementType, inputVals);
+              } else {
+                // For non-unary ops, each op is a flattened array that need to
+                // be processed; process the two first ones, and then
+                // "accumulate" one value at a time. Use the first operand as
+                // temporary result.
+                Value accumulated = inputVals[0];
+                // Iterate over the remaining operands.
+                for (unsigned i = 1; i < numArgs; ++i) {
+                  Value next = inputVals[i];
+                  // Fold.
+                  accumulated =
+                      emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(), op,
+                          currElementType, {accumulated, next});
+                }
+                // Postprocessing (dummy op if none).
+                res = emitPostProcessingFor<OP_TYPE>(rewriter, create.getLoc(),
+                    op, currElementType, accumulated);
+              }
+              resVals.emplace_back(res);
+            }); // SIMD kernel.
+      });       // Outer loops.
+
+#else
+
+  ///////////////////////////////////////////////////////////////////////////
+  // old infra usage
+  ///////////////////////////////////////////////////////////////////////////
+  int64_t flattenedDim = rank - 1;
+
   // Create loop iteration (flattened to output dim - inner dim + 1) with inner
   // one and blocked by mVL.
   ValueRange loopDef = create.krnl.defineLoops(rank);
@@ -1573,6 +1688,8 @@ static LogicalResult getPartiallyFlattenedSimdCode(
         // Store result in the resulting array.
         create.vec.store(finalResult, flatAlloc, loopInd);
       });
+
+#endif
   rewriter.replaceOp(op, alloc);
   return success();
 }

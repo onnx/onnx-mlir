@@ -11,6 +11,7 @@
 // Implements main for onnx-mlir driver.
 //===----------------------------------------------------------------------===//
 
+#include <filesystem>
 #include <regex>
 
 #include "mlir/IR/AsmState.h"
@@ -74,7 +75,10 @@ int main(int argc, char *argv[]) {
   }
   loadDialects(context);
   setupTiming.stop();
-  std::string msg = "Importing ONNX Model to MLIR Module";
+  std::filesystem::path p(inputFilename);
+  std::string modelShortName = p.filename();
+  std::string msg =
+      "Importing ONNX Model MLIR Module from \"" + modelShortName + "\"";
   showCompilePhase(msg);
   auto inputFileTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
   mlir::OwningOpRef<mlir::ModuleOp> module;

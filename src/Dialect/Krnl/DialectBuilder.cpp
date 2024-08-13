@@ -14,6 +14,7 @@
 
 #include "llvm/ADT/TypeSwitch.h"
 
+#include "src/Conversion/ONNXToKrnl/ONNXToKrnlCommon.hpp"
 #include "src/Dialect/Krnl/DialectBuilder.hpp"
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 
@@ -278,7 +279,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,
     ArrayRef<DimsExpr> outputAFs,
     function_ref<void(KrnlBuilder &kb, ArrayRef<Value> inputVals,
-        llvm::SmallVectorImpl<Value> &resultVals)>
+        llvm::SmallVectorImpl<Value> &resultVals, int64_t VL)>
         bodyBuilderFn) {
   int64_t inputNum = inputs.size();
   assert(inputAFs.size() == inputs.size() && "expected same size");
@@ -291,6 +292,7 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     ValueRange loopDef = defineLoops(1);
     ValueRange blockedLoopDef = block(loopDef[0], VL);
     if (useParallel) {
+      // hi alex, asses if suitable
       parallel({blockedLoopDef[0]});
       // hi alex, report parallel.
     }
@@ -304,21 +306,38 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
           IndexExprScope scope(ck);
           MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
           IndexExpr ind = DimIE(loopInd[0]);
-          // Load all the inputs as vectors of VL values,
+          // Load all the inputs as vectors of VL values, with a few exceptions.
+          // One is if the value is a "none value", leave as is. Another one is
+          // if the innermost dim is a scalar (ie dim[rank-1] == 1), then we
+          // just load the scalar.
           llvm::SmallVector<Value, 4> vecInputVals;
           for (int64_t i = 0; i < inputNum; ++i) {
-            MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
-            VectorType vecType = VectorType::get({VL}, type.getElementType());
-            DimsExpr AF = SymListIE(inputAFs[i]);
+            Value input = inputs[i];
+            if (isNoneValue(input)) {
+              // Simply enqueue the none value.
+              vecInputVals.emplace_back(input);
+              continue;
+            }
+            MemRefType type = mlir::cast<MemRefType>(input.getType());
             int64_t rank = type.getRank();
+            DimsExpr AF = SymListIE(inputAFs[i]);
             assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
-            AF[rank - 1] = AF[rank - 1] + ind;
-            Value vecVal = create.vec.loadIE(vecType, inputs[i], AF, {});
-            vecInputVals.emplace_back(vecVal);
+            if (hasOneElementInInnermostDims(input, 1)) {
+              // Has a reference with a scalar innermost dim, just load as a
+              // scalar. No need to add the induction variable.
+              Value scalarVal = create.krnl.loadIE(input, AF);
+              vecInputVals.emplace_back(scalarVal);
+            } else {
+              // Have a vector.
+              VectorType vecType = VectorType::get({VL}, type.getElementType());
+              AF[rank - 1] = AF[rank - 1] + ind; // Add induction var.
+              Value vecVal = create.vec.loadIE(vecType, input, AF, {});
+              vecInputVals.emplace_back(vecVal);
+            }
           }
           // Call the method to compute the values.
           llvm::SmallVector<Value, 4> vecResVals;
-          bodyBuilderFn(create.krnl, vecInputVals, vecResVals);
+          bodyBuilderFn(create.krnl, vecInputVals, vecResVals, VL);
           assert((int64_t)vecResVals.size() == outputNum &&
                  "loop body with incorrect number of results");
           // Store all the outputs as vectors of VL values,
@@ -356,17 +375,31 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
         // Load all the inputs as scalar values,
         llvm::SmallVector<Value, 4> scalarInputVals;
         for (int64_t i = 0; i < inputNum; ++i) {
-          MemRefType type = mlir::cast<MemRefType>(inputs[i].getType());
-          DimsExpr AF = SymListIE(inputAFs[i]);
+          Value input = inputs[i];
+          if (isNoneValue(input)) {
+            // Simply enqueue the none value.
+            scalarInputVals.emplace_back(input);
+            continue;
+          }
+          MemRefType type = mlir::cast<MemRefType>(input.getType());
           int64_t rank = type.getRank();
-          assert(rank == (int64_t)AF.size() && "AF expected input rank refs");
-          AF[rank - 1] = AF[rank - 1] + ind;
-          Value scalarVal = create.krnl.loadIE(inputs[i], AF);
-          scalarInputVals.emplace_back(scalarVal);
+          DimsExpr AF = SymListIE(inputAFs[i]);
+          if (hasOneElementInInnermostDims(input, 1)) {
+            // Has a reference with a scalar innermost dim, just load as a
+            // scalar. No need to add the induction variable.
+            assert(AF[rank - 1].isLiteral() && AF[rank - 1].getLiteral() == 1 &&
+                   "expected scalar dim innermost");
+            Value scalarVal = create.krnl.loadIE(input, AF);
+            scalarInputVals.emplace_back(scalarVal);
+          } else {
+            AF[rank - 1] = AF[rank - 1] + ind;
+            Value scalarVal = create.krnl.loadIE(input, AF);
+            scalarInputVals.emplace_back(scalarVal);
+          }
         }
         // Call the method to compute the values.
         llvm::SmallVector<Value, 4> scalarResVals;
-        bodyBuilderFn(create.krnl, scalarInputVals, scalarResVals);
+        bodyBuilderFn(create.krnl, scalarInputVals, scalarResVals, /*VL*/ 1);
         assert((int64_t)scalarResVals.size() == outputNum &&
                "loop body with incorrect number of results");
         // Store all the outputs as vectors of VL values,

@@ -133,7 +133,7 @@ struct KrnlBuilder : public DialectBuilder {
       mlir::ArrayRef<DimsExpr> outputAFs,
       mlir::function_ref<void(KrnlBuilder &kb,
           mlir::ArrayRef<mlir::Value> inputVals,
-          llvm::SmallVectorImpl<mlir::Value> &resultVals)>
+          llvm::SmallVectorImpl<mlir::Value> &resultVals, int64_t VL)>
           bodyBuilderFn);
 
   void yield(mlir::ValueRange iterArgs) const;
