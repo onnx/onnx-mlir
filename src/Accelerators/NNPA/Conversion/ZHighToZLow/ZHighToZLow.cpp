@@ -200,6 +200,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     int64_t sizeInBytes =
         affine::getIntOrFloatMemRefSizeInBytes(resType).value();
     char *rawData = (char *)malloc(sizeInBytes);
+    assert(rawData && "failed to allocate memory for stickified data");
     memset(rawData, 0, sizeInBytes);
     DenseResourceElementsAttr valueAttr = DenseUI8ResourceElementsAttr::get(
         RankedTensorType::get({sizeInBytes}, rewriter.getI8Type()),
