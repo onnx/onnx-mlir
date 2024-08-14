@@ -125,7 +125,9 @@ class InputVerificationBackendTest(BackendTest):
             self._add_model_test(rt, "Node")
 
     @classmethod
-    def assert_similar_outputs(cls, ref_output, output, model_dir):  # type: (str, str, str) -> None
+    def assert_similar_outputs(
+        cls, ref_output, output, model_dir
+    ):  # type: (str, str, str) -> None
         assert (
             ref_output in output
         ), "Verification message {} does not match expected value {}.".format(

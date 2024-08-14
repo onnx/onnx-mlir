@@ -3658,7 +3658,9 @@ class InferenceBackendTest(BackendTest):
                         shutil.move(model_dir, dest)
                         break
             os.makedirs(model_dir)
-            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol, model_dir=model_dir)
+            self.assert_similar_outputs(
+                ref_outputs, outputs, rtol, atol, model_dir=model_dir
+            )
 
         self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
 
