@@ -1020,6 +1020,9 @@ struct InstanceNormIntoLayerNormPattern
     // Create output using layer norm.
     Value Y = create.onnx.layerNorm(inputType, input, newScale, newBias, axis,
         instanceNormOp.getEpsilonAttr());
+    // Set the type of the output to be the same as the output of the original
+    // operation we are trying to replace.
+    Y.setType(instanceNormOp.getResult().getType());
     // Replace operation.
     rewriter.replaceOp(instanceNormOp, Y);
     return success();
@@ -1114,6 +1117,9 @@ struct GroupNormIntoLayerNormPattern
     Value inputShape = create.onnx.shape(inputShapeType, input);
     Type outputType = groupNormOp.getY().getType();
     Value Y = create.onnx.reshape(outputType, layerNormY, inputShape);
+    // Set the type of the output to be the same as the output of the original
+    // operation we are trying to replace.
+    Y.setType(groupNormOp.getResult().getType());
     // Replace operation.
     rewriter.replaceOp(groupNormOp, Y);
     return success();
