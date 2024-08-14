@@ -61,7 +61,7 @@ namespace onnx_mlir {
 }
 
 /*static*/ bool VectorMachineSupport::hasSimd() {
-  return getGlobalVectorMachineSupport()->VectorRegisterNum() > 0;
+  return getGlobalVectorMachineSupport()->getArchVectorRegisterNum() > 0;
 }
 // =============================================================================
 // Methods shared among all VectorMachineSupport classes and subclasses
@@ -69,7 +69,7 @@ namespace onnx_mlir {
 int64_t VectorMachineSupport::getArchVectorLength(Type elementType) {
   if (!hasSimd())
     return 0;
-  int64_t simdBitSize = getVectorBitWidth();
+  int64_t simdBitSize = getArchVectorBitWidth();
   int64_t typeBitSize = elementType.getIntOrFloatBitWidth();
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
          "bad machine vector length");
@@ -100,7 +100,7 @@ double VectorMachineSupport::getAvgArchVectorLength(ArrayRef<GenericOps> &gops,
       vectorizedOpNum += num;
     else
       scalarOpNum += num;
-    // For totVL, when an operation is scalar, it still process 1 element
+    // For VL, when an operation is scalar, it still process 1 element
     int64_t processedValues = std::max((int64_t)1, vl);
     totProcessedValues += processedValues * num;
   }

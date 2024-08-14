@@ -620,7 +620,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Do not want to disable SIMD for lack of sum across support at this
     // stage. Type elementType = XMemRefType.getElementType();
     //
-    // if (vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType) <= 0) {
+    // if (vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType) <= 0)
+    // {
     //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
     //   return false;
     // }

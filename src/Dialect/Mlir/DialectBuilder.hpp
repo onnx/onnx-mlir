@@ -465,9 +465,9 @@ struct VectorBuilder final : DialectBuilder {
 
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
-  int64_t getMachineVectorLength(const mlir::Type &elementType) const;
-  int64_t getMachineVectorLength(const mlir::VectorType &vecType) const;
-  int64_t getMachineVectorLength(mlir::Value vecValue) const;
+  int64_t getArchVectorLength(const mlir::Type &elementType) const;
+  int64_t getArchVectorLength(const mlir::VectorType &vecType) const;
+  int64_t getArchVectorLength(mlir::Value vecValue) const;
 
   // Vector load: memref is expected to be scalar, will load a vector's worth
   // of values: e.g. %result = vector.load %base[%i, %j] :

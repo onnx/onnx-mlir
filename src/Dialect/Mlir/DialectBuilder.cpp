@@ -1746,21 +1746,21 @@ void SCFBuilder::yield() const { b().create<scf::YieldOp>(loc()); }
   return (e1 == e2) && compatibleShapes(t1, t2);
 }
 
-int64_t VectorBuilder::getMachineVectorLength(const Type &elementType) const {
+int64_t VectorBuilder::getArchVectorLength(const Type &elementType) const {
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
   // Even if unsupported, we can always compute one result per vector.
   return std::max((int64_t)1, vms->getArchVectorLength(elementType));
 }
 
-int64_t VectorBuilder::getMachineVectorLength(const VectorType &vecType) const {
-  return getMachineVectorLength(vecType.getElementType());
+int64_t VectorBuilder::getArchVectorLength(const VectorType &vecType) const {
+  return getArchVectorLength(vecType.getElementType());
 }
 
-int64_t VectorBuilder::getMachineVectorLength(Value vecValue) const {
+int64_t VectorBuilder::getArchVectorLength(Value vecValue) const {
   VectorType vecType = mlir::dyn_cast_or_null<VectorType>(vecValue.getType());
   assert(vecType && "expected vector type");
-  return getMachineVectorLength(vecType.getElementType());
+  return getArchVectorLength(vecType.getElementType());
 }
 
 Value VectorBuilder::load(
@@ -1959,7 +1959,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
-  uint64_t machineVL = getMachineVectorLength(inputVecArray[0]);
+  uint64_t machineVL = getArchVectorLength(inputVecArray[0]);
   // TODO alex, should relax this
   assert(VL == machineVL && "only natural sizes supported at this time");
   assert(N % machineVL == 0 &&
@@ -2043,7 +2043,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
   // Define a target max unroll as a function of register pressure.
   int64_t simdUnroll;
-  int64_t vrNum = vms->VectorRegisterNum();
+  int64_t vrNum = vms->getArchVectorRegisterNum();
   if (vectorizedOpNum >= vrNum / 2)
     simdUnroll = 2;
   else if (vectorizedOpNum >= vrNum / 4)

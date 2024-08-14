@@ -282,7 +282,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       input, inputDims, flatInputDims, inputRank);
   // Study SIMD. Assume here that since SIMD is determined by the input type
   // (which is expected to be the same as the output scalar value), both
-  // reduction will have the same VL.
+  // reduction will have the same archVL.
   int64_t unrollVL = 4;
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
@@ -719,7 +719,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       }
     }
     LLVM_DEBUG(llvm::dbgs() << "  SIMD " << (totVL ? "" : "im")
-                            << "possible with vector length " << totVL << "\n");
+                            << "possible with totVL " << totVL << "\n");
 
     //////////////////////////////////////////////////////////////////////
     // Insert an allocation and deallocation for the result of this operation.
@@ -904,8 +904,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   //
   // flatInput has been flattened from [N][M][R1][R2] to [N][M][R1*R2], where
   // the SIMD reduction is done along the last dim. By definition of what we
-  // support here, R1*R2 mod totVL = 0, namely the reduction dimension is a
-  // multiple of totVL (no partial SIMD).
+  // support here, R1*R2 mod VL = 0, namely the reduction dimension is a
+  // multiple of VL (no partial SIMD).
   //
   // tmpAlloc has been flattened (if keepDim is true) to [N][M].
   //
@@ -917,13 +917,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
       Value tmpAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange outLoopInd, Value simdUB,
-      int64_t totVL) const {
+      int64_t VL) const {
     // Init temp memory to init values.
     Value zero = create.math.constantIndex(0);
     create.vec.store(initVec, tmpAlloca, {zero, zero});
     // Iterate over the SIMD blocks.
     ValueRange simdLoopDef = create.krnl.defineLoops(1);
-    ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], totVL);
+    ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], VL);
     create.krnl.iterate(simdLoopDef, {blockedSimdLoopDef[0]}, {zero}, {simdUB},
         [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
           MDBuilder create(ck);
@@ -954,12 +954,12 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
   // reductions that needs to be performed.
   void genHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
-      Value alloc, int64_t inRank, int64_t outRank, int64_t totVL,
+      Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
 
-    assert(totVL > 1 && "expected simd here");
-    VectorType vecType = VectorType::get({totVL}, elementType);
+    assert(VL > 1 && "expected simd here");
+    VectorType vecType = VectorType::get({VL}, elementType);
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
     DimsExpr inDims, flatInDims;
     create.krnlIE.getShapeAsSymbols(input, inDims);
@@ -984,8 +984,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       enableParallel = false;
 
     // Compute type of alloca a small temp vector.
-    MemRefType tmpType = MemRefType::get({1, totVL}, elementType);
-    // Define loops for input dimensions, blocking the inner dim by totVL
+    MemRefType tmpType = MemRefType::get({1, VL}, elementType);
+    // Define loops for input dimensions, blocking the inner dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     SmallVector<IndexExpr, 4> lbs(flatOutRank, LiteralIndexExpr(0));
     if (enableParallel) {
@@ -1010,7 +1010,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           Value initVec = create.vec.splat(vecType, identity);
           genOneHorizontalSimdReduction(rewriter, create, op, elementType,
               vecType, tmpAlloca, flatInput, flatAlloc, initVec, divisorForMean,
-              outLoopInd, simdUB, totVL);
+              outLoopInd, simdUB, VL);
         });
   }
 
@@ -1034,21 +1034,21 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       MDBuilder &create, Operation *op, Type elementType, VectorType vecType,
       Value tmpBlockedAlloca, Value flatInput, Value flatAlloc, Value initVec,
       Value divisorForMean, ValueRange blockedOutLoopInd,
-      IndexExpr blockedCurrIndex, Value simdUB, int64_t totVL) const {
+      IndexExpr blockedCurrIndex, Value simdUB, int64_t VL) const {
     // Init temp memory to init values.
     Value zero = create.math.constantIndex(0);
-    for (int64_t i = 0; i < totVL; ++i) {
+    for (int64_t i = 0; i < VL; ++i) {
       create.vec.store(
           initVec, tmpBlockedAlloca, {create.math.constantIndex(i), zero});
     }
     // First step: blocked simd loop.
     ValueRange simdLoopDef = create.krnl.defineLoops(1);
-    ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], totVL);
+    ValueRange blockedSimdLoopDef = create.krnl.block(simdLoopDef[0], VL);
     create.krnl.iterate(simdLoopDef, {blockedSimdLoopDef[0]}, {zero}, {simdUB},
         [&](KrnlBuilder &ck, ValueRange simdLoopInd) {
           MDBuilder create(ck);
           // Loop over blocked output loop, block guaranteed to be full.
-          for (int64_t i = 0; i < totVL; ++i) {
+          for (int64_t i = 0; i < VL; ++i) {
             IndexExpr offset = LiteralIndexExpr(i);
             IndexExpr blockLocalIndIE = blockedCurrIndex + offset;
             Value blockLocalInd = blockLocalIndIE.getValue();
@@ -1059,7 +1059,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             inAccessVals.emplace_back(blockLocalInd);
             inAccessVals.emplace_back(simdLoopInd[0]);
             Value inputVec = create.vec.load(vecType, flatInput, inAccessVals);
-            // The tmpInd value is between 0 and totVL-1, and is local index -
+            // The tmpInd value is between 0 and VL-1, and is local index -
             // blocked index.
             Value tmpInd = offset.getValue();
             Value tmpVec =
@@ -1073,7 +1073,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     // Step 2
     // Load all temp vectors.
     SmallVector<Value, 4> redIn, redOut;
-    for (int64_t i = 0; i < totVL; ++i) {
+    for (int64_t i = 0; i < VL; ++i) {
       Value val = create.vec.load(
           vecType, tmpBlockedAlloca, {create.math.constantIndex(i), zero});
       redIn.emplace_back(val);
@@ -1084,7 +1084,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           rewriter, create.getLoc(), op, vecType, {a, b});
     };
     create.vec.multiReduction(redIn, redFct, redOut);
-    // The redOut list should have one value with SIMD of totVL.
+    // The redOut list should have one value with SIMD of VL.
     assert(redOut.size() == 1 && "expected only one val");
     Value accumulatedVal = redOut[0];
     // Perform the mean computation if required.
@@ -1108,13 +1108,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
 
   void genShuffleHorizontalSimdReduction(ConversionPatternRewriter &rewriter,
       MDBuilder &create, Operation *op, Type elementType, Value input,
-      Value alloc, int64_t inRank, int64_t outRank, int64_t totVL,
+      Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
 
-    assert(totVL > 1 && "expected simd here");
-    IndexExpr VLIndexExpr = LiteralIndexExpr(totVL);
-    VectorType vecType = VectorType::get({totVL}, elementType);
+    assert(VL > 1 && "expected simd here");
+    IndexExpr VLIndexExpr = LiteralIndexExpr(VL);
+    VectorType vecType = VectorType::get({VL}, elementType);
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
     DimsExpr inDims, flatInDims;
     create.krnlIE.getShapeAsSymbols(input, inDims);
@@ -1142,11 +1142,11 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       enableParallel = false;
 
     // Compute type of small temp vector.
-    MemRefType tmpBlockedType = MemRefType::get({totVL, totVL}, elementType);
-    // Define loops for input dimensions, blocking the inner out dim by totVL
+    MemRefType tmpBlockedType = MemRefType::get({VL, VL}, elementType);
+    // Define loops for input dimensions, blocking the inner out dim by VL
     ValueRange outLoopDef = create.krnl.defineLoops(flatOutRank);
     ValueRange blockedOutLoopDef =
-        create.krnl.block(outLoopDef[flatOutRank - 1], totVL);
+        create.krnl.block(outLoopDef[flatOutRank - 1], VL);
     // All of the non-blocked loops, plus the blocked output loop
     SmallVector<Value, 4> optimizedOutLoopDef =
         firstFew<Value, 4>(outLoopDef, -2);
@@ -1156,7 +1156,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     if (enableParallel) {
       int64_t parId;
       if (findSuitableParallelDimension(lbs, flatOutDims, 0, 1, parId,
-              /*min iter for going parallel*/ 64 * totVL)) {
+              /*min iter for going parallel*/ 64 * VL)) {
         create.krnl.parallel(optimizedOutLoopDef[0]);
         onnxToKrnlParallelReport(
             op, true, 0, lbs[0], flatOutDims[0], "reduction shuffle h-simd");
@@ -1179,7 +1179,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           IndexExpr blockedUB =
               SymbolIndexExpr(flatOutDims[flatOutRank - 1].getValue());
           IndexExpr isFull = create.krnlIE.isTileFull(
-              blockedCurrIndex, LiteralIndexExpr(totVL), blockedUB);
+              blockedCurrIndex, LiteralIndexExpr(VL), blockedUB);
           Value zero = create.math.constantIndex(0);
           Value isNotFullVal = create.math.slt(isFull.getValue(), zero);
           create.scf.ifThenElse(
@@ -1201,7 +1201,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                       genOneHorizontalSimdReduction(rewriter, create, op,
                           elementType, vecType, tmpBlockedAlloca, flatInput,
                           flatAlloc, initVec, divisorForMean, outLoopInd,
-                          simdUB, totVL);
+                          simdUB, VL);
                     }); /* for inside blocked loop */
               },
               [&](SCFBuilder &scf) {
@@ -1210,7 +1210,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                 genVlHorizontalSimdReduction(rewriter, create, op, elementType,
                     vecType, tmpBlockedAlloca, flatInput, flatAlloc, initVec,
                     divisorForMean, blockedOutLoopInd, blockedCurrIndex, simdUB,
-                    totVL);
+                    VL);
               });
         }); /* blocked out loop */
   }

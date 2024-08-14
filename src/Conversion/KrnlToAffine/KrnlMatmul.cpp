@@ -131,7 +131,7 @@ public:
         if (iComputeTileSize.isLiteral() && kComputeTileSize.isLiteral()) {
           uint64_t i = iComputeTileSize.getLiteral();
           uint64_t k = kComputeTileSize.getLiteral();
-          uint64_t archVL = create.vec.getMachineVectorLength(elementType);
+          uint64_t archVL = create.vec.getArchVectorLength(elementType);
           if (i % archVL == 0 && k % archVL == 0) {
             // Right now, vector length must be archVL.
             vectorLen = LiteralIndexExpr(archVL);
@@ -351,7 +351,7 @@ private:
         MemRefBuilder, KrnlBuilder>
         create(createAffine);
     int64_t iLit(I.getLiteral()), VL(vectorLen.getLiteral());
-    int64_t archVL = create.vec.getMachineVectorLength(elementType);
+    int64_t archVL = create.vec.getArchVectorLength(elementType);
     // Get operands.
     KrnlMatMulOpAdaptor operandAdaptor = KrnlMatMulOpAdaptor(op);
     Value A(operandAdaptor.getA()), B(operandAdaptor.getB()),
@@ -405,7 +405,7 @@ private:
           }
         });
 
-    // Reduce each SIMD vector of length archVL using a SIMD parallel reduction.
+    // Reduce each SIMD vector of length VL using a SIMD parallel reduction.
     SmallVector<Value, 8> vProdList, vReductionList;
     for (int64_t i = 0; i < iUnrollFactor; ++i) {
       Value iVal = create.math.constantIndex(i);

@@ -45,9 +45,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
             GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
         {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount);
   }
-  // Has only simd iterations when we have SIMD (totVL > 0), the simd dimensions is
-  // a multiple of a non-zero constant (simdLoopStaticTripCount) iterations, and
-  // simdLoopStaticTripCount % totVL == 0.
+  // Has only simd iterations when we have SIMD (totVL > 0), the simd dimensions
+  // is a multiple of a non-zero constant (simdLoopStaticTripCount) iterations,
+  // and simdLoopStaticTripCount % totVL == 0.
   bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (totVL > 0) &&
                             (simdLoopStaticTripCount % totVL == 0);
 
@@ -87,8 +87,8 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
             });
       });
   if (totVL > 1)
-    onnxToKrnlSimdReport(op, /*successful*/ true, totVL, simdLoopStaticTripCount,
-        "quantizationLinear whole tensor");
+    onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
+        simdLoopStaticTripCount, "quantizationLinear whole tensor");
   else
     onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
         "no simd in quantizationLinear whole tensor");

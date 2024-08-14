@@ -1383,7 +1383,7 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-// Return unrolled vector length; no simd -> return 0;
+// Return total vector length; no simd -> return 0;
 // collapsedLiteralSize is ignored when we can collapse every loop iterations as
 // we then rely on padding of the allocated memory to enable arbitrary output
 // array simdization. When partial simd is requested, then we must ensure that
@@ -1393,8 +1393,6 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t &estimatedSimdLoopTripCount) {
   estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
-  int64_t unrollVL;
-  int64_t totVL = 0;
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
@@ -1409,19 +1407,20 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
   VectorMachineSupport *vms =
       VectorMachineSupport::getGlobalVectorMachineSupport();
 
-  int64_t vrNum = vms->VectorRegisterNum();
+  int64_t vrNum = vms->getArchVectorRegisterNum();
+  int64_t unrollVL;
   if (vectorizedOpNum >= vrNum / 2)
     unrollVL = 1; // TODO, it would appear to be beneficial to always have 2.
   else if (vectorizedOpNum >= vrNum / 4)
     unrollVL = 4;
   else
     unrollVL = 8;
-  totVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
+  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
       collapsedInnermostLoops, unrollVL,
       /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({
     if (totVL)
-      llvm::dbgs() << "  simd enabled with vector length " << totVL << "\n";
+      llvm::dbgs() << "  simd enabled with VL " << totVL << "\n";
     else
       LLVM_DEBUG(
           llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
@@ -1482,7 +1481,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   Value flatAlloc = create.mem.reshapeToFlatInnermost(
       alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
   // Create loop iteration (flattened to output dim - inner dim + 1) with inner
-  // one and blocked by mVL.
+  // one and blocked by VL.
   ValueRange loopDef = create.krnl.defineLoops(rank);
   ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
   SmallVector<Value, 4> optimizedLoopDef;

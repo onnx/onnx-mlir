@@ -92,12 +92,12 @@ public:
   static const int64_t UNSUPPORTED = 0;
 
   // Number of vector registers available.
-  virtual int64_t VectorRegisterNum() = 0;
+  virtual int64_t getArchVectorRegisterNum() = 0;
 
   // Return the bit width of the SIMD unit regardless of the type/operation.
   // This is an upper bound and does not guarantee that an actual operation can
   // provide this VL. A value of zero means no SIMD available.
-  virtual int64_t getVectorBitWidth() = 0;
+  virtual int64_t getArchVectorBitWidth() = 0;
   // Return the number of elements that can be processed in SIMD fashion
   // regardless of the operation. This is an upper bound and does not guarantee
   // that an actual operation can provide this VL. A value of zero means no SIMD
@@ -130,8 +130,8 @@ public:
   NoVectorMachineSupport() = default;
   virtual ~NoVectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 0; }
-  int64_t getVectorBitWidth() override { return 0; }
+  int64_t getArchVectorRegisterNum() override { return 0; }
+  int64_t getArchVectorBitWidth() override { return 0; }
   int64_t getArchVectorLength(mlir::Type elementType) override {
     return UNSUPPORTED;
   }
@@ -147,8 +147,8 @@ public:
   Z16VectorMachineSupport() = default;
   virtual ~Z16VectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 32; }
-  int64_t getVectorBitWidth() override { return 128; }
+  int64_t getArchVectorRegisterNum() override { return 32; }
+  int64_t getArchVectorBitWidth() override { return 128; }
   int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 
@@ -162,8 +162,8 @@ public:
   SSE42x86VectorMachineSupport() = default;
   virtual ~SSE42x86VectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 16; }
-  int64_t getVectorBitWidth() override { return 128; }
+  int64_t getArchVectorRegisterNum() override { return 16; }
+  int64_t getArchVectorBitWidth() override { return 128; }
   int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 
@@ -172,7 +172,7 @@ public:
   AVX2x86VectorMachineSupport() = default;
   virtual ~AVX2x86VectorMachineSupport() = default;
 
-  int64_t getVectorBitWidth() override { return 258; }
+  int64_t getArchVectorBitWidth() override { return 258; }
 };
 
 // Support for Arm 64
@@ -182,8 +182,8 @@ public:
   NeonVectorMachineSupport() = default;
   virtual ~NeonVectorMachineSupport() = default;
 
-  int64_t VectorRegisterNum() override { return 32; }
-  int64_t getVectorBitWidth() override { return 128; }
+  int64_t getArchVectorRegisterNum() override { return 32; }
+  int64_t getArchVectorBitWidth() override { return 128; }
   int64_t getArchVectorLength(GenericOps gop, mlir::Type elementType) override;
 };
 

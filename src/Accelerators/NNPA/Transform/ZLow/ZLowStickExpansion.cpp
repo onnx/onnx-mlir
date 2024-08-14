@@ -273,7 +273,7 @@ public:
                     rewriter.create<ZLowConvertDLF16ToF32VectorOp>(loc, vecF16);
                 Value vecF32H = convertOp.getResult(0);
                 Value vecF32L = convertOp.getResult(1);
-                // Save into VL value buffer.
+                // Save into archVL value buffer.
                 Value bufferF32 = create.mem.alignedAlloca(bufferType);
                 create.vec.storeIE(vecF32H, bufferF32, {litZero}, {});
                 create.vec.storeIE(vecF32L, bufferF32, {litArchVLHalf}, {});
@@ -359,8 +359,6 @@ public:
     // Define useful literals.
     IndexExpr litZero = LitIE(0);
     IndexExpr lit1 = LitIE(1);
-    // hi alex, not used
-    // IndexExpr litArchVLHalf = LitIE(archVLHalf);
     IndexExpr lit64 = LitIE(64);
 
     // Values for saturation.
