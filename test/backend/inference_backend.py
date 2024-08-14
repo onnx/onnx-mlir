@@ -3640,9 +3640,10 @@ class InferenceBackendTest(BackendTest):
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
             atol = model_test.atol
-            self.assert_similar_outputs(
-                ref_outputs, outputs, rtol, atol)
-        self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
+            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol)
+
+        model_name = model_test.model.graph.name
+        self._add_test(kind + "Model", model_name, run, model_marker)
 
 
 # There are two issues, which necessitates the adoption of this endianness
