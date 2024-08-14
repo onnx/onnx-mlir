@@ -3645,20 +3645,20 @@ class InferenceBackendTest(BackendTest):
             onnx_home = os.path.expanduser(
                 os.getenv("ONNX_HOME", os.path.join("~", ".onnx"))
             )
-            models_dir: str = os.path.join(onnx_home, "models")
+            models_dir = os.getenv("ONNX_MODELS", os.path.join(onnx_home, "models"))
             model_dir = os.path.join(models_dir, model_name)
-            # if not os.path.exists(os.path.join(model_dir, "model.onnx")):
-            #     if os.path.exists(model_dir):
-            #         bi = 0
-            #         while True:
-            #             dest = "{}.old.{}".format(model_dir, bi)
-            #             if os.path.exists(dest):
-            #                 bi += 1
-            #                 continue
-            #             shutil.move(model_dir, dest)
-            #             break
-            # os.makedirs(model_dir)
-            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol, model_dir)
+            if not os.path.exists(os.path.join(model_dir, "model.onnx")):
+                if os.path.exists(model_dir):
+                    bi = 0
+                    while True:
+                        dest = "{}.old.{}".format(model_dir, bi)
+                        if os.path.exists(dest):
+                            bi += 1
+                            continue
+                        shutil.move(model_dir, dest)
+                        break
+            os.makedirs(model_dir)
+            self.assert_similar_outputs(ref_outputs, outputs, rtol, atol, model_dir=model_dir)
 
         self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
 

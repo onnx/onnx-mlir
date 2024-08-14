@@ -11,6 +11,7 @@ from __future__ import division
 from __future__ import print_function
 
 import io
+import shutil
 import sys
 import numpy as np
 from collections import defaultdict
@@ -124,7 +125,7 @@ class InputVerificationBackendTest(BackendTest):
             self._add_model_test(rt, "Node")
 
     @classmethod
-    def assert_similar_outputs(cls, ref_output, output):  # type: (str, str) -> None
+    def assert_similar_outputs(cls, ref_output, output, model_dir):  # type: (str, str, str) -> None
         assert (
             ref_output in output
         ), "Verification message {} does not match expected value {}.".format(
@@ -136,12 +137,29 @@ class InputVerificationBackendTest(BackendTest):
 
         def run(test_self, device):  # type: (Any, Text) -> None
             model_marker[0] = model_test.model
+            model_name = model_test.model.graph.name
             prepared_model = self.backend.prepare(model_test.model, device)
             assert prepared_model is not None
 
             output = prepared_model.run(model_test.input)
             ref_output = model_test.output
-            self.assert_similar_outputs(ref_output, output)
+            onnx_home = os.path.expanduser(
+                os.getenv("ONNX_HOME", os.path.join("~", ".onnx"))
+            )
+            models_dir = os.getenv("ONNX_MODELS", os.path.join(onnx_home, "models"))
+            model_dir = os.path.join(models_dir, model_name)
+            if not os.path.exists(os.path.join(model_dir, "model.onnx")):
+                if os.path.exists(model_dir):
+                    bi = 0
+                    while True:
+                        dest = "{}.old.{}".format(model_dir, bi)
+                        if os.path.exists(dest):
+                            bi += 1
+                            continue
+                        shutil.move(model_dir, dest)
+                        break
+            os.makedirs(model_dir)
+            self.assert_similar_outputs(ref_output, output, model_dir=model_dir)
 
         self._add_test(kind + "Model", model_test.name, run, model_marker)
 
