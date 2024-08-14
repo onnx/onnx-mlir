@@ -2003,10 +2003,9 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 }
 
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
-    ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,
+    MemRefType memRefType, int64_t collapsedInnermostLoops, GenOpsMix genOps,
     int64_t &simdLoopStaticTripCount) {
-  assert(GOps.size() == GOpsNum.size() && "expected same size");
+
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.
 
   // Analyze size of SIMD iterations.
@@ -2030,7 +2029,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   // Gather operation statics
   int64_t vectorizedOpNum, scalarOpNum;
   double avgVL = VectorMachineSupport::getAvgArchVectorLength(
-      GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
+      genOps, elementType, vectorizedOpNum, scalarOpNum);
   if (avgVL < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: too few SIMD operations with "
                             << avgVL << " avg VL\n");

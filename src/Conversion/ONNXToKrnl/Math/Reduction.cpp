@@ -285,8 +285,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   // reduction will have the same archVL.
   int64_t unrollVL = 4;
   int64_t estimatedSimdLoopTripCount = 0;
-  int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType,
-      inputRank, unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
+  int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType, inputRank,
+      unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
   if (totVL <= 1)
     return false;
   IndexExpr VLIndexExpr = LitIE(totVL);

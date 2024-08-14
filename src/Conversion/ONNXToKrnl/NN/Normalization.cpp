@@ -4,7 +4,7 @@
 
 //===----------- Normalization.cpp - Lowering Normalization Ops -----------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -618,7 +618,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Do not want to disable SIMD for lack of sum across support at this
     // stage. Type elementType = XMemRefType.getElementType();
     //
-    // if (VectorMachineSupport::getArchVectorLength(GenericOps::SumAcrossGop, 
+    // if (VectorMachineSupport::getArchVectorLength(GenericOps::SumAcrossGop,
     //    elementType) <= 1)
     // {
     //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
@@ -626,8 +626,8 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // }
 
     int64_t simdLoopStaticTripCount;
-    totVL = VectorBuilder::computeSuitableUnrollFactor(XMemRefType,
-        lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);
+    totVL = VectorBuilder::computeSuitableUnrollFactor(
+        XMemRefType, lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
                    << " loops, totVL " << totVL << "\n";);

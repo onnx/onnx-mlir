@@ -4,7 +4,7 @@
 
 //===-- VectorMachineSupport.cpp - Helper for what SIMD ops are supported -===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 
@@ -78,14 +78,12 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   return (simdBitSize / typeBitSize);
 }
 
-/*static*/ double VectorMachineSupport::getAvgArchVectorLength(
-    ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum, Type elementType,
-    int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
-  assert(GOpsNum.size() == GOps.size() && "expect same length for both lists");
-  int64_t GOpsSize = GOps.size();
+/*static*/ double VectorMachineSupport::getAvgArchVectorLength(GenOpsMix GenOps,
+    Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+  int64_t size = GenOps.size();
   if (!hasSimd()) {
     vectorizedOpNum = 0;
-    scalarOpNum = GOpsSize;
+    scalarOpNum = size;
     return 0;
   }
   int64_t totProcessedValues = 0.0;
@@ -93,10 +91,10 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   scalarOpNum = 0;
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
-  for (int64_t i = 0; i < GOpsSize; ++i) {
-    int64_t vl = getArchVectorLength(GOps[i], elementType);
+  for (auto pair : GenOps) {
+    int64_t vl = getArchVectorLength(pair.first, elementType);
     // If past last value, assume 1; otherwise use actual value.
-    int64_t num = GOpsNum[i];
+    int64_t num = pair.second;
     // Accumulate weighted scalar/vectorized num and vl length.
     if (vl > 0)
       vectorizedOpNum += num;
@@ -108,7 +106,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   }
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
-  scalarOpNum = GOpsSize - vectorizedOpNum;
+  scalarOpNum = size - vectorizedOpNum;
   return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 0.0;
 }
 

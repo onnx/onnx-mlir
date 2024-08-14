@@ -63,6 +63,8 @@ enum class GenericOps {
   TrigHyperbolicGop, /* Hyperbolic trig. */
 };
 
+using GenOpsMix = mlir::ArrayRef<std::pair<GenericOps, int64_t>>;
+
 //===----------------------------------------------------------------------===//
 // Generic vector machine support class, which must be refined for each
 // supported machine type.
@@ -120,13 +122,11 @@ public:
   // Analyze the benefits of using SIMD on a list of generic ops in an algorithm
   // where each op on the list occurs a given number of times. The function
   // returns the weighted average vector length among the operations listed in
-  // the GOps list, where each operation GOps[i] occur exactly GOpsNum[i] times
-  // in the algorithm. Note that scalar operation have a vector length of
-  // one in the weighted average as they still contribute one result. The opNums
-  // are also weighted by the GOpsNum to better represent the mix of
-  // vectorized and scalar operations present in the algorithm.
-  static double getAvgArchVectorLength(mlir::ArrayRef<GenericOps> GOps,
-      mlir::ArrayRef<int64_t> GOpsNum, mlir::Type elementType,
+  // the GenOps list, where each entry is a pair of generic operation and the
+  // number of times that generic operation was found. Note that scalar
+  // operation have a vector length of one in the weighted average as they still
+  // contribute one result.
+  static double getAvgArchVectorLength(GenOpsMix genOps, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 protected:

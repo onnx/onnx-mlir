@@ -541,8 +541,8 @@ struct VectorBuilder final : DialectBuilder {
   // that are not known to be a multiple of VL.
   // Definition and usage of simdLoopStaticTripCount is as in the previous call.
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
-      int64_t collapsedInnermostLoops, mlir::ArrayRef<GenericOps> GOps,
-      mlir::ArrayRef<int64_t> GOpsNum, int64_t &simdLoopStaticTripCount);
+      int64_t collapsedInnermostLoops, GenOpsMix GenOps,
+      int64_t &simdLoopStaticTripCount);
 
 private:
   bool isPowerOf2(uint64_t num) const;
