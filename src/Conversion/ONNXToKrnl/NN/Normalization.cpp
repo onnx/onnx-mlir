@@ -602,8 +602,6 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     int64_t axis = getAxisInRange(lnOp.getAxis(), XRank);
     int64_t lowRank = XRank - axis;
     // Detect if we can use SIMD based on inout/X output/Y shape.
-    VectorMachineSupport *vms =
-        VectorMachineSupport::getGlobalVectorMachineSupport();
 
     // Implementation relies into splitting the input X into a 2D vector, with
     // outer dim is batches, and inner dims is where the mean/stddev is
@@ -620,14 +618,15 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     // Do not want to disable SIMD for lack of sum across support at this
     // stage. Type elementType = XMemRefType.getElementType();
     //
-    // if (vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType) <= 0)
+    // if (VectorMachineSupport::getArchVectorLength(GenericOps::SumAcrossGop, 
+    //    elementType) <= 1)
     // {
     //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
     //   return false;
     // }
 
     int64_t simdLoopStaticTripCount;
-    totVL = VectorBuilder::computeSuitableUnrollFactor(vms, XMemRefType,
+    totVL = VectorBuilder::computeSuitableUnrollFactor(XMemRefType,
         lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount

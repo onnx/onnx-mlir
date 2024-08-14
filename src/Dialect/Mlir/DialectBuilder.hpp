@@ -524,9 +524,9 @@ struct VectorBuilder final : DialectBuilder {
   // Note that if simdLoopStaticTripCount>0 (we have simd) and
   // simdLoopStaticTripCount % (returned VL) == 0, we can guarantee that all
   // iterations will be SIMD iterations.
-  static int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
-      mlir::MemRefType memRefType, int64_t collapsedInnermostLoops,
-      int64_t maxSimdUnroll, bool canPad, int64_t &simdLoopStaticTripCount);
+  static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+      int64_t &simdLoopStaticTripCount);
 
   // Compute a suitable SIMD Vector length (VL). If no SIMD is suitable, return
   // 1. Type determine the initial VL. Then the mix of Generic

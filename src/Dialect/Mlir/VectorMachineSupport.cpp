@@ -9,7 +9,10 @@
 // =============================================================================
 
 #include "src/Dialect/Mlir/VectorMachineSupport.hpp"
+
 #include "mlir/IR/BuiltinTypes.h"
+#include "llvm/Support/Debug.h"
+
 #include <algorithm>
 
 #define DEBUG_TYPE "dialect_builder"
@@ -51,6 +54,8 @@ namespace onnx_mlir {
   }
   assert(globalVectorMachineSupport &&
          "failed to allocate vector machine support");
+
+  LLVM_DEBUG(llvm::dbgs() << "  use SIMD arch " << getArchName() << ":\n");
 }
 
 /*static*/ void VectorMachineSupport::clearGlobalVectorMachineSupport() {
@@ -60,30 +65,27 @@ namespace onnx_mlir {
   globalVectorMachineSupport = nullptr;
 }
 
-/*static*/ bool VectorMachineSupport::hasSimd() {
-  return getGlobalVectorMachineSupport()->getArchVectorRegisterNum() > 0;
-}
 // =============================================================================
 // Methods shared among all VectorMachineSupport classes and subclasses
 
-int64_t VectorMachineSupport::getArchVectorLength(Type elementType) {
+int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
   if (!hasSimd())
     return 0;
-  int64_t simdBitSize = getArchVectorBitWidth();
+  int64_t simdBitSize = computeArchVectorBitWidth();
   int64_t typeBitSize = elementType.getIntOrFloatBitWidth();
   assert(simdBitSize >= typeBitSize && simdBitSize % typeBitSize == 0 &&
          "bad machine vector length");
   return (simdBitSize / typeBitSize);
 }
 
-double VectorMachineSupport::getAvgArchVectorLength(ArrayRef<GenericOps> &gops,
-    ArrayRef<int64_t> &gopsNum, Type elementType, int64_t &vectorizedOpNum,
-    int64_t &scalarOpNum) {
-  assert(gopsNum.size() == gops.size() && "expect same length for both lists");
-  int64_t gopsSize = gops.size();
+/*static*/ double VectorMachineSupport::getAvgArchVectorLength(
+    ArrayRef<GenericOps> &GOps, ArrayRef<int64_t> &GOpsNum, Type elementType,
+    int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
+  assert(GOpsNum.size() == GOps.size() && "expect same length for both lists");
+  int64_t GOpsSize = GOps.size();
   if (!hasSimd()) {
     vectorizedOpNum = 0;
-    scalarOpNum = gopsSize;
+    scalarOpNum = GOpsSize;
     return 0;
   }
   int64_t totProcessedValues = 0.0;
@@ -91,10 +93,10 @@ double VectorMachineSupport::getAvgArchVectorLength(ArrayRef<GenericOps> &gops,
   scalarOpNum = 0;
   // Determine which operations support SIMD and accumulate their vector
   // lengths.
-  for (int64_t i = 0; i < gopsSize; ++i) {
-    int64_t vl = getArchVectorLength(gops[i], elementType);
+  for (int64_t i = 0; i < GOpsSize; ++i) {
+    int64_t vl = getArchVectorLength(GOps[i], elementType);
     // If past last value, assume 1; otherwise use actual value.
-    int64_t num = gopsNum[i];
+    int64_t num = GOpsNum[i];
     // Accumulate weighted scalar/vectorized num and vl length.
     if (vl > 0)
       vectorizedOpNum += num;
@@ -106,7 +108,7 @@ double VectorMachineSupport::getAvgArchVectorLength(ArrayRef<GenericOps> &gops,
   }
   // Compute final values
   int64_t totNum = vectorizedOpNum + scalarOpNum;
-  scalarOpNum = gopsSize - vectorizedOpNum;
+  scalarOpNum = GOpsSize - vectorizedOpNum;
   return totNum != 0 ? (1.0 * totProcessedValues) / (1.0 * totNum) : 0.0;
 }
 
@@ -114,7 +116,7 @@ double VectorMachineSupport::getAvgArchVectorLength(ArrayRef<GenericOps> &gops,
 // IBM Z servers
 // =============================================================================
 
-int64_t Z16VectorMachineSupport::getArchVectorLength(
+int64_t Z16VectorMachineSupport::computeArchVectorLength(
     GenericOps Gop, Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
@@ -133,8 +135,8 @@ int64_t Z16VectorMachineSupport::getArchVectorLength(
 
   // Support for float.
   if (isFloat) {
-    // Supports only 32 and 64 bit Floats; There is support for extended too but
-    // ignore this for now.
+    // Supports only 32 and 64 bit Floats; There is support for extended too
+    // but ignore this for now.
     if (!(bitWidth == 32 || bitWidth == 64 ||
             (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
       return UNSUPPORTED;
@@ -188,7 +190,7 @@ int64_t Z16VectorMachineSupport::getArchVectorLength(
 // This may be an approximation of the actual capabilities.
 // =============================================================================
 
-int64_t SSE42x86VectorMachineSupport::getArchVectorLength(
+int64_t SSE42x86VectorMachineSupport::computeArchVectorLength(
     GenericOps Gop, mlir::Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
@@ -207,8 +209,8 @@ int64_t SSE42x86VectorMachineSupport::getArchVectorLength(
 
   // Support for float.
   if (isFloat) {
-    // Supports only 32 and 64 bit Floats; There is support for extended too but
-    // ignore this for now.
+    // Supports only 32 and 64 bit Floats; There is support for extended too
+    // but ignore this for now.
     if (!(bitWidth == 32 || bitWidth == 64 ||
             (bitWidth == 16 && Gop == GenericOps::ConversionGop)))
       return UNSUPPORTED;
@@ -273,7 +275,7 @@ int64_t SSE42x86VectorMachineSupport::getArchVectorLength(
 // This may be an approximation of the actual capabilities.
 // =============================================================================
 
-int64_t NeonVectorMachineSupport::getArchVectorLength(
+int64_t NeonVectorMachineSupport::computeArchVectorLength(
     GenericOps Gop, mlir::Type elementType) {
   int64_t bitWidth = elementType.getIntOrFloatBitWidth();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);

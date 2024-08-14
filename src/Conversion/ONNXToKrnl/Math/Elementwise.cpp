@@ -60,11 +60,10 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 // Template for SIMD analysis
 
 // Helper for function that support SIMD.
+// hi alex, can remove this trivial fct
 static double simdAnalysis(ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum,
     Type elementType, int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
-  VectorMachineSupport *vms =
-      VectorMachineSupport::getGlobalVectorMachineSupport();
-  return vms->getAvgArchVectorLength(
+  return VectorMachineSupport::getAvgArchVectorLength(
       GOps, GOpsNum, elementType, vectorizedOpNum, scalarOpNum);
 }
 
@@ -1404,10 +1403,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
     return 1;
   }
   // Determine empirical unroll factor.
-  VectorMachineSupport *vms =
-      VectorMachineSupport::getGlobalVectorMachineSupport();
-
-  int64_t vrNum = vms->getArchVectorRegisterNum();
+  int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
   int64_t unrollVL;
   if (vectorizedOpNum >= vrNum / 2)
     unrollVL = 1; // TODO, it would appear to be beneficial to always have 2.
@@ -1415,7 +1411,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
     unrollVL = 4;
   else
     unrollVL = 8;
-  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(vms, memRefType,
+  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
       collapsedInnermostLoops, unrollVL,
       /*canPad*/ true, estimatedSimdLoopTripCount);
   LLVM_DEBUG({

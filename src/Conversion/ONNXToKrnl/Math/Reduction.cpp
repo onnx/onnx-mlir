@@ -284,10 +284,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   // (which is expected to be the same as the output scalar value), both
   // reduction will have the same archVL.
   int64_t unrollVL = 4;
-  VectorMachineSupport *vms =
-      VectorMachineSupport::getGlobalVectorMachineSupport();
   int64_t estimatedSimdLoopTripCount = 0;
-  int64_t totVL = create.vec.computeSuitableUnrollFactor(vms, inputType,
+  int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType,
       inputRank, unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
   if (totVL <= 1)
     return false;
@@ -607,8 +605,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         if (horizontalSimd || parallelSimd) {
           assert(!(horizontalSimd && parallelSimd) &&
                  "expected at most horizontal or parallel SIMD");
-          VectorMachineSupport *vms =
-              VectorMachineSupport::getGlobalVectorMachineSupport();
           DimsExpr inputDims;
           create.krnlIE.getShapeAsSymbols(input, inputDims);
           int64_t unrollVL = 4;
@@ -617,7 +613,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             VectorBuilder::CombiningKind kind =
                 getCombiningKind<ONNXReductionOp>();
             hasHorizontalSimdSupport =
-                supportedHorizontalSIMDOp(vms, kind, elementOutType);
+                supportedHorizontalSIMDOp(kind, elementOutType);
 #endif
             if (!hasHorizontalSimdSupport) {
               // Does not have SIMD horizontal support, so use a scheme that
@@ -632,7 +628,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // Currently only vectorize loops whose SIMD dimension is a multiple
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
-          totVL = create.vec.computeSuitableUnrollFactor(vms, memRefInType,
+          totVL = create.vec.computeSuitableUnrollFactor(memRefInType,
               innermostLoopCollapse, unrollVL, /*canPad*/ false,
               estimatedSimdLoopTripCount);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
@@ -881,21 +877,23 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     }
   }
 
-  bool supportedHorizontalSIMDOp(VectorMachineSupport *vms,
+  bool supportedHorizontalSIMDOp(
       VectorBuilder::CombiningKind getCombiningKind, Type elementType) const {
     int64_t len;
     switch (getCombiningKind) {
     case VectorBuilder::CombiningKind::ADD:
-      len = vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType);
+      len = VectorMachineSupport::getArchVectorLength(
+          GenericOps::SumAcrossGop, elementType);
       break;
     case VectorBuilder::CombiningKind::MIN:
     case VectorBuilder::CombiningKind::MAX:
-      len = vms->getArchVectorLength(GenericOps::SumAcrossGop, elementType);
+      len = VectorMachineSupport::getArchVectorLength(
+          GenericOps::SumAcrossGop, elementType);
       break;
     default:
-      len = 0;
+      len = 1;
     }
-    return len != 0;
+    return len != 1;
   }
 
   // Generate a single reduction, eventually using a horizontal reduction
