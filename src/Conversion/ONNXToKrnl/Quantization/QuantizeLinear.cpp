@@ -43,17 +43,18 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
       create.mem.reshapeToFlatInnermost(alloc, allocDims, flatAllocDims, rank);
 
   // Determine a suitable SIMD vector length for this loop.
-  int64_t VL = 0;
+  int64_t totVL = 1;
   int64_t simdLoopStaticTripCount = 0;
   bool simdOnly = false;
   if (enableSIMD) {
-    VL = VectorBuilder::computeSuitableUnrollFactor(
+    totVL = VectorBuilder::computeSuitableUnrollFactor(
         inputType /* use unquantized type*/,
         1 /* only innermost loop is simdized */,
-        {GenericOps::DivGop, GenericOps::ArithmeticGop,
-            GenericOps::ConversionGop, GenericOps::MinMaxGop,
-            GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
-        {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount, simdOnly);
+        {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
+            {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
+            {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
+            {GenericOps::FloorGop, 2}},
+        simdLoopStaticTripCount, simdOnly);
   }
 
   IndexExpr zero = LitIE(0);
@@ -64,7 +65,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   inputAF.emplace_back(zero);
   DimsExpr outputAF;
   outputAF.emplace_back(zero);
-  create.krnl.simdIterateIE(simdLb, simdUb, VL, simdOnly, enableParallel,
+  create.krnl.simdIterateIE(simdLb, simdUb, totVL, simdOnly, enableParallel,
       {flatInput}, {inputAF}, {flatAlloc}, {outputAF},
       [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
           SmallVectorImpl<Value> &resVals, int64_t VL) {
@@ -81,9 +82,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         Value res = create.math.cast(quantizedElementType, saturateX);
         resVals.emplace_back(res);
       });
-  if (VL > 1)
-    onnxToKrnlSimdReport(op, /*successful*/ true, VL, simdLoopStaticTripCount,
-        "quantizationLinear whole tensor");
+  if (totVL > 1)
+    onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
+        simdLoopStaticTripCount, "quantizationLinear whole tensor");
   else
     onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
         "no simd in quantizationLinear whole tensor");

@@ -161,6 +161,7 @@ static float interpolate_1d_with_x(OMTensor *data, float scale_factor, float x,
 
   // float points[coeffs_n];
   float *points = (float *)malloc(sizeof(float) * coeffs_n);
+  assert(points && "failed to allocate memory for points");
 
   get_neighbor(x_ori, n, input_width, (float *)omTensorGetDataPtr(data), points,
       exclude_outside);
@@ -184,6 +185,7 @@ static float interpolate_nd_with_x(OMTensor *data, int n, float *scale_factors,
   } else {
     int64_t input_width = omTensorGetShape(data)[0];
     float *tempData = (float *)malloc(sizeof(float) * input_width);
+    assert(tempData && "failed to allocate memory for tempData");
     int64_t tempShape[] = {input_width};
 
     int64_t stride = 1;
@@ -231,6 +233,7 @@ static void generate_coordinates(
     int64_t rank, int64_t *output_size, int64_t *allCoordinates) {
   int64_t position = 0;
   int64_t *currentIter = (int64_t *)malloc(sizeof(int64_t) * rank);
+  assert(currentIter && "failed to allocate memory for currentIter");
   coordinate_step(rank, output_size, allCoordinates, 0, currentIter, &position);
   free(currentIter);
 }
@@ -253,11 +256,13 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
     output_size = (int64_t *)omTensorGetDataPtr(output_size_OMT);
   if (scale_factor == NULL) {
     scale_factor = (float *)malloc(sizeof(float) * rank);
+    assert(scale_factor && "failed to allocate memory for scale_factor");
     for (int i = 0; i < rank; i++) {
       scale_factor[i] = ((float)output_size[i]) / inputShape[i];
     }
   } else {
     output_size = (int64_t *)malloc(sizeof(int64_t) * rank);
+    assert(output_size && "failed to allocate memory for output_size");
     for (int i = 0; i < rank; i++) {
       output_size[i] = scale_factor[i] * inputShape[i];
     }
@@ -272,13 +277,16 @@ static void interpolate_nd_OMTensor(OMTensor *output_OMT, OMTensor *data,
   // int64_t allCoordinates[outputSize][rank];
   int64_t *allCoordinates =
       (int64_t *)malloc(outputSize * rank * sizeof(int64_t));
+  assert(allCoordinates && "failed to allocate memory for allCoordinates");
   generate_coordinates(rank, output_size, allCoordinates);
 
   // float coeffs_buffer[coeffs_n]; // = {1.0, 0.};
   float *coeffs_buffer = (float *)malloc(sizeof(float) * coeffs_n);
+  assert(coeffs_buffer && "failed to allocate memory for coeffs_buffer");
 
   for (int i = 0; i < outputSize; i++) {
     float *Xs = (float *)malloc(sizeof(float) * rank);
+    assert(Xs && "failed to allocate memory for Xs");
     for (int j = 0; j < rank; j++) {
       Xs[j] = *(allCoordinates + i * rank + j);
     }
