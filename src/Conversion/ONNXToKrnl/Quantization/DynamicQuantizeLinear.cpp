@@ -4,7 +4,7 @@
 
 //===--- DynamicQuantizeLinear.cpp - Lowering DynamicQuantizeLinear Op ----===//
 //
-// Copyright 2023 The IBM Research Authors.
+// Copyright 2023-2024 The IBM Research Authors.
 //
 // =============================================================================
 //

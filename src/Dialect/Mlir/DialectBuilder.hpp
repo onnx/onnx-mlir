@@ -298,8 +298,8 @@ struct MemRefBuilder final : DialectBuilder {
 
   // Alloc for shapes with alignment and padding for safe full SIMD
   // operations. Padding may be added so that every values in the shape may
-  // safely be computed by a SIMD operation (or possibly multiple ones when
-  // simdUnroll>1). Minimum alignment is gDefaultAllocAlign. Operation does
+  // safely be computed by a SIMD operation (or possibly multiple ones if
+  // unrollSIMD>1). Minimum alignment is gDefaultAllocAlign. Operation does
   // not support layouts at this time.
   //
   // Alloc for static shapes with alignment and SIMD padding.
@@ -313,7 +313,7 @@ struct MemRefBuilder final : DialectBuilder {
       mlir::MemRefType type, int64_t VL = 1,
       int64_t align = defaultAlign) const;
   mlir::Value alignedAllocWithSimdPadding(mlir::MemRefType type,
-      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t simdVLUnroll = 1,
+      llvm::SmallVectorImpl<IndexExpr> &dims, int64_t VL = 1,
       int64_t align = defaultAlign) const;
 
   // The alloca instruction allocates memory on the stack frame of the
@@ -465,9 +465,9 @@ struct VectorBuilder final : DialectBuilder {
 
   // Get the machine SIMD vector length for the given elementary type.
   // This can help guide certain optimizations.
-  int64_t getMachineVectorLength(const mlir::Type &elementType) const;
-  int64_t getMachineVectorLength(const mlir::VectorType &vecType) const;
-  int64_t getMachineVectorLength(mlir::Value vecValue) const;
+  int64_t getArchVectorLength(const mlir::Type &elementType) const;
+  int64_t getArchVectorLength(const mlir::VectorType &vecType) const;
+  int64_t getArchVectorLength(mlir::Value vecValue) const;
 
   // Vector load: memref is expected to be scalar, will load a vector's worth
   // of values: e.g. %result = vector.load %base[%i, %j] :
@@ -508,14 +508,14 @@ struct VectorBuilder final : DialectBuilder {
 
   // Compute a suitable SIMD Vector length (which may be a multiple of the
   // hardware vector length, up to maxSimdUnroll times). If the dims are too
-  // small, return 0 (no suitable simd). The collapsedInnermostLoops parameter
+  // small, return 1 (no suitable simd). The collapsedInnermostLoops parameter
   // indicates how many inner dimensions of the memref are considered for
   // vectorization. If all of them are considered and padding is possible,
   // then we can always generate SIMD code with the maxSIMD unroll factor.
   // Otherwise, we must ensure that the cumulative static size (dynamic sizes
   // are ignored here ) of the array is a multiple of the Vector Length
   // associated with this type. If it is not, then no SIMD code gen is
-  // possible (return 0). If it is possible, return the largest SIMD unroll
+  // possible (return 1). If it is possible, return the largest SIMD unroll
   // factor (starting at maxSimdUnroll) that divide the cumulative static size
   // of the memref being collapsed for SIMD. simdLoopStaticTripCount: provide
   // an estimation of the SIMD loop trip count. If runtime, return -1; if
@@ -524,16 +524,16 @@ struct VectorBuilder final : DialectBuilder {
   // Note that if simdLoopStaticTripCount>0 (we have simd) and
   // simdLoopStaticTripCount % (returned VL) == 0, we can guarantee that all
   // iterations will be SIMD iterations.
-  static int64_t computeSuitableUnrollFactor(VectorMachineSupport *vms,
-      mlir::MemRefType memRefType, int64_t collapsedInnermostLoops,
-      int64_t maxSimdUnroll, bool canPad, int64_t &simdLoopStaticTripCount);
+  static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
+      int64_t collapsedInnermostLoops, int64_t maxSimdUnroll, bool canPad,
+      int64_t &simdLoopStaticTripCount);
 
   // Compute a suitable SIMD Vector length (VL). If no SIMD is suitable, return
-  // 0. Type determine the initial VL. Then the mix of Generic
+  // 1. Type determine the initial VL. Then the mix of Generic
   // Operations is used to determine the mix of SIMD/Scalar operations in that
   // loop. If the type does not support SIMD, or there are too few SIMD
   // operations, or the innermost loop has too few (static) loop iterations,
-  // SIMD will be disabled (return VL=0). Otherwise, the register pressure is
+  // SIMD will be disabled (return VL=1). Otherwise, the register pressure is
   // then taken into account to determine a suitable additional unrolling (by
   // multiple of VL) so as to suitably exploit the available SIMD hardware.
   //
@@ -541,8 +541,8 @@ struct VectorBuilder final : DialectBuilder {
   // that are not known to be a multiple of VL.
   // Definition and usage of simdLoopStaticTripCount is as in the previous call.
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
-      int64_t collapsedInnermostLoops, mlir::ArrayRef<GenericOps> GOps,
-      mlir::ArrayRef<int64_t> GOpsNum, int64_t &simdLoopStaticTripCount);
+      int64_t collapsedInnermostLoops, GenOpsMix GenOps,
+      int64_t &simdLoopStaticTripCount);
 
 private:
   bool isPowerOf2(uint64_t num) const;
