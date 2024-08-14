@@ -34,7 +34,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   int64_t rank = inputType.getRank();
 
   // Determine a suitable SIMD vector length for this loop.
-  int64_t totVL = 0;
+  int64_t totVL = 1;
   int64_t simdLoopStaticTripCount = 0;
   if (enableSIMD) {
     totVL = VectorBuilder::computeSuitableUnrollFactor(
@@ -45,10 +45,10 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
             GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
         {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount);
   }
-  // Has only simd iterations when we have SIMD (totVL > 0), the simd dimensions
+  // Has only simd iterations when we have SIMD (totVL > 1), the simd dimensions
   // is a multiple of a non-zero constant (simdLoopStaticTripCount) iterations,
   // and simdLoopStaticTripCount % totVL == 0.
-  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (totVL > 0) &&
+  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (totVL > 1) &&
                             (simdLoopStaticTripCount % totVL == 0);
 
   // Generate outer loops

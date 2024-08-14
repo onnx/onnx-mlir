@@ -1280,9 +1280,9 @@ bool MemRefBuilder::getStaticAndDynamicMemSize(MemRefType type,
 // Alloc functions with alignment and padding for SIMD
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(
-    mlir::MemRefType type, int64_t simdUnroll, int64_t alignment) const {
+    mlir::MemRefType type, int64_t VL, int64_t alignment) const {
   llvm::SmallVector<Value, 4> dynSymbols;
-  return alignedAllocWithSimdPadding(type, dynSymbols, simdUnroll, alignment);
+  return alignedAllocWithSimdPadding(type, dynSymbols, VL, alignment);
 }
 
 Value MemRefBuilder::alignedAllocWithSimdPadding(MemRefType type,
@@ -1959,13 +1959,13 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   uint64_t N = inputVecArray.size();
   assert(N > 0 && "expected at least one value to reduce");
   uint64_t VL = getLengthOf1DVector(inputVecArray[0]);
-  uint64_t machineVL = getArchVectorLength(inputVecArray[0]);
+  uint64_t archVL = getArchVectorLength(inputVecArray[0]);
   // TODO alex, should relax this
-  assert(VL == machineVL && "only natural sizes supported at this time");
-  assert(N % machineVL == 0 &&
+  assert(VL == archVL && "only natural sizes supported at this time");
+  assert(N % archVL == 0 &&
          "can only reduces multiple of VL vectors at this time");
   LLVM_DEBUG(llvm::dbgs() << "reduction with N " << N << ", VL " << VL
-                          << ", mVL " << machineVL << "\n";);
+                          << ", archVL " << archVL << "\n";);
 
   // Emplace all input vectors in a temporary array.
   SmallVector<Value, 8> tmpArray;
@@ -1979,14 +1979,14 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   // Reductions of full physical vectors.
   outputVecArray.clear();
   MultiDialectBuilder<MathBuilder> create(*this);
-  // Process each block of machineVL input vectors at a time.
-  for (uint64_t r = 0; r < N; r += machineVL) {
+  // Process each block of archVL input vectors at a time.
+  for (uint64_t r = 0; r < N; r += archVL) {
     // Algorithm for the set of input arrays from tmp[r] to
-    // tmp[r+machineVL-1].
-    // With machineVL inputs, we have machineVL/2 initial pairs.
-    uint64_t numPairs = machineVL / 2;
+    // tmp[r+archVL-1].
+    // With archVL inputs, we have archVL/2 initial pairs.
+    uint64_t numPairs = archVL / 2;
     // While we have pairs...
-    for (uint64_t step = 1; step < machineVL; step = step * 2) {
+    for (uint64_t step = 1; step < archVL; step = step * 2) {
       // For each pair, reduce pair 2p and 2p+1 and save sum into p.
       for (uint64_t p = 0; p < numPairs; ++p) {
         Value highVal =
@@ -1998,7 +1998,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
       }
       numPairs = numPairs / 2; // Pair number decrease by power of 2.
     }
-    // Completed the machineVL x machineVL reduction, save it in the output.
+    // Completed the archVL x archVL reduction, save it in the output.
     outputVecArray.emplace_back(tmpArray[r]);
   }
 }
@@ -2021,14 +2021,14 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   LLVM_DEBUG(llvm::dbgs() << "  simd HW VL is " << VL << "\n");
 
   // No element type is SIMD.
-  if (VL == 0) {
+  if (VL <= 1) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
-    return 0;
+    return 1;
   }
   if (isStatic && staticSimdSize < VL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: static trip count "
                             << staticSimdSize << " too short for a VL\n");
-    return 0;
+    return 1;
   }
   // Gather operation statics
   int64_t vectorizedOpNum, scalarOpNum;
@@ -2037,32 +2037,32 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   if (avgVL < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: too few SIMD operations with "
                             << avgVL << " avg VL\n");
-    return 0;
+    return 1;
   }
   LLVM_DEBUG(llvm::dbgs() << "  simd enable: avg vl " << avgVL << "\n");
 
   // Define a target max unroll as a function of register pressure.
-  int64_t simdUnroll;
+  int64_t unrollVL;
   int64_t vrNum = vms->getArchVectorRegisterNum();
   if (vectorizedOpNum >= vrNum / 2)
-    simdUnroll = 2;
+    unrollVL = 2;
   else if (vectorizedOpNum >= vrNum / 4)
-    simdUnroll = 4;
+    unrollVL = 4;
   else
-    simdUnroll = 8;
+    unrollVL = 8;
   // Refine unrolling factor so that it is suitable for the static size.
-  if (isStatic && (staticSimdSize < simdUnroll * VL)) {
+  if (isStatic && (staticSimdSize < unrollVL * VL)) {
     int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * VL));
     LLVM_DEBUG(llvm::dbgs() << "  simd enable:: size " << staticSimdSize
-                            << " , VL " << VL << ", unroll " << simdUnroll
+                            << " , VL " << VL << ", unroll " << unrollVL
                             << ", reduced to " << newUnroll << "\n");
-    simdUnroll = newUnroll;
+    unrollVL = newUnroll;
   }
   LLVM_DEBUG(
-      llvm::dbgs() << "  simd enable: with simd unroll " << simdUnroll << "\n");
+      llvm::dbgs() << "  simd enable: with simd unroll " << unrollVL << "\n");
 
   simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
-  return VL * simdUnroll;
+  return VL * unrollVL;
 }
 
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
@@ -2075,9 +2075,9 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   Type elementType = memRefType.getElementType();
   int64_t VL = vms->getArchVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
-  if (VL == 0) {
+  if (VL <= 1) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
-    return 0;
+    return 1;
   }
   int64_t staticSize;
   bool isStaticSize = MemRefBuilder::getStaticMemSize(
@@ -2085,7 +2085,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   if (isStaticSize && staticSize < VL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
                             << " too short for a VL of " << VL << "\n");
-    return 0;
+    return 1;
   }
   // Unless otherwise disabled, here is the estimated trip count.
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
@@ -2101,7 +2101,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
                             << collapsedInnermostLoops << " with size "
                             << staticSize << " is not 0 mod VL " << VL << "\n");
-    return 0;
+    return 1;
   }
   // See if we can get a unroll factor.
   for (int64_t u = maxSimdUnroll; u > 0; --u) {

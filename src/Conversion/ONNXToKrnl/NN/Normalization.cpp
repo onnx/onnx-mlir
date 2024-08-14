@@ -586,7 +586,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       BroadcastKind &scaleBroadcastKind, BroadcastKind &biasBroadcastKind,
       IndexExpr &scaleModFactor, IndexExpr &biasModFactor) const {
 
-    totVL = 0;
+    totVL = 1;
     Operation *op = lnOp.getOperation();
     if (!enableSIMD) {
       onnxToKrnlSimdReport(
@@ -632,7 +632,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
     LLVM_DEBUG(llvm::dbgs()
                    << "  SIMD: LayerNormalization " << simdLoopStaticTripCount
                    << " loops, totVL " << totVL << "\n";);
-    if (totVL == 0) {
+    if (totVL <= 1) {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd because could not find beneficial VL");
       return false;

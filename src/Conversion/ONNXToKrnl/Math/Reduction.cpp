@@ -289,7 +289,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   int64_t estimatedSimdLoopTripCount = 0;
   int64_t totVL = create.vec.computeSuitableUnrollFactor(vms, inputType,
       inputRank, unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
-  if (totVL == 0)
+  if (totVL <= 1)
     return false;
   IndexExpr VLIndexExpr = LitIE(totVL);
 
@@ -567,7 +567,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool hasHorizontalSimdSupport = false;
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
-    int64_t totVL = 0;
+    int64_t totVL = 1;
     int64_t estimatedSimdLoopTripCount = 0;
 
     // With dynamic axes, use this
@@ -637,7 +637,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
               estimatedSimdLoopTripCount);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, totVL " << totVL << "\n");
-          if (!totVL) {
+          if (totVL <= 1) {
             horizontalSimd = parallelSimd = false;
             LLVM_DEBUG(llvm::dbgs() << "  SIMD: no good totVL\n");
           }
@@ -718,7 +718,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         }
       }
     }
-    LLVM_DEBUG(llvm::dbgs() << "  SIMD " << (totVL ? "" : "im")
+    LLVM_DEBUG(llvm::dbgs() << "  SIMD " << (totVL > 1 ? "" : "im")
                             << "possible with totVL " << totVL << "\n");
 
     //////////////////////////////////////////////////////////////////////

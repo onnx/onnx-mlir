@@ -1383,7 +1383,7 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-// Return total vector length; no simd -> return 0;
+// Return total vector length; no simd -> return 1;
 // collapsedLiteralSize is ignored when we can collapse every loop iterations as
 // we then rely on padding of the allocated memory to enable arbitrary output
 // array simdization. When partial simd is requested, then we must ensure that
@@ -1401,7 +1401,7 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
   if (avgSimdWidth < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
                             << avgSimdWidth << " too small\n");
-    return 0;
+    return 1;
   }
   // Determine empirical unroll factor.
   VectorMachineSupport *vms =
@@ -2049,7 +2049,7 @@ struct ONNXElementwiseUnaryOpLowering
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
               shapeHelper, op, outputMemRefType, outputRank,
               estimatedSimdLoopTripCount);
-      if (totVL > 0) {
+      if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             estimatedSimdLoopTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
@@ -2226,7 +2226,7 @@ struct ONNXElementwiseBinaryOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
               estimatedSimdLoopTripCount);
-      if (totVL > 0) {
+      if (totVL > 1) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               estimatedSimdLoopTripCount, "binary fully flattened");
@@ -2401,7 +2401,7 @@ struct ONNXElementwiseVariadicOpLowering
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
               estimatedSimdLoopTripCount);
-      if (totVL > 0) {
+      if (totVL > 1) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               estimatedSimdLoopTripCount, "variadic fully flattened");
