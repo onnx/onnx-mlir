@@ -60,19 +60,14 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 // Template for SIMD analysis
 
 // Default template for ops that do not support SIMD. For the ones that support
-// SIMD, we must create an `analyzeSimdFor` template that returns the right
-// values.
+// SIMD, we must create an `getGenOpsMix` template that returns their
+// corresponding mix of generic operations.
 
-static double noSimd(int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
-  vectorizedOpNum = 0;
-  scalarOpNum = 1;
-  return 1.0;
-}
+using GenOpsMixList = llvm::SmallVector<std::pair<GenericOps, int64_t>, 4>;
 
 template <typename Op>
-double analyzeSimdFor(Type elementType, Operation *op, int64_t &vectorizedOpNum,
-    int64_t &scalarOpNum) {
-  return noSimd(vectorizedOpNum, scalarOpNum);
+GenOpsMixList getGenOpMix(Type elementType, Operation *op) {
+  return {{GenericOps::ScalarOnlyGop, 1}};
 }
 
 // =============================================================================
@@ -84,10 +79,8 @@ struct ScalarOp<ONNXTanhOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXTanhOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::TrigHyperbolicGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXTanhOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigHyperbolicGop, 1}};
 }
 
 template <>
@@ -96,10 +89,8 @@ struct ScalarOp<ONNXAddOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-double analyzeSimdFor<ONNXAddOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXAddOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -108,10 +99,8 @@ struct ScalarOp<ONNXAbsOp> {
   using IOp = math::AbsIOp;
 };
 template <>
-double analyzeSimdFor<ONNXAbsOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::AbsGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXAbsOp>(Type t, Operation *op) {
+  return {{GenericOps::AbsGop, 1}};
 }
 
 template <>
@@ -120,10 +109,8 @@ struct ScalarOp<ONNXMulOp> {
   using IOp = arith::MulIOp;
 };
 template <>
-double analyzeSimdFor<ONNXMulOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::MulGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXMulOp>(Type t, Operation *op) {
+  return {{GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -132,10 +119,8 @@ struct ScalarOp<ONNXDivOp> {
   using IOp = arith::DivSIOp;
 };
 template <>
-double analyzeSimdFor<ONNXDivOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::DivGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXDivOp>(Type t, Operation *op) {
+  return {{GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -144,10 +129,8 @@ struct ScalarOp<ONNXSubOp> {
   using IOp = arith::SubIOp;
 };
 template <>
-double analyzeSimdFor<ONNXSubOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXSubOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -192,10 +175,8 @@ struct ScalarOp<ONNXExpOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXExpOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ExpGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXExpOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}};
 }
 
 template <>
@@ -204,10 +185,8 @@ struct ScalarOp<ONNXSumOp> {
   using IOp = arith::AddIOp;
 };
 template <>
-double analyzeSimdFor<ONNXSumOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXSumOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -216,10 +195,8 @@ struct ScalarOp<ONNXCosOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXCosOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::TrigGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXCosOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
 }
 
 template <>
@@ -228,10 +205,8 @@ struct ScalarOp<ONNXLogOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXLogOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::LogGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXLogOp>(Type t, Operation *op) {
+  return {{GenericOps::LogGop, 1}};
 }
 
 template <>
@@ -240,10 +215,8 @@ struct ScalarOp<ONNXSqrtOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXSqrtOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::SqrtGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXSqrtOp>(Type t, Operation *op) {
+  return {{GenericOps::SqrtGop, 1}};
 }
 
 template <>
@@ -258,10 +231,8 @@ struct ScalarOp<ONNXCeilOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXCeilOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CeilGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXCeilOp>(Type t, Operation *op) {
+  return {{GenericOps::CeilGop, 1}};
 }
 
 template <>
@@ -270,10 +241,8 @@ struct ScalarOp<ONNXFloorOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXFloorOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::FloorGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXFloorOp>(Type t, Operation *op) {
+  return {{GenericOps::FloorGop, 1}};
 }
 
 template <>
@@ -282,10 +251,8 @@ struct ScalarOp<ONNXSinOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXSinOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::TrigGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXSinOp>(Type t, Operation *op) {
+  return {{GenericOps::TrigGop, 1}};
 }
 
 template <>
@@ -294,10 +261,8 @@ struct ScalarOp<ONNXPowOp> {
   using IOp = NotSuportedScalarOp;
 };
 template <>
-double analyzeSimdFor<ONNXPowOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::PowGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXPowOp>(Type t, Operation *op) {
+  return {{GenericOps::PowGop, 1}};
 }
 
 template <>
@@ -352,19 +317,14 @@ struct ScalarOp<ONNXGeluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXGeluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
+GenOpsMixList getGenOpMix<ONNXGeluOp>(Type t, Operation *op) {
   StringRef approximate = dyn_cast<ONNXGeluOp>(op).getApproximate();
   if (approximate.equals_insensitive("none"))
-    return VectorMachineSupport::getAvgArchVectorLength(
-        {{GenericOps::ArithmeticGop, 1}, {GenericOps::ErfGop, 1},
-            {GenericOps::MulGop, 3}},
-        t, von, son);
+    return {{GenericOps::ArithmeticGop, 1}, {GenericOps::ErfGop, 1},
+        {GenericOps::MulGop, 3}};
   if (approximate.equals_insensitive("tanh"))
-    return VectorMachineSupport::getAvgArchVectorLength(
-        {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 5},
-            {GenericOps::TrigHyperbolicGop, 1}},
-        t, von, son);
+    return {{GenericOps::ArithmeticGop, 2}, {GenericOps::MulGop, 5},
+        {GenericOps::TrigHyperbolicGop, 1}};
   llvm_unreachable("approximate should be only none or tanh");
 }
 
@@ -493,12 +453,9 @@ struct ScalarOp<ONNXSinhOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSinhOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXSinhOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -528,12 +485,9 @@ struct ScalarOp<ONNXCoshOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXCoshOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXCoshOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 2},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -563,12 +517,9 @@ struct ScalarOp<ONNXSigmoidOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSigmoidOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 1},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXSigmoidOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}, {GenericOps::ExpGop, 1},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -597,10 +548,8 @@ struct ScalarOp<ONNXHardSigmoidOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXHardSigmoidOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 3}, {GenericOps::MulGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXHardSigmoidOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 3}, {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -641,13 +590,10 @@ struct ScalarOp<ONNXEluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXEluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
-          {GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::ExpGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXEluOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
+      {GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::ExpGop, 1}};
 }
 
 template <>
@@ -680,10 +626,8 @@ struct ScalarOp<ONNXReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXReluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXReluOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -707,12 +651,9 @@ struct ScalarOp<ONNXLeakyReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXLeakyReluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::MulGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXLeakyReluOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -743,12 +684,9 @@ struct ScalarOp<ONNXPReluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXPReluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::MulGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXPReluOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::MulGop, 1}};
 }
 
 template <>
@@ -776,13 +714,10 @@ struct ScalarOp<ONNXSeluOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSeluOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
-          {GenericOps::MulGop, 2}, {GenericOps::ArithmeticGop, 1},
-          {GenericOps::ExpGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXSeluOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 1}, {GenericOps::SelectGop, 1},
+      {GenericOps::MulGop, 2}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::ExpGop, 1}};
 }
 
 template <>
@@ -819,10 +754,8 @@ struct ScalarOp<ONNXReciprocalOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXReciprocalOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::DivGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXReciprocalOp>(Type t, Operation *op) {
+  return {{GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -847,12 +780,9 @@ struct ScalarOp<ONNXSoftplusOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSoftplusOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ExpGop, 1}, {GenericOps::ArithmeticGop, 1},
-          {GenericOps::LogGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXSoftplusOp>(Type t, Operation *op) {
+  return {{GenericOps::ExpGop, 1}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::LogGop, 1}};
 }
 
 template <>
@@ -879,12 +809,9 @@ struct ScalarOp<ONNXSoftsignOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSoftsignOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::AbsGop, 1}, {GenericOps::ArithmeticGop, 1},
-          {GenericOps::DivGop, 1}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXSoftsignOp>(Type t, Operation *op) {
+  return {{GenericOps::AbsGop, 1}, {GenericOps::ArithmeticGop, 1},
+      {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -911,10 +838,8 @@ struct ScalarOp<ONNXSignOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXSignOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::CompareGop, 2}, {GenericOps::SelectGop, 2}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXSignOp>(Type t, Operation *op) {
+  return {{GenericOps::CompareGop, 2}, {GenericOps::SelectGop, 2}};
 }
 
 template <>
@@ -955,10 +880,8 @@ struct ScalarOp<ONNXErfOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXErfOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ErfGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXErfOp>(Type t, Operation *op) {
+  return {{GenericOps::ErfGop, 1}};
 }
 
 //===----------------------------------------------------------------------===//
@@ -971,10 +894,8 @@ struct ScalarOp<ONNXMaxOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMaxOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXMaxOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1001,10 +922,8 @@ struct ScalarOp<ONNXMinOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMinOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXMinOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1032,10 +951,8 @@ struct ScalarOp<ONNXNegOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXNegOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXNegOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}};
 }
 
 template <>
@@ -1196,10 +1113,8 @@ struct ScalarOp<ONNXModOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXModOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::RemGop, 1}, {GenericOps::CopySignGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXModOp>(Type t, Operation *op) {
+  return {{GenericOps::RemGop, 1}, {GenericOps::CopySignGop, 1}};
 }
 
 template <>
@@ -1281,10 +1196,8 @@ struct ScalarOp<ONNXMeanOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXMeanOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}, {GenericOps::DivGop, 1}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXMeanOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}, {GenericOps::DivGop, 1}};
 }
 
 template <>
@@ -1306,13 +1219,10 @@ struct ScalarOp<ONNXRoundOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXRoundOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
-          {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
-          {GenericOps::FloorGop, 2}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXRoundOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 4}, {GenericOps::MulGop, 2},
+      {GenericOps::CompareGop, 3}, {GenericOps::SelectGop, 3},
+      {GenericOps::FloorGop, 2}};
 }
 
 template <>
@@ -1335,10 +1245,8 @@ struct ScalarOp<ONNXClipOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXClipOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 2}}, t, von, son);
+GenOpsMixList getGenOpMix<ONNXClipOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 2}};
 }
 
 template <>
@@ -1366,12 +1274,9 @@ struct ScalarOp<ONNXDequantizeLinearOp> {
 };
 
 template <>
-double analyzeSimdFor<ONNXDequantizeLinearOp>(
-    Type t, Operation *op, int64_t &von, int64_t &son) {
-  return VectorMachineSupport::getAvgArchVectorLength(
-      {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
-          {GenericOps::ConversionGop, 2}},
-      t, von, son);
+GenOpsMixList getGenOpMix<ONNXDequantizeLinearOp>(Type t, Operation *op) {
+  return {{GenericOps::ArithmeticGop, 1}, {GenericOps::MulGop, 1},
+      {GenericOps::ConversionGop, 2}};
 }
 
 template <>
@@ -1408,13 +1313,21 @@ using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
 template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
-    int64_t &estimatedSimdLoopTripCount) {
+    int64_t &estimatedSimdLoopTripCount, bool &simdOnly) {
+#if 1
+  Type elementType = memRefType.getElementType();
+  GenOpsMixList mix = getGenOpMix<ElementwiseOp>(elementType, op);
+  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
+      collapsedInnermostLoops, mix, estimatedSimdLoopTripCount, simdOnly);
+#else
   estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
+  simdOnly = true;                // Old implementation only support fully simd.
   // SIMD is enabled for this operation, test if profitable.
   Type elementType = memRefType.getElementType();
   int64_t vectorizedOpNum, scalarOpNum;
-  double avgSimdWidth = analyzeSimdFor<ElementwiseOp>(
-      elementType, op, vectorizedOpNum, scalarOpNum);
+  GenOpsMixList mix = getGenOpMix<ElementwiseOp>(elementType, op);
+  double avgSimdWidth = VectorMachineSupport::getAvgArchVectorLength(
+      mix, elementType, vectorizedOpNum, scalarOpNum);
   if (avgSimdWidth < 1.5) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
                             << avgSimdWidth << " too small\n");
@@ -1432,6 +1345,8 @@ int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
   int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
       collapsedInnermostLoops, unrollVL,
       /*canPad*/ true, estimatedSimdLoopTripCount);
+#endif
+
   LLVM_DEBUG({
     if (totVL)
       llvm::dbgs() << "  simd enabled with VL " << totVL << "\n";
@@ -1452,14 +1367,20 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     ONNXBroadcastOpShapeHelper *shapeHelper, Operation *op,
     MemRefType outputMemRefType, ValueRange operands, int64_t alignment,
     int64_t VL, int64_t collapsedInnermostLoops, bool ruledOutBroadcast,
-    bool isUnaryOp, bool enableParallel) {
+    bool isUnaryOp, bool simdOnly, bool enableParallel) {
   Type outputElementType = outputMemRefType.getElementType();
   unsigned numArgs = op->getNumOperands();
   LLVM_DEBUG(llvm::dbgs() << "  partial SIMD code for elementwise op "
                           << op->getName() << " flattening "
                           << collapsedInnermostLoops << " inner dims\n");
-
-  // generate SIMD code of VL elements per vector.
+  // If fully collapse the loop, then we can allocate more data and we don't
+  // care if we compute a few more values... set simdOnly to true then
+  // regardless of whether the dims allow us to do so or not.
+  if (collapsedInnermostLoops == (int64_t)outputMemRefType.getRank()) {
+    LLVM_DEBUG(llvm::dbgs() << "  fully flattened, set simdOnly to true\n");
+    simdOnly = true;
+  }
+  // Generate SIMD code of VL elements per vector.
   IndexExprScope allocScope(create.vec, shapeHelper->getScope());
   DimsExpr outputDims;
   getIndexExprList<SymbolIndexExpr>(shapeHelper->getOutputDims(), outputDims);
@@ -1583,9 +1504,7 @@ static LogicalResult getPartiallyFlattenedSimdCode(
         Value output = flatAlloc;
         DimsExpr outputAF = outputAccessExprs;
 
-        // hi alex, for the moment full simd is always true until we upgrade the
-        // loops that we can handle.
-        create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, /*full simd*/ true,
+        create.krnl.simdIterateIE(zero, SymIE(simdUb), VL, simdOnly,
             useParallelInSimdLoop, inputs, inputAFs, {output}, {outputAF},
             [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
                 SmallVectorImpl<Value> &resVals, int64_t VL) {
@@ -2199,17 +2118,18 @@ struct ONNXElementwiseUnaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
+      bool simdOnly;
       int64_t totVL =
           canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoop,
-              estimatedSimdLoopTripCount);
+              estimatedSimdLoopTripCount, simdOnly);
       if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             estimatedSimdLoopTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoop, /*ruleOutBroadcast*/ true,
-            /*unary*/ true, enableParallel);
+            /*unary*/ true, simdOnly, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
           estimatedSimdLoopTripCount,
@@ -2376,10 +2296,11 @@ struct ONNXElementwiseBinaryOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t estimatedSimdLoopTripCount;
+      bool simdOnly;
       int64_t totVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
-              estimatedSimdLoopTripCount);
+              estimatedSimdLoopTripCount, simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -2390,7 +2311,7 @@ struct ONNXElementwiseBinaryOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseBinaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false, enableParallel);
+            /*unary*/ false, simdOnly, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
           estimatedSimdLoopTripCount,
@@ -2551,10 +2472,11 @@ struct ONNXElementwiseVariadicOpLowering
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t estimatedSimdLoopTripCount;
+      bool simdOnly;
       int64_t totVL =
           canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
               shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
-              estimatedSimdLoopTripCount);
+              estimatedSimdLoopTripCount, simdOnly);
       if (totVL > 1) {
         if (collapsedInnermostLoops == (int64_t)outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
@@ -2565,7 +2487,7 @@ struct ONNXElementwiseVariadicOpLowering
         return getPartiallyFlattenedSimdCode<ElementwiseVariadicOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
             totVL, collapsedInnermostLoops, hasNoBroadcast,
-            /*unary*/ false, enableParallel);
+            /*unary*/ false, simdOnly, enableParallel);
       }
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
           estimatedSimdLoopTripCount,

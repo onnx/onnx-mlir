@@ -387,8 +387,6 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
           if (hasOneElementInInnermostDims(input, 1)) {
             // Has a reference with a scalar innermost dim, just load as a
             // scalar. No need to add the induction variable.
-            assert(AF[rank - 1].isLiteral() && AF[rank - 1].getLiteral() == 1 &&
-                   "expected scalar dim innermost");
             Value scalarVal = create.krnl.loadIE(input, AF);
             scalarInputVals.emplace_back(scalarVal);
           } else {

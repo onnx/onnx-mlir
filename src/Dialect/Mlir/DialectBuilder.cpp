@@ -2002,6 +2002,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
 }
 
+// New style.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops, GenOpsMix genOps,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {
@@ -2056,22 +2057,24 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
   }
-  LLVM_DEBUG(
-      llvm::dbgs() << "  simd enable: with simd unroll " << unrollVL << "\n");
-
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: unrollVL " << unrollVL << "\n");
   // Fill in the output values. Now that we have SIMD, simdLoopStaticTripCount
   // is either the static simd size if the trip is not runtime, or -1 if its
   // runtime.
   simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
   // Now that we have SIMD, we have SIMD only if the static component of the
   // SIMD loop is positive and a multiple of VL.
-  simdOnly = (staticSimdSize > 1) && (staticSimdSize % archVL == 0);
+  int64_t totVL = archVL * unrollVL;
+  simdOnly = (staticSimdSize > 1) && (staticSimdSize % totVL == 0);
+  LLVM_DEBUG(llvm::dbgs() << "  simd enable: totVL " << totVL << ", simd-only "
+                          << simdOnly << "\n");
   return archVL * unrollVL;
 }
 
+// Old style.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
-    int64_t maxUnrollVL, bool canPad, int64_t &simdLoopStaticTripCount) {
+    MemRefType memRefType, int64_t collapsedInnermostLoops, int64_t maxUnrollVL,
+    bool canPad, int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
   assert(maxUnrollVL > 0 && "expected positive max simd unroll");
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.

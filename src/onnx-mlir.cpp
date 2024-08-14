@@ -75,6 +75,8 @@ int main(int argc, char *argv[]) {
   }
   loadDialects(context);
   setupTiming.stop();
+  // Add the short inputFilename to the first compile phase printout so that we
+  // may better determine which compilation we are dealing with.
   std::filesystem::path p(inputFilename);
   std::string modelShortName = p.filename();
   std::string msg =
