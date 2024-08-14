@@ -3647,7 +3647,7 @@ class InferenceBackendTest(BackendTest):
             models_dir = os.getenv(
                 "ONNX_MODELS", os.path.join(onnx_home, "models", "light")
             )
-            model_dir: str = os.path.join(models_dir, model_test.model_name)
+            model_dir: str = os.path.join(models_dir, model_test.model.graph.name)
             #     if not os.path.exists(model_dir):
             #         os.makedirs(model_dir)
             #     use_dummy = True
