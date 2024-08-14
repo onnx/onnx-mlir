@@ -79,7 +79,7 @@ int64_t VectorMachineSupport::computeArchVectorLength(Type elementType) {
 }
 
 /*static*/ double VectorMachineSupport::getAvgArchVectorLength(
-    ArrayRef<GenericOps> &GOps, ArrayRef<int64_t> &GOpsNum, Type elementType,
+    ArrayRef<GenericOps> GOps, ArrayRef<int64_t> GOpsNum, Type elementType,
     int64_t &vectorizedOpNum, int64_t &scalarOpNum) {
   assert(GOpsNum.size() == GOps.size() && "expect same length for both lists");
   int64_t GOpsSize = GOps.size();

@@ -125,8 +125,8 @@ public:
   // one in the weighted average as they still contribute one result. The opNums
   // are also weighted by the GOpsNum to better represent the mix of
   // vectorized and scalar operations present in the algorithm.
-  static double getAvgArchVectorLength(mlir::ArrayRef<GenericOps> &GOps,
-      mlir::ArrayRef<int64_t> &GOpsNum, mlir::Type elementType,
+  static double getAvgArchVectorLength(mlir::ArrayRef<GenericOps> GOps,
+      mlir::ArrayRef<int64_t> GOpsNum, mlir::Type elementType,
       int64_t &vectorizedOpNum, int64_t &scalarOpNum);
 
 protected:
