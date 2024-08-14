@@ -832,10 +832,10 @@ struct InstanceNormIntoLayerNormPattern
 
 // Transform GroupNormalization into LayerNormalization
 struct GroupNormIntoLayerNormPattern
-    : public OpRewritePattern<ONNXGroupNormalizationOp> {
-  using OpRewritePattern<ONNXGroupNormalizationOp>::OpRewritePattern;
+    : public OpRewritePattern<ONNXGroupNormalizationV18Op> {
+  using OpRewritePattern<ONNXGroupNormalizationV18Op>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(ONNXGroupNormalizationOp groupNormOp,
+  LogicalResult matchAndRewrite(ONNXGroupNormalizationV18Op groupNormOp,
       PatternRewriter &rewriter) const final {
     // Match.
     Value input = groupNormOp.getX();
@@ -1003,6 +1003,7 @@ void DecomposeONNXToONNXPass::runOnOperation() {
   target.addIllegalOp<ONNXConstantOfShapeOp>();
   target.addIllegalOp<ONNXDFTV17Op>();
   target.addIllegalOp<ONNXGroupNormalizationOp>();
+  target.addIllegalOp<ONNXGroupNormalizationV18Op>();
   target.addIllegalOp<ONNXInstanceNormalizationOp>();
   target.addIllegalOp<ONNXLogSoftmaxOp>();
   target.addIllegalOp<ONNXPadV11Op>();

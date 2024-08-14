@@ -3628,7 +3628,7 @@ class InferenceBackendTest(BackendTest):
             ref_outputs, outputs, rtol, atol, model_dir
         )
 
-    def _add_onnxmlir_model_test(
+      def _add_onnxmlir_model_test(
         self, model_test, kind
     ):  # type: (OnnxMlirTestCase, Text) -> None
         model_marker = [None]  # type: List[Optional[Union[ModelProto, NodeProto]]]
@@ -3636,31 +3636,16 @@ class InferenceBackendTest(BackendTest):
         def run(test_self, device):  # type: (Any, Text) -> None
             model = model_test.model
             model_marker[0] = model
-            model_name = model_test.model.graph.name
             prepared_model = self.backend.prepare(model, device)
             outputs = list(prepared_model.run(model_test.inputs))
             ref_outputs = model_test.outputs
             rtol = model_test.rtol
             atol = model_test.atol
-            onnx_home = os.path.expanduser(
-                os.getenv("ONNX_HOME", os.path.join("~", ".onnx"))
-            )
-            models_dir = os.getenv("ONNX_MODELS", os.path.join(onnx_home, "models"))
-            model_dir = os.path.join(models_dir, model_name)
-            if not os.path.exists(os.path.join(model_dir, "model.onnx")):
-                if os.path.exists(model_dir):
-                    bi = 0
-                    while True:
-                        dest = "{}.old.{}".format(model_dir, bi)
-                        if os.path.exists(dest):
-                            bi += 1
-                            continue
-                        shutil.move(model_dir, dest)
-                        break
-            os.makedirs(model_dir)
+            model_dir: str
             self.assert_similar_outputs(ref_outputs, outputs, rtol, atol, model_dir)
 
-        self._add_test(kind + "Model", model_test.model.graph.name, run, model_marker)
+        model_name = model_test.model.graph.name
+        self._add_test(kind + "Model", model_name, run, model_marker)
 
 
 # There are two issues, which necessitates the adoption of this endianness
