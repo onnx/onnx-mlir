@@ -2002,7 +2002,6 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   }
 }
 
-// hi alex: why does no SIMD needs a vl = 0; vl=1 should be just as good.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops, GenOpsMix genOps,
     int64_t &simdLoopStaticTripCount, bool &simdOnly) {
@@ -2016,15 +2015,15 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
       memRefType, staticSimdSize, -collapsedInnermostLoops);
 
   Type elementType = memRefType.getElementType();
-  int64_t VL = VectorMachineSupport::getArchVectorLength(elementType);
-  LLVM_DEBUG(llvm::dbgs() << "  simd HW VL is " << VL << "\n");
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd archVL is " << archVL << "\n");
 
   // No element type is SIMD.
-  if (VL <= 1) {
+  if (archVL <= 1) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
     return 1;
   }
-  if (isStatic && staticSimdSize < VL) {
+  if (isStatic && staticSimdSize < archVL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: static trip count "
                             << staticSimdSize << " too short for a VL\n");
     return 1;
@@ -2050,10 +2049,10 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   else
     unrollVL = 8;
   // Refine unrolling factor so that it is suitable for the static size.
-  if (isStatic && (staticSimdSize < unrollVL * VL)) {
-    int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * VL));
+  if (isStatic && (staticSimdSize < unrollVL * archVL)) {
+    int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * archVL));
     LLVM_DEBUG(llvm::dbgs() << "  simd enable:: size " << staticSimdSize
-                            << " , VL " << VL << ", unroll " << unrollVL
+                            << " , archVL " << archVL << ", unroll " << unrollVL
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
   }
@@ -2066,8 +2065,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
   // Now that we have SIMD, we have SIMD only if the static component of the
   // SIMD loop is positive and a multiple of VL.
-  simdOnly = (staticSimdSize > 1) && (staticSimdSize % VL == 0);
-  return VL * unrollVL;
+  simdOnly = (staticSimdSize > 1) && (staticSimdSize % archVL == 0);
+  return archVL * unrollVL;
 }
 
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(

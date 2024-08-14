@@ -33,7 +33,7 @@ namespace onnx_mlir {
 
 enum class GenericOps {
   AbsGop,
-  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity */
+  ArithmeticGop, /* Simple compute ops: add/sub/neg + ops of same complexity. */
   CeilDivGop,
   CeilGop,
   CompareGop, /* All compare operations, signed/unsigned fixed/float. */
@@ -48,11 +48,12 @@ enum class GenericOps {
   LogGop,
   LogicalGop, /* All logical ops: and, or, xor, not, nor, nand,... */
   MinMaxGop,
-  MinMaxAcrossGop, /* compute min/max across vector */
+  MinMaxAcrossGop, /* Compute min/max across vector. */
   MulGop,
   PowGop,
   RemGop,
   RoundGop,
+  ScalarOnlyGop, /* Any ops that are guaranteed to be scalar on any arch. */
   SelectGop,
   ShiftGop,   /* Shift operations: logical/arithmetic. */
   ShuffleGop, /* All bit/byte moving operations: shuffle, rotate, shift. */
@@ -63,6 +64,9 @@ enum class GenericOps {
   TrigHyperbolicGop, /* Hyperbolic trig. */
 };
 
+// Describe the mix of Generic operations in a given kernel. Each generic
+// operation is associated with a number, which indicates the number of
+// occurrence of that generic op in the given kernel.
 using GenOpsMix = mlir::ArrayRef<std::pair<GenericOps, int64_t>>;
 
 //===----------------------------------------------------------------------===//
