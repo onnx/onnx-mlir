@@ -3388,6 +3388,7 @@ def get_test_models():
     ############################################################
     # Model (alphabetical order)
     variables.model_test_to_enable_dict = {
+        # Failure in version v21
         # "test_densenet121_cpu": {STATIC_SHAPE: {}},
         # "test_inception_v1_cpu": {STATIC_SHAPE: {}},
         # "test_resnet50_cpu": {
