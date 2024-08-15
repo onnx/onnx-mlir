@@ -2,6 +2,53 @@
 
 // -----
 
+func.func @test_dft(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
+  %cst = "onnx.NoValue"() {value} : () -> none
+  %0 ="onnx.DFTV17"(%arg0, %arg1) : (tensor<?x?x?xf32>, tensor<?xi64>)-> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_dft
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<*xf32> {
+// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
+// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK:           [[VAR_2_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {inverse = 0 : si64, onesided = 0 : si64} : (tensor<?x?x?xf32>, tensor<?xi64>, tensor<i64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_dft_one_sided(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
+  %0 ="onnx.DFTV17"(%arg0, %arg1) {onesided = 1 : si64}  : (tensor<?x?x?xf32>, tensor<?xi64>)-> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_dft_one_sided
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {inverse = 0 : si64, onesided = 1 : si64} : (tensor<?x?x?xf32>, tensor<?xi64>, tensor<i64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
+func.func @test_dft_inverse(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
+  %0 ="onnx.DFTV17"(%arg0, %arg1) {inverse = 1 : si64}  : (tensor<?x?x?xf32>, tensor<?xi64>)-> tensor<*xf32>
+  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
+
+// mlir2FileCheck.py
+// CHECK-LABEL:  func.func @test_dft_inverse
+// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<*xf32> {
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {inverse = 1 : si64, onesided = 0 : si64} : (tensor<?x?x?xf32>, tensor<?xi64>, tensor<i64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<*xf32>
+// CHECK:         }
+}
+
+// -----
+
 // CHECK-LABEL: @test_reducel1(%{{.*}}: tensor<?x?x?xf32>, %{{.*}}: tensor<?xi64>) -> tensor<*xf32>
 func.func @test_reducel1(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<*xf32> {
   %0 ="onnx.ReduceL1"(%arg0, %arg1) {keepdims = 0 : si64} : (tensor<?x?x?xf32>, tensor<?xi64>)-> tensor<*xf32>

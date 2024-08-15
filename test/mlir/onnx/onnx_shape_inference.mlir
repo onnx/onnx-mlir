@@ -104,37 +104,6 @@ func.func @test_default_transpose(%arg0 : tensor<5x5x1x32xf32>) -> tensor<*xf32>
 // -----
 
 //===----------------------------------------------------------------------===//
-/// Test shape inference for DFT.
-//===----------------------------------------------------------------------===//
-func.func @test_dft(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i32>) -> tensor<*xf32> {
-  %0 = "onnx.DFT"(%arg0, %arg1) : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
-
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_dft
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x10x12x2xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 0 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x10x12x2xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x10x12x2xf32>
-// CHECK:         }
-}
-
-// -----
-
-func.func @test_dft_one_sided(%arg0: tensor<1x8x10x12xf32> , %arg1 : tensor<i32>) -> tensor<*xf32> {
-  %0 = "onnx.DFT"(%arg0, %arg1) { onesided = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<*xf32>
-  "onnx.Return"(%0) : (tensor<*xf32>) -> ()
-
-// mlir2FileCheck.py
-// CHECK-LABEL:  func.func @test_dft_one_sided
-// CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<1x8x10x12xf32>, [[PARAM_1_:%.+]]: tensor<i32>) -> tensor<1x8x6x12x2xf32> {
-// CHECK:           [[VAR_0_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]]) {axis = 1 : si64, inverse = 0 : si64, onesided = 1 : si64} : (tensor<1x8x10x12xf32>, tensor<i32>) -> tensor<1x8x6x12x2xf32>
-// CHECK:           onnx.Return [[VAR_0_]] : tensor<1x8x6x12x2xf32>
-// CHECK:         }
-}
-
-// -----
-
-//===----------------------------------------------------------------------===//
 /// Test shape inference for Clip.
 //===----------------------------------------------------------------------===//
 
