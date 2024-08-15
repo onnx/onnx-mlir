@@ -29,6 +29,7 @@
 #include <mlir/Pass/Pass.h>
 #include <mlir/Pass/PassManager.h>
 #include <mlir/Support/FileUtilities.h>
+#include <mlir/Support/ToolUtilities.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
 #include "RegisterPasses.hpp"
