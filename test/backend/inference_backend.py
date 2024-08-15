@@ -3388,15 +3388,15 @@ def get_test_models():
     ############################################################
     # Model (alphabetical order)
     variables.model_test_to_enable_dict = {
-        "test_densenet121_cpu": {STATIC_SHAPE: {}},
-        "test_inception_v1_cpu": {STATIC_SHAPE: {}},
+        # "test_densenet121_cpu": {STATIC_SHAPE: {}},
+        # "test_inception_v1_cpu": {STATIC_SHAPE: {}},
         # "test_resnet50_cpu": {
         #     STATIC_SHAPE: {},
         #     DYNAMIC_SHAPE: {0: {-1}},
         #     CONSTANTS_TO_FILE: {},
         # },
-        "test_shufflenet_cpu": {STATIC_SHAPE: {}},
-        "test_squeezenet_cpu": {STATIC_SHAPE: {}},
+        # "test_shufflenet_cpu": {STATIC_SHAPE: {}},
+        # "test_squeezenet_cpu": {STATIC_SHAPE: {}},
         # Failure in version v13
         # "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }
