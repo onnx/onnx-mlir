@@ -356,6 +356,7 @@ OpsWithCanonicalizer = [
     "Squeeze",
     "SqueezeV11",
     "Sub",
+    "Tile",
     "Transpose",
     "Unsqueeze",
     "UnsqueezeV11",
