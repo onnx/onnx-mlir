@@ -875,7 +875,7 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   customizeTypeConverter(typeConverter);
 
   // omp::ParallelOp can only be legalized when its region is legal
-  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsLoopOp>(
+  target.addDynamicallyLegalOp<omp::ParallelOp, omp::WsloopOp>(
       [&](Operation *op) { return typeConverter.isLegal(&op->getRegion(0)); });
   // Currently, only minimum required OpenMP Ops are marked as legal, in the
   // future integration of OpenMP, probably more OpenMP Ops are required to be
