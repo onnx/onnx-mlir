@@ -321,13 +321,15 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     mix.append(mix2);
   }
   int64_t collapsedInnermostLoops = inputRank;
-  int64_t estimatedSimdLoopTripCount;
+  int64_t simdLoopStaticTripCount;
   bool simdOnly;
   int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(inputType,
-      collapsedInnermostLoops, mix, estimatedSimdLoopTripCount, simdOnly);
+      collapsedInnermostLoops, mix, simdLoopStaticTripCount, simdOnly);
   // Current simdized loop only support SIMD only scheme.
-  if (!simdOnly)
-    totVL = 1;
+  if (!simdOnly) {
+    totVL = VectorBuilder::capVLForSimdOnly(
+        inputType, totVL, simdLoopStaticTripCount);
+  }
   if (totVL <= 1)
     return false; // hi alex, consider staying here with VL=1
   IndexExpr VLIndexExpr = LitIE(totVL);
@@ -413,10 +415,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
 
   if (hasTwoRed)
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-        estimatedSimdLoopTripCount, "fused reduction to a scalar");
+        simdLoopStaticTripCount, "fused reduction to a scalar");
   else
     onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-        estimatedSimdLoopTripCount, "reduction to a scalar");
+        simdLoopStaticTripCount, "reduction to a scalar");
 
   return true;
 }
@@ -602,7 +604,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
     int64_t totVL = 1;
-    int64_t estimatedSimdLoopTripCount = 0;
+    int64_t simdLoopStaticTripCount = 0;
 
     // With dynamic axes, use this
     Value maskVal = nullptr;
@@ -643,7 +645,6 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
                  "expected at most horizontal or parallel SIMD");
           DimsExpr inputDims;
           create.krnlIE.getShapeAsSymbols(input, inputDims);
-          int64_t unrollVL = 4;
           if (horizontalSimd) {
 #if !DEBUG_FORCE_SHUFFLE_REDUCTION
             VectorBuilder::CombiningKind kind =
@@ -651,33 +652,25 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             hasHorizontalSimdSupport =
                 supportedHorizontalSIMDOp(kind, elementOutType);
 #endif
-            if (!hasHorizontalSimdSupport) {
-              // Does not have SIMD horizontal support, so use a scheme that
-              // unrollVL the innermost non-simd loop by VL. Because trip counts
-              // of such loops could be small (e.g. GPT2 = 8), we don't want a
-              // large VL here.
-              unrollVL = 1;
-            }
           }
-          LLVM_DEBUG(llvm::dbgs() << "  SIMD: study with init unrollVL "
-                                  << unrollVL << "\n");
           // Currently only vectorize loops whose SIMD dimension is a multiple
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
-
-#if 1
           GenOpsMixList mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
           bool simdOnly;
           totVL = VectorBuilder::computeSuitableUnrollFactor(memRefInType,
-              innermostLoopCollapse, mix, estimatedSimdLoopTripCount, simdOnly);
-          // Current simdized loop only support SIMD only scheme.
-          if (!simdOnly)
-            totVL = 1;
-#else
-          totVL = create.vec.computeSuitableUnrollFactor(memRefInType,
-              innermostLoopCollapse, unrollVL, /*canPad*/ false,
-              estimatedSimdLoopTripCount);
-#endif
+              innermostLoopCollapse, mix, simdLoopStaticTripCount, simdOnly);
+          if (!hasHorizontalSimdSupport) {
+            // When we don't have horizontal SIMD support, we use a code gen
+            // scheme that relies on unrolling. So we don't want any unrollVL
+            // here. Some benchmarks have small trip counts (e.g. GPT2: 8).
+            totVL = VectorBuilder::capVLForMaxUnroll(memRefInType, totVL, 1);
+          }
+          // Current code gen scheme only support SIMD only scheme.
+          if (!simdOnly) {
+            totVL = VectorBuilder::capVLForSimdOnly(
+                memRefInType, totVL, simdLoopStaticTripCount);
+          }
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, totVL " << totVL << "\n");
           if (totVL <= 1) {
@@ -817,13 +810,13 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
             alloc, inRank, outRank, totVL, innermostLoopCollapse, isKeepdims,
             divisorForMean, enableParallel);
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-            estimatedSimdLoopTripCount, "horizontal");
+            simdLoopStaticTripCount, "horizontal");
       } else {
         genShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
             input, alloc, inRank, outRank, totVL, innermostLoopCollapse,
             isKeepdims, divisorForMean, enableParallel);
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
-            estimatedSimdLoopTripCount, "shuffle-horizontal");
+            simdLoopStaticTripCount, "shuffle-horizontal");
       }
     } else {
       genScalarReduction(rewriter, create, op, elementOutType, input, alloc,
@@ -835,7 +828,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       else
         msg = "unsupported";
       onnxToKrnlSimdReport(
-          op, /*successful*/ false, /*vl*/ 0, estimatedSimdLoopTripCount, msg);
+          op, /*successful*/ false, /*vl*/ 0, simdLoopStaticTripCount, msg);
     }
     rewriter.replaceOp(op, alloc);
     return success();

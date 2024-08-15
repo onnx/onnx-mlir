@@ -524,9 +524,9 @@ struct VectorBuilder final : DialectBuilder {
       int64_t collapsedInnermostLoops, int64_t maxUnrollVL, bool canPad,
       int64_t &simdLoopStaticTripCount);
 
-  // Compute a suitable SIMD Vector length (VL). If no SIMD is suitable, return
-  // totVL = 1. Type determine the archVL for the given memRefType. Then compute
-  // the average amount of SIMD operations given the mix of Generic
+  // Compute a suitable SIMD Vector Length (totVL). If no SIMD is suitable,
+  // return totVL = 1. Type determine the archVL for the given memRefType. Then
+  // compute the average amount of SIMD operations given the mix of Generic
   // Operations in that loop. If the element type does not support SIMD, or
   // there are too few SIMD operations, or the innermost loop has too few
   // (static) loop iterations, SIMD will be disabled (return totVL=1).
@@ -545,6 +545,15 @@ struct VectorBuilder final : DialectBuilder {
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
       int64_t collapsedInnermostLoops, GenOpsMix GenOps,
       int64_t &simdLoopStaticTripCount, bool &simdOnly);
+  // Cap totVL so that it is at most maxUnrollVL * archVL.
+  static int64_t capVLForMaxUnroll(
+      mlir::MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL);
+  // Enabling a simdOnly code generation scheme by capping totVL so that it
+  // divides simdLoopStaticTripCount. When not possible (either because
+  // there is no totVL that divides simdLoopStaticTripCount or trip count is
+  // runtime only), then disable SIMD by returning totVL = 1.
+  static int64_t capVLForSimdOnly(mlir::MemRefType memRefType, int64_t totVL,
+      int64_t simdLoopStaticTripCount);
 
 private:
   bool isPowerOf2(uint64_t num) const;

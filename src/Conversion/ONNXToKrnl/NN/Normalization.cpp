@@ -615,16 +615,7 @@ struct GenericLayerNormaOpLowering : public OpConversionPattern<OP_TYPE> {
       return false;
     }
 
-    // Do not want to disable SIMD for lack of sum across support at this
-    // stage. Type elementType = XMemRefType.getElementType();
-    //
-    // if (VectorMachineSupport::getArchVectorLength(GenericOps::SumAcrossGop,
-    //    elementType) <= 1)
-    // {
-    //   LLVM_DEBUG(llvm::dbgs() << "  SIMD: unsupported sum across, fail\n");
-    //   return false;
-    // }
-
+    // TODO: Use old scheme here, maybe update to new scheme.
     int64_t simdLoopStaticTripCount;
     totVL = VectorBuilder::computeSuitableUnrollFactor(
         XMemRefType, lowRank, 4, /*canPad*/ false, simdLoopStaticTripCount);

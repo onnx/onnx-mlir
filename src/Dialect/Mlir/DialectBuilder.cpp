@@ -2083,6 +2083,45 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   return archVL * unrollVL;
 }
 
+/*static*/ int64_t VectorBuilder::capVLForMaxUnroll(
+    MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL) {
+  Type elementType = memRefType.getElementType();
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
+  int64_t unrollVL = totVL / archVL;
+  assert(archVL * unrollVL == totVL && "expected archVL to divide totVL");
+  if (unrollVL > maxUnrollVL) {
+    LLVM_DEBUG(llvm::dbgs() << "  simd enable: unrollVL " << unrollVL
+                            << "capped at " << maxUnrollVL << "\n");
+    unrollVL = maxUnrollVL;
+  }
+  return archVL * unrollVL;
+}
+
+/*static*/ int64_t VectorBuilder::capVLForSimdOnly(
+    MemRefType memRefType, int64_t totVL, int64_t simdLoopStaticTripCount) {
+  if (simdLoopStaticTripCount <= 1) {
+    // There is no static component to simd loop trip count.
+    LLVM_DEBUG(llvm::dbgs() << "  simd disable: dyn trip count, no simdOnly\n");
+    return 1;
+  }
+  int64_t archVL =
+      VectorMachineSupport::getArchVectorLength(memRefType.getElementType());
+  int64_t unrollVL = totVL / archVL;
+  assert(archVL * unrollVL == totVL && "expected archVL to divide totVL");
+  for (int64_t u = unrollVL; u > 0; --u) {
+    totVL = u * archVL;
+    if (simdLoopStaticTripCount % totVL == 0) {
+      // Success.
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  simd enable: simd only with totVL " << totVL << "\n");
+      return totVL;
+    }
+  }
+  // Did not find any unroll factor for which totVL divides static trip count.
+  LLVM_DEBUG(llvm::dbgs() << "  simd disable: no simdONLY for trip count\n");
+  return 1;
+}
+
 // Old style.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops, int64_t maxUnrollVL,
@@ -2091,45 +2130,46 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   assert(maxUnrollVL > 0 && "expected positive max simd unroll");
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.
   Type elementType = memRefType.getElementType();
-  int64_t VL = VectorMachineSupport::getArchVectorLength(elementType);
-  LLVM_DEBUG(llvm::dbgs() << "  simd hw VL is " << VL << "\n");
-  if (VL <= 1) {
+  int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
+  LLVM_DEBUG(llvm::dbgs() << "  simd archVL is " << archVL << "\n");
+  if (archVL <= 1) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
     return 1;
   }
   int64_t staticSize;
   bool isStaticSize = MemRefBuilder::getStaticMemSize(
       memRefType, staticSize, -collapsedInnermostLoops);
-  if (isStaticSize && staticSize < VL) {
+  if (isStaticSize && staticSize < archVL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd disabled: trip count " << staticSize
-                            << " too short for a VL of " << VL << "\n");
+                            << " too short for a archVL of " << archVL << "\n");
     return 1;
   }
   // Unless otherwise disabled, here is the estimated trip count.
   if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
-    return maxUnrollVL * VL;
+    return maxUnrollVL * archVL;
   }
   // We have a partially flattened operator. Since we do only simdize entire
   // loops (i.e. we don't support scalar epilogues at this time), make sure
   // the static size is a multiple of the VL. Get the VL of the store
   // (output's element type).
-  if (staticSize % VL != 0) {
-    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: partial flattened dims "
-                            << collapsedInnermostLoops << " with size "
-                            << staticSize << " is not 0 mod VL " << VL << "\n");
+  if (staticSize % archVL != 0) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "  simd disabled: partial flattened dims "
+               << collapsedInnermostLoops << " with size " << staticSize
+               << " is not 0 mod archVL " << archVL << "\n");
     return 1;
   }
   // See if we can get a unroll factor.
   for (int64_t u = maxUnrollVL; u > 0; --u) {
-    if (staticSize % (u * VL) == 0) {
+    if (staticSize % (u * archVL) == 0) {
       LLVM_DEBUG(llvm::dbgs()
                  << "  partial flattened dims " << collapsedInnermostLoops
-                 << " with size " << staticSize << " works with VL " << VL
+                 << " with size " << staticSize << " works with VL " << archVL
                  << " and unroll " << u << "\n");
       simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
-      return u * VL;
+      return u * archVL;
     }
   }
   llvm_unreachable("should always find u==1 feasible");
