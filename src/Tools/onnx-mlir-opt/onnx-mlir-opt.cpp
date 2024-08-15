@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
 
   MlirOptMainConfig config;
   config.setPassPipelineSetupFn(passManagerSetupFn)
-      .splitInputFile(split_input_file)
+      .splitInputFile(split_input_file ? kDefaultSplitMarker : "")
       .verifyDiagnostics(verify_diagnostics)
       .verifyPasses(verify_passes)
       .allowUnregisteredDialects(allowUnregisteredDialects)
