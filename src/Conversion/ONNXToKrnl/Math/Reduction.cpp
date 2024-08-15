@@ -312,10 +312,9 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   if constexpr (std::is_same<ONNXReductionOp2, ONNXNoneOp>::value)
     hasTwoRed = false;
 
-// Study SIMD. Assume here that since SIMD is determined by the input type
-// (which is expected to be the same as the output scalar value), both
-// reduction will have the same archVL.
-#if 1
+  // Study SIMD. Assume here that since SIMD is determined by the input type
+  // (which is expected to be the same as the output scalar value), both
+  // reduction will have the same archVL.
   GenOpsMixList mix = getGenOpMix<ONNXReductionOp1>(elementType, op);
   if (hasTwoRed) {
     GenOpsMixList mix2 = getGenOpMix<ONNXReductionOp2>(elementType, op);
@@ -328,17 +327,9 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       collapsedInnermostLoops, mix, estimatedSimdLoopTripCount, simdOnly);
   // Current simdized loop only support SIMD only scheme.
   if (!simdOnly)
-    return false; // hi alex: consider setting VL to 1
+    totVL = 1;
   if (totVL <= 1)
     return false; // hi alex, consider staying here with VL=1
-#else
-  int64_t unrollVL = 4;
-  int64_t estimatedSimdLoopTripCount = 0;
-  int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType, inputRank,
-      unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
-  if (totVL <= 1)
-    return false;
-#endif
   IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Compute type of small temporary reduction vector.
@@ -673,9 +664,20 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // Currently only vectorize loops whose SIMD dimension is a multiple
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
+
+#if 1
+          GenOpsMixList mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
+          bool simdOnly;
+          totVL = VectorBuilder::computeSuitableUnrollFactor(memRefInType,
+              innermostLoopCollapse, mix, estimatedSimdLoopTripCount, simdOnly);
+          // Current simdized loop only support SIMD only scheme.
+          if (!simdOnly)
+            totVL = 1;
+#else
           totVL = create.vec.computeSuitableUnrollFactor(memRefInType,
               innermostLoopCollapse, unrollVL, /*canPad*/ false,
               estimatedSimdLoopTripCount);
+#endif
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
                                   << " loops, totVL " << totVL << "\n");
           if (totVL <= 1) {
