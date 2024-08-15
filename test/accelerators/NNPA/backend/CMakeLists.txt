@@ -362,10 +362,10 @@ set(NNPA_TEST_LIST
     # ==LIM== Input tensor must be less than or equal to 4 dimensions.
 
     # Model
-    # test_densenet121_cpu,zdnn_conv2d
-    # test_inception_v1_cpu,zdnn_conv2d
-    # test_resnet50_cpu,zdnn_conv2d
-    # test_shufflenet_cpu,zdnn_matmul_op_ext
+    test_densenet121_cpu,zdnn_conv2d
+    test_inception_v1_cpu,zdnn_conv2d
+    test_resnet50_cpu,zdnn_conv2d
+    test_shufflenet_cpu,zdnn_matmul_op_ext
     # test_squeezenet_cpu,zdnn_conv # got NaN results
     test_vgg19_cpu,zdnn_conv
 )
