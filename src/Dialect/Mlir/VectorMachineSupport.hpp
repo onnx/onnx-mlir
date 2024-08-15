@@ -68,6 +68,7 @@ enum class GenericOps {
 // operation is associated with a number, which indicates the number of
 // occurrence of that generic op in the given kernel.
 using GenOpsMix = mlir::ArrayRef<std::pair<GenericOps, int64_t>>;
+using GenOpsMixList = llvm::SmallVector<std::pair<GenericOps, int64_t>, 4>;
 
 //===----------------------------------------------------------------------===//
 // Generic vector machine support class, which must be refined for each

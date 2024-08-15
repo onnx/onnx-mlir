@@ -2019,9 +2019,9 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   LLVM_DEBUG(llvm::dbgs() << "  simd archVL is " << archVL << "\n");
 
-  // No element type is SIMD.
+  // Element type does nt support SIMD.
   if (archVL <= 1) {
-    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd\n");
+    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: no simd for this type\n");
     return 1;
   }
   if (isStatic && staticSimdSize < archVL) {
@@ -2049,13 +2049,26 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     unrollVL = 4;
   else
     unrollVL = 8;
-  // Refine unrolling factor so that it is suitable for the static size.
+  int64_t totVL = archVL * unrollVL;
+  // Refine unrolling factor so that it is suitable for short loops.
   if (isStatic && (staticSimdSize < unrollVL * archVL)) {
     int64_t newUnroll = floor((1.0 * staticSimdSize) / (1.0 * archVL));
-    LLVM_DEBUG(llvm::dbgs() << "  simd enable:: size " << staticSimdSize
+    LLVM_DEBUG(llvm::dbgs() << "  simd enable: size " << staticSimdSize
                             << " , archVL " << archVL << ", unroll " << unrollVL
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
+    totVL = archVL * unrollVL;
+    // Size control: if no ILP (unrollVL==1) or little ILP (unrollVL==2) with a
+    // leftover scalar loop, don't bother.
+    if (unrollVL == 1) {
+      LLVM_DEBUG(llvm::dbgs() << "  simd disable: too small unrollVL (1)\n");
+      return 1;
+    }
+    if (unrollVL == 2 && staticSimdSize % totVL != 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "  simd disable: small unrollVL (2) with leftovers\n");
+      return 1;
+    }
   }
   LLVM_DEBUG(llvm::dbgs() << "  simd enable: unrollVL " << unrollVL << "\n");
   // Fill in the output values. Now that we have SIMD, simdLoopStaticTripCount
@@ -2064,7 +2077,6 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   simdLoopStaticTripCount = isStatic ? staticSimdSize : -1;
   // Now that we have SIMD, we have SIMD only if the static component of the
   // SIMD loop is positive and a multiple of VL.
-  int64_t totVL = archVL * unrollVL;
   simdOnly = (staticSimdSize > 1) && (staticSimdSize % totVL == 0);
   LLVM_DEBUG(llvm::dbgs() << "  simd enable: totVL " << totVL << ", simd-only "
                           << simdOnly << "\n");

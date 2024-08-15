@@ -57,20 +57,6 @@ static void CheckIfCustomScalarOpIsSupported(Type elementType) {
 }
 
 // =============================================================================
-// Template for SIMD analysis
-
-// Default template for ops that do not support SIMD. For the ones that support
-// SIMD, we must create an `getGenOpsMix` template that returns their
-// corresponding mix of generic operations.
-
-using GenOpsMixList = llvm::SmallVector<std::pair<GenericOps, int64_t>, 4>;
-
-template <typename Op>
-GenOpsMixList getGenOpMix(Type elementType, Operation *op) {
-  return {{GenericOps::ScalarOnlyGop, 1}};
-}
-
-// =============================================================================
 // Scalar ops handling
 
 template <>
@@ -1314,39 +1300,10 @@ template <typename ShapeHelperType, typename ElementwiseOp>
 int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
     MemRefType memRefType, int64_t collapsedInnermostLoops,
     int64_t &estimatedSimdLoopTripCount, bool &simdOnly) {
-#if 1
   Type elementType = memRefType.getElementType();
   GenOpsMixList mix = getGenOpMix<ElementwiseOp>(elementType, op);
   int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
       collapsedInnermostLoops, mix, estimatedSimdLoopTripCount, simdOnly);
-#else
-  estimatedSimdLoopTripCount = 0; // Initially assume no SIMD.
-  simdOnly = true;                // Old implementation only support fully simd.
-  // SIMD is enabled for this operation, test if profitable.
-  Type elementType = memRefType.getElementType();
-  int64_t vectorizedOpNum, scalarOpNum;
-  GenOpsMixList mix = getGenOpMix<ElementwiseOp>(elementType, op);
-  double avgSimdWidth = VectorMachineSupport::getAvgArchVectorLength(
-      mix, elementType, vectorizedOpNum, scalarOpNum);
-  if (avgSimdWidth < 1.5) {
-    LLVM_DEBUG(llvm::dbgs() << "  simd disabled: avg simd width  "
-                            << avgSimdWidth << " too small\n");
-    return 1;
-  }
-  // Determine empirical unroll factor.
-  int64_t vrNum = VectorMachineSupport::getArchVectorRegisterNum();
-  int64_t unrollVL;
-  if (vectorizedOpNum >= vrNum / 2)
-    unrollVL = 1; // TODO, it would appear to be beneficial to always have 2.
-  else if (vectorizedOpNum >= vrNum / 4)
-    unrollVL = 4;
-  else
-    unrollVL = 8;
-  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
-      collapsedInnermostLoops, unrollVL,
-      /*canPad*/ true, estimatedSimdLoopTripCount);
-#endif
-
   LLVM_DEBUG({
     if (totVL)
       llvm::dbgs() << "  simd enabled with VL " << totVL << "\n";
@@ -1414,11 +1371,6 @@ static LogicalResult getPartiallyFlattenedSimdCode(
   SmallVector<IndexExpr, 4> flattenedOutputDims;
   Value flatAlloc = create.mem.reshapeToFlatInnermost(
       alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
-
-#if 1
-  ///////////////////////////////////////////////////////////////////////////
-  // new infra usage
-  ///////////////////////////////////////////////////////////////////////////
 
   // Create loop iteration, rank-1, all but the flattened innermost [simd] loop.
   int64_t outerLoopRank = rank - 1;
@@ -1540,116 +1492,6 @@ static LogicalResult getPartiallyFlattenedSimdCode(
             }); // SIMD kernel.
       });       // Outer loops.
 
-#else
-
-  ///////////////////////////////////////////////////////////////////////////
-  // old infra usage
-  ///////////////////////////////////////////////////////////////////////////
-  int64_t flattenedDim = rank - 1;
-
-  // Create loop iteration (flattened to output dim - inner dim + 1) with inner
-  // one and blocked by VL.
-  ValueRange loopDef = create.krnl.defineLoops(rank);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[flattenedDim], VL);
-  SmallVector<Value, 4> optimizedLoopDef;
-  for (int64_t r = 0; r < rank - 1; ++r) {
-    optimizedLoopDef.emplace_back(loopDef[r]);
-  }
-  optimizedLoopDef.emplace_back(blockedLoopDef[0]);
-  // Create the vector type to operate over.
-  VectorType vecElementType = VectorType::get({VL}, outputElementType);
-  // Iterate only over the blocks.
-  SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
-  if (enableParallel) {
-    int64_t parId;
-    if (findSuitableParallelDimension(
-            lbs, flattenedOutputDims, 0, std::min((int64_t)2, rank), parId)) {
-      create.krnl.parallel(optimizedLoopDef[parId]);
-      onnxToKrnlParallelReport(op, true, parId, lbs[parId],
-          flattenedOutputDims[parId], "elementwise simd partially flattened");
-    } else {
-      onnxToKrnlParallelReport(op, false, -1, -1,
-          "no dim with enough work in elementwise simd partially flattened");
-    }
-  }
-  create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
-      [&](KrnlBuilder &ck, ValueRange loopInd) {
-        MultiDialectBuilder<KrnlBuilder, VectorBuilder> create(ck);
-        SmallVector<IndexExpr, 4> outputAccessExprs;
-        getIndexExprList<DimIndexExpr>(loopInd, outputAccessExprs);
-
-        llvm::SmallVector<Value, 4> loadedVals;
-        // Load all the values
-        for (int64_t i = 0; i < (int64_t)flatOperands.size(); ++i) {
-          Value flatOper = flatOperands[i];
-          if (isNoneValue(flatOper)) {
-            // None, just pass it on unmodified.
-            loadedVals.emplace_back(flatOper);
-            continue;
-          }
-          MemRefType memRefType =
-              mlir::dyn_cast<MemRefType>(flatOper.getType());
-          assert(memRefType && "expected memref");
-          VectorType vecType =
-              VectorType::get({VL}, memRefType.getElementType());
-          if (hasOneElementInInnermostDims(flatOper, 1)) {
-            // If its a scalar, do a scalar load and splat.
-            llvm::SmallVector<IndexExpr, 4> scalarAccessFct;
-            if (hasOneElement(flatOper)) {
-              // Not flattened, with only 1 dims, just put zeros as needed.
-              int64_t scalarRank =
-                  mlir::dyn_cast<ShapedType>(flatOper.getType()).getRank();
-              for (int r = 0; r < scalarRank; ++r)
-                scalarAccessFct.emplace_back(LiteralIndexExpr(0));
-
-            } else {
-              // Was flattened, with non 1 dims, use get access expr.
-              LogicalResult res =
-                  shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
-                      scalarAccessFct, /*flattened*/ true, ruledOutBroadcast);
-              assert(succeeded(res) && "Could not compute access indices");
-            }
-            Value loadedVal = create.krnl.loadIE(flatOper, scalarAccessFct);
-            // Delay splat since it is now integrated in MathBuilder
-            loadedVals.emplace_back(loadedVal);
-          } else {
-            llvm::SmallVector<IndexExpr, 4> loadAccessFct;
-            LogicalResult res =
-                shapeHelper->getAccessExprs(flatOper, i, outputAccessExprs,
-                    loadAccessFct, /*flattened*/ true, ruledOutBroadcast);
-            assert(succeeded(res) && "Could not compute access indices");
-            Value loadedVal =
-                create.vec.loadIE(vecType, flatOper, loadAccessFct, {});
-            loadedVals.emplace_back(loadedVal);
-          }
-        }
-        Value finalResult;
-        if (isUnaryOp) {
-          // For unary op, we through all operands at once as the other ones are
-          // scalars / none values.
-          finalResult = emitScalarOpFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, loadedVals);
-        } else {
-          // For non-unary ops, each op is a flattened array that need to be
-          // processed; process the two first ones, and then "accumulate" one
-          // value at a time. Use the first operand as temporary result.
-          Value accumulated = loadedVals[0];
-          // Iterate over the remaining operands.
-          for (unsigned i = 1; i < numArgs; ++i) {
-            Value next = loadedVals[i];
-            // Fold.
-            accumulated = emitScalarOpFor<OP_TYPE>(rewriter, create.getLoc(),
-                op, vecElementType, {accumulated, next});
-          }
-          // Postprocessing (dummy op if none).
-          finalResult = emitPostProcessingFor<OP_TYPE>(
-              rewriter, create.getLoc(), op, vecElementType, accumulated);
-        }
-        // Store result in the resulting array.
-        create.vec.store(finalResult, flatAlloc, loopInd);
-      });
-
-#endif
   rewriter.replaceOp(op, alloc);
   return success();
 }
@@ -2134,6 +1976,7 @@ struct ONNXElementwiseUnaryOpLowering
       onnxToKrnlSimdReport(op, /*successful*/ false, 0,
           estimatedSimdLoopTripCount,
           "no simd in unary because could not find beneficial VL");
+          
     } else {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
           "no simd in unary because scalar/layouts");

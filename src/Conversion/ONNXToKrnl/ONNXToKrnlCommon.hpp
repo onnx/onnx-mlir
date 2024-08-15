@@ -260,6 +260,18 @@ mlir::Value emitScalarOpFor(mlir::ConversionPatternRewriter &rewriter,
   }
 }
 
+// =============================================================================
+// Template for SIMD analysis
+
+// Default template for ops that do not support SIMD. For the ones that support
+// SIMD, we must create an `getGenOpsMix` template that returns their
+// corresponding mix of generic operations.
+
+template <typename Op>
+GenOpsMixList getGenOpMix(mlir::Type elementType, mlir::Operation *op) {
+  return {{GenericOps::ScalarOnlyGop, 1}};
+}
+
 //===----------------------------------------------------------------------===//
 // Type conversion from Onnx types to Krnl types:
 //   - from Tensor type to the Standard dialect MemRef type
