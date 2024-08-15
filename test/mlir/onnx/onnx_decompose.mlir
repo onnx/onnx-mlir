@@ -10,10 +10,9 @@ func.func @test_dft(%arg0 : tensor<?x?x?xf32>, %arg1 : tensor<?xi64>) -> tensor<
 // mlir2FileCheck.py
 // CHECK-LABEL:  func.func @test_dft
 // CHECK-SAME:   ([[PARAM_0_:%.+]]: tensor<?x?x?xf32>, [[PARAM_1_:%.+]]: tensor<?xi64>) -> tensor<*xf32> {
-// CHECK-DAG:       [[VAR_0_:%.+]] = "onnx.NoValue"() {value} : () -> none
-// CHECK-DAG:       [[VAR_1_:%.+]] = onnx.Constant dense<1> : tensor<i64>
-// CHECK:           [[VAR_2_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]], [[VAR_1_]]) {inverse = 0 : si64, onesided = 0 : si64} : (tensor<?x?x?xf32>, tensor<?xi64>, tensor<i64>) -> tensor<*xf32>
-// CHECK:           onnx.Return [[VAR_2_]] : tensor<*xf32>
+// CHECK:           [[VAR_0_:%.+]] = onnx.Constant dense<1> : tensor<i64>
+// CHECK:           [[VAR_1_:%.+]] = "onnx.DFT"([[PARAM_0_]], [[PARAM_1_]], [[VAR_0_]]) {inverse = 0 : si64, onesided = 0 : si64} : (tensor<?x?x?xf32>, tensor<?xi64>, tensor<i64>) -> tensor<*xf32>
+// CHECK:           onnx.Return [[VAR_1_]] : tensor<*xf32>
 // CHECK:         }
 }
 
