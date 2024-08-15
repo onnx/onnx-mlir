@@ -525,20 +525,23 @@ struct VectorBuilder final : DialectBuilder {
       int64_t &simdLoopStaticTripCount);
 
   // Compute a suitable SIMD Vector length (VL). If no SIMD is suitable, return
-  // 1. Type determine the initial VL. Then the mix of Generic
-  // Operations is used to determine the mix of SIMD/Scalar operations in that
-  // loop. If the type does not support SIMD, or there are too few SIMD
-  // operations, or the innermost loop has too few (static) loop iterations,
-  // SIMD will be disabled (return VL=1). Otherwise, the register pressure is
-  // then taken into account to determine a suitable additional unrolling (by
-  // multiple of VL) so as to suitably exploit the available SIMD hardware.
+  // totVL = 1. Type determine the archVL for the given memRefType. Then compute
+  // the average amount of SIMD operations given the mix of Generic
+  // Operations in that loop. If the element type does not support SIMD, or
+  // there are too few SIMD operations, or the innermost loop has too few
+  // (static) loop iterations, SIMD will be disabled (return totVL=1).
+  // Otherwise, the register pressure is then taken into account to determine a
+  // suitable additional unrolling (by multiple of VL) so as to suitably exploit
+  // the available SIMD hardware.
   //
   // In this call, we assume that code gen can handle SIMD loops with trip count
-  // that are not known to be a multiple of VL.
-  // Definition and usage of simdLoopStaticTripCount is as in the previous call.
-  // SimdOnly is set to true when we can guarantee that every elements of the
-  // SIMD loop are covered by SIMD iterations (i.e. there is no need for scalar
-  // iterations).
+  // that are not known to be a multiple of VL. The simdOnly boolean flag will
+  // be set to true if all loop iterations can be handled using SIMD code with
+  // totVL. In other words, simdOnly is set to true if we can guarantee that
+  // there is no scalar loop for the leftovers not handled by the simd loop.
+  //
+  // Now some SIMD scheme may allow to write past the last original loop
+  // iterations; in this case we may ignore the simdOnly flag .
   static int64_t computeSuitableUnrollFactor(mlir::MemRefType memRefType,
       int64_t collapsedInnermostLoops, GenOpsMix GenOps,
       int64_t &simdLoopStaticTripCount, bool &simdOnly);

@@ -328,15 +328,17 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       collapsedInnermostLoops, mix, estimatedSimdLoopTripCount, simdOnly);
   // Current simdized loop only support SIMD only scheme.
   if (!simdOnly)
-    return false;
+    return false; // hi alex: consider setting VL to 1
+  if (totVL <= 1)
+    return false; // hi alex, consider staying here with VL=1
 #else
   int64_t unrollVL = 4;
   int64_t estimatedSimdLoopTripCount = 0;
   int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType, inputRank,
       unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
-#endif
   if (totVL <= 1)
     return false;
+#endif
   IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Compute type of small temporary reduction vector.
