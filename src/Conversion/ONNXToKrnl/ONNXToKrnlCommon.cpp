@@ -626,7 +626,7 @@ bool findSuitableParallelDimension(llvm::SmallVectorImpl<IndexExpr> &lb,
     int64_t &parDim, int64_t minSize) {
   for (int64_t i = firstDim; i < lastDim; ++i) {
     IndexExpr tripCount = ub[i] - lb[i];
-    if (!tripCount.isLiteral() || tripCount.getLiteral() > minSize) {
+    if (!tripCount.isLiteral() || tripCount.getLiteral() >= minSize) {
       // Got one
       parDim = i;
       return true;

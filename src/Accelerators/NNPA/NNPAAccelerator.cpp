@@ -156,8 +156,8 @@ void NNPAAccelerator::conversionTargetONNXToKrnl(
 void NNPAAccelerator::rewritePatternONNXToKrnl(
     mlir::RewritePatternSet &patterns, mlir::TypeConverter &typeConverter,
     mlir::MLIRContext *ctx) const {
-  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(
-      patterns, typeConverter, ctx, enableParallel);
+  onnx_mlir::zhigh::populateZHighToZLowConversionPattern(patterns,
+      typeConverter, ctx, enableParallel, nnpaEnableCompilerStickUnstick);
 }
 
 void NNPAAccelerator::conversionTargetKrnlToLLVM(
