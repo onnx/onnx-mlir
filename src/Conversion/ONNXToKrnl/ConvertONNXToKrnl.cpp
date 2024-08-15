@@ -491,12 +491,9 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
   if (reportOnSimd) {
     if (!simdIsEnabled) {
       OnnxToKrnlLoweringConfiguration::defaultSimdComment = "simd is disabled";
-    } else {
-      VectorMachineSupport *vms =
-          VectorMachineSupport::getGlobalVectorMachineSupport();
-      if (!vms->hasSimd())
-        OnnxToKrnlLoweringConfiguration::defaultSimdComment =
-            "cpu with unspecified simd ISA";
+    } else if (!VectorMachineSupport::hasSimd()) {
+      OnnxToKrnlLoweringConfiguration::defaultSimdComment =
+          "cpu with unspecified simd ISA";
     }
   }
   if (parallelIsEnabled)

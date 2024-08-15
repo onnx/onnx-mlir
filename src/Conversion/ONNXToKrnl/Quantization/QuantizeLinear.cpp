@@ -34,22 +34,23 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   int64_t rank = inputType.getRank();
 
   // Determine a suitable SIMD vector length for this loop.
-  int64_t VL = 0;
+  int64_t totVL = 1;
   int64_t simdLoopStaticTripCount = 0;
   if (enableSIMD) {
-    VL = VectorBuilder::computeSuitableUnrollFactor(
+    totVL = VectorBuilder::computeSuitableUnrollFactor(
         inputType /* use unquantized type*/,
         1 /* only innermost loop is simdized */,
-        {GenericOps::DivGop, GenericOps::ArithmeticGop,
-            GenericOps::ConversionGop, GenericOps::MinMaxGop,
-            GenericOps::MulGop, GenericOps::SelectGop, GenericOps::FloorGop},
-        {1, 5, 1, 2, 2, 3, 2}, simdLoopStaticTripCount);
+        {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
+            {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
+            {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
+            {GenericOps::FloorGop, 2}},
+        simdLoopStaticTripCount);
   }
-  // Has only simd iterations when we have SIMD (VL > 0), the simd dimensions is
-  // a multiple of a non-zero constant (simdLoopStaticTripCount) iterations, and
-  // simdLoopStaticTripCount % VL == 0.
-  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (VL > 0) &&
-                            (simdLoopStaticTripCount % VL == 0);
+  // Has only simd iterations when we have SIMD (totVL > 1), the simd dimensions
+  // is a multiple of a non-zero constant (simdLoopStaticTripCount) iterations,
+  // and simdLoopStaticTripCount % totVL == 0.
+  bool onlySimdIterations = (simdLoopStaticTripCount > 0) && (totVL > 1) &&
+                            (simdLoopStaticTripCount % totVL == 0);
 
   // Generate outer loops
   ValueRange loopDef = create.krnl.defineLoops(rank - 1);
@@ -68,7 +69,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
         inputAF.emplace_back(zero);
         DimsExpr outputAF = SymListIE(loopInd);
         outputAF.emplace_back(zero);
-        create.krnl.simdIterateIE(simdLb, simdUb, VL, onlySimdIterations,
+        create.krnl.simdIterateIE(simdLb, simdUb, totVL, onlySimdIterations,
             {input}, {inputAF}, {alloc}, {outputAF},
             [&](KrnlBuilder &kb, ArrayRef<Value> inputVals,
                 SmallVectorImpl<Value> &resVals) {
@@ -86,9 +87,9 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
               resVals.emplace_back(res);
             });
       });
-  if (VL > 1)
-    onnxToKrnlSimdReport(op, /*successful*/ true, VL, simdLoopStaticTripCount,
-        "quantizationLinear whole tensor");
+  if (totVL > 1)
+    onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
+        simdLoopStaticTripCount, "quantizationLinear whole tensor");
   else
     onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
         "no simd in quantizationLinear whole tensor");

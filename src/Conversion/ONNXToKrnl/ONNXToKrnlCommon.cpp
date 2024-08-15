@@ -4,7 +4,7 @@
 
 //====----- ONNXToKrnlCommon.cpp - ONNX dialects to Krnl lowering ---------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //

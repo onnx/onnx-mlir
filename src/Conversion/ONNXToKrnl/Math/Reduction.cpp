@@ -282,16 +282,14 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
       input, inputDims, flatInputDims, inputRank);
   // Study SIMD. Assume here that since SIMD is determined by the input type
   // (which is expected to be the same as the output scalar value), both
-  // reduction will have the same VL.
-  int64_t unroll = 4;
-  VectorMachineSupport *vms =
-      VectorMachineSupport::getGlobalVectorMachineSupport();
+  // reduction will have the same archVL.
+  int64_t unrollVL = 4;
   int64_t estimatedSimdLoopTripCount = 0;
-  int64_t VL = create.vec.computeSuitableUnrollFactor(vms, inputType, inputRank,
-      unroll, /*canPad*/ false, estimatedSimdLoopTripCount);
-  if (VL == 0)
+  int64_t totVL = create.vec.computeSuitableUnrollFactor(inputType, inputRank,
+      unrollVL, /*canPad*/ false, estimatedSimdLoopTripCount);
+  if (totVL <= 1)
     return false;
-  IndexExpr VLIndexExpr = LitIE(VL);
+  IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Has one or 2 reductions?
   bool hasTwoRed = true;
@@ -300,8 +298,8 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
 
   // Compute type of small temporary reduction vector.
   MemRefType outputType = MemRefType::get({}, elementType);
-  MemRefType redType = MemRefType::get({VL}, elementType);
-  VectorType vecType = VectorType::get({VL}, elementType);
+  MemRefType redType = MemRefType::get({totVL}, elementType);
+  VectorType vecType = VectorType::get({totVL}, elementType);
 
   // Initialize first reduction.
   Value zero = create.math.constantIndex(0);
@@ -325,7 +323,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
 
   // Loop trip count
   ValueRange loopDef = create.krnl.defineLoops(1);
-  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], VL);
+  ValueRange blockedLoopDef = create.krnl.block(loopDef[0], totVL);
   create.krnl.iterate(loopDef, {blockedLoopDef[0]}, {zero},
       {flatInputDims[0].getValue()}, [&](KrnlBuilder &ck, ValueRange loopInd) {
         MDBuilder create(ck);
@@ -378,10 +376,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
     create.affineKMem.store(res2, alloc2, {});
 
   if (hasTwoRed)
-    onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+    onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
         estimatedSimdLoopTripCount, "fused reduction to a scalar");
   else
-    onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+    onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
         estimatedSimdLoopTripCount, "reduction to a scalar");
 
   return true;
@@ -567,7 +565,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     bool hasHorizontalSimdSupport = false;
     bool parallelSimd = false;
     int64_t innermostLoopCollapse = 0;
-    int64_t VL = 0;
+    int64_t totVL = 1;
     int64_t estimatedSimdLoopTripCount = 0;
 
     // With dynamic axes, use this
@@ -607,39 +605,37 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         if (horizontalSimd || parallelSimd) {
           assert(!(horizontalSimd && parallelSimd) &&
                  "expected at most horizontal or parallel SIMD");
-          VectorMachineSupport *vms =
-              VectorMachineSupport::getGlobalVectorMachineSupport();
           DimsExpr inputDims;
           create.krnlIE.getShapeAsSymbols(input, inputDims);
-          int64_t unroll = 4;
+          int64_t unrollVL = 4;
           if (horizontalSimd) {
 #if !DEBUG_FORCE_SHUFFLE_REDUCTION
             VectorBuilder::CombiningKind kind =
                 getCombiningKind<ONNXReductionOp>();
             hasHorizontalSimdSupport =
-                supportedHorizontalSIMDOp(vms, kind, elementOutType);
+                supportedHorizontalSIMDOp(kind, elementOutType);
 #endif
             if (!hasHorizontalSimdSupport) {
               // Does not have SIMD horizontal support, so use a scheme that
-              // unroll the innermost non-simd loop by VL. Because trip counts
+              // unrollVL the innermost non-simd loop by VL. Because trip counts
               // of such loops could be small (e.g. GPT2 = 8), we don't want a
               // large VL here.
-              unroll = 1;
+              unrollVL = 1;
             }
           }
-          LLVM_DEBUG(llvm::dbgs()
-                     << "  SIMD: study with init unroll " << unroll << "\n");
+          LLVM_DEBUG(llvm::dbgs() << "  SIMD: study with init unrollVL "
+                                  << unrollVL << "\n");
           // Currently only vectorize loops whose SIMD dimension is a multiple
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
-          VL = create.vec.computeSuitableUnrollFactor(vms, memRefInType,
-              innermostLoopCollapse, unroll, /*canPad*/ false,
+          totVL = create.vec.computeSuitableUnrollFactor(memRefInType,
+              innermostLoopCollapse, unrollVL, /*canPad*/ false,
               estimatedSimdLoopTripCount);
           LLVM_DEBUG(llvm::dbgs() << "  SIMD: " << innermostLoopCollapse
-                                  << " loops, VL " << VL << "\n");
-          if (!VL) {
+                                  << " loops, totVL " << totVL << "\n");
+          if (totVL <= 1) {
             horizontalSimd = parallelSimd = false;
-            LLVM_DEBUG(llvm::dbgs() << "  SIMD: no good VL\n");
+            LLVM_DEBUG(llvm::dbgs() << "  SIMD: no good totVL\n");
           }
         }
       }
@@ -718,8 +714,8 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
         }
       }
     }
-    LLVM_DEBUG(llvm::dbgs() << "  SIMD " << (VL ? "" : "im")
-                            << "possible with vector length " << VL << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "  SIMD " << (totVL > 1 ? "" : "im")
+                            << "possible with totVL " << totVL << "\n");
 
     //////////////////////////////////////////////////////////////////////
     // Insert an allocation and deallocation for the result of this operation.
@@ -771,15 +767,15 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     if (horizontalSimd) {
       if (hasHorizontalSimdSupport) {
         genHorizontalSimdReduction(rewriter, create, op, elementOutType, input,
-            alloc, inRank, outRank, VL, innermostLoopCollapse, isKeepdims,
+            alloc, inRank, outRank, totVL, innermostLoopCollapse, isKeepdims,
             divisorForMean, enableParallel);
-        onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+        onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             estimatedSimdLoopTripCount, "horizontal");
       } else {
         genShuffleHorizontalSimdReduction(rewriter, create, op, elementOutType,
-            input, alloc, inRank, outRank, VL, innermostLoopCollapse,
+            input, alloc, inRank, outRank, totVL, innermostLoopCollapse,
             isKeepdims, divisorForMean, enableParallel);
-        onnxToKrnlSimdReport(op, /*successful*/ true, VL,
+        onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             estimatedSimdLoopTripCount, "shuffle-horizontal");
       }
     } else {
@@ -881,21 +877,23 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
     }
   }
 
-  bool supportedHorizontalSIMDOp(VectorMachineSupport *vms,
+  bool supportedHorizontalSIMDOp(
       VectorBuilder::CombiningKind getCombiningKind, Type elementType) const {
     int64_t len;
     switch (getCombiningKind) {
     case VectorBuilder::CombiningKind::ADD:
-      len = vms->getVectorLength(GenericOps::SumAcrossGop, elementType);
+      len = VectorMachineSupport::getArchVectorLength(
+          GenericOps::SumAcrossGop, elementType);
       break;
     case VectorBuilder::CombiningKind::MIN:
     case VectorBuilder::CombiningKind::MAX:
-      len = vms->getVectorLength(GenericOps::SumAcrossGop, elementType);
+      len = VectorMachineSupport::getArchVectorLength(
+          GenericOps::SumAcrossGop, elementType);
       break;
     default:
-      len = 0;
+      len = 1;
     }
-    return len != 0;
+    return len != 1;
   }
 
   // Generate a single reduction, eventually using a horizontal reduction

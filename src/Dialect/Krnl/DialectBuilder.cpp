@@ -4,7 +4,7 @@
 
 //====-------------- DialectBuilder.cpp - Krnl Dialect Builder ------------===//
 //
-// Copyright 2019-2023 The IBM Research Authors.
+// Copyright 2019-2024 The IBM Research Authors.
 //
 // =============================================================================
 //
@@ -273,6 +273,7 @@ KrnlIterateOp KrnlBuilder::iterateIE(ValueRange originalLoops,
       });
 }
 
+// TODO: once the interface is updated, provide a good example of how to use.
 void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, ArrayRef<Value> inputs, ArrayRef<DimsExpr> inputAFs,
     ArrayRef<Value> outputs, ArrayRef<DimsExpr> outputAFs,
@@ -289,8 +290,8 @@ void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     // Want SIMD, execute full SIMD loops blocked by VL.
     ValueRange loopDef = defineLoops(1);
     ValueRange blockedLoopDef = block(loopDef[0], VL);
-    // If we are not guaranteed that every iterations are SIMD iterations, then
     // we need to reduce the trip count by a bit so as to not over compute.
+    // If we are not guaranteed that every iterations are SIMD iterations, then
     IndexExpr simdUb = ub;
     if (!fullySimd)
       simdUb = simdUb - (VL - 1);
