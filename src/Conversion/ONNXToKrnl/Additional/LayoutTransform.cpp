@@ -82,12 +82,21 @@ struct ONNXLayoutTransformOpLowering
 
     // Insert loop over all inputs.
     ValueRange loopDef = create.krnl.defineLoops(rank);
-    if (enableParallel) {
-      create.krnl.parallel(loopDef[0]);
-      onnxToKrnlParallelReport(op, /*successful*/ true, rank, -1,
-          "LayoutTransform op fully parallelized with perfectly nested loops");
-    }
     SmallVector<IndexExpr, 4> lbs(rank, LiteralIndexExpr(0));
+
+    if (enableParallel) {
+      int64_t parId;
+      if (findSuitableParallelDimension(lbs, ubs, 0, 1, parId,
+              /*min iter for going parallel*/ 128)) {
+        onnxToKrnlParallelReport(op, /*successful*/ true, 0, lbs[0], ubs[0],
+            "LayoutTransform op fully parallelized with perfectly nested "
+            "loops");
+        create.krnl.parallel(loopDef[parId]);
+      } else {
+        onnxToKrnlParallelReport(op, /*successful*/ false, 0, lbs[0], ubs[0],
+            "not enough work for LayoutTransform op");
+      }
+    }
     create.krnl.iterateIE(loopDef, loopDef, lbs, ubs,
         [&](KrnlBuilder &createKrnl, ValueRange indices) {
           // Simply copy the input into the output.

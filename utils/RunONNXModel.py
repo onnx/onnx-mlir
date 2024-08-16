@@ -21,6 +21,7 @@ import subprocess
 import numpy as np
 import tempfile
 import json
+import importlib.util
 
 from onnx import numpy_helper
 from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
@@ -111,6 +112,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--verify-with-softmax",
+    metavar="AXIS_INDEX",
     type=str,
     default=None,
     help="Verify the result obtained by applying softmax along with"
@@ -157,6 +159,14 @@ data_group.add_argument(
     type=str,
     help="Path to a folder containing reference inputs and outputs stored in protobuf."
     " If --verify=ref, inputs and outputs are reference data for verification",
+)
+data_group.add_argument(
+    "--load-ref-from-numpy",
+    metavar="PATH",
+    type=str,
+    help="Path to a python script that defines variables inputs and outputs that are a list of numpy arrays. "
+    " For example, inputs = [np.array([1], dtype=np.int64), np.array([2], dtype=np.float32]."
+    " Variable outputs can be omitted if --verify is not used.",
 )
 data_group.add_argument(
     "--shape-info",
@@ -361,12 +371,23 @@ def read_input_from_refs(num_inputs, load_ref):
     i = 0
     inputs = []
 
-    for i in range(num_inputs):
-        input_file = load_ref + "/input_{}.pb".format(i)
-        input_ts = onnx.TensorProto()
-        with open(input_file, "rb") as f:
-            input_ts.ParseFromString(f.read())
-        input_np = numpy_helper.to_array(input_ts)
+    if args.load_ref:
+        for i in range(num_inputs):
+            input_file = load_ref + "/input_{}.pb".format(i)
+            input_ts = onnx.TensorProto()
+            with open(input_file, "rb") as f:
+                input_ts.ParseFromString(f.read())
+            input_np = numpy_helper.to_array(input_ts)
+            inputs += [input_np]
+            i += 1
+    elif args.load_ref_from_numpy:
+        spec = importlib.util.spec_from_file_location("om_load_ref", load_ref)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        inputs = module.inputs
+
+    for i in range(len(inputs)):
+        input_np = inputs[i]
         print(
             "  - {} input: [{}x{}]".format(
                 ordinal(i + 1),
@@ -374,8 +395,7 @@ def read_input_from_refs(num_inputs, load_ref):
                 input_np.dtype,
             )
         )
-        inputs += [input_np]
-        i += 1
+
     print("  done.\n")
     return inputs
 
@@ -384,12 +404,22 @@ def read_output_from_refs(num_outputs, load_ref):
     print("Reading reference outputs from {} ...".format(load_ref))
     reference_output = []
 
-    for i in range(num_outputs):
-        output_file = load_ref + "/output_{}.pb".format(i)
-        output_ts = onnx.TensorProto()
-        with open(output_file, "rb") as f:
-            output_ts.ParseFromString(f.read())
-        output_np = numpy_helper.to_array(output_ts)
+    if args.load_ref:
+        for i in range(num_outputs):
+            output_file = load_ref + "/output_{}.pb".format(i)
+            output_ts = onnx.TensorProto()
+            with open(output_file, "rb") as f:
+                output_ts.ParseFromString(f.read())
+            output_np = numpy_helper.to_array(output_ts)
+            reference_output += [output_np]
+    elif args.load_ref_from_numpy:
+        spec = importlib.util.spec_from_file_location("om_load_ref_output", load_ref)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        reference_output = module.outputs
+
+    for i in range(len(reference_output)):
+        output_np = reference_output[i]
         print(
             "  - {} output: [{}x{}]".format(
                 ordinal(i + 1),
@@ -397,7 +427,6 @@ def read_output_from_refs(num_outputs, load_ref):
                 output_np.dtype,
             )
         )
-        reference_output += [output_np]
     print("  done.\n")
     return reference_output
 
@@ -635,7 +664,7 @@ def main():
                 command_str += args.compile_args.split()
             if args.compile_using_input_shape:
                 # Use shapes of the reference inputs to compile the model.
-                assert args.load_ref, "No data folder given"
+                assert args.load_ref or args.load_ref_from_numpy, "No data folder given"
                 assert "shapeInformation" not in command_str, "shape info was set"
                 shape_info = "--shapeInformation="
                 for i in range(len(inputs)):
@@ -699,6 +728,8 @@ def main():
         inputs = []
         if args.load_ref:
             inputs = read_input_from_refs(len(input_names), args.load_ref)
+        elif args.load_ref_from_numpy:
+            inputs = read_input_from_refs(len(input_names), args.load_ref_from_numpy)
         else:
             inputs = generate_random_input(input_signature, input_shapes)
 
@@ -799,7 +830,12 @@ def main():
                 print("  took ", end - start, " seconds.\n")
             elif args.verify.lower() == "ref":
                 # Reference output available in protobuf.
-                ref_outs = read_output_from_refs(len(output_names), args.load_ref)
+                if args.load_ref:
+                    ref_outs = read_output_from_refs(len(output_names), args.load_ref)
+                elif args.load_ref_from_numpy:
+                    ref_outs = read_output_from_refs(
+                        len(output_names), args.load_ref_from_numpy
+                    )
             else:
                 print("Invalid verify option")
                 exit(1)

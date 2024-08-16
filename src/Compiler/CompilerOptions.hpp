@@ -57,6 +57,7 @@ typedef enum {
   NoReport,
   Parallel,  // Generates diagnostic reporting for parallel (krnl lowering).
   Simd       // Generates diagnostic reporting for SIMD (krnl lowering).
+  APPLY_TO_ACCELERATORS(ACCEL_OPTREPORT_ENUM)
   // clang-format on
 } OptReport;
 

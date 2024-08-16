@@ -1666,6 +1666,7 @@ struct ZHighToZLowDataConversionLowering
     SmallVector<IndexExpr, 4> flattenedOutputDims;
     Value flatOutput = create.mem.reshapeToFlatInnermost(
         alloc, outputDims, flattenedOutputDims, collapsedInnermostLoops);
+    DimsExpr lbs(1, LiteralIndexExpr(0));
 
     // Create loop iteration (flattened to 1D) and block it by unrollVL.
     ValueRange loopDef = create.krnl.defineLoops(1);
@@ -1673,22 +1674,28 @@ struct ZHighToZLowDataConversionLowering
     SmallVector<Value, 1> optimizedLoopDef(1, blockedLoopDef[0]);
 
     if (enableParallel) {
-      create.krnl.parallel(blockedLoopDef[0]);
-      onnxToKrnlParallelReport(op, /*successful*/ true, 0,
+      int64_t parId;
+      int64_t tripCount =
           flattenedOutputDims[0].isLiteral()
               ? std::ceil(flattenedOutputDims[0].getLiteral() / (float)VL)
-              : -1,
-          "dlf16-f32 conversion fully parallelized");
+              : -1;
+      if (findSuitableParallelDimension(lbs, flattenedOutputDims, 0, 1, parId,
+              /*min iter for going parallel*/ 1024)) {
+        create.krnl.parallel(blockedLoopDef[0]);
+        onnxToKrnlParallelReport(op, /*successful*/ true, 0, tripCount,
+            "dlf16-f32 conversion fully parallelized");
+      } else {
+        onnxToKrnlParallelReport(op, false, 0, tripCount,
+            "not enough work for dlf16-f32 conversion");
+      }
     }
-
     onnxToKrnlSimdReport(op, /*successful*/ true, VL,
         flattenedOutputDims[0].isLiteral() ? flattenedOutputDims[0].getLiteral()
                                            : -1,
         "dlf16-f32 conversion fully flattened");
 
-    IndexExpr zero = LiteralIndexExpr(0);
-    create.krnl.iterateIE(loopDef, optimizedLoopDef, {zero},
-        flattenedOutputDims, [&](KrnlBuilder &b, ValueRange loopInd) {
+    create.krnl.iterateIE(loopDef, optimizedLoopDef, lbs, flattenedOutputDims,
+        [&](KrnlBuilder &b, ValueRange loopInd) {
           MDBuilder create(b);
           // Manually unrolled loop, add VL offset at each iterations.
           for (int64_t u = 0; u < unrollSIMD; ++u) {

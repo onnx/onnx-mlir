@@ -46,6 +46,10 @@ using namespace onnx_mlir;
 
 namespace onnx_mlir {
 
+void configurePassesNNPA() {
+  configureOnnxToZHighLoweringPass(optReport == OptReport::NNPAUnsupportedOps);
+}
+
 void addONNXToZHighPasses(mlir::PassManager &pm) {
   for (unsigned i = 0; i < 3; i++) {
     // Repeat this process so that shape-related ops such as Shape, Expand,
@@ -180,6 +184,7 @@ void addPassesNNPA(mlir::OwningOpRef<mlir::ModuleOp> &module,
 
   // Override pass configurations.
   configurePasses();
+  configurePassesNNPA();
 
   // LLVM_DEBUG(llvm::dbgs() << "Adding NNPA passes" << std::endl;);
   if (emissionTarget >= EmitONNXIR) {
