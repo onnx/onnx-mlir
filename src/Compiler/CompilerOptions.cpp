@@ -73,8 +73,8 @@ bool disableRecomposeOption;                           // onnx-mlir only
 bool enableSimdDataLayout;                             // onnx-mlir only
 bool verifyInputTensors;                               // onnx-mlir only
 bool allowSorting;                                     // onnx-mlir only
-std::string reportHeapBefore;                          // onnx-mlir only
-std::string reportHeapAfter;                           // onnx-mlir only
+std::vector<std::string> reportHeapBefore;             // onnx-mlir only
+std::vector<std::string> reportHeapAfter;              // onnx-mlir only
 std::string modelTag;                                  // onnx-mlir only
 bool enableConvOptPass;                                // onnx-mlir only
 bool disableConstantProp;                              // onnx-mlir only
@@ -476,20 +476,19 @@ static llvm::cl::opt<bool, true> allowSortingOpt("allowSorting",
     llvm::cl::location(allowSorting), llvm::cl::init(true),
     llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<std::string, true> reportHeapBeforeOpt(
-    "report-heap-before",
-    llvm::cl::desc("Comma separated list of names of passes.\n"
-                   "Before each heap statistics are dumped to "
-                   "<output-files-base-path>.heap.log"),
-    llvm::cl::location(reportHeapBefore), llvm::cl::init(""),
-    llvm::cl::cat(OnnxMlirOptions));
+static llvm::cl::list<std::string, std::vector<std::string>>
+    reportHeapBeforeOpt("report-heap-before",
+        llvm::cl::desc("A list of names of passes.\n"
+                       "Before each heap statistics are dumped to "
+                       "<output-files-base-path>.heap.log"),
+        llvm::cl::location(reportHeapBefore), llvm::cl::cat(OnnxMlirOptions));
 
-static llvm::cl::opt<std::string, true> reportHeapAfterOpt("report-heap-after",
-    llvm::cl::desc("Comma separated list of names of passes.\n"
+static llvm::cl::list<std::string, std::vector<std::string>> reportHeapAfterOpt(
+    "report-heap-after",
+    llvm::cl::desc("A list of names of passes.\n"
                    "After each heap statistics are dumped to "
                    "<output-files-base-path>.heap.log"),
-    llvm::cl::location(reportHeapAfter), llvm::cl::init(""),
-    llvm::cl::cat(OnnxMlirOptions));
+    llvm::cl::location(reportHeapAfter), llvm::cl::cat(OnnxMlirOptions));
 
 static llvm::cl::opt<std::string, true> modelTagOpt("tag",
     llvm::cl::desc(
