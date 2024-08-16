@@ -43,10 +43,17 @@ struct KrnlBuilder : public DialectBuilder {
   void storeIE(mlir::Value val, mlir::Value memref,
       mlir::ArrayRef<IndexExpr> indices) const;
 
+  // Get linear offset for given memref at given index values.
   mlir::Value getLinearOffsetIndex(
       mlir::Value memref, mlir::ValueRange indices = {}) const;
   mlir::Value getLinearOffsetIndexIE(
       mlir::Value memref, mlir::ArrayRef<IndexExpr> indices) const;
+
+  // Prefetch with identity map.
+  void prefetch(mlir::Value memref, mlir::ValueRange indices, bool isWrite,
+      unsigned localityHint, bool isDataCache = true);
+  void prefetchIE(mlir::Value memref, mlir::ArrayRef<IndexExpr> indices,
+      bool isWrite, unsigned localityHint, bool isDataCache = true);
 
   void seqstore(mlir::Value element, mlir::Value seq, mlir::Value index) const;
   void seqstore(mlir::Value element, mlir::Value seq, IndexExpr index) const;

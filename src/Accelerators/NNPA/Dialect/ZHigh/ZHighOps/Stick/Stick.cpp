@@ -137,6 +137,7 @@ void ZHighStickOp::getCanonicalizationPatterns(
   results.insert<StickUnstickSameLayoutRemovalPattern>(context);
   results.insert<StickUnstickDiffLayoutRemovalPattern>(context);
   results.insert<ReplaceONNXLeakyReluPattern>(context);
+  results.insert<ReplaceONNXSoftplusPattern>(context);
   results.insert<ReplaceONNXReciprocalSqrtPattern>(context);
   results.insert<ReshapeTransposeReshape2DTo3DSPattern>(context);
   results.insert<ReshapeTransposeReshape3DSTo2DPattern>(context);
