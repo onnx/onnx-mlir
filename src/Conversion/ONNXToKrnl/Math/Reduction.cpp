@@ -332,7 +332,7 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
         inputType, totVL, simdLoopStaticTripCount);
   }
   if (totVL <= 1)
-    return false; // hi alex, consider staying here with VL=1
+    return false; // TODO alexe: consider staying here with VL=1
   IndexExpr VLIndexExpr = LitIE(totVL);
 
   // Compute type of small temporary reduction vector.
