@@ -322,9 +322,10 @@ bool emitFullSIMDReductionFor(ConversionPatternRewriter &rewriter, Location loc,
   }
   int64_t collapsedInnermostLoops = inputRank;
   int64_t simdLoopStaticTripCount;
-  bool simdOnly;
+  bool simdOnly, canOverCompute = false;
   int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(inputType,
-      collapsedInnermostLoops, mix, simdLoopStaticTripCount, simdOnly);
+      collapsedInnermostLoops, mix, canOverCompute, simdLoopStaticTripCount,
+      simdOnly);
   // Current simdized loop only support SIMD only scheme.
   if (!simdOnly) {
     totVL = VectorBuilder::capVLForSimdOnly(
@@ -657,9 +658,10 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
           // of the natural SIMD width. Aka, we don't deal with SIMD of partial
           // vectors.
           GenOpsMixList mix = getGenOpMix<ONNXReductionOp>(elementOutType, op);
-          bool simdOnly;
+          bool simdOnly, canOverCompute = false;
           totVL = VectorBuilder::computeSuitableUnrollFactor(memRefInType,
-              innermostLoopCollapse, mix, simdLoopStaticTripCount, simdOnly);
+              innermostLoopCollapse, mix, canOverCompute,
+              simdLoopStaticTripCount, simdOnly);
           if (!hasHorizontalSimdSupport) {
             // When we don't have horizontal SIMD support, we use a code gen
             // scheme that relies on unrolling. So we don't want any unrollVL
@@ -839,6 +841,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value alloc, int64_t inRank, int64_t outRank, bool dynamicAxes,
       Value maskVal, std::map<int64_t, int64_t> &outInDimMap,
       Value divisorForMean, bool enableParallel) const {
+    LLVM_DEBUG(llvm::dbgs() << "gen scalar reduction\n");
     //////////////////////////////////////////////////////////////////////
     // There are two required and one optional Krnl loops:
     // - One to initialize the result memref,
@@ -995,7 +998,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       Value alloc, int64_t inRank, int64_t outRank, int64_t VL,
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
-
+    LLVM_DEBUG(llvm::dbgs() << "gen horizontal simd reduction\n");
     assert(VL > 1 && "expected simd here");
     VectorType vecType = VectorType::get({VL}, elementType);
     // Flatten the input: in[N][M][Red1][Red2] -> in[N][M][Red1*Red2]
@@ -1150,6 +1153,7 @@ struct ONNXReductionOpLowering : public OpConversionPattern<ONNXReductionOp> {
       int64_t collapsedInnermostLoops, bool isKeepDims, Value divisorForMean,
       bool enableParallel) const {
 
+    LLVM_DEBUG(llvm::dbgs() << "gen shuffle horizontal simd reduction\n");
     assert(VL > 1 && "expected simd here");
     IndexExpr VLIndexExpr = LiteralIndexExpr(VL);
     VectorType vecType = VectorType::get({VL}, elementType);

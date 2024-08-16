@@ -47,14 +47,15 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
   int64_t simdLoopStaticTripCount = 0;
   bool simdOnly = false;
   if (enableSIMD) {
+    int64_t innermostLoopCollapse = 1; // Only innermost is simdized.
+    bool canOverCompute = false;
+    GenOpsMixList mix = {{GenericOps::DivGop, 1},
+        {GenericOps::ArithmeticGop, 5}, {GenericOps::ConversionGop, 1},
+        {GenericOps::MinMaxGop, 2}, {GenericOps::MulGop, 2},
+        {GenericOps::SelectGop, 3}, {GenericOps::FloorGop, 2}};
     totVL = VectorBuilder::computeSuitableUnrollFactor(
-        inputType /* use unquantized type*/,
-        1 /* only innermost loop is simdized */,
-        {{GenericOps::DivGop, 1}, {GenericOps::ArithmeticGop, 5},
-            {GenericOps::ConversionGop, 1}, {GenericOps::MinMaxGop, 2},
-            {GenericOps::MulGop, 2}, {GenericOps::SelectGop, 3},
-            {GenericOps::FloorGop, 2}},
-        simdLoopStaticTripCount, simdOnly);
+        inputType /* use unquantized type*/, innermostLoopCollapse, mix,
+        canOverCompute, simdLoopStaticTripCount, simdOnly);
   }
 
   IndexExpr zero = LitIE(0);

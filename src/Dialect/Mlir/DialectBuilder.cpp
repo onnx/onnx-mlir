@@ -2005,7 +2005,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 // New style.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops, GenOpsMix genOps,
-    int64_t &simdLoopStaticTripCount, bool &simdOnly) {
+    bool canOverCompute, int64_t &simdLoopStaticTripCount, bool &simdOnly) {
   // Default return values for no simd.
   simdLoopStaticTripCount = 0;
   simdOnly = false;
@@ -2058,13 +2058,20 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
                             << ", reduced to " << newUnroll << "\n");
     unrollVL = newUnroll;
     totVL = archVL * unrollVL;
+    if (canOverCompute && staticSimdSize % totVL != 0) {
+      // Does not divide; since we can over compute, increase unrollVL by 1.
+      LLVM_DEBUG(
+          llvm::dbgs() << "  simd enable: can over compute, boost unrollVL\n");
+      ++unrollVL;
+      totVL = archVL * unrollVL;
+    }
     // Size control: if no ILP (unrollVL==1) or little ILP (unrollVL==2) with a
     // leftover scalar loop, don't bother.
     if (unrollVL == 1) {
       LLVM_DEBUG(llvm::dbgs() << "  simd disable: too small unrollVL (1)\n");
       return 1;
     }
-    if (unrollVL == 2 && staticSimdSize % totVL != 0) {
+    if (!canOverCompute && unrollVL == 2 && staticSimdSize % totVL != 0) {
       LLVM_DEBUG(llvm::dbgs()
                  << "  simd disable: small unrollVL (2) with leftovers\n");
       return 1;
@@ -2080,18 +2087,25 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
   simdOnly = (staticSimdSize > 1) && (staticSimdSize % totVL == 0);
   LLVM_DEBUG(llvm::dbgs() << "  simd enable: totVL " << totVL << ", simd-only "
                           << simdOnly << "\n");
+  if (canOverCompute && !simdOnly) {
+    LLVM_DEBUG(
+        llvm::dbgs() << "  simd enable: can over compute, force simdOnly\n");
+    simdOnly = true;
+  }
   return archVL * unrollVL;
 }
 
 /*static*/ int64_t VectorBuilder::capVLForMaxUnroll(
     MemRefType memRefType, int64_t totVL, int64_t maxUnrollVL) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
   Type elementType = memRefType.getElementType();
   int64_t archVL = VectorMachineSupport::getArchVectorLength(elementType);
   int64_t unrollVL = totVL / archVL;
   assert(archVL * unrollVL == totVL && "expected archVL to divide totVL");
   if (unrollVL > maxUnrollVL) {
     LLVM_DEBUG(llvm::dbgs() << "  simd enable: unrollVL " << unrollVL
-                            << "capped at " << maxUnrollVL << "\n");
+                            << " capped at " << maxUnrollVL << "\n");
     unrollVL = maxUnrollVL;
   }
   return archVL * unrollVL;
@@ -2099,6 +2113,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 
 /*static*/ int64_t VectorBuilder::capVLForSimdOnly(
     MemRefType memRefType, int64_t totVL, int64_t simdLoopStaticTripCount) {
+  if (totVL == 1)
+    return 1; // Simd already disabled, nothing to cap.
   if (simdLoopStaticTripCount <= 1) {
     // There is no static component to simd loop trip count.
     LLVM_DEBUG(llvm::dbgs() << "  simd disable: dyn trip count, no simdOnly\n");
@@ -2125,7 +2141,7 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
 // Old style.
 /*static*/ int64_t VectorBuilder::computeSuitableUnrollFactor(
     MemRefType memRefType, int64_t collapsedInnermostLoops, int64_t maxUnrollVL,
-    bool canPad, int64_t &simdLoopStaticTripCount) {
+    bool canOverCompute, int64_t &simdLoopStaticTripCount) {
   assert(collapsedInnermostLoops > 0 && "expected at least one collapsed loop");
   assert(maxUnrollVL > 0 && "expected positive max simd unroll");
   simdLoopStaticTripCount = 0; // Initially assume no SIMD.
@@ -2145,7 +2161,8 @@ void VectorBuilder::multiReduction(SmallVectorImpl<Value> &inputVecArray,
     return 1;
   }
   // Unless otherwise disabled, here is the estimated trip count.
-  if (canPad && collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
+  if (canOverCompute &&
+      collapsedInnermostLoops == (int64_t)memRefType.getRank()) {
     // Fully collapsed and can add padding to be fine
     simdLoopStaticTripCount = isStaticSize ? staticSize : -1;
     return maxUnrollVL * archVL;

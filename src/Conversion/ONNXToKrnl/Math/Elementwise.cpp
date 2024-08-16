@@ -1291,29 +1291,6 @@ Value emitScalarOpFor<ONNXDequantizeLinearOp>(
 using MDBuilder = MultiDialectBuilder<IndexExprBuilderForKrnl, KrnlBuilder,
     MemRefBuilder, VectorBuilder>;
 
-// Return total vector length; no simd -> return 1;
-// collapsedLiteralSize is ignored when we can collapse every loop iterations as
-// we then rely on padding of the allocated memory to enable arbitrary output
-// array simdization. When partial simd is requested, then we must ensure that
-// the collapsed loop cumulative static size is a multiple of the VL.
-template <typename ShapeHelperType, typename ElementwiseOp>
-int64_t canBeVectorized(ShapeHelperType &shapeHelper, Operation *op,
-    MemRefType memRefType, int64_t collapsedInnermostLoops,
-    int64_t &simdLoopStaticTripCount, bool &simdOnly) {
-  Type elementType = memRefType.getElementType();
-  GenOpsMixList mix = getGenOpMix<ElementwiseOp>(elementType, op);
-  int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(memRefType,
-      collapsedInnermostLoops, mix, simdLoopStaticTripCount, simdOnly);
-  LLVM_DEBUG({
-    if (totVL)
-      llvm::dbgs() << "  simd enabled with VL " << totVL << "\n";
-    else
-      LLVM_DEBUG(
-          llvm::dbgs() << "  simd disabled, no feasible with unroll factor\n");
-  });
-  return totVL;
-}
-
 //===----------------------------------------------------------------------===//
 // SIMD code gen for kernels where data can be partially or fully flattened.
 //===----------------------------------------------------------------------===//
@@ -1359,8 +1336,13 @@ static LogicalResult getPartiallyFlattenedSimdCode(
     }
     DimsExpr operDims, flattenOperDims;
     create.krnlIE.getShapeAsSymbols(oper, operDims);
+    // Because we fully fuse 1x1x128xf32 and 128xf32, the
+    // collapsedInnermostLoops may be higher than the rank of this input. Adjust
+    // collapsedInnermostLoops accordingly for the flatten below.
+    int64_t currRank = operDims.size();
+    int64_t currCollapsedNum = std::min(collapsedInnermostLoops, currRank);
     Value flatOper = create.mem.reshapeToFlatInnermost(
-        oper, operDims, flattenOperDims, collapsedInnermostLoops);
+        oper, operDims, flattenOperDims, currCollapsedNum);
     flatOperands.emplace_back(flatOper);
   }
 
@@ -1942,11 +1924,11 @@ struct ONNXElementwiseUnaryOpLowering
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     int64_t outputRank = outputMemRefType.getRank();
-    Type elementType = outputMemRefType.getElementType();
+    Type outputElementType = outputMemRefType.getElementType();
 
     // In unary, we don't have any broadcast, and thus our target is to fully
     // collapse the loop to a 1D loop.
-    int64_t collapsedInnermostLoop = outputRank;
+    int64_t collapsedInnermostLoops = outputRank;
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -1960,21 +1942,21 @@ struct ONNXElementwiseUnaryOpLowering
     // SIMD is enabled for this operation, test if desired and feasible
     if (enableSIMD && !isScalar && !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
-      bool simdOnly;
-      int64_t totVL =
-          canBeVectorized<ONNXUnaryOpShapeHelper, ElementwiseUnaryOp>(
-              shapeHelper, op, outputMemRefType, collapsedInnermostLoop,
-              simdLoopStaticTripCount, simdOnly);
+      bool simdOnly, canOverCompute = true;
+      GenOpsMixList mix =
+          getGenOpMix<ElementwiseUnaryOp>(outputElementType, op);
+      int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(
+          outputMemRefType, collapsedInnermostLoops, mix, canOverCompute,
+          simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
         onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
             simdLoopStaticTripCount, "unary fully flattened");
         return getPartiallyFlattenedSimdCode<ElementwiseUnaryOp>(rewriter,
             create, &shapeHelper, op, outputMemRefType, operands, alignment,
-            totVL, collapsedInnermostLoop, /*ruleOutBroadcast*/ true,
+            totVL, collapsedInnermostLoops, /*ruleOutBroadcast*/ true,
             /*unary*/ true, simdOnly, enableParallel);
       }
-      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
-          simdLoopStaticTripCount,
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in unary because could not find beneficial VL");
 
     } else {
@@ -2027,7 +2009,7 @@ struct ONNXElementwiseUnaryOpLowering
               args.emplace_back(loadedVal);
             }
             auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-                rewriter, loc, op, elementType, args);
+                rewriter, loc, op, outputElementType, args);
             loweredOpResult =
                 opFusionHelper.emitFuseOps(loweredOpResult, alloc, loopInd);
             // Store result in the resulting array.
@@ -2049,7 +2031,7 @@ struct ONNXElementwiseUnaryOpLowering
         args.emplace_back(loadedVal);
       }
       auto loweredOpResult = emitScalarOpFor<ElementwiseUnaryOp>(
-          rewriter, loc, op, elementType, args);
+          rewriter, loc, op, outputElementType, args);
       loweredOpResult = opFusionHelper.emitFuseOps(loweredOpResult, alloc);
       // Store result in the resulting array.
       create.krnl.store(loweredOpResult, alloc);
@@ -2103,7 +2085,7 @@ struct ONNXElementwiseBinaryOpLowering
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Type outputElementType = outputMemRefType.getElementType();
-    uint64_t outputRank = outputMemRefType.getRank();
+    int64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -2139,13 +2121,14 @@ struct ONNXElementwiseBinaryOpLowering
     if (enableSIMD && !isScalar && hasManageableBroadcast &&
         !hasNonIdentityLayout(operands)) {
       int64_t simdLoopStaticTripCount;
-      bool simdOnly;
-      int64_t totVL =
-          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseBinaryOp>(
-              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
-              simdLoopStaticTripCount, simdOnly);
+      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      GenOpsMixList mix =
+          getGenOpMix<ElementwiseBinaryOp>(outputElementType, op);
+      int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(
+          outputMemRefType, collapsedInnermostLoops, mix, canOverCompute,
+          simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
-        if (collapsedInnermostLoops == (int64_t)outputRank)
+        if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               simdLoopStaticTripCount, "binary fully flattened");
         else
@@ -2156,8 +2139,7 @@ struct ONNXElementwiseBinaryOpLowering
             totVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false, simdOnly, enableParallel);
       }
-      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
-          simdLoopStaticTripCount,
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in binary because no beneficial VL");
     } else {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
@@ -2184,7 +2166,7 @@ struct ONNXElementwiseBinaryOpLowering
       if (enableParallel) {
         int64_t parId;
         if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise binary not simdized");
@@ -2281,7 +2263,7 @@ struct ONNXElementwiseVariadicOpLowering
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
     Type outputElementType = outputMemRefType.getElementType();
-    uint64_t outputRank = outputMemRefType.getRank();
+    int64_t outputRank = outputMemRefType.getRank();
 
     // Shape helper.
     MDBuilder create(rewriter, loc);
@@ -2315,13 +2297,14 @@ struct ONNXElementwiseVariadicOpLowering
         !hasNonIdentityLayout(operands)) {
       // SIMD is enabled for this operation, test if desired and feasible
       int64_t simdLoopStaticTripCount;
-      bool simdOnly;
-      int64_t totVL =
-          canBeVectorized<ONNXBroadcastOpShapeHelper, ElementwiseVariadicOp>(
-              shapeHelper, op, outputMemRefType, collapsedInnermostLoops,
-              simdLoopStaticTripCount, simdOnly);
+      bool simdOnly, canOverCompute = collapsedInnermostLoops == outputRank;
+      GenOpsMixList mix =
+          getGenOpMix<ElementwiseVariadicOp>(outputElementType, op);
+      int64_t totVL = VectorBuilder::computeSuitableUnrollFactor(
+          outputMemRefType, collapsedInnermostLoops, mix, canOverCompute,
+          simdLoopStaticTripCount, simdOnly);
       if (totVL > 1) {
-        if (collapsedInnermostLoops == (int64_t)outputRank)
+        if (collapsedInnermostLoops == outputRank)
           onnxToKrnlSimdReport(op, /*successful*/ true, totVL,
               simdLoopStaticTripCount, "variadic fully flattened");
         else
@@ -2332,8 +2315,7 @@ struct ONNXElementwiseVariadicOpLowering
             totVL, collapsedInnermostLoops, hasNoBroadcast,
             /*unary*/ false, simdOnly, enableParallel);
       }
-      onnxToKrnlSimdReport(op, /*successful*/ false, 0,
-          simdLoopStaticTripCount,
+      onnxToKrnlSimdReport(op, /*successful*/ false, 0, simdLoopStaticTripCount,
           "no simd in variadic because no beneficial VL");
     } else {
       onnxToKrnlSimdReport(op, /*successful*/ false, 0, 0,
@@ -2360,7 +2342,7 @@ struct ONNXElementwiseVariadicOpLowering
       if (enableParallel) {
         int64_t parId;
         if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(op, true, parId, lbs[parId], ubs[parId],
               "elementwise variadic not simdized");
@@ -2460,7 +2442,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
     assert(convertedType && mlir::isa<MemRefType>(convertedType) &&
            "Failed to convert type to MemRefType");
     MemRefType outputMemRefType = mlir::cast<MemRefType>(convertedType);
-    uint64_t outputRank = outputMemRefType.getRank();
+    int64_t outputRank = outputMemRefType.getRank();
     ONNXWhereOpAdaptor operandAdaptor(operands);
 
     // Shape helper.
@@ -2483,7 +2465,7 @@ struct ONNXWhereOpLowering : public ConversionPattern {
       if (enableParallel) {
         int64_t parId;
         if (findSuitableParallelDimension(
-                lbs, ubs, 0, std::min((uint64_t)2, outputRank), parId)) {
+                lbs, ubs, 0, std::min((int64_t)2, outputRank), parId)) {
           create.krnl.parallel(loopDef[parId]);
           onnxToKrnlParallelReport(
               op, true, parId, lbs[parId], ubs[parId], "where op not simdized");
