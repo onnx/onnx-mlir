@@ -342,8 +342,8 @@ private:
     baseAddr = create.llvm.bitcast(i8PtrType, baseAddr);
     for (size_t offset : offsets) {
       // Get each str with gep base, offset.
-      Value gepOp =
-          create.llvm.getElemPtr(i8PtrType, i8Type, baseAddr, {offset});
+      Value gepOp = create.llvm.getElemPtr(
+          i8PtrType, i8Type, baseAddr, {(int32_t)offset});
       lastValue =
           create.llvm.insertValue(arrayType, lastValue, gepOp, {index++});
     }
