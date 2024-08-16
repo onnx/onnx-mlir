@@ -1029,6 +1029,30 @@ void KrnlGetLinearOffsetIndexOp::print(OpAsmPrinter &p) {
   p << " : " << getMemRefType();
 }
 
+//===----------------------------------------------------------------------===//
+// KrnlMemcpyOp
+//===----------------------------------------------------------------------===//
+
+void KrnlMemcpyOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Read::get(), getSrc(),
+      SideEffects::DefaultResource::get());
+  effects.emplace_back(MemoryEffects::Write::get(), getDest(),
+      SideEffects::DefaultResource::get());
+}
+
+//===----------------------------------------------------------------------===//
+// KrnlMemsetOp
+//===----------------------------------------------------------------------===//
+
+void KrnlMemsetOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+  effects.emplace_back(MemoryEffects::Write::get(), getDest(),
+      SideEffects::DefaultResource::get());
+}
+
 } // namespace mlir
 
 #define GET_OP_CLASSES

@@ -568,6 +568,29 @@ void IndexExpr::debugPrint(
     valueList.emplace_back(expr.getValue());
 }
 
+/* static*/ void IndexExpr::getAffineMapAndOperands(
+    ArrayRef<IndexExpr> indexExprArray, AffineMap &map,
+    SmallVectorImpl<mlir::Value> &operands) {
+  assert(indexExprArray.size() > 0 && "expected at least one index expr");
+  SmallVector<AffineExpr, 8> affineExprList;
+  for (IndexExpr expr : indexExprArray) {
+    AffineMap tmpMap;
+    SmallVector<Value, 8> tmpOperands;
+    expr.getAffineMapAndOperands(tmpMap, tmpOperands);
+    operands = tmpOperands;
+    // Enqueue the affine expressions defined by this temp map.
+    for (AffineExpr affineExpr : tmpMap.getResults()) {
+      affineExprList.emplace_back(affineExpr);
+    }
+  }
+
+  // Now can generate a common map with all the results
+  unsigned dimCount = indexExprArray[0].getScope().getNumDims();
+  unsigned symCount = indexExprArray[0].getScope().getNumSymbols();
+  map = AffineMap::get(dimCount, symCount, affineExprList,
+      indexExprArray[0].getRewriter().getContext());
+}
+
 //===----------------------------------------------------------------------===//
 // IndexExpr Op Support.
 //===----------------------------------------------------------------------===//

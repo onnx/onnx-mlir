@@ -14,6 +14,7 @@ add_onnx_mlir_library(OMONNXToZHigh
   OMNNPACompilerOptions
   OMONNXOps
   OMONNXToKrnl
+  OMShapeInferencePass
   OMZHighOps
 
   ACCEL_INCLUDE_DIRS PRIVATE
