@@ -360,6 +360,7 @@ OpsWithCanonicalizer = [
     "Transpose",
     "Unsqueeze",
     "UnsqueezeV11",
+    "Where",
     "Xor",
 ]
 
