@@ -146,9 +146,8 @@ static void ReportMemory() {
   char memOutput[200];
   FILE *memPipe;
   mypid = getpid();
-  assert(snprintf(
-      memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid) >= 0 &&
-      "snprintf write error to memCommand");
+  int num_chars_written = snprintf(memCommand, sizeof(memCommand), "ps -o vsz='' -p %d", mypid);
+  assert(num_chars_written >= 0 && "snprintf write error to memCommand");
   memPipe = popen(memCommand, "r");
   if (!memPipe) {
     fprintf(fout, ", error-failed-to-execute-ps\n");

@@ -56,9 +56,9 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
      * add "... " at the end to denote that the last element is                \
      * truncated.                                                              \
      */                                                                        \
-    assert(snprintf(buf + strlen(buf), 6,                                      \
-               (__i == __l) ? " " : (__j == 1) ? " ... " : "... ") >= 0 &&     \
-           "snprintf write error to buf");                                     \
+    int __m = snprintf(buf + strlen(buf), 6,                                   \
+        (__i == __l) ? " " : (__j == 1) ? " ... " : "... ");                   \
+    assert(__m >= 0 && "snprintf write error to buf");                         \
   } while (0)
 
 /* Construct string of up to LOG_MAX_NUM elements of an array of ONNX type.
@@ -93,8 +93,10 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
       LOG_BUF_C_TYPE(const double, hex ? " %016x" : " %lf", buf, data, n);     \
       break;                                                                   \
     default:                                                                   \
-      assert(sprintf(buf, " unsupported data type %d ", type) >= 0 &&          \
-             "sprintf write error to buf");                                    \
+      {                                                                        \
+        int __a = sprintf(buf, " unsupported data type %d ", type);            \
+        assert(__a >= 0 && "sprintf write error to buf");                      \
+      }                                                                        \
     }                                                                          \
   } while (0)
 
