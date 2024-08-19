@@ -60,7 +60,7 @@ void emitQuantizationLinearScalarParameters(ConversionPatternRewriter &rewriter,
 
   IndexExpr zero = LitIE(0);
   IndexExpr simdLb = zero;
-  IndexExpr simdUb = SymIE(flatAllocDims[0]);
+  IndexExpr simdUb = flatAllocDims[0];
   // Create access functions for input X and output Y.
   DimsExpr inputAF;
   inputAF.emplace_back(zero);

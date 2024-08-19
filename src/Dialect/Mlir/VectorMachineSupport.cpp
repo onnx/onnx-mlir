@@ -54,7 +54,7 @@ namespace onnx_mlir {
   }
   assert(globalVectorMachineSupport &&
          "failed to allocate vector machine support");
-  LLVM_DEBUG(llvm::dbgs() << "use SIMD arch " << getArchName() << ":\n");
+  LLVM_DEBUG(llvm::dbgs() << "use SIMD arch " << getArchName() << "\n");
 }
 
 /*static*/ void VectorMachineSupport::clearGlobalVectorMachineSupport() {
