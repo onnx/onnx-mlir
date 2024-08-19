@@ -11,8 +11,14 @@ add_onnx_mlir_library(OMZLowOps
   DEPENDS
   OMZLowIncGen
   OMONNXZLowCombineIncGen
+  OMConstantOpInterface
 
   LINK_LIBS PUBLIC
   MLIRIR
   OMMlirDialects
+  OMLayoutHelper
+  OMStickify
+
+  ACCEL_INCLUDE_DIRS PRIVATE
+  ${NNPA_INCLUDE_PATH}
   )

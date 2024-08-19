@@ -193,6 +193,7 @@ Value insertAllocOrEmitZeroConstant(ArrayRef<IndexExpr> dims,
     ZHighStickifiedConstantOp stickifiedConstant =
         rewriter.create<ZHighStickifiedConstantOp>(loc, resType,
             /*value=*/nullptr,
+            /*layout*/ StringAttr(),
             /*alignment=*/rewriter.getI64IntegerAttr(4096));
 
     // Use an dense resource attribute to store stickified data.
@@ -649,12 +650,89 @@ struct ZHighToZLowUnstickOpLowering : public ConversionPattern {
 };
 
 //===----------------------------------------------------------------------===//
-// Lower ZHigh Stickified Constant to KrnlGlobal
+// Lower ZHigh Stickified Constant to ZLow Stickified Constant
 //===----------------------------------------------------------------------===//
 
 struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
   static int constantID;
   ZHighToZLowStickifiedConstantOpLowering(
+      TypeConverter &typeConverter, MLIRContext *ctx)
+      : ConversionPattern(typeConverter,
+            ZHighStickifiedConstantOp::getOperationName(), 1, ctx) {}
+
+  LogicalResult matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+      ConversionPatternRewriter &rewriter) const final {
+    Location loc = op->getLoc();
+    ZHighStickifiedConstantOp zhighStickifiedConstOp =
+        cast<ZHighStickifiedConstantOp>(op);
+
+    //    IndexExprBuilderForKrnl createKrnlIE(rewriter, loc);
+    //    ZHighStickifiedConstantOpShapeHelper shapeHelper(op, operands,
+    //    &createKrnlIE); shapeHelper.computeShapeAndAssertOnFailure();
+
+    // Convert ZTensor type to MemRefType.
+    ZMemRefType zMemRefType =
+        convertZTensorToMemRefType(*op->result_type_begin());
+
+    // Normalize MemRefType to get a static shape.
+    assert(mlir::cast<MemRefType>(zMemRefType.value).getNumDynamicDims() == 0 &&
+           "MemRefType has dynamic dimensions");
+    MemRefType normalizedType =
+        affine::normalizeMemRefType(mlir::cast<MemRefType>(zMemRefType.value));
+    ArrayRef<int64_t> normalizedShape = normalizedType.getShape();
+
+    DenseElementsAttr dataAttr =
+        mlir::dyn_cast_or_null<mlir::DenseElementsAttr>(
+            zhighStickifiedConstOp.getValue().value());
+    ZLowStickifiedConstantOp zlowStickifiedConstantOp;
+    if (dataAttr) {
+
+      ArrayRef<int64_t> shape = dataAttr.getType().getShape();
+
+      // Create a ZLowStickifiedConstantOp.
+      zlowStickifiedConstantOp = rewriter.create<ZLowStickifiedConstantOp>(loc,
+          mlir::cast<MemRefType>(zMemRefType.value),
+          /*shape=*/
+          rewriter.getI64ArrayAttr(shape),
+          /*value=*/zhighStickifiedConstOp.getValueAttr(),
+          /*name=*/
+          rewriter.getStringAttr(
+              "constant_stickify_" + std::to_string(constantID)),
+          /*layout=*/zhighStickifiedConstOp.getLayoutAttr(),
+          /*offset=*/rewriter.getI64IntegerAttr(0),
+          /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
+    } else {
+      // Create a ZLowStickifiedConstantOp.
+      zlowStickifiedConstantOp = rewriter.create<ZLowStickifiedConstantOp>(loc,
+          mlir::cast<MemRefType>(zMemRefType.value),
+          /*shape=*/
+          rewriter.getI64ArrayAttr(normalizedShape),
+          /*value=*/zhighStickifiedConstOp.getValueAttr(),
+          /*name=*/
+          rewriter.getStringAttr(
+              "constant_stickify_" + std::to_string(constantID)),
+          /*layout=*/zhighStickifiedConstOp.getLayoutAttr(),
+          /*offset=*/rewriter.getI64IntegerAttr(0),
+          /*alignment=*/zhighStickifiedConstOp.getAlignmentAttr());
+    }
+    // Increment constant ID:
+    constantID++;
+
+    rewriter.replaceOp(op, zlowStickifiedConstantOp.getResult());
+    return success();
+  }
+};
+
+int ZHighToZLowStickifiedConstantOpLowering::constantID = 0;
+
+//===----------------------------------------------------------------------===//
+// Lower ZHigh Stickified Constant to KrnlGlobal (Original)
+//===----------------------------------------------------------------------===//
+
+struct ZHighToZLowStickifiedConstantOpLoweringOriginal
+    : public ConversionPattern {
+  static int constantID;
+  ZHighToZLowStickifiedConstantOpLoweringOriginal(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : ConversionPattern(typeConverter,
             ZHighStickifiedConstantOp::getOperationName(), 1, ctx) {}
@@ -710,7 +788,7 @@ struct ZHighToZLowStickifiedConstantOpLowering : public ConversionPattern {
   }
 };
 
-int ZHighToZLowStickifiedConstantOpLowering::constantID = 0;
+int ZHighToZLowStickifiedConstantOpLoweringOriginal::constantID = 0;
 
 template <typename OP_TYPE>
 struct ZLowOpFor {
@@ -1738,6 +1816,8 @@ void populateZHighToZLowConversionPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx,
     bool enableParallel) {
   // Stickify and unstickify operations.
+  // patterns.insert<ZHighToZLowStickifiedConstantOpLoweringOriginal>(typeConverter,
+  // ctx);
   patterns.insert<ZHighToZLowStickifiedConstantOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickOpLowering>(typeConverter, ctx);
   patterns.insert<ZHighToZLowStickForLSTMOpLowering>(typeConverter, ctx);

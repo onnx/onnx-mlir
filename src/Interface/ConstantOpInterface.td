@@ -25,7 +25,7 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
   let methods = [
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
-          "::mlir::ArrayRef<char>", "getBuffer", (ins "mlir::Operation *":$op)
+          "::mlir::ArrayRef<char>", "getBuffer", (ins )
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
@@ -53,11 +53,11 @@ def ConstantOpInterface : OpInterface<"ConstantOpInterface"> {
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
-          "Attribute", "getShape", (ins )
+          "::mlir::Attribute", "getShape", (ins )
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",
-          "StringRef", "getName", (ins )
+          "::mlir::StringRef", "getName", (ins )
       >,
       InterfaceMethod<"Get the index of the region corresponding to the"
                       "onnx subgraph identified by its name.",

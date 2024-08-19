@@ -317,7 +317,6 @@ void genSignatureFunction(ModuleOp &module,
   Type i8PtrPtrTy = getPointerType(context, i8PtrTy);
 
   uint64_t numOfEntryPoints = entryGlobalOps.size();
-
   // Emit a global constant to store an array of pointers pointing to each entry
   // point constants. The array ends with NULL.
   OpBuilder::InsertionGuard guard(b);
@@ -466,40 +465,39 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   uint64_t totalSize = 0;
   SmallVector<ConstantOpInterface> globalOfInterest;
   module.walk([&](Operation *op0) {
-    if (ConstantOpInterface op =
-            dyn_cast<ConstantOpInterface>(op0)) {
-
-    // Ignore constants that are return values.
-    bool isReturnedValue = false;
-    for (Operation *user : op.getResult().getUsers()) {
-      if (isa<func::ReturnOp>(user)) {
-        isReturnedValue = true;
-        break;
+    if (ConstantOpInterface op = dyn_cast<ConstantOpInterface>(op0)) {
+      // Ignore constants that are return values.
+      bool isReturnedValue = false;
+      for (Operation *user : op.getResult().getUsers()) {
+        if (isa<func::ReturnOp>(user)) {
+          isReturnedValue = true;
+          break;
+        }
       }
-    }
-    if (isReturnedValue)
-      return WalkResult::advance();
+      if (isReturnedValue)
+        return WalkResult::advance();
 
-    // Ignore constants of bool.
-    // For an unknown reason, enabling constants of bool caused segfault in the
-    // IBM granite.20B model (The model with KV cache) at 1265 input tokens.
-    // See issue https://github.com/onnx/onnx-mlir/issues/2713.
-    if (llvm::cast<MemRefType>(op.getResult().getType())
-            .getElementType()
-            .isInteger(1))
-      return WalkResult::advance();
+      // Ignore constants of bool.
+      // For an unknown reason, enabling constants of bool caused segfault in
+      // the IBM granite.20B model (The model with KV cache) at 1265 input
+      // tokens. See issue https://github.com/onnx/onnx-mlir/issues/2713.
+      if (llvm::cast<MemRefType>(op.getResult().getType())
+              .getElementType()
+              .isInteger(1))
+        return WalkResult::advance();
 
-    // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
-    ArrayRef<char> rawData = op.getBuffer(op);
-    if (rawData.empty())
-      return WalkResult::advance();
+      // Get raw data from DenseElementsAttr or DenseResourceElementsAttr.
+      ArrayRef<char> rawData = op.getBuffer();
+      if (rawData.empty())
+        return WalkResult::advance();
 
-    auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
-    if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
-      return WalkResult::advance();
+      auto valueAttr = mlir::cast<ElementsAttr>(op.getValue().value());
+      if (valueAttr.isSplat() || rawData.size() <= singleThreshold)
+        return WalkResult::advance();
 
-    globalOfInterest.emplace_back(op);
-    totalSize += rawData.size();
+      globalOfInterest.emplace_back(op);
+      totalSize += rawData.size();
+      // llvm::dbgs() << "totalSize = " << totalSize << "\n";
     }
     return WalkResult::advance();
   });
@@ -510,15 +508,16 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
 
   // Sort constants in the non-descending order of alignment values.
   // Non-alignment is the smallest value (-1), the others are positive.
-  llvm::sort(globalOfInterest, [&](ConstantOpInterface left, ConstantOpInterface right) {
-    int64_t leftAlign = -1;
-    int64_t rightAlign = -1;
-    if (left.getAlignment().has_value())
-      leftAlign = left.getAlignment().value();
-    if (right.getAlignment().has_value())
-      rightAlign = right.getAlignment().value();
-    return (leftAlign < rightAlign);
-  });
+  llvm::sort(globalOfInterest,
+      [&](ConstantOpInterface left, ConstantOpInterface right) {
+        int64_t leftAlign = -1;
+        int64_t rightAlign = -1;
+        if (left.getAlignment().has_value())
+          leftAlign = left.getAlignment().value();
+        if (right.getAlignment().has_value())
+          rightAlign = right.getAlignment().value();
+        return (leftAlign < rightAlign);
+      });
 
   // Store each constant into single file.
   // Constants with the highest alignment will be packed first in the file.
@@ -529,7 +528,7 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
   uint64_t totalConstSize = 0;
   for (int64_t i = globalOfInterest.size() - 1; i >= 0; --i) {
     ConstantOpInterface op = globalOfInterest[i];
-    ArrayRef<char> rawData = op.getBuffer(op);
+    ArrayRef<char> rawData = op.getBuffer();
 
     // Get alignment.
     int64_t alignment = -1;
@@ -550,8 +549,8 @@ bool extractConstantsToFile(ModuleOp &module, std::string filepath,
     op.removeValueAttr();
     outfile.write(rawData.data(), rawData.size());
     totalConstSize += rawData.size();
+    // llvm::dbgs() << "totalConstSize=" << totalConstSize << "\n";
   }
-
   // No constant statisfying thresholds, do not store constants to file.
   if (totalConstSize == 0)
     return false;
@@ -888,12 +887,10 @@ void ConvertKrnlToLLVMPass::runOnOperation() {
   // We have a combination of `krnl`, `affine`, `vector`, and `std` operations.
   // We lower in stages until all the code is in the LLVM dialect.
   RewritePatternSet patterns(ctx);
-
   populateAffineAndKrnlToLLVMConversion(patterns, typeConverter, ctx,
       outputOMTensorOwnerships, singleEntryPoint, entryGlobalOps,
       inSigGlobalOps, outSigGlobalOps, inputMemRefTypes, outputMemRefTypes,
       verifyInputTensors, enableParallel);
-
   // Rewrite patterns for accelerators.
   for (auto *accel : onnx_mlir::accel::Accelerator::getAccelerators())
     accel->rewritePatternKrnlToLLVM(patterns, typeConverter, ctx);

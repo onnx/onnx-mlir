@@ -823,7 +823,7 @@ ArrayRef<char> getRawData(KrnlGlobalOp &op) {
   return rawData;
 }
 
-ArrayRef<char> KrnlGlobalOp::getBuffer(Operation *op) {
+ArrayRef<char> KrnlGlobalOp::getBuffer() {
   ArrayRef<char> rawData;
   if (auto krnlGlobalOp = mlir::dyn_cast<KrnlGlobalOp>(getOperation())) {
     rawData = getRawData(krnlGlobalOp);

@@ -867,9 +867,23 @@ def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
     the output tensor's size.
   }];
   let arguments = (ins OptionalAttr<AnyAttr>:$value,
+                       OptionalAttr<StrAttr>:$layout,
                        DefaultValuedAttr<I64Attr, "4096">:$alignment);
   let results = (outs AnyZTensor:$output);
 }
+
+//def ZHighStickifiedConstantOp:ZHigh_Op<"StickifiedConstant", [Pure]> {
+//  let summary = "ZHigh Stickified Constant operation";
+//  let description = [{
+//    This operator produces a constant tensor to store stickified data.
+//    Stickified data is opaque and must be 4K-aligned. One who produces
+//    the stickified data must make sure its size in bytes consistent with
+//    the output tensor's size.
+//  }];
+//  let arguments = (ins OptionalAttr<AnyAttr>:$value,
+//                       DefaultValuedAttr<I64Attr, "4096">:$alignment);
+//  let results = (outs AnyZTensor:$output);
+//}
 
 def ZHighStickifiedConstantOfShapeOp:ZHigh_Op<"StickifiedConstantOfShape", [Pure,
     DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
