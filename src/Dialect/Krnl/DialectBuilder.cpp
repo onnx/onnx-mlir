@@ -347,13 +347,12 @@ krnl.iterate(loop i from 0 to 128) {
 // Determine if an access has one element from the innermost dimensions up to
 // innerDim.
 bool static hasOneElementInInnermostDims(Value value, int64_t innerDim) {
-  if (isScalarValue(value))
-    return true;
+  // Get info.
   ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
   assert(type && "expected shaped type");
-  mlir::ArrayRef<int64_t> shape = type.getShape();
   int64_t rank = type.getRank();
-  for (int64_t i = rank - innerDim; i < rank; ++i)
+  mlir::ArrayRef<int64_t> shape = type.getShape();
+  for (int64_t i = std::max((int64_t)0, rank - innerDim); i < rank; ++i)
     if (shape[i] != 1)
       return false;
   return true;
