@@ -26,6 +26,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
 import sys
 import onnx
 import unittest
@@ -60,7 +61,10 @@ else:
     if args.list:
         print(" ".join(test_by_type[args.list]))
         sys.exit()
-
+    
+    assert onnx.__version__ == "1.16.2", "installed onnx version: " + onnx.__version__
+    print("ONNX_HOME", os.environ['ONNX_HOME'])
+                                  
     # Backend Test
     backend_test = InferenceBackendTest(InferenceBackend, __name__)
 
