@@ -344,6 +344,21 @@ krnl.iterate(loop i from 0 to 128) {
     (either totVL>1 or 1).
 */
 
+// Determine if an access has one element from the innermost dimensions up to
+// innerDim.
+bool static hasOneElementInInnermostDims(Value value, int64_t innerDim) {
+  if (isScalarValue(value))
+    return true;
+  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
+  assert(type && "expected shaped type");
+  mlir::ArrayRef<int64_t> shape = type.getShape();
+  int64_t rank = type.getRank();
+  for (int64_t i = rank - innerDim; i < rank; ++i)
+    if (shape[i] != 1)
+      return false;
+  return true;
+}
+
 void KrnlBuilder::simdIterateIE(IndexExpr lb, IndexExpr ub, int64_t VL,
     bool fullySimd, bool useParallel, ArrayRef<Value> inputs,
     ArrayRef<DimsExpr> inputAFs, ArrayRef<Value> outputs,

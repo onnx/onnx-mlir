@@ -140,20 +140,6 @@ bool hasOneElement(Value value) {
   return true;
 }
 
-// Same as above, but from the innermost dimensions up to innerDim.
-bool hasOneElementInInnermostDims(Value value, int64_t innerDim) {
-  if (isScalarValue(value))
-    return true;
-  ShapedType type = mlir::dyn_cast<ShapedType>(value.getType());
-  assert(type && "expected shaped type");
-  mlir::ArrayRef<int64_t> shape = type.getShape();
-  int64_t rank = type.getRank();
-  for (int64_t i = rank - innerDim; i < rank; ++i)
-    if (shape[i] != 1)
-      return false;
-  return true;
-}
-
 /// Check if the value is a KrnlGlobalOp with a dense attribute of non-negative
 /// integer constants.
 bool indicesAreNonNegativeConstants(Value indices) {
