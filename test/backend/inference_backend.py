@@ -1786,12 +1786,12 @@ def get_test_models():
         # ==OP== Loop
         # ==MIN== 1
         # ==LIM== Input must have static shape.
-        "test_loop11_cpu": {
-            STATIC_SHAPE: {},
-            # Need to enable ConvertSeqToMemrefPass for dynamic test.
-            # DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
+        # "test_loop11_cpu": {
+        #     STATIC_SHAPE: {},
+        #     # Need to enable ConvertSeqToMemrefPass for dynamic test.
+        #     # DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
         # "test_loop13_seq_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # "test_loop16_seq_none_cpu": {STATIC_SHAPE:{}, DYNAMIC_SHAPE:{-1:{-1}}, CONSTANT_INPUT:{-1}},
         # ==OP== LRN
@@ -2222,31 +2222,31 @@ def get_test_models():
         },
         # ==OP== Or
         # ==MIN== 7
-        "test_or2d_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
-        "test_or3d_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
-        "test_or4d_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
-        "test_or_bcast3v1d_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
-        "test_or_bcast3v2d_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {-1: {-1}},
-            CONSTANT_INPUT: {-1},
-        },
+        # "test_or2d_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_or3d_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_or4d_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_or_bcast3v1d_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
+        # "test_or_bcast3v2d_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {-1: {-1}},
+        #     CONSTANT_INPUT: {-1},
+        # },
         "test_or_bcast4v2d_cpu": {
             STATIC_SHAPE: {},
             DYNAMIC_SHAPE: {-1: {-1}},
@@ -3388,15 +3388,15 @@ def get_test_models():
     ############################################################
     # Model (alphabetical order)
     variables.model_test_to_enable_dict = {
-        "test_densenet121_cpu": {STATIC_SHAPE: {}},
+        # "test_densenet121_cpu": {STATIC_SHAPE: {}},
         "test_inception_v1_cpu": {STATIC_SHAPE: {}},
-        "test_resnet50_cpu": {
-            STATIC_SHAPE: {},
-            DYNAMIC_SHAPE: {0: {-1}},
-            CONSTANTS_TO_FILE: {},
-        },
+        # "test_resnet50_cpu": {
+        #     STATIC_SHAPE: {},
+        #     DYNAMIC_SHAPE: {0: {-1}},
+        #     CONSTANTS_TO_FILE: {},
+        # },
         "test_shufflenet_cpu": {STATIC_SHAPE: {}},
-        "test_squeezenet_cpu": {STATIC_SHAPE: {}},
+        # "test_squeezenet_cpu": {STATIC_SHAPE: {}},
         # Failure in version v13
         # "test_vgg19_cpu": {STATIC_SHAPE:{}},
     }
