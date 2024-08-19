@@ -164,9 +164,10 @@ void log_printf(int level, const char *file, const char *func, int line,
 
   /* Get local time and format as 2020-07-03 05:17:42 -0400 */
   if (time(&now) == -1 || (tm = localtime(&now)) == NULL ||
-      strftime(buf, sizeof(buf), "[%F %T %z]", tm) == 0)
+      strftime(buf, sizeof(buf), "[%F %T %z]", tm) == 0) {
     num_chars_written = sprintf(buf, "[-]");
     assert(num_chars_written >= 0 && "sprintf write error to buf");
+  }
 
   /* Output thread ID, log level, file name, function number, and line number.
    * Note that pthread_t on most platforms is unsigned long but is a struct
@@ -206,12 +207,14 @@ void log_printf(int level, const char *file, const char *func, int line,
 
   va_list log_data;
   va_start(log_data, fmt);
-  num_chars_written = vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data);
+  num_chars_written =
+      vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data);
   assert(num_chars_written >= 0 && "vsnprintf write error to buf");
   va_end(log_data);
 
   /* Add new line */
-  num_chars_written = snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n");
+  num_chars_written =
+      snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n");
   assert(num_chars_written >= 0 && "snprintf write error to buf");
 
   /* Write out and flush the output buffer */

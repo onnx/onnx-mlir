@@ -92,11 +92,10 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR, LOG_FATAL };
     case ONNX_TYPE_DOUBLE:                                                     \
       LOG_BUF_C_TYPE(const double, hex ? " %016x" : " %lf", buf, data, n);     \
       break;                                                                   \
-    default:                                                                   \
-      {                                                                        \
+    default: {                                                                 \
         int __a = sprintf(buf, " unsupported data type %d ", type);            \
         assert(__a >= 0 && "sprintf write error to buf");                      \
-      }                                                                        \
+    }                                                                          \
     }                                                                          \
   } while (0)
 
