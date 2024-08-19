@@ -173,8 +173,9 @@ void log_printf(int level, const char *file, const char *func, int line,
   pthread_t tid = get_threadid();
   assert(LOG_MAX_LEN >= strlen(buf) && "error in snprintf length");
   assert(snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
-      "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid, log_level_name[level],
-      get_filename(file), func, line) && "snprintf write error to buf");
+             "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid,
+             log_level_name[level], get_filename(file), func, line) &&
+         "snprintf write error to buf");
 
   /* Output actual log data */
   /* Definition of vsnprintf:
@@ -203,14 +204,14 @@ void log_printf(int level, const char *file, const char *func, int line,
 
   va_list log_data;
   va_start(log_data, fmt);
-  assert(vsnprintf(
-      buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data) >= 0 &&
-      "vsnprintf write error to buf");
+  assert(vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt,
+             log_data) >= 0 &&
+         "vsnprintf write error to buf");
   va_end(log_data);
 
   /* Add new line */
   assert(snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n") >= 0 &&
-     "snprintf write error to buf");
+         "snprintf write error to buf");
 
   /* Write out and flush the output buffer */
   FILE *fp = get_log_fp();
@@ -241,10 +242,9 @@ static FILE *get_log_file_by_name(char *name) {
     char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
       pthread_t tid = get_threadid();
-      assert(snprintf(
-          tname, strlen(name) + 32, "%s.%016lx", name,
-          *(unsigned long *)&tid) >= 0 &&
-          "snprintf write error to tname");
+      assert(snprintf(tname, strlen(name) + 32, "%s.%016lx", name,
+                 *(unsigned long *)&tid) >= 0 &&
+             "snprintf write error to tname");
       fp = fopen(tname, "w");
       assert(fp != NULL && "fopen error on tname");
       free(tname);
