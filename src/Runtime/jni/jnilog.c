@@ -164,7 +164,7 @@ void log_printf(int level, const char *file, const char *func, int line,
   /* Get local time and format as 2020-07-03 05:17:42 -0400 */
   if (time(&now) == -1 || (tm = localtime(&now)) == NULL ||
       strftime(buf, sizeof(buf), "[%F %T %z]", tm) == 0)
-    sprintf(buf, "[-]");
+    assert(sprintf(buf, "[-]") >= 0 && "sprintf write error to buf");
 
   /* Output thread ID, log level, file name, function number, and line number.
    * Note that pthread_t on most platforms is unsigned long but is a struct
@@ -172,9 +172,9 @@ void log_printf(int level, const char *file, const char *func, int line,
    */
   pthread_t tid = get_threadid();
   assert(LOG_MAX_LEN >= strlen(buf) && "error in snprintf length");
-  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
+  assert(snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf),
       "[%016lx][%s]%s:%s:%d ", *(unsigned long *)&tid, log_level_name[level],
-      get_filename(file), func, line);
+      get_filename(file), func, line) && "snprintf write error to buf");
 
   /* Output actual log data */
   /* Definition of vsnprintf:
@@ -203,11 +203,14 @@ void log_printf(int level, const char *file, const char *func, int line,
 
   va_list log_data;
   va_start(log_data, fmt);
-  vsnprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data);
+  assert(vsnprintf(
+      buf + strlen(buf), LOG_MAX_LEN - strlen(buf), fmt, log_data) >= 0 &&
+      "vsnprintf write error to buf");
   va_end(log_data);
 
   /* Add new line */
-  snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n");
+  assert(snprintf(buf + strlen(buf), LOG_MAX_LEN - strlen(buf), "\n") >= 0 &&
+     "snprintf write error to buf");
 
   /* Write out and flush the output buffer */
   FILE *fp = get_log_fp();
@@ -238,9 +241,12 @@ static FILE *get_log_file_by_name(char *name) {
     char *tname = (char *)malloc(strlen(name) + 32);
     if (tname) {
       pthread_t tid = get_threadid();
-      snprintf(
-          tname, strlen(name) + 32, "%s.%016lx", name, *(unsigned long *)&tid);
+      assert(snprintf(
+          tname, strlen(name) + 32, "%s.%016lx", name,
+          *(unsigned long *)&tid) >= 0 &&
+          "snprintf write error to tname");
       fp = fopen(tname, "w");
+      assert(fp != NULL && "fopen error on tname");
       free(tname);
     }
   }
