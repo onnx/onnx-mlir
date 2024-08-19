@@ -232,7 +232,7 @@ struct ONNXBroadcastOpShapeHelper : public ONNXOpShapeHelper {
   //    inputs have dimensions of 1. We thus do not include them in our CILs.
   //    Revision: it is actually good to detects 1s everywhere as we can
   //    collapse the loop and have less overhead.
-  
+
   virtual bool hasManageableBroadcastForInnerDims(
       int64_t &collapsedInnermostLoops, int64_t &collapsedLiteralSize,
       IndexExpr &collapsedDynamicSize, DimAnalysis *dimAnalysis);
