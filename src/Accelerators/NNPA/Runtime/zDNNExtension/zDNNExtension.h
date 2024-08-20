@@ -58,7 +58,7 @@ extern bool OMStatusMessagesEnabled;
 // Misc Macros
 // -----------------------------------------------------------------------------
 
-#define CEIL(a, b) (uint64_t)(((a) + (b) - 1) / (b)) // positive numbers only
+#define CEIL(a, b) (uint64_t)(((a) + (b)-1) / (b)) // positive numbers only
 
 // -----------------------------------------------------------------------------
 // Common structures

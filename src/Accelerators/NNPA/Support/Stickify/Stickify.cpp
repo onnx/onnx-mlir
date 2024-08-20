@@ -42,7 +42,7 @@ zdnn_status verify_transformed_descriptor(const zdnn_tensor_desc *tfrmd_desc);
 
 #define ZDNN_MAX_DIMS 4 // number of dims in AIU's Tensor Descriptor
 
-#define CEIL(a, b) (uint64_t)(((a) + (b) - 1) / (b)) // positive numbers only
+#define CEIL(a, b) (uint64_t)(((a) + (b)-1) / (b)) // positive numbers only
 #define MIN(a, b) (((a) > (b)) ? (b) : (a))
 #define MAX(a, b) (((a) < (b)) ? (b) : (a))
 #define BIT_SIZEOF(a) (sizeof(a) * 8)
